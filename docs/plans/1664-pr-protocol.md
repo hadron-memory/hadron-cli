@@ -51,3 +51,12 @@ field (Patrick78210, Xanthos78216). PR_NOT_READY renders those same typed facts.
 The compiled loopback smoke covers12 success projections, two typed refusals
 and one zero-request validation failure. Actual middleware tests cover all six
 commands with bound/unbound synthetic bindings; only writes carry the session.
+
+LOCAL fix: readiness and failing-slot contracts now assert complete JSON keys,
+values and nulls. Non-protocol refusals use the existing terminal-safe task
+mapper with a retained JSON serverCode; typed protocol conflicts keep their
+separate slot projection. Red-first52bb1210 exposes raw control bytes/missing
+text code;12 applied field-tag/mapper mutants are assertion-killed. Earlier
+author evidence established exits/JSON codes, not TASK human-code safety; that
+limit is corrected here. Optional validation/SafeCell/null-slot pins are folded
+into this necessary fix head; no new refusal policy or server change.

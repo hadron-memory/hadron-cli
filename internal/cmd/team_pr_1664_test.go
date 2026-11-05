@@ -110,18 +110,20 @@ func TestPR1664SixContracts(t *testing.T) {
 	}
 }
 func TestPR1664LocalValidation(t *testing.T) {
-	for _, args := range [][]string{{"freeze", "AT0.7", "abc"}, {"readiness", "AT0.7"}, {"readiness", "AT0.7", "--head", "bad"}, {"verdict", "AT0.7", "--head", prHead1664, "--verdict", "BAD"}, {"schedule", "AT0.7", "--slot", "qa::portal"}, {"schedule", "AT0.7", "--slot", "qa:"}, {"seat", "AT0.7", "--slot", "qa:", "--head", prHead1664}} {
-		_, n, _, err := runPR1664(t, "PRSchedule", `{}`, args...)
+	for _, args := range [][]string{{"freeze", "AT0.7", "abc"}, {"readiness", "AT0.7"}, {"readiness", "AT0.7", "--head", "bad"}, {"verdict", "AT0.7", "--head", prHead1664, "--verdict", "BAD"}, {"schedule", "AT0.7", "--slot", "qa::portal"}, {"schedule", "AT0.7", "--slot", "qa:"}, {"seat", "AT0.7", "--slot", "qa:", "--head", prHead1664},
+		{"freeze", "task1", strings.Repeat("g", 40)}, {"schedule", "task1"}, {"schedule", "task1", "--slot", "local", "--slot", "local"}, {"schedule", "task1", "--slot", strings.Repeat("a", 65)}, {"schedule", "task1", "--slot", "é"}, {"schedule", " ", "--slot", "local"}, {"verdict", "task1", "--head", prHead1664}, {"seat", "task1", "--slot", "local", "--head", prHead1664, "--supersedes", " "}, {"verdict", "task1", "--head", prHead1664, "--verdict", "PASS", "--node", " "}, {"verdict", "task1", "--head", prHead1664, "--verdict", "PASS", "--receipt", " "}} {
+		op := map[string]string{"freeze": "PRFreeze", "readiness": "PRReadiness", "verdict": "PRVerdict", "schedule": "PRSchedule", "seat": "PRSeat"}[args[0]]
+		_, n, _, err := runPR1664(t, op, `{}`, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || n != 0 {
 			t.Fatalf("%v calls=%d %v", args, n, err)
 		}
 	}
 }
 func TestPR1664Refusals(t *testing.T) {
-	for _, code := range []string{"REVIEW_SEAT_NOT_SUPERSEDABLE", "REVIEW_SEAT_ALREADY_ASSIGNED", "REVIEW_SEAT_SUPERSEDES_REQUIRED", "REVIEW_HEAD_MISMATCH", "REVIEW_SEAT_UNASSIGNED", "PR_NOT_READY", "PR_HEAD_NOT_FROZEN", "REVIEW_SCHEDULE_MISSING"} {
+	for _, code := range []string{"REVIEW_SEAT_NOT_SUPERSEDABLE", "REVIEW_SEAT_ALREADY_ASSIGNED", "REVIEW_SEAT_SUPERSEDES_REQUIRED", "REVIEW_HEAD_MISMATCH", "REVIEW_SEAT_UNASSIGNED", "PR_NOT_READY", "PR_HEAD_NOT_FROZEN", "REVIEW_SCHEDULE_MISSING", "REVIEW_SLOT_UNKNOWN", "REVIEW_SEAT_SUPERSEDE_INVALID", "PR_REFERENCE_MISSING"} {
 		reply := `{"errors":[{"message":"provider refusal","extensions":{"code":"` + code + `","slots":[{"slot":"qa:portal","currentTaskId":"s1","state":"STARTED","verdict":null,"head":"` + prHead1664 + `","counts":false}]}}]}`
 		out, n, _, err := runPR1664(t, "PRReady", reply, "ready", "AT0.7", "--head", prHead1664, "--json")
-		if err == nil || n != 1 || exitCodeFor(err) == 0 {
+		if err == nil || n != 1 || exitCodeFor(err) != exitcode.Conflict {
 			t.Fatalf("%s %d %v", code, n, err)
 		}
 		var dto struct {
@@ -204,7 +206,7 @@ func TestPR1664ReadinessViews(t *testing.T) {
 	}
 }
 func TestPR1664HumanRefusal(t *testing.T) {
-	reply := `{"errors":[{"message":"provider refusal","extensions":{"code":"PR_NOT_READY","slots":[{"slot":"qa:\u001bportal","state":"STARTED","counts":false}]}}]}`
+	reply := `{"errors":[{"message":"provider \u001brefusal","extensions":{"code":"PR_NOT_READY","slots":[{"slot":"qa:\u001bportal","state":"STARTED","counts":false}]}}]}`
 	out, n, _, err := runPR1664(t, "PRReady", reply, "ready", "AT0.7", "--head", prHead1664)
 	if n != 1 || exitCodeFor(err) != exitcode.Conflict || !strings.Contains(out, "PR_NOT_READY") || !strings.Contains(out, "qa: portal") || strings.Contains(out, "\x1b") {
 		t.Fatalf("%q %d %v", out, n, err)
@@ -224,7 +226,7 @@ func TestPR1664ReadyAndSkew(t *testing.T) {
 }
 
 func TestPR1664MalformedReceipt(t *testing.T) {
-	for _, result := range []string{`null`, `{}`, `{"task":{"id":"t1"},"action":null}`, `{"task":{"id":""},"action":{"code":"pr.ready","state":"WITHHELD"}}`} {
+	for _, result := range []string{`null`, `{}`, `{"task":{"id":"t1"},"action":null}`, `{"task":{"id":""},"action":{"code":"pr.ready","state":"WITHHELD"}}`, `{"task":{"id":"t1"},"action":{"code":"pr.ready","state":""}}`} {
 		out, n, _, err := runPR1664(t, "PRReady", `{"data":{"recordReadyCall":`+result+`}}`, "ready", "AT0.7", "--head", prHead1664, "--json")
 		if n != 1 || exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(out, "inspect task/events") {
 			t.Fatalf("%s %d %v", out, n, err)
@@ -325,5 +327,17 @@ func TestPR1664FailingSlotContract(t *testing.T) {
 	var dto map[string]any
 	if json.Unmarshal([]byte(out), &dto) != nil || !reflect.DeepEqual(dto["error"].(map[string]any)["slots"], slots) {
 		t.Fatal(out)
+	}
+}
+
+func TestPR1664ReadinessSafeStateAndNullSlot(t *testing.T) {
+	reply := `{"data":{"pullRequestReadiness":{"ready":false,"head":"` + prHead1664 + `","slots":[{"slot":"local","state":"START\u001bED","counts":false}]}}}`
+	text, _, _, err := runPR1664(t, "PRReadiness", reply, "readiness", "task1", "--head", prHead1664)
+	if err != nil || strings.Contains(text, "\x1b") || !strings.Contains(text, "START ED") {
+		t.Fatalf("%q %v", text, err)
+	}
+	_, _, _, err = runPR1664(t, "PRReadiness", `{"data":{"pullRequestReadiness":{"ready":false,"head":"`+prHead1664+`","slots":[null]}}}`, "readiness", "task1", "--head", prHead1664)
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatal(err)
 	}
 }

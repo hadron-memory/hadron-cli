@@ -1,6 +1,7 @@
 package team
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -151,7 +152,7 @@ slots in text and error.slots in JSON. Unknown transport outcomes are exit 7.`}
 			if verb == "readiness" {
 				r, e := gen.PRReadiness(cmd.Context(), client, task, head)
 				if e != nil {
-					return api.MapPRProtocolError(e)
+					return mapPRError(e)
 				}
 				if r == nil || r.PullRequestReadiness == nil {
 					return exitcode.Newf(exitcode.NotFound, "task not found or not readable")
@@ -222,7 +223,7 @@ slots in text and error.slots in JSON. Unknown transport outcomes are exit 7.`}
 				}
 			}
 			if err != nil {
-				return api.MapPRProtocolError(err)
+				return mapPRError(err)
 			}
 			if result == nil || result.Task == nil || result.Action == nil || result.Task.Id == "" || result.Action.Code == "" || result.Action.State == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no PR receipt; inspect task/events before repeating the command")
@@ -259,4 +260,15 @@ func prCell(value *string) string {
 		return "—"
 	}
 	return output.SafeCell(*value)
+}
+
+// Protocol conflicts carry typed slots; ordinary task refusals retain the
+// task mapper's terminal-safe code prefix and their JSON serverCode.
+func mapPRError(err error) error {
+	mapped := api.MapPRProtocolError(err)
+	var protocol interface{ PRReadinessSlots() []api.PRSlotFailure }
+	if errors.As(mapped, &protocol) {
+		return mapped
+	}
+	return api.WithServerCode(mapTaskError(err), err)
 }
