@@ -168,7 +168,7 @@ hadron run get <run-id> --json          # budgets, policy, failure payload
 Webhooks are the push variant: `hadron webhook create --app <ref> --name <n> --entry <node-urn>`
 prints a URL path and platform token **once** (POST to fire the run) — capture
 them then, as the secret is never queryable again. `hadron webhook rotate <id>`
-reissues it. Full flag reference: `hadron agentic-usage`.
+reissues it (person-only). Full flag reference: `hadron agentic-usage`.
 
 ### CLI coverage and deliberate exclusions
 

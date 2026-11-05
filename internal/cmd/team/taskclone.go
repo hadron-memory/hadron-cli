@@ -23,8 +23,10 @@ import (
 
 func newCmdTeamTaskClone(f *cmdutil.Factory) *cobra.Command {
 	var title, description, parent, source, status, assignee, startBy, finishBy string
+	var owner, properties, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier string
+	var tags, refs, excludeWorkers []string
 	var priority int
-	var noParent, closeSession, noCloseSession bool
+	var noParent, closeSession, noCloseSession, project, clearTags, clearRefs, clearProperties, clearRequirements bool
 	cmd := &cobra.Command{
 		Use:   "clone <task>",
 		Short: "Make a new task from an existing one",
@@ -39,6 +41,10 @@ copy the assignee, status, result, handle, blockers, start-by, finish-by or
 external id. The clone is PENDING (or BACKLOG with --status backlog) and a
 queued one is matched like any other. Priority and properties are copied only
 for a caller who may set them, and are otherwise left out without a refusal.
+A --properties value from a caller who may not set properties is not a refusal
+either: the clone is made without properties and the value is not judged
+(cor:agt:050:28). A properties refusal (PROPERTIES_*) is only for a caller who
+may set them and names an invalid value.
 ` + "`task get`" + ` on either task shows the link ("cloned from" / "replaces" and the
 clones).
 
@@ -50,6 +56,19 @@ included, and the server judges it.
   --start-by, --finish-by <RFC 3339>              set a deadline (not copied)
   --close-session | --no-close-session            replace the copied choice
   --status pending|backlog                        the clone's create-time status
+  --tag <t> (repeatable) | --clear-tags           replace the copied tags / empty them
+  --ref <kind>=<target>[|<label>] (repeatable)    replace the copied references
+  --clear-refs                                    empty them
+  --properties <json|@file> | --clear-properties  replace the copied properties / remove them
+  --require-role, --family-in, --family-not-in, --exclude-worker, --min-tier,
+  --model-group, --model-group-not                replace the WHOLE requirements
+                                                  (name every one to keep; not a merge)
+  --clear-requirements                            remove every requirement
+  --owner worker:<name> | user:<handle>           name the clone's owner (default:
+                                                  you, as on create; never cleared)
+  --project                                       make the clone a top-level project
+                                                  (with --parent: exit 2; --project
+                                                  --no-parent is allowed)
   --parent <task>                                 put the clone under another
                                                   parent in the same App
   --no-parent                                     put it under no parent: a root
@@ -57,13 +76,13 @@ included, and the server judges it.
                                                   --no-parent together are exit 2)
 Without either, the parent is kept for someone who may create a child of it
 (otherwise TASK_NOT_ASSIGNEE, exit 8, and nothing is created); a root is cloned
-as a root, and a clone under an ended parent goes under AT0. Overrides for tags,
-requirements, references, properties, owner and project are not exposed yet
-(hadron-cli#1579): the copied values stand.
+as a root, and a clone under an ended parent goes under AT0. A value flag and its
+--clear-… twin together are exit 2, as in task update.
 
 Refusals: an unknown, unreadable or other-App source or parent is exit 4
 (TASK_NOT_FOUND, one answer for all three); AT0 itself cannot be cloned
-(BAD_USER_INPUT, exit 2); TASK_NOT_ASSIGNEE and a priority you may not set
+(BAD_USER_INPUT, exit 2); an owner who is not a possible owner is
+TASK_OWNER_INVALID (exit 2); TASK_NOT_ASSIGNEE and a priority you may not set
 (TASK_NOT_OWNER) are exit 8; a named parent that has ended is TASK_ENDED, exit 5.
 A transport failure after the request left can leave the outcome unknown: list
 the App's tasks before you clone again, since a clone is not deduplicated.
@@ -78,7 +97,10 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
   hadron team task clone AT0.12 --status backlog --assignee worker:Iris --title "Retest the export fix, round 2"
 
   # lift a child out of its parent as a root task
-  hadron team task clone AT1.4 --no-parent`,
+  hadron team task clone AT1.4 --no-parent
+
+  # copy it with new tags and a different owner, dropping the copied references
+  hadron team task clone AT0.12 --tag retest --tag export --owner worker:Iris --clear-refs`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			flags := cmd.Flags()
@@ -95,6 +117,29 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 			}
 			if flags.Changed("parent") && strings.TrimSpace(parent) == "" {
 				return exitcode.Newf(exitcode.Usage, "--parent needs a task id or handle (--no-parent clones it with none)")
+			}
+			reqNamed := flags.Changed("require-role") || flags.Changed("family-in") || flags.Changed("family-not-in") || flags.Changed("exclude-worker") || flags.Changed("min-tier") || flags.Changed("model-group") || flags.Changed("model-group-not")
+			for _, c := range []struct {
+				set, clear bool
+				a, b       string
+			}{
+				{flags.Changed("tag"), clearTags, "--tag", "--clear-tags"},
+				{flags.Changed("ref"), clearRefs, "--ref", "--clear-refs"},
+				{flags.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
+				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker, --min-tier, --model-group or --model-group-not", "--clear-requirements"},
+			} {
+				if c.set && c.clear {
+					return exitcode.Newf(exitcode.Usage, "%s and %s contradict each other: replace the value or clear it", c.a, c.b)
+				}
+			}
+			if flags.Changed("project") && !project {
+				return exitcode.Newf(exitcode.Usage, "--project=false is not a choice: leave the flag out to keep the source's shape")
+			}
+			if project && flags.Changed("parent") {
+				return exitcode.Newf(exitcode.Usage, "--project and --parent contradict each other: a project is a top-level task")
+			}
+			if familyIn != "" && familyNotIn != "" {
+				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
 			}
 			ref, err := taskRefArg(args)
 			if err != nil {
@@ -146,6 +191,74 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 					return err
 				}
 				input.Assignee = party
+			}
+			if flags.Changed("owner") {
+				party, err := parseTaskPartyFlag("--owner", owner)
+				if err != nil {
+					return err
+				}
+				input.Owner = party
+			}
+			if project {
+				input.Project = boolPtr(true)
+			}
+			// tags, references, properties and requirements are RawMessage on the
+			// wire: nil omits the key (keep the copied value), an explicit [] or null
+			// clears (the server reads an omitted field as "preserve").
+			switch {
+			case clearTags:
+				input.Tags = json.RawMessage("[]")
+			case flags.Changed("tag"):
+				for i, t := range tags {
+					if tags[i] = strings.TrimSpace(t); tags[i] == "" {
+						return exitcode.Newf(exitcode.Usage, "--tag must not be empty (use --clear-tags to empty the list)")
+					}
+				}
+				input.Tags = mustJSON(tags)
+			}
+			switch {
+			case clearRefs:
+				input.References = mustJSON([]gen.AgentTaskReferenceInput{})
+			case flags.Changed("ref"):
+				parsed, err := parseTaskRefFlags(refs)
+				if err != nil {
+					return err
+				}
+				input.References = mustJSON(parsed)
+			}
+			switch {
+			case clearProperties:
+				input.Properties = jsonNull
+			case flags.Changed("properties"):
+				p, err := parsePropertiesFlag(properties)
+				if err != nil {
+					return err
+				}
+				input.Properties = p
+			}
+			if flags.Changed("min-tier") {
+				if err := validateTaskMinTier(minTier); err != nil {
+					return err
+				}
+			}
+			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
+			if err != nil {
+				return err
+			}
+			switch {
+			case clearRequirements:
+				input.Requirements = jsonNull
+			case reqNamed:
+				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole), MinTier: minTier, ModelGroupIn: groupsIn, ModelGroupNotIn: groupsNotIn}
+				for i, w := range p.ExcludeWorkers {
+					if p.ExcludeWorkers[i] = strings.TrimSpace(w); p.ExcludeWorkers[i] == "" {
+						return exitcode.Newf(exitcode.Usage, "--exclude-worker must name a worker")
+					}
+				}
+				if (flags.Changed("require-role") && p.Role == "") || (flags.Changed("family-in") && len(p.FamilyIn) == 0) || (flags.Changed("family-not-in") && len(p.FamilyNotIn) == 0) {
+					return exitcode.Newf(exitcode.Usage, "a requirement flag was given an empty value: name the requirement, or use --clear-requirements")
+				}
+				input.Requirements = mustJSON(p)
 			}
 			if flags.Changed("close-session") {
 				input.CloseSessionWhenDone = boolPtr(closeSession)
@@ -200,5 +313,20 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 	cmd.Flags().BoolVar(&noParent, "no-parent", false, "no parent: a root under AT0 (sends parentTaskId null)")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole copied list")
+	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "the clone has no tags")
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole copied list; kind is "+taskRefKindsDoc)
+	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "the clone has no references")
+	cmd.Flags().StringVar(&properties, "properties", "", "the clone's own JSON object, or @file; replaces the copied value (left out, not refused, for a caller who may not set properties)")
+	cmd.Flags().BoolVar(&clearProperties, "clear-properties", false, "the clone has no properties")
+	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
+	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
+	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")
+	cmd.Flags().StringArrayVar(&excludeWorkers, "exclude-worker", nil, "a worker the matcher must not pick, repeatable; replaces the whole requirements")
+	cmd.Flags().BoolVar(&clearRequirements, "clear-requirements", false, "the clone has no requirements")
+	cmd.Flags().StringVar(&owner, "owner", "", "party that owns the clone (worker:<…> / user:<…>); default is the caller")
+	cmd.Flags().BoolVar(&project, "project", false, "make the clone a top-level project")
 	return cmd
 }

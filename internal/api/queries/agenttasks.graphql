@@ -231,6 +231,9 @@ query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 # be sent as null. parentTaskId is three-state — omitted keeps the source's
 # parent, a task id names another, an explicit null means none — so it is a
 # RawMessage (nil omitted, `null` sent as null, a JSON string for an id).
+# cli#1579: tags, references, properties and requirements are RawMessage too:
+# a clear is an explicit empty list ([]) or null, which a typed omitempty field
+# would drop; nil still omits the key.
 # @genqlient(for: "CloneAgentTaskInput.assignee", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.closeSessionWhenDone", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.description", omitempty: true)
@@ -239,13 +242,13 @@ query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 # @genqlient(for: "CloneAgentTaskInput.parentTaskId", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.project", omitempty: true)
-# @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true)
-# @genqlient(for: "CloneAgentTaskInput.references", omitempty: true)
-# @genqlient(for: "CloneAgentTaskInput.requirements", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "CloneAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "CloneAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.source", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.startBy", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.status", omitempty: true)
-# @genqlient(for: "CloneAgentTaskInput.tags", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.tags", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.title", omitempty: true)
 mutation AgentTaskClone(
   $taskId: ID!
