@@ -5448,13 +5448,12 @@ claim (FORBIDDEN, exit 8, no event), with no grant arm at these doors.
 
 With the flag a complete, unchanged same-server worktree binding sends its
 worker session explicitly. Unbound/corrupt/incomplete/foreign-server bindings
-refuse locally (exit 2), never falling back to the person. The one request's
+refuse locally (exit 2), never falling back to the person. Each request's
 server gate decides the target App and whether the holder manages it; ambient
---app cannot lend authority. Without the flag the legacy document/variables
-and headerless attribution are unchanged: the call acts as you, including from
-a bound worktree (Xanthos acceptance-2 ruling #71555). Separate instructed
-GraphQL documents omit instruction entirely without the flag; a refusal is
-never retried/downgraded and preserves mapped exit and --json serverCode.
+--app cannot lend authority. Without the flag, the ordinary document omits
+instruction and the call remains headerless, acting as you even from a bound worktree (Xanthos
+acceptance-2 ruling #71555). Separate instructed documents carry the claim;
+a refusal is never retried/downgraded and preserves mapped exit and --json serverCode.
 
 An admitted instructed list is not record-free: one app.credential-act event
 per call/page, no dedupe. A changing instructed revoke records one; a no-op
@@ -5588,8 +5587,11 @@ pr.frozen, review.seat.assigned, review.verdict and pr.ready; read with team eve
 `auth token list` (including --include-hidden) uses myUserApiKeysPage;
 `app key list` (including --scopes/--host-uses and --instruction) uses
 appKeysPage. Each reads pages of 20, advances by rows served, and follows
-hasMore to false, never total or short-page length. Existing --json arrays
-and row fields stay unchanged; no page envelope is printed. A later-page
+hasMore to false, never total or short-page length as a stop condition. Total
+is selected only to detect a count change between pages; that or any repeated ID fails without
+a partial inventory. Neither check establishes a snapshot: equal-count changes
+without a repeated ID can escape detection. List after changes settle.
+Existing --json arrays and row fields stay unchanged; no page envelope is printed. A later-page
 error fails without printing a partial inventory. Requires server 27671b4b
 (hadron-server#3189) or later; no retry with an unpaged field. Instructed App
 key listing keeps its session and instruction on every page and records one

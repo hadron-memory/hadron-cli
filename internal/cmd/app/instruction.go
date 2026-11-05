@@ -60,69 +60,84 @@ func credentialInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInst
 
 // List bridges keep ordinary and instructed documents separate on every page.
 func keysMetadata(ctx context.Context, c graphql.Client, ref string, i *gen.ActInstructionInput) ([]*gen.AppKeysMetadataRows1595, error) {
-	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysMetadataRows1595, bool, error) {
+	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysMetadataRows1595, int, bool, error) {
 		if i == nil {
 			r, e := gen.AppKeysMetadata(ctx, c, ref, api.InventoryPageSize, offset)
 			if e != nil {
-				return nil, false, e
+				return nil, 0, false, e
 			}
 			if r == nil || r.AppKeysPage == nil {
-				return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+				return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 			}
-			return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+			return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
 		}
 		r, e := gen.AppKeysMetadataInstructed(ctx, c, ref, i, api.InventoryPageSize, offset)
 		if e != nil {
-			return nil, false, e
+			return nil, 0, false, e
 		}
 		if r == nil || r.AppKeysPage == nil {
-			return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+			return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 		}
-		return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+		return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
+	}, func(row *gen.AppKeysMetadataRows1595) *string {
+		if row == nil {
+			return nil
+		}
+		return &row.Id
 	})
 }
 func keysScopes(ctx context.Context, c graphql.Client, ref string, i *gen.ActInstructionInput) ([]*gen.AppKeysScopesRows1595, error) {
-	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysScopesRows1595, bool, error) {
+	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysScopesRows1595, int, bool, error) {
 		if i == nil {
 			r, e := gen.AppKeysScopes(ctx, c, ref, api.InventoryPageSize, offset)
 			if e != nil {
-				return nil, false, e
+				return nil, 0, false, e
 			}
 			if r == nil || r.AppKeysPage == nil {
-				return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+				return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 			}
-			return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+			return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
 		}
 		r, e := gen.AppKeysScopesInstructed(ctx, c, ref, i, api.InventoryPageSize, offset)
 		if e != nil {
-			return nil, false, e
+			return nil, 0, false, e
 		}
 		if r == nil || r.AppKeysPage == nil {
-			return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+			return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 		}
-		return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+		return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
+	}, func(row *gen.AppKeysScopesRows1595) *string {
+		if row == nil {
+			return nil
+		}
+		return &row.Id
 	})
 }
 func keysHostUses(ctx context.Context, c graphql.Client, ref string, first int, i *gen.ActInstructionInput) ([]*gen.AppKeysScopesHostUsesRows1595, error) {
-	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysScopesHostUsesRows1595, bool, error) {
+	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysScopesHostUsesRows1595, int, bool, error) {
 		if i == nil {
 			r, e := gen.AppKeysScopesHostUses(ctx, c, ref, first, api.InventoryPageSize, offset)
 			if e != nil {
-				return nil, false, e
+				return nil, 0, false, e
 			}
 			if r == nil || r.AppKeysPage == nil {
-				return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+				return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 			}
-			return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+			return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
 		}
 		r, e := gen.AppKeysScopesHostUsesInstructed(ctx, c, ref, first, i, api.InventoryPageSize, offset)
 		if e != nil {
-			return nil, false, e
+			return nil, 0, false, e
 		}
 		if r == nil || r.AppKeysPage == nil {
-			return nil, false, fmt.Errorf("the server returned no App-key inventory page")
+			return nil, 0, false, fmt.Errorf("the server returned no App-key inventory page")
 		}
-		return r.AppKeysPage.Items, r.AppKeysPage.HasMore, nil
+		return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
+	}, func(row *gen.AppKeysScopesHostUsesRows1595) *string {
+		if row == nil {
+			return nil
+		}
+		return &row.Id
 	})
 }
 func revokeKey(ctx context.Context, c graphql.Client, id string, i *gen.ActInstructionInput) (*gen.RevokeAppKeyResponse, error) {

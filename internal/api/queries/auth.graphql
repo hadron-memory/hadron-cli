@@ -23,6 +23,7 @@ query MyUserApiKeys(
 ) {
   myUserApiKeysPage(includeHidden: $includeHidden, limit: $limit, offset: $offset) {
     hasMore
+    total
     items {
       ...UserApiKeyFields
     }

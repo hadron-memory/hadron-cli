@@ -206,7 +206,13 @@ func TestKeyPagination1547FailsWithoutPartialOutput(t *testing.T) {
 				if envelope.Error.Code != wantCode {
 					t.Errorf("error envelope=%s", out.String())
 				}
-				if instructed && failure == "error" && envelope.Error.ServerCode != "FORBIDDEN" {
+				keepsServerCode := instructed
+				for _, arg := range args {
+					if arg == "--scopes" {
+						keepsServerCode = true
+					}
+				}
+				if keepsServerCode && failure == "error" && envelope.Error.ServerCode != "FORBIDDEN" {
 					t.Errorf("lost serverCode: %s", out.String())
 				}
 				mu.Lock()

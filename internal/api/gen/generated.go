@@ -15068,11 +15068,15 @@ func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedBy() string { return v.G
 // #2213 — one page of an App's live keys.
 type AppKeysMetadataAppKeysPageAppKeyPage struct {
 	HasMore bool                       `json:"hasMore"`
+	Total   int                        `json:"total"`
 	Items   []*AppKeysMetadataRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysMetadataAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysMetadataAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysMetadataAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetItems() []*AppKeysMetadataRows1595 { return v.Items }
@@ -15083,11 +15087,15 @@ func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetItems() []*AppKeysMetadataRows
 // #2213 — one page of an App's live keys.
 type AppKeysMetadataInstructedAppKeysPageAppKeyPage struct {
 	HasMore bool                       `json:"hasMore"`
+	Total   int                        `json:"total"`
 	Items   []*AppKeysMetadataRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysMetadataInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysMetadataInstructedAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataInstructedAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysMetadataInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysMetadataRows1595 {
@@ -15168,11 +15176,15 @@ func (v *AppKeysMetadataRows1595) GetRevokedAt() *string { return v.RevokedAt }
 // #2213 — one page of an App's live keys.
 type AppKeysScopesAppKeysPageAppKeyPage struct {
 	HasMore bool                     `json:"hasMore"`
+	Total   int                      `json:"total"`
 	Items   []*AppKeysScopesRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysScopesAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysScopesAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysScopesAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesRows1595 { return v.Items }
@@ -15183,11 +15195,15 @@ func (v *AppKeysScopesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesRows1595
 // #2213 — one page of an App's live keys.
 type AppKeysScopesHostUsesAppKeysPageAppKeyPage struct {
 	HasMore bool                             `json:"hasMore"`
+	Total   int                              `json:"total"`
 	Items   []*AppKeysScopesHostUsesRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysScopesHostUsesAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysScopesHostUsesAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysScopesHostUsesAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesHostUsesRows1595 {
@@ -15200,11 +15216,15 @@ func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopes
 // #2213 — one page of an App's live keys.
 type AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage struct {
 	HasMore bool                             `json:"hasMore"`
+	Total   int                              `json:"total"`
 	Items   []*AppKeysScopesHostUsesRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesHostUsesRows1595 {
@@ -15362,11 +15382,15 @@ func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetGrantedBy() string {
 // #2213 — one page of an App's live keys.
 type AppKeysScopesInstructedAppKeysPageAppKeyPage struct {
 	HasMore bool                     `json:"hasMore"`
+	Total   int                      `json:"total"`
 	Items   []*AppKeysScopesRows1595 `json:"items"`
 }
 
 // GetHasMore returns AppKeysScopesInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns AppKeysScopesInstructedAppKeysPageAppKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesInstructedAppKeysPageAppKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns AppKeysScopesInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesRows1595 {
@@ -57858,11 +57882,15 @@ func (v *MyAppResponse) GetMyApp() *MyAppMyApp { return v.MyApp }
 // #2213 — one page of the caller's own user API keys.
 type MyUserApiKeysMyUserApiKeysPageUserApiKeyPage struct {
 	HasMore bool                                                           `json:"hasMore"`
+	Total   int                                                            `json:"total"`
 	Items   []*MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey `json:"items"`
 }
 
 // GetHasMore returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPage.HasMore, and is useful for accessing the field via an interface.
 func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetTotal returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPage.Total, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage) GetTotal() int { return v.Total }
 
 // GetItems returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPage.Items, and is useful for accessing the field via an interface.
 func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage) GetItems() []*MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey {
@@ -114359,6 +114387,7 @@ const AppKeysMetadata_Operation = `
 query AppKeysMetadata ($appRef: ID!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -114407,6 +114436,7 @@ const AppKeysMetadataInstructed_Operation = `
 query AppKeysMetadataInstructed ($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -114456,6 +114486,7 @@ const AppKeysScopes_Operation = `
 query AppKeysScopes ($appRef: ID!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -114511,6 +114542,7 @@ const AppKeysScopesHostUses_Operation = `
 query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -114575,6 +114607,7 @@ const AppKeysScopesHostUsesInstructed_Operation = `
 query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -114639,6 +114672,7 @@ const AppKeysScopesInstructed_Operation = `
 query AppKeysScopesInstructed ($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			id
 			keyPreview
@@ -130841,6 +130875,7 @@ const MyUserApiKeys_Operation = `
 query MyUserApiKeys ($limit: Int!, $offset: Int!, $includeHidden: Boolean) {
 	myUserApiKeysPage(includeHidden: $includeHidden, limit: $limit, offset: $offset) {
 		hasMore
+		total
 		items {
 			... UserApiKeyFields
 		}

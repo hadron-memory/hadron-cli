@@ -230,6 +230,7 @@ mutation SetAppProperties(
 query AppKeysMetadata($appRef: ID!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysMetadataRows1595")
     items {
       id
@@ -328,6 +329,7 @@ mutation CreateAppKey(
 query AppKeysScopes($appRef: ID!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysScopesRows1595")
     items {
       id
@@ -351,6 +353,7 @@ query AppKeysScopes($appRef: ID!, $limit: Int!, $offset: Int!) {
 query AppKeysScopesHostUses($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
     items {
       id
@@ -400,6 +403,7 @@ mutation RegenerateAppKey($appRef: ID!) {
 query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysMetadataRows1595")
     items {
       id
@@ -415,6 +419,7 @@ query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!
 query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysScopesRows1595")
     items {
       id
@@ -436,6 +441,7 @@ query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!, 
 query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
     hasMore
+    total
     # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
     items {
       id

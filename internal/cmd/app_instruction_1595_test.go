@@ -49,7 +49,7 @@ func TestCredential1595InstructionWire(t *testing.T) {
 		})
 	}
 }
-func TestCredential1595LegacyWire(t *testing.T) {
+func TestCredential1595OrdinaryWire(t *testing.T) {
 	for _, tc := range credentialCases1595() {
 		t.Run(tc.op, func(t *testing.T) {
 			var previous attnCall
@@ -59,7 +59,7 @@ func TestCredential1595LegacyWire(t *testing.T) {
 					t.Fatalf("%v %v", r.err, *calls)
 				}
 				c := (*calls)[0]
-				if c.Query != legacyDocuments1595[tc.op] {
+				if c.Query != ordinaryDocuments1595[tc.op] {
 					t.Fatal("ordinary query differs from pinned document (paged keys in #1547)")
 				}
 				_, hasInstruction := c.Vars["instruction"]
@@ -87,10 +87,10 @@ func TestCredential1595MalformedBeforeRequests(t *testing.T) {
 	}
 }
 
-var legacyDocuments1595 = map[string]string{
-	"AppKeysMetadata":           "\nquery AppKeysMetadata ($appRef: ID!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t}\n\t}\n}\n",
-	"AppKeysScopes":             "\nquery AppKeysScopes ($appRef: ID!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t\tscopes {\n\t\t\t\tscope\n\t\t\t\thostId\n\t\t\t\tgrantedAt\n\t\t\t\tgrantedBy\n\t\t\t}\n\t\t}\n\t}\n}\n",
-	"AppKeysScopesHostUses":     "\nquery AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t\tscopes {\n\t\t\t\tscope\n\t\t\t\thostId\n\t\t\t\tgrantedAt\n\t\t\t\tgrantedBy\n\t\t\t}\n\t\t\thostUses(first: $first) {\n\t\t\t\thostId\n\t\t\t\taction\n\t\t\t\tcount\n\t\t\t\toperationId\n\t\t\t\trefusedCode\n\t\t\t\tusedAt\n\t\t\t}\n\t\t}\n\t}\n}\n",
+var ordinaryDocuments1595 = map[string]string{
+	"AppKeysMetadata":           "\nquery AppKeysMetadata ($appRef: ID!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\ttotal\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t}\n\t}\n}\n",
+	"AppKeysScopes":             "\nquery AppKeysScopes ($appRef: ID!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\ttotal\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t\tscopes {\n\t\t\t\tscope\n\t\t\t\thostId\n\t\t\t\tgrantedAt\n\t\t\t\tgrantedBy\n\t\t\t}\n\t\t}\n\t}\n}\n",
+	"AppKeysScopesHostUses":     "\nquery AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {\n\tappKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {\n\t\thasMore\n\t\ttotal\n\t\titems {\n\t\t\tid\n\t\t\tkeyPreview\n\t\t\tlabel\n\t\t\tcreatedAt\n\t\t\tlastUsedAt\n\t\t\trevokedAt\n\t\t\tscopes {\n\t\t\t\tscope\n\t\t\t\thostId\n\t\t\t\tgrantedAt\n\t\t\t\tgrantedBy\n\t\t\t}\n\t\t\thostUses(first: $first) {\n\t\t\t\thostId\n\t\t\t\taction\n\t\t\t\tcount\n\t\t\t\toperationId\n\t\t\t\trefusedCode\n\t\t\t\tusedAt\n\t\t\t}\n\t\t}\n\t}\n}\n",
 	"RevokeAppKey":              "\nmutation RevokeAppKey ($id: ID!) {\n\trevokeAppKey(id: $id)\n}\n",
 	"RevokeAppKeyScope":         "\nmutation RevokeAppKeyScope ($id: ID!, $scope: String!) {\n\trevokeAppKeyScope(id: $id, scope: $scope) {\n\t\t... AppKeyScopesFields\n\t}\n}\nfragment AppKeyScopesFields on AppKey {\n\tid\n\tappId\n\tlabel\n\trevokedAt\n\tscopes {\n\t\tscope\n\t\thostId\n\t\tgrantedAt\n\t\tgrantedBy\n\t}\n}\n",
 	"AppMemoryWriteGrants":      "\nquery AppMemoryWriteGrants ($appRef: String!, $includeRevoked: Boolean) {\n\tappMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {\n\t\t... AppMemoryGrantFields\n\t}\n}\nfragment AppMemoryGrantFields on AppMemoryWriteGrant {\n\tid\n\tappId\n\tmemoryUrn\n\tprefix\n\tregisterNodeUrn\n\tgrantedBy\n\tcreatedAt\n\trevokedAt\n\trevokedBy\n}\n",

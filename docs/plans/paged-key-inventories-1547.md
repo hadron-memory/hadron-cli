@@ -27,12 +27,16 @@ server field retirement is #2213, outside this change.
 
 Each request asks for 20 rows (the normal platform default; no user page-size
 flag). Advance the offset by the number of items actually served. Only
-hasMore=false ends collection: a short page does not; total is not selected or
-used. An empty page with hasMore=true is a protocol error, not an empty inventory
+hasMore=false ends collection: a short page does not; total is selected only to detect a count change between pages, never as a
+loop bound. A count change or any repeated row ID fails without a partial
+inventory. This detects some churn, not a snapshot; equal-count replacements
+without a repeated ID can still escape detection. Both help pages warn about
+this and tell the reader to list after changes settle. Rows are not silently
+deduplicated: that could hide a missing credential. An empty page with hasMore=true is a protocol error, not an empty inventory
 or a reason to spin. Missing/null page envelopes fail rather than render [].
 
 All collection completes before DTO conversion/output. Every later fetch error,
-missing page and no-progress error discards collected rows; no partial inventory
+missing page, count-change, repeated-ID and no-progress error discards collected rows; no partial inventory
 is printed. App-key null-row refusal and personal-token null-row skipping are
 unchanged. Existing explicit DTOs, nullable fields, nested [] versus omitted
 hostUses, sanitization and server-error mappings are unchanged. --json remains
@@ -63,7 +67,15 @@ shapes, asserting an error, exactly two requests and no partial stdout.
 Existing DTO, sanitization, projection, instruction and include-hidden pins are
 adapted to the envelope without weakening their underlying output contract.
 
-Independent LOCAL/BLIND/QA receipts at one CI-green frozen head are required.
+Review cycle: original LOCAL Bob APPROVE (6655480097), QA Celine PASS with
+limits (6655521276), BLIND Gaia raw CHANGES REQUESTED (6655505141) at31f57bf7.
+The concurrent-drift P2 is addressed by the limited detection and help warning
+above, not a claim of snapshot consistency. Red-first655f3131 adds both shift
+directions and equal-count duplicate controls; it also adds instructed later-page
+errors, code/serverCode assertions and missing-help warnings. Full-page20/21 and
+exact hasMore/total projection pins are included.
+
+Independent LOCAL/BLIND/QA delta receipts at one CI-green fix head are required.
 QA must run compiled commands against a private server with more than one page;
 unit/fake-server results alone are not that runtime claim.
 
@@ -72,3 +84,7 @@ CLI tests. Five real mutants were killed (stop after one page; stop on a short
 page; advance by requested limit; disable no-progress refusal; return collected
 rows after a later fetch error). The equivalent offset += len(items) + 0 control
 survived. Build/setup failures were not counted as killed mutants.
+
+Fix-cycle mutation check: all five original mutants plus disabled count-change
+and repeated-ID guards are killed at the fix tree; equivalent offset+0 survives.
+Every mutant is read back and classified by named test failure, not exit alone.

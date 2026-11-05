@@ -370,10 +370,16 @@ func assertApp1057Document(t *testing.T, query string, keys bool) {
 	}
 	selections := root.SelectionSet
 	if keys {
-		if len(selections) != 2 {
+		if len(selections) != 3 {
 			t.Fatal("page projection changed")
 		}
-		items, ok := selections[1].(*ast.Field)
+		for i, name := range []string{"hasMore", "total"} {
+			f, ok := selections[i].(*ast.Field)
+			if !ok || f.Name != name || len(f.SelectionSet) != 0 || len(f.Arguments) != 0 {
+				t.Fatal("wrong page envelope projection")
+			}
+		}
+		items, ok := selections[2].(*ast.Field)
 		if !ok || items.Name != "items" {
 			t.Fatal("no items projection")
 		}
