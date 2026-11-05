@@ -1,0 +1,32 @@
+# PR protocol commands (#1664 over server #3448). Minimal committed receipt;
+# no task-property mirror is read or interpreted by the CLI.
+fragment PRProtocolReceipt on PrProtocolResult {
+  task { id handle status }
+  action { code state taskLoc taskUrn }
+}
+mutation PRSchedule($taskRef: ID!, $slots: [String!]!) {
+  setReviewSchedule(taskRef: $taskRef, slots: $slots) { ...PRProtocolReceipt }
+}
+mutation PRFreeze($taskRef: ID!, $head: String!) {
+  freezePullRequestHead(taskRef: $taskRef, head: $head) { ...PRProtocolReceipt }
+}
+mutation PRSeat($taskRef: ID!, $slot: String!, $head: String!,
+  # @genqlient(omitempty: true)
+  $supersedes: ID) {
+  assignReviewSeat(taskRef: $taskRef, slot: $slot, head: $head, supersedes: $supersedes) { ...PRProtocolReceipt }
+}
+mutation PRVerdict($taskRef: ID!, $head: String!, $verdict: ReviewVerdict!,
+  # @genqlient(omitempty: true)
+  $node: String,
+  # @genqlient(omitempty: true)
+  $receipt: String) {
+  recordReviewVerdict(taskRef: $taskRef, head: $head, verdict: $verdict, node: $node, receipt: $receipt) { ...PRProtocolReceipt }
+}
+mutation PRReady($taskRef: ID!, $head: String!) {
+  recordReadyCall(taskRef: $taskRef, head: $head) { ...PRProtocolReceipt }
+}
+query PRReadiness($taskRef: ID!, $head: String!) {
+  pullRequestReadiness(taskRef: $taskRef, head: $head) {
+    ready head slots { slot currentTaskId state verdict head counts }
+  }
+}

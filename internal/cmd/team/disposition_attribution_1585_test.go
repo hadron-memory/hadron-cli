@@ -13,6 +13,11 @@ import (
 func TestTaskWritesAuthored1585(t *testing.T) {
 	for name, query := range map[string]string{
 		"AgentTaskDisposeFinding": gen.AgentTaskDisposeFinding_Operation,
+		"PRSchedule":              gen.PRSchedule_Operation,
+		"PRFreeze":                gen.PRFreeze_Operation,
+		"PRSeat":                  gen.PRSeat_Operation,
+		"PRVerdict":               gen.PRVerdict_Operation,
+		"PRReady":                 gen.PRReady_Operation,
 		"AgentTaskClone":          gen.AgentTaskClone_Operation,
 		"AgentTaskCreateBatch":    gen.AgentTaskCreateBatch_Operation,
 		"AgentTaskUpdate":         gen.AgentTaskUpdate_Operation,
@@ -64,5 +69,11 @@ func TestTaskMutationAttributionCensus1585(t *testing.T) {
 		if !seen[field] {
 			t.Errorf("stale exclusion %s", field)
 		}
+	}
+}
+
+func TestPRReadinessNotAuthored1664(t *testing.T) {
+	if authoredWriteRequest(&graphql.Request{OpName: "PRReadiness", Query: gen.PRReadiness_Operation}) {
+		t.Fatal("readiness query must stay headerless")
 	}
 }
