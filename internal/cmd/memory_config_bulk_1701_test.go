@@ -353,7 +353,7 @@ func TestBulkTemplate1701RealFailureRecovery(t *testing.T) {
 		warn         bool
 	}{
 		{"gateway", "gateway down", 502, 7, true},
-		{"malformed JSON", "{", 200, 1, true},
+		{"malformed JSON", "{", 200, 7, true},
 		{"null result", `{"data":{"applyMemoryConfigTemplateToMemories":null}}`, 200, 1, true},
 		{"whole conflict", `{"errors":[{"message":"template changed","extensions":{"code":"CONFLICT"}}]}`, 200, 5, false},
 	} {
@@ -393,5 +393,124 @@ func TestBulkTemplate1701DuplicateRetryHelp(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Do not retry DUPLICATE_TARGET") {
 		t.Fatal(out.String())
+	}
+}
+
+func TestBulkTemplate1701FailedPreviewNeedsConfirmation(t *testing.T) {
+	s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+		var p map[string]any
+		_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, false)), &p)
+		r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+		if c.DryRun {
+			e := r["results"].([]any)[1].(map[string]any)
+			e["ok"] = false
+			e["result"] = nil
+			e["error"] = map[string]any{"code": "INTERNAL_SERVER_ERROR", "message": "preview failed", "requestId": "req"}
+			r["succeeded"] = 1
+			r["failed"] = 1
+		}
+		b, _ := json.Marshal(p)
+		return string(b)
+	})
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
+	if code != 2 || len(calls()) != 1 {
+		t.Fatalf("unpreviewed target written without confirmation: code=%d calls=%v %s", code, calls(), out)
+	}
+}
+
+func TestBulkTemplate1701FileBOMAndSafeRef(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "refs")
+	if err := os.WriteFile(file, []byte("\ufeffm1\nevil\x1b]0;x\x07a\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "--memories-file", file, "--dry-run")
+	if code != 0 || len(calls()) != 1 || calls()[0].Refs[0] != "m1" || strings.ContainsAny(out, "\x1b\x07") {
+		t.Fatalf("exit=%d calls=%v out=%q", code, calls(), out)
+	}
+}
+func TestBulkTemplate1701LongPromptNamesEveryRole(t *testing.T) {
+	roles := []string{}
+	for i := 0; i < 30; i++ {
+		roles = append(roles, fmt.Sprintf("long-replaced-role-%02d", i))
+	}
+	s, _ := bulk1701Server(t, func(c bulk1701Call) string {
+		var p map[string]any
+		_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, true)), &p)
+		r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+		for _, e := range r["results"].([]any) {
+			entries := []any{}
+			for _, role := range roles {
+				entries = append(entries, map[string]any{"role": role, "outcome": "REPLACED", "rule": nil})
+			}
+			e.(map[string]any)["result"].(map[string]any)["entries"] = entries
+		}
+		b, _ := json.Marshal(p)
+		return string(b)
+	})
+	f, _, stderr := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "template", "apply", "t1", "m1", "m2", "--server", s.URL})
+	_ = root.Execute()
+	for _, role := range roles {
+		if !strings.Contains(stderr.String(), role) {
+			t.Fatalf("prompt omitted role %q: %s", role, stderr)
+		}
+	}
+}
+
+func TestBulkTemplate1701PartialPreviewConsent(t *testing.T) {
+	for _, mode := range []string{"yes flag", "combined yes", "combined no"} {
+		t.Run(mode, func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+				var p map[string]any
+				_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, true)), &p)
+				r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+				if c.DryRun {
+					e := r["results"].([]any)[1].(map[string]any)
+					e["ok"] = false
+					e["result"] = nil
+					e["error"] = map[string]any{"code": "CONFLICT", "message": "retry"}
+					r["succeeded"] = 1
+					r["failed"] = 1
+				}
+				b, _ := json.Marshal(p)
+				return string(b)
+			})
+			args := []string{"memory", "config", "template", "apply", "t1", "m1", "m2"}
+			if mode == "yes flag" {
+				args = append(args, "--yes")
+				_, code := runBulk1701(t, s.URL, args...)
+				if code != 0 || len(calls()) != 2 {
+					t.Fatalf("exit=%d calls=%v", code, calls())
+				}
+			} else {
+				answer := "y\n"
+				if mode == "combined no" {
+					answer = "n\n"
+				}
+				f, _, stderr := testFactoryTTY(t, answer)
+				root := NewRootCmd(f)
+				root.SetArgs(append(args, "--server", s.URL))
+				code := exitCodeFor(root.Execute())
+				wantCalls := 2
+				if mode == "combined no" {
+					wantCalls = 1
+					if code != 6 {
+						t.Fatal(code)
+					}
+				} else if code != 0 {
+					t.Fatal(code)
+				}
+				if len(calls()) != wantCalls || strings.Count(stderr.String(), "(y/N)") != 1 || !strings.Contains(stderr.String(), "m1: spec") || !strings.Contains(stderr.String(), "m2") || !strings.Contains(stderr.String(), "not previewed") {
+					t.Fatalf("calls=%v prompt=%s", calls(), stderr)
+				}
+			}
+			for _, c := range calls() {
+				if strings.Join(c.Refs, ",") != "m1,m2" {
+					t.Fatal(calls())
+				}
+			}
+		})
 	}
 }
