@@ -580,6 +580,7 @@ hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-co
 hadron email connections --org <id|urn> [--json]
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
+hadron connection flow <flow-id> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | get <grant-id> | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted.
@@ -4374,21 +4375,32 @@ exactly once. The browser is opened and only a notice is printed; stdout gets th
 URL only under --no-browser or when the browser cannot be opened. With --json the
 URL is the `authorizeUrl` field of the one result document and nowhere else, so
 --json with --no-browser requires --no-wait (usage error, exit 2, before any
-start). After the start the command polls the metadata-only EmailConnections read
-(--wait, default 5m, never past the link's expiresAt; --no-wait skips it) for a
-connection of that provider, owned by the caller, that was not there before the
-start (the start carries no flow id, so another admin's connection or an
-existing one never counts; two flows the same caller starts at once for one
-provider cannot be told apart until hadron-server#2913, so run them one at a
-time). With --json a browser that cannot be opened ends the
-command at once with status "started" (no wait). Found: exit 0,
-{provider,orgId,authorizeUrl,expiresAt,browserOpened,status:"connected",
-connection:{id,provider,mailboxEmail,displayName}}. --no-wait: status "started",
-connection null. Not found in time: exit 13 (WaitTimeout), "not found yet" - the
-consent may still be completing, so check `hadron email connections --org REF`
-before starting again. Errors never contain the URL or its nonce; nothing is
+start). After the start the command polls connectionFlow(flowId) with the
+start's flow id (--wait, default 5m, never past the link's expiresAt; --no-wait
+skips it), so two flows started at once each end with their own connection and a
+reconnect ends with the existing connection's id. PENDING is an answer: only the
+deadline ends the wait. CONNECTED: one metadata-only EmailConnections read fills
+mailboxEmail/displayName (if it fails the result still carries the id). FAILED:
+exit 1 (Error) with the flow's stable failureCode (e.g. access_denied) as the
+result, not a transport error. A refused flow read (unknown, expired or another
+user's flow id) is one message and exit 8 (Forbidden) in every case, ends the wait
+and is not retried. With --json a browser that cannot be opened ends the
+command at once with status "started" (no wait). Done: exit 0,
+{provider,orgId,authorizeUrl,expiresAt,flowId,browserOpened,
+status:"connected"|"failed",failureCode,connection:{id,provider,mailboxEmail,
+displayName}}. --no-wait: status "started", flowId set, connection null. Not
+finished in time: exit 13 (WaitTimeout), "not found yet", after the record is
+printed with status "pending" and the flowId - the consent may still
+be completing, so check `hadron connection flow FLOW_ID` or
+`hadron email connections --org REF` before starting again. Errors never contain the URL or its nonce; nothing is
 written to disk.
 
+
+`hadron connection flow <flow-id>` reads connectionFlow once (read-only, safe to
+repeat): {flowId,status:"PENDING"|"CONNECTED"|"FAILED",connectionId,failureCode},
+unused fields null. Every resolved state exits 0 (a failed flow is a successful
+read reporting a failure; check status); only the refusal (exit 8, the same for an
+unknown, expired or another user's flow id) or a transport error is nonzero.
 
 `hadron calendar` reads with list/events/event get/freebusy and (owner-only) changes
 with event create/update/delete/respond: explicit --connection, no discovery fallback or

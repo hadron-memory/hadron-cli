@@ -17,8 +17,6 @@ import (
 // reached by no command, the wait lists connections, `connection flow` is an
 // unknown command.
 
-const connectStartFlow = `{"data":{"startConnection":{"provider":"GMAIL","orgId":"org_1","authorizeUrl":"` + connectURL + `","expiresAt":"2099-01-01T00:00:00Z","flowId":"flow_1"}}}`
-
 func flowResp(status, connID, failure string) string {
 	q := func(s string) string {
 		if s == "" {
@@ -46,7 +44,7 @@ func runFlowConnect(t *testing.T, flows []string, fill string, args ...string) *
 		r.ops = append(r.ops, op)
 		switch op {
 		case "StartConnection":
-			return connectStartFlow
+			return connectStart
 		case "ConnectionFlow":
 			i := min(calls, len(flows)-1)
 			calls++
@@ -83,7 +81,7 @@ func count(ops []string, op string) int {
 // connections to find "the new one" or asks who the caller is.
 func TestConnectWaitsOnTheFlowNotTheConnectionList(t *testing.T) {
 	r := runFlowConnect(t, []string{flowResp("PENDING", "", ""), flowResp("PENDING", "", ""), flowResp("CONNECTED", "c9", "")},
-		connRows(connRow("c9", "gmail"), connRow("c1", "gmail")), "connection", "connect", "gmail", "--org", "org_1", "--json")
+		connRows(connRow("c9"), connRow("c1")), "connection", "connect", "gmail", "--org", "org_1", "--json")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -115,7 +113,7 @@ func TestConnectWaitsOnTheFlowNotTheConnectionList(t *testing.T) {
 // row predated the baseline), and a sibling flow's connection is not taken.
 func TestConnectReconnectResolvesToTheExistingConnection(t *testing.T) {
 	r := runFlowConnect(t, []string{flowResp("CONNECTED", "old", "")},
-		connRows(connRow("old", "gmail"), connRow("other-flow", "gmail")), "connection", "connect", "gmail", "--org", "org_1", "--json")
+		connRows(connRow("old"), connRow("other-flow")), "connection", "connect", "gmail", "--org", "org_1", "--json")
 	if r.err != nil || !strings.Contains(r.out, `"id": "old"`) {
 		t.Fatalf("err %v out %q", r.err, r.out)
 	}
@@ -270,5 +268,25 @@ func TestConnectHelpNoLongerStatesTheConcurrentFlowLimit(t *testing.T) {
 	}
 	if !strings.Contains(h, "flow") {
 		t.Errorf("help does not mention the flow id")
+	}
+}
+
+// A timeout still hands over the record: the flow may yet finish, and its flowId
+// is how a --json caller (or a person) follows it. The start notice names it too.
+func TestConnectTimeoutPrintsTheRecordWithTheFlowIDBeforeTheError(t *testing.T) {
+	r := runFlowConnect(t, []string{flowResp("PENDING", "", "")}, connRows(), "connection", "connect", "gmail", "--org", "org_1", "--wait", "10s", "--json")
+	if r.code != exitcode.WaitTimeout {
+		t.Fatalf("exit %d (%v)", r.code, r.err)
+	}
+	var dto struct {
+		FlowID string `json:"flowId"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(r.out[:strings.Index(r.out, "}\n")+1]), &dto); err != nil || dto.FlowID != "flow_1" || dto.Status != "pending" {
+		t.Fatalf("dto %+v err %v out %q", dto, err, r.out)
+	}
+	h := runFlowConnect(t, []string{flowResp("PENDING", "", "")}, connRows(), "connection", "connect", "gmail", "--org", "org_1", "--wait", "10s")
+	if !strings.Contains(h.errOut, "flow flow_1") {
+		t.Fatalf("start notice lacks the flow id: %q", h.errOut)
 	}
 }
