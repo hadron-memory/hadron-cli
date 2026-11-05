@@ -80119,6 +80119,41 @@ func (v *SubscribeTickerSubscribeWorkerSubscribeResultSubscriptionTickerSubscrip
 	return &retval, nil
 }
 
+// SyncMemoryResponse is returned by SyncMemory on success.
+type SyncMemoryResponse struct {
+	// Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
+	//
+	// Accepts the entity's ID or URN.
+	SyncMemory *SyncMemorySyncMemory `json:"syncMemory"`
+}
+
+// GetSyncMemory returns SyncMemoryResponse.SyncMemory, and is useful for accessing the field via an interface.
+func (v *SyncMemoryResponse) GetSyncMemory() *SyncMemorySyncMemory { return v.SyncMemory }
+
+// SyncMemorySyncMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type SyncMemorySyncMemory struct {
+	SyncStatus   SyncStatus `json:"syncStatus"`
+	SyncError    *string    `json:"syncError"`
+	LastSyncedAt *string    `json:"lastSyncedAt"`
+	// Version 1 JSON outcome of the last sync: partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
+	LastSyncReport *string `json:"lastSyncReport"`
+}
+
+// GetSyncStatus returns SyncMemorySyncMemory.SyncStatus, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetSyncStatus() SyncStatus { return v.SyncStatus }
+
+// GetSyncError returns SyncMemorySyncMemory.SyncError, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetSyncError() *string { return v.SyncError }
+
+// GetLastSyncedAt returns SyncMemorySyncMemory.LastSyncedAt, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetLastSyncedAt() *string { return v.LastSyncedAt }
+
+// GetLastSyncReport returns SyncMemorySyncMemory.LastSyncReport, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetLastSyncReport() *string { return v.LastSyncReport }
+
 type SyncStatus string
 
 const (
@@ -107415,6 +107450,14 @@ func (v *__SubscribeTickerInput) GetTickerRef() string { return v.TickerRef }
 
 // GetWorkerRef returns __SubscribeTickerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__SubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __SyncMemoryInput is used internally by genqlient
+type __SyncMemoryInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __SyncMemoryInput.Id, and is useful for accessing the field via an interface.
+func (v *__SyncMemoryInput) GetId() string { return v.Id }
 
 // __TeamActionRegisterIndexInput is used internally by genqlient
 type __TeamActionRegisterIndexInput struct {
@@ -139355,6 +139398,44 @@ func SubscribeTicker(
 	}
 
 	data_ = &SubscribeTickerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SyncMemory.
+const SyncMemory_Operation = `
+mutation SyncMemory ($id: ID!) {
+	syncMemory(id: $id) {
+		syncStatus
+		syncError
+		lastSyncedAt
+		lastSyncReport
+	}
+}
+`
+
+// cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
+func SyncMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *SyncMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SyncMemory",
+		Query:  SyncMemory_Operation,
+		Variables: &__SyncMemoryInput{
+			Id: id,
+		},
+	}
+
+	data_ = &SyncMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
