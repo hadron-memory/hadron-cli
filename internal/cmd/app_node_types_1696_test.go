@@ -32,7 +32,7 @@ func TestAppNodeTypes1696Parity(t *testing.T) {
 				op, response, args := "AppNodesPage", `{"data":{"appNodesPage":{"items":[],"total":0,"hasMore":false}}}`, []string{"app", "nodes", "acme.com:team"}
 				if door == "node" {
 					op = "FindNodes"
-					response = `{"data":{"findNodes":[]}}`
+					response = nodeLsChildrenEmpty
 					args = []string{"node", "list"}
 				}
 				if tc.code != "" {

@@ -677,7 +677,7 @@ Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 
-[Filters] 74: 66 flag, 4 gap, 4 excluded
+[Filters] 74: 67 flag, 3 gap, 4 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -685,18 +685,18 @@ Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
 Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
-Query.appNodesPage(filter.approvalState)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.approvalState)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
-Query.appNodesPage(filter.contentScope)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.contentScope)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.createdBy)  flag app nodes --created-by
 Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
 Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
 Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
 Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
 Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
-Query.appNodesPage(filter.minted)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.minted)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.nodeType)  flag app nodes --type
-Query.appNodesPage(filter.nodeTypes)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.nodeTypes)  flag app nodes --types
 Query.appNodesPage(filter.objectType)  flag app nodes --object-type
 Query.appNodesPage(filter.role)  flag app nodes --role
 Query.appNodesPage(filter.tags)  flag app nodes --tag
