@@ -37,7 +37,7 @@ func newCmdNodes(f *cmdutil.Factory) *cobra.Command {
 	var memory, childrenOf, where string
 	var memoryClasses []string
 	var prefix, nodeType, objectType, createdBy, role, updatedAfter, updatedBefore string
-	var tags []string
+	var tags, nodeTypes []string
 	var runnable, includeDeleted bool
 	cmd := &cobra.Command{
 		Use:   "nodes <app-ref> [--limit N] [--offset N]",
@@ -60,13 +60,17 @@ and whether more rows exist, with the next offset when needed. --json prints
 while hasMore is true if access changed during the read; use the suggested
 page offset rather than counting displayed rows.
 
-Filters combine: --prefix, --type, --object-type, repeated --tag, --runnable
+Filters combine: --prefix, --type, --types, --object-type, repeated --tag, --runnable
 (or --runnable=false), --created-by, --role, --updated-after/--updated-before
 (RFC 3339, e.g. 2026-10-01T00:00:00Z), and --include-deleted. The App chooses
 the memories: --memory/-m and --memory-class are local usage errors (exit 2);
 use node list for a memory-scoped read instead. --children-of and --where
 are also unsupported here: use app memories to choose a memory, then node list
 -m <memory> with the narrowing flag. No request is sent for these flags.
+--types accepts a union (repeatable or comma-separated, with CSV quoting),
+matching node list --types. Parsed values keep case, spaces, order and duplicates.
+The server validates empty lists, --type conflicts, comment and the 20-entry cap;
+these refusals are exit 2. Unset sends no nodeTypes key; --types "" sends [].
 Deleted nodes still require the server's recovery permission. A missing or unreadable App keeps the
 server's not-found response (exit 4); a permission refusal is exit 8.`,
 		Example: `  hadron app nodes hrn:app:acme.com:team
@@ -127,6 +131,10 @@ server's not-found response (exit 4); a permission refusal is exit 8.`,
 					}
 				}
 				*v.dst = &value
+				set = true
+			}
+			if cmd.Flags().Changed("types") {
+				filter.NodeTypes = &nodeTypes
 				set = true
 			}
 			if cmd.Flags().Changed("tag") {
@@ -197,6 +205,7 @@ server's not-found response (exit 4); a permission refusal is exit 8.`,
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (negative means 0)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "only nodes whose loc starts with this text")
 	cmd.Flags().StringVar(&nodeType, "type", "", "only this node type")
+	cmd.Flags().StringSliceVar(&nodeTypes, "types", nil, "filter by a union of node types (repeatable or comma-separated CSV; server validates)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "only this record collection (e.g. competitor)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "only nodes with these tags (repeatable)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "only runnable nodes, or --runnable=false for explicitly non-runnable nodes")
