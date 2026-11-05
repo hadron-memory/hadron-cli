@@ -202,7 +202,6 @@ func TestMemorySyncPull60PreflightFailures(t *testing.T) {
 		name, body string
 		want       int
 	}{
-		{"missing", `{"data":{"memory":null}}`, 4},
 		{"denied", `{"errors":[{"message":"not allowed https://user:PRECHECK_SECRET@host/repo","extensions":{"code":"FORBIDDEN"}}]}`, 8},
 		{"internal", `{"errors":[{"message":"hidden","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-preflight-60"}}]}`, 1},
 	} {
@@ -265,5 +264,40 @@ func TestMemorySyncPull60PreflightUnavailable(t *testing.T) {
 	err := root.Execute()
 	if exitCodeFor(err) != 7 || requests.Load() != 1 || !strings.Contains(err.Error(), "no sync mutation was sent") || strings.Contains(err.Error(), "may have happened") {
 		t.Fatalf("err=%v requests=%d", err, requests.Load())
+	}
+}
+
+// Gate6671180247: null does not establish absence, source or authority.
+// These are wire-shape simulations, not real principal/provider ACL probes.
+func TestMemorySyncPull60NullPreflightDelegates(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		want           int
+	}{
+		{"unreadable-refusal", `{"errors":[{"message":"server-owned refusal","extensions":{"code":"FORBIDDEN"}}]}`, 8},
+		{"contributor-success", `{"data":{"syncMemory":` + syncMemoryJSON(t, nil, sp(syncedAt), nil, nil, "OK") + `}}`, 0},
+		{"server-missing", `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}]}`, 4},
+		{"encrypted", `{"errors":[{"message":"encrypted refusal","extensions":{"code":"ENCRYPTED_GIT_SYNC_UNAVAILABLE"}}]}`, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, calls := captureSyncPull60(t, map[string]string{"MemorySyncPrerequisites": `{"data":{"memory":null}}`, "SyncMemory": tc.response})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if got := renderError(f, err); got != tc.want || len(calls) != 2 || calls["SyncMemory"] == nil {
+				t.Fatalf("exit=%d want=%d err=%v calls=%v", got, tc.want, err, calls)
+			}
+			var vars map[string]any
+			if e := json.Unmarshal(calls["SyncMemory"], &vars); e != nil {
+				t.Fatal(e)
+			}
+			if len(vars) != 1 || vars["id"] != "hrn:mem:acme.com:kb" {
+				t.Fatal(vars)
+			}
+			if tc.name == "unreadable-refusal" && (!strings.Contains(out.String(), "server-owned refusal") || !strings.Contains(out.String(), "FORBIDDEN")) {
+				t.Fatal(out)
+			}
+		})
 	}
 }
