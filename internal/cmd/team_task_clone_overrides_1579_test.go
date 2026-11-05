@@ -21,14 +21,14 @@ func TestTaskCloneOverrideWires1579(t *testing.T) {
 		want string
 	}{
 		"tags":             {[]string{"--tag", "a", "--tag", "b"}, "tags", `["a","b"]`},
-		"refs":             {[]string{"--ref", "ISSUE=https://x/1|one", "--ref", "PR=https://x/2"}, "references", ""},
+		"refs":             {[]string{"--ref", "issue=https://x/1|one", "--ref", "pull-request=https://x/2"}, "references", ""},
 		"properties":       {[]string{"--properties", `{"k":1}`}, "properties", `{"k":1}`},
 		"require-role":     {[]string{"--require-role", "qa"}, "requirements", `{"role":"qa"}`},
 		"min-tier":         {[]string{"--min-tier", "mid"}, "requirements", `{"minTier":"mid"}`},
 		"family-in":        {[]string{"--family-in", "claude,codex"}, "requirements", `{"familyIn":["claude","codex"]}`},
 		"family-not-in":    {[]string{"--family-not-in", "glm"}, "requirements", `{"familyNotIn":["glm"]}`},
 		"exclude-worker":   {[]string{"--exclude-worker", "Iris"}, "requirements", `{"excludeWorkers":["Iris"]}`},
-		"owner worker":     {[]string{"--owner", "worker:Iris"}, "owner", `{"worker":"Iris"}`},
+		"owner worker":     {[]string{"--owner", "worker:Iris"}, "owner", `{"user":null,"worker":"Iris"}`},
 		"project":          {[]string{"--project"}, "project", `true`},
 		"clear tags":       {[]string{"--clear-tags"}, "tags", `[]`},
 		"clear refs":       {[]string{"--clear-refs"}, "references", `[]`},
@@ -45,7 +45,7 @@ func TestTaskCloneOverrideWires1579(t *testing.T) {
 				if string(got) != tc.want {
 					t.Fatalf("%s = %s, want %s", tc.key, got, tc.want)
 				}
-			} else if !strings.Contains(string(got), `"kind":"ISSUE"`) || !strings.Contains(string(got), `"label":"one"`) || !strings.Contains(string(got), `"kind":"PR"`) {
+			} else if !strings.Contains(string(got), `"kind":"ISSUE"`) || !strings.Contains(string(got), `"label":"one"`) || !strings.Contains(string(got), `"kind":"PULL_REQUEST"`) {
 				t.Fatalf("references = %s", got)
 			}
 			if len(input) != 1 {
@@ -70,7 +70,7 @@ func TestTaskCloneOverrideKeysAbsentWhenOmitted1579(t *testing.T) {
 func TestTaskCloneOverrideRefusedBeforeAnyCall1579(t *testing.T) {
 	for name, args := range map[string][]string{
 		"tag and clear-tags":          {"--tag", "a", "--clear-tags"},
-		"ref and clear-refs":          {"--ref", "ISSUE=x", "--clear-refs"},
+		"ref and clear-refs":          {"--ref", "issue=x", "--clear-refs"},
 		"properties and clear":        {"--properties", `{}`, "--clear-properties"},
 		"requirement and clear":       {"--require-role", "qa", "--clear-requirements"},
 		"empty tag":                   {"--tag", ""},
