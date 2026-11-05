@@ -38,7 +38,8 @@ check: a pull overwrites edits made in Hadron since the last sync.
 
 Requires confirmation; --yes skips it and is required without a terminal.
 After confirmation, one read checks the repository configuration. A memory
-without a repository exits 2 without a sync mutation. Encrypted memories still
+shown readable, unencrypted and without a repository exits 2 without a sync
+mutation. A null read gives no local verdict and reaches the server. Encrypted memories still
 reach the server's typed refusal. Otherwise one sync mutation follows the read;
 no request is retried. The read's repository URL and encryption flag are never
 printed. The configuration can change between the read and mutation; the

@@ -9,10 +9,12 @@ and C are not part of this change.
 cmdutil.Confirm BEFORE making any request, including a lookup. syncMemory
 accepts an ID or URN. Per corrective rulings6670029964/6670195918, confirmation
 is followed by one narrow memory read (source + isEncrypted, internal only),
-then at most one mutation. No source on an unencrypted row exits2 with no
+then at most one mutation. No source on a readable unencrypted row exits2 with no
 mutation. Encrypted rows always reach the server, irrespective of source, so
 the writer gate and R206 typed refusal are not replicated client-side. Both
-fields are discarded without output/logging/persistence. No pre-confirm read.
+fields are discarded without output/logging/persistence. A null read cannot
+establish absence or authority and delegates to SyncMemory (6671180247);
+preflight transport/errors still refuse without mutation. No pre-confirm read.
 The prompt names this canonical reference (not a fetched display name). --yes
 bypasses the prompt; no automatic retry or fallback is offered.
 
@@ -70,3 +72,15 @@ The shared 30s per-request timeout remains; slow synchronous syncs can return
 exit7 with may-have-happened. Real duration evidence and timeout policy are
 outside this fix. Owner Jane revisits on a sync timeout contract change or
 observed real-provider duration evidence; no standalone optional head move.
+
+## BLIND null-preflight correction
+
+Gate6671180247 sustains the access mismatch finding: null memory(ref) is not
+an authoritative absence/no-source result. Red cc6e1311 pins four mutation
+outcomes after null (FORBIDDEN8, success0, NOT_FOUND4, encrypted2), all failed
+on prior c770 due to premature local4/no mutation. Fix bb325b90 delegates;
+its test harness success path also avoids calling renderError on nil.
+The principal labels in the fake are scenario names, not real ACL probes.
+P2-1 codegen concern is answered by clean byte-identical make generate.
+Raw BLIND CR is retained, no repeat judge requested. Required help wording
+is narrowed to readable records; optional P3 polish remains deferred.

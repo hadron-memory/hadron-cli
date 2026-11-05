@@ -5675,8 +5675,9 @@ are refused by the server. Without `--yes`, a terminal asks for confirmation
 and a script exits 2 before any request. Only pull is offered.
 
 After confirmation, one narrow read checks source presence and encryption;
-neither value is printed or persisted. Non-encrypted with no source exits 2
-without a mutation. Encrypted always reaches SyncMemory, even with no source,
+neither value is printed or persisted. A readable non-encrypted row with no
+source exits 2 without a mutation. A null read gives no local verdict and
+delegates to SyncMemory; the server supplies success or refusal. Encrypted always reaches SyncMemory, even with no source,
 so the server's writer gate and typed refusal remain authoritative. Otherwise
 one SyncMemory follows. Configuration can change between read and mutation;
 this is not a concurrency-proof execution receipt. Requests are never retried.
