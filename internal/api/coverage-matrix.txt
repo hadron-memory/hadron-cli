@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 207: 161 command, 27 gap, 19 excluded
+[Query] 207: 162 command, 25 gap, 20 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -55,8 +55,8 @@ appKeys  command app key list
 appKeysPage  gap #1547
 appMemoryScope  command app memories
 appMemoryWriteGrants  command app memory-grant list
-appNodes  gap #63
-appNodesPage  gap #63
+appNodes  excluded not-a-capability: appNodesPage returns the same rows under the same admission, filters and refusals, paged (SDL); cor:api:120:04; equivalent-form precedent cor:api:240:02, class unruled under #1334 (ruling0061)
+appNodesPage  command app nodes
 appRun  command run get
 appRuns  command run list
 appTickerSettings  command ticker apply-templates
@@ -677,7 +677,7 @@ Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 
-[Filters] 56: 54 flag, 2 gap
+[Filters] 74: 65 flag, 5 gap, 4 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -685,7 +685,25 @@ Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
 Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
-Query.apps(filter.agentId)  gap #63
+Query.appNodesPage(filter.approvalState)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.contentScope)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.createdBy)  flag app nodes --created-by
+Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
+Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
+Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
+Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.minted)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.nodeType)  flag app nodes --type
+Query.appNodesPage(filter.nodeTypes)  gap #63: outside cli#1626 existing-node-list filter slice
+Query.appNodesPage(filter.objectType)  flag app nodes --object-type
+Query.appNodesPage(filter.role)  flag app nodes --role
+Query.appNodesPage(filter.tags)  flag app nodes --tag
+Query.appNodesPage(filter.updatedAfter)  flag app nodes --updated-after
+Query.appNodesPage(filter.updatedBefore)  flag app nodes --updated-before
+Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; proposed class unruled under #1334 (ruling0061)
+Query.apps(filter.agentId)  flag app list --agent
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted
 Query.assets(filter.memoryRefs)  flag asset list --memory

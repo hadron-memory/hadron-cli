@@ -2,9 +2,10 @@
 # limit capped at 200 server-side; `app ls` pages to exhaustion.
 # orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
 # org-less by definition, so it must be omittable here — `app list` still
-# requires one of --org / --owned-by-me, but that is the command's rule, not
+# requires --org, --owned-by-me or --agent, but that is the command's rule, not
 # the operation's.
 # @genqlient(for: "AppFilter.ownedByMe", omitempty: true)
+# @genqlient(for: "AppFilter.agentId", omitempty: true)
 query Apps(
   # @genqlient(omitempty: true)
   $orgId: ID
@@ -445,4 +446,45 @@ query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: 
 
 mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
   revokeAppKey(id: $id, instruction: $instruction)
+}
+
+# cli#1626: one deliberate page over the App's authoritative node scope.
+# Repeat FindNodes' per-field omission directives on every shared-input operation;
+# otherwise code generation can serialize unset selectors as null.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
+# @genqlient(for: "NodeFilter.contentScope", omitempty: true)
+query AppNodesPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  $limit: Int!
+  $offset: Int!
+) {
+  appNodesPage(appRef: $appRef, filter: $filter, limit: $limit, offset: $offset) {
+    items {
+      id
+      memoryId
+      loc
+      name
+      nodeType
+    }
+    total
+    hasMore
+  }
 }
