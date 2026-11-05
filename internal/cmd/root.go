@@ -519,7 +519,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
 				if value, ok := details[key]; ok && (key != "threadId" || !hasThreadWrapper || !strings.Contains(message, fmt.Sprint(value))) {
-					message += fmt.Sprintf(" (%s: %v)", key, value)
+					// The detail comes from the server: control, format and
+					// separator characters cannot reach the terminal or forge a line.
+					message += fmt.Sprintf(" (%s: %s)", key, output.SafeLine(fmt.Sprint(value), 256))
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)

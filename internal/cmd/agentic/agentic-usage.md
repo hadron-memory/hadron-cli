@@ -3854,7 +3854,9 @@ resolved in the instant between the two calls the reply is recorded and the
 thread stays resolved: `add` guarantees the feedback is on the node, not that it
 is listed as unresolved. A conflict whose `threadId` contains control, format or
 separator characters (or is over 256 runes) is not a usable thread: the original
-refusal is returned and no reply is sent. A success body with no usable id (for
+refusal is returned and no reply is sent; the human refusal line renders any
+`currentRevision`/`threadId`/`class` detail with such characters replaced by spaces
+(`--json` keeps the original value, JSON-escaped). A success body with no usable id (for
 example `{}`) is not a recorded outcome: `add` exits 7 (outcome unknown, read
 before retrying) and prints nothing; after a conflict the message names the
 thread. `comment create` is unchanged and no longer has an `add` alias.
