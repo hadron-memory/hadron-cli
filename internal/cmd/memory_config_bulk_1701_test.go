@@ -132,3 +132,120 @@ func TestBulkTemplate1701File(t *testing.T) {
 		t.Fatalf("exit=%d calls=%v %s", code, calls(), out)
 	}
 }
+
+func TestBulkTemplate1701Refusals(t *testing.T) {
+	for _, tc := range []struct {
+		code string
+		want int
+	}{{"UNAUTHENTICATED", 3}, {"FORBIDDEN", 8}, {"BAD_USER_INPUT", 2}, {"BULK_TARGETS_TOO_MANY", 2}, {"MEMORY_CONFIG_TEMPLATE_NOT_FOUND", 4}, {"CONFLICT", 5}} {
+		t.Run(tc.code, func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+				return fmt.Sprintf(`{"errors":[{"message":"refused max 50 count 51","extensions":{"code":%q,"max":50,"count":51}}]}`, tc.code)
+			})
+			args := []string{"memory", "config", "template", "apply", "t1"}
+			for i := 0; i < 51; i++ {
+				args = append(args, fmt.Sprintf("m%d", i))
+			}
+			args = append(args, "--json")
+			out, code := runConfig(t, s.URL, args...)
+			if code != tc.want || len(calls()) != 1 || len(calls()[0].Refs) != 51 {
+				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
+			}
+			if tc.code == "BULK_TARGETS_TOO_MANY" && (!strings.Contains(out, "50") || !strings.Contains(out, "51")) {
+				t.Fatal(out)
+			}
+		})
+	}
+}
+func TestBulkTemplate1701StdinAndTTY(t *testing.T) {
+	t.Run("stdin once", func(t *testing.T) {
+		s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
+		f, out := testFactory(t)
+		f.IOStreams.In = strings.NewReader("# comment\nm2\nm3\n")
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "config", "template", "apply", "t1", "m1", "--memories-file", "-", "--server", s.URL, "--dry-run", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if len(calls()) != 1 || strings.Join(calls()[0].Refs, ",") != "m1,m2,m3" {
+			t.Fatalf("calls=%v %s", calls(), out)
+		}
+	})
+	for _, answer := range []string{"y\n", "n\n"} {
+		t.Run("TTY"+answer, func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, true) })
+			f, _, errOut := testFactoryTTY(t, answer)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "config", "template", "apply", "t1", "m1", "m2", "--server", s.URL})
+			err := root.Execute()
+			want := 2
+			if answer == "n\n" {
+				want = 1
+				if exitCodeFor(err) != exitcode.Cancelled {
+					t.Fatal(err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if len(calls()) != want || strings.Count(errOut.String(), "(y/N)") != 1 || !strings.Contains(errOut.String(), "m1: spec") || !strings.Contains(errOut.String(), "m2: spec") {
+				t.Fatalf("calls=%v prompt=%s", calls(), errOut)
+			}
+		})
+	}
+}
+func TestBulkTemplate1701MixedReport(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		t.Run(fmt.Sprint(jsonMode), func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+				var p map[string]any
+				_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, false)), &p)
+				r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+				entries := r["results"].([]any)
+				codes := []string{"MEMORY_NOT_FOUND", "DUPLICATE_TARGET", "CONFLICT", "INTERNAL_SERVER_ERROR", "FUTURE_CODE"}
+				for i, code := range codes {
+					e := entries[i+1].(map[string]any)
+					e["ok"] = false
+					e["result"] = nil
+					er := map[string]any{"code": code, "message": "failed\u001b[31m"}
+					if code == "CONFLICT" {
+						er["currentRevision"] = 8
+					}
+					if code == "INTERNAL_SERVER_ERROR" {
+						er["requestId"] = "req-1"
+					}
+					e["error"] = er
+				}
+				r["succeeded"] = 1
+				r["failed"] = 5
+				b, _ := json.Marshal(p)
+				return string(b)
+			})
+			args := []string{"memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "m3", "m4", "m5", "m6"}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			out, code := runConfig(t, s.URL, args...)
+			if code != 1 || len(calls()) != 2 {
+				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
+			}
+			if jsonMode {
+				var r map[string]any
+				if err := json.Unmarshal([]byte(out), &r); err != nil {
+					t.Fatalf("report plus extra error? %v %s", err, out)
+				}
+				if !strings.Contains(out, `"memoryRef":"hrn:mem:acme.com:kb"`) {
+					t.Fatal(out)
+				}
+			} else {
+				for _, want := range []string{"[0] acme.com::kb", "1 succeeded, 5 failed", "currentRevision 8", "requestId req-1", "FUTURE_CODE"} {
+					if !strings.Contains(out, want) {
+						t.Fatalf("missing %q in %s", want, out)
+					}
+				}
+				if strings.Contains(out, "\x1b") {
+					t.Fatal("unsafe terminal bytes")
+				}
+			}
+		})
+	}
+}
