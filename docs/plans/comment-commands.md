@@ -153,3 +153,19 @@ server main f92be386 (#1727 merged). The earlier lifecycle receipt above remains
 historical; current deletion/history behavior requires independent QA at the
 new frozen head. COMMENT_DELETED replaces the removed hidden/retracted refusals
 and maps to Conflict (5); current counter and refusal tests verify no blind retry.
+
+## Reply uncertainty wording (#1703)
+
+`WithThreadID` classifies in one shared place: a bounded set of root-level
+pre-write refusals retain "failed". Unknown codes, mixed/nested failures,
+5xx envelopes, cancellation/timeout, missing results and transport faults say
+"outcome is unknown; read the thread before retrying". COMMENT_NOT_FOUND is
+ambiguous because the server can raise it while projecting an already committed
+reply. No request retry, access decision, schema change or new JSON field is
+introduced. Exit/server codes, threadId and error-chain metadata stay unchanged.
+Vera #80504 confirms cor:dmo:110:11 pins behavior, not this wording; no spec edit.
+The server's post-commit refusal defect is separately routed by Vera, not fixed
+here. Compiled fake transport pins text/JSON, exact call sequence and refusals;
+no real-server leg is required by this T1 gate. Red commits79c00ecf/3d7c0feb precede
+implementation; hosted CI supplies the full suite. Limits and exact-head review
+receipts belong to the PR, not a claim of arbitrary provider behavior.
