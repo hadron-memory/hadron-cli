@@ -47,6 +47,12 @@ func TestIsGraphQLValidationForReadsHTTPErrorEnvelope(t *testing.T) {
 	}
 }
 
+func TestMapBulkTemplateCap1701(t *testing.T) {
+	if got := exitcode.FromError(MapError(gqlErr("BULK_TARGETS_TOO_MANY"))); got != exitcode.Usage {
+		t.Fatalf("exit=%d", got)
+	}
+}
+
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1070,6 +1076,25 @@ func TestIsGraphQLValidationOnlyFor(t *testing.T) {
 			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
 			if got := IsGraphQLValidationOnlyFor(err, "a", "b"); got != tc.want {
 				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBulkTemplateRefusalRoot1701(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"root", gqlErr("FORBIDDEN"), true},
+		{"gateway refusal envelope", &graphql.HTTPError{StatusCode: 502, Response: graphql.Response{Errors: gqlerror.List{{Message: "forbidden", Extensions: map[string]any{"code": "FORBIDDEN"}}}}}, false},
+		{"nested", gqlerror.List{{Message: "forbidden", Path: ast.Path{ast.PathName("applyMemoryConfigTemplateToMemories"), ast.PathName("results")}, Extensions: map[string]any{"code": "FORBIDDEN"}}}, false},
+		{"mixed", gqlerror.List{{Message: "forbidden", Extensions: map[string]any{"code": "FORBIDDEN"}}, {Message: "fault", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := BulkTemplateApplyRefusedBeforeWrite(tc.err); got != tc.want {
+				t.Fatalf("got%v want%v", got, tc.want)
 			}
 		})
 	}

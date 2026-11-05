@@ -1079,7 +1079,8 @@ func codeForExtension(code string) int {
 	// #1669: invalid App action code/current slug is caller-correctable input.
 	case code == "APP_ACTION_CODE_INVALID":
 		return exitcode.Usage
-	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
+	// Bulk template target cap is caller-correctable input, never truncation (#1701).
+	case code == "BULK_TARGETS_TOO_MANY" || code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
@@ -1651,4 +1652,30 @@ func ExtensionInt(err error, key string) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// BulkTemplateApplyRefusedBeforeWrite recognizes only documented root-call
+// refusals. A nested projection error can happen after per-target commits.
+func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
+	if FromNon200Envelope(err) {
+		return false
+	}
+	if IsSchemaSkew(err) {
+		return true
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 1 {
+			return false
+		}
+		switch extensionCode(e) {
+		case "UNAUTHENTICATED", "FORBIDDEN", "BAD_USER_INPUT", "BULK_TARGETS_TOO_MANY", "MEMORY_CONFIG_TEMPLATE_NOT_FOUND", "CONFLICT":
+		default:
+			return false
+		}
+	}
+	return true
 }
