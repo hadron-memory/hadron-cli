@@ -1704,7 +1704,9 @@ type App {
   omitted here and appears in `appAgents` with `agent: null`. Only the
   installed Agents this caller may read: the list may be PARTIAL, an unreadable
   Agent is left out, and its length is not the install count (use `appAgents`,
-  one entry per install).
+  one entry per install). Order matches the readable non-null entries of
+  `appAgents`: served installation creation time, then Agent id. When any
+  installed Agent is withheld, every entry shares the App date, so order is by id.
   """
   agents: [Agent!]!
   aiModel: String
@@ -1712,8 +1714,9 @@ type App {
   anonymousTtlDays: Int!
 
   """
-  023-app-shape US1: Agents installed in this App, via the AppAgent
-  N:M join. Multiple Agents can be installed; one App credential
+  Agents installed in this App, by a physical row or derived from a direct
+  import of a physically installed Agent (#2168). Derived installations do not
+  write an AppAgent row. One App credential
   routes to all of them via the URN supplied in the request.
   """
   appAgents: [AppAgent!]!
@@ -1883,8 +1886,34 @@ type AppAgent {
   or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
   """
   bootPromptTargetDeleted: Boolean
+
+  """
+  When every installed Agent is readable: physical row creation time, or the computed earliest install/import witness time for a derived entry. Otherwise every entry shares the App creation time. The newly created install mutation payload retains its real row time. App.appAgents sorts by the served time, then Agent id.
+  """
   createdAt: DateTime!
+
+  """
+  Row audit fields are visible only when the caller may read EVERY installed Agent in this App.
+  Otherwise all three are null on EVERY entry, including physical rows. A derived entry has no
+  row audit identity, so these stay null even under the whole-App gate; importer identities are never copied.
+  """
   createdBy: String
+
+  """
+  #3435 — the installed Agent this DERIVED install derives from: the importer that gives its createdAt. Null for a ROW
+  entry and whenever installMethod is null (same whole-App read gate), so a DERIVED entry always has a readable importer.
+  """
+  importer: Agent
+
+  """
+  #3435 (hrn:node:hadronmemory.com:specs:cor:dmo:050:03, :050:06, :050:11) — how this App installs the Agent: ROW (an
+  AppAgent row) or DERIVED (a direct import of an Agent installed here, no row). Answered only on App.appAgents, and
+  only when the caller may read EVERY Agent installed in the App, row installs and derived ones alike. Otherwise it is
+  null on EVERY entry, ROW ones included: a per-entry answer would show, by elimination, which installs derive from an
+  Agent the caller cannot read (that the App runs one, and never which). Null is therefore not proof of anything, and
+  also what an AppAgent reached through another field returns. createdAt (below) follows the same gate.
+  """
+  installMethod: InstallMethod
   updatedAt: DateTime
   updatedBy: String
 }
@@ -5915,6 +5944,14 @@ AppAgent row so callers can read its audit fields without re-querying.
 """
 type InstallAgentIntoAppPayload {
   appAgent: AppAgent!
+}
+
+"""
+#3435 — how an App installs an Agent: by an AppAgent row, or derived from a direct import of an installed Agent.
+"""
+enum InstallMethod {
+  DERIVED
+  ROW
 }
 
 """

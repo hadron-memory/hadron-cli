@@ -243,7 +243,7 @@ func TestTeamMetadataCopyQuoting1112(t *testing.T) {
 // Follow the new warning's remedy on the CLI surface that owns installed metadata.
 func TestTeamMetadataPersonaRoleRemedy1112(t *testing.T) {
 	const role = "role\noriginal"
-	responses := map[string]string{"AppAgentRoster": replaceMetadataLeaf1112(t, engTeamRosterJSON, "data/app/agents/1/personaRole", role)}
+	responses := map[string]string{"AppAgentInstallationRoster": replaceMetadataLeaf1112(t, engTeamRosterJSON, "data/app/agents/1/personaRole", role)}
 	_, raw, err := runTeamTask(t, responses, "app", "agent", "list", "hrn:app:acme.com:eng-team", "--json")
 	if err != nil {
 		t.Fatal(err)

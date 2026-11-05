@@ -14469,6 +14469,184 @@ func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
 	return v.AmendDecision
 }
 
+// AppAgentInstallationRosterApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppAgentInstallationRosterApp struct {
+	AppAgentRosterData `json:"-"`
+	// Agents installed in this App, by a physical row or derived from a direct
+	// import of a physically installed Agent (#2168). Derived installations do not
+	// write an AppAgent row. One App credential
+	// routes to all of them via the URN supplied in the request.
+	AppAgents []*AppAgentInstallationRosterAppAppAgentsAppAgent `json:"appAgents"`
+}
+
+// GetAppAgents returns AppAgentInstallationRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetAppAgents() []*AppAgentInstallationRosterAppAppAgentsAppAgent {
+	return v.AppAgents
+}
+
+// GetId returns AppAgentInstallationRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetId() string { return v.AppAgentRosterData.Id }
+
+// GetUrn returns AppAgentInstallationRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetUrn() string { return v.AppAgentRosterData.Urn }
+
+// GetName returns AppAgentInstallationRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetName() string { return v.AppAgentRosterData.Name }
+
+// GetAgents returns AppAgentInstallationRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetAgents() []*AppAgentRosterDataAgentsAgent {
+	return v.AppAgentRosterData.Agents
+}
+
+func (v *AppAgentInstallationRosterApp) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppAgentInstallationRosterApp
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppAgentInstallationRosterApp = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppAgentRosterData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppAgentInstallationRosterApp struct {
+	AppAgents []*AppAgentInstallationRosterAppAppAgentsAppAgent `json:"appAgents"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+}
+
+func (v *AppAgentInstallationRosterApp) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppAgentInstallationRosterApp) __premarshalJSON() (*__premarshalAppAgentInstallationRosterApp, error) {
+	var retval __premarshalAppAgentInstallationRosterApp
+
+	retval.AppAgents = v.AppAgents
+	retval.Id = v.AppAgentRosterData.Id
+	retval.Urn = v.AppAgentRosterData.Urn
+	retval.Name = v.AppAgentRosterData.Name
+	retval.Agents = v.AppAgentRosterData.Agents
+	return &retval, nil
+}
+
+// AppAgentInstallationRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type AppAgentInstallationRosterAppAppAgentsAppAgent struct {
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *AppAgentInstallationRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	// #3435 (hrn:node:hadronmemory.com:specs:cor:dmo:050:03, :050:06, :050:11) — how this App installs the Agent: ROW (an
+	// AppAgent row) or DERIVED (a direct import of an Agent installed here, no row). Answered only on App.appAgents, and
+	// only when the caller may read EVERY Agent installed in the App, row installs and derived ones alike. Otherwise it is
+	// null on EVERY entry, ROW ones included: a per-entry answer would show, by elimination, which installs derive from an
+	// Agent the caller cannot read (that the App runs one, and never which). Null is therefore not proof of anything, and
+	// also what an AppAgent reached through another field returns. createdAt (below) follows the same gate.
+	InstallMethod *InstallMethod `json:"installMethod"`
+	// #3435 — the installed Agent this DERIVED install derives from: the importer that gives its createdAt. Null for a ROW
+	// entry and whenever installMethod is null (same whole-App read gate), so a DERIVED entry always has a readable importer.
+	Importer *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent `json:"importer"`
+}
+
+// GetAgent returns AppAgentInstallationRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetAgent() *AppAgentInstallationRosterAppAppAgentsAppAgentAgent {
+	return v.Agent
+}
+
+// GetInstallMethod returns AppAgentInstallationRosterAppAppAgentsAppAgent.InstallMethod, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetInstallMethod() *InstallMethod {
+	return v.InstallMethod
+}
+
+// GetImporter returns AppAgentInstallationRosterAppAppAgentsAppAgent.Importer, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetImporter() *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent {
+	return v.Importer
+}
+
+// AppAgentInstallationRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentInstallationRosterAppAppAgentsAppAgentAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AppAgentInstallationRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
+
+// AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetId() string { return v.Id }
+
+// GetUrn returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetUrn() string { return v.Urn }
+
+// GetName returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetName() string { return v.Name }
+
+// AppAgentInstallationRosterResponse is returned by AppAgentInstallationRoster on success.
+type AppAgentInstallationRosterResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppAgentInstallationRosterApp `json:"app"`
+}
+
+// GetApp returns AppAgentInstallationRosterResponse.App, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterResponse) GetApp() *AppAgentInstallationRosterApp { return v.App }
+
 // AppAgentRosterApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -14478,6 +14656,93 @@ func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
 // The singular agentId / agent fields below are soft-deprecated convenience
 // reads of the first install, not a direct foreign key.
 type AppAgentRosterApp struct {
+	AppAgentRosterData `json:"-"`
+}
+
+// GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetId() string { return v.AppAgentRosterData.Id }
+
+// GetUrn returns AppAgentRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetUrn() string { return v.AppAgentRosterData.Urn }
+
+// GetName returns AppAgentRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetName() string { return v.AppAgentRosterData.Name }
+
+// GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterDataAgentsAgent {
+	return v.AppAgentRosterData.Agents
+}
+
+// GetAppAgents returns AppAgentRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAppAgents() []*AppAgentRosterDataAppAgentsAppAgent {
+	return v.AppAgentRosterData.AppAgents
+}
+
+func (v *AppAgentRosterApp) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppAgentRosterApp
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppAgentRosterApp = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppAgentRosterData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppAgentRosterApp struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+
+	AppAgents []*AppAgentRosterDataAppAgentsAppAgent `json:"appAgents"`
+}
+
+func (v *AppAgentRosterApp) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppAgentRosterApp) __premarshalJSON() (*__premarshalAppAgentRosterApp, error) {
+	var retval __premarshalAppAgentRosterApp
+
+	retval.Id = v.AppAgentRosterData.Id
+	retval.Urn = v.AppAgentRosterData.Urn
+	retval.Name = v.AppAgentRosterData.Name
+	retval.Agents = v.AppAgentRosterData.Agents
+	retval.AppAgents = v.AppAgentRosterData.AppAgents
+	return &retval, nil
+}
+
+// AppAgentRosterData includes the GraphQL fields of App requested by the fragment AppAgentRosterData.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppAgentRosterData struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
 	Name string `json:"name"`
@@ -14486,37 +14751,42 @@ type AppAgentRosterApp struct {
 	// omitted here and appears in `appAgents` with `agent: null`. Only the
 	// installed Agents this caller may read: the list may be PARTIAL, an unreadable
 	// Agent is left out, and its length is not the install count (use `appAgents`,
-	// one entry per install).
-	Agents []*AppAgentRosterAppAgentsAgent `json:"agents"`
-	// 023-app-shape US1: Agents installed in this App, via the AppAgent
-	// N:M join. Multiple Agents can be installed; one App credential
+	// one entry per install). Order matches the readable non-null entries of
+	// `appAgents`: served installation creation time, then Agent id. When any
+	// installed Agent is withheld, every entry shares the App date, so order is by id.
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+	// Agents installed in this App, by a physical row or derived from a direct
+	// import of a physically installed Agent (#2168). Derived installations do not
+	// write an AppAgent row. One App credential
 	// routes to all of them via the URN supplied in the request.
-	AppAgents []*AppAgentRosterAppAppAgentsAppAgent `json:"appAgents"`
+	AppAgents []*AppAgentRosterDataAppAgentsAppAgent `json:"appAgents"`
 }
 
-// GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetId() string { return v.Id }
+// GetId returns AppAgentRosterData.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetId() string { return v.Id }
 
-// GetUrn returns AppAgentRosterApp.Urn, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetUrn() string { return v.Urn }
+// GetUrn returns AppAgentRosterData.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetUrn() string { return v.Urn }
 
-// GetName returns AppAgentRosterApp.Name, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetName() string { return v.Name }
+// GetName returns AppAgentRosterData.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetName() string { return v.Name }
 
-// GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return v.Agents }
+// GetAgents returns AppAgentRosterData.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetAgents() []*AppAgentRosterDataAgentsAgent { return v.Agents }
 
-// GetAppAgents returns AppAgentRosterApp.AppAgents, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetAppAgents() []*AppAgentRosterAppAppAgentsAppAgent { return v.AppAgents }
+// GetAppAgents returns AppAgentRosterData.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetAppAgents() []*AppAgentRosterDataAppAgentsAppAgent {
+	return v.AppAgents
+}
 
-// AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
+// AppAgentRosterDataAgentsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
 // The reusable definition a Builder creates and the marketplace can list.
 // Agents are installed into runtime Apps through the AppAgent N:M join: an App
 // may install many Agents, and an Agent may be installed in many Apps. The App,
 // not the Agent, is the org- or user-owned caller identity and deployment.
-type AppAgentRosterAppAgentsAgent struct {
+type AppAgentRosterDataAgentsAgent struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
 	Name           string          `json:"name"`
@@ -14528,40 +14798,40 @@ type AppAgentRosterAppAgentsAgent struct {
 	CreatedAt   string  `json:"createdAt"`
 }
 
-// GetId returns AppAgentRosterAppAgentsAgent.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetId() string { return v.Id }
+// GetId returns AppAgentRosterDataAgentsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetId() string { return v.Id }
 
-// GetUrn returns AppAgentRosterAppAgentsAgent.Urn, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetUrn() string { return v.Urn }
+// GetUrn returns AppAgentRosterDataAgentsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetUrn() string { return v.Urn }
 
-// GetName returns AppAgentRosterAppAgentsAgent.Name, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetName() string { return v.Name }
+// GetName returns AppAgentRosterDataAgentsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetName() string { return v.Name }
 
-// GetDescription returns AppAgentRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetDescription() *string { return v.Description }
+// GetDescription returns AppAgentRosterDataAgentsAgent.Description, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetDescription() *string { return v.Description }
 
-// GetVisibility returns AppAgentRosterAppAgentsAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetVisibility() AgentVisibility { return v.Visibility }
+// GetVisibility returns AppAgentRosterDataAgentsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetVisibility() AgentVisibility { return v.Visibility }
 
-// GetOrganizationId returns AppAgentRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetOrganizationId() *string { return v.OrganizationId }
+// GetOrganizationId returns AppAgentRosterDataAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetOrganizationId() *string { return v.OrganizationId }
 
-// GetPersonaRole returns AppAgentRosterAppAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetPersonaRole() *string { return v.PersonaRole }
+// GetPersonaRole returns AppAgentRosterDataAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetPersonaRole() *string { return v.PersonaRole }
 
-// GetCreatedAt returns AppAgentRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns AppAgentRosterDataAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
 
-// AppAgentRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// AppAgentRosterDataAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
 // The GraphQL type's documentation follows.
 //
 // 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
 // collapsed it; per FR-003 it carries NO role column (system memory is
 // read-only to every App) and per FR-001 it carries NO trainingMode
 // column (training mode is per-App, on App.trainingMode).
-type AppAgentRosterAppAppAgentsAppAgent struct {
+type AppAgentRosterDataAppAgentsAppAgent struct {
 	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
-	Agent *AppAgentRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	Agent *AppAgentRosterDataAppAgentsAppAgentAgent `json:"agent"`
 	// #2045 — the canonical URN of the compiled boot prompt the install's pointer names now
 	// (a moved node shows its new URN; a hard-deleted one its URN at write time). Null when no pointer is set
 	// OR when the caller may not see it (the App's participants only): null is not proof that no pointer exists.
@@ -14571,32 +14841,32 @@ type AppAgentRosterAppAppAgentsAppAgent struct {
 	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
 }
 
-// GetAgent returns AppAgentRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetAgent() *AppAgentRosterAppAppAgentsAppAgentAgent {
+// GetAgent returns AppAgentRosterDataAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetAgent() *AppAgentRosterDataAppAgentsAppAgentAgent {
 	return v.Agent
 }
 
-// GetBootPromptRef returns AppAgentRosterAppAppAgentsAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptRef() *string { return v.BootPromptRef }
+// GetBootPromptRef returns AppAgentRosterDataAppAgentsAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetBootPromptRef() *string { return v.BootPromptRef }
 
-// GetBootPromptTargetDeleted returns AppAgentRosterAppAppAgentsAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptTargetDeleted() *bool {
+// GetBootPromptTargetDeleted returns AppAgentRosterDataAppAgentsAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetBootPromptTargetDeleted() *bool {
 	return v.BootPromptTargetDeleted
 }
 
-// AppAgentRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// AppAgentRosterDataAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
 // The reusable definition a Builder creates and the marketplace can list.
 // Agents are installed into runtime Apps through the AppAgent N:M join: an App
 // may install many Agents, and an Agent may be installed in many Apps. The App,
 // not the Agent, is the org- or user-owned caller identity and deployment.
-type AppAgentRosterAppAppAgentsAppAgentAgent struct {
+type AppAgentRosterDataAppAgentsAppAgentAgent struct {
 	Id string `json:"id"`
 }
 
-// GetId returns AppAgentRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
+// GetId returns AppAgentRosterDataAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgentAgent) GetId() string { return v.Id }
 
 // AppAgentRosterResponse is returned by AppAgentRoster on success.
 type AppAgentRosterResponse struct {
@@ -51011,6 +51281,7 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload) GetAp
 // read-only to every App) and per FR-001 it carries NO trainingMode
 // column (training mode is per-App, on App.trainingMode).
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent struct {
+	// When every installed Agent is readable: physical row creation time, or the computed earliest install/import witness time for a derived entry. Otherwise every entry shares the App creation time. The newly created install mutation payload retains its real row time. App.appAgents sorts by the served time, then Agent id.
 	CreatedAt string `json:"createdAt"`
 	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
 	Agent *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent `json:"agent"`
@@ -51176,6 +51447,19 @@ type InstallMemoryResponse struct {
 // GetInstallMemory returns InstallMemoryResponse.InstallMemory, and is useful for accessing the field via an interface.
 func (v *InstallMemoryResponse) GetInstallMemory() *InstallMemoryInstallMemory {
 	return v.InstallMemory
+}
+
+// #3435 — how an App installs an Agent: by an AppAgent row, or derived from a direct import of an installed Agent.
+type InstallMethod string
+
+const (
+	InstallMethodDerived InstallMethod = "DERIVED"
+	InstallMethodRow     InstallMethod = "ROW"
+)
+
+var AllInstallMethod = []InstallMethod{
+	InstallMethodDerived,
+	InstallMethodRow,
 }
 
 // #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — names an App's INSTALL MEMORY by the pair that
@@ -99806,6 +100090,14 @@ func (v *__AmendDecisionInput) GetExpectedRevision() int { return v.ExpectedRevi
 // GetReason returns __AmendDecisionInput.Reason, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetReason() string { return v.Reason }
 
+// __AppAgentInstallationRosterInput is used internally by genqlient
+type __AppAgentInstallationRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppAgentInstallationRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppAgentInstallationRosterInput) GetAppRef() string { return v.AppRef }
+
 // __AppAgentRosterInput is used internally by genqlient
 type __AppAgentRosterInput struct {
 	AppRef string `json:"appRef"`
@@ -113414,30 +113706,101 @@ func AmendDecision(
 	return data_, err_
 }
 
-// The query executed by AppAgentRoster.
-const AppAgentRoster_Operation = `
-query AppAgentRoster ($appRef: ID!) {
+// The query executed by AppAgentInstallationRoster.
+const AppAgentInstallationRoster_Operation = `
+query AppAgentInstallationRoster ($appRef: ID!) {
 	app(ref: $appRef) {
-		id
-		urn
-		name
-		agents {
-			id
-			urn
-			name
-			description
-			visibility
-			organizationId
-			personaRole
-			createdAt
-		}
+		... AppAgentRosterData
 		appAgents {
 			agent {
 				id
 			}
-			bootPromptRef
-			bootPromptTargetDeleted
+			installMethod
+			importer {
+				id
+				urn
+				name
+			}
 		}
+	}
+}
+fragment AppAgentRosterData on App {
+	id
+	urn
+	name
+	agents {
+		id
+		urn
+		name
+		description
+		visibility
+		organizationId
+		personaRole
+		createdAt
+	}
+	appAgents {
+		agent {
+			id
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
+	}
+}
+`
+
+// cli#1646: richer listing only; team role warnings keep the older operation.
+func AppAgentInstallationRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppAgentInstallationRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppAgentInstallationRoster",
+		Query:  AppAgentInstallationRoster_Operation,
+		Variables: &__AppAgentInstallationRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppAgentInstallationRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppAgentRoster.
+const AppAgentRoster_Operation = `
+query AppAgentRoster ($appRef: ID!) {
+	app(ref: $appRef) {
+		... AppAgentRosterData
+	}
+}
+fragment AppAgentRosterData on App {
+	id
+	urn
+	name
+	agents {
+		id
+		urn
+		name
+		description
+		visibility
+		organizationId
+		personaRole
+		createdAt
+	}
+	appAgents {
+		agent {
+			id
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
 	}
 }
 `

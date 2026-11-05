@@ -63,7 +63,17 @@ read whichever App you name (#383). This command is the filter.
 For a team App this is the INSTALL roster — the cast pool. The named staff
 (workers cast from these agents) is ` + "`hadron team worker list`" + ` (#428). The
 ROLE column is blank for an agent without persona dressing, which is the
-honest answer rather than an empty list.`,
+honest answer rather than an empty list.
+
+INSTALL shows installed for a row install or derived for a direct import of
+an installed Agent; IMPORTER names the Agent supplying a derived install.
+Only readable Agents are listed; the list and count may be partial. These
+fields are answered only when you can read every installed Agent.
+Otherwise every row has no install mark (? = not available); JSON installMethod and importer
+are explicitly null. Null does not establish how an Agent is installed.
+
+Requires a server with AppAgent.installMethod and AppAgent.importer (#3446).
+Older servers refuse the new fields; no installation method is inferred.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.MaximumNArgs(1),
@@ -89,7 +99,7 @@ honest answer rather than an empty list.`,
 			if err != nil {
 				return err
 			}
-			r, err := approster.Fetch(cmd.Context(), client, appRef)
+			r, err := approster.FetchInstallations(cmd.Context(), client, appRef)
 			if err != nil {
 				return err
 			}
