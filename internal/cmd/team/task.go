@@ -105,6 +105,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
 	cmd.AddCommand(newCmdTeamTaskClone(f))
 	cmd.AddCommand(newCmdTaskFindingDispositions(f))
+	cmd.AddCommand(newCmdTaskResultFindings(f))
 	cmd.AddCommand(newCmdTaskDisposeFinding(f))
 	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
 		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
@@ -921,7 +922,7 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 // ---- finish ---------------------------------------------------------------
 
 func newCmdTeamTaskFinish(f *cmdutil.Factory) *cobra.Command {
-	var outcome, summary, evidence string
+	var outcome, summary, evidence, findingsFile string
 	cmd := &cobra.Command{
 		Use:   "finish <taskId> --outcome <word>",
 		Short: "Finish a started task with its result",
@@ -939,10 +940,32 @@ and the children stay open. If the task was created with --close-session,
 finishing asks the assignee to end its worker session (see ` + "`task create --help`" + `);
 the command itself ends nothing.
 
+Opt in with --findings-file <path|-> to attach immutable findings. The file is
+one UTF-8 JSON array of {"id": "F1", "severity": "P2", "text": "..."}; omit
+all ids (or use null) for server F1/F2/... ids, or supply every id. Ids are
+unique case-sensitive ASCII letters/digits/_/-, 1–32 characters. Severity is
+exactly P1/P2/P3/note, a label that never changes the exit code or outcome.
+At most 100 findings, each text at most 2,000 Unicode code points, no trimming;
+empty text is allowed. Reject duplicate/unknown keys, NUL, invalid UTF-8 or
+unpaired surrogate escapes, null/non-array roots and trailing JSON. File input is capped at
+4 MiB; - reads piped stdin once (interactive stdin refuses). Local refusals
+exit 2 before any mutation and never echo input text.
+
+Omitting this flag keeps the ordinary finish request and output unchanged;
+explicit [] is a present empty list. Only opt-in findings finish and the new
+findings read need a provider containing server#3248 (server#2662).
+Opt-in finish sends one mutation and shows its first page (20) with total and
+hasMore; use team task findings for continuation, never task get or a finish
+retry. JSON keeps the task/warnings shape and adds result.findings as a page.
+After a lost/malformed answer state may have changed: inspect the immutable
+findings before deciding what to do. No automatic retry or page drain.
+Human findings neutralize controls; JSON retains original valid text.
+
 Success prints the task, the outcome and the summary; --json returns the task
 with its result and a warnings list.`,
 		Example: `  hadron team task finish AT0.7 --outcome succeeded --summary "Login redirect fixed" --evidence https://github.com/acme/app/pull/9
-  hadron team task finish AT0.8 --outcome failed --summary "Cannot reproduce on staging"`,
+  hadron team task finish AT0.8 --outcome failed --summary "Cannot reproduce on staging"
+  hadron team task finish AT0.7 --outcome changes-requested --findings-file findings.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -960,9 +983,20 @@ with its result and a warnings list.`,
 			if !taskOutcomeRe.MatchString(outcome) {
 				return exitcode.Newf(exitcode.Usage, "--outcome is one word of letters, digits, underscore, hyphen or dot (up to 64 characters), got %q", outcome)
 			}
+			var findings []*gen.AgentTaskFindingInput
+			withFindings := cmd.Flags().Changed("findings-file")
+			if withFindings {
+				findings, err = readTaskFindings(f, findingsFile)
+				if err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if withFindings {
+				return finishTaskWithFindings(ctx, client, f, taskId, outcome, summary, evidence, findings)
 			}
 			result := gen.AgentTaskResultInput{
 				Outcome:  outcome,
@@ -994,6 +1028,7 @@ with its result and a warnings list.`,
 	cmd.Flags().StringVar(&outcome, "outcome", "", "one-word result, e.g. succeeded or failed (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
+	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (requires server#3248)")
 	return cmd
 }
 

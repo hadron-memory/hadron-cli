@@ -577,7 +577,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 79: 44 gap, 35 excluded
+[Arguments] 78: 43 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -605,7 +605,6 @@ Mutation.deleteTicker(instruction)  gap #1617
 Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.finishAgentTask(result.findings)  gap #1556
 Mutation.importNode(input.authoredWith)  gap #684
 Mutation.isolateWorker(instruction)  gap #1617
 Mutation.issueHostOperation(instruction)  gap #1617

@@ -1055,3 +1055,41 @@ mutation AgentTaskDisposeFinding(
     }
   }
 }
+
+# cli#1550: opt-in only. RawMessage $findings preserves explicit [] without
+# changing the legacy AgentTaskFinish input binding or shared projection.
+mutation AgentTaskFinishWithFindings(
+  $taskId: ID!
+  $outcome: String!
+  $summary: String
+  $evidence: String
+  # @genqlient(bind: "encoding/json.RawMessage")
+  $findings: [AgentTaskFindingInput!]!
+) {
+  finishAgentTask(taskId: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings}) {
+    ...AgentTaskFields
+    findingsResult: result { findings(limit: 20, offset: 0) { ...ImmutableTaskFindingPage } }
+  }
+}
+
+fragment ImmutableTaskFindingPage on AgentTaskFindingPage {
+  # @genqlient(pointer: true)
+  total
+  # @genqlient(pointer: true)
+  hasMore
+  items {
+    # @genqlient(pointer: true)
+    id
+    # @genqlient(pointer: true)
+    severity
+    # @genqlient(pointer: true)
+    text
+  }
+}
+
+query AgentTaskResultFindings($id: ID!, $limit: Int!, $offset: Int!) {
+  agentTask(id: $id) {
+    id
+    result { findings(limit: $limit, offset: $offset) { ...ImmutableTaskFindingPage } }
+  }
+}
