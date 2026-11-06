@@ -2449,8 +2449,9 @@ Conventions:
   `appName`, `user`, `role`, `createdAt`, `isOrgExternal`) and exits 0 on a repeat with
   the same row: `JoinAppPayload` does not say whether the call created it, so the
   command makes no "already a member" claim and infers none from `createdAt`. `leave` is
-  confirmed (it says the personal memory in the App is kept and re-attaches on a later
-  join); `--yes` skips the prompt, a non-interactive call without it exits 2 with zero
+  confirmed: the personal memory in the App is kept and re-attaches if you can join
+  again. Rejoining is subject to self-join policy and capacity. `--yes` skips the
+  prompt; a non-interactive call without it exits 2 with zero
   requests sent. It is idempotent server-side, so success means "not a member now"
   (`--json` `status: "absent"`), and `--instruction` takes the same parser and
   document switch as `app member remove`. Every refusal is the server's code and
