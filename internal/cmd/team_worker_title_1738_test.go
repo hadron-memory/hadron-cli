@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"unicode"
 
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 func titleWorker1738(t *testing.T, changes map[string]any) string {
@@ -143,17 +145,84 @@ func TestWorkerTerminalTitleRefusals1738(t *testing.T) {
 		{`{"errors":[{"message":"bad","extensions":{"code":"BAD_USER_INPUT"}}]}`, 2},
 	} {
 		out, log, err := runTitle1738(t, tc.body, profileHexID)
-		var coded *exitcode.CodedError
-		errors.As(err, &coded)
+
 		if err == nil {
 			t.Fatal("wanted refusal")
 		}
-		if coded.Code != tc.code || out != "" || log.String() != "GetWorker" {
-			t.Fatalf("out=%q err=%v code=%d ops=%s", out, err, coded.Code, log)
+		if exitCodeFor(err) != tc.code || out != "" || log.String() != "GetWorker" {
+			t.Fatalf("out=%q err=%v code=%d ops=%s", out, err, exitCodeFor(err), log)
 		}
 	}
 	out, log, err := runTitle1738(t, `{}`, profileHexID, "extra")
 	if err == nil || out != "" || log.String() != "" {
 		t.Fatalf("usage: %q %v %s", out, err, log)
+	}
+}
+
+func TestWorkerTerminalTitleNamedAndGateway1738(t *testing.T) {
+	teamGitDir(t)
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		var req struct {
+			OperationName string         `json:"operationName"`
+			Query         string         `json:"query"`
+			Variables     map[string]any `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+		}
+		if req.OperationName != "GetWorkerInApp" || req.Variables["appRef"] != "hrn:app:acme.com:eng-team" || strings.Contains(req.Query, "mutation ") {
+			t.Errorf("request=%+v", req)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"worker":` + profileWorkerJSON + `}}`))
+	}))
+	defer srv.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "terminal-title", "Iris", "--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err != nil || out.String() != "Iris [backend-engineer, model unavailable]\n" || calls.Load() != 1 {
+		t.Fatalf("out=%q err=%v calls=%d", out, err, calls.Load())
+	}
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(502)
+		_, _ = w.Write([]byte("gateway unavailable"))
+	}))
+	defer gateway.Close()
+	f, out = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "terminal-title", profileHexID, "--server", gateway.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 7 || out.Len() != 0 {
+		t.Fatalf("gateway %q %v", out, err)
+	}
+}
+
+func TestWorkerGetTextUnaffectedByModel1738(t *testing.T) {
+	before, _, err := runWorkerGet(t, profileWorkerJSON, profileNames, profileHexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _, err := runWorkerGet(t, titleWorker1738(t, map[string]any{"model": "hostile\x1b[,model]"}), profileNames, profileHexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatalf("worker get text changed: before=%q after=%q", before, after)
+	}
+}
+
+func TestWorkerTerminalTitleSelection1738(t *testing.T) {
+	for _, query := range []string{gen.GetWorker_Operation, gen.GetWorkerInApp_Operation} {
+		found := false
+		for _, line := range strings.Split(query, "\n") {
+			if strings.TrimSpace(line) == "model" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("worker query must select exact model field")
+		}
 	}
 }

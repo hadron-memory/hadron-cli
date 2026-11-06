@@ -59,6 +59,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
+	cmd.AddCommand(newCmdWorkerTerminalTitle(f))
 	cmd.AddCommand(servedprompt.NewWorker(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerChangeAgent(f))

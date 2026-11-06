@@ -79,6 +79,8 @@ fragment WorkerFields on Worker {
   # (cor:agt:060:04). Null is unknown and stays null; a host such as
   # `claude-code` is not a family and the CLI never fills one in.
   family
+  # Raw session-reported model, nullable/advisory under the same read gate.
+  model
   # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
   # since when. A name is held by a PERSON and only an explicit release frees
   # one — no session end, idle window, expiry or reap does.
