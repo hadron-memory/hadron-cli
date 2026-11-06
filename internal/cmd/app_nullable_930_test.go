@@ -67,7 +67,7 @@ func TestAppNullable930MemberCount(t *testing.T) {
 				response := `{"data":{"apps":{"items":[` + app + `],"total":1}}}`
 				if op != "Apps" {
 					args = []string{"app", "install", "--owner-me", "--agent", "hrn:agent:acme.com:support-bot", "--name", "Support", "--json"}
-					response = `{"data":{"createApp":` + app + `}}}`
+					response = `{"data":{"createApp":` + app + `}}`
 				}
 				if op == "CreateAppSettings" {
 					args = append(args, "--session-timeout-seconds", "90", "--yes")
