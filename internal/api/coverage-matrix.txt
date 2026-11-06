@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 208: 165 command, 19 gap, 24 excluded
+[Query] 209: 166 command, 19 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -201,6 +201,7 @@ slackConnection  command slack get
 slackConnections  command slack status
 specBacklinks  command spec backlinks
 specBacklinksPage  gap #1554
+specDocument  command spec document
 specUnresolvedReferences  command spec unresolved
 specUnresolvedReferencesPage  gap #1554
 teamAttention  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
