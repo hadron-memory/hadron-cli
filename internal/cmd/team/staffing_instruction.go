@@ -2,6 +2,7 @@ package team
 
 import (
 	"github.com/Khan/genqlient/graphql"
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -141,7 +142,9 @@ func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.Worke
 		if err != nil {
 			return false, false, err
 		}
-		resp, err := gen.DeleteWorkerPreviewInstructed(ctx, client, w.Id, claim)
+		// An instructed preview is a Query that writes (one claim event), so a
+		// 307/308 must not resend it: refuse the redirect as a delete does.
+		resp, err := gen.DeleteWorkerPreviewInstructed(api.WithNoRedirect(ctx), client, w.Id, claim)
 		if err != nil {
 			return false, false, err
 		}

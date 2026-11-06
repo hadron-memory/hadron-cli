@@ -1,10 +1,17 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -324,5 +331,65 @@ func TestWorkerRmDryRunRejectsAnUntrueAttestationRequired1735(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+// An instructed preview writes (one claim event), so a 307/308 on it must not
+// be followed: the second hop would resend the instruction and record a second
+// claim (#1735 §10 P2). The plain preview writes nothing and keeps the default.
+func TestWorkerRmDryRunInstructedPreviewIsNotResentOnARedirect1735(t *testing.T) {
+	for _, status := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			var second atomic.Int32
+			dest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				second.Add(1)
+				_, _ = w.Write([]byte(previewOK1735))
+			}))
+			t.Cleanup(dest.Close)
+			gql, _ := captureGraphQLFunc(t, func(op string) string {
+				switch op {
+				case "Workers", "WorkersRoster":
+					return staffJSON
+				case "GetWorkerInApp":
+					return `{"data":{"worker":` + irisWorkerJSON + `}}`
+				}
+				return ""
+			})
+			target, _ := url.Parse(gql.URL)
+			proxy := httputil.NewSingleHostReverseProxy(target)
+			var first atomic.Int32
+			front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				raw, _ := io.ReadAll(r.Body)
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+				if bytes.Contains(raw, []byte("DeleteWorkerPreviewInstructed")) {
+					first.Add(1)
+					http.Redirect(w, r, dest.URL+"/graphql", status)
+					return
+				}
+				proxy.ServeHTTP(w, r)
+			}))
+			t.Cleanup(front.Close)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "worker", "rm", "Iris", "--app", "acme.com:eng-team", "--server", front.URL, "--dry-run", "--instruction", instrTask1592})
+			err := root.Execute()
+			if err == nil || out.String() != "" {
+				t.Fatalf("a redirected instructed preview must fail with no output, got err=%v out=%q", err, out.String())
+			}
+			if first.Load() != 1 || second.Load() != 0 {
+				t.Fatalf("want one send and no resend at the redirect target, got %d and %d", first.Load(), second.Load())
+			}
+		})
+	}
+}
+
+// A null result on the instructed document is a failure, like the plain one.
+func TestWorkerRmDryRunInstructedNullResultFails1735(t *testing.T) {
+	r := runRm1735(t, `{"data":{"deleteWorkerPreview":null}}`, "--dry-run", "--instruction", instrTask1592, "--json")
+	if r.err == nil || r.out != "" {
+		t.Fatalf("want a failure with no stdout, got err=%v out=%q", r.err, r.out)
+	}
+	if r.count("DeleteWorkerPreviewInstructed") != 1 || r.deletes() != 0 {
+		t.Fatalf("ops = %v", r.ops)
 	}
 }

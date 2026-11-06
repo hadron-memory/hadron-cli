@@ -127342,9 +127342,12 @@ query DeleteWorkerPreviewInstructed ($workerRef: ID!, $instruction: ActInstructi
 }
 `
 
-// An instructed preview is NOT write-free: the server records one claim event
-// (operation worker.delete-preview, the target as its subject) and bumps the
-// {actor, target} fences.
+// An instructed preview sent through a worker session is NOT write-free: the
+// server records one claim event (operation worker.delete-preview, the target
+// as its subject) and bumps the {actor, target} fences. It records none for an
+// instruction admitted any other way (appendStaffingInstructionClaim returns
+// unless the admission is instructed-worker), so the CLI discloses the claim
+// only when the request went through the worker session.
 func DeleteWorkerPreviewInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
