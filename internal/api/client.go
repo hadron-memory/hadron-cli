@@ -594,6 +594,7 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 	}
 	switch e := err.(type) {
 	case gqlerror.List: // HTTP 200
+		recordGraphQLErrorShape(ctx, e)
 		clean := nonNullGraphQLErrors(e)
 		resp.Errors = clean
 		if len(clean) == 0 {
@@ -604,6 +605,7 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		}
 		return withHeaderRequestID(clean, hc.h)
 	case *graphql.HTTPError: // non-200 with a parsed GraphQL body
+		recordGraphQLErrorShape(ctx, e.Response.Errors)
 		if len(e.Response.Errors) == 0 {
 			return err
 		}

@@ -138,6 +138,14 @@ func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// cli#1655 defaults model ONLY the synthetic exact missing-capability
+	// policy. They are not a stock pre-2708 provider (its missing
+	// installMethod/importer produce mixed errors). Modern preview/provenance
+	// tests must explicitly stub the modern operations.
+	case "AppAgentEffectiveRoster":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerBootPromptServe":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.

@@ -106,7 +106,7 @@ func TestAppNullable930Roster(t *testing.T) {
 		{"all-masked", "[]", "[" + maskedJoin930 + "]", "1 installed (1 not visible to you)", false, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := map[string]string{"AppAgentInstallationRoster": roster930(tc.agents, tc.joins)}
+			resp := map[string]string{"AppAgentEffectiveRoster": roster930(tc.agents, tc.joins)}
 			args := []string{"app", "agent", "list", "hrn:app:acme.com:support"}
 			out, code, calls := runNullable930(t, resp, append(append([]string{}, args...), "--json")...)
 			if code != 0 || len(calls) != 1 {
