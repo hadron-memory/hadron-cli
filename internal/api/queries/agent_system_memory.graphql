@@ -1,0 +1,8 @@
+# Optional agent-get enrichment only; preserve the memory resolver's access gate.
+# Do not reuse the full GetMemory projection (source, settings and data unneeded).
+query AgentSystemMemory($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    urn
+  }
+}

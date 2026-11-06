@@ -346,6 +346,8 @@ the AppAgent join; for its workers, use ` + "`hadron team worker list --app <ref
 type agentGetDTO struct {
 	agentDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+	// Get-only best-effort enrichment; omit on every unavailable answer.
+	SystemMemoryURN *string `json:"systemMemoryUrn,omitempty"`
 }
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
@@ -355,7 +357,10 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
 source's current URN returned by the server. A null origin prints no line:
 non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No source lookup is made.
+JSON includes the nullable clonedFromAgentRef key. No clone-source lookup is made.
+For a system memory ID, one optional memory read adds its server-returned URN
+to text and the JSON systemMemoryUrn key. If unavailable (including older
+servers), output keeps the ID alone and omits that key without a warning.
 The "reset context after task" line (JSON resetContextAfterTask) shows the
 setting recorded by agent update --reset-context-after-task.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
@@ -373,10 +378,24 @@ setting recorded by agent update --reset-context-after-task.`,
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
 			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
+			// Read through the normal memory gate using the same client/credential.
+			// Never compose a URN from Agent metadata: unreadable and nonexistent
+			// must have the same id-only output. Even partial data with an error
+			// is unavailable, and there is no retry or alternate read surface.
+			if dto.SystemMemoryID != nil && *dto.SystemMemoryID != "" {
+				memory, lookupErr := gen.AgentSystemMemory(cmd.Context(), client, *dto.SystemMemoryID)
+				if lookupErr == nil && memory != nil && memory.Memory != nil && memory.Memory.Id == *dto.SystemMemoryID && memory.Memory.Urn != "" {
+					dto.SystemMemoryURN = &memory.Memory.Urn
+				}
+			}
+			memoryLabel := dash(dto.SystemMemoryID)
+			if dto.SystemMemoryURN != nil {
+				memoryLabel = fmt.Sprintf("%s (%s)", *dto.SystemMemoryURN, *dto.SystemMemoryID)
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), output.SafeCell(dto.Type), output.SafeCell(dto.Visibility))
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
-					output.SafeCell(dash(dto.Description)), output.SafeCell(dash(dto.SystemMemoryID)), output.SafeCell(dash(dto.TasksIndexRef)), output.SafeCell(dash(dto.ProcessesIndex)), output.SafeCell(dash(dto.ExtendsAgentID)), output.SafeCell(dash(dto.AiProvider)), output.SafeCell(dash(dto.AiModel)), dto.HasAiApiKey)
+					output.SafeCell(dash(dto.Description)), output.SafeCell(memoryLabel), output.SafeCell(dash(dto.TasksIndexRef)), output.SafeCell(dash(dto.ProcessesIndex)), output.SafeCell(dash(dto.ExtendsAgentID)), output.SafeCell(dash(dto.AiProvider)), output.SafeCell(dash(dto.AiModel)), dto.HasAiApiKey)
 				fmt.Fprintf(w, "  boot prompt: %s\n", output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)))
 				if dto.ClonedFromAgentRef != nil {
 					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
