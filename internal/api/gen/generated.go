@@ -79643,6 +79643,265 @@ type SpecCorpusStateResponse struct {
 // GetMemory returns SpecCorpusStateResponse.Memory, and is useful for accessing the field via an interface.
 func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.Memory }
 
+// SpecDocumentResponse is returned by SpecDocument on success.
+type SpecDocumentResponse struct {
+	// #1302 (R218, hrn:node:hadronmemory.com:specs:cor:spc:030:01) — a Feature's specs as ONE ordered document, built on
+	// the server for the CLI and the portal. loc names the Feature (any live spec is accepted, and the document starts with
+	// it); the document covers it and its live descendants on colon boundaries. markdown is the whole document in the form
+	// of hrn:node:hadronmemory.com:specs:cor:spc:030:02; entries are the same specs with their records, in document order. Same read gate and refusals as
+	// specBacklinks: an unreadable and a missing memory answer alike, and an encrypted readable one refuses with
+	// SPEC_CORPUS_ENCRYPTED_UNSUPPORTED. A readable memory with no live spec at loc answers NODE_NOT_FOUND (a deleted spec
+	// and a never-written loc alike). Over 300 specs it refuses with SPEC_DOCUMENT_TOO_LARGE and extensions.cap, and never
+	// returns part of the document. Reads only: nothing is stored, approved or minted. The render time is the only part of
+	// the text that differs between two calls over the same specs, approval and mint state, includes, caller access and
+	// portal origin. No MCP tool offers this.
+	SpecDocument *SpecDocumentSpecDocument `json:"specDocument"`
+}
+
+// GetSpecDocument returns SpecDocumentResponse.SpecDocument, and is useful for accessing the field via an interface.
+func (v *SpecDocumentResponse) GetSpecDocument() *SpecDocumentSpecDocument { return v.SpecDocument }
+
+// SpecDocumentSpecDocument includes the requested fields of the GraphQL type SpecDocument.
+// The GraphQL type's documentation follows.
+//
+// #1302 — a Feature's specs as one document (see Query.specDocument).
+type SpecDocumentSpecDocument struct {
+	// The citation the document was built for.
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+	// The time in the text's header.
+	RenderedAt string `json:"renderedAt"`
+	// The whole document, one Markdown string (hrn:node:hadronmemory.com:specs:cor:spc:030:02). Every client shows this string unchanged.
+	Markdown string `json:"markdown"`
+	// One entry per spec the document covers, in document order, the Feature first.
+	Entries []*SpecDocumentSpecDocumentEntriesSpecDocumentEntry `json:"entries"`
+}
+
+// GetLoc returns SpecDocumentSpecDocument.Loc, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns SpecDocumentSpecDocument.MemoryId, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetMemoryId() string { return v.MemoryId }
+
+// GetRenderedAt returns SpecDocumentSpecDocument.RenderedAt, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetRenderedAt() string { return v.RenderedAt }
+
+// GetMarkdown returns SpecDocumentSpecDocument.Markdown, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetMarkdown() string { return v.Markdown }
+
+// GetEntries returns SpecDocumentSpecDocument.Entries, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetEntries() []*SpecDocumentSpecDocumentEntriesSpecDocumentEntry {
+	return v.Entries
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntry includes the requested fields of the GraphQL type SpecDocumentEntry.
+// The GraphQL type's documentation follows.
+//
+// #1302 — one spec in a document, read as the caller would read the node.
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntry struct {
+	Loc      string `json:"loc"`
+	Urn      string `json:"urn"`
+	Name     string `json:"name"`
+	Revision int    `json:"revision"`
+	// The body as an ordinary read returns it (includes resolved under the caller's own access). Null for a placeholder.
+	Content        *string                                                                           `json:"content"`
+	IsPlaceholder  bool                                                                              `json:"isPlaceholder"`
+	ApprovalStatus *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus `json:"approvalStatus"`
+	MintStatus     *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus         `json:"mintStatus"`
+}
+
+// GetLoc returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Loc, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetLoc() string { return v.Loc }
+
+// GetUrn returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Urn, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetUrn() string { return v.Urn }
+
+// GetName returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Name, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetName() string { return v.Name }
+
+// GetRevision returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Revision, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetRevision() int { return v.Revision }
+
+// GetContent returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Content, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetContent() *string { return v.Content }
+
+// GetIsPlaceholder returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetIsPlaceholder() bool {
+	return v.IsPlaceholder
+}
+
+// GetApprovalStatus returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.ApprovalStatus, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetApprovalStatus() *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus {
+	return v.ApprovalStatus
+}
+
+// GetMintStatus returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.MintStatus, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetMintStatus() *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus {
+	return v.MintStatus
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus includes the requested fields of the GraphQL type NodeApprovalStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus struct {
+	NodeApprovalStatusFields `json:"-"`
+}
+
+// GetState returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus.State, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) GetState() NodeApprovalState {
+	return v.NodeApprovalStatusFields.State
+}
+
+// GetApproval returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus.Approval, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) GetApproval() *NodeApprovalStatusFieldsApprovalNodeApproval {
+	return v.NodeApprovalStatusFields.Approval
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus struct {
+	State NodeApprovalState `json:"state"`
+
+	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) __premarshalJSON() (*__premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus, error) {
+	var retval __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus
+
+	retval.State = v.NodeApprovalStatusFields.State
+	retval.Approval = v.NodeApprovalStatusFields.Approval
+	return &retval, nil
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus includes the requested fields of the GraphQL type NodeMintStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — whether a node is minted, and the record of it. Encrypted memories read not-minted with all record fields null; not-applicable is distinguished by approvalStatus. Minting protects nothing by itself (permanence is off for now).
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus struct {
+	NodeMintStatusFields `json:"-"`
+}
+
+// GetMinted returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Minted, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMinted() bool {
+	return v.NodeMintStatusFields.Minted
+}
+
+// GetMintedAt returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedAt, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedAt() *string {
+	return v.NodeMintStatusFields.MintedAt
+}
+
+// GetMintedBy returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedBy, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedBy() *NodeMintStatusFieldsMintedByNodeRevisionEditor {
+	return v.NodeMintStatusFields.MintedBy
+}
+
+// GetMintedByInfo returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedByInfo, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedByInfo() *string {
+	return v.NodeMintStatusFields.MintedByInfo
+}
+
+// GetRevision returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Revision, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetRevision() *int {
+	return v.NodeMintStatusFields.Revision
+}
+
+// GetHash returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Hash, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetHash() *string {
+	return v.NodeMintStatusFields.Hash
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeMintStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus struct {
+	Minted bool `json:"minted"`
+
+	MintedAt *string `json:"mintedAt"`
+
+	MintedBy *NodeMintStatusFieldsMintedByNodeRevisionEditor `json:"mintedBy"`
+
+	MintedByInfo *string `json:"mintedByInfo"`
+
+	Revision *int `json:"revision"`
+
+	Hash *string `json:"hash"`
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) __premarshalJSON() (*__premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus, error) {
+	var retval __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus
+
+	retval.Minted = v.NodeMintStatusFields.Minted
+	retval.MintedAt = v.NodeMintStatusFields.MintedAt
+	retval.MintedBy = v.NodeMintStatusFields.MintedBy
+	retval.MintedByInfo = v.NodeMintStatusFields.MintedByInfo
+	retval.Revision = v.NodeMintStatusFields.Revision
+	retval.Hash = v.NodeMintStatusFields.Hash
+	return &retval, nil
+}
+
 // #1448 — why the mint report lists an item.
 type SpecMintFindingKind string
 
@@ -108015,6 +108274,18 @@ type __SpecCorpusStateInput struct {
 
 // GetRef returns __SpecCorpusStateInput.Ref, and is useful for accessing the field via an interface.
 func (v *__SpecCorpusStateInput) GetRef() string { return v.Ref }
+
+// __SpecDocumentInput is used internally by genqlient
+type __SpecDocumentInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Loc       string `json:"loc"`
+}
+
+// GetMemoryRef returns __SpecDocumentInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecDocumentInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLoc returns __SpecDocumentInput.Loc, and is useful for accessing the field via an interface.
+func (v *__SpecDocumentInput) GetLoc() string { return v.Loc }
 
 // __SpecPlaceholderScanInput is used internally by genqlient
 type __SpecPlaceholderScanInput struct {
@@ -139930,6 +140201,89 @@ func SpecCorpusState(
 	}
 
 	data_ = &SpecCorpusStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecDocument.
+const SpecDocument_Operation = `
+query SpecDocument ($memoryRef: ID!, $loc: String!) {
+	specDocument(memoryRef: $memoryRef, loc: $loc) {
+		loc
+		memoryId
+		renderedAt
+		markdown
+		entries {
+			loc
+			urn
+			name
+			revision
+			content
+			isPlaceholder
+			approvalStatus {
+				... NodeApprovalStatusFields
+			}
+			mintStatus {
+				... NodeMintStatusFields
+			}
+		}
+	}
+}
+fragment NodeApprovalStatusFields on NodeApprovalStatus {
+	state
+	approval {
+		... NodeApprovalFields
+	}
+}
+fragment NodeMintStatusFields on NodeMintStatus {
+	minted
+	mintedAt
+	mintedBy {
+		handle
+		urn
+	}
+	mintedByInfo
+	revision
+	hash
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+// #1302 (cli#1692) — a Feature's specs as ONE server-assembled document. The
+// server renders; the CLI prints `markdown` unchanged and never assembles,
+// reorders or rewrites anything itself.
+func SpecDocument(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	loc string,
+) (data_ *SpecDocumentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecDocument",
+		Query:  SpecDocument_Operation,
+		Variables: &__SpecDocumentInput{
+			MemoryRef: memoryRef,
+			Loc:       loc,
+		},
+	}
+
+	data_ = &SpecDocumentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

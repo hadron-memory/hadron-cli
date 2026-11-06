@@ -1,0 +1,25 @@
+# #1302 (cli#1692) — a Feature's specs as ONE server-assembled document. The
+# server renders; the CLI prints `markdown` unchanged and never assembles,
+# reorders or rewrites anything itself.
+query SpecDocument($memoryRef: ID!, $loc: String!) {
+  specDocument(memoryRef: $memoryRef, loc: $loc) {
+    loc
+    memoryId
+    renderedAt
+    markdown
+    entries {
+      loc
+      urn
+      name
+      revision
+      content
+      isPlaceholder
+      approvalStatus {
+        ...NodeApprovalStatusFields
+      }
+      mintStatus {
+        ...NodeMintStatusFields
+      }
+    }
+  }
+}
