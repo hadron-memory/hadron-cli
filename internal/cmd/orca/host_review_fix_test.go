@@ -162,3 +162,83 @@ func TestHostPlan1635WorkerRowKeysStrict(t *testing.T) {
 		}
 	}
 }
+
+func TestHostPlan1635CommandPassesResolvedIdentityToDiscovery(t *testing.T) {
+	repo := hostRepo1635(t)
+	binding := `{"server":"https://target.example","workerId":"server-generated-47","appId":"app-id","sessionId":"recorded-session"}`
+	if err := os.WriteFile(filepath.Join(repo, ".git", bindingFileName), []byte(binding), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := hostReviewReadRunner1635(repo)
+	calls := []string{}
+	env := fakePlan1635(hostInventory{}, &calls)
+	env.Worker = func(context.Context, string, string) (hostWorkerIdentity, error) {
+		return hostWorkerIdentity{ID: "server-generated-47", AppID: "app-id", Family: "codex"}, nil
+	}
+	env.Inventory = func(ctx context.Context, rows []hostPlanWorker) (hostInventory, error) {
+		if len(rows) != 1 || rows[0].ID != "server-generated-47" || rows[0].Repo != repo || rows[0].Worker != "Iris" || rows[0].Family != "codex" {
+			t.Fatalf("resolved discovery inputs lost: %+v", rows)
+		}
+		return discoverHostInventory(ctx, rows, run)
+	}
+	dto, code, raw := executePlan1635(t, roster1635(t, repo, "Iris"), env)
+	if code != 0 || !dto.Complete || len(dto.Workers[0].Sessions) != 1 || dto.Workers[0].Sessions[0] != "recorded-session" || len(dto.Actions) != 1 || dto.Actions[0].Kind != "open-terminal" {
+		t.Fatalf("bound worker falsely absent: code%d %s", code, raw)
+	}
+}
+
+func hostReviewReadRunner1635(repo string) hostReadRunner {
+	return func(_ context.Context, bin string, args []string) ([]byte, error) {
+		if bin == "orca" {
+			return []byte(`{"ok":true,"result":{"terminals":[]}}`), nil
+		}
+		if strings.Join(args[2:], " ") == "worktree list --porcelain -z" {
+			return []byte("worktree " + repo + "\x00HEAD abc\x00\x00"), nil
+		}
+		if args[len(args)-1] == "--show-toplevel" {
+			return []byte(repo + "\n"), nil
+		}
+		return []byte(filepath.Join(repo, ".git") + "\n"), nil
+	}
+}
+
+func TestHostPlan1635IncompleteRequestedBindingNeverAllClear(t *testing.T) {
+	for _, raw := range []string{
+		`{"workerId":"id-iris","sessionId":"s"}`,
+		`{"workerId":"id-iris","appId":"app-id"}`,
+		`{"workerId":"","appId":"app-id","sessionId":"s"}`,
+		`{"appId":"app-id","sessionId":"s"}`,
+		`{`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			repo := hostRepo1635(t)
+			if err := os.WriteFile(filepath.Join(repo, ".git", bindingFileName), []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			calls := []string{}
+			env := fakePlan1635(hostInventory{}, &calls)
+			env.Inventory = func(ctx context.Context, rows []hostPlanWorker) (hostInventory, error) {
+				return discoverHostInventory(ctx, rows, hostReviewReadRunner1635(repo))
+			}
+			dto, code, out := executePlan1635(t, roster1635(t, repo, "Iris"), env)
+			if code != 1 || dto.Complete || len(dto.Unavailable) != 1 || dto.Unavailable[0].Reason != "git_inventory_unavailable" || len(dto.Actions) != 0 {
+				t.Fatalf("unknown binding became all-clear: code%d %s", code, out)
+			}
+		})
+	}
+}
+
+func TestHostPlan1635EmptyTerminalPathIsIncomplete(t *testing.T) {
+	repo := hostRepo1635(t)
+	calls := []string{}
+	env := fakePlan1635(hostInventory{}, &calls)
+	env.Inventory = func(ctx context.Context, rows []hostPlanWorker) (hostInventory, error) {
+		return discoverHostInventory(ctx, rows, func(context.Context, string, []string) ([]byte, error) {
+			return []byte(`{"ok":true,"result":{"terminals":[{"handle":"t","worktreePath":""}]}}`), nil
+		})
+	}
+	dto, code, raw := executePlan1635(t, roster1635(t, repo, "Iris"), env)
+	if code != 1 || dto.Complete || len(dto.Unavailable) != 1 || dto.Unavailable[0].Reason != "terminal_path_unresolved" || len(dto.Actions) != 0 {
+		t.Fatalf("empty terminal path misclassified: code%d %s", code, raw)
+	}
+}
