@@ -109,6 +109,11 @@ func FindNodesCommentSummaryProjected(
 		return nil, fmt.Errorf("server returned no comment-summary listing")
 	}
 	r := resp.FindNodes
+	// A null or absent hits list is an incomplete answer, not an empty page;
+	// only an explicit [] is empty.
+	if r.Hits == nil {
+		return nil, fmt.Errorf("server returned no hits list in comment-summary listing")
+	}
 	page := &FindNodesPage{Nodes: []*ListNode{}, Total: r.Total, Degraded: r.Degraded, Reason: r.Reason}
 	for _, h := range r.Hits {
 		if h == nil || h.Node == nil {
