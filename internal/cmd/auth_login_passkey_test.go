@@ -56,6 +56,10 @@ func TestAuthLoginHelpDescribesPasskeyStepConditionally(t *testing.T) {
 	if strings.Contains(help, "--provider github or") || strings.Contains(help, `(default "github")`) {
 		t.Errorf("help advises --provider github or claims it is the default:\n%s", help)
 	}
+	// cli#1624 (UX delta P3): the short usage line, still true to routing.
+	if !strings.Contains(help, "browser identity provider: github or google (google skips the sign-in page)") {
+		t.Errorf("help lacks the short --provider usage line:\n%s", help)
+	}
 	if !strings.Contains(help, "--provider github opens the same sign-in page as the default") {
 		t.Errorf("help does not say --provider github opens the default page:\n%s", help)
 	}

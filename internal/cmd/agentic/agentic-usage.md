@@ -41,7 +41,9 @@ does, the CLI stops and stores nothing: finish adding the passkey in the
 browser, then rerun `hadron auth login`. A refused STORED credential exits 3
 with "your stored credential was refused; run `hadron auth login`": the CLI
 does not retry, does not delete the stored token, and does not claim why it
-was refused.
+was refused. The hint follows the credential actually sent: only when every
+request carried the stored login, never for `HADRON_TOKEN`, an impersonation
+token, a host key, a stdin token, or a failure before any request.
 
 Browser `auth login` requests the `account` OAuth scope (the data API
 refuses an `mcp`-only key). If the server refuses `account` or grants a

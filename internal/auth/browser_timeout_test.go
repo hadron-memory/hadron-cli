@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -58,6 +61,99 @@ func TestBrowserLoginTimeoutSaysNothingStored(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Errorf("timeout message missing %q: %q", want, msg)
 		}
+	}
+	// cli#1624 (#941 §10 P3-2 mutant 3): the caller's earlier deadline is the
+	// limit that fired, so the message names it, not the 15-minute cap.
+	if strings.Contains(msg, "15 minutes") || !boundNear1s.MatchString(msg) {
+		t.Errorf("the message must name the caller's ~1s bound, not the internal cap: %q", msg)
+	}
+}
+
+var boundNear1s = regexp.MustCompile(`did not finish within (1s|9\d\dms);`)
+
+// shortLoginTimeout sets the internal cap for one test (never parallel).
+func shortLoginTimeout(t *testing.T, d time.Duration) {
+	t.Helper()
+	old := loginTimeout
+	loginTimeout = d
+	t.Cleanup(func() { loginTimeout = old })
+}
+
+// loginWithGuard runs Login on a goroutine and fails the test if it has not
+// returned within guard: an unbounded wait shows up as a failure, not a hang.
+func loginWithGuard(t *testing.T, ctx context.Context, opts LoginOptions, guard time.Duration) (*Token, error) {
+	t.Helper()
+	type result struct {
+		tok *Token
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		tok, err := BrowserStrategy{}.Login(ctx, opts)
+		done <- result{tok, err}
+	}()
+	select {
+	case r := <-done:
+		return r.tok, r.err
+	case <-time.After(guard):
+		t.Fatalf("Login did not return within %s: the internal deadline is missing", guard)
+		return nil, nil
+	}
+}
+
+// cli#1624 (#941 §10 P3-2 mutant 2): the CLI's own deadline ends the wait when
+// the caller set none. Nobody cancels the caller's context here, so only the
+// internal deadline can end it, and it reports a timeout naming that bound,
+// not an interrupt.
+func TestBrowserLoginInternalDeadlineFiresWithoutCallerDeadline(t *testing.T) {
+	shortLoginTimeout(t, 300*time.Millisecond)
+	as := newFakeAS(t)
+	io, _, _ := output.Test()
+	opened := false
+	tok, err := loginWithGuard(t, context.Background(), LoginOptions{
+		ServerURL:  as.server.URL,
+		IO:         io,
+		HTTPClient: as.server.Client(),
+		OpenBrowser: func(string) error {
+			opened = true
+			return nil
+		},
+	}, 10*time.Second)
+	if !opened {
+		t.Fatalf("the browser step was never reached: %v", err)
+	}
+	if tok != nil {
+		t.Fatalf("a timed-out login must return no token, got %+v", tok)
+	}
+	if got := exitcode.FromError(err); got != exitcode.Cancelled {
+		t.Fatalf("exit = %d, want Cancelled (err: %v)", got, err)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "did not finish within 300ms") || strings.Contains(msg, "was cancelled") {
+		t.Errorf("want a timeout naming the 300ms internal bound, got %q", msg)
+	}
+}
+
+// The internal deadline covers discovery too, not only the browser wait: a
+// server that never answers its metadata request cannot hold the login open.
+func TestBrowserLoginInternalDeadlineCoversDiscovery(t *testing.T) {
+	shortLoginTimeout(t, 300*time.Millisecond)
+	release := make(chan struct{})
+	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	t.Cleanup(func() { close(release); hang.Close() })
+	io, _, _ := output.Test()
+	tok, err := loginWithGuard(t, context.Background(), LoginOptions{
+		ServerURL:   hang.URL,
+		IO:          io,
+		HTTPClient:  &http.Client{}, // no client timeout: only the login's deadline can end it
+		OpenBrowser: func(string) error { t.Error("the browser must not open before discovery"); return nil },
+	}, 10*time.Second)
+	if tok != nil || err == nil {
+		t.Fatalf("a login whose discovery never answers must fail, got tok=%v err=%v", tok, err)
 	}
 }
 

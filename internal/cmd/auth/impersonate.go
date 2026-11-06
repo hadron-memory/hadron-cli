@@ -202,7 +202,7 @@ func runStopImpersonation(cmd *cobra.Command, f *cmdutil.Factory) error {
 	if authpkg.ImpersonationTokenLive(token) {
 		server, err := f.Server()
 		if err == nil {
-			if client, err := api.NewClient(server, token, f.HTTPClient); err == nil {
+			if client, err := api.NewClient(server, token, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialImpersonation)); err == nil {
 				if _, err := gen.StopImpersonation(cmd.Context(), client, nil); err != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut,
 						"warning: server stop failed (%v); the session will lapse by TTL\n", api.MapError(err))

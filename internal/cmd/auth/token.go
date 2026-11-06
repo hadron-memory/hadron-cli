@@ -122,7 +122,7 @@ handle, roles and key (its id, label, preview and times; never the token).`,
 			if err != nil {
 				return err
 			}
-			client, err := api.NewClient(server, token, f.HTTPClient)
+			client, err := api.NewClient(server, token, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialExplicit))
 			if err != nil {
 				return err
 			}

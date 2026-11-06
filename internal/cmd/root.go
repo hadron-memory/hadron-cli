@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
 	admincmd "github.com/hadron-memory/hadron-cli/internal/cmd/admin"
@@ -552,15 +551,19 @@ func renderError(f *cmdutil.Factory, err error) int {
 const storedCredentialHint = "your stored credential was refused; run `hadron auth login`"
 
 // withStoredCredentialHint adds storedCredentialHint when the failure is
-// AuthRequired, the active credential is the STORED one (not HADRON_TOKEN,
-// where re-login would not help, nor an impersonation token), and the message
-// does not already name `hadron auth login` as its remedy.
+// AuthRequired, the message does not already name `hadron auth login` as its
+// remedy, and every credential this invocation actually SENT was the stored
+// user login (cli#1624). It reads the send-time record, never a second token
+// lookup: HADRON_TOKEN, an impersonation token (even one purged since), a host
+// key or an explicit token gets no stored-login remedy, and neither does a
+// failure before any request or after a mix of credentials, whose provenance
+// is unknown.
 func withStoredCredentialHint(f *cmdutil.Factory, code int, err error) error {
 	if code != exitcode.AuthRequired || errors.Is(err, exitcode.ErrSilent) ||
 		strings.Contains(err.Error(), "hadron auth login") {
 		return err
 	}
-	if _, source, terr := f.Token(); terr != nil || source != auth.SourceStore {
+	if !f.Credentials().Only(api.CredentialStoredUser) {
 		return err
 	}
 	return fmt.Errorf("%w — %s", err, storedCredentialHint)

@@ -63,6 +63,9 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	// stake, so its transport failures name it outright rather than hedging.
 	isMutation := DocumentHasMutation(query)
 
+	if token != "" {
+		rawCredentialSent(ctx) // cli#1624: diagnostics only
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		if f, ok := classifyTransport(err); ok {
