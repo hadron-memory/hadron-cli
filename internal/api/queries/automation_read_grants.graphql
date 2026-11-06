@@ -1,0 +1,47 @@
+# Per-automation READ grant on one memory or loc prefix (#1566, server #2883).
+fragment AutomationReadGrantFields on AutomationReadGrant {
+  id
+  appId
+  memoryUrn
+  prefix
+  triggerId
+  triggerKind
+  grantedBy
+  createdAt
+  revokedAt
+  revokedBy
+}
+
+# prefix is optional: an omitted prefix is the whole memory, and the server
+# refuses a blank one, so a nil pointer must be omitted, never sent as null.
+mutation SetAutomationReadGrant(
+  $appRef: String!
+  $memoryRef: String!
+  # @genqlient(omitempty: true)
+  $prefix: String
+  $triggerId: ID!
+  $triggerKind: String!
+) {
+  setAutomationReadGrant(appRef: $appRef, memoryRef: $memoryRef, prefix: $prefix, triggerId: $triggerId, triggerKind: $triggerKind) {
+    ...AutomationReadGrantFields
+  }
+}
+
+mutation RevokeAutomationReadGrant($id: ID!) {
+  revokeAutomationReadGrant(id: $id) {
+    ...AutomationReadGrantFields
+  }
+}
+
+query AutomationReadGrants(
+  # @genqlient(omitempty: true)
+  $appRef: String
+  # @genqlient(omitempty: true)
+  $memoryRef: String
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+) {
+  automationReadGrants(appRef: $appRef, memoryRef: $memoryRef, includeRevoked: $includeRevoked) {
+    ...AutomationReadGrantFields
+  }
+}

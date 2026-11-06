@@ -104,3 +104,32 @@ BLIND optional findings dispositions (original numbering):
 - 18: inventory regenerated from clean fix-parent; group rubric reviewed again. Additional examples deferred to public documentation follow-through.
 
 Source answers/limits: team/state.go writes/reads bindings under resolved git dir and documents pre-399 missing App ids; only an unrelated parsed worker id is ignored, never unknown identity. api.Endpoint appends /graphql, and current binding writer stores Factory.Server's base URL; arbitrary endpoint spellings are not inferred equivalent. CheckKeys recurses through typed worker arrays and exact key names, now pinned. No source-only check proves real Orca inventory completeness, reduced-environment deployment compatibility, provider retired-field admission, or a live session's authority. Named independent fake evidence stays fake; session ids are recorded metadata, never accepted by this command as credentials. No newly invented provider/deployed-version floor or live-host proof is claimed. Those limits and the absence of an executor remain explicit at handoff. Optional items above remain unfiled with owner/trigger, not acceptance waivers.
+
+
+## Process lifetime and fixture pins (cli#1729)
+
+Host reads keep the existing intrinsic 15-second context bound and one-second
+pipe wait. These limit the CLI's wait/output collection. Cancellation terminates
+only the direct child started by exec.CommandContext; descendants may survive,
+including a descendant holding stdout after its parent exits. This is not a
+process-tree cleanup guarantee. No process-group signal or host authority is
+introduced here. The test fixtures record and validate their own positive child
+PID and its Linux start time, then explicitly kill that same process during
+cleanup. The no-WaitDelay mutant can outlive the fixture child, so cleanup
+compares the recorded start time to reject observed PID reuse; check-and-signal
+is not atomic and is not a pidfd guarantee. Never signal
+PID0 or a group.
+
+Durable Linux process tests separately exercise the intrinsic timeout with a longer caller
+watchdog, parent-exit pipe wait and cancellation with a surviving descendant.
+The cancellation leg waits for a positive PID and complete identity record before
+canceling; setup has its own watchdog, and pipe wait is measured from cancellation.
+An intentional setup delay keeps the old fixed200ms cancellation race detectable.
+A loaded host may affect wall time; broad timing windows discriminate a removed
+bound without claiming scheduling precision. The caller-deadline pin remains
+separate. Fake argv are exact and reject unexpected/short forms. Porcelain fixture
+attributes are exact NUL-delimited fields, not substrings of a path. One malformed
+requested binding makes the bounded whole plan incomplete, even with another
+healthy bound roster worker; git_inventory_unavailable is the deliberate reason.
+This retains the reviewed whole-plan behavior and does not certify healthy rows
+as a partial executable plan.
