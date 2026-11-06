@@ -736,3 +736,21 @@ query VerifyMemoryNodes($memoryRef: String!) {
     }
   }
 }
+
+# cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
+mutation SyncMemory($id: ID!) {
+  syncMemory(id: $id) {
+    syncStatus
+    syncError
+    lastSyncedAt
+    lastSyncReport
+  }
+}
+
+# cli#60 P2: internal prerequisites only, read after confirmation.
+query MemorySyncPrerequisites($ref: ID!) {
+  memory(ref: $ref) {
+    source
+    isEncrypted
+  }
+}
