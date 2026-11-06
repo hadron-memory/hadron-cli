@@ -56,7 +56,7 @@ instead of your own login: reads show the target's view, and any write is
 refused. The session ends after an hour by default (the server can set 1 minute
 to 24 hours; the start message prints the expiry) or when you run --stop,
 and your own login is then used again; it is never changed. hadron auth whoami
-shows "IMPERSONATING" while one is active. Unset HADRON_TOKEN first: it would
+shows "IMPERSONATED (read-only)" while one is active. Unset HADRON_TOKEN first: it would
 override the session, so starting one while it is set is refused.`,
 		Example: `  hadron auth impersonate alice@acme.com --org hrn:org:acme.com --reason "ticket 4521"
   hadron auth whoami
