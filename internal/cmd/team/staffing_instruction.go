@@ -117,3 +117,41 @@ func deleteWorker(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields
 	}
 	return resp.DeleteWorker, nil
 }
+
+// deleteWorkerPreview makes the one delete preview (cli#1735): the plain
+// document without a claim, else the instructed one in the context instructed
+// decides. claimed is true when an instructed preview went out through the
+// worker session: the server then records one claim event. The reply is
+// checked before it is returned: a null or empty result, or one naming another
+// worker, is a failure, never a success to print. It is one request: no retry
+// and no other operation to fall back on.
+func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields, claim *gen.ActInstructionInput, instructed InstructedWrite) (attestationRequired, claimed bool, err error) {
+	var workerID string
+	if claim == nil {
+		resp, err := gen.DeleteWorkerPreview(cmd.Context(), client, w.Id)
+		if err != nil {
+			return false, false, err
+		}
+		if resp == nil || resp.DeleteWorkerPreview == nil {
+			return false, false, exitcode.Newf(exitcode.Error, "server returned no delete preview")
+		}
+		workerID, attestationRequired = resp.DeleteWorkerPreview.WorkerId, resp.DeleteWorkerPreview.AttestationRequired
+	} else {
+		ctx, worker, err := instructed(cmd.Context(), w.AppId, w.AppId)
+		if err != nil {
+			return false, false, err
+		}
+		resp, err := gen.DeleteWorkerPreviewInstructed(ctx, client, w.Id, claim)
+		if err != nil {
+			return false, false, err
+		}
+		if resp == nil || resp.DeleteWorkerPreview == nil {
+			return false, false, exitcode.Newf(exitcode.Error, "server returned no delete preview")
+		}
+		workerID, attestationRequired, claimed = resp.DeleteWorkerPreview.WorkerId, resp.DeleteWorkerPreview.AttestationRequired, worker
+	}
+	if workerID != w.Id {
+		return false, false, exitcode.Newf(exitcode.Error, "server returned a delete preview for a different worker (wanted %s)", w.Id)
+	}
+	return attestationRequired, claimed, nil
+}

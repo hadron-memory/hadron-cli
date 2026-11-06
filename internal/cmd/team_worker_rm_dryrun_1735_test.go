@@ -19,10 +19,10 @@ import (
 const previewOK1735 = `{"data":{"deleteWorkerPreview":{"workerId":"wkr1","attestationRequired":true}}}`
 
 type rmRun1735 struct {
-	out, errOut string
-	err         error
-	ops         []string
-	vars        map[string]json.RawMessage
+	out  string
+	err  error
+	ops  []string
+	vars map[string]json.RawMessage
 }
 
 func (r rmRun1735) count(op string) int {
