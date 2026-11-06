@@ -71,8 +71,16 @@ are also unsupported here: use app memories to choose a memory, then node list
 matching node list --types. Parsed values keep case, spaces, order and duplicates.
 The server validates empty lists, --type conflicts, comment and the 20-entry cap;
 these refusals are exit 2. Unset sends no nodeTypes key; --types "" sends [].
-Deleted nodes still require the server's recovery permission. A missing or unreadable App keeps the
-server's not-found response (exit 4); a permission refusal is exit 8.`,
+Explicit empty --prefix=, --type= and --object-type= are forwarded as empty
+strings; on their own they add no narrowing. --type still conflicts with --types
+when both are supplied. Repeated --tag requires all supplied tags; --tag= sends
+a literal empty tag, not an absent filter. These four filter values are not trimmed.
+By contrast,
+empty --created-by/--role/date values are local usage errors (exit 2).
+
+Deleted nodes still require the server's recovery permission. A missing or
+unreadable App keeps the server's not-found response (exit 4); a permission
+refusal is exit 8.`,
 		Example: `  hadron app nodes hrn:app:acme.com:team
   hadron app nodes acme.com:team --prefix tasks: --limit 20 --offset 20
   hadron app nodes acme.com:team --runnable --json
@@ -207,7 +215,7 @@ server's not-found response (exit 4); a permission refusal is exit 8.`,
 	cmd.Flags().StringVar(&nodeType, "type", "", "only this node type")
 	cmd.Flags().StringSliceVar(&nodeTypes, "types", nil, "filter by a union of node types (repeatable or comma-separated CSV; server validates)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "only this record collection (e.g. competitor)")
-	cmd.Flags().StringArrayVar(&tags, "tag", nil, "only nodes with these tags (repeatable)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "require all supplied tags (repeatable; empty value is literal)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "only runnable nodes, or --runnable=false for explicitly non-runnable nodes")
 	cmd.Flags().StringVar(&createdBy, "created-by", "", "only nodes created by this user ID")
 	cmd.Flags().StringVar(&role, "role", "", "only this role family (spec includes spec.*)")

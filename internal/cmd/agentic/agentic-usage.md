@@ -5756,6 +5756,8 @@ app.credential-act event per admitted page. Offset paging is not a snapshot
 under concurrent changes. Subscription-list commands remain unimplemented
 (cli#890); this migration adds none.
 
+App read flag edges (cli#1642): nonblank `app list --agent` values are forwarded verbatim, not trimmed; supply refs without surrounding whitespace. Empty/whitespace-only Agent refs refuse locally (exit2, zero requests). `app nodes --prefix=`, `--type=`, `--object-type=` forward empty strings (no narrowing on their own); `--type` still conflicts with `--types`. Repeated `--tag` requires all supplied tags; `--tag=` forwards a literal empty tag, not omission. Values remain untrimmed. Empty identity/date selectors (`--created-by`, `--role`, `--updated-after`, `--updated-before`) refuse locally. Absent filters and explicit false booleans keep their existing wire semantics. Agent-filtered App listing drains all pages, requesting at most20 per call under cor:api:120:04, not an Agent-specific server cap.
+
 App node type unions: `app nodes --types` matches `node list --types`: repeatable/comma-separated CSV, parsed case/spaces/order/duplicates preserved, unset omitted, explicit empty sends []. The server judges empty/comment/--type conflicts/over-20 lists (BAD_USER_INPUT, exit 2); no local type policy. Other App node filter gaps are tracked in cli#1697.
 
 ### Pull a memory from its repository

@@ -161,3 +161,61 @@ Xabat approved the rationale-only accounting correction in chat78733: where now
 uses the childrenOf-shaped refused-selector exclusion, with #3427 closure evidence
 and the #1334/ruling0061 caveat. The CLI's local refusal is unchanged. Optional
 P3 work stays in cli#1642; no polish behavior is folded into this carry.
+
+## cli#1642 assessment and boundary pins
+
+Source assessment uses server main `2d6b7ffbae4eb052c41dce10f923bd3c955db620`
+(`resolvers.query.app.ts`, `resolvers.query.node.ts:appNodesRead`,
+`lib/entityRef/{agentRef,shape}.ts`, `integrations/db/provider.ts:tagsFilter`)
+and its pinned `@hadron-memory/urn-lib-js@0.0.18` parser. No server code, contract
+or filter behavior is changed. CLI baseline is main349084d3.
+
+- Agent refs: keep nonblank values verbatim, refuse whitespace-only locally. The
+  server's ID recognizer is exact; a padded ID is not recognized as an ID and fails
+  qualified-URN validation. A padded URN remains a distinct, untrimmed lookup value.
+  A synthetic parser-only probe using the actual0.0.18 dependency confirms those
+  paths; it is not a live resolver/DB reproduction or a silent-empty-result defect
+  claim. The Apps resolver maps unresolved/unreadable Agent selectors to empty
+  pages. The help now tells callers to omit surrounding whitespace.
+- Empty prefix/type/object-type: preserve explicit empty strings on the wire.
+  `appNodesRead` only adds those predicates for truthy strings; by themselves they
+  add no narrowing. This matches node-list's effective neutral behavior (node list
+  omits them). A present type still conflicts with a nodeTypes union, including
+  the empty type, under `checkNodeTypesFilter`. No blanket local refusal is added.
+- Tags: preserve every supplied value including an empty string. PostgreSQL
+  `hasEvery` and the SQLite AND fallback require all tags; this is not an any-tag
+  filter. An empty tag is a literal element, not an omitted filter. No claim that
+  a provider permits creating an empty-tag node or that it must match a row.
+- Identity/date flags keep their narrower local empty-value refusals; absence and
+  explicit false retain their original behavior. No change to unsupported
+  equivalent forms or matrix exclusions.
+- Agent-list callback keeps its20 request ceiling because users cannot ask for a
+  larger page here (cor:api:120:04), while exhaustive collection and the legacy
+  unfiltered path remain unchanged. The new source comment distinguishes this
+  client request choice from a server-specific cap.
+
+New pins cover exact total3, process-classified FORBIDDEN8, offset2147483648
+usage2 with zero requests, human count-only continuation limit20 at the SAME
+offset, and separate empty id/memoryId rows both first and after a valid row with
+no partial output. Existing nil-item, omission/false and full-page drain pins stay.
+Red-first d6fa7b5d fails only on missing help disclosure; boundary runtime behavior
+is already correct and is pinned without rewriting production logic.
+
+Follow-up author validation: focused1642 + existing1626 app-node/Agent-list
+race tests pass, lint0, help inventory matches (no row/header edits retained).
+Ten named non-equivalent mutants killed by the intended new assertions: offset
+overflow, count-only next limit, count-only same offset, total13 vs3, FORBIDDEN
+remap8to1, each incomplete identity, padded-Agent trimming, empty-string selector
+omission and empty-tag omission. Each uses one exact source replacement with a
+nonempty byte change and restores the original in finally; test output must name
+the intended failed test. The first mapping probe did not compile (unused import),
+proved nothing, and was redone compile-safely for the same logical mutant.
+An equivalent default20->10+10 control survives.
+
+Ten compiled CLI invocations against a local synthetic HTTP server pass with
+actual process exits/wire values, including count-only hint, offset overflow
+zero requests, FORBIDDEN8, explicit-empty/false values, padded ID+URN forwarding,
+and both incomplete identities first/after a valid row with no partial stdout.
+Request/response bytes and elapsed samples are retained in author evidence, not
+a provider/latency claim. Fixture server stopped; no external credentials/data,
+provider stack, or real App mutation. Independent seats evaluate the frozen head.
