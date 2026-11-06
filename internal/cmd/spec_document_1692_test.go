@@ -323,6 +323,8 @@ func TestSpecDocumentMalformedSuccessReplyIsRefusedAndKeepsTheFile(t *testing.T)
 		`{"data":{"specDocument":null}}`,
 		`{"data":{"specDocument":{}}}`,
 		`{"data":null}`,
+		`{"data":{"specDocument":{"loc":"cor:spc:030"}}}`,
+		`{"data":{"specDocument":{"loc":"cor:spc:030","memoryId":"mem1","renderedAt":"2026-11-06T05:00:00.000Z","markdown":"","entries":[]}}}`,
 	} {
 		path := filepath.Join(t.TempDir(), "feature.md")
 		if err := os.WriteFile(path, []byte("PRECIOUS"), 0o644); err != nil {
