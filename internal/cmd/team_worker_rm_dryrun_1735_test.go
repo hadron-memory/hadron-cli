@@ -265,3 +265,26 @@ func TestWorkerRmDryRunHelp1735(t *testing.T) {
 		}
 	}
 }
+
+// Option A: the claim note appears exactly when the instruction went out
+// through the worker session, and says the preview is not write-free; the
+// person's headerless fallback describes no claim.
+func TestWorkerRmDryRunClaimNoteOnlyThroughTheSession1735(t *testing.T) {
+	var args []string
+	for _, c := range cmds1594 {
+		if c.name == "rm --dry-run" {
+			args = c.args(app1594, "--instruction", instrTask1592)
+		}
+	}
+	if args == nil {
+		t.Fatal("rm --dry-run is not in the #1594 table")
+	}
+	_, r := run1594(run1592{bound: true}).exec(t, args...)
+	if r.err != nil || !strings.Contains(r.out, "went out through the worker session") || !strings.Contains(r.out, "not write-free") {
+		t.Fatalf("session preview: err %v out %q", r.err, r.out)
+	}
+	_, r = run1594(run1592{}).exec(t, args...)
+	if r.err != nil || strings.Contains(r.out, "worker session") || strings.Contains(r.out, "not write-free") {
+		t.Fatalf("person preview describes a claim that was not sent: err %v out %q", r.err, r.out)
+	}
+}
