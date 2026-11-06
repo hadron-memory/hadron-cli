@@ -4,6 +4,7 @@ package orca
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func hostProcessFixture1729(t *testing.T, script string) string {
+func hostProcessFixture1729(t *testing.T, script string) {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("HOME", t.TempDir())
@@ -23,7 +24,6 @@ func hostProcessFixture1729(t *testing.T, script string) string {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+":/usr/bin:/bin")
-	return dir
 }
 
 func TestHostReadIntrinsicTimeout1729(t *testing.T) {
@@ -84,7 +84,9 @@ func TestHostReadPipeWaitAndDescendantLifetime1729(t *testing.T) {
 					t.Errorf("fixture PID identity changed; no signal sent")
 					return
 				}
-				_ = syscall.Kill(child, syscall.SIGKILL)
+				if err := syscall.Kill(child, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+					t.Errorf("fixture child cleanup: %v", err)
+				}
 			}()
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
