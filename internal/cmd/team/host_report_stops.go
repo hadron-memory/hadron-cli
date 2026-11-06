@@ -17,6 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // newCmdTeamHostReportStops is the dropped-halt reporter (hadron-cli#1629).
@@ -51,7 +52,22 @@ nothing). A post the server commits more than three minutes late, after the
 next run's check, can still appear twice. This is not exactly-once.
 
 Run it from a timer every few minutes. --dry-run posts nothing and counts
-pending reports, and those first held more than --stale-after ago.
+pending reports, and those first held more than --stale-after ago. It makes
+no server call, takes no lock and writes nothing. needsPerson counts only
+cached, readable, non-stale observations of a recorded-seq mismatch, missing
+post or invalid accepted record; it is advisory, not a current check or a
+final diagnosis. JSON adds records (at most 50, oldest held first),
+recordsTotal and recordsTruncated. lastObservedAt is when the last run saw
+that failure, not when the problem began. Unreadable or stale status is not
+counted as needing a person; the report still stays pending.
+
+Recorded-seq failures add reason and, for a mismatch, field (author, body,
+or author,body). No body text, author id, length, hash or diff is disclosed.
+The advisory .lastfail file never decides whether to post or finish a report.
+A status-file write/removal failure adds diagnosticError without changing the
+result or exit. Matching read-back still finishes the report and clears the
+status after its reported marker is durable. No recovery/certification is
+provided by this command.
 
 Each notice handled prints one line: <result> <event id> <worker> [#seq].
   reported    posted now, at #seq
@@ -84,14 +100,27 @@ stay pending); 1 any other error.`,
 			}
 			out := f.IOStreams.Out
 			if dryRun {
-				pending, stale, err := rep.Pending(staleAfter)
+				status, err := rep.PendingStatus(staleAfter)
 				if err != nil {
 					return exitcode.Newf(exitcode.Error, "reading the stop outbox: %v", err)
 				}
 				if f.JSON {
-					return json.NewEncoder(out).Encode(map[string]int{"pending": pending, "stale": stale})
+					return json.NewEncoder(out).Encode(status)
 				}
-				fmt.Fprintf(out, "pending %d, of which held over %s: %d\n", pending, staleAfter, stale)
+				fmt.Fprintf(out, "pending %d, of which held over %s: %d\n", status.Pending, staleAfter, status.Stale)
+				for _, record := range status.Records {
+					field := ""
+					if record.Field != "" {
+						field = " (" + strings.ReplaceAll(record.Field, ",", ", ") + ")"
+					}
+					fmt.Fprintf(out, "needs a person? %s %s #%d: last run observed %s%s at %s\n", output.SafeLine(record.EventID, 256), output.SafeLine(record.Worker, 256), record.Seq, record.Reason, field, record.LastObservedAt.Format(time.RFC3339Nano))
+				}
+				if status.RecordsTruncated {
+					fmt.Fprintf(out, "showing %d of %d cached observations\n", len(status.Records), status.RecordsTotal)
+				}
+				if status.NeedsPerson > 0 {
+					fmt.Fprintln(out, "as last observed by report-stops, not a current check or a final diagnosis")
+				}
 				return nil
 			}
 			rep.API = &stopReporterAPI{f: f, cmd: cmd}
@@ -118,12 +147,25 @@ stay pending); 1 any other error.`,
 				fmt.Fprintln(out, "nothing to report")
 			} else {
 				for _, o := range run.Outcomes {
-					line := fmt.Sprintf("%s %s %s", o.Result, o.EventID, o.Worker)
+					line := fmt.Sprintf("%s %s %s", o.Result, output.SafeLine(o.EventID, 256), output.SafeLine(o.Worker, 256))
 					if o.Seq > 0 {
 						line += fmt.Sprintf(" #%d", o.Seq)
 					}
 					if o.Error != "" {
-						line += ": " + o.Error
+						switch o.Reason {
+						case "readback-mismatch":
+							line += fmt.Sprintf(": read-back of #%d does not match (%s); needs a person", o.Seq, strings.ReplaceAll(o.Field, ",", ", "))
+						case "readback-not-found":
+							line += fmt.Sprintf(": #%d not found on read-back; needs a person if it persists", o.Seq)
+						default:
+							line += ": " + output.SafeLine(o.Error, 1024)
+						}
+					}
+					if o.DiagnosticError == "lastfail-write-failed" {
+						line += " (status file not updated)"
+					}
+					if o.DiagnosticError == "lastfail-remove-failed" {
+						line += " (status file not removed)"
 					}
 					fmt.Fprintln(out, line)
 				}
