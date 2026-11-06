@@ -25,7 +25,7 @@ func TestTeamRoleNoApp1722(t *testing.T) {
 		{"rm", "probe-role", "--yes"},
 		{"ls"}, {"delete", "probe-role", "--yes"},
 	}
-	for _, location := range []string{"outside", "unbound"} {
+	for _, location := range []string{"outside", "unbound", "empty-binding"} {
 		for _, args := range commands {
 			for _, asJSON := range []bool{false, true} {
 				mode := "text"
@@ -36,8 +36,13 @@ func TestTeamRoleNoApp1722(t *testing.T) {
 					f, out := testFactory(t) // empty isolated App config
 					t.Chdir(t.TempDir())
 					gitDir := ""
-					if location == "unbound" {
+					if location != "outside" {
 						gitDir = t.TempDir()
+					}
+					if location == "empty-binding" {
+						if err := os.WriteFile(filepath.Join(gitDir, "hadron-team-session.json"), []byte(`{}`), 0o600); err != nil {
+							t.Fatal(err)
+						}
 					}
 					t.Setenv(team.GitDirEnv, gitDir)
 					var requests atomic.Int32
