@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -13,7 +14,18 @@ import (
 // shows the manager-only `defaultSkips`.
 
 func orgDefaultTemplateJSON(orgDefault string) string {
-	return strings.Replace(templateJSON("t9", "spec-rules", 7), `"required":false,`, `"required":false,"orgDefault":`+orgDefault+`,`, 1)
+	tmpl := templateJSON("t9", "spec-rules", 7)
+	out := strings.Replace(tmpl, `"required":false,`, `"required":false,"orgDefault":`+orgDefault+`,`, 1)
+	if out == tmpl {
+		panic("orgDefaultTemplateJSON: the templateJSON fixture no longer has a \"required\":false, key to anchor on")
+	}
+	return out
+}
+
+// orgDefaultRow matches the labelled `org default` row with its own value, so a
+// neighbouring `required: no` row cannot satisfy it.
+func orgDefaultRow(value string) *regexp.Regexp {
+	return regexp.MustCompile(`(?m)^\s*org default:?\s+` + value + `\s*$`)
 }
 
 func TestTemplateGetShowsOrgDefault(t *testing.T) {
@@ -27,8 +39,8 @@ func TestTemplateGetShowsOrgDefault(t *testing.T) {
 		}
 		out, code = runConfig(t, gql.URL, "memory", "config", "template", "get", "t9")
 		yes := map[string]string{"true": "yes", "false": "no"}[want]
-		if code != exitcode.OK || !strings.Contains(out, "org default") || !strings.Contains(out, yes) {
-			t.Fatalf("text (exit %d) must show an org default row of %q:\n%s", code, yes, out)
+		if code != exitcode.OK || !orgDefaultRow(yes).MatchString(out) {
+			t.Fatalf("text (exit %d) must show the row `org default: %s`:\n%s", code, yes, out)
 		}
 	}
 }
@@ -40,6 +52,11 @@ func TestTemplateListShowsOrgDefault(t *testing.T) {
 	out, code := runConfig(t, gql.URL, "memory", "config", "template", "list", "--json")
 	if code != exitcode.OK || !strings.Contains(out, `"orgDefault": true`) {
 		t.Fatalf("list --json (exit %d) must print orgDefault:\n%s", code, out)
+	}
+	// The text table carries the ORG DEFAULT column, with this row's own value.
+	out, code = runConfig(t, gql.URL, "memory", "config", "template", "list")
+	if code != exitcode.OK || !strings.Contains(out, "ORG DEFAULT") || !regexp.MustCompile(`(?m)^t9\s.*\byes\b.*$`).MatchString(out) {
+		t.Fatalf("list text (exit %d) must show the ORG DEFAULT column with yes for t9:\n%s", code, out)
 	}
 }
 
@@ -122,11 +139,12 @@ func TestTemplateOrgDefaultFileEdges(t *testing.T) {
 
 // The server's refusals are shown verbatim through the existing mapping.
 func TestTemplateOrgDefaultRefusalsAreVerbatim(t *testing.T) {
+	// The server's real payloads (hadron-server resolvers.memoryConfigOrgDefault.ts).
 	for reason, msg := range map[string]string{
-		"ORG_DEFAULT_ORG_ONLY": "Only an organization-owned template can be an org default.",
-		"ORG_DEFAULT_LIMIT":    "An organization may have at most 10 org default templates.",
+		"ORG_DEFAULT_ORG_ONLY": "Only an organization-owned template can be an organization default.",
+		"ORG_DEFAULT_LIMIT":    "An organization can have at most 10 default templates.",
 	} {
-		body := `{"errors":[{"message":"` + msg + `","extensions":{"code":"BAD_USER_INPUT","reason":"` + reason + `"}}]}`
+		body := `{"errors":[{"message":"` + msg + `","extensions":{"code":"BAD_USER_INPUT","reason":"` + reason + `","field":"orgDefault"}}]}`
 		gql, _ := captureGraphQL(t, map[string]string{"UpdateMemoryConfigTemplate": body})
 		f, out := testFactory(t)
 		errOut := &strings.Builder{}

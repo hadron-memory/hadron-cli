@@ -263,7 +263,7 @@ func renderDefaultSkips(w io.Writer, skips []defaultSkipDTO) error {
 	if len(skips) == 0 {
 		return nil
 	}
-	if _, err := fmt.Fprintf(w, "\nSkipped org defaults (%d): rules an organization default template meant to give this memory, left out at creation\n", len(skips)); err != nil {
+	if _, err := fmt.Fprintf(w, "\nSkipped org defaults (%d): rules organization default templates meant to give this memory, left out at creation\n", len(skips)); err != nil {
 		return err
 	}
 	t := output.NewTable(w, "ROLE", "FIELD", "REASON", "REFERENCE", "TEMPLATE")
@@ -272,7 +272,7 @@ func renderDefaultSkips(w io.Writer, skips []defaultSkipDTO) error {
 		switch {
 		case s.Ref != nil:
 			ref = *s.Ref
-		case s.RefState != "NONE":
+		case s.RefState != string(gen.NodeRoleRuleRefStateNone):
 			ref = s.RefState
 		}
 		template := "—"
