@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -148,9 +149,9 @@ func TestCompileLegacyWorkerURNIgnoresAmbient1157(t *testing.T) {
 // in the given way, and counts what reached it.
 func runCompile1157(t *testing.T, h http.HandlerFunc) (int, error) {
 	t.Helper()
-	var hits int
+	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
+		hits.Add(1)
 		h(w, r)
 	}))
 	defer srv.Close()
@@ -158,7 +159,7 @@ func runCompile1157(t *testing.T, h http.HandlerFunc) (int, error) {
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL}, c1Commands[0].args...))
 	err := root.Execute()
-	return hits, err
+	return int(hits.Load()), err
 }
 
 func TestCompileUnknownOutcomeNamesBoundedCause1157(t *testing.T) {
