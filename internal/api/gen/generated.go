@@ -18639,10 +18639,17 @@ func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return 
 // and that task's current revision (Node.revSeq). The server compares both with
 // the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
 // AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
-// AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
-// This does not prove the task was read or followed. With no applicable rule
-// the claim is ignored. People in the portal are exempt, derived from their
-// sign-in; no client field selects that.
+// AUTHOR_TASK_BROKEN when the rule's task is gone, unusable or unreadable to the
+// writer, whatever the claim. A match records a TASK stamp. This does not prove
+// the task was read or followed. With no applicable rule the claim is ignored.
+// People in the portal are exempt, derived from their sign-in; no client field
+// selects that.
+//
+// #1329 — each refusal carries extensions taskAccess, task, taskId, taskRevision
+// and load. READABLE gives the task's URN (null when it has none that resolves),
+// id, current revision and the node read per surface. UNAVAILABLE gives nulls and
+// is the same for an unreadable task and a missing one: an owner must fix access
+// or the rule.
 type AuthoredWithInput struct {
 	// The task's current revision.
 	Revision int `json:"revision"`
@@ -33816,6 +33823,11 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -33884,6 +33896,8 @@ type __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfi
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -33914,6 +33928,7 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -34016,7 +34031,14 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 type CreateMemoryConfigTemplateInput struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
-	Required    *bool   `json:"required,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool `json:"orgDefault,omitempty"`
+	Required   *bool `json:"required,omitempty"`
 	// Each role at most once (NODE_ROLE_RULE_EXISTS).
 	Rules []*CreateNodeRoleRuleInput `json:"rules,omitempty"`
 }
@@ -34026,6 +34048,9 @@ func (v *CreateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns CreateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetName() string { return v.Name }
+
+// GetOrgDefault returns CreateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns CreateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
@@ -55832,12 +55857,14 @@ var AllMemoryConfigApplyOutcome = []MemoryConfigApplyOutcome{
 // as empty, with a null id.
 type MemoryConfigMemoryConfig struct {
 	// Null until the first rule is written.
-	Id        *string `json:"id"`
-	MemoryId  string  `json:"memoryId"`
-	CreatedAt *string `json:"createdAt"`
-	CreatedBy *string `json:"createdBy"`
-	UpdatedAt *string `json:"updatedAt"`
-	UpdatedBy *string `json:"updatedBy"`
+	Id       *string `json:"id"`
+	MemoryId string  `json:"memoryId"`
+	// #3426 — org-default rules skipped when this memory was created (a reference deleted, unreadable to the organization or not a task). Managers only, like the config. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+	DefaultSkips []*MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip `json:"defaultSkips"`
+	CreatedAt    *string                                                        `json:"createdAt"`
+	CreatedBy    *string                                                        `json:"createdBy"`
+	UpdatedAt    *string                                                        `json:"updatedAt"`
+	UpdatedBy    *string                                                        `json:"updatedBy"`
 	// Role-ascending.
 	Rules []*MemoryConfigMemoryConfigRulesNodeRoleRule `json:"rules"`
 }
@@ -55847,6 +55874,11 @@ func (v *MemoryConfigMemoryConfig) GetId() *string { return v.Id }
 
 // GetMemoryId returns MemoryConfigMemoryConfig.MemoryId, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetMemoryId() string { return v.MemoryId }
+
+// GetDefaultSkips returns MemoryConfigMemoryConfig.DefaultSkips, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetDefaultSkips() []*MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip {
+	return v.DefaultSkips
+}
 
 // GetCreatedAt returns MemoryConfigMemoryConfig.CreatedAt, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetCreatedAt() *string { return v.CreatedAt }
@@ -55863,6 +55895,77 @@ func (v *MemoryConfigMemoryConfig) GetUpdatedBy() *string { return v.UpdatedBy }
 // GetRules returns MemoryConfigMemoryConfig.Rules, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetRules() []*MemoryConfigMemoryConfigRulesNodeRoleRule {
 	return v.Rules
+}
+
+// MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip includes the requested fields of the GraphQL type MemoryConfigDefaultSkip.
+// The GraphQL type's documentation follows.
+//
+// #3426 — one org-default rule skipped at memory creation. Stores no task URN and no state: `ref` and `refState` are the
+// template rule's reference as the CALLING manager sees it now. Null/BROKEN once the template or rule is gone.
+type MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip struct {
+	Role string `json:"role"`
+	// authorTask, validationTask or descriptionNode.
+	Field string `json:"field"`
+	// REFERENCE_UNAVAILABLE: deleted, unreadable to the organization, or not a task.
+	Reason         string                                                                                               `json:"reason"`
+	Ref            *string                                                                                              `json:"ref"`
+	RefState       NodeRoleRuleRefState                                                                                 `json:"refState"`
+	CreatedAt      string                                                                                               `json:"createdAt"`
+	SourceTemplate *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+}
+
+// GetRole returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Role, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRole() string { return v.Role }
+
+// GetField returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Field, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetField() string {
+	return v.Field
+}
+
+// GetReason returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Reason, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetReason() string {
+	return v.Reason
+}
+
+// GetRef returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Ref, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRef() *string { return v.Ref }
+
+// GetRefState returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.RefState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRefState() NodeRoleRuleRefState {
+	return v.RefState
+}
+
+// GetCreatedAt returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetSourceTemplate returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetSourceTemplate() *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.SourceTemplate
+}
+
+// MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate includes the requested fields of the GraphQL type NodeRoleRuleSourceTemplate.
+type MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The template has been deleted; the rule keeps its copy.
+	Deleted bool `json:"deleted"`
+}
+
+// GetId returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Name, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetName() string {
+	return v.Name
+}
+
+// GetDeleted returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Deleted, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetDeleted() bool {
+	return v.Deleted
 }
 
 // MemoryConfigMemoryConfigRulesNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
@@ -56126,6 +56229,8 @@ type MemoryConfigTemplateFields struct {
 	OwnerId *string `json:"ownerId"`
 	// Applied as locked rules (#1334).
 	Required bool `json:"required"`
+	// #3426 — applied to every new org knowledge/group memory at creation. Always false for a non-organization owner. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault bool `json:"orgDefault"`
 	// Optimistic-concurrency token for the template AND its rules.
 	Revision  int     `json:"revision"`
 	CreatedAt string  `json:"createdAt"`
@@ -56153,6 +56258,9 @@ func (v *MemoryConfigTemplateFields) GetOwnerId() *string { return v.OwnerId }
 
 // GetRequired returns MemoryConfigTemplateFields.Required, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateFields) GetRequired() bool { return v.Required }
+
+// GetOrgDefault returns MemoryConfigTemplateFields.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetOrgDefault() bool { return v.OrgDefault }
 
 // GetRevision returns MemoryConfigTemplateFields.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateFields) GetRevision() int { return v.Revision }
@@ -56319,6 +56427,11 @@ func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRequired() bool {
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns MemoryConfigTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns MemoryConfigTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -56387,6 +56500,8 @@ type __premarshalMemoryConfigTemplateMemoryConfigTemplate struct {
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -56417,6 +56532,7 @@ func (v *MemoryConfigTemplateMemoryConfigTemplate) __premarshalJSON() (*__premar
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -56512,6 +56628,11 @@ func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItem
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -56580,6 +56701,8 @@ type __premarshalMemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplates
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -56610,6 +56733,7 @@ func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItem
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -91750,6 +91874,11 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -91818,6 +91947,8 @@ type __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfig
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -91848,6 +91979,7 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -91950,10 +92082,17 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 // description null clears it. `rules`, when given, REPLACES the template's
 // rules in one transaction.
 type UpdateMemoryConfigTemplateInput struct {
-	Description *string                    `json:"description,omitempty"`
-	Name        *string                    `json:"name,omitempty"`
-	Required    *bool                      `json:"required,omitempty"`
-	Rules       []*CreateNodeRoleRuleInput `json:"rules"`
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool                      `json:"orgDefault,omitempty"`
+	Required   *bool                      `json:"required,omitempty"`
+	Rules      []*CreateNodeRoleRuleInput `json:"rules"`
 }
 
 // GetDescription returns UpdateMemoryConfigTemplateInput.Description, and is useful for accessing the field via an interface.
@@ -91961,6 +92100,9 @@ func (v *UpdateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns UpdateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetName() *string { return v.Name }
+
+// GetOrgDefault returns UpdateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns UpdateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
@@ -92041,6 +92183,11 @@ func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplat
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -92109,6 +92256,8 @@ type __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfi
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -92139,6 +92288,7 @@ func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplat
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -109202,6 +109352,7 @@ type __UpdateMemoryConfigTemplateClearingDescriptionInput struct {
 	ExpectedRevision int                        `json:"expectedRevision"`
 	Name             *string                    `json:"name,omitempty"`
 	Required         *bool                      `json:"required,omitempty"`
+	OrgDefault       *bool                      `json:"orgDefault,omitempty"`
 	Rules            []*CreateNodeRoleRuleInput `json:"rules"`
 }
 
@@ -109218,6 +109369,11 @@ func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetName() *string
 
 // GetRequired returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Required, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRequired() *bool { return v.Required }
+
+// GetOrgDefault returns __UpdateMemoryConfigTemplateClearingDescriptionInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetOrgDefault() *bool {
+	return v.OrgDefault
+}
 
 // GetRules returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Rules, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRules() []*CreateNodeRoleRuleInput {
@@ -122397,6 +122553,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -131071,6 +131228,19 @@ query MemoryConfig ($memoryRef: ID!) {
 	memoryConfig(memoryRef: $memoryRef) {
 		id
 		memoryId
+		defaultSkips {
+			role
+			field
+			reason
+			ref
+			refState
+			createdAt
+			sourceTemplate {
+				id
+				name
+				deleted
+			}
+		}
 		createdAt
 		createdBy
 		updatedAt
@@ -131150,6 +131320,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -131216,6 +131387,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -143807,6 +143979,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -143878,8 +144051,8 @@ func UpdateMemoryConfigTemplate(
 
 // The mutation executed by UpdateMemoryConfigTemplateClearingDescription.
 const UpdateMemoryConfigTemplateClearingDescription_Operation = `
-mutation UpdateMemoryConfigTemplateClearingDescription ($ref: ID!, $expectedRevision: Int!, $name: String, $required: Boolean, $rules: [CreateNodeRoleRuleInput!]) {
-	updateMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision, input: {description:null,name:$name,required:$required,rules:$rules}) {
+mutation UpdateMemoryConfigTemplateClearingDescription ($ref: ID!, $expectedRevision: Int!, $name: String, $required: Boolean, $orgDefault: Boolean, $rules: [CreateNodeRoleRuleInput!]) {
+	updateMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision, input: {description:null,name:$name,required:$required,orgDefault:$orgDefault,rules:$rules}) {
 		template {
 			... MemoryConfigTemplateFields
 		}
@@ -143895,6 +144068,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -143938,6 +144112,7 @@ func UpdateMemoryConfigTemplateClearingDescription(
 	expectedRevision int,
 	name *string,
 	required *bool,
+	orgDefault *bool,
 	rules []*CreateNodeRoleRuleInput,
 ) (data_ *UpdateMemoryConfigTemplateClearingDescriptionResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -143948,6 +144123,7 @@ func UpdateMemoryConfigTemplateClearingDescription(
 			ExpectedRevision: expectedRevision,
 			Name:             name,
 			Required:         required,
+			OrgDefault:       orgDefault,
 			Rules:            rules,
 		},
 	}

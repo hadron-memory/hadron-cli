@@ -851,6 +851,14 @@ Conventions:
   gets exit 4, EXACTLY as for a memory that does not exist. So exit 4 never
   means "no rules": a manager's memory with no rules is a success, `id: null`
   and `rules: []`.
+  - **Skipped org defaults (#1716, server#3426):** `--json` carries
+    `defaultSkips: []` (never `null`): each `{role, field, reason, ref,
+    refState, createdAt, sourceTemplate}` is an org-default rule left out when the
+    memory was created (a reference deleted, unreadable to the organization or not
+    a task). `ref` and `refState` are as YOU see the reference now (`ref` null,
+    `refState` BROKEN once the template or rule is gone; the CLI never builds a
+    URN). Text prints a `Skipped org defaults` table only when there are some.
+    Managers only, like the config: a non-manager gets exit 4 with no skip output.
   - `--json` for `get` is `{id, memoryId, rules[], createdAt, createdBy,
     updatedAt, updatedBy}`; each rule is `{id, role, revision, enabled,
     strictSubRoles, writers, validateBy, authorTask, authorTaskId,
@@ -914,11 +922,25 @@ Conventions:
   omits it). Templates are addressed by id.
   - `list` pages to exhaustion (`{items[], total}`, name-ascending); at most one
     owner flag narrows it. `get`, `create` and `update` print a template
-    `{id, name, description, ownerType, ownerId, required, revision, rules[],
-    createdAt, createdBy, updatedAt, updatedBy}` (`create`/`update` wrap it as
+    `{id, name, description, ownerType, ownerId, required, orgDefault, revision,
+    rules[], createdAt, createdBy, updatedAt, updatedBy}` (`create`/`update` wrap it as
     `{template, warnings[]}`); each rule is a config rule without the
     config-only fields (no id, revision, locked or provenance), with the same
     URN/id/STATE references. `rm` prints `{id, name, revision, deleted}`.
+  - **`orgDefault` (#1716, server#3426):** a boolean in the template file, like
+    `required`. `true` designates an ORGANIZATION-owned template as an org default:
+    applied once, as the org, to every new org knowledge or group memory at
+    creation (`createMemory` only; never clone, extract, App, install, agent or
+    chat creation), never retroactively. It is a starting configuration, NOT a
+    boundary. A key the file has is applied, an omitted key is unchanged, and
+    `"orgDefault": false` clears it (never dropped as zero); `null` is refused
+    locally. The server refuses `true` on a user-, App- or server-owned template
+    (`BAD_USER_INPUT`, reason `ORG_DEFAULT_ORG_ONLY`) and an eleventh live default
+    in an org (`ORG_DEFAULT_LIMIT`, cap 10), both exit 2 with the server's message
+    verbatim; `NODE_NOT_FOUND`, `NODE_ROLE_RULE_REF_BROKEN` and `CONFLICT` come
+    from the save-time reference gate. A broken REQUIRED default is planted locked
+    and refuses that role's writes until an admin repoints it. No dedicated
+    set/clear verb: edit the file key.
   - **Bulk apply (#1701):** two or more refs, or --memories-file (one per
     line, - reads stdin once; trim lines, skip blanks and # comments), uses
     one bulk preview then one real call pinned to its successful entries'

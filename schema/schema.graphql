@@ -2753,14 +2753,37 @@ type AuthContext {
 }
 
 """
+What the credential presented on THIS request came to (hrn:node:hadronmemory.com:specs:cor:aut:010:05).
+"""
+enum AuthenticationStatus {
+  """No credential was presented."""
+  ANONYMOUS
+
+  """The credential resolved a user or an App."""
+  AUTHENTICATED
+
+  """
+  A credential was presented and did not authenticate. One answer for every cause, with no reason.
+  """
+  REFUSED
+}
+
+"""
 #1328 — an authoring attestation. The writer states which task it worked from
 and that task's current revision (Node.revSeq). The server compares both with
 the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
 AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
-AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
-This does not prove the task was read or followed. With no applicable rule
-the claim is ignored. People in the portal are exempt, derived from their
-sign-in; no client field selects that.
+AUTHOR_TASK_BROKEN when the rule's task is gone, unusable or unreadable to the
+writer, whatever the claim. A match records a TASK stamp. This does not prove
+the task was read or followed. With no applicable rule the claim is ignored.
+People in the portal are exempt, derived from their sign-in; no client field
+selects that.
+
+#1329 — each refusal carries extensions taskAccess, task, taskId, taskRevision
+and load. READABLE gives the task's URN (null when it has none that resolves),
+id, current revision and the node read per surface. UNAVAILABLE gives nulls and
+is the same for an unreadable task and a missing one: an owner must fix access
+or the rule.
 """
 input AuthoredWithInput {
   """The task's current revision."""
@@ -4191,6 +4214,16 @@ input CreateChannelInput {
 input CreateMemoryConfigTemplateInput {
   description: String
   name: String!
+
+  """
+  #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+  (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+  boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+  At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+  to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+  Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+  """
+  orgDefault: Boolean
   required: Boolean
 
   """Each role at most once (NODE_ROLE_RULE_EXISTS)."""
@@ -6428,6 +6461,11 @@ type MemoryConfig {
   createdAt: DateTime
   createdBy: ID
 
+  """
+  #3426 — org-default rules skipped when this memory was created (a reference deleted, unreadable to the organization or not a task). Managers only, like the config. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+  """
+  defaultSkips: [MemoryConfigDefaultSkip!]!
+
   """Null until the first rule is written."""
   id: ID
   memoryId: ID!
@@ -6536,6 +6574,26 @@ type MemoryConfigBulkApplyResult {
 }
 
 """
+#3426 — one org-default rule skipped at memory creation. Stores no task URN and no state: `ref` and `refState` are the
+template rule's reference as the CALLING manager sees it now. Null/BROKEN once the template or rule is gone.
+"""
+type MemoryConfigDefaultSkip {
+  createdAt: DateTime!
+
+  """authorTask, validationTask or descriptionNode."""
+  field: String!
+
+  """
+  REFERENCE_UNAVAILABLE: deleted, unreadable to the organization, or not a task.
+  """
+  reason: String!
+  ref: String
+  refState: NodeRoleRuleRefState!
+  role: String!
+  sourceTemplate: NodeRoleRuleSourceTemplate
+}
+
+"""
 #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
 memory's config when applied (never live-linked). Read and managed only by
 its owner's managers: a platform admin (server), an org ADMIN/OWNER
@@ -6552,6 +6610,11 @@ type MemoryConfigTemplate {
   Unique per owner among live templates; 1-64 lower-case letters, digits, '-' or '_'.
   """
   name: String!
+
+  """
+  #3426 — applied to every new org knowledge/group memory at creation. Always false for a non-organization owner. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+  """
+  orgDefault: Boolean!
 
   """ID of the owning organization, user or App; null for the server."""
   ownerId: ID
@@ -9561,6 +9624,17 @@ type Mutation {
   recordAppAction(appRef: ID!, code: String!, payload: JSON, taskRef: ID): RecordAppActionResult!
 
   """
+  #1332 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — record the result of running the node's validation task on revision nodeRevision of the node. Advisory: it never edits the node or blocks a write, and a report for an older revision is stored as history without changing the current revision's state. validationTaskRef is the task the node's role rule names NOW (its id or node URN; read it from NodeRoleRule.validationTask) and validationTaskRevision the task revision that ran.
+  
+  Any writer of the node's memory may record one except the author of nodeRevision, decided from its authorship stamp: for HUMAN, that person acting as themselves through any credential is refused (a worker they hold may report); for TASK, a headless run whose entry task is the author task is refused (another run is CHECKED; any other caller is AUTHOR_UNKNOWN); with no stamp every writer is AUTHOR_UNKNOWN. The reporter is derived by the server (a run, a worker session, a person by user id, or an App key), never from the request.
+  
+  runId (1-200 characters) makes a retry idempotent: within this node in this memory, the same runId from the same reporter for the same nodeRevision and task revision returns the first report (replayed: true); any other use of it is CONTENT_VALIDATION_RUN_ID_CONFLICT, which carries nothing from the stored report.
+  
+  Refusals, in order, each writing nothing: NODE_NOT_FOUND (unreadable or missing memory, missing node); FORBIDDEN (not a writer); SESSION_NOT_BOUND (the request named a session that is not one of the caller's open sessions); CONTENT_VALIDATION_REPORTER_UNKNOWN; CONTENT_VALIDATION_NODE_REVISION_INVALID (newer than the current revision); CONTENT_VALIDATION_NOT_CONFIGURED (no validation task for the node's role); CONTENT_VALIDATION_WRONG_TASK for EVERY report from a caller who cannot read a validation task the rule names, whatever task and revision it names and whether or not that task is broken, so the later checks never run for that caller (a reference that no longer resolves, the task or its memory deleted, is TASK_BROKEN for every caller); CONTENT_VALIDATION_TASK_BROKEN; CONTENT_VALIDATION_WRONG_TASK (a task other than the one the node's rule names); CONTENT_VALIDATION_TASK_REVISION_INVALID (newer than the task's current revision); CONTENT_VALIDATION_REPORTER_IS_AUTHOR; CONTENT_VALIDATION_RUN_ID_CONFLICT. BAD_USER_INPUT for a malformed argument, and a retryable CONFLICT if the node changed during the call.
+  """
+  recordNodeContentValidationReport(nodeRef: ID!, nodeRevision: Int!, outcome: NodeContentValidationOutcome!, runId: String, validationTaskRef: ID!, validationTaskRevision: Int!): NodeContentValidationReportReceipt!
+
+  """
   #3448 — build assignee records pr.ready only when every current scheduled seat is finished with APPROVE, PASS or CARRY at the frozen head. Its verdict actor must differ from both the build's current assignee and the newest pr.frozen actor; Worker/person identity stays distinct from holder credentials. PR_NOT_READY carries failing slots; event facts only, never opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
   """
   recordReadyCall(head: String!, taskRef: ID!): PrProtocolResult!
@@ -11593,6 +11667,14 @@ enum NodeContentScope {
   CONTENT
 }
 
+"""
+#1332 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — CHECKED: R's recorded author was compared with the reporter and differs, never a claim of independence. AUTHOR_UNKNOWN: there was nothing recorded to compare.
+"""
+enum NodeContentValidationAuthorCheck {
+  AUTHOR_UNKNOWN
+  CHECKED
+}
+
 enum NodeContentValidationOutcome {
   ERROR
   FAIL
@@ -11600,11 +11682,32 @@ enum NodeContentValidationOutcome {
 }
 
 type NodeContentValidationReport {
+  """
+  #1332 — the author check made when the report was recorded. Null on a report recorded before #1332.
+  """
+  authorCheck: NodeContentValidationAuthorCheck
   nodeRevision: Int!
   outcome: NodeContentValidationOutcome!
   reportedAt: DateTime!
   validationTaskRef: String
   validationTaskRevision: Int
+}
+
+"""#1332 — the answer of recordNodeContentValidationReport."""
+type NodeContentValidationReportReceipt {
+  """The node the report is about."""
+  nodeId: ID!
+
+  """
+  True when an earlier report with the same runId, from the same reporter, for the same node revision and task revision, was returned and nothing was written.
+  """
+  replayed: Boolean!
+  report: NodeContentValidationReport!
+
+  """
+  The validation state of the node's current revision after this call. A report for an older revision leaves it UNVALIDATED or STALE.
+  """
+  state: NodeContentValidationState!
 }
 
 enum NodeContentValidationState {
@@ -13259,6 +13362,16 @@ type Query {
   AuthContext type for the full security posture.
   """
   authContext: AuthContext
+
+  """
+  Whether the credential THIS request presented authenticated
+  (hrn:node:hadronmemory.com:specs:cor:aut:010:05). REFUSED is the identical answer, in status and body for the same
+  operation, for every cause: garbage, expired, wrongly signed, revoked, from an ended sign-in, for a deleted user, or
+  an ended impersonation. Timing is an accepted limit. It takes no argument, so it cannot test a token the caller does
+  not hold. A credential check that could not complete is the ordinary internal error for this field, never REFUSED;
+  every other field answers as before. me and authContext are unchanged (null for a refused credential).
+  """
+  authenticationStatus: AuthenticationStatus!
 
   """
   #2441: state, hash, plain summary and graph depth for one trigger. MANUAL takes the origin run id. Same gate as approveAutomation.
@@ -18651,6 +18764,16 @@ rules in one transaction.
 input UpdateMemoryConfigTemplateInput {
   description: String
   name: String
+
+  """
+  #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+  (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+  boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+  At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+  to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+  Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+  """
+  orgDefault: Boolean
   required: Boolean
   rules: [CreateNodeRoleRuleInput!]
 }
