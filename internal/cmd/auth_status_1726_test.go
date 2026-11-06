@@ -61,7 +61,7 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 				}
 				if jsonMode {
 					var got map[string]any
-					if e := json.Unmarshal(out.Bytes(), &got); e != nil {
+					if e := json.Unmarshal([]byte(out.String()), &got); e != nil {
 						t.Fatal(e)
 					}
 					if len(got) != 1 || got["status"] != answer {
