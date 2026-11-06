@@ -353,28 +353,37 @@ func TestReferenceEmptyStringsRemainValues1554(t *testing.T) {
 
 func TestReferenceTypedPartialErrorWins1554(t *testing.T) {
 	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
-		for _, code := range []string{"FORBIDDEN", "NOT_FOUND"} {
-			t.Run(verb+code, func(t *testing.T) {
-				calls := 0
-				out, _, err := runReferenceWire1554(t, verb, true, func(op string, v map[string]any) (string, int) {
-					calls++
-					field := "specUnresolvedReferencesPage"
-					if verb == "backlinks" {
-						field = "specBacklinksPage"
+		for _, legacy := range []bool{false, true} {
+			for _, code := range []string{"FORBIDDEN", "NOT_FOUND"} {
+				t.Run(fmt.Sprintf("%s/legacy=%v/%s", verb, legacy, code), func(t *testing.T) {
+					calls := 0
+					out, _, err := runReferenceWire1554(t, verb, true, func(op string, v map[string]any) (string, int) {
+						calls++
+						field := "specUnresolvedReferences"
+						if verb == "backlinks" {
+							field = "specBacklinks"
+						}
+						if calls == 1 {
+							if legacy {
+								return absentReferenceField1554(field + "Page"), 400
+							}
+							return `{"data":{"` + field + `Page":{"items":[` + referenceRow1554 + `],"total":2,"hasMore":true}}}`, 200
+						}
+						payload := `{"` + field + `Page":{"items":[null],"total":2,"hasMore":false}}`
+						if legacy {
+							payload = `{"` + field + `":[null]}`
+						}
+						return `{"data":` + payload + `,"errors":[{"message":"refused","extensions":{"code":"` + code + `"}}]}`, 200
+					})
+					want := exitcode.Forbidden
+					if code == "NOT_FOUND" {
+						want = exitcode.NotFound
 					}
-					if calls == 1 {
-						return `{"data":{"` + field + `":{"items":[` + referenceRow1554 + `],"total":2,"hasMore":true}}}`, 200
+					if exitCodeFor(err) != want || out != "" || calls != 2 {
+						t.Fatalf("out=%q err=%v code=%d want=%d calls=%d", out, err, exitCodeFor(err), want, calls)
 					}
-					return `{"data":{"` + field + `":{"items":[null],"total":2,"hasMore":false}},"errors":[{"message":"refused","extensions":{"code":"` + code + `"}}]}`, 200
 				})
-				want := exitcode.Forbidden
-				if code == "NOT_FOUND" {
-					want = exitcode.NotFound
-				}
-				if exitCodeFor(err) != want || out != "" || calls != 2 {
-					t.Fatalf("out=%q err=%v code=%d want=%d calls=%d", out, err, exitCodeFor(err), want, calls)
-				}
-			})
+			}
 		}
 	}
 }
