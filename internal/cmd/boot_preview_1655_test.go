@@ -242,3 +242,164 @@ func TestEffectiveBootLegacyErrorNoLoop1655(t *testing.T) {
 		t.Fatalf("retry loop modern%d legacy%d", modern, legacy)
 	}
 }
+
+// Modern provenance pins must opt in; compatibility defaults intentionally model
+// an old missing-capability provider and cannot prove this branch's join logic.
+func TestEffectiveBootModernProvenance1655(t *testing.T) {
+	for _, withheld := range []bool{false, true} {
+		t.Run(fmt.Sprint(withheld), func(t *testing.T) {
+			responses := bootResponses1655(t, `{"served":{"pointerLevel":"APP_AGENT","compiledNodeId":"n1","servedRevSeq":7},"refusal":null}`)
+			var p map[string]any
+			if err := json.Unmarshal([]byte(responses["AppAgentEffectiveRoster"]), &p); err != nil {
+				t.Fatal(err)
+			}
+			app := p["data"].(map[string]any)["app"].(map[string]any)
+			agents := app["agents"].([]any)
+			copyAgent := map[string]any{}
+			for k, v := range agents[0].(map[string]any) {
+				copyAgent[k] = v
+			}
+			copyAgent["id"] = "agt10"
+			copyAgent["urn"] = "hrn:agent:example.com:derived"
+			copyAgent["name"] = "Derived"
+			app["agents"] = append(agents, copyAgent)
+			own := "hrn:node:example.com:install:boot"
+			base := app["appAgents"].([]any)[0].(map[string]any)
+			base["bootPromptRef"] = own
+			importer := map[string]any{"id": "agt9", "urn": "hrn:agent:acme.com:support-bot", "name": "Support Bot"}
+			second := map[string]any{"agent": map[string]any{"id": "agt10"}, "installMethod": "DERIVED", "importer": importer, "bootPromptRef": nil, "bootPromptTargetDeleted": nil, "bootPromptServe": map[string]any{"served": map[string]any{"pointerLevel": "AGENT", "compiledNodeId": "n2", "servedRevSeq": 8}, "refusal": nil}}
+			rows := []any{second, base} // ordering differs from App.agents: join by id.
+			if withheld {
+				base["installMethod"] = nil
+				base["importer"] = nil
+				second["installMethod"] = nil
+				second["importer"] = nil
+				rows = append(rows, map[string]any{"agent": nil, "installMethod": nil, "importer": nil, "bootPromptServe": map[string]any{"served": map[string]any{"pointerLevel": "AGENT", "compiledNodeId": "HIDDEN_COMPILED", "servedRevSeq": 8}}})
+			}
+			app["appAgents"] = rows
+			wire, _ := json.Marshal(p)
+			responses["AppAgentEffectiveRoster"] = string(wire)
+			calls, out, err := runTeamTask(t, responses, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []map[string]any
+			if err = json.Unmarshal([]byte(out), &got); err != nil || len(got) != 2 {
+				t.Fatalf("%s %v", out, err)
+			}
+			if strings.Contains(out, "HIDDEN_COMPILED") {
+				t.Fatal("hidden Agent row surfaced")
+			}
+			if got[0]["bootPromptUrn"] != own || got[0]["pointerLevel"] != "APP_AGENT" || got[1]["pointerLevel"] != "AGENT" {
+				t.Fatal(out)
+			}
+			if _, ok := got[1]["bootPromptUrn"]; ok {
+				t.Fatal("inherited URN invented")
+			}
+			if withheld {
+				for _, row := range got {
+					if row["installMethod"] != nil || row["importer"] != nil {
+						t.Fatal(out)
+					}
+				}
+			} else {
+				if got[0]["installMethod"] != "ROW" || got[0]["importer"] != nil || got[1]["installMethod"] != "DERIVED" {
+					t.Fatal(out)
+				}
+				imp, ok := got[1]["importer"].(map[string]any)
+				if !ok || imp["id"] != "agt9" || imp["urn"] != importer["urn"] || imp["name"] != "Support Bot" {
+					t.Fatal(out)
+				}
+			}
+			modern, legacy := 0, 0
+			for _, c := range *calls {
+				if c.Op == "AppAgentEffectiveRoster" {
+					modern++
+				}
+				if c.Op == "AppAgentInstallationRoster" {
+					legacy++
+				}
+			}
+			if modern != 1 || legacy != 0 {
+				t.Fatalf("modern%d legacy%d", modern, legacy)
+			}
+		})
+	}
+}
+
+func TestEffectiveBootModernDeletedCue1655(t *testing.T) {
+	r := bootResponses1655(t, `{"served":null,"refusal":"BOOT_PROMPT_TARGET_DELETED"}`)
+	var p map[string]any
+	_ = json.Unmarshal([]byte(r["AppAgentEffectiveRoster"]), &p)
+	row := p["data"].(map[string]any)["app"].(map[string]any)["appAgents"].([]any)[0].(map[string]any)
+	row["bootPromptRef"] = "hrn:node:example.com:install:boot"
+	row["bootPromptTargetDeleted"] = true
+	wire, _ := json.Marshal(p)
+	r["AppAgentEffectiveRoster"] = string(wire)
+	_, out, err := runTeamTask(t, r, "app", "agent", "list", "hrn:app:acme.com:support")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "BOOT_PROMPT_TARGET_DELETED") || !strings.Contains(out, "deleted: clear or repoint") {
+		t.Fatal(out)
+	}
+	_, out, err = runTeamTask(t, r, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []map[string]any
+	_ = json.Unmarshal([]byte(out), &got)
+	if got[0]["bootPromptTargetDeleted"] != true || got[0]["pointerLevel"] != nil || got[0]["bootPromptRefusal"] != "BOOT_PROMPT_TARGET_DELETED" {
+		t.Fatal(out)
+	}
+	if _, ok := got[0]["bootPromptUrn"]; ok {
+		t.Fatal("refusal gained a served URN")
+	}
+}
+
+func TestWorkerBootOwnPointerSameRead1655(t *testing.T) {
+	r := bootResponses1655(t, `{"served":{"pointerLevel":"WORKER","compiledNodeId":"new-node","servedRevSeq":2},"refusal":null}`)
+	old := "hrn:node:example.com:old:boot"
+	fresh := "hrn:node:example.com:new:boot"
+	r["GetWorker"] = strings.Replace(r["GetWorker"], `"bootPromptRef":null`, `"bootPromptRef":"`+old+`"`, 1)
+	r["GetWorkerBootPromptServe"] = `{"data":{"worker":{"bootPromptRef":"` + fresh + `","bootPromptTargetDeleted":false,"bootPromptServe":{"served":{"pointerLevel":"WORKER","compiledNodeId":"new-node","servedRevSeq":2},"refusal":null}}}}`
+	_, out, err := runTeamTask(t, r, "team", "worker", "get", profileHexID, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	_ = json.Unmarshal([]byte(out), &got)
+	if got["bootPromptUrn"] != fresh || got["bootPromptRef"] != fresh || strings.Contains(out, old) {
+		t.Fatalf("stale own ref associated with new decision: %s", out)
+	}
+}
+
+func TestWorkerBootModernDeletedCueSafe1655(t *testing.T) {
+	r := bootResponses1655(t, `{"served":null,"refusal":"BOOT_PROMPT_TARGET_DELETED"}`)
+	ref := "hrn:node:example.com:kb:boot\x1b[31m\nFORGED_ROW"
+	encoded, _ := json.Marshal(ref)
+	var base map[string]any
+	_ = json.Unmarshal([]byte(r["GetWorker"]), &base)
+	w := base["data"].(map[string]any)["worker"].(map[string]any)
+	w["bootPromptRef"] = ref
+	w["bootPromptTargetDeleted"] = true
+	wire, _ := json.Marshal(base)
+	r["GetWorker"] = string(wire)
+	r["GetWorkerBootPromptServe"] = `{"data":{"worker":{"bootPromptRef":` + string(encoded) + `,"bootPromptTargetDeleted":true,"bootPromptServe":{"served":null,"refusal":"BOOT_PROMPT_TARGET_DELETED"}}}}`
+	_, out, err := runTeamTask(t, r, "team", "worker", "get", profileHexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "\x1b") || strings.Contains(out, "\nFORGED_ROW") || !strings.Contains(out, "deleted: clear or repoint") {
+		t.Fatalf("unsafe/missing cue: %q", out)
+	}
+	_, out, err = runTeamTask(t, r, "team", "worker", "get", profileHexID, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]any
+	_ = json.Unmarshal([]byte(out), &dto)
+	if dto["bootPromptRef"] != ref || dto["bootPromptTargetDeleted"] != true {
+		t.Fatal("raw JSON own pointer changed")
+	}
+}

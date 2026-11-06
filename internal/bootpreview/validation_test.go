@@ -21,6 +21,10 @@ func TestExactLegacyBoundary(t *testing.T) {
 	}{
 		{"200", `{"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, true},
 		{"checked-suggestion", `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\". Did you mean \"bootPromptRef\"?","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, "GetWorkerBootPromptServe", 200, true},
+		{"null200", `{"data":null,"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, true},
+		{"null400", `{"data":null,"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 400, true},
+		{"empty200", `{"data":{},"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, false},
+		{"empty400", `{"data":{},"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 400, false},
 		{"400", `{"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 400, true},
 		{"5xx", `{"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 502, false},
 		{"partial200", `{"data":{"worker":null},"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, false},

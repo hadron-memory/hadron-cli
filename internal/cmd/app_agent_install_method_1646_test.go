@@ -44,7 +44,7 @@ func TestAppAgentInstallMethod1646(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			responses := map[string]string{"AppAgentRoster": string(wire), "AppAgentInstallationRoster": string(wire)}
+			responses := map[string]string{"AppAgentRoster": string(wire), "AppAgentInstallationRoster": string(wire), "AppAgentEffectiveRoster": string(wire)}
 			_, out, err := runTeamTask(t, responses, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
 			if err != nil {
 				t.Fatal(err)

@@ -76,3 +76,12 @@ func TestProjectionTerminalSafety1655(t *testing.T) {
 		t.Fatal("JSON raw identity changed")
 	}
 }
+
+func TestProjectionInstallCannotServeWorker1655(t *testing.T) {
+	var o gen.BootPromptPreviewFields
+	_ = json.Unmarshal([]byte(`{"served":{"pointerLevel":"WORKER","compiledNodeId":"private-worker","servedRevSeq":3}}`), &o)
+	p := Project(&o, "APP_AGENT", nil)
+	if p.PointerLevel != nil || p.CompiledNodeID != nil || p.Label() != "unknown (next bind)" {
+		t.Fatalf("inconsistent surface accepted: %#v %s", p, p.Label())
+	}
+}
