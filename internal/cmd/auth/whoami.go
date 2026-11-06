@@ -26,7 +26,7 @@ type whoamiResult struct {
 	Impersonation  *impersonationInfo `json:"impersonation,omitempty"`
 }
 
-// impersonationInfo mirrors AuthContext.impersonation for whoami/status — the
+// impersonationInfo mirrors AuthContext.impersonation for whoami — the
 // acting-as facts when the request authenticated with an impersonation token.
 type impersonationInfo struct {
 	SessionID      string `json:"sessionId"`
@@ -46,9 +46,8 @@ email, handle and platform roles (--json adds the user id, principal type and,
 during impersonation, the session).
 
 It asks the server, so it fails with exit 3 when you are not signed in or the
-credential is rejected; run hadron auth login. To see WHERE the credential
-comes from (HADRON_TOKEN, the keychain, an impersonation session) and which
-key it is, use hadron auth status instead.`,
+credential is rejected; run hadron auth login. Use hadron auth status to ask
+whether this request's credential authenticates without returning a profile.`,
 		Example: `  hadron auth whoami
   hadron auth whoami --json`,
 		Args: cobra.NoArgs,

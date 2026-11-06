@@ -18635,6 +18635,24 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
+// What the credential presented on THIS request came to (hrn:node:hadronmemory.com:specs:cor:aut:010:05).
+type AuthenticationStatus string
+
+const (
+	// No credential was presented.
+	AuthenticationStatusAnonymous AuthenticationStatus = "ANONYMOUS"
+	// The credential resolved a user or an App.
+	AuthenticationStatusAuthenticated AuthenticationStatus = "AUTHENTICATED"
+	// A credential was presented and did not authenticate. One answer for every cause, with no reason.
+	AuthenticationStatusRefused AuthenticationStatus = "REFUSED"
+)
+
+var AllAuthenticationStatus = []AuthenticationStatus{
+	AuthenticationStatusAnonymous,
+	AuthenticationStatusAuthenticated,
+	AuthenticationStatusRefused,
+}
+
 // #1328 — an authoring attestation. The writer states which task it worked from
 // and that task's current revision (Node.revSeq). The server compares both with
 // the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
@@ -24178,6 +24196,22 @@ type ChatServedPromptsResponse struct {
 // GetChatServedPrompts returns ChatServedPromptsResponse.ChatServedPrompts, and is useful for accessing the field via an interface.
 func (v *ChatServedPromptsResponse) GetChatServedPrompts() *ChatServedPromptsChatServedPromptsServedPromptsPage {
 	return v.ChatServedPrompts
+}
+
+// CheckAuthenticationStatusResponse is returned by CheckAuthenticationStatus on success.
+type CheckAuthenticationStatusResponse struct {
+	// Whether the credential THIS request presented authenticated
+	// (hrn:node:hadronmemory.com:specs:cor:aut:010:05). REFUSED is the identical answer, in status and body for the same
+	// operation, for every cause: garbage, expired, wrongly signed, revoked, from an ended sign-in, for a deleted user, or
+	// an ended impersonation. Timing is an accepted limit. It takes no argument, so it cannot test a token the caller does
+	// not hold. A credential check that could not complete is the ordinary internal error for this field, never REFUSED;
+	// every other field answers as before. me and authContext are unchanged (null for a refused credential).
+	AuthenticationStatus AuthenticationStatus `json:"authenticationStatus"`
+}
+
+// GetAuthenticationStatus returns CheckAuthenticationStatusResponse.AuthenticationStatus, and is useful for accessing the field via an interface.
+func (v *CheckAuthenticationStatusResponse) GetAuthenticationStatus() AuthenticationStatus {
+	return v.AuthenticationStatus
 }
 
 // CheckChatCursorChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
@@ -120663,6 +120697,35 @@ func ChatServedPrompts(
 	}
 
 	data_ = &ChatServedPromptsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckAuthenticationStatus.
+const CheckAuthenticationStatus_Operation = `
+query CheckAuthenticationStatus {
+	authenticationStatus
+}
+`
+
+// cor:aut:010:05: only this request's authentication answer, no cause/identity.
+func CheckAuthenticationStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *CheckAuthenticationStatusResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckAuthenticationStatus",
+		Query:  CheckAuthenticationStatus_Operation,
+	}
+
+	data_ = &CheckAuthenticationStatusResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
