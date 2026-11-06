@@ -289,6 +289,30 @@ mutation DeleteWorker(
   deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution)
 }
 
+# cli#1735: a non-reserving preview of deleteWorker (server#3599). One Query on
+# the same worker reference and act gate as the delete: no census detail, no
+# confirmation argument (the preview never stands in for the attestation), and
+# no mutation. attestationRequired is always true.
+query DeleteWorkerPreview($workerRef: ID!) {
+  deleteWorkerPreview(workerRef: $workerRef) {
+    workerId
+    attestationRequired
+  }
+}
+
+# An instructed preview sent through a worker session is NOT write-free: the
+# server records one claim event (operation worker.delete-preview, the target
+# as its subject) and bumps the {actor, target} fences. It records none for an
+# instruction admitted any other way (appendStaffingInstructionClaim returns
+# unless the admission is instructed-worker), so the CLI discloses the claim
+# only when the request went through the worker session.
+query DeleteWorkerPreviewInstructed($workerRef: ID!, $instruction: ActInstructionInput!) {
+  deleteWorkerPreview(workerRef: $workerRef, instruction: $instruction) {
+    workerId
+    attestationRequired
+  }
+}
+
 # One worker by ref — its id, or its URN (#991); both resolve here, which is
 # what lets a caller address a worker without holding its id.
 query GetWorker($ref: ID!) {

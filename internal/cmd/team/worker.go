@@ -1143,12 +1143,22 @@ type removeResultDTO struct {
 	Status string `json:"status"`
 }
 
+// removePreviewDTO is the stable --json shape of `worker rm --dry-run`: a
+// preview, never a deletion, so status is "preview" and never "deleted".
+type removePreviewDTO struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	AttestationRequired bool   `json:"attestationRequired"`
+	Status              string `json:"status"`
+}
+
 func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var confirmNoExternalAttribution bool
+	var dryRun bool
 	var instructionRaw string
 	cmd := &cobra.Command{
-		Use:     "rm <name-or-id> [--instruction <kind>:<ref>]",
+		Use:     "rm <name-or-id> [--dry-run] [--instruction <kind>:<ref>]",
 		Aliases: []string{"delete"},
 		Short:   "Hard-delete a NEVER-USED casting (frees its name)",
 		Long: `Hard-delete a worker that never did anything — the one removal escape
@@ -1168,10 +1178,31 @@ WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
 the attestation. Who may delete: the same people who may cast. The App the
 change targets is the worker's own.
 
+--dry-run (#1735, deleteWorkerPreview) asks the server whether a delete would
+be accepted by the same worker reference and act gate, and deletes nothing. It
+is ADVISORY, not a reservation: it never replaces the attestation (the real rm
+still requires --confirm-no-external-attribution, which --dry-run refuses
+with exit 2 before any request, because it would never be sent), nothing is
+held for the delete, and the real rm re-checks and may still refuse. It never
+prompts, never retries and never falls back to another operation. Refusals
+keep their exit codes: WORKER_NOT_FOUND and WORKER_REFERENCE_NOT_FOUND 4,
+WORKER_IN_USE 5, FORBIDDEN 8. The preview's --json is
+{id, name, attestationRequired, status: "preview"}. Needs a server containing
+hadron-server 8bbf82dd (merged, not necessarily served: an older server
+refuses the unknown field and the command stops, as it must). With
+--instruction the preview is NOT write-free: it records one claim event and
+bumps the fences, as an instructed cast preview does.
+
 ` + instruction.StaffingHelp("workers.staff"),
-		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution`,
-		Args:    cobra.ExactArgs(1),
+		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution
+  hadron team worker rm Irsi --dry-run`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Refused before any request: the preview sends no attestation, so
+			// accepting the flag would let a caller believe they attested.
+			if dryRun && confirmNoExternalAttribution {
+				return exitcode.Newf(exitcode.Usage, "--dry-run never sends --confirm-no-external-attribution: the preview does not take the attestation; drop one of them")
+			}
 			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
 			if err != nil {
 				return err
@@ -1179,6 +1210,28 @@ change targets is the worker's own.
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
+			}
+			if dryRun {
+				client, err := f.GraphQLClient()
+				if err != nil {
+					return err
+				}
+				attestationRequired, claimed, err := deleteWorkerPreview(cmd, client, &w, claim, instructed)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				dto := removePreviewDTO{ID: w.Id, Name: w.Name, AttestationRequired: attestationRequired, Status: "preview"}
+				return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
+					fmt.Fprintf(out, "preview: the server would accept a delete request for worker %s (%s)\n", w.Name, w.Id)
+					fmt.Fprintf(out, "nothing was deleted, and the name is not reserved — the real rm re-checks and may still refuse\n")
+					if dto.AttestationRequired {
+						fmt.Fprintf(out, "the attestation is still required: rm needs --confirm-no-external-attribution once you have verified no external artifact names this worker\n")
+					}
+					if claimed {
+						fmt.Fprintf(out, "the instruction went out through the worker session; the server records a claim it admits (never a host-launched session's) and the preview is not write-free\n")
+					}
+					return nil
+				})
 			}
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes,
 				fmt.Sprintf("worker %s (%s) — this frees its name. Have you verified no signed commit, trailer, PR, comment, review or published artifact names it? Database checks cannot prove external absence; known or uncertain history means retire. The separate --confirm-no-external-attribution flag attests your check", w.Name, w.Id)); err != nil {
@@ -1207,6 +1260,7 @@ change targets is the worker's own.
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "ask the server whether a delete would be accepted, without deleting or reserving anything (advisory; never takes the attestation)")
 	cmd.Flags().BoolVar(&confirmNoExternalAttribution, "confirm-no-external-attribution", false, "attest you verified no external artifact attributes work to this worker; known or uncertain history means retire")
 	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	return cmd

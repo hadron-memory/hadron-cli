@@ -2797,6 +2797,16 @@ Conventions:
   omission of the separate flag refuses with
   `WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED` (exit 2). Concealed/not-found workers
   remain exit 4. Old-server schema refusal never retries an unattested delete.
+  `worker rm --dry-run` (cli#1735, `deleteWorkerPreview`, server 8bbf82dd) is ONE
+  Query after the worker lookup: advisory, never a reservation, never the
+  attestation. It never calls `deleteWorker`, never prompts, never retries and
+  never falls back (an older server's schema refusal ends it). Combining it with
+  `--confirm-no-external-attribution` is exit 2 before any request. Refusals keep
+  their codes (`WORKER_NOT_FOUND`/`WORKER_REFERENCE_NOT_FOUND` exit 4,
+  `WORKER_IN_USE` 5, `FORBIDDEN` 8). `--json` is
+  `{id, name, attestationRequired, status: "preview"}` (never `deleted`); a null
+  reply or one naming another worker fails. With `--instruction` it is NOT
+  write-free: one claim event and a fence bump, disclosed in the text.
   **`team worker release <name-or-id>`** clears the HOLD (`releaseWorker`,
   `cor:agt:020:09`) and is the ONLY thing that frees one — not `session end`,
   not an idle window, not an expiry, not a reap, not a closed chat session.

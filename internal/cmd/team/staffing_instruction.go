@@ -2,6 +2,7 @@ package team
 
 import (
 	"github.com/Khan/genqlient/graphql"
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -116,4 +117,51 @@ func deleteWorker(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields
 		return false, err
 	}
 	return resp.DeleteWorker, nil
+}
+
+// deleteWorkerPreview makes the one delete preview (cli#1735): the plain
+// document without a claim, else the instructed one in the context instructed
+// decides. claimed is true when an instructed preview went out through the
+// worker session: the server then records one claim event. The reply is
+// checked before it is returned: a null or empty result, one naming another
+// worker, or one whose attestationRequired is not true, is a failure, never a success to print. It is one request: no retry
+// and no other operation to fall back on.
+func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields, claim *gen.ActInstructionInput, instructed InstructedWrite) (attestationRequired, claimed bool, err error) {
+	var workerID string
+	if claim == nil {
+		resp, err := gen.DeleteWorkerPreview(cmd.Context(), client, w.Id)
+		if err != nil {
+			return false, false, err
+		}
+		if resp == nil || resp.DeleteWorkerPreview == nil {
+			return false, false, exitcode.Newf(exitcode.Error, "server returned no delete preview")
+		}
+		workerID, attestationRequired = resp.DeleteWorkerPreview.WorkerId, resp.DeleteWorkerPreview.AttestationRequired
+	} else {
+		ctx, worker, err := instructed(cmd.Context(), w.AppId, w.AppId)
+		if err != nil {
+			return false, false, err
+		}
+		// An instructed preview is a Query that writes (one claim event), so a
+		// 307/308 must not resend it: refuse the redirect as a delete does.
+		resp, err := gen.DeleteWorkerPreviewInstructed(api.WithNoRedirect(ctx), client, w.Id, claim)
+		if err != nil {
+			return false, false, err
+		}
+		if resp == nil || resp.DeleteWorkerPreview == nil {
+			return false, false, exitcode.Newf(exitcode.Error, "server returned no delete preview")
+		}
+		workerID, attestationRequired, claimed = resp.DeleteWorkerPreview.WorkerId, resp.DeleteWorkerPreview.AttestationRequired, worker
+	}
+	if workerID != w.Id {
+		return false, false, exitcode.Newf(exitcode.Error, "server returned a delete preview for a different worker (wanted %s)", w.Id)
+	}
+	// The schema documents attestationRequired as always true, and a Go bool
+	// decodes an omitted or null field to false without an error. A false
+	// reply is therefore malformed, never a preview that hides the
+	// required-attestation note.
+	if !attestationRequired {
+		return false, false, exitcode.Newf(exitcode.Error, "server returned a malformed delete preview (attestationRequired is not true)")
+	}
+	return attestationRequired, claimed, nil
 }
