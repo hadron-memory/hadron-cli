@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
@@ -204,6 +206,32 @@ func TestHostPlan1635RealLinkedAndPrunableWorktrees(t *testing.T) {
 	after := git("-C", repo, "worktree", "list", "--porcelain", "-z")
 	if string(before) != string(after) {
 		t.Fatal("read-only discovery modified stale git metadata")
+	}
+	// A missing locked worktree is not marked prunable: its absence is not
+	// permission to omit it from the bounded inventory.
+	locked := filepath.Join(root, "locked")
+	git("-C", repo, "worktree", "add", "--quiet", "--detach", locked)
+	git("-C", repo, "worktree", "lock", locked)
+	if err := os.RemoveAll(locked); err != nil {
+		t.Fatal(err)
+	}
+	before = git("-C", repo, "worktree", "list", "--porcelain", "-z")
+	lockedRecord := ""
+	for _, record := range strings.Split(string(before), "\x00\x00") {
+		if strings.HasPrefix(record, "worktree "+locked+"\x00") {
+			lockedRecord = record
+		}
+	}
+	if lockedRecord == "" || !strings.Contains(lockedRecord, "locked") || strings.Contains(lockedRecord, "prunable") {
+		t.Fatalf("fixture is not an unmarked missing worktree: %q", lockedRecord)
+	}
+	_, err = discoverHostInventory(context.Background(), rows, run)
+	if exitcode.FromError(err) != exitcode.Error {
+		t.Fatalf("unmarked absent worktree treated as empty: %v", err)
+	}
+	after = git("-C", repo, "worktree", "list", "--porcelain", "-z")
+	if string(before) != string(after) {
+		t.Fatal("failed discovery modified locked worktree metadata")
 	}
 }
 
