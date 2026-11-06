@@ -134,7 +134,7 @@ func discoverHostInventory(ctx context.Context, rows []hostPlanWorker, run hostR
 		}
 		seenHandles[t.Handle] = true
 		if t.Path == "" {
-			return inv, exitcode.Newf(exitcode.OrcaUnreachable, "Orca inventory unavailable")
+			return inv, &hostInventoryError{"terminal_path_unresolved", exitcode.Newf(exitcode.Error, "terminal path unavailable; plan incomplete")}
 		} // An unknown path must not turn into an absent worker resource.
 		p, err := canonicalHostPath(t.Path)
 		if err != nil {

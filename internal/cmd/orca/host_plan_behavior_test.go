@@ -203,7 +203,7 @@ func TestHostPlan1635ClosedReadArgv(t *testing.T) {
 	}
 }
 func TestHostPlan1635DiscoveryFailureNeverEmpty(t *testing.T) {
-	for _, raw := range []string{`{}`, `{"ok":true}`, `{"ok":true,"result":{}}`, `{"ok":true,"result":{"terminals":null}}`, `{"ok":true,"result":{"terminals":[null]}}`, `{"ok":true,"result":{"terminals":[{"handle":"t"}]}}`} {
+	for _, raw := range []string{`{}`, `{"ok":true}`, `{"ok":true,"result":{}}`, `{"ok":true,"result":{"terminals":null}}`, `{"ok":true,"result":{"terminals":[null]}}`} {
 		run := func(context.Context, string, []string) ([]byte, error) { return []byte(raw), nil }
 		_, err := discoverHostInventory(context.Background(), nil, run)
 		if exitcode.FromError(err) != 10 {
