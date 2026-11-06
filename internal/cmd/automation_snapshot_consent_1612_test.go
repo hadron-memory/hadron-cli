@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // Gate6671974496: consent precedes even reading an ended or missing row.
