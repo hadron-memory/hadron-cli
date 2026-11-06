@@ -18639,10 +18639,17 @@ func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return 
 // and that task's current revision (Node.revSeq). The server compares both with
 // the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
 // AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
-// AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
-// This does not prove the task was read or followed. With no applicable rule
-// the claim is ignored. People in the portal are exempt, derived from their
-// sign-in; no client field selects that.
+// AUTHOR_TASK_BROKEN when the rule's task is gone, unusable or unreadable to the
+// writer, whatever the claim. A match records a TASK stamp. This does not prove
+// the task was read or followed. With no applicable rule the claim is ignored.
+// People in the portal are exempt, derived from their sign-in; no client field
+// selects that.
+//
+// #1329 — each refusal carries extensions taskAccess, task, taskId, taskRevision
+// and load. READABLE gives the task's URN (null when it has none that resolves),
+// id, current revision and the node read per surface. UNAVAILABLE gives nulls and
+// is the same for an unreadable task and a missing one: an owner must fix access
+// or the rule.
 type AuthoredWithInput struct {
 	// The task's current revision.
 	Revision int `json:"revision"`
@@ -34016,7 +34023,14 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 type CreateMemoryConfigTemplateInput struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
-	Required    *bool   `json:"required,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool `json:"orgDefault"`
+	Required   *bool `json:"required,omitempty"`
 	// Each role at most once (NODE_ROLE_RULE_EXISTS).
 	Rules []*CreateNodeRoleRuleInput `json:"rules,omitempty"`
 }
@@ -34026,6 +34040,9 @@ func (v *CreateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns CreateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetName() string { return v.Name }
+
+// GetOrgDefault returns CreateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns CreateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
@@ -91856,10 +91873,17 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 // description null clears it. `rules`, when given, REPLACES the template's
 // rules in one transaction.
 type UpdateMemoryConfigTemplateInput struct {
-	Description *string                    `json:"description,omitempty"`
-	Name        *string                    `json:"name,omitempty"`
-	Required    *bool                      `json:"required,omitempty"`
-	Rules       []*CreateNodeRoleRuleInput `json:"rules"`
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool                      `json:"orgDefault"`
+	Required   *bool                      `json:"required,omitempty"`
+	Rules      []*CreateNodeRoleRuleInput `json:"rules"`
 }
 
 // GetDescription returns UpdateMemoryConfigTemplateInput.Description, and is useful for accessing the field via an interface.
@@ -91867,6 +91891,9 @@ func (v *UpdateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns UpdateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetName() *string { return v.Name }
+
+// GetOrgDefault returns UpdateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns UpdateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
