@@ -1,7 +1,6 @@
 package spec
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -155,9 +154,5 @@ func specDocumentError(err error) error {
 		}
 		return exitcode.Newf(exitcode.Usage, "this feature has more specs than the document cap: ask for a narrower citation")
 	}
-	mapped := api.MapError(err)
-	if mapped == nil {
-		return errors.New("spec document failed")
-	}
-	return mapped
+	return api.MapError(err) // non-nil in, non-nil out: the cause is never dropped
 }

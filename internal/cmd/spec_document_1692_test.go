@@ -339,3 +339,16 @@ func TestSpecDocumentMalformedSuccessReplyIsRefusedAndKeepsTheFile(t *testing.T)
 		}
 	}
 }
+
+// An over-cap refusal that carries no cap number still refuses (usage), and
+// an unmapped transport-class error keeps its cause rather than a fixed sentence.
+func TestSpecDocumentTooLargeWithoutACapAndUnmappedErrorKeepCause(t *testing.T) {
+	r := runDocument1692(t, `{"errors":[{"message":"too big","extensions":{"code":"SPEC_DOCUMENT_TOO_LARGE"}}]}`, "cor:spc:030", "-m", "mem1")
+	if r.code != exitcode.Usage || !strings.Contains(r.stderr, "document cap") || strings.Contains(r.stderr, "cap of") {
+		t.Errorf("exit %d stderr %q", r.code, r.stderr)
+	}
+	r = runDocument1692(t, `{"errors":[{"message":"boom-cause-1692","extensions":{"code":"SOMETHING_UNMAPPED_1692"}}]}`, "cor:spc:030", "-m", "mem1")
+	if r.code == exitcode.OK || !strings.Contains(r.stderr, "boom-cause-1692") {
+		t.Errorf("the server's cause must survive: exit %d stderr %q", r.code, r.stderr)
+	}
+}
