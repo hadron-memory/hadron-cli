@@ -2498,7 +2498,18 @@ Conventions:
   automation's entry node no longer resolves; set the trigger to the entry node's
   current URN, then run `hadron automation approval <ref>` again". `decline` is
   unchanged. Any other empty-hash answer stays exit 7.
-- `app agent list [<app-ref>]` lists readable installed Agents (including
+- `app list` and both `app install` receipts keep `memberCount` present:
+  JSON null means withheld, 0 means known-empty; no count column is added.
+- `app agent list [<app-ref>]` returns JSON null (exit 0) when either the
+  installation roster or Agent details list is withheld; human output says
+  "roster withheld (not visible to you)". Known-empty stays [] and
+  "0 readable agents". When appAgents is known, count its install entries
+  (including derived), and count null joined Agents as withheld installs:
+  partial text says "N installed (M not visible to you)". The JSON array
+  still contains readable details only, never a complete-install count.
+  `team role list` suppresses roster-based divergence warnings for withheld
+  or partial rosters. This consumes provider nulls, not client authorization.
+  The command lists readable installed Agents (including
   direct-import derived installs). JSON adds nullable `installMethod` (`ROW` or
   `DERIVED`) and nullable `importer` (`{id,urn,name}`) to each existing row.
   Human INSTALL shows `installed` or `derived`, with IMPORTER name and URN for
