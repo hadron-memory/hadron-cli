@@ -217,6 +217,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(serverinfo.NewCmdServerInfo(f))
 	root.AddCommand(agentic.NewCmdAgenticUsage(f))
 
+	installAuthoredWith(root)
 	installNodeWriteWarnings(root, f)
 	describeGeneratedCommands(root)
 	return root
@@ -422,7 +423,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 	err = withStoredCredentialHint(f, code, err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
-		failure := map[string]any{"code": code, "message": err.Error()}
+		message := err.Error()
+		if text, ok := authoredRefusalText(err); ok {
+			message = text
+		}
+		failure := map[string]any{"code": code, "message": message}
 		// cli#898: additive fields for an internal fault; `code` already means
 		// the exit code, so the server's code is a new key.
 		if fault, ok := api.InternalFaultOf(err); ok {
@@ -472,6 +477,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		hasThreadWrapper := false
 		details := api.CommentRecoveryDetails(err)
+		if attestation := api.AuthoringAttestationDetails(err); attestation != nil {
+			details = attestation
+		}
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
 		}
@@ -514,6 +522,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			message := humanErrorText(err) + api.CloneAgentDetailText(err)
+			if text, ok := authoredRefusalText(err); ok {
+				message = text
+			}
 			if reporting := api.WorkerReportingDetails(err); reporting != nil {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}

@@ -334,7 +334,8 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				}
 
 				input := gen.UpdateNodeInput{
-					Id: &nodeID,
+					AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+					Id:           &nodeID,
 				}
 				if target != nil {
 					input.Id = nil
@@ -470,11 +471,11 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				if err != nil {
 					return err
 				}
-				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch, reasonPtr)
+				n, err := api.UpdateNodeDataWithClaim(cmd.Context(), client, cmdutil.AuthoredWith(cmd.Context()), nodeID, patch, reasonPtr)
 				if err != nil {
 					return api.MapError(err)
 				}
-				dto = mergeDTO(resp.UpdateNodeData)
+				dto = mergeDTO(n)
 			}
 
 			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)

@@ -269,6 +269,16 @@ func cleaned(err error) error {
 // the same string — is what the server said, with none of genqlient's
 // document-location scaffolding around it.
 func MapError(err error) error {
+	mapped := mapError(err)
+	// Conceal only the presentation after the established transport/code
+	// classification, including preclassified errors; never remap a coded failure.
+	if d := AuthoringAttestationDetails(err); d != nil && d["taskAccess"] != "READABLE" {
+		return exitcode.New(exitcode.FromError(mapped), &serverError{msg: "the authoring task is unreadable or unusable; an owner must fix access or the rule", err: err})
+	}
+	return mapped
+}
+
+func mapError(err error) error {
 	if err == nil {
 		return nil
 	}

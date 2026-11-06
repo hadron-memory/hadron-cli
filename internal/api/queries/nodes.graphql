@@ -947,6 +947,29 @@ mutation UpdateNodeData(
   }
 }
 
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodeDataAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $data: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodeDataUpdateNodeDataNode")
+  updateNodeData(authoredWith: $authoredWith, nodeRef: $nodeRef, data: $data, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
 # Unset optional variables must be omitted from the wire, not sent as
 # explicit nulls — the server rejects priority: null (hadron-server#263)
 # and treats condition/data: null as "clear".
@@ -1228,6 +1251,26 @@ mutation UpdateNodeProperties(
   $reason: String
 ) {
   updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodePropertiesAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodePropertiesUpdateNodePropertiesNode")
+  updateNodeProperties(authoredWith: $authoredWith, nodeRef: $nodeRef, properties: $properties, reason: $reason) {
     id
     memoryId
     loc

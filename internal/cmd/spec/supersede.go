@@ -410,7 +410,8 @@ then; it never edits the register).`,
 				successorRole = oldNode.Role
 			}
 			in := gen.CreateNodeInput{
-				MemoryId: memURN, Loc: newLoc, Name: name,
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				MemoryId:     memURN, Loc: newLoc, Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
 				Seq: newSeq, Role: successorRole,
@@ -748,7 +749,8 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 }
 
 // retireError is the error for a retirement that did not verifiably happen.
-func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) error {
+func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) (result error) {
+	defer func() { result = api.WithAuthoringAttestationCause(result, err) }()
 	if isTombstoneRace(err) {
 		// Exit 5. The link/replacement to successorLoc DID land and stays; a rerun
 		// can only reach the early refusal, so none is advised.
@@ -788,7 +790,8 @@ func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *ge
 		retireTags = append(retireTags, supersededTag)
 	}
 	retireIn := gen.UpdateNodeInput{
-		MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
+		AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+		MemoryId:     &oldNode.MemoryId, Loc: &oldNode.Loc,
 		Tags: retireTags, Content: &retired, Abstract: &abstract,
 	}
 	if !appendNote {
