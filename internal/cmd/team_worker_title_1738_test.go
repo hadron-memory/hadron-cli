@@ -50,6 +50,8 @@ func TestWorkerTerminalTitle1738(t *testing.T) {
 		{"family", map[string]any{"family": "codex"}, "Iris [backend-engineer, codex]\n"},
 		{"masked", map[string]any{}, "Iris [backend-engineer, model unavailable]\n"},
 		{"role-null", map[string]any{"role": nil}, "Iris [role unavailable, model unavailable]\n"},
+		{"empty-name", map[string]any{"name": "[,]\u202e\n"}, "worker unavailable [backend-engineer, model unavailable]\n"},
+		{"empty-leader", map[string]any{"reportsTo": map[string]any{"id": "l", "name": "[,]\u202e", "urn": nil}}, "Iris [backend-engineer, model unavailable]\n"},
 		{"scrub-fallback", map[string]any{"role": "\x1b\u202e[,]\n", "model": "[,]\u0085", "family": "glm"}, "Iris [role unavailable, glm]\n"},
 		{"scrub-all", map[string]any{"name": " I[ri],s\n\u202e", "role": " dev\trole ", "model": "M\u2028 x", "reportsTo": map[string]any{"id": "l", "name": "A,da", "urn": nil}}, "I ri s [dev role, M x, A da]\n"},
 		{"blank-model-family", map[string]any{"model": "[,]", "family": "\u2029"}, "Iris [backend-engineer, model unavailable]\n"},
@@ -224,5 +226,59 @@ func TestWorkerTerminalTitleSelection1738(t *testing.T) {
 		if !found {
 			t.Fatal("worker query must select exact model field")
 		}
+	}
+}
+
+func TestWorkerTerminalTitleCapBoundaries1738(t *testing.T) {
+	for _, tc := range []struct {
+		n, want  int
+		ellipsis bool
+	}{{248, 255, false}, {249, 256, false}, {250, 256, true}} {
+		out, _, err := runTitle1738(t, `{"data":{"worker":`+titleWorker1738(t, map[string]any{"name": strings.Repeat("a", tc.n), "role": "r", "model": "m"})+`}}`, profileHexID)
+		line := strings.TrimSuffix(out, "\n")
+		if err != nil || len([]rune(line)) != tc.want || strings.HasSuffix(line, "…]") != tc.ellipsis {
+			t.Fatalf("n=%d out=%q err=%v", tc.n, out, err)
+		}
+	}
+}
+
+func TestWorkerTerminalTitleEmptyLabelRawJSON1738(t *testing.T) {
+	out, _, err := runTitle1738(t, `{"data":{"worker":`+titleWorker1738(t, map[string]any{"name": "[,]", "reportsTo": map[string]any{"id": "l", "name": "[,]", "urn": nil}})+`}}`, profileHexID, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err = json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["title"] != "worker unavailable [backend-engineer, model unavailable]" {
+		t.Fatal(got)
+	}
+	parts := got["parts"].(map[string]any)
+	leader := parts["reports_to"].(map[string]any)
+	worker := got["worker"].(map[string]any)
+	if parts["name"] != "[,]" || leader["name"] != "[,]" || worker["name"] != "[,]" {
+		t.Fatal(got)
+	}
+}
+
+func TestWorkerGetJSONUnaffectedByModel1738(t *testing.T) {
+	before, _, err := runWorkerGet(t, profileWorkerJSON, profileNames, profileHexID, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _, err := runWorkerGet(t, titleWorker1738(t, map[string]any{"model": "raw"}), profileNames, profileHexID, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatalf("worker get JSON changed: before=%s after=%s", before, after)
+	}
+	var got map[string]any
+	if err = json.Unmarshal([]byte(after), &got); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := got["model"]; exists {
+		t.Fatal("added worker-get model key")
 	}
 }
