@@ -235,17 +235,18 @@ chunk leaves the source alone with a warning.`,
 			}
 			nodeType := "info"
 			input := gen.CreateNodeInput{
-				MemoryId: memURN,
-				Loc:      target.Format(),
-				Name:     name,
-				Tags:     tagSet,
-				NodeType: &nodeType,
-				Abstract: &abs,
-				Content:  &body,
-				Data:     specDataRaw(),
-				Seq:      specSeq(target),
-				Role:     specRole(),
-				Edges:    edges,
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				MemoryId:     memURN,
+				Loc:          target.Format(),
+				Name:         name,
+				Tags:         tagSet,
+				NodeType:     &nodeType,
+				Abstract:     &abs,
+				Content:      &body,
+				Data:         specDataRaw(),
+				Seq:          specSeq(target),
+				Role:         specRole(),
+				Edges:        edges,
 			}
 			if _, err := api.CreateSpecNode(cmd.Context(), client, &input); err != nil {
 				return api.MapError(err)
@@ -256,13 +257,17 @@ chunk leaves the source alone with a warning.`,
 			if stripSource {
 				if result.StripMatched {
 					srcInput := gen.UpdateNodeInput{
-						MemoryId: &srcNode.MemoryId,
-						Loc:      &srcNode.Loc,
-						Content:  &strippedBody, // content-only update; omitted fields preserved
+						AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+						MemoryId:     &srcNode.MemoryId,
+						Loc:          &srcNode.Loc,
+						Content:      &strippedBody, // content-only update; omitted fields preserved
 					}
 					if _, serr := api.UpdateSpecNode(cmd.Context(), client, &srcInput); serr != nil {
 						result.StripMatched = false
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: trimming %s failed: %v\n", source.Format(), api.MapError(serr))
+						if recovery := cmdutil.AuthoredWithRecovery(serr); recovery != "" {
+							fmt.Fprintln(f.IOStreams.ErrOut, recovery)
+						}
 					}
 				} else {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: chunk not found verbatim (or ambiguous) in %s — source left untouched\n", source.Format())

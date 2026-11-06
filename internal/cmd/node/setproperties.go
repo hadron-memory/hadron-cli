@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -83,11 +82,10 @@ version history. node update --properties replaces every field instead.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateNodeProperties(cmd.Context(), client, id, json.RawMessage(raw), reasonArg)
+			n, err := api.UpdateNodePropertiesWithClaim(cmd.Context(), client, cmdutil.AuthoredWith(cmd.Context()), id, json.RawMessage(raw), reasonArg)
 			if err != nil {
 				return api.MapError(err)
 			}
-			n := resp.UpdateNodeProperties
 			dto := setPropertiesDTO{ID: n.Id, MemoryID: n.MemoryId, Loc: n.Loc, Name: n.Name, Properties: cmdutil.ProjectedColumn(n.Properties), UpdatedAt: n.UpdatedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ updated properties of %s\n%s\n", output.SafeCell(dto.Loc), string(dto.Properties))

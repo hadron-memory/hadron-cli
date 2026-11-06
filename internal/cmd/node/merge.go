@@ -87,9 +87,10 @@ terminal and requires --yes non-interactively.`,
 			}
 
 			input := gen.MergeNodesInput{
-				Source:  sourceRef,
-				Target:  targetRef,
-				Include: include, // nil = every mergeable field
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				Source:       sourceRef,
+				Target:       targetRef,
+				Include:      include, // nil = every mergeable field
 			}
 			if deleteSource {
 				input.DeleteSource = &deleteSource

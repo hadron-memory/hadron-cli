@@ -93066,6 +93066,24 @@ func (v *UpdateNodeClearingRoleUpdateNode) GetRole() *string { return v.Role }
 // GetUpdatedAt returns UpdateNodeClearingRoleUpdateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeClearingRoleUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateNodeDataAuthoredResponse is returned by UpdateNodeDataAuthored on success.
+type UpdateNodeDataAuthoredResponse struct {
+	// Shallow-merge a JSON patch into a node's 'data' bag. The supplied JSON's
+	// top-level keys are written over the node's existing 'data' (the patch
+	// wins on key collision); keys the patch doesn't mention are preserved.
+	// If the node has no 'data' yet, the supplied JSON becomes its 'data'
+	// verbatim. 'data' must be a JSON object (not an array or scalar). 'nodeRef'
+	// is a node ID or fully-qualified URN. Honors the same single-write
+	// invariants as updateNode (per-memory write auth, encryption, revision
+	// history, git mirror). Returns the updated node.
+	UpdateNodeData *UpdateNodeDataUpdateNodeDataNode `json:"updateNodeData"`
+}
+
+// GetUpdateNodeData returns UpdateNodeDataAuthoredResponse.UpdateNodeData, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataAuthoredResponse) GetUpdateNodeData() *UpdateNodeDataUpdateNodeDataNode {
+	return v.UpdateNodeData
+}
+
 // UpdateNodeDataResponse is returned by UpdateNodeData on success.
 type UpdateNodeDataResponse struct {
 	// Shallow-merge a JSON patch into a node's 'data' bag. The supplied JSON's
@@ -93285,6 +93303,41 @@ func (v *UpdateNodeInput) GetSeq() *int { return v.Seq }
 
 // GetTags returns UpdateNodeInput.Tags, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetTags() []string { return v.Tags }
+
+// UpdateNodePropertiesAuthoredResponse is returned by UpdateNodePropertiesAuthored on success.
+type UpdateNodePropertiesAuthoredResponse struct {
+	// #742 - Shallow-merge a JSON patch into a node's structured 'properties'
+	// (the schema-governed JSONB column, DISTINCT from 'data'). The patch's
+	// top-level keys are written over the node's existing 'properties' (patch
+	// wins on collision); unmentioned keys are preserved; a node with no
+	// 'properties' takes the patch verbatim.
+	//
+	// ONE EXCEPTION (#1227): an OBJECT under 'exports' - the per-host skill
+	// export declarations, keyed by host (D12) - is applied as a JSON Merge
+	// Patch (RFC 7396), not replaced. Hosts and their fields merge recursively,
+	// a null member DELETES that host or field, and scalars/arrays replace. So
+	// '{exports: {codexSkill: {enable: false}}}' flips one flag and keeps the
+	// host's name, description and every other host, and
+	// '{exports: {codexSkill: null}}' removes that host. A non-object 'exports'
+	// in the patch (null, a scalar, an array) keeps the top-level rule and
+	// replaces the stored value. The merge runs under a per-node lock, so two
+	// callers writing different hosts at once both land - do NOT
+	// read-modify-write 'exports' client-side, which can lose a concurrent
+	// writer's host. 'properties' must be a JSON object
+	// (not an array or scalar). 'nodeRef' is a node ID or fully-qualified URN.
+	// On a schema-governed memory the MERGED result is validated against the
+	// memory's schema (BAD_USER_INPUT on a violation). 'properties' is plaintext
+	// at rest (never encrypted), so the merge + conformance check need no key —
+	// but the write still honors the same single-write invariants as updateNode
+	// (per-memory write auth, an active session on an encrypted memory, revision
+	// history, git mirror). Returns the updated node.
+	UpdateNodeProperties *UpdateNodePropertiesUpdateNodePropertiesNode `json:"updateNodeProperties"`
+}
+
+// GetUpdateNodeProperties returns UpdateNodePropertiesAuthoredResponse.UpdateNodeProperties, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesAuthoredResponse) GetUpdateNodeProperties() *UpdateNodePropertiesUpdateNodePropertiesNode {
+	return v.UpdateNodeProperties
+}
 
 // UpdateNodePropertiesResponse is returned by UpdateNodeProperties on success.
 type UpdateNodePropertiesResponse struct {
@@ -109676,6 +109729,26 @@ func (v *__UpdateNodeClearingRoleInput) GetSeq() *int { return v.Seq }
 // GetTags returns __UpdateNodeClearingRoleInput.Tags, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleInput) GetTags() []string { return v.Tags }
 
+// __UpdateNodeDataAuthoredInput is used internally by genqlient
+type __UpdateNodeDataAuthoredInput struct {
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	NodeRef      string             `json:"nodeRef"`
+	Data         json.RawMessage    `json:"data"`
+	Reason       *string            `json:"reason,omitempty"`
+}
+
+// GetAuthoredWith returns __UpdateNodeDataAuthoredInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataAuthoredInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
+
+// GetNodeRef returns __UpdateNodeDataAuthoredInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataAuthoredInput) GetNodeRef() string { return v.NodeRef }
+
+// GetData returns __UpdateNodeDataAuthoredInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataAuthoredInput) GetData() json.RawMessage { return v.Data }
+
+// GetReason returns __UpdateNodeDataAuthoredInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataAuthoredInput) GetReason() *string { return v.Reason }
+
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
 	NodeRef string          `json:"nodeRef"`
@@ -109699,6 +109772,28 @@ type __UpdateNodeInput struct {
 
 // GetInput returns __UpdateNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
+// __UpdateNodePropertiesAuthoredInput is used internally by genqlient
+type __UpdateNodePropertiesAuthoredInput struct {
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	NodeRef      string             `json:"nodeRef"`
+	Properties   json.RawMessage    `json:"properties"`
+	Reason       *string            `json:"reason,omitempty"`
+}
+
+// GetAuthoredWith returns __UpdateNodePropertiesAuthoredInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesAuthoredInput) GetAuthoredWith() *AuthoredWithInput {
+	return v.AuthoredWith
+}
+
+// GetNodeRef returns __UpdateNodePropertiesAuthoredInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesAuthoredInput) GetNodeRef() string { return v.NodeRef }
+
+// GetProperties returns __UpdateNodePropertiesAuthoredInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesAuthoredInput) GetProperties() json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateNodePropertiesAuthoredInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesAuthoredInput) GetReason() *string { return v.Reason }
 
 // __UpdateNodePropertiesInput is used internally by genqlient
 type __UpdateNodePropertiesInput struct {
@@ -144562,6 +144657,55 @@ func UpdateNodeData(
 	return data_, err_
 }
 
+// The mutation executed by UpdateNodeDataAuthored.
+const UpdateNodeDataAuthored_Operation = `
+mutation UpdateNodeDataAuthored ($authoredWith: AuthoredWithInput, $nodeRef: ID!, $data: JSON!, $reason: String) {
+	updateNodeData(authoredWith: $authoredWith, nodeRef: $nodeRef, data: $data, reason: $reason) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+// Explicit attestation variant; the ordinary document stays compatible with older servers.
+func UpdateNodeDataAuthored(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	authoredWith *AuthoredWithInput,
+	nodeRef string,
+	data json.RawMessage,
+	reason *string,
+) (data_ *UpdateNodeDataAuthoredResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeDataAuthored",
+		Query:  UpdateNodeDataAuthored_Operation,
+		Variables: &__UpdateNodeDataAuthoredInput{
+			AuthoredWith: authoredWith,
+			NodeRef:      nodeRef,
+			Data:         data,
+			Reason:       reason,
+		},
+	}
+
+	data_ = &UpdateNodeDataAuthoredResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateNodeProperties.
 const UpdateNodeProperties_Operation = `
 mutation UpdateNodeProperties ($nodeRef: ID!, $properties: JSON!, $reason: String) {
@@ -144598,6 +144742,52 @@ func UpdateNodeProperties(
 	}
 
 	data_ = &UpdateNodePropertiesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodePropertiesAuthored.
+const UpdateNodePropertiesAuthored_Operation = `
+mutation UpdateNodePropertiesAuthored ($authoredWith: AuthoredWithInput, $nodeRef: ID!, $properties: JSON!, $reason: String) {
+	updateNodeProperties(authoredWith: $authoredWith, nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+		id
+		memoryId
+		loc
+		name
+		properties
+		updatedAt
+	}
+}
+`
+
+// Explicit attestation variant; the ordinary document stays compatible with older servers.
+func UpdateNodePropertiesAuthored(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	authoredWith *AuthoredWithInput,
+	nodeRef string,
+	properties json.RawMessage,
+	reason *string,
+) (data_ *UpdateNodePropertiesAuthoredResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodePropertiesAuthored",
+		Query:  UpdateNodePropertiesAuthored_Operation,
+		Variables: &__UpdateNodePropertiesAuthoredInput{
+			AuthoredWith: authoredWith,
+			NodeRef:      nodeRef,
+			Properties:   properties,
+			Reason:       reason,
+		},
+	}
+
+	data_ = &UpdateNodePropertiesAuthoredResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
