@@ -130,6 +130,7 @@ Encryption and Apps
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdSync(f))
 	cmd.AddCommand(newCmdSet(f))
 	cmd.AddCommand(newCmdAttach(f))
 	cmd.AddCommand(newCmdSetActive(f))
