@@ -5631,8 +5631,10 @@ entire history (one event PER PAGE), then sends one revoke if the live row is
 found, without a second prompt. Missing row => no revoke; ended row => no repeat.
 The revoke history walk has no --limit flag; do not assume it records one event
 in total. No by-id-provider dependency is introduced (#3381 remains separate).
-Without --instruction, revoke uses --app else the active App, reads that App's complete grant history,
-then confirms returned App ID + trigger kind/ID as before. A missing id is uniformly
+Without --instruction, a non-TTY revoke without --yes exits 2 before client setup
+or any history read, even if the row would be ended or missing. With --yes or on
+a TTY, revoke uses --app else the active App and reads its complete grant history.
+A TTY without --yes then confirms returned App ID + trigger kind/ID once. A missing id is uniformly
 not found (exit4) and sends no mutation; an ended row is shown without another
 revoke. set/revoke require --yes without a terminal. Revocation is terminal.
 No write is retried; a lost response is unknown outcome, so list with
