@@ -42,6 +42,9 @@ func responses1594() map[string]string {
 	for _, op := range []string{"DeleteWorker", "DeleteWorkerInstructed"} {
 		r[op] = `{"data":{"deleteWorker":true}}`
 	}
+	for _, op := range []string{"DeleteWorkerPreview", "DeleteWorkerPreviewInstructed"} {
+		r[op] = `{"data":{"deleteWorkerPreview":{"workerId":"wkr1","attestationRequired":true}}}`
+	}
 	for _, op := range []string{"EnsureAppMember", "EnsureAppMemberInstructed"} {
 		r[op] = `{"data":{"ensureAppMember":` + member + `}}`
 	}
@@ -83,6 +86,10 @@ var cmds1594 = []cmd1594{
 	{name: "rm", plain: "DeleteWorker", instr: "DeleteWorkerInstructed", plainDoc: gen.DeleteWorker_Operation, byWorker: true,
 		args: func(app string, extra ...string) []string {
 			return with([]string{"team", "worker", "rm", irisURN1592, "--yes", "--confirm-no-external-attribution"}, extra)
+		}},
+	{name: "rm --dry-run", plain: "DeleteWorkerPreview", instr: "DeleteWorkerPreviewInstructed", plainDoc: gen.DeleteWorkerPreview_Operation, byWorker: true,
+		args: func(app string, extra ...string) []string {
+			return with([]string{"team", "worker", "rm", irisURN1592, "--dry-run"}, extra)
 		}},
 	{name: "member add", plain: "EnsureAppMember", instr: "EnsureAppMemberInstructed", plainDoc: gen.EnsureAppMember_Operation,
 		args: func(app string, extra ...string) []string {
