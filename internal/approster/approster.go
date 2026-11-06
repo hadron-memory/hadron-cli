@@ -21,6 +21,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/bootpreview"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -31,6 +32,8 @@ import (
 // Agent, or any agent in a non-team App); named identities are Workers and
 // deliberately not part of this read.
 type MemberDTO struct {
+	bootpreview.Fields
+	preview        *bootpreview.Preview
 	ID             string  `json:"id"`
 	URN            string  `json:"urn"`
 	AgentName      string  `json:"agentName"`
@@ -117,6 +120,50 @@ func FetchInstallations(ctx context.Context, client graphql.Client, appRef strin
 	return result, nil
 }
 
+// FetchEffective opts only the listing into next-bind projection. The legacy
+// operation is issued at most once, only for the exact initial missing-field
+// validation refusal from the old provider.
+func FetchEffective(ctx context.Context, client graphql.Client, appRef string) (*Result, error) {
+	guard := &bootpreview.ValidationRead{Client: client}
+	resp, err := gen.AppAgentEffectiveRoster(ctx, guard, appRef)
+	if err != nil {
+		if guard.MissingField(err, "AppAgentEffectiveRoster", "AppAgent") {
+			return FetchInstallations(ctx, client, appRef)
+		}
+		return nil, api.MapError(err)
+	}
+	if resp == nil || resp.App == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
+	}
+	result := rosterDTO(&resp.App.AppAgentRosterData)
+	rows := map[string]*gen.AppAgentEffectiveRosterAppAppAgentsAppAgent{}
+	for _, row := range resp.App.AppAgents {
+		if row != nil && row.Agent != nil {
+			rows[row.Agent.Id] = row
+		}
+	}
+	for i := range result.Members {
+		m := &result.Members[i]
+		var outcome *gen.BootPromptPreviewFields
+		if row := rows[m.ID]; row != nil {
+			if row.InstallMethod != nil {
+				v := string(*row.InstallMethod)
+				m.InstallMethod = &v
+			}
+			if row.Importer != nil {
+				m.Importer = &ImporterDTO{ID: row.Importer.Id, URN: row.Importer.Urn, Name: row.Importer.Name}
+			}
+			if row.BootPromptServe != nil {
+				outcome = row.BootPromptServe
+			}
+		}
+		preview := bootpreview.Project(outcome, "APP_AGENT", m.BootPromptRef)
+		m.Fields = preview.Fields
+		m.preview = &preview
+	}
+	return result, nil
+}
+
 // Complete reports whether counts grounded in this roster may drive warnings.
 func (r *Result) Complete() bool { return !r.Withheld && r.Hidden == 0 }
 
@@ -184,9 +231,23 @@ func Render(w io.Writer, r *Result) error {
 	if r.Withheld {
 		return nil
 	}
-	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT", "INSTALL", "IMPORTER")
+	header := "BOOT PROMPT"
 	for _, m := range r.Members {
-		t.Row(output.SafeCell(m.AgentName), output.SafeCell(dash(m.PersonaRole)), output.SafeCell(m.URN), output.SafeCell(m.ID), output.SafeCell(cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)), output.SafeCell(installLabel(m.InstallMethod)), output.SafeCell(importerLabel(m.Importer, m.InstallMethod)))
+		if m.preview != nil {
+			header = "BOOT PROMPT (NEXT BIND)"
+			break
+		}
+	}
+	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", header, "INSTALL", "IMPORTER")
+	for _, m := range r.Members {
+		label := cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)
+		if m.preview != nil {
+			label = m.preview.Label()
+			if m.BootPromptTargetDeleted != nil && *m.BootPromptTargetDeleted {
+				label += "; own pointer: " + cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)
+			}
+		}
+		t.Row(output.SafeCell(m.AgentName), output.SafeCell(dash(m.PersonaRole)), output.SafeCell(m.URN), output.SafeCell(m.ID), output.SafeCell(label), output.SafeCell(installLabel(m.InstallMethod)), output.SafeCell(importerLabel(m.Importer, m.InstallMethod)))
 	}
 	return t.Flush()
 }

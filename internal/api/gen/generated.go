@@ -14503,6 +14503,194 @@ func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
 	return v.AmendDecision
 }
 
+// AppAgentEffectiveRosterApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppAgentEffectiveRosterApp struct {
+	AppAgentRosterData `json:"-"`
+	// Agents installed in this App, by a physical row or derived from a direct
+	// import of a physically installed Agent (#2168). Derived installations do not
+	// write an AppAgent row. One App credential
+	// routes to all of them via the URN supplied in the request.
+	AppAgents []*AppAgentEffectiveRosterAppAppAgentsAppAgent `json:"appAgents"`
+}
+
+// GetAppAgents returns AppAgentEffectiveRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterApp) GetAppAgents() []*AppAgentEffectiveRosterAppAppAgentsAppAgent {
+	return v.AppAgents
+}
+
+// GetId returns AppAgentEffectiveRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterApp) GetId() string { return v.AppAgentRosterData.Id }
+
+// GetUrn returns AppAgentEffectiveRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterApp) GetUrn() string { return v.AppAgentRosterData.Urn }
+
+// GetName returns AppAgentEffectiveRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterApp) GetName() string { return v.AppAgentRosterData.Name }
+
+// GetAgents returns AppAgentEffectiveRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterApp) GetAgents() []*AppAgentRosterDataAgentsAgent {
+	return v.AppAgentRosterData.Agents
+}
+
+func (v *AppAgentEffectiveRosterApp) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppAgentEffectiveRosterApp
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppAgentEffectiveRosterApp = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppAgentRosterData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppAgentEffectiveRosterApp struct {
+	AppAgents []*AppAgentEffectiveRosterAppAppAgentsAppAgent `json:"appAgents"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+}
+
+func (v *AppAgentEffectiveRosterApp) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppAgentEffectiveRosterApp) __premarshalJSON() (*__premarshalAppAgentEffectiveRosterApp, error) {
+	var retval __premarshalAppAgentEffectiveRosterApp
+
+	retval.AppAgents = v.AppAgents
+	retval.Id = v.AppAgentRosterData.Id
+	retval.Urn = v.AppAgentRosterData.Urn
+	retval.Name = v.AppAgentRosterData.Name
+	retval.Agents = v.AppAgentRosterData.Agents
+	return &retval, nil
+}
+
+// AppAgentEffectiveRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type AppAgentEffectiveRosterAppAppAgentsAppAgent struct {
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *AppAgentEffectiveRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	// #3435 (hrn:node:hadronmemory.com:specs:cor:dmo:050:03, :050:06, :050:11) — how this App installs the Agent: ROW (an
+	// AppAgent row) or DERIVED (a direct import of an Agent installed here, no row). Answered only on App.appAgents, and
+	// only when the caller may read EVERY Agent installed in the App, row installs and derived ones alike. Otherwise it is
+	// null on EVERY entry, ROW ones included: a per-entry answer would show, by elimination, which installs derive from an
+	// Agent the caller cannot read (that the App runs one, and never which). Null is therefore not proof of anything, and
+	// also what an AppAgent reached through another field returns. createdAt (below) follows the same gate.
+	InstallMethod *InstallMethod `json:"installMethod"`
+	// #3435 — the installed Agent this DERIVED install derives from: the importer that gives its createdAt. Null for a ROW
+	// entry and whenever installMethod is null (same whole-App read gate), so a DERIVED entry always has a readable importer.
+	Importer *AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent `json:"importer"`
+	// #2708 — what a non-customised worker of this App, or a chatbot chat in it, would be served now
+	// (hrn:node:hadronmemory.com:specs:cor:agt:040:10): the install's pointer, else the Agent's. Computed by the resolver a
+	// bind uses, so it never substitutes a fallback. Null when the caller may not see it (same gate as bootPromptRef, the
+	// App's participants), which is judged before anything is resolved.
+	BootPromptServe *BootPromptPreviewFields `json:"bootPromptServe"`
+}
+
+// GetAgent returns AppAgentEffectiveRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgent) GetAgent() *AppAgentEffectiveRosterAppAppAgentsAppAgentAgent {
+	return v.Agent
+}
+
+// GetInstallMethod returns AppAgentEffectiveRosterAppAppAgentsAppAgent.InstallMethod, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgent) GetInstallMethod() *InstallMethod {
+	return v.InstallMethod
+}
+
+// GetImporter returns AppAgentEffectiveRosterAppAppAgentsAppAgent.Importer, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgent) GetImporter() *AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent {
+	return v.Importer
+}
+
+// GetBootPromptServe returns AppAgentEffectiveRosterAppAppAgentsAppAgent.BootPromptServe, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgent) GetBootPromptServe() *BootPromptPreviewFields {
+	return v.BootPromptServe
+}
+
+// AppAgentEffectiveRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentEffectiveRosterAppAppAgentsAppAgentAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AppAgentEffectiveRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
+
+// AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent) GetId() string { return v.Id }
+
+// GetUrn returns AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent) GetUrn() string { return v.Urn }
+
+// GetName returns AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterAppAppAgentsAppAgentImporterAgent) GetName() string { return v.Name }
+
+// AppAgentEffectiveRosterResponse is returned by AppAgentEffectiveRoster on success.
+type AppAgentEffectiveRosterResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppAgentEffectiveRosterApp `json:"app"`
+}
+
+// GetApp returns AppAgentEffectiveRosterResponse.App, and is useful for accessing the field via an interface.
+func (v *AppAgentEffectiveRosterResponse) GetApp() *AppAgentEffectiveRosterApp { return v.App }
+
 // AppAgentInstallationRosterApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -19878,6 +20066,73 @@ type BootCompileResultNode struct {
 
 // GetUrn returns BootCompileResultNode.Urn, and is useful for accessing the field via an interface.
 func (v *BootCompileResultNode) GetUrn() string { return v.Urn }
+
+// BootPromptPreviewFields includes the requested fields of the GraphQL type BootPromptServeOutcome.
+// The GraphQL type's documentation follows.
+//
+// #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: what a serve would decide now, from the resolver the serve
+// itself uses, so the same resolution rules apply. A preview of the current state: a later serve gives the same answer
+// only while that state is unchanged (a pointer edit or an approval in between can change it). Exactly one of served
+// and refusal is set; nothing is ever substituted for a refused serve.
+type BootPromptPreviewFields struct {
+	// The revision that would be served; null exactly when refusal is set.
+	Served *BootPromptPreviewFieldsServedBootPromptServeDecision `json:"served"`
+	// The typed code the serve would be refused with; null exactly when served is set.
+	Refusal *BootPromptServeRefusal `json:"refusal"`
+}
+
+// GetServed returns BootPromptPreviewFields.Served, and is useful for accessing the field via an interface.
+func (v *BootPromptPreviewFields) GetServed() *BootPromptPreviewFieldsServedBootPromptServeDecision {
+	return v.Served
+}
+
+// GetRefusal returns BootPromptPreviewFields.Refusal, and is useful for accessing the field via an interface.
+func (v *BootPromptPreviewFields) GetRefusal() *BootPromptServeRefusal { return v.Refusal }
+
+// BootPromptPreviewFieldsServedBootPromptServeDecision includes the requested fields of the GraphQL type BootPromptServeDecision.
+// The GraphQL type's documentation follows.
+//
+// #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: the revision a serve would be given now. The identity fields a
+// ServedPrompt record carries after the serve, so the two can be compared; never the text.
+type BootPromptPreviewFieldsServedBootPromptServeDecision struct {
+	PointerLevel   ServedPromptPointerLevel `json:"pointerLevel"`
+	CompiledNodeId string                   `json:"compiledNodeId"`
+	// Node.revSeq of the revision that would be served: the compiled node's newest approved revision.
+	ServedRevSeq int `json:"servedRevSeq"`
+}
+
+// GetPointerLevel returns BootPromptPreviewFieldsServedBootPromptServeDecision.PointerLevel, and is useful for accessing the field via an interface.
+func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetPointerLevel() ServedPromptPointerLevel {
+	return v.PointerLevel
+}
+
+// GetCompiledNodeId returns BootPromptPreviewFieldsServedBootPromptServeDecision.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetCompiledNodeId() string {
+	return v.CompiledNodeId
+}
+
+// GetServedRevSeq returns BootPromptPreviewFieldsServedBootPromptServeDecision.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetServedRevSeq() int {
+	return v.ServedRevSeq
+}
+
+// #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: why a serve would be refused now, the typed code the bind,
+// chat or run itself would get. BOOT_PROMPT_NOT_SIGNED cannot occur until an organisation can switch signing on (#1614).
+type BootPromptServeRefusal string
+
+const (
+	BootPromptServeRefusalBootPromptNotApproved   BootPromptServeRefusal = "BOOT_PROMPT_NOT_APPROVED"
+	BootPromptServeRefusalBootPromptNotSet        BootPromptServeRefusal = "BOOT_PROMPT_NOT_SET"
+	BootPromptServeRefusalBootPromptNotSigned     BootPromptServeRefusal = "BOOT_PROMPT_NOT_SIGNED"
+	BootPromptServeRefusalBootPromptTargetDeleted BootPromptServeRefusal = "BOOT_PROMPT_TARGET_DELETED"
+)
+
+var AllBootPromptServeRefusal = []BootPromptServeRefusal{
+	BootPromptServeRefusalBootPromptNotApproved,
+	BootPromptServeRefusalBootPromptNotSet,
+	BootPromptServeRefusalBootPromptNotSigned,
+	BootPromptServeRefusalBootPromptTargetDeleted,
+}
 
 // CalendarCreateEventCalendarCreateEventCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
 type CalendarCreateEventCalendarCreateEventCalendarEvent struct {
@@ -48619,6 +48874,77 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	retval.ExternalAppId = v.UserFields.ExternalAppId
 	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
+}
+
+// GetWorkerBootPromptServeResponse is returned by GetWorkerBootPromptServe on success.
+type GetWorkerBootPromptServeResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerBootPromptServeWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerBootPromptServeResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeResponse) GetWorker() *GetWorkerBootPromptServeWorker {
+	return v.Worker
+}
+
+// GetWorkerBootPromptServeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerBootPromptServeWorker struct {
+	// #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now
+	// (set for customised workers only). Null when no pointer is set OR when the caller may not see it (WORKING-STATE
+	// field, behind the worker read gate): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+	// #2708 — what this worker's NEXT bind would be served now (hrn:node:hadronmemory.com:specs:cor:agt:040:10): its own
+	// pointer, else the install's, else the Agent's. Computed by the resolver the bind itself uses, so the bind is refused
+	// exactly when refusal is set and records exactly the revision served names. Only the boot prompt is judged: a bind
+	// can still be refused for other reasons (a retired worker, a held worker). Null when the caller may not see it (same
+	// gate as bootPromptRef, WORKING-STATE), which is judged before anything is resolved.
+	BootPromptServe *BootPromptPreviewFields `json:"bootPromptServe"`
+}
+
+// GetBootPromptRef returns GetWorkerBootPromptServeWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeWorker) GetBootPromptRef() *string { return v.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns GetWorkerBootPromptServeWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeWorker) GetBootPromptTargetDeleted() *bool {
+	return v.BootPromptTargetDeleted
+}
+
+// GetBootPromptServe returns GetWorkerBootPromptServeWorker.BootPromptServe, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeWorker) GetBootPromptServe() *BootPromptPreviewFields {
+	return v.BootPromptServe
 }
 
 // GetWorkerContinuityResponse is returned by GetWorkerContinuity on success.
@@ -102473,6 +102799,14 @@ func (v *__AmendDecisionInput) GetExpectedRevision() int { return v.ExpectedRevi
 // GetReason returns __AmendDecisionInput.Reason, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetReason() string { return v.Reason }
 
+// __AppAgentEffectiveRosterInput is used internally by genqlient
+type __AppAgentEffectiveRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppAgentEffectiveRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppAgentEffectiveRosterInput) GetAppRef() string { return v.AppRef }
+
 // __AppAgentInstallationRosterInput is used internally by genqlient
 type __AppAgentInstallationRosterInput struct {
 	AppRef string `json:"appRef"`
@@ -106374,6 +106708,14 @@ type __GetUserInput struct {
 
 // GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetUserInput) GetRef() string { return v.Ref }
+
+// __GetWorkerBootPromptServeInput is used internally by genqlient
+type __GetWorkerBootPromptServeInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetWorkerBootPromptServeInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetWorkerBootPromptServeInput) GetId() string { return v.Id }
 
 // __GetWorkerContinuityInput is used internally by genqlient
 type __GetWorkerContinuityInput struct {
@@ -116785,6 +117127,83 @@ func AmendDecision(
 	}
 
 	data_ = &AmendDecisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppAgentEffectiveRoster.
+const AppAgentEffectiveRoster_Operation = `
+query AppAgentEffectiveRoster ($appRef: ID!) {
+	app(ref: $appRef) {
+		... AppAgentRosterData
+		appAgents {
+			agent {
+				id
+			}
+			installMethod
+			importer {
+				id
+				urn
+				name
+			}
+			bootPromptServe {
+				served {
+					pointerLevel
+					compiledNodeId
+					servedRevSeq
+				}
+				refusal
+			}
+		}
+	}
+}
+fragment AppAgentRosterData on App {
+	id
+	urn
+	name
+	agents {
+		id
+		urn
+		name
+		description
+		visibility
+		organizationId
+		personaRole
+		createdAt
+	}
+	appAgents {
+		agent {
+			id
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
+	}
+}
+`
+
+// cli#1655: command-specific next-bind preview, no content or provenance lookup.
+// Kept out of AppAgentRosterData: role warnings keep their provider floor.
+func AppAgentEffectiveRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppAgentEffectiveRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppAgentEffectiveRoster",
+		Query:  AppAgentEffectiveRoster_Operation,
+		Variables: &__AppAgentEffectiveRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppAgentEffectiveRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -130264,6 +130683,50 @@ func GetWorker(
 	}
 
 	data_ = &GetWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerBootPromptServe.
+const GetWorkerBootPromptServe_Operation = `
+query GetWorkerBootPromptServe ($id: ID!) {
+	worker(ref: $id) {
+		bootPromptRef
+		bootPromptTargetDeleted
+		bootPromptServe {
+			served {
+				pointerLevel
+				compiledNodeId
+				servedRevSeq
+			}
+			refusal
+		}
+	}
+}
+`
+
+// Kept out of WorkerFields: only worker get opts in, never cast/update/roster.
+func GetWorkerBootPromptServe(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetWorkerBootPromptServeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerBootPromptServe",
+		Query:  GetWorkerBootPromptServe_Operation,
+		Variables: &__GetWorkerBootPromptServeInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetWorkerBootPromptServeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

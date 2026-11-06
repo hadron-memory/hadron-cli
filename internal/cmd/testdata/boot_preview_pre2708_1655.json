@@ -1,0 +1,22 @@
+{
+  "errors": [
+    {
+      "message": "Cannot query field \"installMethod\" on type \"AppAgent\".",
+      "extensions": {
+        "code": "GRAPHQL_VALIDATION_FAILED"
+      }
+    },
+    {
+      "message": "Cannot query field \"importer\" on type \"AppAgent\".",
+      "extensions": {
+        "code": "GRAPHQL_VALIDATION_FAILED"
+      }
+    },
+    {
+      "message": "Cannot query field \"bootPromptServe\" on type \"AppAgent\". Did you mean \"bootPromptRef\"?",
+      "extensions": {
+        "code": "GRAPHQL_VALIDATION_FAILED"
+      }
+    }
+  ]
+}
