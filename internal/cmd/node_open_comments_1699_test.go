@@ -66,6 +66,14 @@ func runOpen1699(t *testing.T, summary string, args ...string) openRun1699 {
 			fmt.Fprint(w, `{"data":{}}`)
 			return
 		}
+		if summary == "null-hits" {
+			fmt.Fprint(w, `{"data":{"findNodes":{"total":3,"hits":null}}}`)
+			return
+		}
+		if summary == "missing-hits" {
+			fmt.Fprint(w, `{"data":{"findNodes":{"total":3}}}`)
+			return
+		}
 		if summary == "null-hit" {
 			fmt.Fprint(w, `{"data":{"findNodes":{"hits":[null]}}}`)
 			return
@@ -224,7 +232,7 @@ func TestNodeOpenComments1699AgeAndText(t *testing.T) {
 }
 
 func TestNodeOpenComments1699MalformedAndOldProvider(t *testing.T) {
-	for _, summary := range []string{"", `null`, `{"openThreads":null,"oldestOpenThreadAt":null}`, `{"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":"2026-11-05T11:00:00Z"}`, "later-bad", "no-list", "null-hit", "null-node", `{"openThreads":1,"oldestOpenThreadAt":null}`, `{"openThreads":0,"oldestOpenThreadAt":"2026-01-01T00:00:00Z"}`, `{"openThreads":1,"oldestOpenThreadAt":"bad"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00+24:00"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00,5Z"}`} {
+	for _, summary := range []string{"", `null`, `{"openThreads":null,"oldestOpenThreadAt":null}`, `{"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":"2026-11-05T11:00:00Z"}`, "later-bad", "no-list", "null-hits", "missing-hits", "null-hit", "null-node", `{"openThreads":1,"oldestOpenThreadAt":null}`, `{"openThreads":0,"oldestOpenThreadAt":"2026-01-01T00:00:00Z"}`, `{"openThreads":1,"oldestOpenThreadAt":"bad"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00+24:00"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00,5Z"}`} {
 		r := runOpen1699(t, summary, "--has-unresolved-comments", "--json")
 		if r.Code != 1 || r.Out != "" {
 			t.Fatalf("%s: exit%d output%q", summary, r.Code, r.Out)
