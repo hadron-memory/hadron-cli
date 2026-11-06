@@ -122,8 +122,8 @@ func deleteWorker(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields
 // document without a claim, else the instructed one in the context instructed
 // decides. claimed is true when an instructed preview went out through the
 // worker session: the server then records one claim event. The reply is
-// checked before it is returned: a null or empty result, or one naming another
-// worker, is a failure, never a success to print. It is one request: no retry
+// checked before it is returned: a null or empty result, one naming another
+// worker, or one whose attestationRequired is not true, is a failure, never a success to print. It is one request: no retry
 // and no other operation to fall back on.
 func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.WorkerFields, claim *gen.ActInstructionInput, instructed InstructedWrite) (attestationRequired, claimed bool, err error) {
 	var workerID string
@@ -152,6 +152,13 @@ func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.Worke
 	}
 	if workerID != w.Id {
 		return false, false, exitcode.Newf(exitcode.Error, "server returned a delete preview for a different worker (wanted %s)", w.Id)
+	}
+	// The schema documents attestationRequired as always true, and a Go bool
+	// decodes an omitted or null field to false without an error. A false
+	// reply is therefore malformed, never a preview that hides the
+	// required-attestation note.
+	if !attestationRequired {
+		return false, false, exitcode.Newf(exitcode.Error, "server returned a malformed delete preview (attestationRequired is not true)")
 	}
 	return attestationRequired, claimed, nil
 }

@@ -288,3 +288,41 @@ func TestWorkerRmDryRunClaimNoteOnlyThroughTheSession1735(t *testing.T) {
 		t.Fatalf("person preview describes a claim that was not sent: err %v out %q", r.err, r.out)
 	}
 }
+
+// A reply whose attestationRequired is missing, null or false is not a
+// preview to print: the schema documents it as always true, and a Go bool
+// decodes an omitted or null field to false without an error, which would hide
+// the required-attestation note (#1735 local review P2). Both documents, text
+// and JSON, with the valid true control (previewOK1735) covered above.
+func TestWorkerRmDryRunRejectsAnUntrueAttestationRequired1735(t *testing.T) {
+	bodies := []struct{ name, body string }{
+		{"missing", `{"data":{"deleteWorkerPreview":{"workerId":"wkr1"}}}`},
+		{"null", `{"data":{"deleteWorkerPreview":{"workerId":"wkr1","attestationRequired":null}}}`},
+		{"false", `{"data":{"deleteWorkerPreview":{"workerId":"wkr1","attestationRequired":false}}}`},
+	}
+	for _, b := range bodies {
+		for _, doc := range []struct {
+			name string
+			args []string
+		}{
+			{"plain", []string{"--dry-run"}},
+			{"instructed", []string{"--dry-run", "--instruction", instrTask1592}},
+		} {
+			for _, mode := range []string{"text", "json"} {
+				t.Run(b.name+"/"+doc.name+"/"+mode, func(t *testing.T) {
+					args := append([]string{}, doc.args...)
+					if mode == "json" {
+						args = append(args, "--json")
+					}
+					r := runRm1735(t, b.body, args...)
+					if r.err == nil || r.out != "" {
+						t.Fatalf("want a failure with no stdout, got err=%v out=%q", r.err, r.out)
+					}
+					if r.deletes() != 0 {
+						t.Fatalf("ops = %v", r.ops)
+					}
+				})
+			}
+		}
+	}
+}
