@@ -280,11 +280,12 @@ func TestHostPlan1635UnknownTerminalPathIsIncomplete(t *testing.T) {
 }
 
 func TestHostDiscoveryFixtureRejectsUnexpectedArgv1729(t *testing.T) {
-	run := hostDiscoveryRunner1635(hostRepo1635(t))
+	repo := hostRepo1635(t)
+	run := hostDiscoveryRunner1635(repo)
 	for _, tc := range []struct {
 		bin  string
 		args []string
-	}{{"git", nil}, {"git", []string{"-C"}}, {"git", []string{"-C", "/foreign", "rev-parse", "--show-toplevel"}}, {"orca", []string{"terminal", "list"}}, {"shell", nil}} {
+	}{{"git", nil}, {"git", []string{"-C"}}, {"git", []string{"-C", "/foreign", "rev-parse", "--show-toplevel"}}, {"orca", []string{"terminal", "list"}}, {"shell", nil}, {"git", []string{"-C", repo, "rev-parse", "--show-toplevel", "extra"}}, {"git", []string{"-C", repo, "status"}}, {"git", []string{"-C", repo}}} {
 		if _, err := run(context.Background(), tc.bin, tc.args); err == nil {
 			t.Fatalf("fixture accepted %s %q", tc.bin, tc.args)
 		}
