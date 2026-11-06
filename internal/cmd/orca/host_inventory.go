@@ -18,6 +18,7 @@ import (
 )
 
 type hostBinding struct {
+	Server    string `json:"server"`
 	WorkerID  string `json:"workerId"`
 	AppID     string `json:"appId"`
 	SessionID string `json:"sessionId"`
@@ -230,7 +231,7 @@ func hostGitPath(ctx context.Context, run hostReadRunner, repo string, args ...s
 	}
 	return canonicalHostPath(path)
 }
-func assembleHostPlan(dto *hostPlanDTO, appID string, inv hostInventory) {
+func assembleHostPlan(dto *hostPlanDTO, appID, server string, inv hostInventory) {
 	for i := range dto.Workers {
 		w := &dto.Workers[i]
 		conflict := false
@@ -245,6 +246,16 @@ func assembleHostPlan(dto *hostPlanDTO, appID string, inv hostInventory) {
 		}
 		for _, tree := range inv.Trees {
 			if tree.Binding == nil || tree.Binding.WorkerID != w.ID {
+				continue
+			}
+			bindingServer, err := hostServerIdentity(tree.Binding.Server)
+			if err != nil {
+				dto.Unavailable = append(dto.Unavailable, hostPlanProblem{w.Worker, "binding_server_unavailable"})
+				conflict = true
+				continue
+			}
+			if bindingServer != server {
+				mark("binding_server_mismatch")
 				continue
 			}
 			if tree.Binding.AppID != appID {

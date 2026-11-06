@@ -8,7 +8,7 @@ Version1 UTF-8 regular roster file, <=1MiB; exactly version/app/workers keys, wo
 
 The file explicitly selects the App, ignores ambient App defaults, and rejects --app rather than silently overriding it. Narrow HostPlanApp and HostPlanWorker queries on the existing worker(appRef,ref) provider resolve the App id and each worker, one App-id query plus one slim worker query per row (no staff pagination/fallback). Compare returned worker.AppId to resolved App id; reject retired, foreign or duplicate resolved workers before host inventory. Known recorded family disagreement is a conflict, not a model-launch inference. Input ref names are not reconstructed from slugs. Provider failures retain the mapper's exit category but do not echo provider diagnostic prose.
 
-Explicit stable DTO: version/app/readOnly/complete/workers/actions/conflicts/unavailable. Non-null arrays; worker rows id/ref/repo/desired family plus observed worktree paths, terminal handles and recorded session ids. No tokens, prompts, transcripts, binding model/config payload or raw subprocess output. Stable roster order; sorted discovered paths and handles. Text reports the same plan facts/counts, sanitizing user-controlled strings. Complete means discovery completed, not execution-ready, authorized or currently live.
+Explicit stable DTO: version/server/app/readOnly/complete/workers/actions/conflicts/unavailable. Non-null arrays; worker rows id/ref/repo/desired family plus observed worktree paths, terminal handles and recorded session ids. No tokens, prompts, transcripts, binding model/config payload or raw subprocess output. Stable roster order; sorted discovered paths and handles. Text reports the same plan facts/counts, sanitizing user-controlled strings. Complete means discovery completed, not execution-ready, authorized or currently live.
 
 ## Discovery boundary
 
@@ -75,3 +75,7 @@ Read review parent and applicable Scope/checklists. No generic code-review skill
 | stable-json-dto | Pass: package-local DTO; every array raw/non-nil discriminator including fulfilled plan |
 | sweep-by-identifier-not-by-prose | Skipped: no old surface renamed/removed |
 | sweep-the-subject-not-the-removed-rule | Skipped: no old rule removed |
+
+## Deployment-scope correction before freeze
+
+Self-review of the coverage checklist identified the cross-server clone case: App/worker IDs are unique within a deployment, not across restored/cloned deployments. Red ee8a5cdd accepted a binding from other.example as an existing resource despite identical ids. The fix also compares binding.server to the selected HTTP(S) GraphQL endpoint. Normalize scheme/host/default port/trailing base slash while preserving endpoint path; no DNS-alias equivalence is inferred. Target URLs with userinfo/query/fragment refuse locally without echoing them. DTO server names the sanitized endpoint. Missing/invalid binding server is unavailable/no action, not absent; mismatch is conflict/no action. Normal same-server spellings remain a positive control. This adds no provider admission policy, live-session proof or host writes. Its exact guard mutant and restored controls are recorded with the other evidence.

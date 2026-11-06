@@ -34,7 +34,7 @@ func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := filepath.Join(repo, ".git", bindingFileName)
-	raw := []byte(`{"workerId":"id-iris","appId":"app-id","sessionId":"fixture-session","model":"codex","token":"SECRET-not-output"}`)
+	raw := []byte(`{"server":"https://target.example","workerId":"id-iris","appId":"app-id","sessionId":"fixture-session","model":"codex","token":"SECRET-not-output"}`)
 	if err := os.WriteFile(binding, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
 		t.Fatalf("binding not discovered: %+v", inv)
 	}
 	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Sessions: []string{}, Terminals: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
-	assembleHostPlan(&dto, "app-id", inv)
+	assembleHostPlan(&dto, "app-id", "https://target.example/graphql", inv)
 	if len(dto.Actions) != 0 || len(dto.Conflicts) != 0 || len(dto.Workers[0].Worktrees) != 1 || len(dto.Workers[0].Terminals) != 1 {
 		t.Fatalf("fulfilled inventory: %+v", dto)
 	}

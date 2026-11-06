@@ -60,7 +60,8 @@ func executePlan1635(t *testing.T, file string, env hostPlanEnv) (hostPlanDTO, i
 }
 func fakePlan1635(inv hostInventory, calls *[]string) hostPlanEnv {
 	return hostPlanEnv{
-		App: func(context.Context, string) (string, error) { *calls = append(*calls, "app"); return "app-id", nil },
+		Server: func() (string, error) { return "https://target.example", nil },
+		App:    func(context.Context, string) (string, error) { *calls = append(*calls, "app"); return "app-id", nil },
 		Worker: func(_ context.Context, app, ref string) (hostWorkerIdentity, error) {
 			*calls = append(*calls, "worker:"+ref)
 			return hostWorkerIdentity{ID: "id-" + strings.ToLower(ref), AppID: "app-id", Family: "codex"}, nil
@@ -74,7 +75,7 @@ func fakePlan1635(inv hostInventory, calls *[]string) hostPlanEnv {
 func TestHostPlan1635DeterministicAbsentExistingConflict(t *testing.T) {
 	repo := hostRepo1635(t)
 	file := roster1635(t, repo, "Iris", "Dara")
-	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"id-iris", "app-id", "session-id"}}}, Terminals: []hostTerminal{{"term-1", repo, "codex"}}}
+	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"https://target.example", "id-iris", "app-id", "session-id"}}}, Terminals: []hostTerminal{{"term-1", repo, "codex"}}}
 	calls := []string{}
 	env := fakePlan1635(inv, &calls)
 	before := snapshotHost1635(t, repo)
@@ -98,7 +99,7 @@ func TestHostPlan1635DeterministicAbsentExistingConflict(t *testing.T) {
 	if !strings.Contains(first, `"conflicts": []`) || !strings.Contains(first, `"unavailable": []`) {
 		t.Fatal(first)
 	}
-	inv.Trees = append(inv.Trees, hostTree{repo + "-wrong", "other-common", &hostBinding{"id-dara", "app-id", "s-other"}})
+	inv.Trees = append(inv.Trees, hostTree{repo + "-wrong", "other-common", &hostBinding{"https://target.example", "id-dara", "app-id", "s-other"}})
 	env = fakePlan1635(inv, &calls)
 	dto, code, _ = executePlan1635(t, file, env)
 	if code != 5 || len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != "binding_repository_mismatch" || len(dto.Actions) != 0 {
@@ -270,7 +271,7 @@ func TestHostPlan1635AllArrayShapes(t *testing.T) {
 	repo := hostRepo1635(t)
 	file := roster1635(t, repo, "Iris")
 	calls := []string{}
-	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"id-iris", "app-id", "s"}}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
+	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"https://target.example", "id-iris", "app-id", "s"}}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
 	dto, code, out := executePlan1635(t, file, fakePlan1635(inv, &calls))
 	if code != 0 {
 		t.Fatal(code, out)
@@ -298,8 +299,33 @@ func TestHostPlan1635BindingFromClonedServerIsConflict(t *testing.T) {
 	}
 	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &b}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
 	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Terminals: []string{}, Sessions: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
-	assembleHostPlan(&dto, "app-id", inv)
+	assembleHostPlan(&dto, "app-id", "https://target.example/graphql", inv)
 	if len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != "binding_server_mismatch" || len(dto.Workers[0].Worktrees) != 0 || len(dto.Actions) != 0 {
 		t.Fatalf("foreign-server binding accepted: %+v", dto)
+	}
+}
+
+func TestHostPlan1635ServerIdentitySpellings(t *testing.T) {
+	for _, pair := range [][2]string{{"https://target.example", "https://TARGET.example:443/"}, {"http://target.example", "http://TARGET.example:80/"}, {"https://target.example/base/", "https://target.example/base"}} {
+		a, e := hostServerIdentity(pair[0])
+		if e != nil {
+			t.Fatal(e)
+		}
+		b, e := hostServerIdentity(pair[1])
+		if e != nil || a != b {
+			t.Fatal(pair, a, b, e)
+		}
+	}
+	for _, raw := range []string{"", "ftp://target.example", "https://user:SECRET@target.example", "https://target.example?token=SECRET", "https://target.example#SECRET"} {
+		if _, err := hostServerIdentity(raw); err == nil {
+			t.Fatalf("unsafe target accepted: %q", raw)
+		}
+	}
+	repo := hostRepo1635(t)
+	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Terminals: []string{}, Sessions: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
+	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{WorkerID: "id-iris", AppID: "app-id", SessionID: "s"}}}}
+	assembleHostPlan(&dto, "app-id", "https://target.example/graphql", inv)
+	if len(dto.Unavailable) != 1 || dto.Unavailable[0].Reason != "binding_server_unavailable" || len(dto.Actions) != 0 {
+		t.Fatalf("unknown server treated as absent: %+v", dto)
 	}
 }

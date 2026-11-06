@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -52,6 +53,7 @@ type hostPlanProblem struct {
 	Reason string `json:"reason"`
 }
 type hostPlanDTO struct {
+	Server      string            `json:"server"`
 	Version     int               `json:"version"`
 	App         string            `json:"app"`
 	ReadOnly    bool              `json:"readOnly"`
@@ -66,6 +68,7 @@ type hostWorkerIdentity struct {
 	Retired           bool
 }
 type hostPlanEnv struct {
+	Server    func() (string, error)
 	App       func(context.Context, string) (string, error)
 	Worker    func(context.Context, string, string) (hostWorkerIdentity, error)
 	Inventory func(context.Context, []hostRosterWorker) (hostInventory, error)
@@ -86,6 +89,7 @@ func newCmdHost(f *cmdutil.Factory) *cobra.Command {
 }
 func defaultHostPlanEnv(f *cmdutil.Factory) hostPlanEnv {
 	return hostPlanEnv{
+		Server: f.Server,
 		App: func(ctx context.Context, ref string) (string, error) {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -137,15 +141,15 @@ symlinks are resolved. No shell expansion occurs. The file's App is explicit;
 The plan reads App/worker identity, git worktree and session-binding metadata,
 and Orca terminal list only. It does not read terminal screens, ticks or wakes.
 Names/path suffixes alone never associate a resource with a worker: a worktree
-binding must name that worker id and App id. Recorded bindings and terminal
+binding must name that worker id, App id and selected server. Recorded bindings and terminal
 identity are observations, not proof of a live model or a safe input prompt.
 Missing roster rows never delete, retire, close or release anything.
 
---json returns one version-1 object: app, readOnly, complete, workers, actions,
+--json returns one version-1 object: server, app, readOnly, complete, workers, actions,
 conflicts, unavailable. Arrays are always []. Input order is stable. A conflict
 exits 5, incomplete discovery exits nonzero, and missing/broken Orca exits 10.
 A failed discovery is never an empty inventory. Diagnostics omit subprocess
-output and server prose. Stored credentials and transcripts are never selected or emitted; input refs
+output and server prose. The plan emits no credential or transcript fields; input refs
 and paths remain operator-supplied data in the plan.
 
 This is a Linux-tested read-only snapshot, not a reviewed execution plan or a
@@ -158,7 +162,15 @@ standing grant. Future host-write tooling requires its own authorization.`,
 			if err != nil {
 				return err
 			}
-			dto := hostPlanDTO{Version: 1, App: roster.App, ReadOnly: true, Complete: false, Workers: []hostPlanWorker{}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
+			server, err := env.Server()
+			if err != nil {
+				return exitcode.Newf(exitcode.Usage, "server configuration unavailable")
+			}
+			server, err = hostServerIdentity(server)
+			if err != nil {
+				return exitcode.Newf(exitcode.Usage, "host plan needs an HTTP(S) server base URL without credentials, query or fragment")
+			}
+			dto := hostPlanDTO{Server: server, Version: 1, App: roster.App, ReadOnly: true, Complete: false, Workers: []hostPlanWorker{}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
 			fail := func(worker, reason string, code int) error {
 				dto.Unavailable = append(dto.Unavailable, hostPlanProblem{worker, reason})
 				if err := writeHostPlan(f, dto); err != nil {
@@ -199,7 +211,7 @@ standing grant. Future host-write tooling requires its own authorization.`,
 				code := exitcode.FromError(err)
 				return fail("", "host_inventory_unavailable", code)
 			}
-			assembleHostPlan(&dto, appID, inv)
+			assembleHostPlan(&dto, appID, server, inv)
 			dto.Complete = len(dto.Unavailable) == 0
 			if err := writeHostPlan(f, dto); err != nil {
 				return err
@@ -317,4 +329,25 @@ func writeHostPlan(f *cmdutil.Factory, dto hostPlanDTO) error {
 		}
 		return nil
 	})
+}
+
+// IDs are deployment-local. Compare the actual GraphQL endpoint, with ordinary
+// URL spelling normalized, not App/worker IDs alone. Never emit URL userinfo.
+func hostServerIdentity(raw string) (string, error) {
+	u, err := url.Parse(api.Endpoint(strings.TrimSpace(raw)))
+	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Host == "" {
+		return "", errors.New("invalid server identity")
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", errors.New("invalid server identity")
+	}
+	host := strings.ToLower(u.Host)
+	if scheme == "https" {
+		host = strings.TrimSuffix(host, ":443")
+	}
+	if scheme == "http" {
+		host = strings.TrimSuffix(host, ":80")
+	}
+	return scheme + "://" + host + u.EscapedPath(), nil
 }
