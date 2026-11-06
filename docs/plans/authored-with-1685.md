@@ -14,10 +14,11 @@ The earlier exact merge export failed generation because it predated that
 field; it was restored rather than hand-edited. The amended export adds only
 specDocument's unused SDL surface; generation was initially unchanged.
 
-Two explicit-only operations add authoredWith variables/arguments:
-UpdateNodeDataAuthored and UpdateNodePropertiesAuthored. The ordinary
-UpdateNodeData/UpdateNodeProperties documents remain byte-identical, and a nil
-claim selects them; no new argument reaches an older server.
+Explicit-only operations add authoredWith variables/arguments:
+UpdateNodeDataAuthored, UpdateNodePropertiesAuthored and four typed
+Update*ClearingRoleAuthored variants. Ordinary data/properties/role-clear
+documents remain byte-identical, and a nil claim selects them; no new
+argument reaches an older server.
 All existing claim-bearing input structs already omit authoredWith when nil.
 An old server lacking those arguments cannot execute the explicit variants;
 the required provider revision is named above. There is no fallback write or
@@ -29,6 +30,7 @@ request that could change the meaning of the user's claim.
 |---|---|---|
 | node create (alias add) | CreateNodeInput | explicit context claim |
 | node update, including data replacement | UpdateNodeInput | explicit context claim |
+| node update --role "" | four typed clearing-role arguments | explicit-only document, ordinary document without a claim |
 | node update --data-merge | updateNodeData argument | explicit context claim |
 | node set-properties | updateNodeProperties argument | explicit context claim |
 | node merge | MergeNodesInput | explicit context claim |
@@ -59,7 +61,7 @@ Nested scaffolds share it; the context is restored afterwards. Every typed
 constructor/argument copies that value. Nil omits the key, preserving writes
 that make no claim. Pair validation uses flag presence, not zero-value guesses.
 
-Only four typed authoring codes get curated output. Exact READABLE carries
+Only four typed authoring codes get curated output. An exact taskAccess READABLE discriminator carries
 nullable task/taskId/taskRevision and the complete three-field load object.
 Human output names the required task and revision and the available CLI read.
 Retry flags are offered only by a covered command. Controls are made safe for

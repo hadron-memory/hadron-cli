@@ -544,6 +544,9 @@ func TestAuthoredSupersedePartialRefusal1685(t *testing.T) {
 				}
 				renderFailure(f, args, err)
 				text := out.String() + stderr.String()
+				if !strings.Contains(text, "linked") {
+					t.Fatalf("rendered partial status lost: %s", text)
+				}
 				if access == "READABLE" {
 					for _, want := range []string{"SECRET_TASK", "SECRET_CLI", "Retry with:"} {
 						if !strings.Contains(text, want) {

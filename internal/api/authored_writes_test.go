@@ -13,7 +13,7 @@ import (
 // Check the static documents too: omitting a variable cannot make an unknown
 // argument valid on an older server.
 func TestAuthoredOrdinaryDocuments1685(t *testing.T) {
-	for name, doc := range map[string]string{"data": gen.UpdateNodeData_Operation, "properties": gen.UpdateNodeProperties_Operation} {
+	for name, doc := range map[string]string{"data": gen.UpdateNodeData_Operation, "properties": gen.UpdateNodeProperties_Operation, "clearNode": gen.UpdateNodeClearingRole_Operation, "clearTask": gen.UpdateTaskNodeClearingRole_Operation, "clearSpec": gen.UpdateSpecNodeClearingRole_Operation, "clearReview": gen.UpdateReviewNodeClearingRole_Operation} {
 		if strings.Contains(doc, "authoredWith") {
 			t.Errorf("ordinary %s document requires the new argument", name)
 		}
@@ -40,6 +40,9 @@ func TestAuthoredConcealmentPreservesExit1685(t *testing.T) {
 					return &graphql.HTTPError{StatusCode: status, Response: graphql.Response{Errors: list}}
 				}
 				readable := MapError(makeErr("READABLE"))
+				if status >= 0 && exitcode.FromError(readable) != 1 {
+					t.Fatalf("absolute refusal exit changed: %d", exitcode.FromError(readable))
+				}
 				if status < 0 && exitcode.FromError(readable) != -status {
 					t.Fatal("preclassified control was not exercised")
 				}

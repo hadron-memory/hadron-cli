@@ -76,7 +76,16 @@ func authoredRefusalText(err error) (string, bool) {
 		return "", false
 	}
 	if d["taskAccess"] != "READABLE" {
-		return "the authoring task is unreadable or unusable; an owner must fix access or the rule", true
+		// MapError already concealed nested server text before callers added
+		// partial-write status. Keep that status; raw/unmapped presentations
+		// must still be replaced, including mixed GraphQL error lists.
+		text := humanErrorText(err)
+		for _, raw := range api.ServerMessages(err) {
+			if raw != "" && strings.Contains(text, raw) {
+				return "the authoring task is unreadable or unusable; an owner must fix access or the rule", true
+			}
+		}
+		return text, true
 	}
 	task, _ := d["task"].(string)
 	if task == "" {

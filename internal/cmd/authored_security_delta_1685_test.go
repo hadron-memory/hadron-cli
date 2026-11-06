@@ -81,3 +81,53 @@ func TestAuthoredMixedAccessConcealed1685(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthoredNewPartialExecution1685(t *testing.T) {
+	refusal := `{"errors":[{"message":"SECRET_TASK","extensions":{"code":"AUTHOR_TASK_BROKEN","taskAccess":"UNAVAILABLE","task":"SECRET_TASK","load":{"cli":"SECRET_CLI"}}}]}`
+	success := `{"data":{"createSpecNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"X","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+	for _, path := range []bool{false, true} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("path%t/json%t", path, jsonMode), func(t *testing.T) {
+				find := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `]}}`
+				args := []string{"spec", "new", "--new-module", "--module", "brd", "--title", "Send", "--no-edges", "-m", specMem}
+				want := "created"
+				if path {
+					find = `{"data":{"nodes":[]}}`
+					args = []string{"spec", "new", "msg:010:01", "--new-path", "--title", "Send", "--no-edges", "-m", specMem}
+					want = "after creating"
+				}
+				srv, _ := queueGraphQL(t, map[string][]string{"FindNodes": {find, `{"data":{"nodes":[]}}`}, "CreateSpecNode": {success, refusal}})
+				f, out := testFactory(t)
+				var stderr bytes.Buffer
+				f.IOStreams.ErrOut = &stderr
+				args = append(args, "--server", srv.URL, "--authored-with", "task1", "--authored-revision", "4")
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				root := NewRootCmd(f)
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("expected partial refusal")
+				}
+				renderFailure(f, args, err)
+				text := out.String() + stderr.String()
+				if !strings.Contains(text, want) || strings.Contains(text, "SECRET_") {
+					t.Fatalf("partial output: %s", text)
+				}
+			})
+		}
+	}
+}
+
+func TestAuthoredRevisionRange1685(t *testing.T) {
+	for _, revision := range []string{"2147483648", "-2147483649"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "create", "-m", "acme.com::kb", "--loc", "x", "--name", "X", "--authored-with", "task1", "--authored-revision", revision, "--server", "http://127.0.0.1:1"})
+		err := root.Execute()
+		if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "GraphQL integer") {
+			t.Fatalf("range checked after transport: %v", err)
+		}
+	}
+}

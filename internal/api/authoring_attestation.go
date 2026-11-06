@@ -8,6 +8,7 @@ import (
 // AuthoringAttestationDetails curates the four typed refusals. Anything except
 // an exact READABLE projection is concealed, even if a server supplies fields.
 func AuthoringAttestationDetails(err error) map[string]any {
+	var readable map[string]any
 	for _, e := range graphQLErrors(err) {
 		switch extensionCode(e) {
 		case "AUTHORING_ATTESTATION_MISSING", "AUTHORING_ATTESTATION_WRONG_TASK", "AUTHORING_ATTESTATION_STALE", "AUTHOR_TASK_BROKEN":
@@ -37,9 +38,11 @@ func AuthoringAttestationDetails(err error) map[string]any {
 			}
 			out["load"] = fields
 		}
-		return out
+		if readable == nil {
+			readable = out
+		}
 	}
-	return nil
+	return readable
 }
 
 type attestationCause struct{ presentation, cause error }
