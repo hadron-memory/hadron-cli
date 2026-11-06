@@ -3,8 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -401,5 +404,137 @@ func TestWorkerBootModernDeletedCueSafe1655(t *testing.T) {
 	_ = json.Unmarshal([]byte(out), &dto)
 	if dto["bootPromptRef"] != ref || dto["bootPromptTargetDeleted"] != true {
 		t.Fatal("raw JSON own pointer changed")
+	}
+}
+
+// The gate accepts absent and null data equally at both validation statuses;
+// every nonnull shape is a partial result and cannot choose a legacy read.
+func TestEffectiveBootValidationParity1655(t *testing.T) {
+	for _, status := range []int{200, 400} {
+		for _, data := range []string{"", `,"data":null`, `,"data":{}`, `,"data":{"app":null}`, `,"data":[]`, `,"data":false`} {
+			t.Run(fmt.Sprintf("%d/%s", status, data), func(t *testing.T) {
+				var modern, legacy atomic.Int32
+				response := bootResponses1655(t, `null`)["AppAgentInstallationRoster"]
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var req struct {
+						OperationName string `json:"operationName"`
+					}
+					_ = json.NewDecoder(r.Body).Decode(&req)
+					w.Header().Set("Content-Type", "application/json")
+					switch req.OperationName {
+					case "AppAgentEffectiveRoster":
+						modern.Add(1)
+						w.WriteHeader(status)
+						fmt.Fprint(w, `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]`+data+`}`)
+					case "AppAgentInstallationRoster":
+						legacy.Add(1)
+						fmt.Fprint(w, response)
+					default:
+						t.Errorf("unexpected operation %s", req.OperationName)
+						fmt.Fprint(w, `{"data":null}`)
+					}
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"app", "agent", "list", "hrn:app:acme.com:support", "--server", srv.URL, "--json"})
+				err := root.Execute()
+				want := data == "" || data == `,"data":null`
+				if (err == nil) != want || modern.Load() != 1 || legacy.Load() != map[bool]int32{true: 1, false: 0}[want] {
+					t.Fatalf("err=%v modern%d legacy%d output%s", err, modern.Load(), legacy.Load(), out.String())
+				}
+				if !want && out.Len() != 0 {
+					t.Fatal("partial output", out.String())
+				}
+			})
+		}
+	}
+}
+
+func TestEffectiveBootMalformedWireFails1655(t *testing.T) {
+	for _, surface := range []string{"app", "worker"} {
+		t.Run(surface, func(t *testing.T) {
+			r := bootResponses1655(t, `{"served":{"pointerLevel":"AGENT","compiledNodeId":"n1","servedRevSeq":1.5},"refusal":null}`)
+			args := []string{"app", "agent", "list", "hrn:app:acme.com:support", "--json"}
+			if surface == "worker" {
+				args = []string{"team", "worker", "get", profileHexID, "--json"}
+			}
+			calls, out, err := runTeamTask(t, r, args...)
+			if err == nil || out != "" {
+				t.Fatalf("typed malformed value accepted err%v output%s", err, out)
+			}
+			for _, c := range *calls {
+				if c.Op == "AppAgentInstallationRoster" {
+					t.Fatal("typed decode error selected legacy")
+				}
+			}
+		})
+	}
+}
+
+func TestEffectiveBootModernWithheldRoster1655(t *testing.T) {
+	for _, field := range []string{"agents", "appAgents"} {
+		t.Run(field, func(t *testing.T) {
+			r := bootResponses1655(t, `{"served":{"pointerLevel":"AGENT","compiledNodeId":"WITHHELD_ID","servedRevSeq":1}}`)
+			var p map[string]any
+			_ = json.Unmarshal([]byte(r["AppAgentEffectiveRoster"]), &p)
+			p["data"].(map[string]any)["app"].(map[string]any)[field] = nil
+			wire, _ := json.Marshal(p)
+			r["AppAgentEffectiveRoster"] = string(wire)
+			calls, out, err := runTeamTask(t, r, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
+			if err != nil || strings.TrimSpace(out) != "null" {
+				t.Fatalf("out%s err%v", out, err)
+			}
+			modern, legacy := 0, 0
+			for _, c := range *calls {
+				if c.Op == "AppAgentEffectiveRoster" {
+					modern++
+				}
+				if c.Op == "AppAgentInstallationRoster" {
+					legacy++
+				}
+			}
+			if modern != 1 || legacy != 0 {
+				t.Fatalf("modern%d legacy%d", modern, legacy)
+			}
+		})
+	}
+}
+
+func TestEffectiveBootNullErrorsRefuse1655(t *testing.T) {
+	const valid = `{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
+	for _, status := range []int{200, 400} {
+		for _, entries := range []string{`null,` + valid, valid + `,null`, `null`} {
+			t.Run(fmt.Sprintf("%d/%s", status, entries), func(t *testing.T) {
+				var modern, legacy atomic.Int32
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var req struct {
+						OperationName string `json:"operationName"`
+					}
+					_ = json.NewDecoder(r.Body).Decode(&req)
+					w.Header().Set("Content-Type", "application/json")
+					switch req.OperationName {
+					case "AppAgentEffectiveRoster":
+						modern.Add(1)
+						w.WriteHeader(status)
+						fmt.Fprint(w, `{"errors":[`+entries+`]}`)
+					case "AppAgentInstallationRoster":
+						legacy.Add(1)
+						fmt.Fprint(w, appRosterResp)
+					default:
+						t.Errorf("unexpected operation %s", req.OperationName)
+						fmt.Fprint(w, `{"data":null}`)
+					}
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"app", "agent", "list", "hrn:app:acme.com:support", "--server", srv.URL, "--json"})
+				err := root.Execute()
+				if err == nil || out.Len() != 0 || modern.Load() != 1 || legacy.Load() != 0 {
+					t.Fatalf("err%v output%s modern%d legacy%d", err, out.String(), modern.Load(), legacy.Load())
+				}
+			})
+		}
 	}
 }
