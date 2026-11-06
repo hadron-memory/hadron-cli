@@ -60,3 +60,14 @@ func TestAuthoredConcealmentPreservesExit1685(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthoredReadableOrder1685(t *testing.T) {
+	list := gqlerror.List{
+		{Message: "first", Extensions: map[string]any{"code": "AUTHORING_ATTESTATION_MISSING", "taskAccess": "READABLE", "task": "first-task", "taskRevision": 4}},
+		{Message: "second", Extensions: map[string]any{"code": "AUTHORING_ATTESTATION_STALE", "taskAccess": "READABLE", "task": "second-task", "taskRevision": 9}},
+	}
+	d := AuthoringAttestationDetails(list)
+	if d["task"] != "first-task" || d["taskRevision"] != int64(4) || d["code"] != "AUTHORING_ATTESTATION_MISSING" {
+		t.Fatalf("first readable projection lost: %v", d)
+	}
+}

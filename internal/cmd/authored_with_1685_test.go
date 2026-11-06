@@ -495,8 +495,11 @@ func TestAuthoredExtractWarning1685(t *testing.T) {
 				t.Fatalf("best-effort trim changed exit: %v", err)
 			}
 			text := stderr.String()
+			if strings.Contains(text, "Retry with:") || !strings.Contains(text, "do not rerun spec extract") {
+				t.Fatalf("partial extraction has unsafe retry advice: %s", text)
+			}
 			if access == "READABLE" {
-				for _, want := range []string{"SECRET_TASK", "SECRET_CLI", "Retry with:"} {
+				for _, want := range []string{"SECRET_TASK", "SECRET_CLI"} {
 					if !strings.Contains(text, want) {
 						t.Errorf("missing recovery %s: %s", want, text)
 					}
@@ -573,6 +576,87 @@ func TestAuthoredBlankTaskBeforeRequest1685(t *testing.T) {
 			err := root.Execute()
 			if exitCodeFor(err) != 2 || n.Load() != 0 {
 				t.Fatalf("blank task requested: %v calls%d", err, n.Load())
+			}
+		})
+	}
+}
+
+func TestAuthoredSupersedeResume1685(t *testing.T) {
+	oldWithEdge := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
+		`"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"# msg:010:02 — W2\n\n## What invalidates this spec\nChanges.\n",` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + oldWithEdge + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + oldWithEdge + `}}`,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL, "--authored-with", "task1", "--authored-revision", "4"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("retry should finish old-node retirement: %v\n%s", err, out.String())
+	}
+	if _, ok := captured["CreateSpecNode"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another replacement")
+	}
+	if _, ok := captured["CreateEdge"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another retirement edge")
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
+		t.Fatalf("retry output should name existing successor:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), `"name": "msg:010:03 — W2 v2"`) {
+		t.Fatalf("retry output should format the successor name with the successor citation:\n%s", out.String())
+	}
+	var sent struct {
+		Input struct {
+			AuthoredWith struct {
+				Task     string
+				Revision int
+			}
+		}
+	}
+	if json.Unmarshal(captured["UpdateSpecNode"], &sent) != nil || sent.Input.AuthoredWith.Task != "task1" || sent.Input.AuthoredWith.Revision != 4 {
+		t.Fatalf("resumed retirement lost claim: %s", captured["UpdateSpecNode"])
+	}
+
+}
+
+func TestAuthoredWrappedExitClasses1685(t *testing.T) {
+	for _, tc := range []struct {
+		code         string
+		status, want int
+	}{{"NODE_NOT_FOUND", 200, 4}, {"NODE_WRITE_CONFLICT", 200, 5}, {"", 502, 7}} {
+		t.Run(fmt.Sprint(tc.want), func(t *testing.T) {
+			var n atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n.Add(1)
+				if tc.status != 200 {
+					http.Error(w, "gateway", tc.status)
+					return
+				}
+				fmt.Fprintf(w, `{"errors":[{"message":"test refusal","extensions":{"code":%q}}]}`, tc.code)
+			}))
+			defer srv.Close()
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"node", "create", "-m", "acme.com::kb", "--loc", "x", "--name", "X", "--authored-with", "task1", "--authored-revision", "4", "--json", "--server", srv.URL}
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected refusal")
+			}
+			if exitCodeFor(err) != tc.want || renderFailure(f, args, err) != tc.want || n.Load() != 1 {
+				t.Fatalf("wrapped exit changed: err%v calls%d", err, n.Load())
+			}
+			var envelope struct{ Error struct{ Code int } }
+			if json.Unmarshal([]byte(out.String()), &envelope) != nil || envelope.Error.Code != tc.want {
+				t.Fatalf("envelope exit changed: %s", out.String())
 			}
 		})
 	}
