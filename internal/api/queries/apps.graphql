@@ -484,6 +484,7 @@ mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
 # @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
 # @genqlient(for: "NodeFilter.createdBy", omitempty: true)
