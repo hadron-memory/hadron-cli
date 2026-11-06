@@ -1,15 +1,20 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	authpkg "github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // A supplied credential does not let the client infer the server's answer.
@@ -18,9 +23,9 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 	for _, answer := range []string{"AUTHENTICATED", "REFUSED", "ANONYMOUS"} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", answer, jsonMode), func(t *testing.T) {
-				calls := 0
+				var calls atomic.Int32
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					calls++
+					calls.Add(1)
 					var req struct {
 						OperationName string `json:"operationName"`
 						Query         string `json:"query"`
@@ -28,12 +33,6 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 					_ = json.NewDecoder(r.Body).Decode(&req)
 					if r.Header.Get("Authorization") != "Bearer fixture-secret-1726" {
 						t.Error("credential forwarding changed")
-					}
-					// Keep old AuthContext valid so the baseline failure is the missing
-					// ruled output, rather than an unstubbed operation.
-					if req.OperationName == "AuthContext" {
-						_, _ = w.Write([]byte(`{"data":{"authContext":null}}`))
-						return
 					}
 					if req.OperationName != "CheckAuthenticationStatus" || strings.Contains(req.Query, "authContext") {
 						t.Errorf("unexpected query %s", req.Query)
@@ -57,8 +56,8 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 				if exitCodeFor(err) != wantCode {
 					t.Fatalf("exit=%d err=%v", exitCodeFor(err), err)
 				}
-				if calls != 1 {
-					t.Fatalf("calls=%d", calls)
+				if calls.Load() != 1 {
+					t.Fatalf("calls=%d", calls.Load())
 				}
 				if jsonMode {
 					var got map[string]any
@@ -83,9 +82,9 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 }
 
 func TestAuthStatusAnonymousRequest1726(t *testing.T) {
-	calls := 0
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
+		calls.Add(1)
 		if r.Header.Get("Authorization") != "" {
 			t.Error("anonymous request carried auth")
 		}
@@ -100,8 +99,8 @@ func TestAuthStatusAnonymousRequest1726(t *testing.T) {
 	if err := root.Execute(); exitCodeFor(err) != 3 {
 		t.Fatalf("exit: %v", err)
 	}
-	if calls != 1 || strings.Join(strings.Fields(out.String()), "") != `{"status":"ANONYMOUS"}` {
-		t.Fatalf("calls=%d output=%s", calls, out)
+	if calls.Load() != 1 || strings.Join(strings.Fields(out.String()), "") != `{"status":"ANONYMOUS"}` {
+		t.Fatalf("calls=%d output=%s", calls.Load(), out)
 	}
 }
 
@@ -152,9 +151,9 @@ func TestAuthStatusFaultWire1726(t *testing.T) {
 	} {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
-				calls := 0
+				var calls atomic.Int32
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					calls++
+					calls.Add(1)
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(tc.httpCode)
 					_, _ = w.Write([]byte(tc.body))
@@ -170,8 +169,8 @@ func TestAuthStatusFaultWire1726(t *testing.T) {
 				}
 				root.SetArgs(args)
 				err := root.Execute()
-				if exitCodeFor(err) != tc.code || calls != 1 || out.Len() != 0 {
-					t.Fatalf("code=%d calls=%d stdout=%s err=%v", exitCodeFor(err), calls, out, err)
+				if exitCodeFor(err) != tc.code || calls.Load() != 1 || out.Len() != 0 {
+					t.Fatalf("code=%d calls=%d stdout=%s err=%v", exitCodeFor(err), calls.Load(), out, err)
 				}
 				if got := renderError(f, err); got != tc.code {
 					t.Fatalf("render exit=%d", got)
@@ -191,5 +190,166 @@ func TestAuthenticationStatusDocument1726(t *testing.T) {
 	got := strings.Join(strings.Fields(gen.CheckAuthenticationStatus_Operation), " ")
 	if got != "query CheckAuthenticationStatus { authenticationStatus }" {
 		t.Fatalf("answer-only operation changed: %s", got)
+	}
+}
+
+// This is a read-only Store double; no shared config or keychain is touched.
+type authStatusStore1726 struct {
+	values       map[string]string
+	failOrdinary bool
+	reads        int
+}
+
+func (*authStatusStore1726) Name() string { return "fixture" }
+func (s *authStatusStore1726) Get(key string) (string, error) {
+	s.reads++
+	if s.failOrdinary && !strings.HasSuffix(key, "#impersonation") {
+		return "", errors.New("fixture keychain read failed")
+	}
+	value, ok := s.values[key]
+	if !ok {
+		return "", store.ErrNotFound
+	}
+	return value, nil
+}
+func (*authStatusStore1726) Set(string, string) error { return errors.New("fixture is read only") }
+func (*authStatusStore1726) Delete(string) error      { return errors.New("fixture is read only") }
+
+func TestAuthStatusCredentialSources1726(t *testing.T) {
+	// Only the local selector reads these unverified claims. This fixture does
+	// not assert a JWT is accepted by a real provider or has impersonation rights.
+	impersonation := "fixture." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":4102444800,"imp":{"sid":"fixture-session","act":"fixture-actor","org":"fixture-org"}}`)) + ".fixture"
+	for _, tc := range []struct {
+		name, env, stored, imp, want string
+		failStore                    bool
+		wantReads                    int
+	}{
+		{"stored login", "", "stored-fixture", "", "stored-fixture", false, 2},
+		{"impersonation precedes login", "", "stored-fixture", impersonation, impersonation, false, 1},
+		{"environment precedes both", "env-fixture", "stored-fixture", impersonation, "env-fixture", false, 0},
+		{"environment does not probe broken store", "env-fixture", "", "", "env-fixture", true, 0},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
+				var calls atomic.Int32
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					if got := r.Header.Get("Authorization"); got != "Bearer "+tc.want {
+						t.Errorf("wrong selected credential header: %q", got)
+					}
+					_, _ = w.Write([]byte(`{"data":{"authenticationStatus":"AUTHENTICATED"}}`))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				t.Setenv("HADRON_TOKEN", tc.env)
+				st := &authStatusStore1726{values: map[string]string{authpkg.Host(srv.URL): tc.stored, authpkg.ImpersonationHostKey(srv.URL): tc.imp}, failOrdinary: tc.failStore}
+				f.TokenStoreFn = func() store.Store { return st }
+				root := NewRootCmd(f)
+				args := []string{"auth", "status", "--server", srv.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				if err := root.Execute(); err != nil {
+					t.Fatal(err)
+				}
+				if calls.Load() != 1 || st.reads != tc.wantReads {
+					t.Fatalf("requests=%d store reads=%d want=%d", calls.Load(), st.reads, tc.wantReads)
+				}
+				if asJSON {
+					var got map[string]any
+					if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+						t.Fatal(err)
+					}
+					if len(got) != 1 || got["status"] != "AUTHENTICATED" {
+						t.Fatalf("not answer-only: %s", out)
+					}
+				} else if out.String() != "credential authenticated\n" {
+					t.Fatalf("output=%q", out.String())
+				}
+				for _, secret := range []string{"stored-fixture", "env-fixture", impersonation} {
+					if strings.Contains(out.String(), secret) {
+						t.Fatal("selected credential leaked")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestAuthStatusStoredCredentialErrorStopsBeforeRequest1726(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				_, _ = w.Write([]byte(`{"data":{"authenticationStatus":"ANONYMOUS"}}`))
+			}))
+			defer srv.Close()
+			f, out := testFactory(t)
+			t.Setenv("HADRON_TOKEN", "")
+			var stderr strings.Builder
+			f.IOStreams.ErrOut = &stderr
+			st := &authStatusStore1726{values: map[string]string{}, failOrdinary: true}
+			f.TokenStoreFn = func() store.Store { return st }
+			root := NewRootCmd(f)
+			args := []string{"auth", "status", "--server", srv.URL}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Error || err == nil || !strings.Contains(err.Error(), "fixture keychain read failed") {
+				t.Fatalf("read error swallowed: %v", err)
+			}
+			if calls.Load() != 0 || out.Len() != 0 || st.reads != 2 {
+				t.Fatalf("requests=%d stdout=%s store reads=%d", calls.Load(), out, st.reads)
+			}
+			if code := renderError(f, err); code != exitcode.Error {
+				t.Fatalf("render exit=%d", code)
+			}
+			if strings.Contains(stderr.String(), "ANONYMOUS") || strings.Contains(stderr.String(), "REFUSED") {
+				t.Fatalf("manufactured verdict: %s", stderr.String())
+			}
+		})
+	}
+}
+
+func TestAuthStatusTransportFailureIsNoAnswer1726(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
+			f, out := testFactory(t)
+			f.HTTPClient = &http.Client{Transport: refusingTransport{}}
+			var stderr strings.Builder
+			f.IOStreams.ErrOut = &stderr
+			root := NewRootCmd(f)
+			args := []string{"auth", "status", "--server", "http://127.0.0.1:1"}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Unavailable || out.Len() != 0 {
+				t.Fatalf("code=%d stdout=%s err=%v", exitCodeFor(err), out, err)
+			}
+			if code := renderError(f, err); code != exitcode.Unavailable {
+				t.Fatalf("render exit=%d", code)
+			}
+			if strings.Contains(stderr.String(), "REFUSED") || strings.Contains(stderr.String(), "not accept") {
+				t.Fatalf("fault became refusal: %s", stderr.String())
+			}
+		})
+	}
+}
+
+func TestAuthImpersonationHelpUsesWhoamiForIdentity1726(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "impersonate", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "hadron auth status") || strings.Count(out.String(), "hadron auth whoami") != 2 {
+		t.Fatalf("impersonation pointer/example drift: %s", out)
 	}
 }
