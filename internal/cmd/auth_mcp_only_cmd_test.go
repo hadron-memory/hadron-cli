@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hadron-memory/hadron-cli/internal/auth"
-	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -42,66 +40,9 @@ func graphQLAlways(t *testing.T, status int, body string) *httptest.Server {
 	return srv
 }
 
-func TestAuthStatusReportsAnMCPOnlyKeyAsUnusable(t *testing.T) {
-	gql := graphQLAlways(t, http.StatusInternalServerError, mcpOnlyRefusalBody)
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
-	err := root.Execute()
-
-	// 3, not 8: the remedy is a different credential, not someone granting access.
-	if code := exitCodeFor(err); code != exitcode.AuthRequired {
-		t.Fatalf("exit code = %d, want %d (AuthRequired): %v", code, exitcode.AuthRequired, err)
-	}
-	var dto map[string]any
-	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
-		t.Fatalf("status must still print its report: %v\n%q", jerr, out.String())
-	}
-	if dto["authenticated"] != false || dto["rejectedReason"] != "mcp-only-scope" || dto["tokenSource"] != "HADRON_TOKEN" {
-		t.Errorf("want authenticated:false, rejectedReason:mcp-only-scope, tokenSource:HADRON_TOKEN; got %v", dto)
-	}
-}
-
-// The remedy follows the key's source. A key in HADRON_TOKEN outranks the store,
-// so `auth logout && auth login` would change nothing while it stays set.
-func TestAuthStatusMCPOnlyRemedyFollowsTheTokenSource(t *testing.T) {
-	gql := graphQLAlways(t, http.StatusInternalServerError, mcpOnlyRefusalBody)
-
-	t.Run("env", func(t *testing.T) {
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"auth", "status", "--server", gql.URL})
-		_ = root.Execute()
-		got := out.String()
-		for _, want := range []string{"limited to the MCP surface", "HADRON_TOKEN holds an MCP-only key", "/app/account/api-keys"} {
-			if !strings.Contains(got, want) {
-				t.Errorf("missing %q:\n%s", want, got)
-			}
-		}
-		if strings.Contains(got, "auth logout") {
-			t.Errorf("logout cannot help while HADRON_TOKEN is set:\n%s", got)
-		}
-	})
-
-	t.Run("store", func(t *testing.T) {
-		f, out := testFactory(t)
-		t.Setenv("HADRON_TOKEN", "")
-		st := memStore{auth.Host(gql.URL): "hdr_user_mcponly"}
-		f.TokenStoreFn = func() store.Store { return st }
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"auth", "status", "--server", gql.URL})
-		err := root.Execute()
-		if code := exitCodeFor(err); code != exitcode.AuthRequired {
-			t.Fatalf("exit code = %d, want %d: %v", code, exitcode.AuthRequired, err)
-		}
-		got := out.String()
-		for _, want := range []string{"limited to the MCP surface", "hadron auth logout && hadron auth login", "--with-token", "/app/account/api-keys"} {
-			if !strings.Contains(got, want) {
-				t.Errorf("missing %q:\n%s", want, got)
-			}
-		}
-	})
-}
+// auth status no longer synthesizes a report from a scope error (#1726).
+// Its no-answer contract is covered by TestAuthStatusNoAnswer1726; scope
+// remedies for the other doors remain below.
 
 // Every other command gets the same exit code and names both recoveries.
 func TestMCPOnlyRefusalNamesARecoveryOnAnyCommand(t *testing.T) {
@@ -302,45 +243,6 @@ func TestMCPOnlyRefusalAsA403WithReasonStillMaps(t *testing.T) {
 		t.Errorf("want the remedy and no Apollo prefix: %s", msg)
 	}
 
-	f2, out := testFactory(t)
-	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
-	err = root2.Execute()
-	if code := exitCodeFor(err); code != exitcode.AuthRequired {
-		t.Fatalf("status exit code = %d: %v", code, err)
-	}
-	var dto map[string]any
-	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil || dto["rejectedReason"] != "mcp-only-scope" {
-		t.Errorf("status must still report the key: %v %s", jerr, out.String())
-	}
-}
-
-// server#1306's unsupported-scope refusal: its own sentence and reason. auth
-// status reports it as such, not as MCP-only.
-func TestAuthStatusReportsAnUnsupportedScope(t *testing.T) {
-	body := `{"errors":[{"message":"Context creation failed: This OAuth credential carries a scope this server does not support (telepathy), so it is refused everywhere. Sign in again to get a credential with supported scopes.","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED","requiredScope":"account","grantedScopes":["mcp","telepathy"],"unsupportedScopes":["telepathy"]}}]}`
-	gql := graphQLAlways(t, http.StatusForbidden, body)
-
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
-	err := root.Execute()
-	if code := exitCodeFor(err); code != exitcode.AuthRequired {
-		t.Fatalf("exit code = %d: %v", code, err)
-	}
-	var dto map[string]any
-	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil || dto["rejectedReason"] != "unsupported-scope" {
-		t.Errorf("rejectedReason: %v %s", jerr, out.String())
-	}
-
-	f2, out2 := testFactory(t)
-	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"auth", "status", "--server", gql.URL})
-	_ = root2.Execute()
-	got := out2.String()
-	if !strings.Contains(got, "does not support") || strings.Contains(got, "limited to the MCP surface") || !strings.Contains(got, "HADRON_TOKEN holds a key with an unsupported scope") {
-		t.Errorf("human status:\n%s", got)
-	}
 }
 
 // auth token validate on an unsupported-scope key (#698 review, Copilot):

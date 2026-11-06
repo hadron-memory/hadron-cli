@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 )
 
@@ -34,7 +35,7 @@ func TestAuthStatusAnswers1726(t *testing.T) {
 						_, _ = w.Write([]byte(`{"data":{"authContext":null}}`))
 						return
 					}
-					if req.OperationName != "AuthenticationStatus" || strings.Contains(req.Query, "authContext") {
+					if req.OperationName != "CheckAuthenticationStatus" || strings.Contains(req.Query, "authContext") {
 						t.Errorf("unexpected query %s", req.Query)
 					}
 					_, _ = fmt.Fprintf(w, `{"data":{"authenticationStatus":%q}}`, answer)
@@ -99,7 +100,7 @@ func TestAuthStatusAnonymousRequest1726(t *testing.T) {
 	if err := root.Execute(); exitCodeFor(err) != 3 {
 		t.Fatalf("exit: %v", err)
 	}
-	if calls != 1 || strings.TrimSpace(out.String()) != `{"status":"ANONYMOUS"}` {
+	if calls != 1 || strings.Join(strings.Fields(out.String()), "") != `{"status":"ANONYMOUS"}` {
 		t.Fatalf("calls=%d output=%s", calls, out)
 	}
 }
@@ -131,5 +132,64 @@ func TestAuthStatusNoAnswer1726(t *testing.T) {
 				t.Fatalf("fault reads as refused or leaks cause: %v", err)
 			}
 		})
+	}
+}
+
+// Whole-command faults must never manufacture a REFUSED answer, even when
+// the envelope uses an auth code or OAuth scope failure before resolution.
+func TestAuthStatusFaultWire1726(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		httpCode int
+		body     string
+		code     int
+	}{
+		{"gateway", 502, `unavailable`, 7},
+		{"http401", 401, `{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`, 1},
+		{"scope", 500, mcpOnlyRefusalBody, 1},
+		{"unsupported scope", 403, `{"errors":[{"message":"scope failure","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED"}}]}`, 1},
+		{"null data", 200, `{"data":null}`, 7},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
+				calls := 0
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls++
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(tc.httpCode)
+					_, _ = w.Write([]byte(tc.body))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				var stderr strings.Builder
+				f.IOStreams.ErrOut = &stderr
+				root := NewRootCmd(f)
+				args := []string{"auth", "status", "--server", srv.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if exitCodeFor(err) != tc.code || calls != 1 || out.Len() != 0 {
+					t.Fatalf("code=%d calls=%d stdout=%s err=%v", exitCodeFor(err), calls, out, err)
+				}
+				if got := renderError(f, err); got != tc.code {
+					t.Fatalf("render exit=%d", got)
+				}
+				for _, forbidden := range []string{"REFUSED", "not accept", "token expired", "fixture-secret"} {
+					if strings.Contains(stderr.String(), forbidden) {
+						t.Fatalf("fault disclosed verdict/cause: %s", stderr.String())
+					}
+				}
+			})
+		}
+	}
+}
+
+// Field-exact guard on the generated document, not captured variables.
+func TestAuthenticationStatusDocument1726(t *testing.T) {
+	got := strings.Join(strings.Fields(gen.CheckAuthenticationStatus_Operation), " ")
+	if got != "query CheckAuthenticationStatus { authenticationStatus }" {
+		t.Fatalf("answer-only operation changed: %s", got)
 	}
 }

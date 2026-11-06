@@ -8,7 +8,7 @@ documented contract.
 ## Setup and authentication
 
 ```
-hadron auth status            # am I signed in? exit 0 yes / 3 no (--json: rejectedReason says why, when known)
+hadron auth status            # server answer: AUTHENTICATED exit 0; REFUSED/ANONYMOUS exit 3; --json = {status} only, no cause
 hadron auth login             # interactive browser OAuth (human only)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
@@ -22,7 +22,8 @@ hadron auth impersonate --stop               # end the impersonation session
 starts a read-only session as another member of `--org` (peer-or-below — an
 ADMIN can't impersonate an OWNER), scoped to that one org, and files a
 short-TTL token that every later command prefers until `--stop` or expiry.
-`hadron auth whoami` / `status` announce the acting-as state loudly.
+`hadron auth whoami` announces the acting-as state. `auth status` reports only
+whether the request credential authenticates; it does not identify the actor.
 
 Browser `auth login` opens the server's sign-in page, which offers the
 methods that server supports (GitHub, Google or email). If the server
@@ -200,8 +201,8 @@ onto typed `FORBIDDEN`, 17 of them inside seven shared gates.
 **One `FORBIDDEN` exits 3, on purpose: an MCP-only key (#681).** A user key
 whose OAuth grant is `mcp` alone (what a browser login from hadron v0.14.0 or
 earlier stored) is valid for MCP clients and refused on every CLI surface. The
-fix is a different credential, not somebody's permission, so commands exit
-**3** on it. That includes `app agent add/remove` and `agent create
+fix is a different credential, not somebody's permission, so commands normally exit
+**3** on it (`auth status` has the no-answer exception below). That includes `app agent add/remove` and `agent create
 --install-into`, whose usual "needs CONTRIBUTOR+" guidance would be a false
 remedy here. The latter still reports the agent as created, and puts
 `app agent add` AFTER replacing the key. The message keeps the
@@ -211,14 +212,17 @@ the live `/graphql` refusal carries) and appends both recoveries:
 key from the portal's API keys page (`/app/account/api-keys`) passed to
 `hadron auth login --with-token`. If the key is in `HADRON_TOKEN`, replace
 the variable: it outranks any stored login.
-- `auth status --json` still prints its report for such a key:
-  `authenticated: false` plus **`rejectedReason: "mcp-only-scope"`** (or
-  `"unsupported-scope"`, below). It exits
-  3 either way; before #681 it printed no report at all. `auth token validate
-  --json` carries the same field beside `valid: false`.
-- `rejectedReason` is set only alongside a rejection, and only when the CLI
-  knows why. Absent means "rejected, reason unknown". Treat an unknown value as
-  that.
+- `auth token validate --json` carries `rejectedReason` beside `valid: false`.
+  It is set only when that command knows the scope refusal; an unknown value
+  should be treated as an unknown reason.
+- `auth status` instead asks `authenticationStatus` (cor:aut:010:05, ruling 0224).
+  Its answer-only JSON is `{"status":"AUTHENTICATED"}` (exit 0),
+  `{"status":"REFUSED"}` or `{"status":"ANONYMOUS"}` (exit 3).
+  It never adds an authentication refusal cause, identity, credential source or
+  token. A scope refusal before the resolver runs is a failed check with no
+  answer: exit 1, no status report. Other check errors retain their ordinary
+  mapped exits except 3 becomes 1; missing/unknown status values exit 7. Older-server
+  schema errors stay explicit (exit 2), without authContext fallback or retry.
 - **`hadron api` is the exception.** It is the raw path, so it prints the
   server's envelope as is and exits 8 by `extensions.code`, like any other
   `FORBIDDEN`.
