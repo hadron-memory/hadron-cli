@@ -22,6 +22,9 @@ func roster930(agents, joins string) string {
 // deduplicated by operation name, and unknown operations fail rather than fall back.
 func runNullable930(t *testing.T, responses map[string]string, args ...string) (string, int, []string) {
 	t.Helper()
+	if err := validateNullableFixtures930(responses); err != nil {
+		t.Fatal(err)
+	}
 	var mu sync.Mutex
 	calls := []string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -184,4 +187,26 @@ func roleRoster930(t *testing.T, agents, joins string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// Validate complete JSON before starting the fake: the HTTP client's decoder
+// may consume one value while silently tolerating invalid trailing bytes.
+func validateNullableFixtures930(responses map[string]string) error {
+	for op, body := range responses {
+		if !json.Valid([]byte(body)) {
+			return fmt.Errorf("invalid JSON fixture for %s", op)
+		}
+	}
+	return nil
+}
+
+func TestNullableFixtureJSONValidation1733(t *testing.T) {
+	if err := validateNullableFixtures930(map[string]string{"valid": `{"data":null}` + "\n"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []string{`{"data":null}}`, `{"data":null} {}`} {
+		if err := validateNullableFixtures930(map[string]string{"CreateApp": body}); err == nil || !strings.Contains(err.Error(), "CreateApp") {
+			t.Fatalf("invalid fixture accepted or unidentified: %v", err)
+		}
+	}
 }
