@@ -17857,7 +17857,7 @@ type AppsAppsAppsPageItemsApp struct {
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
 	AgentId     *string `json:"agentId"`
-	MemberCount int     `json:"memberCount"`
+	MemberCount *int    `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
 }
 
@@ -17877,7 +17877,7 @@ func (v *AppsAppsAppsPageItemsApp) GetAppType() AppType { return v.AppType }
 func (v *AppsAppsAppsPageItemsApp) GetAgentId() *string { return v.AgentId }
 
 // GetMemberCount returns AppsAppsAppsPageItemsApp.MemberCount, and is useful for accessing the field via an interface.
-func (v *AppsAppsAppsPageItemsApp) GetMemberCount() int { return v.MemberCount }
+func (v *AppsAppsAppsPageItemsApp) GetMemberCount() *int { return v.MemberCount }
 
 // GetCreatedAt returns AppsAppsAppsPageItemsApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AppsAppsAppsPageItemsApp) GetCreatedAt() string { return v.CreatedAt }
@@ -32164,7 +32164,7 @@ type CreateAppCreateApp struct {
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
 	AgentId     *string `json:"agentId"`
-	MemberCount int     `json:"memberCount"`
+	MemberCount *int    `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
 }
 
@@ -32184,7 +32184,7 @@ func (v *CreateAppCreateApp) GetAppType() AppType { return v.AppType }
 func (v *CreateAppCreateApp) GetAgentId() *string { return v.AgentId }
 
 // GetMemberCount returns CreateAppCreateApp.MemberCount, and is useful for accessing the field via an interface.
-func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
+func (v *CreateAppCreateApp) GetMemberCount() *int { return v.MemberCount }
 
 // GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
@@ -32373,7 +32373,7 @@ type CreateAppSettingsCreateApp struct {
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
 	AgentId     *string `json:"agentId"`
-	MemberCount int     `json:"memberCount"`
+	MemberCount *int    `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
 }
 
@@ -32393,7 +32393,7 @@ func (v *CreateAppSettingsCreateApp) GetAppType() AppType { return v.AppType }
 func (v *CreateAppSettingsCreateApp) GetAgentId() *string { return v.AgentId }
 
 // GetMemberCount returns CreateAppSettingsCreateApp.MemberCount, and is useful for accessing the field via an interface.
-func (v *CreateAppSettingsCreateApp) GetMemberCount() int { return v.MemberCount }
+func (v *CreateAppSettingsCreateApp) GetMemberCount() *int { return v.MemberCount }
 
 // GetCreatedAt returns CreateAppSettingsCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppSettingsCreateApp) GetCreatedAt() string { return v.CreatedAt }

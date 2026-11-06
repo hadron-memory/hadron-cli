@@ -60,6 +60,10 @@ type Result struct {
 	AppName string
 	AppURN  string
 	Members []MemberDTO
+	// Withheld is independent of the known installation count.
+	Withheld  bool
+	Installed *int
+	Hidden    int
 }
 
 // Fetch reads the AppAgent join for one App. No paging: App.agents is the
@@ -113,7 +117,24 @@ func FetchInstallations(ctx context.Context, client graphql.Client, appRef strin
 	return result, nil
 }
 
+// Complete reports whether counts grounded in this roster may drive warnings.
+func (r *Result) Complete() bool { return !r.Withheld && r.Hidden == 0 }
+
 func rosterDTO(app *gen.AppAgentRosterData) *Result {
+	result := &Result{AppName: app.Name, AppURN: app.Urn, Withheld: app.Agents == nil || app.AppAgents == nil}
+	if app.AppAgents != nil {
+		n := len(app.AppAgents)
+		result.Installed = &n
+		for _, row := range app.AppAgents {
+			if row == nil || row.Agent == nil {
+				result.Hidden++
+			}
+		}
+	}
+	if result.Withheld {
+		return result
+	}
+
 	type pointer struct {
 		ref     *string
 		deleted *bool
@@ -139,15 +160,29 @@ func rosterDTO(app *gen.AppAgentRosterData) *Result {
 			BootPromptTargetDeleted: pointers[a.Id].deleted,
 		})
 	}
-	return &Result{AppName: app.Name, AppURN: app.Urn, Members: members}
+	result.Members = members
+	return result
 }
 
 // Render writes the human table. The ROLE column stays even for an App with
 // no dressed agents: a blank column is the honest answer for a plain
 // single-agent App.
 func Render(w io.Writer, r *Result) error {
-	if _, err := fmt.Fprintf(w, "%s (%s) — %d readable agents\n", output.SafeCell(r.AppName), output.SafeCell(r.AppURN), len(r.Members)); err != nil {
+	label := fmt.Sprintf("%d readable agents", len(r.Members))
+	if r.Withheld {
+		label = "roster withheld (not visible to you)"
+	}
+	if r.Installed != nil && (r.Hidden > 0 || r.Withheld) {
+		label = fmt.Sprintf("%d installed (%d not visible to you)", *r.Installed, r.Hidden)
+		if r.Withheld {
+			label += "; roster withheld (not visible to you)"
+		}
+	}
+	if _, err := fmt.Fprintf(w, "%s (%s) — %s\n", output.SafeCell(r.AppName), output.SafeCell(r.AppURN), label); err != nil {
 		return err
+	}
+	if r.Withheld {
+		return nil
 	}
 	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT", "INSTALL", "IMPORTER")
 	for _, m := range r.Members {

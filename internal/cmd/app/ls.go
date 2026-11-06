@@ -20,7 +20,7 @@ type appDTO struct {
 	Name        string  `json:"name"`
 	AppType     string  `json:"appType"`
 	AgentID     *string `json:"agentId"`
-	MemberCount int     `json:"memberCount"`
+	MemberCount *int    `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
 }
 
@@ -38,7 +38,8 @@ It combines with --org or --owned-by-me; all supplied filters must match.
 An unreadable or missing Agent returns an empty list, not an error.
 Choose at least one of --org, --owned-by-me or --agent. This reads only:
 it changes no App. Output is a table; --json keeps the existing bare array
-of Apps. The command follows pages to return the complete selected list.
+of Apps; memberCount is explicit null when withheld, never a fabricated 0.
+The command follows pages to return the complete selected list.
 The --agent path reads pages of at most 20; it never changes your active App
 or organization.
 

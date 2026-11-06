@@ -142,6 +142,8 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "The App's role definitions and their role agents",
 		Long: `List the App's role definitions. --team-agent disambiguates when more than
 one installed agent carries a roles: branch.
+Roster-based divergence warnings are suppressed when the install or Agent list
+is withheld, or any install has a withheld Agent; absence cannot be inferred.
 
 Role warning names use bounded, control-free display text. A role-create
 suggestion is omitted if display changes its argument; use app agent list
@@ -201,7 +203,7 @@ names) is what says whether one is already taken.`,
 				// definitions), so it is gated on that.
 				var members []approster.MemberDTO
 				haveRoster := false
-				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
+				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil && r.Complete() {
 					members, haveRoster = r.Members, true
 				}
 				emitRoleConsistencyWarnings(w, roles, members, haveRoster, teamAgent == "")

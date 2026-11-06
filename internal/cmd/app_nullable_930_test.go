@@ -49,7 +49,10 @@ func runNullable930(t *testing.T, responses map[string]string, args ...string) (
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{}, args...), "--server", srv.URL))
 	err := root.Execute()
-	return out.String(), exitCodeFor(err), calls
+	mu.Lock()
+	recorded := append([]string{}, calls...)
+	mu.Unlock()
+	return out.String(), exitCodeFor(err), recorded
 }
 
 func TestAppNullable930MemberCount(t *testing.T) {
@@ -149,7 +152,7 @@ func TestAppNullable930RoleWarnings(t *testing.T) {
 		{"complete", "[" + agent930 + "]", "[" + join930 + "]", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			out, code, _ := runNullable930(t, map[string]string{"AppAgentRoster": roster930(tc.agents, tc.joins), "TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON}, "team", "role", "list", "--app", "hrn:app:acme.com:eng-team")
+			out, code, _ := runNullable930(t, map[string]string{"AppAgentRoster": roleRoster930(t, tc.agents, tc.joins), "TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON}, "team", "role", "list", "--app", "hrn:app:acme.com:eng-team")
 			if code != 0 {
 				t.Fatalf("exit%d %s", code, out)
 			}
@@ -158,4 +161,27 @@ func TestAppNullable930RoleWarnings(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The role-warning document does not select installation provenance.
+func roleRoster930(t *testing.T, agents, joins string) string {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(roster930(agents, joins)), &payload); err != nil {
+		t.Fatal(err)
+	}
+	app := payload["data"].(map[string]any)["app"].(map[string]any)
+	if rows, ok := app["appAgents"].([]any); ok {
+		for _, row := range rows {
+			if m, ok := row.(map[string]any); ok {
+				delete(m, "installMethod")
+				delete(m, "importer")
+			}
+		}
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
