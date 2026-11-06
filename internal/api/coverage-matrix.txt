@@ -232,7 +232,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 338: 280 command, 46 gap, 12 excluded
+[Mutation] 338: 281 command, 45 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -517,7 +517,7 @@ startImpersonation  command auth impersonate
 startSession  command team session start
 stopImpersonation  command auth impersonate
 subscribeWorker  command ticker subscribe
-syncMemory  gap #60
+syncMemory  command memory sync pull
 testAiServiceConfig  command ai-config test
 testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
