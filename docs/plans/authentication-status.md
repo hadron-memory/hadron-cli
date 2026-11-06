@@ -48,14 +48,14 @@ status's removed detail report is corrected. Token validation is unchanged.
   command scope tests remain, as do whoami's tests and unchanged code path.
 - Coverage matrix: `authenticationStatus  command auth status`.
 
-Red baseline a977dd2d compiles and fails the new answers/no-answer tests for
-the intended behavior gaps. Earlier test-only 34bf08e8 had a Builder.Bytes
-compile error, corrected before any production implementation; that failed
-compile is not acceptance evidence. Initial generated operation name collided
-with the schema enum; renamed CheckAuthenticationStatus before validation.
-
 Author tests and compiled fake QA establish the client contract, not live
 credential revocation, cross-tenant behavior, the equality of real refusal
 causes, provider deployment or token timing. The server retains those duties.
 Gate T2: distinct cross-author-family LOCAL/FULL BLIND, scoped security every
 head, QA through CLI; no release or deployment action.
+
+The local selector's existing best-effort handling of unavailable/expired
+impersonation entries is unchanged. Ordinary login-store read errors propagate
+and prevent any request; an environment credential is resolved before stores
+are probed. These client-selection facts are distinct from provider validation
+of the credential actually presented.

@@ -40,10 +40,6 @@ func graphQLAlways(t *testing.T, status int, body string) *httptest.Server {
 	return srv
 }
 
-// auth status no longer synthesizes a report from a scope error (#1726).
-// Its no-answer contract is covered by TestAuthStatusNoAnswer1726; scope
-// remedies for the other doors remain below.
-
 // Every other command gets the same exit code and names both recoveries.
 func TestMCPOnlyRefusalNamesARecoveryOnAnyCommand(t *testing.T) {
 	gql := graphQLAlways(t, http.StatusInternalServerError, mcpOnlyRefusalBody)
@@ -242,7 +238,6 @@ func TestMCPOnlyRefusalAsA403WithReasonStillMaps(t *testing.T) {
 	if msg := err.Error(); !strings.Contains(msg, "/app/account/api-keys") || strings.Contains(msg, "Context creation failed") {
 		t.Errorf("want the remedy and no Apollo prefix: %s", msg)
 	}
-
 }
 
 // auth token validate on an unsupported-scope key (#698 review, Copilot):

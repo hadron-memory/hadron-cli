@@ -202,8 +202,8 @@ onto typed `FORBIDDEN`, 17 of them inside seven shared gates.
 whose OAuth grant is `mcp` alone (what a browser login from hadron v0.14.0 or
 earlier stored) is valid for MCP clients and refused on every CLI surface. The
 fix is a different credential, not somebody's permission, so commands normally exit
-**3** on it (`auth status` has the no-answer exception below). That includes `app agent add/remove` and `agent create
---install-into`, whose usual "needs CONTRIBUTOR+" guidance would be a false
+**3** on it (`auth status` has the no-answer exception below). That includes
+`app agent add/remove` and `agent create --install-into`, whose usual "needs CONTRIBUTOR+" guidance would be a false
 remedy here. The latter still reports the agent as created, and puts
 `app agent add` AFTER replacing the key. The message keeps the
 server's sentence (without Apollo's `Context creation failed: ` prefix, which

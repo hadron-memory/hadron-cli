@@ -105,5 +105,6 @@ hadron auth logout
 anonymous query when none is held. Its JSON is only `{"status":"AUTHENTICATED"}`,
 `{"status":"REFUSED"}` or `{"status":"ANONYMOUS"}`. No cause, identity or token is
 included. A failed check is an error rather than REFUSED, with an exit other
-than 3 (a missing or unknown status value exits 7). Older servers must support
-`authenticationStatus`; the CLI never retries using `authContext`.
+than 3 (a missing or unknown status value exits 7). Servers without
+`authenticationStatus` return an explicit schema error (exit 2); the CLI never
+retries using `authContext`.
