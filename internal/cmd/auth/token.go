@@ -92,7 +92,7 @@ type validateResult struct {
 	AppID         string    `json:"appId,omitempty"`
 	AgentID       string    `json:"agentId,omitempty"`
 	Key           *tokenDTO `json:"key,omitempty"`
-	// RejectedReason is `auth status`'s field, with the same values (#681):
+	// RejectedReason carries the OAuth scope-refusal values (#681):
 	// set only alongside valid:false, when the CLI knows why.
 	RejectedReason string `json:"rejectedReason,omitempty"`
 }

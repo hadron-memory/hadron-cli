@@ -8,200 +8,74 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
-	authpkg "github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// cor:aut:010:05 / ruling 0224: only the answer, never identity,
+// credential source, a refusal cause or credential material.
 type statusResult struct {
-	Server        string    `json:"server"`
-	Authenticated bool      `json:"authenticated"`
-	TokenSource   string    `json:"tokenSource,omitempty"`
-	TokenStorage  string    `json:"tokenStorage,omitempty"`
-	User          string    `json:"user,omitempty"`
-	PrincipalType string    `json:"principalType,omitempty"`
-	Key           *tokenDTO `json:"key,omitempty"`
-	Impersonating bool      `json:"impersonating,omitempty"`
-	// RejectedReason says WHY a present credential was rejected, when the
-	// CLI knows (#681). Only ever set alongside authenticated:false. Values
-	// are api.ScopeRefusal's: "mcp-only-scope" or "unsupported-scope"; absent
-	// means "rejected, reason unknown".
-	RejectedReason string `json:"rejectedReason,omitempty"`
+	Status string `json:"status"`
 }
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show authentication state for the current server",
-		Long: `Check the credential the CLI would use for the current server: where it comes
-from, whether the server accepts it, who it belongs to and which key it is.
+		Short: "Ask the server whether this request's credential authenticates",
+		Long: `Ask the server whether the credential presented on this request authenticates.
+The active credential comes from HADRON_TOKEN, a live impersonation session or
+the stored login, in that order. With none held, the query is anonymous.
 
-It reads the credential locally (HADRON_TOKEN first, then a live impersonation
-session, then the stored login) and then asks the server about it, so it
-reports a revoked or expired token rather than just "something is stored".
+AUTHENTICATED exits 0. REFUSED exits 3 and says a credential was presented but
+the server did not accept it. ANONYMOUS exits 3 and says none was presented.
+No answer includes a reason, cause, identity or credential. --json prints only
+{"status":"AUTHENTICATED"}, {"status":"REFUSED"} or {"status":"ANONYMOUS"}.
 
-Results:
-  ✓ <server>: signed in as <user> (token from <source>)   exit 0
-    key <label/preview>, last used <time>
-  ✓ <server>: IMPERSONATING <user> (read-only)            exit 0
-  <server>: not signed in                                 exit 3
-  ✗ <server>: token from <source> was rejected            exit 3
-
---json gives server, authenticated, tokenSource, tokenStorage, user,
-principalType, key (id, label, keyPreview, createdAt, lastUsedAt, revoked; never
-the token itself) and impersonating. A network or server failure is reported
-as an error, not as "not signed in". hadron auth whoami shows the user's
-profile instead.`,
-		Example: `  hadron auth status
-  hadron --server https://hadron.example.com auth status --json`,
-		Args: cobra.NoArgs,
+A check that fails, an older server without authenticationStatus or an invalid
+answer is an error, never REFUSED. Such failures do not exit 3; missing or
+unknown status values exit 7. No fallback to authContext and no automatic retry.
+Use hadron auth whoami for the signed-in user's profile.`,
+		Example: "  hadron auth status\n  hadron auth status --json",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			server, err := f.Server()
+			// This operation is public: absence of a local credential must not turn
+			// into the factory's authenticated-client refusal before the server asks.
+			client, _, err := f.PublicGraphQLClient()
 			if err != nil {
 				return err
 			}
-			token, source, err := f.Token()
+			resp, err := gen.CheckAuthenticationStatus(cmd.Context(), client)
 			if err != nil {
-				return err
-			}
-
-			dto := statusResult{Server: server}
-			if source == authpkg.SourceNone {
-				err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-					_, err := fmt.Fprintf(w, "%s: not signed in — run `hadron auth login`\n", server)
-					return err
-				})
-				if err != nil {
-					return err
-				}
-				return exitcode.Silent(exitcode.AuthRequired)
-			}
-
-			dto.TokenSource = string(source)
-			if source == authpkg.SourceStore {
-				dto.TokenStorage = f.TokenStore().Name()
-			}
-
-			client, err := api.NewClient(server, token, f.HTTPClient)
-			if err != nil {
-				return err
-			}
-			resp, err := gen.AuthContext(cmd.Context(), client)
-			if err != nil {
-				// Only a rejected credential means "not signed in". Any other
-				// failure — transport, or schema skew on an older self-hosted
-				// server that lacks authContext — must surface, not masquerade as
-				// a rejected token (Codex #192).
-				//
-				// #681: an MCP-only key is the case this command exists for — the
-				// server knows who it is, and every other command fails on it — so
-				// it is reported, with its reason and remedy, rather than returned
-				// as the server's bare refusal.
 				mapped := api.MapError(err)
-				if kind := api.OAuthScopeRefusal(err); kind != "" {
-					dto.RejectedReason = string(kind)
-				} else if exitcode.FromError(mapped) != exitcode.AuthRequired {
-					return mapped
+				if exitcode.FromError(mapped) == exitcode.AuthRequired {
+					// An error envelope is not the enum REFUSED. Do not reclassify a
+					// check failure as a credential verdict, or echo its alleged cause.
+					return exitcode.Newf(exitcode.Error, "authentication status check failed; no authentication answer was returned")
 				}
-			} else if resp.AuthContext != nil {
-				ac := resp.AuthContext
-				dto.Authenticated = true
-				dto.PrincipalType = string(ac.PrincipalType)
-				dto.User = principalLabel(ac)
-				if ac.ApiKey != nil {
-					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
-					dto.Key = &k
-				}
-				if ac.Impersonation != nil {
-					dto.Impersonating = true
-				}
+				return mapped
 			}
-
-			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				switch api.ScopeRefusal(dto.RejectedReason) {
-				case api.ScopeMCPOnly:
-					_, err := fmt.Fprintf(w, "✗ %s: the key from %s is limited to the MCP surface — the CLI cannot use it\n  %s\n",
-						server, describeSource(dto), scopeRemedy(dto, "an MCP-only key"))
-					return err
-				case api.ScopeUnsupported:
-					_, err := fmt.Fprintf(w, "✗ %s: the key from %s carries an OAuth scope this server does not support, so it is refused everywhere\n  %s\n",
-						server, describeSource(dto), scopeRemedy(dto, "a key with an unsupported scope"))
-					return err
-				}
-				if !dto.Authenticated {
-					_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
-					return err
-				}
-				if dto.Impersonating {
-					if _, err := fmt.Fprintf(w, "✓ %s: IMPERSONATING %s (read-only) — `hadron auth impersonate --stop` to end\n", server, dto.User); err != nil {
-						return err
-					}
-				} else if _, err := fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto)); err != nil {
-					return err
-				}
-				if dto.Key != nil {
-					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
-					return err
-				}
-				return nil
-			})
-			if writeErr != nil {
-				return writeErr
+			dto := statusResult{Status: string(resp.AuthenticationStatus)}
+			var line string
+			code := exitcode.AuthRequired
+			switch dto.Status {
+			case "AUTHENTICATED":
+				line = "credential authenticated"
+				code = exitcode.OK
+			case "REFUSED":
+				line = "a credential was presented and the server did not accept it"
+			case "ANONYMOUS":
+				line = "no credential was presented"
+			default:
+				return exitcode.Newf(exitcode.Unavailable, "authentication status check returned no valid answer")
 			}
-			if !dto.Authenticated {
-				return exitcode.Silent(exitcode.AuthRequired)
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { _, err := fmt.Fprintln(w, line); return err }); err != nil {
+				return err
+			}
+			if code != exitcode.OK {
+				return exitcode.Silent(code)
 			}
 			return nil
 		},
-	}
-}
-
-// scopeRemedy is the scope-refusal remedy narrowed by what status knows and
-// the generic path does not: where the key came from. A key in HADRON_TOKEN
-// outranks the store, so `auth logout && auth login` would change nothing
-// while the variable is set — naming it there would be a false remedy.
-func scopeRemedy(dto statusResult, what string) string {
-	if dto.TokenSource == string(authpkg.SourceEnv) {
-		return "HADRON_TOKEN holds " + what + ", and it takes precedence over any stored login. " +
-			"Replace it with a key that has the `account` scope — a key created on the portal's API keys page (/app/account/api-keys) has no scope limit — or unset it and run `hadron auth login`."
-	}
-	return "Sign in again with `hadron auth logout && hadron auth login` (hadron v0.15.0 or later requests the `account` scope), " +
-		"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it."
-}
-
-func describeSource(dto statusResult) string {
-	if dto.TokenSource == string(authpkg.SourceEnv) {
-		return "HADRON_TOKEN"
-	}
-	// TokenStorage is only set for a store-resolved credential, so fall back to
-	// the source label — otherwise an impersonation token that the server
-	// rejects renders as "token from  was rejected" (PR #345 review).
-	if dto.TokenStorage == "" {
-		return dto.TokenSource
-	}
-	return dto.TokenStorage
-}
-
-// principalLabel is the human subject for a resolved principal: the user's
-// display name / email / id, else "App <id>" / "Agent <id>", else the bare
-// principal type — so no principal ever renders as an empty subject.
-func principalLabel(ac *gen.AuthContextAuthContext) string {
-	switch {
-	case ac.User != nil && ac.User.Name != nil && *ac.User.Name != "":
-		return *ac.User.Name
-	case ac.User != nil && ac.User.Email != nil && *ac.User.Email != "":
-		return *ac.User.Email
-	case ac.User != nil:
-		return ac.User.Id
-	default:
-		appID, agentID := "", ""
-		if ac.AppId != nil {
-			appID = *ac.AppId
-		}
-		if ac.AgentId != nil {
-			agentID = *ac.AgentId
-		}
-		return nonUserLabel(appID, agentID, string(ac.PrincipalType))
 	}
 }

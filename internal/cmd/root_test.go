@@ -403,32 +403,21 @@ func TestWhoami(t *testing.T) {
 	}
 }
 
-// status resolves the active token via authContext and surfaces the principal
-// type plus the authenticating key.
+// #1726 replaces the detailed status report with the ruled answer-only DTO.
 func TestAuthStatus(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
-			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
-			"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":null,"revokedAt":null}}}}`,
-	})
+	gql := fakeGraphQL(t, map[string]string{"CheckAuthenticationStatus": `{"data":{"authenticationStatus":"AUTHENTICATED"}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+		t.Fatal(err)
 	}
-	var dto struct {
-		Authenticated bool   `json:"authenticated"`
-		PrincipalType string `json:"principalType"`
-		Key           *struct {
-			KeyPreview string `json:"keyPreview"`
-		} `json:"key"`
-	}
+	var dto map[string]any
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("not JSON: %v\n%s", err, out.String())
+		t.Fatal(err)
 	}
-	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
-		t.Errorf("unexpected status: %s", out.String())
+	if len(dto) != 1 || dto["status"] != "AUTHENTICATED" {
+		t.Fatalf("answer-only DTO: %s", out)
 	}
 }
 
@@ -457,11 +446,11 @@ func TestIsUsageErrorClassifiesRequiredFlag(t *testing.T) {
 	}
 }
 
-// Against an older/self-hosted server without authContext, status must surface
+// Against an older/self-hosted server without authenticationStatus, status must surface
 // the schema-skew error (exit 2), not masquerade it as a rejected token (Codex).
 func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"errors":[{"message":"Cannot query field \"authContext\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"CheckAuthenticationStatus": `{"errors":[{"message":"Cannot query field \"authenticationStatus\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

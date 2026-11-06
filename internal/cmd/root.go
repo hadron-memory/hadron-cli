@@ -90,7 +90,7 @@ agents and settings for a team or product.
 
 Getting started:
   hadron auth login          sign in (opens your browser)
-  hadron auth status         check you are signed in, and to which server
+  hadron auth status         ask whether this request's credential authenticates
   hadron server-info         check the server answers (works signed out)
   hadron memory list         see the memories you can read
   hadron search "<words>"    find notes across them
