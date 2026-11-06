@@ -80593,38 +80593,38 @@ func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePage) GetHasMore() *bool
 // the text field it was found in and text the URN as written; for kind EDGE,
 // field is 'edge' and text the edge's relationship name.
 type SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference struct {
-	Kind SpecReferenceKind `json:"kind"`
+	Kind *SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
-	Field        string `json:"field"`
-	SourceLoc    string `json:"sourceLoc"`
-	SourceNodeId string `json:"sourceNodeId"`
+	Field        *string `json:"field"`
+	SourceLoc    *string `json:"sourceLoc"`
+	SourceNodeId *string `json:"sourceNodeId"`
 	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
-	TargetLoc string  `json:"targetLoc"`
+	TargetLoc *string `json:"targetLoc"`
 	Text      *string `json:"text"`
 }
 
 // GetKind returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.Kind, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetKind() SpecReferenceKind {
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetKind() *SpecReferenceKind {
 	return v.Kind
 }
 
 // GetField returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.Field, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetField() string {
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetField() *string {
 	return v.Field
 }
 
 // GetSourceLoc returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.SourceLoc, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceLoc() string {
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceLoc() *string {
 	return v.SourceLoc
 }
 
 // GetSourceNodeId returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceNodeId() string {
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceNodeId() *string {
 	return v.SourceNodeId
 }
 
 // GetTargetLoc returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.TargetLoc, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetTargetLoc() string {
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetTargetLoc() *string {
 	return v.TargetLoc
 }
 
@@ -80654,30 +80654,30 @@ func (v *SpecBacklinksResponse) GetSpecBacklinks() []*SpecBacklinksSpecBacklinks
 // the text field it was found in and text the URN as written; for kind EDGE,
 // field is 'edge' and text the edge's relationship name.
 type SpecBacklinksSpecBacklinksSpecReference struct {
-	Kind SpecReferenceKind `json:"kind"`
+	Kind *SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
-	Field        string `json:"field"`
-	SourceLoc    string `json:"sourceLoc"`
-	SourceNodeId string `json:"sourceNodeId"`
+	Field        *string `json:"field"`
+	SourceLoc    *string `json:"sourceLoc"`
+	SourceNodeId *string `json:"sourceNodeId"`
 	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
-	TargetLoc string  `json:"targetLoc"`
+	TargetLoc *string `json:"targetLoc"`
 	Text      *string `json:"text"`
 }
 
 // GetKind returns SpecBacklinksSpecBacklinksSpecReference.Kind, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksSpecBacklinksSpecReference) GetKind() SpecReferenceKind { return v.Kind }
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetKind() *SpecReferenceKind { return v.Kind }
 
 // GetField returns SpecBacklinksSpecBacklinksSpecReference.Field, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksSpecBacklinksSpecReference) GetField() string { return v.Field }
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetField() *string { return v.Field }
 
 // GetSourceLoc returns SpecBacklinksSpecBacklinksSpecReference.SourceLoc, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceLoc() string { return v.SourceLoc }
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceLoc() *string { return v.SourceLoc }
 
 // GetSourceNodeId returns SpecBacklinksSpecBacklinksSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceNodeId() string { return v.SourceNodeId }
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceNodeId() *string { return v.SourceNodeId }
 
 // GetTargetLoc returns SpecBacklinksSpecBacklinksSpecReference.TargetLoc, and is useful for accessing the field via an interface.
-func (v *SpecBacklinksSpecBacklinksSpecReference) GetTargetLoc() string { return v.TargetLoc }
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetTargetLoc() *string { return v.TargetLoc }
 
 // GetText returns SpecBacklinksSpecBacklinksSpecReference.Text, and is useful for accessing the field via an interface.
 func (v *SpecBacklinksSpecBacklinksSpecReference) GetText() *string { return v.Text }
@@ -81277,25 +81277,25 @@ func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePa
 // the text field it was found in and text the URN as written; for kind EDGE,
 // field is 'edge' and text the edge's relationship name.
 type SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference struct {
-	Kind SpecReferenceKind `json:"kind"`
+	Kind *SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
-	Field string `json:"field"`
+	Field *string `json:"field"`
 	// Set only by specUnresolvedReferences and specUnresolvedReferencesPage.
 	Reason       *SpecReferenceProblem `json:"reason"`
-	SourceLoc    string                `json:"sourceLoc"`
-	SourceNodeId string                `json:"sourceNodeId"`
+	SourceLoc    *string               `json:"sourceLoc"`
+	SourceNodeId *string               `json:"sourceNodeId"`
 	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
-	TargetLoc string  `json:"targetLoc"`
+	TargetLoc *string `json:"targetLoc"`
 	Text      *string `json:"text"`
 }
 
 // GetKind returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Kind, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetKind() SpecReferenceKind {
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetKind() *SpecReferenceKind {
 	return v.Kind
 }
 
 // GetField returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Field, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetField() string {
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetField() *string {
 	return v.Field
 }
 
@@ -81305,17 +81305,17 @@ func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePa
 }
 
 // GetSourceLoc returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.SourceLoc, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceLoc() string {
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceLoc() *string {
 	return v.SourceLoc
 }
 
 // GetSourceNodeId returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceNodeId() string {
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceNodeId() *string {
 	return v.SourceNodeId
 }
 
 // GetTargetLoc returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.TargetLoc, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetTargetLoc() string {
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetTargetLoc() *string {
 	return v.TargetLoc
 }
 
@@ -81345,25 +81345,25 @@ func (v *SpecUnresolvedReferencesResponse) GetSpecUnresolvedReferences() []*Spec
 // the text field it was found in and text the URN as written; for kind EDGE,
 // field is 'edge' and text the edge's relationship name.
 type SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference struct {
-	Kind SpecReferenceKind `json:"kind"`
+	Kind *SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
-	Field string `json:"field"`
+	Field *string `json:"field"`
 	// Set only by specUnresolvedReferences and specUnresolvedReferencesPage.
 	Reason       *SpecReferenceProblem `json:"reason"`
-	SourceLoc    string                `json:"sourceLoc"`
-	SourceNodeId string                `json:"sourceNodeId"`
+	SourceLoc    *string               `json:"sourceLoc"`
+	SourceNodeId *string               `json:"sourceNodeId"`
 	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
-	TargetLoc string  `json:"targetLoc"`
+	TargetLoc *string `json:"targetLoc"`
 	Text      *string `json:"text"`
 }
 
 // GetKind returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Kind, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetKind() SpecReferenceKind {
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetKind() *SpecReferenceKind {
 	return v.Kind
 }
 
 // GetField returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Field, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetField() string {
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetField() *string {
 	return v.Field
 }
 
@@ -81373,17 +81373,17 @@ func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetReaso
 }
 
 // GetSourceLoc returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.SourceLoc, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceLoc() string {
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceLoc() *string {
 	return v.SourceLoc
 }
 
 // GetSourceNodeId returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceNodeId() string {
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceNodeId() *string {
 	return v.SourceNodeId
 }
 
 // GetTargetLoc returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.TargetLoc, and is useful for accessing the field via an interface.
-func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetTargetLoc() string {
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetTargetLoc() *string {
 	return v.TargetLoc
 }
 

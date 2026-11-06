@@ -2,6 +2,7 @@ package spec
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -44,26 +45,28 @@ type referenceDTO struct {
 }
 
 type specReference interface {
-	GetKind() gen.SpecReferenceKind
-	GetField() string
-	GetSourceLoc() string
-	GetSourceNodeId() string
-	GetTargetLoc() string
+	GetKind() *gen.SpecReferenceKind
+	GetField() *string
+	GetSourceLoc() *string
+	GetSourceNodeId() *string
+	GetTargetLoc() *string
 	GetText() *string
 }
 
-func referenceFrom(r specReference, reason *gen.SpecReferenceProblem) referenceDTO {
-	d := referenceDTO{
-		Kind: string(r.GetKind()), Field: r.GetField(),
-		SourceLoc: r.GetSourceLoc(), SourceNodeID: r.GetSourceNodeId(), TargetLoc: r.GetTargetLoc(),
+// Required-field presence is checked before converting to the stable DTO.
+// Empty strings and nullable text/reason retain their existing semantics.
+func referenceFrom(r specReference, reason *gen.SpecReferenceProblem) (referenceDTO, error) {
+	if r.GetKind() == nil || r.GetField() == nil || r.GetSourceLoc() == nil || r.GetSourceNodeId() == nil || r.GetTargetLoc() == nil {
+		return referenceDTO{}, invalidReferencePage("missing required item field")
 	}
+	d := referenceDTO{Kind: string(*r.GetKind()), Field: *r.GetField(), SourceLoc: *r.GetSourceLoc(), SourceNodeID: *r.GetSourceNodeId(), TargetLoc: *r.GetTargetLoc()}
 	if t := r.GetText(); t != nil {
 		d.Text = *t
 	}
 	if reason != nil {
 		d.Reason = string(*reason)
 	}
-	return d
+	return d, nil
 }
 
 func renderReferences(w io.Writer, refs []referenceDTO, withReason bool) error {
@@ -898,7 +901,8 @@ func unresolvedFindings(ctx context.Context, client graphql.Client, memRef strin
 	if err != nil {
 		// #1453 added this query after draft state and placeholders. Lint
 		// still runs its ordinary rules when this report is unavailable.
-		if api.IsUnknownQueryField(err, "specUnresolvedReferences") {
+		var unsupported *legacyUnresolvedUnsupported
+		if errors.As(err, &unsupported) {
 			return nil, nil
 		}
 		return nil, api.MapError(err)

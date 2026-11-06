@@ -37,10 +37,15 @@ mutation ReserveSpecCitation(
 # (inside URLs too) plus real edges from corpus nodes. Exact citation only.
 query SpecBacklinks($memoryRef: ID!, $loc: String!) {
   specBacklinks(memoryRef: $memoryRef, loc: $loc) {
+    # @genqlient(pointer: true)
     kind
+    # @genqlient(pointer: true)
     field
+    # @genqlient(pointer: true)
     sourceLoc
+    # @genqlient(pointer: true)
     sourceNodeId
+    # @genqlient(pointer: true)
     targetLoc
     text
   }
@@ -50,11 +55,16 @@ query SpecBacklinks($memoryRef: ID!, $loc: String!) {
 # any remain.
 query SpecUnresolvedReferences($memoryRef: ID!) {
   specUnresolvedReferences(memoryRef: $memoryRef) {
+    # @genqlient(pointer: true)
     kind
+    # @genqlient(pointer: true)
     field
     reason
+    # @genqlient(pointer: true)
     sourceLoc
+    # @genqlient(pointer: true)
     sourceNodeId
+    # @genqlient(pointer: true)
     targetLoc
     text
   }
@@ -216,7 +226,19 @@ mutation SearchReplaceInSpecNodes(
 # #1554 — whole-result consumers drain pages, preserving provider order/duplicates.
 query SpecBacklinksPage($memoryRef: ID!, $loc: String!, $limit: Int!, $offset: Int!) {
   specBacklinksPage(memoryRef: $memoryRef, loc: $loc, limit: $limit, offset: $offset) {
-    items { kind field sourceLoc sourceNodeId targetLoc text }
+    items {
+      # @genqlient(pointer: true)
+      kind
+      # @genqlient(pointer: true)
+      field
+      # @genqlient(pointer: true)
+      sourceLoc
+      # @genqlient(pointer: true)
+      sourceNodeId
+      # @genqlient(pointer: true)
+      targetLoc
+      text
+    }
     # @genqlient(pointer: true)
     total
     # @genqlient(pointer: true)
@@ -226,7 +248,20 @@ query SpecBacklinksPage($memoryRef: ID!, $loc: String!, $limit: Int!, $offset: I
 
 query SpecUnresolvedReferencesPage($memoryRef: ID!, $limit: Int!, $offset: Int!) {
   specUnresolvedReferencesPage(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
-    items { kind field reason sourceLoc sourceNodeId targetLoc text }
+    items {
+      # @genqlient(pointer: true)
+      kind
+      # @genqlient(pointer: true)
+      field
+      reason
+      # @genqlient(pointer: true)
+      sourceLoc
+      # @genqlient(pointer: true)
+      sourceNodeId
+      # @genqlient(pointer: true)
+      targetLoc
+      text
+    }
     # @genqlient(pointer: true)
     total
     # @genqlient(pointer: true)

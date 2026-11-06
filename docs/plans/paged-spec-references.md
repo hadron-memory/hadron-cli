@@ -3,7 +3,9 @@
 `spec backlinks`, `spec unresolved`, and draft `spec lint` reference enrichment
 consume the existing `specBacklinksPage` / `specUnresolvedReferencesPage` fields.
 The typed operations select the existing item projections plus `total` and
-`hasMore`. Schema metadata uses pointers so absence cannot mean zero/false.
+`hasMore`. Required item fields and page metadata use pointers so absence cannot become
+empty strings or zero/false. Legacy selections get the same presence bindings
+without changing their static operation documents.
 The committed schema already has these fields; no snapshot refresh is needed.
 
 Each request explicitly asks for 20 rows (cor:api:120:04). The shared injected
@@ -11,7 +13,7 @@ collector advances offset by rows actually served, including short pages,
 and stops only when `hasMore` is false and the consumed count equals total.
 It preserves provider order and multiplicity, including identical rows across
 page boundaries. Nothing renders or becomes a lint finding until the drain
-succeeds. Missing/null page, items, metadata or item; negative/changing total;
+succeeds. Missing/null page, items, metadata, item or required item field; negative/changing total;
 excess rows; empty progress with hasMore; and contradictory terminal counts
 are failed reads (exit 1), never empty or partial success. Server and transport
 errors retain their normal mapped exits. Lint inScope and strict promotion
@@ -22,8 +24,9 @@ select the full legacy twin once. Mixed/permission errors, resolver paths,
 unrelated validation, malformed data/errors, 5xx and plain-text lookalikes do
 not qualify; an accepted page prevents fallback. A populated result beside
 errors is not an unsupported field. A null entry removed by the existing API
-sanitizer is observed and fails closed. If the legacy unresolved field itself
-is genuinely unsupported, draft lint retains its prior ordinary-rules-only
+sanitizer is observed and fails closed. Only an operation-provenance marker from an actually attempted legacy call
+can classify that legacy unresolved report as unsupported. If it is
+genuinely unsupported, draft lint retains its prior ordinary-rules-only
 compatibility, without claiming that references were checked. The legacy
 operations remain selected only for this compatibility path; their removal is
 tied to retirement of the provider's legacy fields.

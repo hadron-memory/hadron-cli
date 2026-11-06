@@ -9,6 +9,13 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// A missing legacy report is tolerated by draft lint only after that exact
+// compatibility operation was attempted. An unrelated validation error from
+// the page request must remain a failed read, even if it names this field.
+type legacyUnresolvedUnsupported struct{ error }
+
+func (e *legacyUnresolvedUnsupported) Unwrap() error { return e.error }
+
 type referencePage struct {
 	items []referenceDTO
 	total *int
@@ -80,7 +87,11 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 						if it == nil {
 							return nil, invalidReferencePage("null item")
 						}
-						p.items = append(p.items, referenceFrom(it, nil))
+						item, e := referenceFrom(it, nil)
+						if e != nil {
+							return nil, e
+						}
+						p.items = append(p.items, item)
 					}
 				}
 			}
@@ -96,7 +107,11 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 						if it == nil {
 							return nil, invalidReferencePage("null item")
 						}
-						p.items = append(p.items, referenceFrom(it, it.Reason))
+						item, e := referenceFrom(it, it.Reason)
+						if e != nil {
+							return nil, e
+						}
+						p.items = append(p.items, item)
 					}
 				}
 			}
@@ -132,7 +147,11 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			if it == nil {
 				return nil, invalidReferencePage("null legacy item")
 			}
-			out = append(out, referenceFrom(it, nil))
+			item, e := referenceFrom(it, nil)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, item)
 		}
 	} else {
 		r, e := gen.SpecUnresolvedReferences(ctx, client, memory)
@@ -143,6 +162,9 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			if r != nil && r.SpecUnresolvedReferences != nil {
 				return nil, invalidReferencePage("legacy data beside errors")
 			}
+			if api.IsUnknownQueryField(e, "specUnresolvedReferences") {
+				return nil, &legacyUnresolvedUnsupported{e}
+			}
 			return nil, e
 		}
 		if r == nil || r.SpecUnresolvedReferences == nil {
@@ -152,7 +174,11 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			if it == nil {
 				return nil, invalidReferencePage("null legacy item")
 			}
-			out = append(out, referenceFrom(it, it.Reason))
+			item, e := referenceFrom(it, it.Reason)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, item)
 		}
 	}
 	return out, nil
