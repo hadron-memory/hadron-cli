@@ -44,9 +44,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -145,8 +147,10 @@ type StopReporter struct {
 	ReconcileAfter time.Duration
 	// Test seams: called just before the intent is written, and just after a
 	// post is accepted, so a crash at either point can be pinned.
-	beforeIntent func()
-	afterPost    func()
+	beforeIntent       func()
+	afterPost          func()
+	beforeLastFailOpen func(string)
+	beforeReported     func(string)
 }
 
 // ReportOutcome is one record's result in a run.
@@ -154,9 +158,12 @@ type ReportOutcome struct {
 	EventID string `json:"eventId"`
 	Worker  string `json:"worker"`
 	// Result: reported, reconciled, duplicate, waiting, failed.
-	Result string `json:"result"`
-	Seq    int    `json:"seq,omitempty"`
-	Error  string `json:"error,omitempty"`
+	Result          string `json:"result"`
+	Seq             int    `json:"seq,omitempty"`
+	Error           string `json:"error,omitempty"`
+	Reason          string `json:"reason,omitempty"`
+	Field           string `json:"field,omitempty"`
+	DiagnosticError string `json:"diagnosticError,omitempty"`
 }
 
 // ReportRun is a whole run's result.
@@ -169,21 +176,174 @@ type ReportRun struct {
 // Pending reports how many records have no marker (pending) and, of those,
 // how many were first held more than olderThan ago. Read-only; takes no lock.
 func (r *StopReporter) Pending(olderThan time.Duration) (pending, stale int, err error) {
+	status, err := r.PendingStatus(olderThan)
+	return status.Pending, status.Stale, err
+}
+
+// PendingReport is a cached observation, never a current diagnosis or authority.
+type PendingReport struct {
+	Pending          int                  `json:"pending"`
+	Stale            int                  `json:"stale"`
+	NeedsPerson      int                  `json:"needsPerson"`
+	Records          []PendingObservation `json:"records"`
+	RecordsTotal     int                  `json:"recordsTotal"`
+	RecordsTruncated bool                 `json:"recordsTruncated"`
+}
+
+type PendingObservation struct {
+	EventID        string    `json:"eventId"`
+	Worker         string    `json:"worker"`
+	Seq            int       `json:"seq"`
+	Reason         string    `json:"reason"`
+	Field          string    `json:"field"`
+	LastObservedAt time.Time `json:"lastObservedAt"`
+}
+
+type stopLastFail struct {
+	V              int       `json:"v"`
+	EventID        string    `json:"eventId"`
+	Seq            int       `json:"seq"`
+	Reason         string    `json:"reason"`
+	Field          string    `json:"field"`
+	LastObservedAt time.Time `json:"lastObservedAt"`
+}
+
+// PendingStatus reads only local state, without taking a lock or creating files.
+func (r *StopReporter) PendingStatus(olderThan time.Duration) (PendingReport, error) {
+	status := PendingReport{Records: []PendingObservation{}}
 	entries, err := r.Outbox.listNamed()
 	if err != nil {
-		return 0, 0, err
+		return status, err
 	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].rec.HeldAt.Equal(entries[j].rec.HeldAt) {
+			return entries[i].rec.EventID < entries[j].rec.EventID
+		}
+		return entries[i].rec.HeldAt.Before(entries[j].rec.HeldAt)
+	})
 	now := r.now()
 	for _, e := range entries {
 		if r.exists(e.base + ".reported") {
 			continue
 		}
-		pending++
+		status.Pending++
 		if now.Sub(e.rec.HeldAt) > olderThan {
-			stale++
+			status.Stale++
+		}
+		observed := r.readLastFail(e)
+		if observed == nil || (observed.Reason != "readback-mismatch" && observed.Reason != "readback-not-found" && observed.Reason != "invalid-accepted-record") {
+			continue
+		}
+		status.NeedsPerson++
+		if len(status.Records) < 50 {
+			status.Records = append(status.Records, PendingObservation{EventID: e.rec.EventID, Worker: e.rec.Worker, Seq: observed.Seq, Reason: observed.Reason, Field: observed.Field, LastObservedAt: observed.LastObservedAt})
 		}
 	}
-	return pending, stale, nil
+	status.RecordsTotal = status.NeedsPerson
+	status.RecordsTruncated = status.RecordsTotal > len(status.Records)
+	return status, nil
+}
+
+func validStopBase(base string) bool {
+	if len(base) != 32 {
+		return false
+	}
+	for _, c := range base {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func validLastFail(v stopLastFail) bool {
+	if v.V != 1 || v.EventID == "" || v.Seq == 0 || v.LastObservedAt.IsZero() {
+		return false
+	}
+	switch v.Reason {
+	case "readback-mismatch":
+		return v.Field == "author" || v.Field == "body" || v.Field == "author,body"
+	case "readback-not-found", "invalid-accepted-record", "readback-unavailable":
+		return v.Field == ""
+	}
+	return false
+}
+
+func (r *StopReporter) readLastFail(e namedDrop) *stopLastFail {
+	if !validStopBase(e.base) {
+		return nil
+	}
+	path := filepath.Join(r.Outbox.Dir, e.base+".lastfail")
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	if r.beforeLastFailOpen != nil {
+		r.beforeLastFailOpen(path)
+	}
+	f, err := openStopLastFail(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+	opened, err := f.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
+		return nil
+	}
+	data, err := io.ReadAll(io.LimitReader(f, 1025))
+	if err != nil || len(data) > 1024 {
+		return nil
+	}
+	// Require the complete, exact v1 keyset, including an empty field string.
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(data, &keys) != nil || len(keys) != 6 {
+		return nil
+	}
+	for _, k := range []string{"v", "eventId", "seq", "reason", "field", "lastObservedAt"} {
+		if len(keys[k]) == 0 || string(keys[k]) == "null" {
+			return nil
+		}
+	}
+	var observed stopLastFail
+	if json.Unmarshal(data, &observed) != nil || !validLastFail(observed) {
+		return nil
+	}
+	sending, err := r.readSending(e.base)
+	if err != nil || sending == nil || sending.AcceptedSeq == 0 || observed.Seq != sending.AcceptedSeq || observed.EventID != e.rec.EventID {
+		return nil
+	}
+	return &observed
+}
+
+func (r *StopReporter) lastFailure(e namedDrop, out ReportOutcome) ReportOutcome {
+	if !validStopBase(e.base) {
+		return out
+	}
+	data, err := json.Marshal(stopLastFail{V: 1, EventID: e.rec.EventID, Seq: out.Seq, Reason: out.Reason, Field: out.Field, LastObservedAt: r.now()})
+	if err == nil && len(data) <= 1024 {
+		_, err = r.Outbox.writeFile(e.base+".lastfail", data, true)
+	} else if err == nil {
+		err = errors.New("diagnostic too large")
+	}
+	if err != nil {
+		out.DiagnosticError = "lastfail-write-failed"
+	}
+	return out
+}
+
+// clearLastFailure is called only after markReported has returned durable success.
+func (r *StopReporter) clearLastFailure(base string, out ReportOutcome) ReportOutcome {
+	if !validStopBase(base) {
+		return out
+	}
+	err := os.Remove(filepath.Join(r.Outbox.Dir, base+".lastfail"))
+	if err == nil {
+		err = syncDir(r.Outbox.Dir)
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		out.DiagnosticError = "lastfail-remove-failed"
+	}
+	return out
 }
 
 func (r *StopReporter) now() time.Time {
@@ -295,16 +455,18 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 		if intent.AcceptedSeq != 0 {
 			out.Seq = intent.AcceptedSeq
 			if intent.AcceptedSeq < 1 || !intent.attemptedBy(intent.AcceptedAuthorWorkerID) || intent.AcceptedAuthorWorkerID == "" {
-				return fail(errors.New("invalid recorded accepted post; needs a person"))
+				out.Reason = "invalid-accepted-record"
+				return r.lastFailure(e, fail(errors.New("invalid recorded accepted post; needs a person")))
 			}
 			if err := r.readBack(ctx, intent.AcceptedSeq, intent.Body, intent.AcceptedAuthorWorkerID); err != nil {
-				return fail(err)
+				out.Reason, out.Field = readBackFailure(err)
+				return r.lastFailure(e, fail(err))
 			}
 			if err := r.markReported(e.base, intent.EventID, intent.AcceptedSeq); err != nil {
 				return fail(err)
 			}
 			out.Result = "reconciled"
-			return out
+			return r.clearLastFailure(e.base, out)
 		}
 		if r.now().Sub(intent.FirstAttemptAt) < r.reconcileAfter() {
 			out.Result = "waiting"
@@ -319,7 +481,7 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 				return fail(err)
 			}
 			out.Result, out.Seq = "reconciled", seq
-			return out
+			return r.clearLastFailure(e.base, out)
 		}
 		if !intent.attemptedBy(workerID) {
 			// Record this reporter before it posts, so a later retry under yet
@@ -359,13 +521,14 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 		r.afterPost()
 	}
 	if err := r.readBack(ctx, seq, intent.Body, workerID); err != nil {
-		return fail(err)
+		out.Reason, out.Field = readBackFailure(err)
+		return r.lastFailure(e, fail(err))
 	}
 	if err := r.markReported(e.base, intent.EventID, seq); err != nil {
 		return fail(err)
 	}
 	out.Result, out.Seq = result, seq
-	return out
+	return r.clearLastFailure(e.base, out)
 }
 
 // reconcile looks for the intent's body after its head, posted by workerID
@@ -395,13 +558,23 @@ func (r *StopReporter) reconcile(ctx context.Context, intent *stopSending, worke
 func (r *StopReporter) readBack(ctx context.Context, seq int, body, workerID string) error {
 	page, err := r.API.MessagesAfter(ctx, seq-1, 1)
 	if err != nil {
-		return fmt.Errorf("reading back #%d: %w", seq, err)
+		return &stopReadBackError{reason: "readback-unavailable", text: fmt.Sprintf("reading back #%d: unavailable", seq)}
 	}
 	if len(page) == 0 || page[0].Seq != seq {
-		return fmt.Errorf("reading back #%d: not found", seq)
+		return &stopReadBackError{reason: "readback-not-found", text: fmt.Sprintf("reading back #%d: not found", seq)}
 	}
 	if page[0].AuthorWorkerID != workerID || page[0].Body != body {
-		return fmt.Errorf("reading back #%d: not this notice's post; needs a person", seq)
+		field := ""
+		if page[0].AuthorWorkerID != workerID {
+			field = "author"
+		}
+		if page[0].Body != body {
+			if field != "" {
+				field += ","
+			}
+			field += "body"
+		}
+		return &stopReadBackError{reason: "readback-mismatch", field: field, text: fmt.Sprintf("reading back #%d: not this notice's post; needs a person", seq)}
 	}
 	return nil
 }
@@ -422,6 +595,9 @@ func (r *StopReporter) readSending(base string) (*stopSending, error) {
 }
 
 func (r *StopReporter) markReported(base, eventID string, seq int) error {
+	if r.beforeReported != nil {
+		r.beforeReported(base)
+	}
 	data, err := json.Marshal(stopReported{EventID: eventID, Seq: seq, ReportedAt: r.now()})
 	if err != nil {
 		return err
@@ -465,4 +641,16 @@ func stopDropBody(recipient string, rec StopDrop) string {
 	}
 	return fmt.Sprintf("@%s %s has not been told to halt and may still be running: its %s notice (event %s) could not be typed into its session (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
 		recipient, rec.Worker, rec.Level, rec.EventID, held, rec.Worker)
+}
+
+// Structured classification never inspects error prose or returns remote text.
+type stopReadBackError struct{ reason, field, text string }
+
+func (e *stopReadBackError) Error() string { return e.text }
+func readBackFailure(err error) (string, string) {
+	var e *stopReadBackError
+	if errors.As(err, &e) {
+		return e.reason, e.field
+	}
+	return "readback-unavailable", ""
 }
