@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -32,39 +30,7 @@ func flowResp(status, connID, failure string) string {
 // the one EmailConnections read after CONNECTED.
 func runFlowConnect(t *testing.T, flows []string, fill string, args ...string) *connectRun {
 	t.Helper()
-	r := &connectRun{}
-	clock := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
-	prev := connection.Hooks
-	t.Cleanup(func() { connection.Hooks = prev })
-	connection.Hooks.Now = func() time.Time { return clock }
-	connection.Hooks.Sleep = func(_ context.Context, d time.Duration) error { clock = clock.Add(d); r.slept += d; return nil }
-	connection.Hooks.Open = func(u string) error { r.opened = append(r.opened, u); return nil }
-	calls := 0
-	srv, vars := captureGraphQLFunc(t, func(op string) string {
-		r.ops = append(r.ops, op)
-		switch op {
-		case "StartConnection":
-			return connectStart
-		case "ConnectionFlow":
-			i := min(calls, len(flows)-1)
-			calls++
-			return flows[i]
-		case "EmailConnections":
-			return fill
-		}
-		return ""
-	})
-	r.vars = vars
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"--server", srv.URL}, args...))
-	r.err = root.Execute()
-	if r.err != nil {
-		r.code = renderError(f, r.err)
-	}
-	r.out = out.String()
-	r.errOut = f.IOStreams.ErrOut.(*strings.Builder).String()
-	return r
+	return runConnectionScript(t, connectStart, flows, fill, nil, args...)
 }
 
 func count(ops []string, op string) int {
@@ -211,13 +177,13 @@ func TestConnectNoWaitCarriesTheFlowID(t *testing.T) {
 	if count(r.ops, "ConnectionFlow") != 0 {
 		t.Fatalf("--no-wait polled: %v", r.ops)
 	}
-	h := runFlowConnect(t, nil2(), connRows(), "connection", "connect", "gmail", "--org", "org_1", "--no-wait", "--no-browser")
+	h := runFlowConnect(t, pendingFlowResponses(), connRows(), "connection", "connect", "gmail", "--org", "org_1", "--no-wait", "--no-browser")
 	if h.err != nil || !strings.Contains(h.out+h.errOut, "flow_1") {
 		t.Fatalf("human line lacks the flow id: %q %q", h.out, h.errOut)
 	}
 }
 
-func nil2() []string { return []string{flowResp("PENDING", "", "")} }
+func pendingFlowResponses() []string { return []string{flowResp("PENDING", "", "")} }
 
 // `connection flow <id>` reads once; any resolved state exits 0; the --json DTO
 // carries every field with explicit null for the unused ones.

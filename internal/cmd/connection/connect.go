@@ -84,8 +84,10 @@ type connectedDTO struct {
 	DisplayName  *string `json:"displayName"`
 }
 
-// connectDTO is the stable --json shape. authorizeUrl is the ONLY place the
-// credential-bearing URL appears in any output (cor:api:240:02).
+// connectDTO is the stable --json shape. In JSON mode, authorizeUrl is the
+// only output field carrying the credential-bearing URL. Human mode may show
+// it once before the result when the browser is not opened; result and
+// error lines do not repeat it. This is CLI output policy, not platform law.
 type connectDTO struct {
 	Provider      string        `json:"provider"`
 	OrgID         string        `json:"orgId"`
@@ -299,7 +301,7 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 
 // listConnections reads the org's connection metadata (never credentials or
 // lastError: the operation does not select them).
-func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectionRow, error) {
+func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectedDTO, error) {
 	r, err := gen.EmailConnections(ctx, client, orgID)
 	if err != nil {
 		return nil, err
@@ -307,21 +309,14 @@ func listConnections(ctx context.Context, client graphql.Client, orgID string) (
 	if r == nil {
 		return nil, exitcode.Newf(exitcode.Unavailable, "server returned no connection list")
 	}
-	rows := make([]connectionRow, 0, len(r.ExchangeConnections))
+	rows := make([]connectedDTO, 0, len(r.ExchangeConnections))
 	for _, v := range r.ExchangeConnections {
 		if v == nil {
 			continue
 		}
-		rows = append(rows, connectionRow{connectedDTO: connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName}, userID: v.UserId})
+		rows = append(rows, connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName})
 	}
 	return rows, nil
-}
-
-// connectionRow is a listed connection plus its owner, which only the match
-// uses (the owner is not part of the --json result).
-type connectionRow struct {
-	connectedDTO
-	userID string
 }
 
 // flowResult is where the wait ended: a connection (possibly with only its id
@@ -363,9 +358,6 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 			}
 			return &flowResult{failureCode: code}, nil
 		case gen.ConnectionFlowStatusConnected:
-			if fl.ConnectionId == nil || *fl.ConnectionId == "" {
-				return nil, exitcode.Newf(exitcode.Unavailable, "server reported the flow connected without a connection id")
-			}
 			return &flowResult{connection: fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)}, nil
 		}
 		remaining = deadline.Sub(Hooks.Now())
@@ -425,7 +417,7 @@ func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKe
 	}
 	for _, r := range rows {
 		if r.ID == id {
-			c := r.connectedDTO
+			c := r
 			return &c
 		}
 	}

@@ -49,6 +49,13 @@ var (
 // the command sleeps.
 func runConnect(t *testing.T, start string, flows []string, openErr error, args ...string) *connectRun {
 	t.Helper()
+	return runConnectionScript(t, start, flows, connRows(connRow("c9")), openErr, append([]string{"connection", "connect"}, args...)...)
+}
+
+// runConnectionScript shares the hook and request recorder for connect/flow.
+// The final scripted flow answer repeats, as before, until the caller ends.
+func runConnectionScript(t *testing.T, start string, flows []string, fill string, openErr error, args ...string) *connectRun {
+	t.Helper()
 	r := &connectRun{}
 	clock := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
 	prev := connection.Hooks
@@ -68,14 +75,14 @@ func runConnect(t *testing.T, start string, flows []string, openErr error, args 
 			flowCalls++
 			return flows[i]
 		case "EmailConnections":
-			return connRows(connRow("c9"))
+			return fill
 		}
 		return ""
 	})
 	r.vars = vars
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"--server", srv.URL, "connection", "connect"}, args...))
+	root.SetArgs(append([]string{"--server", srv.URL}, args...))
 	r.err = root.Execute()
 	if r.err != nil {
 		r.code = renderError(f, r.err)
