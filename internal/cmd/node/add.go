@@ -116,11 +116,12 @@ Details:
 			}
 
 			input := gen.CreateNodeInput{
-				MemoryId: memory,
-				Install:  target,
-				Loc:      loc,
-				Name:     name,
-				Tags:     tags,
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				MemoryId:     memory,
+				Install:      target,
+				Loc:          loc,
+				Name:         name,
+				Tags:         tags,
 			}
 			if body != "" {
 				input.Content = &body

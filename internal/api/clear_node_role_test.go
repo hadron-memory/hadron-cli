@@ -66,8 +66,8 @@ func TestClearRoleOtherFieldsAndOmission(t *testing.T) {
 							// No CLI install-target flag; the dedicated clear rejects
 							// this alternative separately instead of dropping it.
 						case reflect.TypeOf((*gen.AuthoredWithInput)(nil)):
-							// #684 owns attestation support on dedicated clear documents;
-							// no CLI flag supplies it; keep the legacy document unchanged.
+							// Explicit attestation is covered separately by
+							// TestAuthoredKindDoors1685; this pins legacy omission.
 						case reflect.TypeOf([]*gen.NodeEdgeInput{}):
 							f.Set(reflect.ValueOf([]*gen.NodeEdgeInput{{}}))
 						default:

@@ -644,6 +644,7 @@ replacement over the cap is rejected.`,
 			}
 
 			input := proposal.input()
+			input.AuthoredWith = cmdutil.AuthoredWith(cmd.Context())
 			resp, err := gen.UpdateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
 				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {

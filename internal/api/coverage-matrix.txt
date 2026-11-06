@@ -576,7 +576,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 100: 65 gap, 35 excluded
+[Arguments] 79: 44 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -596,14 +596,6 @@ Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty val
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.createNode(input.authoredWith.revision)  gap #684
-Mutation.createNode(input.authoredWith.task)  gap #684
-Mutation.createReviewNode(input.authoredWith.revision)  gap #684
-Mutation.createReviewNode(input.authoredWith.task)  gap #684
-Mutation.createSpecNode(input.authoredWith.revision)  gap #684
-Mutation.createSpecNode(input.authoredWith.task)  gap #684
-Mutation.createTaskNode(input.authoredWith.revision)  gap #684
-Mutation.createTaskNode(input.authoredWith.task)  gap #684
 Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -618,7 +610,6 @@ Mutation.isolateWorker(instruction)  gap #1617
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
-Mutation.mergeNodes(input.authoredWith)  gap #684
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
 Mutation.reassignAgentTask(instruction)  gap #1617
@@ -631,8 +622,6 @@ Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userR
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.revokeAutomationReadGrant(instruction)  gap #1617
-Mutation.searchReplaceInNodes(input.authoredWith)  gap #684
-Mutation.searchReplaceInSpecNodes(input.authoredWith)  gap #684
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
 Mutation.setAppDeliverySettings(instruction)  gap #1617
@@ -656,18 +645,8 @@ Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use u
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.updateNode(input.authoredWith.revision)  gap #684
-Mutation.updateNode(input.authoredWith.task)  gap #684
-Mutation.updateNodeData(authoredWith)  gap #684
-Mutation.updateNodeProperties(authoredWith)  gap #684
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.updateReviewNode(input.authoredWith.revision)  gap #684
-Mutation.updateReviewNode(input.authoredWith.task)  gap #684
-Mutation.updateSpecNode(input.authoredWith.revision)  gap #684
-Mutation.updateSpecNode(input.authoredWith.task)  gap #684
-Mutation.updateTaskNode(input.authoredWith.revision)  gap #684
-Mutation.updateTaskNode(input.authoredWith.task)  gap #684
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336

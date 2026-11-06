@@ -5778,3 +5778,40 @@ Refusals use the common mapper (not-found 4, usage 2, gateway failure 7),
 with no partial title or retry. The shared worker query now selects the existing
 `Worker.model` field; older providers rejecting it require an upgrade. Other
 worker command JSON DTOs and `worker get` text stay unchanged.
+
+### Explicit authoring attestation
+
+`node create` (`add`), `node update` (including `--data` and `--data-merge`),
+`node set-properties`, `node merge`, `replace text`, `spec new`, `spec edit`,
+`spec replace`, `spec supersede` and `spec extract` accept
+`--authored-with <task URN or id> --authored-revision <n>`. Pass both or neither;
+one alone exits 2 before any request. Neither sends no `authoredWith` key.
+For this slice the CLI never infers the task from a binding, role or content.
+Multi-write commands carry the same claim on every node write that accepts it;
+edge-only mutations have no such argument. `node import` keeps forwarding the
+bundle's own claim and has no override flags.
+
+This is attested authorship, not verified compliance: a successful check does
+not prove that the task was read or followed. The server judges the claim.
+The four `AUTHORING_ATTESTATION_MISSING`, `AUTHORING_ATTESTATION_WRONG_TASK`,
+`AUTHORING_ATTESTATION_STALE` and `AUTHOR_TASK_BROKEN` refusals retain their
+existing exit codes. A `READABLE` refusal shows the required task, revision
+and available `load.cli` route; only commands with the flags also offer
+`Retry with: --authored-with ... --authored-revision ...`. Other commands show
+the load route without promising a retry they cannot send. With `--json`,
+`error.extensions` carries `taskAccess`, `task`, `taskId`, `taskRevision` and
+`load` (`graphql`, `mcp`, `cli`, including their nulls). `UNAVAILABLE` shows only
+that an owner must fix access or the rule, with no task identity, revision or
+load route in either output mode, even if an inconsistent server sends them.
+It never distinguishes an unreadable task from a nonexistent or unusable one.
+
+The explicit revision must fit a GraphQL Int (-2147483648 through 2147483647);
+an out-of-range value refuses before any request. Role clearing
+(`node update --role ""`) carries the same explicit claim through its typed
+clearing mutation; ordinary clearing keeps its existing document.
+
+When extraction has succeeded but --strip-source is refused, do not rerun
+spec extract. Load the required authoring task and finish the source edit
+separately with spec edit; the warning gives task/load advice, not a retry
+fragment. Supersede with an existing sole successor edge resumes retirement
+without creating another replacement.
