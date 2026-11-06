@@ -36,7 +36,10 @@ func TestAppListAgentWhitespace1642(t *testing.T) {
 		if r.err != nil || len(*calls) != 1 {
 			t.Fatalf("err=%v calls=%v", r.err, *calls)
 		}
-		filter := (*calls)[0].Vars["filter"].(map[string]any)
+		filter, ok := (*calls)[0].Vars["filter"].(map[string]any)
+		if !ok {
+			t.Fatalf("missing filter object: %#v", (*calls)[0].Vars)
+		}
 		if filter["agentId"] != agent {
 			t.Fatalf("nonblank ref altered: %v", filter)
 		}
@@ -58,7 +61,10 @@ func TestAppNodesEmptyFilters1642(t *testing.T) {
 		if r.err != nil || len(*calls) != 1 {
 			t.Fatalf("%s err=%v calls=%v", tc.flag, r.err, *calls)
 		}
-		filter := (*calls)[0].Vars["filter"].(map[string]any)
+		filter, ok := (*calls)[0].Vars["filter"].(map[string]any)
+		if !ok {
+			t.Fatalf("missing filter object: %#v", (*calls)[0].Vars)
+		}
 		if !reflect.DeepEqual(filter[tc.key], tc.value) {
 			t.Fatalf("%s filter=%#v", tc.flag, filter)
 		}
