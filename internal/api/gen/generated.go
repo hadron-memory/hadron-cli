@@ -3585,7 +3585,13 @@ type AgentTaskCreateResponse struct {
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
-	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
+	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
+	// #3491 (ruling 0176): the first three are given only when the caller may read every
+	// system memory on the chains looked up (the Team Agent's and the caller's own Agent's),
+	// as for every action answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03);
+	// otherwise, or when the lookup fails or runs out of time, it is { state: withheld },
+	// which says nothing about what the chains hold. A warning filed after the request has
+	// spent its whole read budget carries no register at all (nothing was looked up). A warning never
 	// blocks and never reveals another worker's state to a caller who could not
 	// already see it on the roster.
 	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -44780,6 +44786,223 @@ type FindNodesResponse struct {
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
 
+// FindNodesWithCommentSummaryFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
+	Total *int `json:"total"`
+	// Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
+	// comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
+	// parse the set, never compare the whole string. Codes: no_vector_index,
+	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
+	// multi-term keyword query matched nothing under AND, so it was retried as
+	// OR and these hits match ANY term), scope_narrowed (spec 049: the scope
+	// this search ran under lists memories you cannot read; they were dropped
+	// and `scope.droppedCount` says how many).
+	Degraded *string                                                           `json:"degraded"`
+	Reason   *string                                                           `json:"reason"`
+	Hits     []*FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetTotal returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Total, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetTotal() *int { return v.Total }
+
+// GetDegraded returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Degraded, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetDegraded() *string {
+	return v.Degraded
+}
+
+// GetReason returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Reason, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetReason() *string { return v.Reason }
+
+// GetHits returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetHits() []*FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit struct {
+	Score *float64                                                            `json:"score"`
+	Node  *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetScore returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit.Score, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit) GetScore() *float64 {
+	return v.Score
+}
+
+// GetNode returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+	// #1606 — open and resolved discussion on this node (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Batched per request.
+	CommentSummary *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary `json:"commentSummary"`
+	Properties     *json.RawMessage                                                                  `json:"properties"`
+	Data           *json.RawMessage                                                                  `json:"data"`
+}
+
+// GetId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetId() string {
+	return v.Id
+}
+
+// GetMemoryId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetLoc returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string {
+	return v.Loc
+}
+
+// GetName returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Name, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetName() string {
+	return v.Name
+}
+
+// GetNodeType returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.NodeType, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetNodeType() string {
+	return v.NodeType
+}
+
+// GetTags returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Tags, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetTags() []string {
+	return v.Tags
+}
+
+// GetSeq returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Seq, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int {
+	return v.Seq
+}
+
+// GetIsRunnable returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool {
+	return v.IsRunnable
+}
+
+// GetRole returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Role, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetRole() *string {
+	return v.Role
+}
+
+// GetUpdatedAt returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// GetCommentSummary returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.CommentSummary, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetCommentSummary() *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary {
+	return v.CommentSummary
+}
+
+// GetProperties returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Properties, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetData returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage {
+	return v.Data
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary includes the requested fields of the GraphQL type CommentSummary.
+// The GraphQL type's documentation follows.
+//
+// #1606 — the trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary struct {
+	OpenThreads *int `json:"openThreads"`
+	// Earliest creation time of a live open root comment, or null. Replies, edits and reopen times do not move it. Null on synthetic inherited/install summaries. Proposed addition built on the #3494 gate (hrn:node:hadronmemory.com:specs:cor:api:090:02).
+	OldestOpenThreadAt *string `json:"oldestOpenThreadAt"`
+}
+
+// GetOpenThreads returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary.OpenThreads, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary) GetOpenThreads() *int {
+	return v.OpenThreads
+}
+
+// GetOldestOpenThreadAt returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary.OldestOpenThreadAt, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary) GetOldestOpenThreadAt() *string {
+	return v.OldestOpenThreadAt
+}
+
+// FindNodesWithCommentSummaryResponse is returned by FindNodesWithCommentSummary on success.
+type FindNodesWithCommentSummaryResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *FindNodesWithCommentSummaryFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns FindNodesWithCommentSummaryResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryResponse) GetFindNodes() *FindNodesWithCommentSummaryFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
 // FindObjectsFindObjectsObjectList includes the requested fields of the GraphQL type ObjectList.
 // The GraphQL type's documentation follows.
 //
@@ -60206,6 +60429,16 @@ type NodeFilter struct {
 	// COMMENTS search finds every matching comment the caller may read.
 	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
 	CreatedBy    *string           `json:"createdBy,omitempty"`
+	// #3494 — true selects nodes with a live OPEN top-level comment; false selects nodes with none.
+	// Deleted roots and deleted-with-replies stubs never count (hrn:node:hadronmemory.com:specs:cor:dmo:110:05 / hrn:node:hadronmemory.com:specs:cor:dmo:110:10).
+	// Null or omitted leaves results unchanged. AND-combined before ranking, counts and paging in every
+	// findNodes mode; it grants no access. Inherited projections have a zero summary: true
+	// excludes them, false includes them. Concealed install-write responses are not search projections.
+	// Unscored expansion context adds only this thread check to its existing memory/deletion/content-scope
+	// checks; other filters keep their candidate-only behavior there. Counts exclude appended context.
+	// appNodes/appNodesPage refuse either boolean with BAD_USER_INPUT.
+	// Proposed addition built on the #3494 gate to hrn:node:hadronmemory.com:specs:cor:api:090:02; comment result scope stays hrn:node:hadronmemory.com:specs:cor:dmo:110:08.
+	HasOpenThreads *bool `json:"hasOpenThreads,omitempty"`
 	// Include soft-deleted nodes (default false).
 	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
 	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
@@ -60251,6 +60484,9 @@ func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetHasOpenThreads returns NodeFilter.HasOpenThreads, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetHasOpenThreads() *bool { return v.HasOpenThreads }
 
 // GetIncludeDeleted returns NodeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
@@ -104586,6 +104822,48 @@ func (v *__FindNodesInput) GetWithProperties() bool { return v.WithProperties }
 // GetWithData returns __FindNodesInput.WithData, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetWithData() bool { return v.WithData }
 
+// __FindNodesWithCommentSummaryInput is used internally by genqlient
+type __FindNodesWithCommentSummaryInput struct {
+	Query          *string                    `json:"query,omitempty"`
+	Mode           *FindNodesMode             `json:"mode,omitempty"`
+	Filter         *NodeFilter                `json:"filter,omitempty"`
+	Sort           *NodeSort                  `json:"sort,omitempty"`
+	SortProperty   *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit          *int                       `json:"limit,omitempty"`
+	Offset         *int                       `json:"offset,omitempty"`
+	WithProperties bool                       `json:"withProperties"`
+	WithData       bool                       `json:"withData"`
+}
+
+// GetQuery returns __FindNodesWithCommentSummaryInput.Query, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetQuery() *string { return v.Query }
+
+// GetMode returns __FindNodesWithCommentSummaryInput.Mode, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetMode() *FindNodesMode { return v.Mode }
+
+// GetFilter returns __FindNodesWithCommentSummaryInput.Filter, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetSort returns __FindNodesWithCommentSummaryInput.Sort, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetSort() *NodeSort { return v.Sort }
+
+// GetSortProperty returns __FindNodesWithCommentSummaryInput.SortProperty, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetSortProperty() *gqltypes.NodePropertySort {
+	return v.SortProperty
+}
+
+// GetLimit returns __FindNodesWithCommentSummaryInput.Limit, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __FindNodesWithCommentSummaryInput.Offset, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetOffset() *int { return v.Offset }
+
+// GetWithProperties returns __FindNodesWithCommentSummaryInput.WithProperties, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetWithProperties() bool { return v.WithProperties }
+
+// GetWithData returns __FindNodesWithCommentSummaryInput.WithData, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetWithData() bool { return v.WithData }
+
 // __FindObjectsInput is used internally by genqlient
 type __FindObjectsInput struct {
 	MemoryRef  string           `json:"memoryRef"`
@@ -126389,6 +126667,80 @@ func FindNodes(
 	}
 
 	data_ = &FindNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by FindNodesWithCommentSummary.
+const FindNodesWithCommentSummary_Operation = `
+query FindNodesWithCommentSummary ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $withProperties: Boolean!, $withData: Boolean!) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
+		total
+		degraded
+		reason
+		hits {
+			score
+			node {
+				id
+				memoryId
+				loc
+				name
+				nodeType
+				tags
+				seq
+				isRunnable
+				role
+				updatedAt
+				commentSummary {
+					openThreads
+					oldestOpenThreadAt
+				}
+				properties @include(if: $withProperties)
+				data @include(if: $withData)
+			}
+		}
+	}
+}
+`
+
+// Opt-in document: omitted listings never name this provider-new field.
+func FindNodesWithCommentSummary(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query *string,
+	mode *FindNodesMode,
+	filter *NodeFilter,
+	sort *NodeSort,
+	sortProperty *gqltypes.NodePropertySort,
+	limit *int,
+	offset *int,
+	withProperties bool,
+	withData bool,
+) (data_ *FindNodesWithCommentSummaryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FindNodesWithCommentSummary",
+		Query:  FindNodesWithCommentSummary_Operation,
+		Variables: &__FindNodesWithCommentSummaryInput{
+			Query:          query,
+			Mode:           mode,
+			Filter:         filter,
+			Sort:           sort,
+			SortProperty:   sortProperty,
+			Limit:          limit,
+			Offset:         offset,
+			WithProperties: withProperties,
+			WithData:       withData,
+		},
+	}
+
+	data_ = &FindNodesWithCommentSummaryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
