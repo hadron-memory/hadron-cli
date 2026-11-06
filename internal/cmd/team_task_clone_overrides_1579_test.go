@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,6 +29,8 @@ func TestTaskCloneOverrideWires1579(t *testing.T) {
 		"min-tier":         {[]string{"--min-tier", "mid"}, "requirements", `{"minTier":"mid"}`},
 		"family-in":        {[]string{"--family-in", "claude,codex"}, "requirements", `{"familyIn":["claude","codex"]}`},
 		"family-not-in":    {[]string{"--family-not-in", "glm"}, "requirements", `{"familyNotIn":["glm"]}`},
+		"model-group":      {[]string{"--model-group", "Large, odd! ,Large"}, "requirements", `{"modelGroupIn":["Large"," odd! ","Large"]}`},
+		"model-group-not":  {[]string{"--model-group-not", "Small, UPPER ,Small"}, "requirements", `{"modelGroupNotIn":["Small"," UPPER ","Small"]}`},
 		"exclude-worker":   {[]string{"--exclude-worker", "Iris"}, "requirements", `{"excludeWorkers":["Iris"]}`},
 		"owner worker":     {[]string{"--owner", "worker:Iris"}, "owner", `{"user":null,"worker":"Iris"}`},
 		"project":          {[]string{"--project"}, "project", `true`},
@@ -110,7 +114,7 @@ func TestTaskCloneOwnerRefusalMapsAsCreate1579(t *testing.T) {
 // cor:agt:050:02 + :28 (server resolvers.agentTask.ts:1881-1890): a caller who
 // may not set properties and names --properties gets the clone made WITHOUT
 // them, never a refusal. The CLI maps no refusal and implies none.
-func TestTaskClonePropertiesNoRightIsNoRefusal1579(t *testing.T) {
+func TestTaskCloneMapsNoPropertiesRefusalAndHelpSaysSo1579(t *testing.T) {
 	calls, out, err := runTeamTask(t, cloneResponses1565(), "team", "task", "clone", "AT0.12", "--properties", `{"k":1}`)
 	if err != nil {
 		t.Fatalf("the clone succeeds with properties absent: %v", err)
@@ -134,7 +138,8 @@ func TestTaskClonePropertiesNoRightIsNoRefusal1579(t *testing.T) {
 	}
 }
 
-// Folded cli#1584 P3 pins.
+// Folded cli#1584 P3 pins. Rejected values below are CLI syntax robustness
+// fixtures, not additional legal server match reasons.
 func TestMatchReasonBoundariesInTheBatchRefusal1579(t *testing.T) {
 	p := writeBatch1565(t, distinctBatch1567)
 	for name, reason := range map[string]string{
@@ -155,7 +160,7 @@ func TestMatchReasonBoundariesInTheBatchRefusal1579(t *testing.T) {
 			}
 		})
 	}
-	ok := "A" + strings.Repeat("B", 63) // exactly 64: the longest accepted
+	ok := "A" + strings.Repeat("B", 63) // 64-character syntax robustness fixture, not a legal server reason
 	r := batchResponses1565(2, "")
 	r["AgentTaskCreateBatch"] = errorResponse1565("TASK_MATCH_FAILED", "no match", map[string]any{"position": 2, "reason": ok})
 	_, _, err := runTeamTask(t, r, "team", "task", "create", "--batch-file", p, "--distinct-assignees")
@@ -187,5 +192,88 @@ func TestExtensionStringBranches1579(t *testing.T) {
 	}
 	if s, ok := api.ExtensionString(multi, "reason"); !ok || s != "SECOND" {
 		t.Errorf("first non-empty across several errors: %q %t", s, ok)
+	}
+}
+
+// cli#1714: raw names (including overlap, duplicates, case and spaces) are
+// forwarded, not resolved or matched by this mock. All named requirements
+// must survive together in one input object, with no unrelated override.
+func TestTaskCloneCombinedRequirements1714(t *testing.T) {
+	input, _ := cloneInput1565(t, "AT0.12", "--model-group", "Same, UPPER ,Same", "--model-group-not", "Same, small ,Same", "--require-role", "qa", "--family-in", "claude", "--min-tier", "mid", "--exclude-worker", "Iris")
+	if len(input) != 1 {
+		t.Fatalf("one requirements object only: %s", input)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(input["requirements"], &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"modelGroupIn":    []any{"Same", " UPPER ", "Same"},
+		"modelGroupNotIn": []any{"Same", " small ", "Same"},
+		"role":            "qa", "familyIn": []any{"claude"}, "minTier": "mid", "excludeWorkers": []any{"Iris"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("combined requirements=%v, want %v", got, want)
+	}
+}
+
+// cli#1714: rejected values are robustness fixtures for the CLI's syntax
+// guard. The fake puts them ONLY in extensions.reason; its independent
+// message is harmless. No global server-message no-echo rule is inferred.
+func TestTaskBatchRejectedReasonJSON1714(t *testing.T) {
+	p := writeBatch1565(t, distinctBatch1567)
+	for _, tc := range []struct {
+		name, reason string
+		accepted     bool
+	}{
+		{"rejected lowercase robustness", "nobody_free", false},
+		{"rejected control robustness", "NOBODY\x1bFREE", false},
+		{"rejected 65-character robustness", "A" + strings.Repeat("B", 64), false},
+		{"legal server reason control", "NOBODY_FREE", true},
+		{"accepted 64-character syntax robustness", "A" + strings.Repeat("B", 63), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := batchResponses1565(2, "")
+			r["AgentTaskCreateBatch"] = errorResponse1565("TASK_MATCH_FAILED", "no match", map[string]any{"position": 2, "reason": tc.reason})
+			writeTeamBinding(t)
+			srv, calls := attnServer(t, r)
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "--json", "team", "task", "create", "--batch-file", p, "--distinct-assignees"})
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != 5 {
+				t.Fatalf("expected match refusal exit5: %v", err)
+			}
+			if code := renderError(f, err); code != 5 {
+				t.Fatalf("rendered exit=%d", code)
+			}
+			if n := len(callsOf1565(calls, "AgentTaskCreateBatch")); n != 1 {
+				t.Fatalf("batch calls=%d", n)
+			}
+			var env struct {
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &env); err != nil {
+				t.Fatalf("envelope %q: %v", out.String(), err)
+			}
+			if env.Error["code"] != float64(5) || env.Error["serverCode"] != "TASK_MATCH_FAILED" || env.Error["position"] != float64(2) {
+				t.Fatalf("wrong refusal envelope: %s", out.String())
+			}
+			got, present := env.Error["reason"]
+			if tc.accepted {
+				if !present || got != tc.reason {
+					t.Fatalf("accepted reason absent/changed: %s", out.String())
+				}
+			} else {
+				if present {
+					t.Fatalf("rejected extensions.reason reached JSON reason key: %s", out.String())
+				}
+				message, ok := env.Error["message"].(string)
+				if !ok || strings.Contains(message, tc.reason) {
+					t.Fatalf("rejected extensions.reason echoed in message: %s", out.String())
+				}
+			}
+		})
 	}
 }
