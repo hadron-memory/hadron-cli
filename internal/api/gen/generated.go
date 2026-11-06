@@ -3585,7 +3585,13 @@ type AgentTaskCreateResponse struct {
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
-	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
+	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
+	// #3491 (ruling 0176): the first three are given only when the caller may read every
+	// system memory on the chains looked up (the Team Agent's and the caller's own Agent's),
+	// as for every action answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03);
+	// otherwise, or when the lookup fails or runs out of time, it is { state: withheld },
+	// which says nothing about what the chains hold. A warning filed after the request has
+	// spent its whole read budget carries no register at all (nothing was looked up). A warning never
 	// blocks and never reveals another worker's state to a caller who could not
 	// already see it on the roster.
 	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -18633,10 +18639,17 @@ func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return 
 // and that task's current revision (Node.revSeq). The server compares both with
 // the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
 // AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
-// AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
-// This does not prove the task was read or followed. With no applicable rule
-// the claim is ignored. People in the portal are exempt, derived from their
-// sign-in; no client field selects that.
+// AUTHOR_TASK_BROKEN when the rule's task is gone, unusable or unreadable to the
+// writer, whatever the claim. A match records a TASK stamp. This does not prove
+// the task was read or followed. With no applicable rule the claim is ignored.
+// People in the portal are exempt, derived from their sign-in; no client field
+// selects that.
+//
+// #1329 — each refusal carries extensions taskAccess, task, taskId, taskRevision
+// and load. READABLE gives the task's URN (null when it has none that resolves),
+// id, current revision and the node read per surface. UNAVAILABLE gives nulls and
+// is the same for an unreadable task and a missing one: an owner must fix access
+// or the rule.
 type AuthoredWithInput struct {
 	// The task's current revision.
 	Revision int `json:"revision"`
@@ -33810,6 +33823,11 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -33878,6 +33896,8 @@ type __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfi
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -33908,6 +33928,7 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -34010,7 +34031,14 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 type CreateMemoryConfigTemplateInput struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
-	Required    *bool   `json:"required,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool `json:"orgDefault,omitempty"`
+	Required   *bool `json:"required,omitempty"`
 	// Each role at most once (NODE_ROLE_RULE_EXISTS).
 	Rules []*CreateNodeRoleRuleInput `json:"rules,omitempty"`
 }
@@ -34020,6 +34048,9 @@ func (v *CreateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns CreateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetName() string { return v.Name }
+
+// GetOrgDefault returns CreateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns CreateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *CreateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
@@ -44780,6 +44811,223 @@ type FindNodesResponse struct {
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
 
+// FindNodesWithCommentSummaryFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
+	Total *int `json:"total"`
+	// Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
+	// comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
+	// parse the set, never compare the whole string. Codes: no_vector_index,
+	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
+	// multi-term keyword query matched nothing under AND, so it was retried as
+	// OR and these hits match ANY term), scope_narrowed (spec 049: the scope
+	// this search ran under lists memories you cannot read; they were dropped
+	// and `scope.droppedCount` says how many).
+	Degraded *string                                                           `json:"degraded"`
+	Reason   *string                                                           `json:"reason"`
+	Hits     []*FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetTotal returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Total, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetTotal() *int { return v.Total }
+
+// GetDegraded returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Degraded, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetDegraded() *string {
+	return v.Degraded
+}
+
+// GetReason returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Reason, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetReason() *string { return v.Reason }
+
+// GetHits returns FindNodesWithCommentSummaryFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResult) GetHits() []*FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit struct {
+	Score *float64                                                            `json:"score"`
+	Node  *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetScore returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit.Score, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit) GetScore() *float64 {
+	return v.Score
+}
+
+// GetNode returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+	// #1606 — open and resolved discussion on this node (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Batched per request.
+	CommentSummary *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary `json:"commentSummary"`
+	Properties     *json.RawMessage                                                                  `json:"properties"`
+	Data           *json.RawMessage                                                                  `json:"data"`
+}
+
+// GetId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetId() string {
+	return v.Id
+}
+
+// GetMemoryId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetLoc returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string {
+	return v.Loc
+}
+
+// GetName returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Name, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetName() string {
+	return v.Name
+}
+
+// GetNodeType returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.NodeType, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetNodeType() string {
+	return v.NodeType
+}
+
+// GetTags returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Tags, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetTags() []string {
+	return v.Tags
+}
+
+// GetSeq returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Seq, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int {
+	return v.Seq
+}
+
+// GetIsRunnable returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool {
+	return v.IsRunnable
+}
+
+// GetRole returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Role, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetRole() *string {
+	return v.Role
+}
+
+// GetUpdatedAt returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// GetCommentSummary returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.CommentSummary, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetCommentSummary() *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary {
+	return v.CommentSummary
+}
+
+// GetProperties returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Properties, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetData returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage {
+	return v.Data
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary includes the requested fields of the GraphQL type CommentSummary.
+// The GraphQL type's documentation follows.
+//
+// #1606 — the trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary struct {
+	OpenThreads *int `json:"openThreads"`
+	// Earliest creation time of a live open root comment, or null. Replies, edits and reopen times do not move it. Null on synthetic inherited/install summaries. Proposed addition built on the #3494 gate (hrn:node:hadronmemory.com:specs:cor:api:090:02).
+	OldestOpenThreadAt *string `json:"oldestOpenThreadAt"`
+}
+
+// GetOpenThreads returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary.OpenThreads, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary) GetOpenThreads() *int {
+	return v.OpenThreads
+}
+
+// GetOldestOpenThreadAt returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary.OldestOpenThreadAt, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary) GetOldestOpenThreadAt() *string {
+	return v.OldestOpenThreadAt
+}
+
+// FindNodesWithCommentSummaryResponse is returned by FindNodesWithCommentSummary on success.
+type FindNodesWithCommentSummaryResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *FindNodesWithCommentSummaryFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns FindNodesWithCommentSummaryResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryResponse) GetFindNodes() *FindNodesWithCommentSummaryFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
 // FindObjectsFindObjectsObjectList includes the requested fields of the GraphQL type ObjectList.
 // The GraphQL type's documentation follows.
 //
@@ -50656,6 +50904,100 @@ func (v *HostOperationsResponse) GetHostOperations() *HostOperationsHostOperatio
 	return v.HostOperations
 }
 
+// HostPlanAppApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostPlanAppApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostPlanAppApp.Id, and is useful for accessing the field via an interface.
+func (v *HostPlanAppApp) GetId() string { return v.Id }
+
+// HostPlanAppResponse is returned by HostPlanApp on success.
+type HostPlanAppResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *HostPlanAppApp `json:"app"`
+}
+
+// GetApp returns HostPlanAppResponse.App, and is useful for accessing the field via an interface.
+func (v *HostPlanAppResponse) GetApp() *HostPlanAppApp { return v.App }
+
+// HostPlanWorkerResponse is returned by HostPlanWorker on success.
+type HostPlanWorkerResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *HostPlanWorkerWorker `json:"worker"`
+}
+
+// GetWorker returns HostPlanWorkerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerResponse) GetWorker() *HostPlanWorkerWorker { return v.Worker }
+
+// HostPlanWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostPlanWorkerWorker struct {
+	Id    string `json:"id"`
+	AppId string `json:"appId"`
+	// #1707 — the model family of this worker's binding (hrn:node:hadronmemory.com:specs:cor:agt:060:04):
+	// its newest open session's family. It follows the binding, not activity: a
+	// quiet session keeps it, and it is cleared when the session ends or replaced
+	// by a newer bind. Null when unbound, when the binding reported none, or on
+	// the same read gate as hasLiveSession. A matching input, never an
+	// authorization input.
+	Family *string `json:"family"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+}
+
+// GetId returns HostPlanWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetId() string { return v.Id }
+
+// GetAppId returns HostPlanWorkerWorker.AppId, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetAppId() string { return v.AppId }
+
+// GetFamily returns HostPlanWorkerWorker.Family, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetFamily() *string { return v.Family }
+
+// GetRetiredAt returns HostPlanWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetRetiredAt() *string { return v.RetiredAt }
+
 // HostRegistrationFields includes the GraphQL fields of HostRegistration requested by the fragment HostRegistrationFields.
 // The GraphQL type's documentation follows.
 //
@@ -55515,12 +55857,14 @@ var AllMemoryConfigApplyOutcome = []MemoryConfigApplyOutcome{
 // as empty, with a null id.
 type MemoryConfigMemoryConfig struct {
 	// Null until the first rule is written.
-	Id        *string `json:"id"`
-	MemoryId  string  `json:"memoryId"`
-	CreatedAt *string `json:"createdAt"`
-	CreatedBy *string `json:"createdBy"`
-	UpdatedAt *string `json:"updatedAt"`
-	UpdatedBy *string `json:"updatedBy"`
+	Id       *string `json:"id"`
+	MemoryId string  `json:"memoryId"`
+	// #3426 — org-default rules skipped when this memory was created (a reference deleted, unreadable to the organization or not a task). Managers only, like the config. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+	DefaultSkips []*MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip `json:"defaultSkips"`
+	CreatedAt    *string                                                        `json:"createdAt"`
+	CreatedBy    *string                                                        `json:"createdBy"`
+	UpdatedAt    *string                                                        `json:"updatedAt"`
+	UpdatedBy    *string                                                        `json:"updatedBy"`
 	// Role-ascending.
 	Rules []*MemoryConfigMemoryConfigRulesNodeRoleRule `json:"rules"`
 }
@@ -55530,6 +55874,11 @@ func (v *MemoryConfigMemoryConfig) GetId() *string { return v.Id }
 
 // GetMemoryId returns MemoryConfigMemoryConfig.MemoryId, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetMemoryId() string { return v.MemoryId }
+
+// GetDefaultSkips returns MemoryConfigMemoryConfig.DefaultSkips, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetDefaultSkips() []*MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip {
+	return v.DefaultSkips
+}
 
 // GetCreatedAt returns MemoryConfigMemoryConfig.CreatedAt, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetCreatedAt() *string { return v.CreatedAt }
@@ -55546,6 +55895,77 @@ func (v *MemoryConfigMemoryConfig) GetUpdatedBy() *string { return v.UpdatedBy }
 // GetRules returns MemoryConfigMemoryConfig.Rules, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfig) GetRules() []*MemoryConfigMemoryConfigRulesNodeRoleRule {
 	return v.Rules
+}
+
+// MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip includes the requested fields of the GraphQL type MemoryConfigDefaultSkip.
+// The GraphQL type's documentation follows.
+//
+// #3426 — one org-default rule skipped at memory creation. Stores no task URN and no state: `ref` and `refState` are the
+// template rule's reference as the CALLING manager sees it now. Null/BROKEN once the template or rule is gone.
+type MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip struct {
+	Role string `json:"role"`
+	// authorTask, validationTask or descriptionNode.
+	Field string `json:"field"`
+	// REFERENCE_UNAVAILABLE: deleted, unreadable to the organization, or not a task.
+	Reason         string                                                                                               `json:"reason"`
+	Ref            *string                                                                                              `json:"ref"`
+	RefState       NodeRoleRuleRefState                                                                                 `json:"refState"`
+	CreatedAt      string                                                                                               `json:"createdAt"`
+	SourceTemplate *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+}
+
+// GetRole returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Role, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRole() string { return v.Role }
+
+// GetField returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Field, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetField() string {
+	return v.Field
+}
+
+// GetReason returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Reason, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetReason() string {
+	return v.Reason
+}
+
+// GetRef returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.Ref, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRef() *string { return v.Ref }
+
+// GetRefState returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.RefState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetRefState() NodeRoleRuleRefState {
+	return v.RefState
+}
+
+// GetCreatedAt returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetSourceTemplate returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkip) GetSourceTemplate() *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.SourceTemplate
+}
+
+// MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate includes the requested fields of the GraphQL type NodeRoleRuleSourceTemplate.
+type MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The template has been deleted; the rule keeps its copy.
+	Deleted bool `json:"deleted"`
+}
+
+// GetId returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Name, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetName() string {
+	return v.Name
+}
+
+// GetDeleted returns MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate.Deleted, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigDefaultSkipsMemoryConfigDefaultSkipSourceTemplateNodeRoleRuleSourceTemplate) GetDeleted() bool {
+	return v.Deleted
 }
 
 // MemoryConfigMemoryConfigRulesNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
@@ -55809,6 +56229,8 @@ type MemoryConfigTemplateFields struct {
 	OwnerId *string `json:"ownerId"`
 	// Applied as locked rules (#1334).
 	Required bool `json:"required"`
+	// #3426 — applied to every new org knowledge/group memory at creation. Always false for a non-organization owner. Proposed addition to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault bool `json:"orgDefault"`
 	// Optimistic-concurrency token for the template AND its rules.
 	Revision  int     `json:"revision"`
 	CreatedAt string  `json:"createdAt"`
@@ -55836,6 +56258,9 @@ func (v *MemoryConfigTemplateFields) GetOwnerId() *string { return v.OwnerId }
 
 // GetRequired returns MemoryConfigTemplateFields.Required, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateFields) GetRequired() bool { return v.Required }
+
+// GetOrgDefault returns MemoryConfigTemplateFields.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetOrgDefault() bool { return v.OrgDefault }
 
 // GetRevision returns MemoryConfigTemplateFields.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateFields) GetRevision() int { return v.Revision }
@@ -56002,6 +56427,11 @@ func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRequired() bool {
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns MemoryConfigTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns MemoryConfigTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -56070,6 +56500,8 @@ type __premarshalMemoryConfigTemplateMemoryConfigTemplate struct {
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -56100,6 +56532,7 @@ func (v *MemoryConfigTemplateMemoryConfigTemplate) __premarshalJSON() (*__premar
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -56195,6 +56628,11 @@ func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItem
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -56263,6 +56701,8 @@ type __premarshalMemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplates
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -56293,6 +56733,7 @@ func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItem
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -56797,6 +57238,35 @@ type MemorySubscriptionsResponse struct {
 
 // GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
+
+// MemorySyncPrerequisitesMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type MemorySyncPrerequisitesMemory struct {
+	Source      *string `json:"source"`
+	IsEncrypted bool    `json:"isEncrypted"`
+}
+
+// GetSource returns MemorySyncPrerequisitesMemory.Source, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesMemory) GetSource() *string { return v.Source }
+
+// GetIsEncrypted returns MemorySyncPrerequisitesMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// MemorySyncPrerequisitesResponse is returned by MemorySyncPrerequisites on success.
+type MemorySyncPrerequisitesResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MemorySyncPrerequisitesMemory `json:"memory"`
+}
+
+// GetMemory returns MemorySyncPrerequisitesResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesResponse) GetMemory() *MemorySyncPrerequisitesMemory { return v.Memory }
 
 type MemoryTransferHandling string
 
@@ -60177,6 +60647,16 @@ type NodeFilter struct {
 	// COMMENTS search finds every matching comment the caller may read.
 	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
 	CreatedBy    *string           `json:"createdBy,omitempty"`
+	// #3494 — true selects nodes with a live OPEN top-level comment; false selects nodes with none.
+	// Deleted roots and deleted-with-replies stubs never count (hrn:node:hadronmemory.com:specs:cor:dmo:110:05 / hrn:node:hadronmemory.com:specs:cor:dmo:110:10).
+	// Null or omitted leaves results unchanged. AND-combined before ranking, counts and paging in every
+	// findNodes mode; it grants no access. Inherited projections have a zero summary: true
+	// excludes them, false includes them. Concealed install-write responses are not search projections.
+	// Unscored expansion context adds only this thread check to its existing memory/deletion/content-scope
+	// checks; other filters keep their candidate-only behavior there. Counts exclude appended context.
+	// appNodes/appNodesPage refuse either boolean with BAD_USER_INPUT.
+	// Proposed addition built on the #3494 gate to hrn:node:hadronmemory.com:specs:cor:api:090:02; comment result scope stays hrn:node:hadronmemory.com:specs:cor:dmo:110:08.
+	HasOpenThreads *bool `json:"hasOpenThreads,omitempty"`
 	// Include soft-deleted nodes (default false).
 	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
 	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
@@ -60222,6 +60702,9 @@ func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetHasOpenThreads returns NodeFilter.HasOpenThreads, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetHasOpenThreads() *bool { return v.HasOpenThreads }
 
 // GetIncludeDeleted returns NodeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
@@ -80181,6 +80664,41 @@ func (v *SubscribeTickerSubscribeWorkerSubscribeResultSubscriptionTickerSubscrip
 	return &retval, nil
 }
 
+// SyncMemoryResponse is returned by SyncMemory on success.
+type SyncMemoryResponse struct {
+	// Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
+	//
+	// Accepts the entity's ID or URN.
+	SyncMemory *SyncMemorySyncMemory `json:"syncMemory"`
+}
+
+// GetSyncMemory returns SyncMemoryResponse.SyncMemory, and is useful for accessing the field via an interface.
+func (v *SyncMemoryResponse) GetSyncMemory() *SyncMemorySyncMemory { return v.SyncMemory }
+
+// SyncMemorySyncMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type SyncMemorySyncMemory struct {
+	SyncStatus   SyncStatus `json:"syncStatus"`
+	SyncError    *string    `json:"syncError"`
+	LastSyncedAt *string    `json:"lastSyncedAt"`
+	// Version 1 JSON outcome of the last sync: partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
+	LastSyncReport *string `json:"lastSyncReport"`
+}
+
+// GetSyncStatus returns SyncMemorySyncMemory.SyncStatus, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetSyncStatus() SyncStatus { return v.SyncStatus }
+
+// GetSyncError returns SyncMemorySyncMemory.SyncError, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetSyncError() *string { return v.SyncError }
+
+// GetLastSyncedAt returns SyncMemorySyncMemory.LastSyncedAt, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetLastSyncedAt() *string { return v.LastSyncedAt }
+
+// GetLastSyncReport returns SyncMemorySyncMemory.LastSyncReport, and is useful for accessing the field via an interface.
+func (v *SyncMemorySyncMemory) GetLastSyncReport() *string { return v.LastSyncReport }
+
 type SyncStatus string
 
 const (
@@ -91356,6 +91874,11 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -91424,6 +91947,8 @@ type __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfig
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -91454,6 +91979,7 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -91556,10 +92082,17 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 // description null clears it. `rules`, when given, REPLACES the template's
 // rules in one transaction.
 type UpdateMemoryConfigTemplateInput struct {
-	Description *string                    `json:"description,omitempty"`
-	Name        *string                    `json:"name,omitempty"`
-	Required    *bool                      `json:"required,omitempty"`
-	Rules       []*CreateNodeRoleRuleInput `json:"rules"`
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	// #3426 — an ORGANIZATION-owned template applied to every new org `knowledge` or `group` memory at its creation
+	// (`createMemory` only; never clone, extract, App, install, agent or chat creation). A starting configuration, not a
+	// boundary. User-, App- and server-owned templates refuse true (BAD_USER_INPUT, reason ORG_DEFAULT_ORG_ONLY).
+	// At most 10 live defaults per organization (ORG_DEFAULT_LIMIT). Setting it true validates every reference as readable
+	// to the ORGANIZATION as well as the saver (NODE_NOT_FOUND otherwise); clearing it never validates.
+	// Proposed addition built on the #3426 gate to hrn:node:hadronmemory.com:specs:cor:api:290.
+	OrgDefault *bool                      `json:"orgDefault,omitempty"`
+	Required   *bool                      `json:"required,omitempty"`
+	Rules      []*CreateNodeRoleRuleInput `json:"rules"`
 }
 
 // GetDescription returns UpdateMemoryConfigTemplateInput.Description, and is useful for accessing the field via an interface.
@@ -91567,6 +92100,9 @@ func (v *UpdateMemoryConfigTemplateInput) GetDescription() *string { return v.De
 
 // GetName returns UpdateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetName() *string { return v.Name }
+
+// GetOrgDefault returns UpdateMemoryConfigTemplateInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetOrgDefault() *bool { return v.OrgDefault }
 
 // GetRequired returns UpdateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
@@ -91647,6 +92183,11 @@ func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplat
 	return v.MemoryConfigTemplateFields.Required
 }
 
+// GetOrgDefault returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OrgDefault, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOrgDefault() bool {
+	return v.MemoryConfigTemplateFields.OrgDefault
+}
+
 // GetRevision returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
 	return v.MemoryConfigTemplateFields.Revision
@@ -91715,6 +92256,8 @@ type __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfi
 
 	Required bool `json:"required"`
 
+	OrgDefault bool `json:"orgDefault"`
+
 	Revision int `json:"revision"`
 
 	CreatedAt string `json:"createdAt"`
@@ -91745,6 +92288,7 @@ func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplat
 	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
 	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
 	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.OrgDefault = v.MemoryConfigTemplateFields.OrgDefault
 	retval.Revision = v.MemoryConfigTemplateFields.Revision
 	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
 	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
@@ -104522,6 +105066,48 @@ func (v *__FindNodesInput) GetWithProperties() bool { return v.WithProperties }
 // GetWithData returns __FindNodesInput.WithData, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetWithData() bool { return v.WithData }
 
+// __FindNodesWithCommentSummaryInput is used internally by genqlient
+type __FindNodesWithCommentSummaryInput struct {
+	Query          *string                    `json:"query,omitempty"`
+	Mode           *FindNodesMode             `json:"mode,omitempty"`
+	Filter         *NodeFilter                `json:"filter,omitempty"`
+	Sort           *NodeSort                  `json:"sort,omitempty"`
+	SortProperty   *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit          *int                       `json:"limit,omitempty"`
+	Offset         *int                       `json:"offset,omitempty"`
+	WithProperties bool                       `json:"withProperties"`
+	WithData       bool                       `json:"withData"`
+}
+
+// GetQuery returns __FindNodesWithCommentSummaryInput.Query, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetQuery() *string { return v.Query }
+
+// GetMode returns __FindNodesWithCommentSummaryInput.Mode, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetMode() *FindNodesMode { return v.Mode }
+
+// GetFilter returns __FindNodesWithCommentSummaryInput.Filter, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetSort returns __FindNodesWithCommentSummaryInput.Sort, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetSort() *NodeSort { return v.Sort }
+
+// GetSortProperty returns __FindNodesWithCommentSummaryInput.SortProperty, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetSortProperty() *gqltypes.NodePropertySort {
+	return v.SortProperty
+}
+
+// GetLimit returns __FindNodesWithCommentSummaryInput.Limit, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __FindNodesWithCommentSummaryInput.Offset, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetOffset() *int { return v.Offset }
+
+// GetWithProperties returns __FindNodesWithCommentSummaryInput.WithProperties, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetWithProperties() bool { return v.WithProperties }
+
+// GetWithData returns __FindNodesWithCommentSummaryInput.WithData, and is useful for accessing the field via an interface.
+func (v *__FindNodesWithCommentSummaryInput) GetWithData() bool { return v.WithData }
+
 // __FindObjectsInput is used internally by genqlient
 type __FindObjectsInput struct {
 	MemoryRef  string           `json:"memoryRef"`
@@ -104982,6 +105568,26 @@ func (v *__HostOperationsInput) GetFirst() *int { return v.First }
 // GetAfter returns __HostOperationsInput.After, and is useful for accessing the field via an interface.
 func (v *__HostOperationsInput) GetAfter() *string { return v.After }
 
+// __HostPlanAppInput is used internally by genqlient
+type __HostPlanAppInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HostPlanAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostPlanAppInput) GetRef() string { return v.Ref }
+
+// __HostPlanWorkerInput is used internally by genqlient
+type __HostPlanWorkerInput struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __HostPlanWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostPlanWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __HostPlanWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostPlanWorkerInput) GetRef() string { return v.Ref }
+
 // __HostRegistrationsInput is used internally by genqlient
 type __HostRegistrationsInput struct {
 	AppRef string `json:"appRef"`
@@ -105437,6 +106043,14 @@ type __MemorySubscriptionsInput struct {
 
 // GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
+
+// __MemorySyncPrerequisitesInput is used internally by genqlient
+type __MemorySyncPrerequisitesInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MemorySyncPrerequisitesInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemorySyncPrerequisitesInput) GetRef() string { return v.Ref }
 
 // __MemoryUsageSummaryInput is used internally by genqlient
 type __MemoryUsageSummaryInput struct {
@@ -107486,6 +108100,14 @@ func (v *__SubscribeTickerInput) GetTickerRef() string { return v.TickerRef }
 // GetWorkerRef returns __SubscribeTickerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__SubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
 
+// __SyncMemoryInput is used internally by genqlient
+type __SyncMemoryInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __SyncMemoryInput.Id, and is useful for accessing the field via an interface.
+func (v *__SyncMemoryInput) GetId() string { return v.Id }
+
 // __TeamActionRegisterIndexInput is used internally by genqlient
 type __TeamActionRegisterIndexInput struct {
 	AppRef   string  `json:"appRef"`
@@ -108730,6 +109352,7 @@ type __UpdateMemoryConfigTemplateClearingDescriptionInput struct {
 	ExpectedRevision int                        `json:"expectedRevision"`
 	Name             *string                    `json:"name,omitempty"`
 	Required         *bool                      `json:"required,omitempty"`
+	OrgDefault       *bool                      `json:"orgDefault,omitempty"`
 	Rules            []*CreateNodeRoleRuleInput `json:"rules"`
 }
 
@@ -108746,6 +109369,11 @@ func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetName() *string
 
 // GetRequired returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Required, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRequired() *bool { return v.Required }
+
+// GetOrgDefault returns __UpdateMemoryConfigTemplateClearingDescriptionInput.OrgDefault, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetOrgDefault() *bool {
+	return v.OrgDefault
+}
 
 // GetRules returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Rules, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRules() []*CreateNodeRoleRuleInput {
@@ -121925,6 +122553,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -126320,6 +126949,80 @@ func FindNodes(
 	return data_, err_
 }
 
+// The query executed by FindNodesWithCommentSummary.
+const FindNodesWithCommentSummary_Operation = `
+query FindNodesWithCommentSummary ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $withProperties: Boolean!, $withData: Boolean!) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
+		total
+		degraded
+		reason
+		hits {
+			score
+			node {
+				id
+				memoryId
+				loc
+				name
+				nodeType
+				tags
+				seq
+				isRunnable
+				role
+				updatedAt
+				commentSummary {
+					openThreads
+					oldestOpenThreadAt
+				}
+				properties @include(if: $withProperties)
+				data @include(if: $withData)
+			}
+		}
+	}
+}
+`
+
+// Opt-in document: omitted listings never name this provider-new field.
+func FindNodesWithCommentSummary(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query *string,
+	mode *FindNodesMode,
+	filter *NodeFilter,
+	sort *NodeSort,
+	sortProperty *gqltypes.NodePropertySort,
+	limit *int,
+	offset *int,
+	withProperties bool,
+	withData bool,
+) (data_ *FindNodesWithCommentSummaryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FindNodesWithCommentSummary",
+		Query:  FindNodesWithCommentSummary_Operation,
+		Variables: &__FindNodesWithCommentSummaryInput{
+			Query:          query,
+			Mode:           mode,
+			Filter:         filter,
+			Sort:           sort,
+			SortProperty:   sortProperty,
+			Limit:          limit,
+			Offset:         offset,
+			WithProperties: withProperties,
+			WithData:       withData,
+		},
+	}
+
+	data_ = &FindNodesWithCommentSummaryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by FindObjects.
 const FindObjects_Operation = `
 query FindObjects ($memoryRef: String!, $objectType: String!, $match: JSON, $where: JSON, $sort: JSON, $limit: Int, $offset: Int) {
@@ -128801,6 +129504,81 @@ func HostOperations(
 	return data_, err_
 }
 
+// The query executed by HostPlanApp.
+const HostPlanApp_Operation = `
+query HostPlanApp ($ref: ID!) {
+	app(ref: $ref) {
+		id
+	}
+}
+`
+
+func HostPlanApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HostPlanAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostPlanApp",
+		Query:  HostPlanApp_Operation,
+		Variables: &__HostPlanAppInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HostPlanAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostPlanWorker.
+const HostPlanWorker_Operation = `
+query HostPlanWorker ($appRef: ID!, $ref: ID!) {
+	worker(appRef: $appRef, ref: $ref) {
+		id
+		appId
+		family
+		retiredAt
+	}
+}
+`
+
+// cli#1635: existing worker identity only. Do not fetch the briefing, prompts,
+// signature, credentials or transcript while inspecting a local host roster.
+func HostPlanWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *HostPlanWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostPlanWorker",
+		Query:  HostPlanWorker_Operation,
+		Variables: &__HostPlanWorkerInput{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &HostPlanWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostRegistrations.
 const HostRegistrations_Operation = `
 query HostRegistrations ($appRef: String!) {
@@ -130450,6 +131228,19 @@ query MemoryConfig ($memoryRef: ID!) {
 	memoryConfig(memoryRef: $memoryRef) {
 		id
 		memoryId
+		defaultSkips {
+			role
+			field
+			reason
+			ref
+			refState
+			createdAt
+			sourceTemplate {
+				id
+				name
+				deleted
+			}
+		}
 		createdAt
 		createdBy
 		updatedAt
@@ -130529,6 +131320,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -130595,6 +131387,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -130777,6 +131570,42 @@ func MemorySubscriptions(
 	}
 
 	data_ = &MemorySubscriptionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemorySyncPrerequisites.
+const MemorySyncPrerequisites_Operation = `
+query MemorySyncPrerequisites ($ref: ID!) {
+	memory(ref: $ref) {
+		source
+		isEncrypted
+	}
+}
+`
+
+// cli#60 P2: internal prerequisites only, read after confirmation.
+func MemorySyncPrerequisites(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MemorySyncPrerequisitesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemorySyncPrerequisites",
+		Query:  MemorySyncPrerequisites_Operation,
+		Variables: &__MemorySyncPrerequisitesInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MemorySyncPrerequisitesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -139480,6 +140309,44 @@ func SubscribeTicker(
 	return data_, err_
 }
 
+// The mutation executed by SyncMemory.
+const SyncMemory_Operation = `
+mutation SyncMemory ($id: ID!) {
+	syncMemory(id: $id) {
+		syncStatus
+		syncError
+		lastSyncedAt
+		lastSyncReport
+	}
+}
+`
+
+// cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
+func SyncMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *SyncMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SyncMemory",
+		Query:  SyncMemory_Operation,
+		Variables: &__SyncMemoryInput{
+			Id: id,
+		},
+	}
+
+	data_ = &SyncMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamActionRegisterIndex.
 const TeamActionRegisterIndex_Operation = `
 query TeamActionRegisterIndex ($appRef: ID!, $agentRef: ID, $taskLoc: String, $code: String, $limit: Int, $offset: Int) {
@@ -143112,6 +143979,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -143183,8 +144051,8 @@ func UpdateMemoryConfigTemplate(
 
 // The mutation executed by UpdateMemoryConfigTemplateClearingDescription.
 const UpdateMemoryConfigTemplateClearingDescription_Operation = `
-mutation UpdateMemoryConfigTemplateClearingDescription ($ref: ID!, $expectedRevision: Int!, $name: String, $required: Boolean, $rules: [CreateNodeRoleRuleInput!]) {
-	updateMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision, input: {description:null,name:$name,required:$required,rules:$rules}) {
+mutation UpdateMemoryConfigTemplateClearingDescription ($ref: ID!, $expectedRevision: Int!, $name: String, $required: Boolean, $orgDefault: Boolean, $rules: [CreateNodeRoleRuleInput!]) {
+	updateMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision, input: {description:null,name:$name,required:$required,orgDefault:$orgDefault,rules:$rules}) {
 		template {
 			... MemoryConfigTemplateFields
 		}
@@ -143200,6 +144068,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
 	ownerType
 	ownerId
 	required
+	orgDefault
 	revision
 	createdAt
 	createdBy
@@ -143243,6 +144112,7 @@ func UpdateMemoryConfigTemplateClearingDescription(
 	expectedRevision int,
 	name *string,
 	required *bool,
+	orgDefault *bool,
 	rules []*CreateNodeRoleRuleInput,
 ) (data_ *UpdateMemoryConfigTemplateClearingDescriptionResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -143253,6 +144123,7 @@ func UpdateMemoryConfigTemplateClearingDescription(
 			ExpectedRevision: expectedRevision,
 			Name:             name,
 			Required:         required,
+			OrgDefault:       orgDefault,
 			Rules:            rules,
 		},
 	}

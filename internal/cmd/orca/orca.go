@@ -25,9 +25,11 @@ To check that Orca is reachable from this host, run
 Exit 10 means Orca is not reachable; exit 4 means Orca answered. A usage
 error (exit 2 or 3) says nothing about Orca.
 
-Start with ` + "`hadron orca terminal status --help`" + `: the group has one command, status.`,
+Start with ` + "`hadron orca terminal status --help`" + ` for terminal observations.
+For a read-only roster inspection, use ` + "`hadron orca host plan --help`" + `.
+The planner reads no screens or wakes and never executes its proposed actions.`,
 	}
-	cmd.AddCommand(newCmdTerminal(f))
+	cmd.AddCommand(newCmdTerminal(f), newCmdHost(f))
 	return cmd
 }
 

@@ -239,7 +239,7 @@ func scanLabelSpecs(ctx context.Context, client graphql.Client, memory, prefix *
 				if h == nil || h.Node == nil {
 					return nil, exitcode.Newf(exitcode.Unavailable, "server returned an unavailable listing hit; label report incomplete")
 				}
-				out = append(out, h.Node)
+				out = append(out, api.ListNodeFromProjection(h.Node))
 			}
 			return out, nil
 		})
