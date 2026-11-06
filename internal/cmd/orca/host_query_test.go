@@ -32,6 +32,19 @@ func TestHostPlan1635MinimalIdentityDocuments(t *testing.T) {
 	}
 }
 
+func TestHostPlan1635ExactIdentitySelections(t *testing.T) {
+	expected := map[string]string{
+		gen.HostPlanWorker_Operation: `query HostPlanWorker ($appRef: ID!, $ref: ID!) { worker(appRef: $appRef, ref: $ref) { id appId family retiredAt } }`,
+		gen.HostPlanApp_Operation:    `query HostPlanApp ($ref: ID!) { app(ref: $ref) { id } }`,
+	}
+	normalize := func(s string) string { return strings.Join(strings.Fields(s), "") }
+	for actual, want := range expected {
+		if normalize(actual) != normalize(want) {
+			t.Fatalf("identity selection widened or changed: %s", actual)
+		}
+	}
+}
+
 func hostDocumentField1635(document, field string) bool {
 	for _, line := range strings.Split(document, "\n") {
 		if strings.TrimSpace(line) == field {

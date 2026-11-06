@@ -53,7 +53,7 @@ func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
 		}
 		return runHostRead(ctx, bin, args)
 	}
-	rows := []hostRosterWorker{{Worker: "Iris", Repo: repo, Family: "codex"}}
+	rows := []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex"}}
 	before := snapshotHost1635(t, repo)
 	inv, err := discoverHostInventory(context.Background(), rows, run)
 	if _, e := os.Stat(marker); !os.IsNotExist(e) {
@@ -142,5 +142,82 @@ printf 'isolated'
 	out, err := runHostRead(context.Background(), "orca", []string{"terminal", "list", "--json"})
 	if err != nil || string(out) != "isolated" {
 		t.Fatalf("environment isolation failed: %q %v", out, err)
+	}
+}
+
+func TestHostPlan1635RealLinkedAndPrunableWorktrees(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	linked := filepath.Join(root, "linked")
+	home := t.TempDir()
+	git := func(args ...string) []byte {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TEMPLATE_DIR=" + t.TempDir()}
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fixture git %v: %v %s", args, err, out)
+		}
+		return out
+	}
+	git("init", "--quiet", repo)
+	git("-C", repo, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "--allow-empty", "-m", "fixture")
+	git("-C", repo, "worktree", "add", "--quiet", "--detach", linked)
+	repo, _ = filepath.EvalSymlinks(repo)
+	linked, _ = filepath.EvalSymlinks(linked)
+	dir := strings.TrimSpace(string(git("-C", linked, "rev-parse", "--absolute-git-dir")))
+	raw := []byte(`{"server":"https://target.example","workerId":"id-iris","appId":"app-id","sessionId":"linked-session"}`)
+	if err := os.WriteFile(filepath.Join(dir, bindingFileName), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(ctx context.Context, bin string, args []string) ([]byte, error) {
+		if bin == "orca" {
+			return []byte(`{"ok":true,"result":{"terminals":[]}}`), nil
+		}
+		return runHostRead(ctx, bin, args)
+	}
+	rows := []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex"}}
+	inv, err := discoverHostInventory(context.Background(), rows, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tree := range inv.Trees {
+		if tree.Path == linked && tree.Binding != nil && tree.Binding.SessionID == "linked-session" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("linked-worktree per-gitdir binding not read: %+v", inv)
+	}
+	if err := os.RemoveAll(linked); err != nil {
+		t.Fatal(err)
+	}
+	before := git("-C", repo, "worktree", "list", "--porcelain", "-z")
+	if !strings.Contains(string(before), "prunable") {
+		t.Fatal("fixture does not have a prunable record")
+	}
+	inv, err = discoverHostInventory(context.Background(), rows, run)
+	if err != nil || len(inv.Trees) != 1 {
+		t.Fatalf("prunable stale record poisoned scan: %+v %v", inv, err)
+	}
+	after := git("-C", repo, "worktree", "list", "--porcelain", "-z")
+	if string(before) != string(after) {
+		t.Fatal("read-only discovery modified stale git metadata")
+	}
+}
+
+func TestHostPlan1635SubprocessHonorsCallerDeadline(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "orca"), []byte("#!/bin/sh\nexec /bin/sleep 10\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+":/usr/bin:/bin")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	out, err := runHostRead(ctx, "orca", []string{"terminal", "list", "--json"})
+	if err == nil || out != nil || time.Since(start) > 2*time.Second {
+		t.Fatalf("deadline not enforced: %v %v", err, time.Since(start))
 	}
 }

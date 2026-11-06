@@ -23,7 +23,11 @@ func hostRepo1635(t *testing.T) string {
 	if err := os.Mkdir(filepath.Join(p, ".git"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	return p
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }
 func roster1635(t *testing.T, repo string, workers ...string) string {
 	t.Helper()
@@ -66,7 +70,7 @@ func fakePlan1635(inv hostInventory, calls *[]string) hostPlanEnv {
 			*calls = append(*calls, "worker:"+ref)
 			return hostWorkerIdentity{ID: "id-" + strings.ToLower(ref), AppID: "app-id", Family: "codex"}, nil
 		},
-		Inventory: func(context.Context, []hostRosterWorker) (hostInventory, error) {
+		Inventory: func(context.Context, []hostPlanWorker) (hostInventory, error) {
 			*calls = append(*calls, "inventory")
 			return inv, nil
 		},
@@ -169,7 +173,7 @@ func TestHostPlan1635LaterWorkerAndHostFailuresAreIncomplete(t *testing.T) {
 		t.Fatal(code, out)
 	}
 	env = fakePlan1635(hostInventory{}, &calls)
-	env.Inventory = func(context.Context, []hostRosterWorker) (hostInventory, error) {
+	env.Inventory = func(context.Context, []hostPlanWorker) (hostInventory, error) {
 		return hostInventory{}, exitcode.Newf(10, "SECRET-subprocess")
 	}
 	dto, code, out = executePlan1635(t, file, env)
@@ -212,7 +216,7 @@ func TestHostPlan1635DiscoveryFailureNeverEmpty(t *testing.T) {
 	if err != nil || len(inv.Terminals) != 0 {
 		t.Fatal(err)
 	}
-	_, err = discoverHostInventory(context.Background(), []hostRosterWorker{{Repo: hostRepo1635(t)}}, func(_ context.Context, bin string, _ []string) ([]byte, error) {
+	_, err = discoverHostInventory(context.Background(), []hostPlanWorker{{Repo: hostRepo1635(t)}}, func(_ context.Context, bin string, _ []string) ([]byte, error) {
 		if bin == "orca" {
 			return []byte(`{"ok":true,"result":{"terminals":[]}}`), nil
 		}

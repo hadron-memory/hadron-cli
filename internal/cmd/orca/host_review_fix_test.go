@@ -34,7 +34,7 @@ func TestHostPlan1635PrunableWorktreeDoesNotPoisonInventory(t *testing.T) {
 		}
 		return []byte(filepath.Join(repo, ".git") + "\n"), nil
 	}
-	inv, err := discoverHostInventory(context.Background(), []hostRosterWorker{{Worker: "Iris", Repo: repo, Family: "codex"}}, run)
+	inv, err := discoverHostInventory(context.Background(), []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex"}}, run)
 	if err != nil {
 		t.Fatalf("explicit prunable absent worktree poisoned inventory: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestHostPlan1635UnrelatedLegacyBindingDoesNotPoisonInventory(t *testing.T) 
 		}
 		return []byte(filepath.Join(repo, ".git") + "\n"), nil
 	}
-	_, err := discoverHostInventory(context.Background(), []hostRosterWorker{{Worker: "Iris", Repo: repo, Family: "codex"}}, run)
+	_, err := discoverHostInventory(context.Background(), []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex"}}, run)
 	if err != nil {
 		t.Fatalf("known unrelated worker binding poisoned inventory: %v", err)
 	}
@@ -141,5 +141,24 @@ func TestHostPlan1635DiscoveryScopeExplicit(t *testing.T) {
 	}
 	if code != 0 || dto["discoveryScope"] != "roster-repositories-and-reported-terminals" {
 		t.Fatalf("scope of absence not explicit: code%d %s", code, raw)
+	}
+}
+
+func TestHostPlan1635WorkerRowKeysStrict(t *testing.T) {
+	repo := hostRepo1635(t)
+	raw, err := os.ReadFile(roster1635(t, repo, "Iris"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutation := range []string{`"worker":"Iris","extra":true`, `"Worker":"Iris"`, `"worker":"Iris","worker":"Dara"`} {
+		file := filepath.Join(t.TempDir(), "roster.json")
+		if err := os.WriteFile(file, []byte(strings.Replace(string(raw), `"worker":"Iris"`, mutation, 1)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		calls := []string{}
+		_, code, out := executePlan1635(t, file, fakePlan1635(hostInventory{}, &calls))
+		if code != 2 || len(calls) != 0 || out != "" {
+			t.Fatalf("malformed worker key admitted: code%d calls%v %s", code, calls, out)
+		}
 	}
 }

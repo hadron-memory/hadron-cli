@@ -33,6 +33,14 @@ type hostInventory struct {
 	Trees     []hostTree
 	Terminals []hostTerminal
 }
+type hostInventoryError struct {
+	Reason string
+	Err    error
+}
+
+func (e *hostInventoryError) Error() string { return e.Err.Error() }
+func (e *hostInventoryError) Unwrap() error { return e.Err }
+
 type hostReadRunner func(context.Context, string, []string) ([]byte, error)
 
 // Host discovery has its own closed argv set, not the delivery runner (which
@@ -52,19 +60,19 @@ func hostReadAllowed(bin string, args []string) bool {
 }
 
 type hostReadBuffer struct {
-	bytes.Buffer
+	buf      bytes.Buffer
 	overflow bool
 }
 
 func (b *hostReadBuffer) Write(p []byte) (int, error) {
 	const max = 8 << 20
 	n := len(p)
-	left := max - b.Len()
+	left := max - b.buf.Len()
 	if len(p) > left {
 		p = p[:left]
 		b.overflow = true
 	}
-	_, _ = b.Buffer.Write(p)
+	_, _ = b.buf.Write(p)
 	return n, nil
 }
 func runHostRead(ctx context.Context, bin string, args []string) ([]byte, error) {
@@ -90,15 +98,15 @@ func runHostRead(ctx context.Context, bin string, args []string) ([]byte, error)
 	if err != nil || out.overflow {
 		return nil, errors.New("host discovery failed")
 	}
-	return out.Bytes(), nil
+	return out.buf.Bytes(), nil
 }
-func readHostInventory(ctx context.Context, rows []hostRosterWorker) (hostInventory, error) {
+func readHostInventory(ctx context.Context, rows []hostPlanWorker) (hostInventory, error) {
 	return discoverHostInventory(ctx, rows, runHostRead)
 }
-func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hostReadRunner) (hostInventory, error) {
+func discoverHostInventory(ctx context.Context, rows []hostPlanWorker, run hostReadRunner) (hostInventory, error) {
 	inv := hostInventory{Repos: map[string]string{}, Trees: []hostTree{}, Terminals: []hostTerminal{}}
 	badGit := func() (hostInventory, error) {
-		return inv, exitcode.Newf(exitcode.Error, "git inventory unavailable; plan incomplete")
+		return inv, &hostInventoryError{"git_inventory_unavailable", exitcode.Newf(exitcode.Error, "git inventory unavailable; plan incomplete")}
 	}
 	// Validate the Orca envelope ourselves: the legacy status client's permissive
 	// nil-list decoding is not evidence of an empty host inventory.
@@ -130,7 +138,7 @@ func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hos
 		} // An unknown path must not turn into an absent worker resource.
 		p, err := canonicalHostPath(t.Path)
 		if err != nil {
-			return inv, exitcode.Newf(exitcode.OrcaUnreachable, "Orca inventory unavailable")
+			return inv, &hostInventoryError{"terminal_path_unresolved", exitcode.Newf(exitcode.Error, "terminal path unavailable; plan incomplete")}
 		}
 		inv.Terminals = append(inv.Terminals, hostTerminal{t.Handle, p, deref(t.Family)})
 	}
@@ -153,12 +161,25 @@ func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hos
 			return badGit()
 		}
 		entries := 0
-		for _, field := range strings.Split(string(data), "\x00") {
-			if !strings.HasPrefix(field, "worktree ") {
+		// Porcelain -z separates records with an empty field. A prunable record
+		// whose directory is absent is positive stale metadata, not an unknown
+		// live worktree. Never prune it or skip an unmarked/unreadable path.
+		for _, record := range strings.Split(string(data), "\x00\x00") {
+			fields := strings.Split(record, "\x00")
+			if len(fields) == 0 || !strings.HasPrefix(fields[0], "worktree ") {
 				continue
 			}
-			p, err := canonicalHostPath(strings.TrimPrefix(field, "worktree "))
+			prunable := false
+			for _, field := range fields[1:] {
+				if field == "prunable" || strings.HasPrefix(field, "prunable ") {
+					prunable = true
+				}
+			}
+			p, err := canonicalHostPath(strings.TrimPrefix(fields[0], "worktree "))
 			if err != nil {
+				if prunable && os.IsNotExist(err) {
+					continue
+				}
 				return badGit()
 			}
 			paths[p] = true
@@ -176,6 +197,10 @@ func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hos
 		} else if !os.IsNotExist(err) {
 			return badGit()
 		}
+	}
+	wanted := map[string]bool{}
+	for _, row := range rows {
+		wanted[row.ID] = true
 	}
 	ordered := make([]string, 0, len(paths))
 	for p := range paths {
@@ -198,10 +223,17 @@ func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hos
 		}
 		if err == nil {
 			var b hostBinding
-			if json.Unmarshal(data, &b) != nil || b.WorkerID == "" || b.AppID == "" || b.SessionID == "" {
+			if json.Unmarshal(data, &b) != nil || b.WorkerID == "" {
 				return badGit()
 			}
-			tree.Binding = &b
+			// A successfully parsed different worker id cannot satisfy any row.
+			// Legacy missing metadata for a requested worker still fails closed.
+			if wanted[b.WorkerID] {
+				if b.AppID == "" || b.SessionID == "" {
+					return badGit()
+				}
+				tree.Binding = &b
+			}
 		}
 		inv.Trees = append(inv.Trees, tree)
 	}

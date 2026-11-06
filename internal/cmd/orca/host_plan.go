@@ -53,15 +53,16 @@ type hostPlanProblem struct {
 	Reason string `json:"reason"`
 }
 type hostPlanDTO struct {
-	Server      string            `json:"server"`
-	Version     int               `json:"version"`
-	App         string            `json:"app"`
-	ReadOnly    bool              `json:"readOnly"`
-	Complete    bool              `json:"complete"`
-	Workers     []hostPlanWorker  `json:"workers"`
-	Actions     []hostPlanAction  `json:"actions"`
-	Conflicts   []hostPlanProblem `json:"conflicts"`
-	Unavailable []hostPlanProblem `json:"unavailable"`
+	Server         string            `json:"server"`
+	Version        int               `json:"version"`
+	App            string            `json:"app"`
+	ReadOnly       bool              `json:"readOnly"`
+	Complete       bool              `json:"complete"`
+	DiscoveryScope string            `json:"discoveryScope"`
+	Workers        []hostPlanWorker  `json:"workers"`
+	Actions        []hostPlanAction  `json:"actions"`
+	Conflicts      []hostPlanProblem `json:"conflicts"`
+	Unavailable    []hostPlanProblem `json:"unavailable"`
 }
 type hostWorkerIdentity struct {
 	ID, AppID, Family string
@@ -71,7 +72,7 @@ type hostPlanEnv struct {
 	Server    func() (string, error)
 	App       func(context.Context, string) (string, error)
 	Worker    func(context.Context, string, string) (hostWorkerIdentity, error)
-	Inventory func(context.Context, []hostRosterWorker) (hostInventory, error)
+	Inventory func(context.Context, []hostPlanWorker) (hostInventory, error)
 }
 
 func newCmdHost(f *cmdutil.Factory) *cobra.Command {
@@ -143,11 +144,17 @@ and Orca terminal list only. It does not read terminal screens, ticks or wakes.
 Names/path suffixes alone never associate a resource with a worker: a worktree
 binding must name that worker id, App id and selected server. Recorded bindings and terminal
 identity are observations, not proof of a live model or a safe input prompt.
+Discovery covers roster repositories and reported terminal roots only, not every
+repository on the host. An absent binding means absent within that scope; a worker
+may have an unseen binding elsewhere. complete refers only to this bounded scan.
 Missing roster rows never delete, retire, close or release anything.
 
---json returns one version-1 object: server, app, readOnly, complete, workers, actions,
+--json returns one version-1 object: server, app, readOnly, complete, discoveryScope, workers, actions,
 conflicts, unavailable. Arrays are always []. Input order is stable. A conflict
 exits 5, incomplete discovery exits nonzero, and missing/broken Orca exits 10.
+A valid terminal entry whose path cannot be resolved is incomplete (exit 1), not
+an Orca reachability failure. Missing git worktrees explicitly marked prunable
+are ignored; their metadata is never modified.
 A failed discovery is never an empty inventory. Diagnostics omit subprocess
 output and server prose. The plan emits no credential or transcript fields; input refs
 and paths remain operator-supplied data in the plan.
@@ -171,7 +178,7 @@ standing grant. Future host-write tooling requires its own authorization.`,
 			if err != nil {
 				return exitcode.Newf(exitcode.Usage, "host plan needs an HTTP(S) server base URL without credentials, query or fragment")
 			}
-			dto := hostPlanDTO{Server: server, Version: 1, App: roster.App, ReadOnly: true, Complete: false, Workers: []hostPlanWorker{}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
+			dto := hostPlanDTO{Server: server, Version: 1, App: roster.App, ReadOnly: true, Complete: false, DiscoveryScope: "roster-repositories-and-reported-terminals", Workers: []hostPlanWorker{}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
 			fail := func(worker, reason string, code int) error {
 				dto.Unavailable = append(dto.Unavailable, hostPlanProblem{worker, reason})
 				if err := writeHostPlan(f, dto); err != nil {
@@ -207,10 +214,15 @@ standing grant. Future host-write tooling requires its own authorization.`,
 					dto.Conflicts = append(dto.Conflicts, hostPlanProblem{row.Worker, "recorded_family_mismatch"})
 				}
 			}
-			inv, err := env.Inventory(cmd.Context(), roster.Workers)
+			inv, err := env.Inventory(cmd.Context(), dto.Workers)
 			if err != nil {
 				code := exitcode.FromError(err)
-				return fail("", "host_inventory_unavailable", code)
+				reason := "host_inventory_unavailable"
+				var inventoryErr *hostInventoryError
+				if errors.As(err, &inventoryErr) {
+					reason = inventoryErr.Reason
+				}
+				return fail("", reason, code)
 			}
 			assembleHostPlan(&dto, appID, server, inv)
 			dto.Complete = len(dto.Unavailable) == 0
@@ -311,6 +323,9 @@ func writeHostPlan(f *cmdutil.Factory, dto hostPlanDTO) error {
 		if _, err := fmt.Fprintf(w, "Read-only host plan: %s (complete: %t; nothing executed)\n", output.SafeLine(dto.App, 256), dto.Complete); err != nil {
 			return err
 		}
+		if _, err := fmt.Fprintf(w, "Discovery scope: %s (server: %s); unseen repositories are not scanned\n", dto.DiscoveryScope, output.SafeLine(dto.Server, 512)); err != nil {
+			return err
+		}
 		for _, row := range dto.Workers {
 			if _, err := fmt.Fprintf(w, "%s: %d worktrees, %d terminals, %d recorded sessions\n", output.SafeLine(row.Worker, 256), len(row.Worktrees), len(row.Terminals), len(row.Sessions)); err != nil {
 				return err
@@ -326,7 +341,7 @@ func writeHostPlan(f *cmdutil.Factory, dto hostPlanDTO) error {
 			items []hostPlanProblem
 		}{{"conflict", dto.Conflicts}, {"unavailable", dto.Unavailable}} {
 			for _, p := range group.items {
-				if _, err := fmt.Fprintf(w, "%s: %s %s\n", group.label, output.SafeLine(p.Worker, 256), p.Reason); err != nil {
+				if _, err := fmt.Fprintf(w, "%s: %s %s\n", group.label, output.SafeLine(hostProblemSubject(p.Worker), 256), p.Reason); err != nil {
 					return err
 				}
 			}
@@ -354,4 +369,11 @@ func hostServerIdentity(raw string) (string, error) {
 		host = strings.TrimSuffix(host, ":80")
 	}
 	return scheme + "://" + host + u.EscapedPath(), nil
+}
+
+func hostProblemSubject(worker string) string {
+	if worker == "" {
+		return "inventory"
+	}
+	return worker
 }

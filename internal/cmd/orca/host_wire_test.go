@@ -70,7 +70,7 @@ func TestHostPlan1635IdentityWireAndLaterRefusal(t *testing.T) {
 			f := &cmdutil.Factory{IOStreams: streams, JSON: true, ServerFlag: server.URL, ConfigFn: config.Load}
 			env := defaultHostPlanEnv(f)
 			hostCalls := 0
-			env.Inventory = func(context.Context, []hostRosterWorker) (hostInventory, error) {
+			env.Inventory = func(context.Context, []hostPlanWorker) (hostInventory, error) {
 				hostCalls++
 				return hostInventory{Repos: map[string]string{repo: "common"}}, nil
 			}
