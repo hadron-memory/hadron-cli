@@ -501,7 +501,7 @@ func TestAuthoredExtractWarning1685(t *testing.T) {
 						t.Errorf("missing recovery %s: %s", want, text)
 					}
 				}
-			} else if strings.Contains(text+out.String(), "SECRET_") {
+			} else if strings.Contains(text, "Required task:") || strings.Contains(text+out.String(), "SECRET_") {
 				t.Fatal("partial warning leaked")
 			}
 		})
