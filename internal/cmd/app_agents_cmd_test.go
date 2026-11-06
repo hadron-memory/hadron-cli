@@ -11,7 +11,7 @@ import (
 const appRosterResp = `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:support","name":"Support App",
 	"agents":[{"id":"agt9","urn":"hrn:agent:acme.com:support-bot","name":"Support Bot","description":null,
 	"visibility":"ORGANIZATION","organizationId":"o1","personaRole":null,
-	"createdAt":"2026-08-11T00:00:00Z"}]}}}`
+	"createdAt":"2026-08-11T00:00:00Z"}],"appAgents":[{"agent":{"id":"agt9"},"bootPromptRef":null,"bootPromptTargetDeleted":null,"installMethod":null,"importer":null}]}}}`
 
 // #408: the AppAgent join is a general App concept, reachable under the `app`
 // noun. Since #428 it is the INSTALL roster (the cast pool) — named workers

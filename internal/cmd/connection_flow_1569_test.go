@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -32,39 +30,7 @@ func flowResp(status, connID, failure string) string {
 // the one EmailConnections read after CONNECTED.
 func runFlowConnect(t *testing.T, flows []string, fill string, args ...string) *connectRun {
 	t.Helper()
-	r := &connectRun{}
-	clock := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
-	prev := connection.Hooks
-	t.Cleanup(func() { connection.Hooks = prev })
-	connection.Hooks.Now = func() time.Time { return clock }
-	connection.Hooks.Sleep = func(_ context.Context, d time.Duration) error { clock = clock.Add(d); r.slept += d; return nil }
-	connection.Hooks.Open = func(u string) error { r.opened = append(r.opened, u); return nil }
-	calls := 0
-	srv, vars := captureGraphQLFunc(t, func(op string) string {
-		r.ops = append(r.ops, op)
-		switch op {
-		case "StartConnection":
-			return connectStart
-		case "ConnectionFlow":
-			i := min(calls, len(flows)-1)
-			calls++
-			return flows[i]
-		case "EmailConnections":
-			return fill
-		}
-		return ""
-	})
-	r.vars = vars
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"--server", srv.URL}, args...))
-	r.err = root.Execute()
-	if r.err != nil {
-		r.code = renderError(f, r.err)
-	}
-	r.out = out.String()
-	r.errOut = f.IOStreams.ErrOut.(*strings.Builder).String()
-	return r
+	return runConnectionScript(t, connectStart, flows, fill, nil, args...)
 }
 
 func count(ops []string, op string) int {
@@ -211,13 +177,13 @@ func TestConnectNoWaitCarriesTheFlowID(t *testing.T) {
 	if count(r.ops, "ConnectionFlow") != 0 {
 		t.Fatalf("--no-wait polled: %v", r.ops)
 	}
-	h := runFlowConnect(t, nil2(), connRows(), "connection", "connect", "gmail", "--org", "org_1", "--no-wait", "--no-browser")
+	h := runFlowConnect(t, pendingFlowResponses(), connRows(), "connection", "connect", "gmail", "--org", "org_1", "--no-wait", "--no-browser")
 	if h.err != nil || !strings.Contains(h.out+h.errOut, "flow_1") {
 		t.Fatalf("human line lacks the flow id: %q %q", h.out, h.errOut)
 	}
 }
 
-func nil2() []string { return []string{flowResp("PENDING", "", "")} }
+func pendingFlowResponses() []string { return []string{flowResp("PENDING", "", "")} }
 
 // `connection flow <id>` reads once; any resolved state exits 0; the --json DTO
 // carries every field with explicit null for the unused ones.
@@ -328,6 +294,52 @@ func TestUnknownFlowStatusIsNotASuccessfulRead(t *testing.T) {
 		r := runFlowConnect(t, []string{resp}, connRows(), "connection", "flow", "flow_1", "--json")
 		if r.code != exitcode.Unavailable {
 			t.Errorf("%s: exit %d (%v), want %d; out %q", name, r.code, r.err, exitcode.Unavailable, r.out)
+		}
+	}
+}
+
+// These lines follow a successful browser handoff: none may repeat the link.
+func TestConnectHumanOutcomeLines1717(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		flows               []string
+		args                []string
+		wantOut             string
+		wantCode, wantPolls int
+	}{
+		{"started", []string{pend}, []string{"--no-wait"}, "started gmail connection for org org_1 (flow flow_1, link expires 2099-01-01T00:00:00Z); follow it with: hadron connection flow flow_1\n", 0, 0},
+		{"pending", []string{pend}, []string{"--wait", "10s"}, "gmail connection flow flow_1 has not finished (link expires 2099-01-01T00:00:00Z); follow it with: hadron connection flow flow_1\n", exitcode.WaitTimeout, 4},
+		{"failed", []string{pend, flowResp("FAILED", "", "access_denied")}, nil, "✗ gmail connection failed: access_denied (flow flow_1)\n", exitcode.Error, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"connection", "connect", "gmail", "--org", "org_1"}, tc.args...)
+			r := runFlowConnect(t, tc.flows, connRows(), args...)
+			if len(r.opened) != 1 || r.opened[0] != connectURL {
+				t.Fatalf("browser handoff: %v", r.opened)
+			}
+			for _, secret := range []string{connectURL, "SECRETNONCE123456", "hadron.example"} {
+				if strings.Contains(r.out+r.errOut, secret) {
+					t.Fatalf("authorize link repeated on human streams: %q %q", r.out, r.errOut)
+				}
+			}
+			if r.code != tc.wantCode || r.out != tc.wantOut {
+				t.Fatalf("human outcome: exit %d want %d, stdout %q want %q", r.code, tc.wantCode, r.out, tc.wantOut)
+			}
+			if count(r.ops, "StartConnection") != 1 || count(r.ops, "ConnectionFlow") != tc.wantPolls || count(r.ops, "EmailConnections") != 0 || len(r.ops) != 1+tc.wantPolls {
+				t.Fatalf("requests: got %v, want one start + %d flow reads only", r.ops, tc.wantPolls)
+			}
+		})
+	}
+}
+
+func TestConnectConnectedWithoutIDKeepsReadGuard1717(t *testing.T) {
+	for _, response := range []string{flowResp("CONNECTED", "", ""), strings.Replace(flowResp("CONNECTED", "", ""), `"connectionId":null`, `"connectionId":""`, 1)} {
+		r := runFlowConnect(t, []string{response}, connRows(), "connection", "connect", "gmail", "--org", "org_1")
+		if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != "server reported the flow connected without a connection id" || r.out != "" {
+			t.Fatalf("guard: exit %d err %v stdout %q", r.code, r.err, r.out)
+		}
+		if count(r.ops, "StartConnection") != 1 || count(r.ops, "ConnectionFlow") != 1 || len(r.ops) != 2 {
+			t.Fatalf("malformed answer should end after one flow read: %v", r.ops)
 		}
 	}
 }

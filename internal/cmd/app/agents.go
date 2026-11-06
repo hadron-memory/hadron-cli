@@ -67,8 +67,15 @@ honest answer rather than an empty list.
 
 INSTALL shows installed for a row install or derived for a direct import of
 an installed Agent; IMPORTER names the Agent supplying a derived install.
-Only readable Agents are listed; the list and count may be partial. These
-fields are answered only when you can read every installed Agent.
+Only readable Agent details are listed. If the installation roster or Agent
+list is withheld, --json prints null (not []), human output says "roster
+withheld (not visible to you)", and the command exits 0. When the installation list is
+available, its entries give the installation count; an entry with a null
+Agent counts as an install not visible to you. A partial roster prints
+"N installed (M not visible to you)" alongside readable details; its JSON
+array contains only those readable details and is not an install count.
+Known-empty stays [] and "0 readable agents". INSTALL and IMPORTER are
+answered only when you can read every installed Agent.
 Otherwise every row has no install mark (? = not available); JSON installMethod and importer
 are explicitly null. Null does not establish how an Agent is installed.
 

@@ -43,7 +43,8 @@ New settings require confirmation, or --yes without a terminal; legacy-only
 installs retain their existing request document and no-prompt path. On every
 path, --type is validated against this CLI's schema enum; an explicit empty or
 unknown value is a local usage error. Confirmation names fields, never values.
-Success prints the installed App; --json retains its seven-field App receipt.`,
+Success prints the installed App; --json retains its seven-field App receipt.
+memberCount stays present as null when withheld, distinct from a known 0.`,
 		Example: `  hadron app install --org acme.com --agent agent_123 --name "Support Bot"
   hadron app install --owner-me --agent hrn:agent:acme.com:support-bot --name "My Bot"`,
 		Args: cobra.NoArgs,
