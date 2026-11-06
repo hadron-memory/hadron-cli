@@ -39,17 +39,20 @@ type applyResultDTO struct {
 
 func newCmdTemplateApply(f *cmdutil.Factory) *cobra.Command {
 	var (
-		dryRun   bool
-		yes      bool
-		expected int
+		dryRun       bool
+		yes          bool
+		expected     int
+		memoriesFile string
 	)
 	cmd := &cobra.Command{
-		Use:   "apply <templateId> <memoryRef>",
-		Short: "Copy a template's rules into one memory's config",
-		Long: `Copy a template's rules into ONE memory's config. It is a one-off copy: later
+		Use:   "apply <templateId> [<memoryRef>...]",
+		Short: "Copy a template's rules into one or several memories",
+		Long: `Copy a template's rules into memory configs. One ref without --memories-file
+keeps the single-memory operation. It is a one-off copy: later
 edits to the template never reach the memory; re-applying is explicit. You
-must manage both the memory and the template (exit 4 otherwise, exactly as for
-one that does not exist).
+must manage the template and each target memory. On the single-memory path,
+an unmanaged or missing template or memory gives exit 4. Bulk target failures
+are per-entry (the full report exits 1); a whole-call template refusal is 4.
 
 The report has one entry per template rule:
   APPLIED           the memory had no rule for the role; the template's was
@@ -73,14 +76,40 @@ memory's own rules are re-read by the apply, and its report is authoritative.
 --dry-run prints the preview and writes nothing. --expected-revision pins the
 template revision yourself, e.g. one a teammate approved from a dry run.
 
-A rule the template references by a task that was since deleted refuses the
-whole apply (exit 5; fix the template with template update). Skipped entries
+With several refs (or --memories-file), one bulk preview is followed by one
+bulk apply pinned to its revision. File lines are trimmed; blank lines and #
+comments are skipped. Argument refs come first, duplicates are kept. The
+server owns the target cap: this command never caps, chunks or retries.
+Each input position gets a report; any failed entry gives exit 1 after the
+full report. Missing and unmanaged memories both report MEMORY_NOT_FOUND.
+Retry failed targets only after checking their errors. Do not retry
+DUPLICATE_TARGET positions: they name a memory already attempted earlier in
+the same call. Rerunning the whole --memories-file can replace rules again in
+memories that already succeeded.
+
+Any failed preview entry requires one explicit confirmation before applying
+the whole list: those targets may now succeed and replace rules that were
+not previewed. The prompt names them and any known replacements together.
+With --memories-file -, stdin cannot also answer: use --yes when confirmation
+is needed. Different successful preview revisions refuse with exit 5. If no
+preview entry succeeds, no real call is sent.
+
+A revision change before apply starts refuses the whole call (exit 5); a
+conflict after it starts stays in that entry's report (exit 1), without retry.
+A lost or malformed real-apply answer can follow partial writes: some memories
+may already have changed; verify memory configs before retrying.
+
+On the single-memory path, a rule referencing a task that was since deleted
+refuses the whole apply (exit 5; fix it with template update); bulk reports
+such failures per memory (exit 1). Skipped entries
 are part of the report, not failures: the exit code is 0.`,
 		Example: `  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --dry-run
-  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --yes --json`,
-		Args: cobra.ExactArgs(2),
+  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --yes --json
+  hadron memory config template apply tmpl_123 acme.com:kb acme.com:docs --dry-run
+  hadron memory config template apply tmpl_123 --memories-file failed-memories.txt --yes --json`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			templateRef, memoryRef := strings.TrimSpace(args[0]), cmdutil.CanonicalMemoryRef(args[1])
+			templateRef := strings.TrimSpace(args[0])
 			if templateRef == "" {
 				return exitcode.Newf(exitcode.Usage, "a template id is required")
 			}
@@ -91,11 +120,24 @@ are part of the report, not failures: the exit code is 0.`,
 				}
 				pinned = &expected
 			}
+			isBulk := len(args) != 2 || cmd.Flags().Changed("memories-file")
+			var inputRefs []string
+			if isBulk {
+				var err error
+				inputRefs, err = readBulkMemoryRefs(f, args[1:], memoriesFile, cmd.Flags().Changed("memories-file"))
+				if err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 
+			if isBulk {
+				return runBulkTemplateApply(cmd, f, client, bulkApplyOptions{templateRef: templateRef, inputRefs: inputRefs, expected: pinned, dryRun: dryRun, yes: yes, stdinUsed: cmd.Flags().Changed("memories-file") && memoriesFile == "-"})
+			}
+			memoryRef := cmdutil.CanonicalMemoryRef(args[1])
 			preview, err := applyTemplate(cmd, client, templateRef, memoryRef, pinned, true)
 			if err != nil {
 				return err
@@ -120,9 +162,10 @@ are part of the report, not failures: the exit code is 0.`,
 			return writeApplyResult(f, result)
 		},
 	}
+	cmd.Flags().StringVar(&memoriesFile, "memories-file", "", "append memory refs from a file, one per line (- reads stdin once)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print what applying would do, writing nothing")
-	cmd.Flags().BoolVar(&yes, "yes", false, "apply without asking when the preview replaces a rule (required non-interactively)")
-	cmd.Flags().IntVar(&expected, "expected-revision", 0, "apply only this template revision (exit 5 if the template has changed)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "apply without asking when preview replaces rules or any target preview fails (required non-interactively)")
+	cmd.Flags().IntVar(&expected, "expected-revision", 0, "apply only this template revision (whole-call conflict exits 5; bulk entry failures exit 1)")
 	return cmd
 }
 
@@ -135,6 +178,10 @@ func applyTemplate(cmd *cobra.Command, client graphql.Client, templateRef, memor
 	if r == nil {
 		return applyResultDTO{}, exitcode.Newf(exitcode.Error, "the server returned no apply result")
 	}
+	return applyDTO(&r.MemoryConfigApplyFields), nil
+}
+
+func applyDTO(r *gen.MemoryConfigApplyFields) applyResultDTO {
 	dto := applyResultDTO{
 		MemoryID: r.MemoryId, TemplateRevision: r.TemplateRevision, Required: r.Required, DryRun: r.DryRun,
 		Entries: []applyEntryDTO{}, Warnings: warningsFrom(r.Warnings),
@@ -153,7 +200,7 @@ func applyTemplate(cmd *cobra.Command, client graphql.Client, templateRef, memor
 		}
 		dto.Entries = append(dto.Entries, entry)
 	}
-	return dto, nil
+	return dto
 }
 
 // lockedAfter is the LOCKED column: whether the role's rule is locked once the

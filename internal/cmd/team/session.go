@@ -2298,9 +2298,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 						// internal fault. Anything else (lost answer, an
 						// undecodable body, a bare HTTP error) proves nothing
 						// about whether the update landed.
-						definitiveRefusal := len(api.ServerMessages(err)) > 0 &&
-							exitcode.FromError(mapped) != exitcode.Unavailable &&
-							!api.HasErrorCode(err, api.InternalServerErrorCode)
+						definitiveRefusal := isDefinitiveRefusal(err)
 						if !definitiveRefusal {
 							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) update could NOT be confirmed and may have been applied: %v — check `hadron team session list --active` before touching it; do not re-run this log, it would duplicate the row\n", err)
 						} else {
@@ -2328,6 +2326,18 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				if cmd.Flags().Changed("model") {
 					modelArg = &model
 				}
+				// cli#1495: the answer to a RECORD call that is lost,
+				// undecodable, or an internal fault leaves the row possibly
+				// written. Without a note a re-run — the natural reflex after
+				// a failed command — would duplicate it. The pointer was not
+				// touched: it moves only after a recorded row (#1278). Used by
+				// the current AND the legacy (old-server) record call.
+				noteLostRecordAnswer := func(e error) {
+					if isDefinitiveRefusal(e) {
+						return
+					}
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: the answer to the worklog record could NOT be confirmed, so the row may or may not have been recorded (the session pointer was not touched): %v — check `hadron team session list --%s %s` for it before re-running; a re-run may duplicate the row\n", e, kind, canonical)
+				}
 				logged, rerr := gen.RecordTeamWork(
 					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg, modelArg,
 				)
@@ -2337,6 +2347,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 					}
 					legacy, lerr := gen.RecordTeamWorkLegacy(ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg)
 					if lerr != nil {
+						noteLostRecordAnswer(lerr)
 						return api.MapError(lerr)
 					}
 					if legacy.RecordTeamWork.Ref != "" {
@@ -2349,7 +2360,9 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 					recordedModel = logged.RecordTeamWork.Model
 				}
 				if rerr != nil {
-					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+					// A 5xx envelope is no proof of a refusal (cli#1495): it falls
+					// through to the lost-answer note below, not this diagnosis.
+					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") && !api.FromNon200Envelope(rerr) {
 						// A WORKER session binds to the worker's App, so for one
 						// this means -m named a different App's memory — a
 						// mismatch, not a rescue candidate. A binding written by
@@ -2366,6 +2379,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; drop -m (the binding's App is the worklog home) or pass the worker's own team memory",
 							b.SessionID, b.WorkerName)
 					}
+					noteLostRecordAnswer(rerr)
 					return api.MapError(rerr)
 				}
 				// Prefer the server's canonical spelling for display and local state:
@@ -3744,4 +3758,30 @@ func sessionUserLabeller(ctx context.Context, client graphql.Client) func(*strin
 		}
 		return label(*id)
 	}
+}
+
+// isDefinitiveRefusal reports whether err proves the server REFUSED the call,
+// so that nothing it asked for was applied. A positive refusal needs all of:
+// the server answered with a GraphQL error envelope, the mapped exit is in
+// the refusal family, the envelope did not ride a 5xx, and it is not an
+// internal fault. Anything else — a lost or undecodable answer, a bare HTTP
+// error, a gateway 502/504 carrying a JSON `errors` list — proves nothing about
+// whether the call landed (cli#1495).
+func isDefinitiveRefusal(err error) bool {
+	return len(api.ServerMessages(err)) > 0 &&
+		pointerRefusalExit(exitcode.FromError(api.MapError(err))) &&
+		!api.FromNon200Envelope(err) &&
+		!api.HasErrorCode(err, api.InternalServerErrorCode)
+}
+
+// pointerRefusalExit reports whether a mapped exit code belongs to the family
+// a server REFUSAL maps to (usage 2, auth 3, not found 4). Anything else — an
+// unavailable answer (7), a generic failure (1), or a code outside the family
+// — proves nothing about whether the update landed (cli#1495).
+func pointerRefusalExit(code int) bool {
+	switch code {
+	case exitcode.Usage, exitcode.AuthRequired, exitcode.NotFound:
+		return true
+	}
+	return false
 }

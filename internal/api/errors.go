@@ -3,12 +3,14 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // serverError renders a GraphQL failure as the server's own message and
@@ -104,6 +106,80 @@ func CommentRecoveryDetails(err error) map[string]any {
 	return nil
 }
 
+// OpenThreadConflictID reads a createComment refusal for `comment add`
+// (cli#1690): it returns the existing thread's id only when the FIRST GraphQL
+// error carries the typed code COMMENT_OPEN_THREAD_EXISTS and a non-empty
+// string extensions.threadId. Anything else — another code, the conflict code
+// without a usable threadId, the conflict as a later error, message text that
+// merely mentions it — is not a recoverable conflict. A 5xx envelope is
+// excluded too: it is not proof the write was refused (FromNon200Envelope).
+// Call it on the error MapError returned or on the raw one; both keep the chain.
+func OpenThreadConflictID(err error) (string, bool) {
+	if err == nil || FromNon200Envelope(err) {
+		return "", false
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 || extensionCode(list[0]) != "COMMENT_OPEN_THREAD_EXISTS" {
+		return "", false
+	}
+	id, ok := list[0].Extensions["threadId"].(string)
+	// The id is printed in add's headline and in its reply-failure text, and it
+	// is the reference the reply is sent to, so it cannot be cleaned: one with
+	// control, format or separator characters (or past the one-line bound) is
+	// not a usable thread, and the original refusal stands.
+	if !ok || id == "" || output.SafeLine(id, 256) != id {
+		return "", false
+	}
+	return id, true
+}
+
+// threadError names the intended thread without claiming that an uncertain
+// reply was not recorded. Unwrap preserves exit and server-code metadata.
+type threadError struct {
+	error
+	thread string
+}
+
+func (e *threadError) Error() string {
+	if replyRefusedBeforeWrite(e.error) {
+		return fmt.Sprintf("reply to your open thread %s failed: %s", e.thread, e.error.Error())
+	}
+	return fmt.Sprintf("reply to your open thread %s: outcome is unknown; read the thread before retrying: %s", e.thread, e.error.Error())
+}
+
+// Only established pre-write reply refusals prove that the reply did not land.
+// COMMENT_NOT_FOUND is deliberately absent: post-commit projection can raise it.
+func replyRefusedBeforeWrite(err error) bool {
+	if FromNon200Envelope(err) {
+		return false
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, item := range list {
+		if item == nil || len(item.Path) > 1 {
+			return false
+		}
+		switch extensionCode(item) {
+		case "COMMENT_FORBIDDEN", "COMMENT_IMPERSONATION_REFUSED", "COMMENT_BODY_INVALID", "COMMENT_DELETED":
+		default:
+			return false
+		}
+	}
+	return true
+}
+func (e *threadError) Unwrap() error    { return e.error }
+func (e *threadError) ThreadID() string { return e.thread }
+
+// WithThreadID wraps err so it names thread. A nil err stays nil.
+func WithThreadID(err error, thread string) error {
+	if err == nil {
+		return nil
+	}
+	return &threadError{error: err, thread: thread}
+}
+
 // reportingError scopes preservation of any server refusal code to this operation.
 type reportingError struct{ error }
 
@@ -193,6 +269,16 @@ func cleaned(err error) error {
 // the same string — is what the server said, with none of genqlient's
 // document-location scaffolding around it.
 func MapError(err error) error {
+	mapped := mapError(err)
+	// Conceal only the presentation after the established transport/code
+	// classification, including preclassified errors; never remap a coded failure.
+	if d := AuthoringAttestationDetails(err); d != nil && d["taskAccess"] != "READABLE" {
+		return exitcode.New(exitcode.FromError(mapped), &serverError{msg: "the authoring task is unreadable or unusable; an owner must fix access or the rule", err: err})
+	}
+	return mapped
+}
+
+func mapError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -351,7 +437,7 @@ const UnsupportedScopeRemedy = "Sign in again with `hadron auth logout && hadron
 	"If the key comes from HADRON_TOKEN, replace that variable instead."
 
 // ScopeRefusal names why the server refused a credential by its OAuth scope.
-// Its values are also `auth status` / `auth token validate`'s rejectedReason.
+// Its values are also `auth token validate`'s rejectedReason.
 type ScopeRefusal string
 
 const (
@@ -426,6 +512,17 @@ func HasErrorCode(err error, code string) bool {
 		}
 	}
 	return false
+}
+
+// FromNon200Envelope reports whether err is a GraphQL error envelope that
+// arrived inside a non-200 HTTP response of status 5xx. graphQLErrors reads
+// that envelope exactly as it reads a 200 one, but a 5xx is not proof the
+// operation was refused: a gateway can answer 502/504 with a JSON body that
+// carries an `errors` list, after the server committed the write (cli#1495).
+// A caller deciding "was this refused, definitely?" must exclude it.
+func FromNon200Envelope(err error) bool {
+	var httpErr *graphql.HTTPError
+	return errors.As(err, &httpErr) && httpErr.StatusCode >= 500
 }
 
 // ServerCodeOf returns the first non-empty extensions.code of err's GraphQL
@@ -1013,7 +1110,11 @@ func codeForExtension(code string) int {
 	// Transfer argument refusals can be fixed by choosing a supported class,
 	// source/destination owner, or reset option. CLASS_REQUIRED rides the
 	// _REQUIRED rule below and exits the same way.
-	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
+	// #1669: invalid App action code/current slug is caller-correctable input.
+	case code == "APP_ACTION_CODE_INVALID":
+		return exitcode.Usage
+	// Bulk template target cap is caller-correctable input, never truncation (#1701).
+	case code == "BULK_TARGETS_TOO_MANY" || code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
@@ -1101,6 +1202,12 @@ func codeForExtension(code string) int {
 	// has been read in the SDL. The server's message is kept whole.
 	case code == "INCLUDE_CYCLE" || code == "INCLUDE_EDGE_DERIVED":
 		return exitcode.Usage
+	// Unknown, foreign and former heads share the same concealing refusal;
+	// metadata admission remains a separate forbidden answer (#936).
+	case code == "TEAM_CHAT_TEAM_HEAD_INVALID":
+		return exitcode.NotFound
+	case code == "TEAM_CHAT_TEAM_METADATA_FORBIDDEN":
+		return exitcode.Forbidden
 	// Team-chat duplicate and post-rate refusals are deliberate state
 	// conflicts (#1306): posting again cannot help until the duplicate window
 	// or rate window changes. Keep the server's message; never retry here.
@@ -1447,7 +1554,9 @@ func codeForExtension(code string) int {
 	// would document an exit no caller can ever observe, which is the trap
 	// review:map-new-server-error-codes names and which #619's own first draft
 	// fell into with CHANNEL_DELETED (also an enum member, also never a code).
-	case code == "FORBIDDEN" || code == "CHANNEL_HOST_NOT_WRITABLE":
+	// PERMISSION_DENIED is an asset ownership/write/admin refusal, including
+	// typed server#2979 toggles (dadc314a); cli#1530 deliberately shares exit 8.
+	case code == "FORBIDDEN" || code == "PERMISSION_DENIED" || code == "CHANNEL_HOST_NOT_WRITABLE":
 		return exitcode.Forbidden
 	// Team attention errors from the legacy and paged server operations.
 	//
@@ -1577,4 +1686,30 @@ func ExtensionInt(err error, key string) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// BulkTemplateApplyRefusedBeforeWrite recognizes only documented root-call
+// refusals. A nested projection error can happen after per-target commits.
+func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
+	if FromNon200Envelope(err) {
+		return false
+	}
+	if IsSchemaSkew(err) {
+		return true
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 1 {
+			return false
+		}
+		switch extensionCode(e) {
+		case "UNAUTHENTICATED", "FORBIDDEN", "BAD_USER_INPUT", "BULK_TARGETS_TOO_MANY", "MEMORY_CONFIG_TEMPLATE_NOT_FOUND", "CONFLICT":
+		default:
+			return false
+		}
+	}
+	return true
 }

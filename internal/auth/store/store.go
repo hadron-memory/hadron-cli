@@ -10,8 +10,7 @@ var ErrNotFound = errors.New("no stored token")
 
 // Store persists tokens keyed by server host.
 type Store interface {
-	// Name identifies the backend ("keychain" or "file") for
-	// `hadron auth status` output.
+	// Name identifies the backend ("keychain" or "file") for diagnostics.
 	Name() string
 	Get(host string) (string, error)
 	Set(host, token string) error

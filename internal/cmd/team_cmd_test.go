@@ -888,7 +888,7 @@ func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 // forward warning.
 const engTeamRosterJSON = `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team","agents":[
 	{"id":"agt1","urn":"hrn:agent:acme.com:backend","name":"backend-engineer","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":"backend-engineer","createdAt":"2026-08-11T00:00:00Z"},
-	{"id":"agt7","urn":"hrn:agent:acme.com:ios","name":"iOS App Engineer","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":"ios-app-engineer","createdAt":"2026-08-11T00:00:00Z"}]}}}`
+	{"id":"agt7","urn":"hrn:agent:acme.com:ios","name":"iOS App Engineer","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":"ios-app-engineer","createdAt":"2026-08-11T00:00:00Z"}],"appAgents":[{"agent":{"id":"agt1"},"bootPromptRef":null,"bootPromptTargetDeleted":null},{"agent":{"id":"agt7"},"bootPromptRef":null,"bootPromptTargetDeleted":null}]}}}`
 
 const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
 	{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",

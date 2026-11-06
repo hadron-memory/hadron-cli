@@ -2,9 +2,10 @@
 # limit capped at 200 server-side; `app ls` pages to exhaustion.
 # orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
 # org-less by definition, so it must be omittable here — `app list` still
-# requires one of --org / --owned-by-me, but that is the command's rule, not
+# requires --org, --owned-by-me or --agent, but that is the command's rule, not
 # the operation's.
 # @genqlient(for: "AppFilter.ownedByMe", omitempty: true)
+# @genqlient(for: "AppFilter.agentId", omitempty: true)
 query Apps(
   # @genqlient(omitempty: true)
   $orgId: ID
@@ -23,6 +24,7 @@ query Apps(
       name
       appType
       agentId
+      # @genqlient(pointer: true)
       memberCount
       createdAt
     }
@@ -56,6 +58,7 @@ mutation CreateApp(
     name
     appType
     agentId
+    # @genqlient(pointer: true)
     memberCount
     createdAt
   }
@@ -117,28 +120,42 @@ mutation UninstallAgentFromApp($appRef: ID!, $agentRef: ID!) {
 # 023-app-shape convenience over App.appAgents, so this needs no paging: an
 # App's installed set is small and bounded, unlike agents().
 query AppAgentRoster($appRef: ID!) {
+  app(ref: $appRef) { ...AppAgentRosterData }
+}
+
+# cli#1646: richer listing only; team role warnings keep the older operation.
+query AppAgentInstallationRoster($appRef: ID!) {
   app(ref: $appRef) {
+    ...AppAgentRosterData
+    appAgents {
+      agent { id }
+      installMethod
+      importer { id urn name }
+    }
+  }
+}
+
+fragment AppAgentRosterData on App {
+  id
+  urn
+  name
+  agents {
     id
     urn
     name
-    agents {
-      id
-      urn
-      name
-      description
-      visibility
-      organizationId
-      personaRole
-      createdAt
-    }
-    # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
-    # #2045 S8), joined onto the Agents above by agent id. agent is null when
-    # the caller may not read the definition, and such a row joins nothing.
-    appAgents {
-      agent { id }
-      bootPromptRef
-      bootPromptTargetDeleted
-    }
+    description
+    visibility
+    organizationId
+    personaRole
+    createdAt
+  }
+  # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
+  # #2045 S8), joined onto the Agents above by agent id. agent is null when
+  # the caller may not read the definition, and such a row joins nothing.
+  appAgents {
+    agent { id }
+    bootPromptRef
+    bootPromptTargetDeleted
   }
 }
 
@@ -212,15 +229,19 @@ mutation SetAppProperties(
 
 # cli#1057: manager-authorized, active-only metadata inventory. No raw key,
 # nested App.keys, host usage, or scope mutations.
-query AppKeysMetadata($appRef: ID!) {
- # @genqlient(typename: "AppKeysMetadataRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
+query AppKeysMetadata($appRef: ID!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysMetadataRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+    }
   }
 }
 
@@ -307,48 +328,56 @@ mutation CreateAppKey(
 # cli#1333 — `app key list --scopes`: the same active-key rows plus the scopes
 # each key holds. Separate operations from AppKeysMetadata so the default
 # listing keeps #1057's metadata-only selection (no scopes, no host uses).
-query AppKeysScopes($appRef: ID!) {
- # @genqlient(typename: "AppKeysScopesRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+query AppKeysScopes($appRef: ID!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysScopesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
     }
   }
 }
 
 # cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
 # host uses (cor:agt:070:07). N is always sent here, so no omitempty.
-query AppKeysScopesHostUses($appRef: ID!, $first: Int!) {
- # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
-    }
-    hostUses(first: $first) {
-      hostId
-      action
-      count
-      operationId
-      refusedCode
-      usedAt
+query AppKeysScopesHostUses($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
+      hostUses(first: $first) {
+        hostId
+        action
+        count
+        operationId
+        refusedCode
+        usedAt
+      }
     }
   }
 }
@@ -372,63 +401,117 @@ mutation RegenerateAppKey($appRef: ID!) {
   }
 }
 
-# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
-query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysMetadataRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-  }
-}
-
-query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysScopesRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+# cli#1595: explicitly instructed documents; ordinary and instructed documents remain separate.
+query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysMetadataRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
     }
   }
 }
 
-query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysScopesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
     }
-    hostUses(first: $first) {
-      hostId
-      action
-      count
-      operationId
-      refusedCode
-      usedAt
+  }
+}
+
+query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    total
+    # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
+      hostUses(first: $first) {
+        hostId
+        action
+        count
+        operationId
+        refusedCode
+        usedAt
+      }
     }
   }
 }
 
 mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
   revokeAppKey(id: $id, instruction: $instruction)
+}
+
+# cli#1626: one deliberate page over the App's authoritative node scope.
+# Repeat FindNodes' per-field omission directives on every shared-input operation;
+# otherwise code generation can serialize unset selectors as null.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true, bind: "github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeTypeList")
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
+# @genqlient(for: "NodeFilter.contentScope", omitempty: true)
+query AppNodesPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  $limit: Int!
+  $offset: Int!
+) {
+  appNodesPage(appRef: $appRef, filter: $filter, limit: $limit, offset: $offset) {
+    items {
+      id
+      memoryId
+      loc
+      name
+      nodeType
+    }
+    total
+    hasMore
+  }
 }

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -2637,6 +2638,13 @@ func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Serve
 // retired" for a spec that is.
 func TestSpecSupersedeLostRetireAnswerIsVerified(t *testing.T) {
 	tagged := withSupersededByEdge(`{"data":{"node":`+strings.Replace(cleanSpecDetail, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)+`}}`, "new1", "msg:010:03")
+	// #579: a visible tag alone no longer proves the new abstract write.
+	var completed map[string]any
+	_ = json.Unmarshal([]byte(tagged), &completed)
+	completedNode := completed["data"].(map[string]any)["node"].(map[string]any)
+	completedNode["abstract"] = fmt.Sprintf("SUPERSEDED (%s) by msg:010:03 (msg:010:03 — W2 v2); do not apply. Historical: Win back users who never engaged after signup.", time.Now().UTC().Format("2006-01-02"))
+	encoded, _ := json.Marshal(completed)
+	tagged = string(encoded)
 	srv := supersedeLostRetireServer(t, tagged)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4794,5 +4802,17 @@ func TestSpecEditReaffirmEmptyStoredHashIsUnverifiable(t *testing.T) {
 	dto, raw, code, _ := runReaffirm(t, m, "--json")
 	if code != exitcode.OK || dto.AbstractVerification == nil || *dto.AbstractVerification != "unverifiable" {
 		t.Errorf("an empty fingerprint must be unverifiable, exit 0; got %s exit %d", raw, code)
+	}
+}
+
+func TestSpec579LostAnswerTagAloneDoesNotConfirmAbstract(t *testing.T) {
+	tagged := withSupersededByEdge(`{"data":{"node":`+strings.Replace(cleanSpecDetail, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)+`}}`, "new1", "msg:010:03")
+	srv := supersedeLostRetireServer(t, tagged)
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	err := r.Execute()
+	if err == nil || !strings.Contains(err.Error(), "abstract is not confirmed") || !strings.Contains(out.String(), `"retired": true`) {
+		t.Fatalf("err %v %s", err, out.String())
 	}
 }

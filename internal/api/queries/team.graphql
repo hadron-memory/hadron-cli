@@ -79,6 +79,8 @@ fragment WorkerFields on Worker {
   # (cor:agt:060:04). Null is unknown and stays null; a host such as
   # `claude-code` is not a family and the CLI never fills one in.
   family
+  # Raw session-reported model, nullable/advisory under the same read gate.
+  model
   # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
   # since when. A name is held by a PERSON and only an explicit release frees
   # one — no session end, idle window, expiry or reap does.
@@ -397,6 +399,25 @@ query GetWorkerContinuity($ref: ID!) {
   }
 }
 
+# cli#494: the retirement advisory reads the SAME server-owned continuity
+# facts as GetWorkerContinuity, but only the metadata `worker retire` may show
+# before its confirmation: status and the handoff's reference (urn/loc/time) —
+# never the handoff body, never previousSession internals. Deliberately its own
+# operation (not WorkerFields): the roster projection stays unwidened, and an
+# older server that rejects Worker.continuity fails only this read.
+query GetWorkerRetireAdvisory($ref: ID!) {
+  worker(ref: $ref) {
+    continuity {
+      status
+      handoff {
+        urn
+        loc
+        createdAt
+      }
+    }
+  }
+}
+
 # The ROSTER projection (#459): WorkerFields minus `prompt`.
 #
 # `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
@@ -531,6 +552,7 @@ fragment TeamChatMessageFields on TeamChatMessage {
   sessionId
   replyToSeq
   mentions
+  teamTags { headId label }
 }
 
 mutation CreateTeamChatMessage(
@@ -1748,4 +1770,46 @@ mutation DeleteWorkerInstructed(
   $instruction: ActInstructionInput!
 ) {
   deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution, instruction: $instruction)
+}
+
+# cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+query TeamChatTags(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRef: ID
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+    items { ...TeamChatMessageFields }
+  }
+}
+
+# cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+query TeamChatTagsAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRef: ID
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged, advanceReadState: false) {
+    items { ...TeamChatMessageFields }
+  }
 }

@@ -463,6 +463,31 @@ retire the old one (it keeps its number, gains a `superseded` tag and a
 hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 ```
 
+For a successor that already exists, including one in another module or
+product in the same memory, use `--by` instead of creating a new citation:
+
+```sh
+hadron spec supersede app:sch:020 -m "$M" --by srv:sch:030 --yes
+```
+
+That mode creates no node and preserves the old body. It refuses non-spec,
+retired, placeholder, deleted, self, cross-memory or cyclic targets, and cannot
+combine with the new-replacement flags. Both paths lead the retired abstract
+with `SUPERSEDED (<UTC date>) by <citation> (<name>); do not apply. Historical: <summary>`.
+The history is the stored old abstract verbatim, or `--summary` if supplied;
+the update re-fingerprints it. Use a shorter summary if the lead would exceed
+the abstract cap. A same-successor lead is a no-op on rerun; a different one
+is refused. The --by retirement update uses the source revision and refuses a
+concurrent source edit. Target validation and the separate edge write are not
+atomic. After a lost retirement response, success requires read-back of both
+the tag and the requested abstract; a visible tag alone leaves an error.
+
+`spec supersede` refuses a RESCINDED or WITHDRAWN spec (an abstract lead, or the
+`rescinded`/`withdrawn` tag) with exit 5 and no write, `--dry-run` included: such a
+spec has no successor (cor:spc:010:01), so do not "repair" it with a supersession.
+If it becomes one after the edge or replacement landed, the retirement is refused,
+the link stays and is reported, and a rerun gets the early refusal.
+
 The replacement keeps the old `spec.*` subrole, if present. A legacy spec
 recognized by its tag alone gets the base `spec` role.
 
@@ -580,3 +605,23 @@ not in a scanner.
 - `hadron spec import spec-kit|code` is reserved for future import workflows and
   currently exits with a not-implemented usage error; new, edit, extract,
   link, and supersede are the supported write paths today.
+
+### Existing retired specs and strict lint
+
+`spec lint --strict` now promotes `superseded-abstract` to an error (exit 5)
+when a spec carries the `superseded` tag but its abstract does not describe
+retirement. Existing RESCINDED and WITHDRAWN leads are accepted; do not rewrite
+those tombstones into supersessions.
+
+For a legacy supersession, inspect `hadron spec get <old> -m <memory>` and
+its sole readable successor first. Then run
+`hadron spec supersede <old> -m <memory> --by <successor>` to retain the raw
+body and add the current retirement lead with a revision-guarded update.
+It creates no replacement node. Use `--summary` for a shorter history if the
+lead exceeds the abstract cap; explicit `--summary ""` deliberately keeps an
+empty historical summary. A matching lead leaves the abstract unchanged,
+but missing edge/tag facts are completed before a full no-op is reported.
+Conflicting/unreadable successor facts still refuse; inspect them rather than
+rewriting history automatically. There is no automatic corpus backfill.
+Existing create-mode “already retired without a usable successor” refusals
+now use Conflict (exit 5) instead of Usage (exit 2).

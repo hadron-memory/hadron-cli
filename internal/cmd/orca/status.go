@@ -92,13 +92,38 @@ func newCmdStatus(f *cmdutil.Factory, env Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status (<worker|terminal-id> | --all) [--config <host.yaml>]",
 		Short: "Classify a worker's Orca terminal as busy|idle|locked|dark",
-		Long: `Orca integration: reads Orca terminals, so it works only on the host that runs
-Orca and needs the Orca CLI on PATH (or delivery.orca_bin with --config). It
-never types into a terminal.
+		Long: `Reads the terminal of one worker (or of every active worker of the App) and
+says whether it is safe to push a line into it. Orca is the terminal app this
+team runs its workers in; this command works only on the host that runs Orca
+and needs the Orca CLI (` + "`orca`" + `) on PATH (or delivery.orca_bin with --config).
 
-Classifies one worker's Orca terminal (found by the worker's session binding in
-its worktree, or taken directly by terminal id) and prints the result as the
-versioned terminal-status@1 contract:
+Checking that Orca is reachable: run it with a name no worker has, for example
+
+  hadron orca terminal status no-such-worker
+
+Once the arguments are accepted, Orca is listed before it looks anything else
+up. Exit 10 means Orca is not reachable; exit 4 (no such worker or terminal)
+means Orca answered. Exits 2 and 3 (bad arguments, a bad --config file or key
+file) are refused before Orca is listed, so they say nothing about Orca. Exit 10
+covers all of these: ` + "`orca`" + ` is not on PATH, the Orca app is
+not running, or Orca did not answer in time (15 seconds). A name that matches
+no terminal id is then looked up among the App's workers, so this check also
+needs your usual sign-in and App.
+
+What it reads and writes. It types nothing and acknowledges nothing. It reads
+the terminal's screen from Orca and the App's workers from the server. When a
+terminal looks idle it also reads the server's tickers and due wakes (the dark
+rule below). That due-wake read is the one a deliverer makes, so the server may
+reserve a due wake against the App's daily wake budget, and when the budget is
+spent the platform posts its daily notice to the team chat; an App-key due-wake
+read is also recorded once the server answers it (which key, how many workers,
+when); a refused one is not recorded. With --config, the ticker and
+subscription reads are made with the host key and each is recorded as a
+host-key use, refusals included; the workers read is not recorded.
+
+Classifies one worker's terminal (found by the worker's session binding in its
+worktree, or taken directly by terminal id) as the versioned terminal-status@1
+contract:
 
   status  busy   a turn is running
           idle   an empty prompt, safe to push one line
@@ -110,15 +135,42 @@ versioned terminal-status@1 contract:
   prompt  empty | not_empty | menu | unknown   (the terminal-level fact)
 
 Precedence: locked, then busy, then dark, then idle. A worker with nothing due
-is never dark. Push only when prompt is empty and status is idle or dark.
+is never dark. Push only when prompt is empty and status is idle or dark. dark
+is this command's own classification of a terminal, not an alarm the platform
+raised.
+
+Output. With --json the keys are: contract, worker, terminal, status, prompt,
+reason, lastTurnAt, checkedAt; every key is always present, null when it does
+not apply (worker is null for a terminal bound to no worker; reason is set only
+for locked and dark). One worker with --json prints one object:
+
+  {"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6","status":"idle","prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T15:54:00Z","checkedAt":"2026-10-29T16:31:40Z"}
+
+--all with --json prints one array, one entry per active worker of the App:
+
+  [{"contract":"terminal-status@1","worker":"Ada","terminal":"term_7c1e","status":"locked","prompt":"menu","reason":"menu_or_question","lastTurnAt":null,"checkedAt":"2026-10-29T16:31:40Z"}]
+
+--all without --json prints one text line per worker: "<worker> <status>
+(<reason>): <detail>", where " (<reason>)" is left out when reason is null and
+": <detail>" when there is no detail. The detail (the ticker and due time behind a dark, or why
+a read was refused) is text mode only and never part of the JSON.
+
+Terms used above:
+  ticker: a named wake schedule with a cadence, owned by the App and
+          subscribed to by workers.
+  tick: a moment at which a ticker may wake its subscribers.
+  wake: all the reasons a worker is due, merged into one; it stays due until
+          acknowledged.
+  App key: an App's API key. host key: an App key that carries host:operate; it
+          reaches one App and one host.
+  attention:deliver: the App-key scope for reading and acknowledging due wakes
+          in the key's own App.
 
 Each tick is aged by its own oldest unanswered tick (the server's per-reason
 tickDueAt), so a tick merged with a mention, a task or another ticker's tick in
 one wake is judged on its own. A tick the server gives no such time for (an
 older server, or withheld), a malformed one, or no ticker is no evidence either
 way: an otherwise-idle worker then fails closed to locked/unrecognized.
-
---all prints ONE JSON array, one entry per active worker of the App.
 
 --config <host.yaml> is for an unattended run on the host (cron, systemd): the
 same file as ` + "`team host run --config`" + `. Orca is delivery.orca_bin when set
@@ -128,16 +180,23 @@ environment variable), with no session. The key is never put in the Orca
 subprocess's argv or environment, and never printed. The App is the file's, so
 --app is refused with --config (exit 2); --all then covers only the App's
 active workers this file configures. A bad file or relative orca_bin is exit 2;
-a missing or too-open key file is exit 3, before Orca is listed. A host key may
-not read tickers, so an idle worker then fails closed (locked/unrecognized);
-the dark rule also needs attention:deliver on the key, whose due-wake read the
-server records.
+a missing or too-open key file is exit 3, before Orca is listed.
+
+With --config the dark rule needs two reads from the host key, and both reads
+must pass: the tickers and their subscriptions (the host:operate scope) and the
+due wakes (the attention:deliver scope). If either is refused, an idle worker
+fails closed (locked/unrecognized). The ticker and subscription reads are each
+recorded as a host-key use, refusals included; an answered due-wake read is
+recorded in the wake-read record, a refused one is not recorded; the due-wake
+read is not the only record. The key reads due
+wakes only for the workers its own host's registration lists, so a configured
+worker the registration does not list is not judged: it fails closed.
+attention:deliver grants nothing beyond due wakes and their acknowledgement,
+and a key bound to a session is refused.
 
 Exit 0 whenever a status was produced; the status is in the output. Exit 10
-means Orca is not reachable (off the Orca host), distinct from a worker with no
-terminal, which is dark/no_terminal and exit 0. The detail line (the ticker and
-due time behind a dark, or why a read was refused) is printed in text mode only
-and is never part of the JSON.`,
+means Orca is not reachable (see above), distinct from a worker with no
+terminal, which is dark/no_terminal and exit 0.`,
 		Example: `  hadron orca terminal status Joshua
   hadron orca terminal status Joshua --json
   hadron orca terminal status term_50a6 --json

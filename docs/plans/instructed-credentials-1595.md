@@ -1,5 +1,11 @@
 # Instructed credential reads and revokes (#1595)
 
+> Key-list transport update (cli#1547): the existing token/App-key list consumers
+> now read `myUserApiKeysPage` / `appKeysPage` through `hasMore=false`, in pages
+> of 20. Output DTOs and instruction attribution are unchanged; the unpaged
+> operation names below describe the original implementation. See
+> [paged-key-inventories-1547.md](paged-key-inventories-1547.md).
+
 Five existing commands gain an optional `--instruction <kind>:<ref>`:
 App key list (three selections), key revoke, scope revoke, memory-grant list
 and memory-grant rm. Their DTOs and no-flag documents stay unchanged. Instructed

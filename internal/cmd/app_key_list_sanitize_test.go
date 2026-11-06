@@ -25,8 +25,8 @@ func TestAppKeyListSanitizesEverySixCellInText(t *testing.T) {
 	long := strings.Repeat("日", 1000)
 	for name, cell := range map[string]string{"hostile": hostileKeyField, "long multibyte": long} {
 		t.Run(name, func(t *testing.T) {
-			gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[` +
-				hostileKeyRow(t, "a", cell) + `,` + hostileKeyRow(t, "b", cell) + `]}}`})
+			gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[` +
+				hostileKeyRow(t, "a", cell) + `,` + hostileKeyRow(t, "b", cell) + `],"total":0,"hasMore":false}}}`})
 			defer gql.Close()
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -59,7 +59,7 @@ func TestAppKeyListSanitizesEverySixCellInText(t *testing.T) {
 func TestAppKeyListJSONKeepsTheOriginals(t *testing.T) {
 	long := strings.Repeat("日", 1000)
 	for _, cell := range []string{hostileKeyField, long} {
-		gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[` + hostileKeyRow(t, "a", cell) + `]}}`})
+		gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[` + hostileKeyRow(t, "a", cell) + `],"total":0,"hasMore":false}}}`})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"app", "key", "list", appRead1057, "--json", "--server", gql.URL})
@@ -81,7 +81,7 @@ func TestAppKeyListJSONKeepsTheOriginals(t *testing.T) {
 }
 
 func TestAppKeyListTextKeepsNullAndOrdinaryValues(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[{"id":"key-id","keyPreview":"hdr_...abcd","label":"café 😀","createdAt":"2026-01-01T00:00:00Z","lastUsedAt":null,"revokedAt":null}]}}`})
+	gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[{"id":"key-id","keyPreview":"hdr_...abcd","label":"café 😀","createdAt":"2026-01-01T00:00:00Z","lastUsedAt":null,"revokedAt":null}],"total":0,"hasMore":false}}}`})
 	defer gql.Close()
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

@@ -100,6 +100,7 @@ func NewCmd(f *cmdutil.Factory, connect Connect) *cobra.Command {
 	for _, verb := range []string{"create", "reply", "edit", "delete", "resolve"} {
 		cmd.AddCommand(writeCmd(f, connect, verb))
 	}
+	cmd.AddCommand(addCmd(f, connect))
 	return cmd
 }
 func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
@@ -218,7 +219,6 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		cmd.Flags().StringVar(&quote, "quote", "", usage)
 	}
 	if verb == "create" {
-		cmd.Aliases = []string{"add"}
 		cmd.Flags().IntVar(&anchor, "anchor-revision", 0, "attach to an earlier revision N of the node (default: its current revision)")
 	}
 	if guarded {
@@ -244,27 +244,9 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		var bp, qp *string
 		var ap *int
 		if text {
-			if changed("body") && changed("body-file") {
-				return exitcode.Newf(exitcode.Usage, "--body and --body-file are mutually exclusive")
-			}
-			supplied := changed("body") || changed("body-file")
-			if !supplied && verb != "edit" {
-				return exitcode.Newf(exitcode.Usage, "pass --body or --body-file")
-			}
-			if supplied {
-				if body == "-" && changed("body") {
-					if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(), "--body -", "--body-file"); err != nil {
-						return err
-					}
-				}
-				value, err := cmdutil.ResolveTextInput("body", body, bodyFile, f.IOStreams.In)
-				if err != nil {
-					return err
-				}
-				if strings.TrimSpace(value) == "" {
-					return exitcode.Newf(exitcode.Usage, "comment body must not be empty")
-				}
-				bp = &value
+			var err error
+			if bp, err = resolveBody(cmd, f, body, bodyFile, verb != "edit"); err != nil {
+				return err
 			}
 		}
 		if (verb == "edit" || verb == "create" && quote != "") && changed("quote") {
@@ -308,6 +290,36 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		return printComment(f, c)
 	}
 	return cmd
+}
+
+// resolveBody is the body-input rule shared by create, reply, edit and add:
+// --body / --body - / --body-file, mutually exclusive, never blank. The text
+// is read ONCE (so --body - consumes stdin once). A nil result means no body
+// was supplied, which is an error only when required.
+func resolveBody(cmd *cobra.Command, f *cmdutil.Factory, body, bodyFile string, required bool) (*string, error) {
+	changed := cmd.Flags().Changed
+	if changed("body") && changed("body-file") {
+		return nil, exitcode.Newf(exitcode.Usage, "--body and --body-file are mutually exclusive")
+	}
+	if !changed("body") && !changed("body-file") {
+		if required {
+			return nil, exitcode.Newf(exitcode.Usage, "pass --body or --body-file")
+		}
+		return nil, nil
+	}
+	if body == "-" && changed("body") {
+		if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(), "--body -", "--body-file"); err != nil {
+			return nil, err
+		}
+	}
+	value, err := cmdutil.ResolveTextInput("body", body, bodyFile, f.IOStreams.In)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(value) == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "comment body must not be empty")
+	}
+	return &value, nil
 }
 
 // deleteThread is comment delete --thread (cli#1341): deleteCommentThread.

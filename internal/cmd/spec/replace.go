@@ -183,7 +183,8 @@ relintStatus (complete|incomplete) and relintError when incomplete.`,
 			run := func(dry bool, expectedPlan *string) (specReplaceResultDTO, error) {
 				if draft {
 					input := gen.SpecSearchReplaceInput{
-						MemoryRef: memURN, NodeIds: specIDs, OldText: pattern,
+						AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+						MemoryRef:    memURN, NodeIds: specIDs, OldText: pattern,
 						NewText: replacement, Fields: specReplaceFields(fields),
 						CaseInsensitive: &ignoreCase, Regex: &useRegex,
 						WordBoundary: &wordBoundary, DryRun: &dry,
@@ -208,6 +209,7 @@ relintStatus (complete|incomplete) and relintError when incomplete.`,
 				}
 				oldText, regexFlag := buildReplacePattern(pattern, useRegex, wordBoundary)
 				input := gen.SearchReplaceInNodesInput{
+					AuthoredWith:    cmdutil.AuthoredWith(cmd.Context()),
 					OldText:         oldText,
 					NewText:         replacement,
 					Fields:          fields,

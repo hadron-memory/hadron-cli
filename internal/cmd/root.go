@@ -89,7 +89,7 @@ agents and settings for a team or product.
 
 Getting started:
   hadron auth login          sign in (opens your browser)
-  hadron auth status         check you are signed in, and to which server
+  hadron auth status         ask whether this request's credential authenticates
   hadron server-info         check the server answers (works signed out)
   hadron memory list         see the memories you can read
   hadron search "<words>"    find notes across them
@@ -216,6 +216,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(serverinfo.NewCmdServerInfo(f))
 	root.AddCommand(agentic.NewCmdAgenticUsage(f))
 
+	installAuthoredWith(root)
 	installNodeWriteWarnings(root, f)
 	describeGeneratedCommands(root)
 	return root
@@ -421,7 +422,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 	err = withStoredCredentialHint(f, code, err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
-		failure := map[string]any{"code": code, "message": err.Error()}
+		message := err.Error()
+		if text, ok := authoredRefusalText(err); ok {
+			message = text
+		}
+		failure := map[string]any{"code": code, "message": message}
 		// cli#898: additive fields for an internal fault; `code` already means
 		// the exit code, so the server's code is a new key.
 		if fault, ok := api.InternalFaultOf(err); ok {
@@ -441,9 +446,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 		}
-		// #1327: the chat-search refusals span exits 2 and 5, so they are keyed
+		// #1327/#936: chat-search and team-tag refusals span exits, so they are keyed
 		// on the code itself rather than the exit.
-		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED"} {
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN"} {
 			if api.HasErrorCode(err, serverCode) {
 				failure["serverCode"] = serverCode
 				break
@@ -452,6 +457,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var coded interface{ ServerCode() string }
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
+		}
+		// #1664: only PR_NOT_READY carries typed failing slots.
+		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
+		if errors.As(err, &readiness) && readiness.PRReadinessSlots() != nil {
+			failure["slots"] = readiness.PRReadinessSlots()
 		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
@@ -464,12 +474,29 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &matched) && matched.BatchReason() != "" {
 			failure["reason"] = matched.BatchReason()
 		}
+		hasThreadWrapper := false
 		details := api.CommentRecoveryDetails(err)
+		if attestation := api.AuthoringAttestationDetails(err); attestation != nil {
+			details = attestation
+		}
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
 		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
+		}
+		// A comment-add reply error names its intended thread, including when
+		// the outcome is unknown, without changing the reply's own metadata.
+		var threaded interface{ ThreadID() string }
+		if errors.As(err, &threaded) {
+			hasThreadWrapper = true
+			if details == nil {
+				details = map[string]any{}
+				if serverCode := api.ServerCodeOf(err); serverCode != "" {
+					details["code"] = serverCode
+				}
+			}
+			details["threadId"] = threaded.ThreadID()
 		}
 		if details != nil {
 			failure["extensions"] = details
@@ -494,12 +521,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			message := humanErrorText(err) + api.CloneAgentDetailText(err)
+			if text, ok := authoredRefusalText(err); ok {
+				message = text
+			}
 			if reporting := api.WorkerReportingDetails(err); reporting != nil {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
-				if value, ok := details[key]; ok {
-					message += fmt.Sprintf(" (%s: %v)", key, value)
+				if value, ok := details[key]; ok && (key != "threadId" || !hasThreadWrapper || !strings.Contains(message, fmt.Sprint(value))) {
+					// The detail comes from the server: control, format and
+					// separator characters cannot reach the terminal or forge a line.
+					message += fmt.Sprintf(" (%s: %s)", key, output.SafeLine(fmt.Sprint(value), 256))
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)

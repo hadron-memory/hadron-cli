@@ -47,6 +47,12 @@ func TestIsGraphQLValidationForReadsHTTPErrorEnvelope(t *testing.T) {
 	}
 }
 
+func TestMapBulkTemplateCap1701(t *testing.T) {
+	if got := exitcode.FromError(MapError(gqlErr("BULK_TARGETS_TOO_MANY"))); got != exitcode.Usage {
+		t.Fatalf("exit=%d", got)
+	}
+}
+
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string
@@ -189,6 +195,7 @@ func TestMapError(t *testing.T) {
 		{"renumber minted node", gqlErr("NODE_MINTED"), exitcode.Conflict},
 		{"encryption session expired", gqlErr("SESSION_EXPIRED"), exitcode.AuthRequired},
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"invalid app action code", gqlErr("APP_ACTION_CODE_INVALID"), exitcode.Usage},
 		// #846/hadron-server#1817: the operation-key refusals a pre-validated
 		// client should never meet, but must not misclassify when it does.
 		{"malformed operation key", gqlErr("BAD_UNLOCK_INPUT"), exitcode.Usage},
@@ -226,6 +233,7 @@ func TestMapError(t *testing.T) {
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"permission denied (shared cli#1530)", gqlErr("PERMISSION_DENIED"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
 		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict}, // cli#738
 		{"transfer stale preview", gqlErr("STALE_TRANSFER_PREVIEW"), exitcode.Conflict},
@@ -276,6 +284,8 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"team chat invalid head is uniformly concealed", gqlErr("TEAM_CHAT_TEAM_HEAD_INVALID"), exitcode.NotFound},
+		{"team chat metadata is forbidden", gqlErr("TEAM_CHAT_TEAM_METADATA_FORBIDDEN"), exitcode.Forbidden},
 		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
 		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
 		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},
@@ -1066,6 +1076,25 @@ func TestIsGraphQLValidationOnlyFor(t *testing.T) {
 			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
 			if got := IsGraphQLValidationOnlyFor(err, "a", "b"); got != tc.want {
 				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBulkTemplateRefusalRoot1701(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"root", gqlErr("FORBIDDEN"), true},
+		{"gateway refusal envelope", &graphql.HTTPError{StatusCode: 502, Response: graphql.Response{Errors: gqlerror.List{{Message: "forbidden", Extensions: map[string]any{"code": "FORBIDDEN"}}}}}, false},
+		{"nested", gqlerror.List{{Message: "forbidden", Path: ast.Path{ast.PathName("applyMemoryConfigTemplateToMemories"), ast.PathName("results")}, Extensions: map[string]any{"code": "FORBIDDEN"}}}, false},
+		{"mixed", gqlerror.List{{Message: "forbidden", Extensions: map[string]any{"code": "FORBIDDEN"}}, {Message: "fault", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := BulkTemplateApplyRefusedBeforeWrite(tc.err); got != tc.want {
+				t.Fatalf("got%v want%v", got, tc.want)
 			}
 		})
 	}

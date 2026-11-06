@@ -386,17 +386,18 @@ is one call instead of four.`, abstractSoftMax),
 			}
 			nodeType := "info"
 			input := gen.CreateNodeInput{
-				MemoryId: memURN,
-				Loc:      target.Format(),
-				Name:     name,
-				Tags:     tagSet,
-				NodeType: &nodeType,
-				Abstract: &abs,
-				Content:  &body,
-				Data:     specDataRaw(),
-				Seq:      specSeq(target),
-				Role:     specRole(),
-				Edges:    edges,
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				MemoryId:     memURN,
+				Loc:          target.Format(),
+				Name:         name,
+				Tags:         tagSet,
+				NodeType:     &nodeType,
+				Abstract:     &abs,
+				Content:      &body,
+				Data:         specDataRaw(),
+				Seq:          specSeq(target),
+				Role:         specRole(),
+				Edges:        edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -410,16 +411,17 @@ is one call instead of four.`, abstractSoftMax),
 			// contract is never written without it.
 			if coContract != nil {
 				cInput := gen.CreateNodeInput{
-					MemoryId: memURN,
-					Loc:      coContract.cit.Format(),
-					Name:     coContract.name,
-					Tags:     tagSet,
-					NodeType: &nodeType,
-					Abstract: &coContract.abstract,
-					Content:  &coContract.body,
-					Data:     specDataRaw(),
-					Seq:      specSeq(coContract.cit),
-					Role:     specRole(),
+					AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+					MemoryId:     memURN,
+					Loc:          coContract.cit.Format(),
+					Name:         coContract.name,
+					Tags:         tagSet,
+					NodeType:     &nodeType,
+					Abstract:     &coContract.abstract,
+					Content:      &coContract.body,
+					Data:         specDataRaw(),
+					Seq:          specSeq(coContract.cit),
+					Role:         specRole(),
 				}
 				if !noEdges {
 					cInput.Edges = []*gen.NodeEdgeInput{inlineSpecEdge(newID, coContract.title)}
@@ -565,17 +567,18 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 	}
 	nodeType := "info"
 	input := gen.CreateNodeInput{
-		MemoryId: memURN,
-		Loc:      loc,
-		Name:     name,
-		Tags:     in.tags,
-		NodeType: &nodeType,
-		Abstract: &abs,
-		Content:  &body,
-		Data:     specDataRaw(),
-		Seq:      seqFromLoc(loc),
-		Role:     &in.role,
-		Edges:    edges,
+		AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+		MemoryId:     memURN,
+		Loc:          loc,
+		Name:         name,
+		Tags:         in.tags,
+		NodeType:     &nodeType,
+		Abstract:     &abs,
+		Content:      &body,
+		Data:         specDataRaw(),
+		Seq:          seqFromLoc(loc),
+		Role:         &in.role,
+		Edges:        edges,
 	}
 	if _, err := api.CreateSpecNode(cmd.Context(), client, &input); err != nil {
 		return api.MapError(err)
@@ -1015,7 +1018,8 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
-			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
+			AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+			MemoryId:     memURN, Loc: pn.cit.Format(), Name: pn.name,
 			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 			Seq: specSeq(pn.cit), Role: specRole(),

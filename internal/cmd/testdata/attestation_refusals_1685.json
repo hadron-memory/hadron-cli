@@ -1,0 +1,75 @@
+{
+  "source": "hadron-server#3489 Contract table; src/lib/authoringAttestation.ts:92-115",
+  "serverSHA": "07d96c78eb29eb6e3e36b2ea2ac9e6f165214dbf",
+  "cases": [
+    {
+      "code": "AUTHORING_ATTESTATION_MISSING",
+      "taskAccess": "READABLE",
+      "task": "hrn:node:acme.com:authoring:tasks:write",
+      "taskId": "task1",
+      "taskRevision": 4,
+      "load": {
+        "graphql": "node(ref: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "mcp": "hadron_get_node(urn: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "cli": "hadron node get hrn:node:acme.com:authoring:tasks:write"
+      }
+    },
+    {
+      "code": "AUTHORING_ATTESTATION_WRONG_TASK",
+      "taskAccess": "READABLE",
+      "task": "hrn:node:acme.com:authoring:tasks:write",
+      "taskId": "task1",
+      "taskRevision": 4,
+      "load": {
+        "graphql": "node(ref: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "mcp": "hadron_get_node(urn: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "cli": "hadron node get hrn:node:acme.com:authoring:tasks:write"
+      }
+    },
+    {
+      "code": "AUTHORING_ATTESTATION_STALE",
+      "taskAccess": "READABLE",
+      "task": "hrn:node:acme.com:authoring:tasks:write",
+      "taskId": "task1",
+      "taskRevision": 4,
+      "load": {
+        "graphql": "node(ref: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "mcp": "hadron_get_node(urn: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "cli": "hadron node get hrn:node:acme.com:authoring:tasks:write"
+      }
+    },
+    {
+      "code": "AUTHOR_TASK_BROKEN",
+      "taskAccess": "UNAVAILABLE",
+      "task": null,
+      "taskId": null,
+      "taskRevision": null,
+      "load": null
+    },
+    {
+      "code": "AUTHORING_ATTESTATION_MISSING",
+      "taskAccess": "READABLE",
+      "task": null,
+      "taskId": "legacy-task1",
+      "taskRevision": 4,
+      "load": {
+        "graphql": "node(ref: \"legacy-task1\")",
+        "mcp": null,
+        "cli": null
+      }
+    },
+    {
+      "code": "AUTHORING_ATTESTATION_STALE",
+      "taskAccess": "READABLE",
+      "task": "hrn:node:acme.com:authoring:tasks:write",
+      "taskId": "task1",
+      "taskRevision": 1000000000,
+      "load": {
+        "graphql": "node(ref: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "mcp": "hadron_get_node(urn: \"hrn:node:acme.com:authoring:tasks:write\")",
+        "cli": "hadron node get hrn:node:acme.com:authoring:tasks:write"
+      }
+    }
+  ],
+  "valueNote": "Synthetic contract-valid values, including a large revision formatting boundary; no observed production data."
+}

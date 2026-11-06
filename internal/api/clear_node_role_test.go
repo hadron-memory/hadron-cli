@@ -65,6 +65,9 @@ func TestClearRoleOtherFieldsAndOmission(t *testing.T) {
 						case reflect.TypeOf((*gen.InstallTargetInput)(nil)):
 							// No CLI install-target flag; the dedicated clear rejects
 							// this alternative separately instead of dropping it.
+						case reflect.TypeOf((*gen.AuthoredWithInput)(nil)):
+							// Explicit attestation is covered separately by
+							// TestAuthoredKindDoors1685; this pins legacy omission.
 						case reflect.TypeOf([]*gen.NodeEdgeInput{}):
 							f.Set(reflect.ValueOf([]*gen.NodeEdgeInput{{}}))
 						default:
@@ -144,5 +147,21 @@ func TestClearRoleRefusesUnsupportedInstallInsteadOfDropping(t *testing.T) {
 	_, err := UpdateNodeClearingRoleByKind(context.Background(), graphql.NewClient(srv.URL, srv.Client()), &gen.UpdateNodeInput{Install: &gen.InstallTargetInput{AppRef: "app", AgentRef: "agent"}}, NodeKindState{})
 	if err == nil || !strings.Contains(err.Error(), "install target") {
 		t.Fatalf("expected local refusal: %v", err)
+	}
+}
+
+func TestSnapshot1664OmittedAttestation(t *testing.T) {
+	for _, input := range []any{gen.CreateNodeInput{}, gen.ImportNodeInput{}, gen.MergeNodesInput{}, gen.SearchReplaceInNodesInput{}, gen.SpecSearchReplaceInput{}, gen.UpdateNodeInput{}} {
+		data, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(data, &fields) != nil {
+			t.Fatal(string(data))
+		}
+		if _, ok := fields["authoredWith"]; ok {
+			t.Fatalf("new optional attestation must stay omitted: %s", data)
+		}
 	}
 }

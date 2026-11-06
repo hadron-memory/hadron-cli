@@ -47,7 +47,20 @@ func toDTO(id, org, app, provider, status, team, teamName, bot, botUser, created
 
 // NewCmdSlack builds the read-only slack group; connect/disconnect are a later cut.
 func NewCmdSlack(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "slack <command>", Short: "See the Slack workspaces connected to your organizations", Long: "See which Slack workspaces are connected to your organizations and whether each\nconnection is healthy. It only reads; tokens are never shown and nothing here\ncontacts Slack.", Example: "  hadron slack status\n  hadron slack get <connection-id>"}
+	c := &cobra.Command{Use: "slack <command>", Short: "See the Slack workspaces registered with your organizations", Long: `See which Slack workspaces are registered with your organizations, and read one
+registration's details. It only reads; tokens are never shown and nothing here
+contacts Slack. This is separate from "hadron email" and "hadron connection",
+which cover email, calendar and Drive accounts.
+
+What the status means:
+  ACTIVE means the connection is registered. It does not prove it is working:
+  a failed Slack token is not always recorded here, so a dead connection can
+  still show ACTIVE.
+  ERROR means Hadron has recorded this connection as failed. The reason is not
+  shown here, and this CLI never requests it.
+
+To recover, an organization admin registers the workspace again. No CLI command
+or portal page does this yet.`, Example: "  hadron slack status\n  hadron slack get <connection-id>"}
 	c.AddCommand(newStatus(f), newGet(f))
 	return c
 }
@@ -55,22 +68,28 @@ func NewCmdSlack(f *cmdutil.Factory) *cobra.Command {
 func newStatus(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	var limit, offset int
-	c := &cobra.Command{Use: "status [--org <ref>] [--limit N] [--offset N]", Short: "List Slack workspace connections (one page)", Args: cobra.NoArgs,
-		Long: `List the Slack workspace connections you can see, one page at a time: for each
-one the ID, organization, default app, status (ACTIVE or ERROR), workspace and
-bot ids. Without --org the server returns every organization you are a member
-of; --org narrows to one organization (ID or hrn:org:<slug>).
+	c := &cobra.Command{Use: "status [--org <ref>] [--limit N] [--offset N]", Short: "List Slack workspace connections (one page, read-only)", Args: cobra.NoArgs,
+		Long: `This is the list of Slack workspace connections you can see, one page at a time
+(read-only; sign in first, or exit 3): for each one the ID, organization,
+default app, status (ACTIVE or ERROR), workspace and bot ids. ACTIVE means
+registered, not proof the connection works; see "hadron slack --help".
+Without --org the server returns every organization you are a member of; --org
+narrows to one organization (ID or hrn:org:<slug>). --app does not apply, and
+the saved organization is not used: only --org narrows.
 
-You get one page: --limit (server default page size, at most 200; 0 returns only the total)
-and --offset. When more exist, stderr says how to fetch the next page; a short
+You get one page: --limit (the server's default page size is 20, at most 200;
+0 returns only the total) and --offset. When more exist, stderr says how to fetch the next page; a short
 page is not proof the list is complete unless the total says so. The order is
 the server's. An empty result means none were returned to you.
 
 Details:
+  The text output is a table, one row per connection (ID, ORG ID, APP ID,
+  STATUS, TEAM ID, TEAM, BOT ID, BOT USER, UPDATED).
   --json is {items, total, offset, hasMore}; each item has id, organizationId,
   defaultAppId, provider, status, teamId, teamName, botId, botUserId, createdAt
   and updatedAt. Tokens and the connection's last error are never requested.
-  An unrecognized status from the server is refused (exit 7).`,
+  Exit 2 for a bad --limit, --offset or empty --org. An unrecognized status
+  from the server is refused (exit 7).`,
 		Example: "  hadron slack status\n  hadron slack status --org hrn:org:acme.com --limit 20 --offset 20 --json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 0 || limit > maxLimit || offset < 0 {
@@ -136,12 +155,16 @@ Details:
 }
 
 func newGet(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{Use: "get <connection-id>", Short: "Show one Slack workspace connection", Args: cobra.ExactArgs(1),
+	return &cobra.Command{Use: "get <connection-id>", Short: "Show one Slack workspace connection (read-only)", Args: cobra.ExactArgs(1),
 		Long: `Show one Slack workspace connection by its ID (from "hadron slack status").
-Exit 4 when no connection with that ID is visible to you; the server does not
-say whether it exists for someone else.
+Read-only; sign in first, or exit 3. ACTIVE means registered, not proof the
+connection works; see "hadron slack --help". Exit 4 when no connection with
+that ID is visible to you; the server does not say whether it exists for
+someone else.
 
 Details:
+  The text output is one line per field (id, organization, default app,
+  provider, status, team id, team, bot id, bot user, created, updated).
   --json is one object with id, organizationId, defaultAppId, provider, status
   (ACTIVE or ERROR), teamId, teamName, botId, botUserId, createdAt and
   updatedAt. Tokens and the last error are never requested.`,

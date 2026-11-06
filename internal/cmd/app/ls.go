@@ -20,19 +20,28 @@ type appDTO struct {
 	Name        string  `json:"name"`
 	AppType     string  `json:"appType"`
 	AgentID     *string `json:"agentId"`
-	MemberCount int     `json:"memberCount"`
+	MemberCount *int    `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
 }
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
-	var org string
+	var org, agent string
 	var ownedByMe bool
 	cmd := &cobra.Command{
-		Use:     "list (--org <id> | --owned-by-me)",
+		Use:     "list [--org <id> | --owned-by-me] [--agent <agent-ref>]",
 		Aliases: []string{"ls"},
-		Short:   "List Apps in an organization, or the Apps you own (--owned-by-me)",
+		Short:   "List Apps by organization, owner or installed Agent",
 		Long: `List Apps in an organization (requires org membership), or the Apps you
-own outright.
+own outright. Add --agent <id-or-URN> to keep only Apps with that Agent installed.
+Used alone, --agent searches the Apps you may read without choosing an organization.
+It combines with --org or --owned-by-me; all supplied filters must match.
+An unreadable or missing Agent returns an empty list, not an error.
+Choose at least one of --org, --owned-by-me or --agent. This reads only:
+it changes no App. Output is a table; --json keeps the existing bare array
+of Apps; memberCount is explicit null when withheld, never a fabricated 0.
+The command follows pages to return the complete selected list.
+The --agent path reads pages of at most 20; it never changes your active App
+or organization.
 
 --owned-by-me lists your own org-less Apps: no organizationId, owned by
 you. It is the "my Apps" slice, answered by the server — the same predicate
@@ -44,10 +53,13 @@ this is a question about a user. (To CREATE an App in this slice, see
 ` + "`app install --owner-me`" + `.)`,
 		Example: `  hadron app list --org acme.com
   hadron app list --owned-by-me
-  hadron app list --owned-by-me --json`,
+  hadron app list --owned-by-me --json
+  hadron app list --agent hrn:agent:acme.com:iris
+  hadron app list --org acme.com --agent hrn:agent:acme.com:iris`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Exactly one of the two, mirroring `app install (--org | --owner-me)`.
+			// An explicit Agent may select the readable cross-org slice; otherwise
+			// retain the existing requirement for an org or ownership selector.
 			// Hand-rolled rather than MarkFlagsMutuallyExclusive so the refusal
 			// can name BOTH alternatives — cobra's group message only lists the
 			// flags. Keyed on Changed(), not on the value: `--org=` is "asked
@@ -58,8 +70,10 @@ this is a question about a user. (To CREATE an App in this slice, see
 			switch {
 			case ownedByMe && orgGiven:
 				return exitcode.Newf(exitcode.Usage, "--owned-by-me lists the Apps you own, which have no organization; drop --org (or drop --owned-by-me to list an organization's Apps)")
-			case !ownedByMe && !orgGiven:
-				return exitcode.Newf(exitcode.Usage, "specify --org <id> to list an organization's Apps, or --owned-by-me to list the Apps you own")
+			case !ownedByMe && !orgGiven && !cmd.Flags().Changed("agent"):
+				return exitcode.Newf(exitcode.Usage, "specify --org <id>, --owned-by-me, or --agent <id-or-URN> to choose which Apps to list")
+			case cmd.Flags().Changed("agent") && strings.TrimSpace(agent) == "":
+				return exitcode.Newf(exitcode.Usage, "--agent needs an Agent ID or fully-qualified URN; nothing was sent")
 			case orgGiven && strings.TrimSpace(org) == "":
 				return exitcode.Newf(exitcode.Usage, "--org needs an organization ID or URN; it was given an empty value")
 			}
@@ -77,9 +91,18 @@ this is a question about a user. (To CREATE an App in this slice, see
 			if ownedByMe {
 				filter = &gen.AppFilter{OwnedByMe: &ownedByMe}
 			}
+			if cmd.Flags().Changed("agent") {
+				if filter == nil {
+					filter = &gen.AppFilter{}
+				}
+				filter.AgentId = &agent
+			}
 			// Paged { items, total } envelope (hadron-server#473), drained to
 			// exhaustion — this command's contract is "all Apps in the slice".
 			items, err := api.CollectAll(func(limit, offset int) ([]*gen.AppsAppsAppsPageItemsApp, int, error) {
+				if cmd.Flags().Changed("agent") && limit > 20 {
+					limit = 20
+				}
 				resp, err := gen.Apps(cmd.Context(), client, orgPtr, filter, &limit, &offset)
 				if err != nil {
 					return nil, 0, api.MapError(err)
@@ -119,6 +142,7 @@ this is a question about a user. (To CREATE an App in this slice, see
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (or use --owned-by-me)")
+	cmd.Flags().StringVar(&agent, "agent", "", "only Apps with this installed Agent (ID or fully-qualified URN; combines with the other selectors)")
 	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less Apps you own")
 	// NOT MarkFlagRequired("org") any more: --owned-by-me is the other way to
 	// name a slice. And NOT MarkFlagsMutuallyExclusive either — cobra validates

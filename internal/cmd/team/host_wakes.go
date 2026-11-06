@@ -2,8 +2,9 @@ package team
 
 // The host poller's tick and task wake calls (hadron-cli#1178, the dueWakes
 // half of cli#906 row 1): read this host's due wakes and hand back the
-// proofs of the ones typed, with the host's App key. No accepts, so the
-// server never offers a STOP notice this deliverer cannot type.
+// proofs of the ones typed, with the host's App key. hadron-cli#1629: it
+// accepts STOP and types stop notices (hadron-server#2169, cor:agt:090:04),
+// and its whole-lane read declares the host's lane.
 
 import (
 	"context"
@@ -15,8 +16,16 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
-// dueWakesPage is the server's page ceiling (workers per page).
+// dueWakesPage is the server's page ceiling (workers per page). A lane that
+// fits one page is read whole in one call, which is what declares it as
+// served for stop notices (cor:agt:090:04); a larger lane is still read, but
+// does not declare, and a stop set over it stays refused.
 const dueWakesPage = 200
+
+// wakeAccepts is every reason kind this deliverer types (hadron-cli#1629).
+// Listing STOP is a promise to type the notices (cor:agt:090:04): the server
+// then accepts stop signals over this host's workers.
+var wakeAccepts = []gen.WakeKind{gen.WakeKindMention, gen.WakeKindTick, gen.WakeKindTask, gen.WakeKindStop}
 
 type (
 	genWake       = gen.DueWakesDueWakesDueWakePageWakesDueWake
@@ -33,7 +42,7 @@ func (s *hostServer) Wakes(ctx context.Context) (hostpoller.WakePage, error) {
 	// P2 on #1183), and refuses the read rather than paging forever.
 	seen := map[string]bool{}
 	for {
-		resp, err := gen.DueWakes(ctx, s.client, s.app, dueWakesPage, after)
+		resp, err := gen.DueWakes(ctx, s.client, s.app, dueWakesPage, wakeAccepts, after)
 		if err != nil {
 			return hostpoller.WakePage{}, deliveryError("wake-read", err)
 		}
@@ -115,6 +124,11 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 	// WakeReason.action as the server answered (cor:agt:080:23): code, state,
 	// loc and URN verbatim, never resolved or rendered here. WITHHELD stays
 	// WITHHELD, distinct from UNMAPPED.
+	// DueStopReason as given (hadron-cli#1629). interrupt is carried and
+	// never acted on: no notice sends an interrupt key (option A).
+	if st := r.Stop; st != nil {
+		out.Stop = &delivery.StopReason{EventID: st.EventId, SignalID: st.SignalId, Level: string(st.Level), Notice: string(st.Notice), Interrupt: st.Interrupt}
+	}
 	if a := r.Action; a != nil {
 		out.Action = &delivery.TickAction{Code: a.Code, State: string(a.State)}
 		if a.TaskLoc != nil {

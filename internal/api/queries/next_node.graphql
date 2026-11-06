@@ -65,6 +65,7 @@ query NextNode(
       priority
       target {
         id
+        name
         loc
         memoryId
       }

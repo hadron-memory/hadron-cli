@@ -11,14 +11,14 @@ import (
 const appRosterResp = `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:support","name":"Support App",
 	"agents":[{"id":"agt9","urn":"hrn:agent:acme.com:support-bot","name":"Support Bot","description":null,
 	"visibility":"ORGANIZATION","organizationId":"o1","personaRole":null,
-	"createdAt":"2026-08-11T00:00:00Z"}]}}}`
+	"createdAt":"2026-08-11T00:00:00Z"}],"appAgents":[{"agent":{"id":"agt9"},"bootPromptRef":null,"bootPromptTargetDeleted":null,"installMethod":null,"importer":null}]}}}`
 
 // #408: the AppAgent join is a general App concept, reachable under the `app`
 // noun. Since #428 it is the INSTALL roster (the cast pool) — named workers
 // are `team worker list`. A plain single-agent App with no persona dressing
 // is the case that proves it isn't team-specific.
 func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AppAgentRoster": appRosterResp})
+	gql, captured := captureGraphQL(t, map[string]string{"AppAgentInstallationRoster": appRosterResp})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "list", "hrn:app:acme.com:support", "--json", "--server", gql.URL})
@@ -26,7 +26,7 @@ func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	if err := json.Unmarshal(captured["AppAgentRoster"], &vars); err != nil {
+	if err := json.Unmarshal(captured["AppAgentInstallationRoster"], &vars); err != nil {
 		t.Fatalf("captured vars: %v", err)
 	}
 	if vars["appRef"] != "hrn:app:acme.com:support" {
@@ -49,7 +49,7 @@ func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
 
 // The App may come from --app / the configured context instead of the argument.
 func TestAppAgentListUsesAppContext(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AppAgentRoster": appRosterResp})
+	gql, captured := captureGraphQL(t, map[string]string{"AppAgentInstallationRoster": appRosterResp})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "list", "--app", "acme.com::support", "--json", "--server", gql.URL})
@@ -57,7 +57,7 @@ func TestAppAgentListUsesAppContext(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["AppAgentRoster"], &vars)
+	_ = json.Unmarshal(captured["AppAgentInstallationRoster"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:support" {
 		t.Errorf("--app should scope this one (it IS the subject here): %v", vars)
 	}

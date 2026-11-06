@@ -82,13 +82,22 @@ func TestSessionLogOrder1278(t *testing.T) {
 	})
 
 	t.Run("an undecodable pointer answer after a recorded row is uncertain too", func(t *testing.T) {
-		for name, body := range map[string]string{"not json": `not-json`, "empty body": ``, "html": `<html>oops</html>`} {
+		// cli#1495 item 3: the exit code is part of the contract the doc states
+		// (exit 1 for an unreadable body, exit 7 when the connection dropped
+		// before a body arrived), so pin it, not just the wording.
+		for name, tc := range map[string]struct {
+			body string
+			exit int
+		}{"not json": {`not-json`, 1}, "empty body": {``, 7}, "html": {`<html>oops</html>`, 1}} {
 			called, errOut, err := run(t, []string{"team", "session", "log", "--pr", "371"}, map[string]string{
-				"UpdateTeamSession": body,
+				"UpdateTeamSession": tc.body,
 				"RecordTeamWork":    recorded,
 			})
 			if err == nil || !called["UpdateTeamSession"] {
 				t.Fatalf("%s: err=%v called=%v", name, err, called)
+			}
+			if got := exitCodeFor(err); got != tc.exit {
+				t.Errorf("%s: exit = %d, want %d", name, got, tc.exit)
 			}
 			if !strings.Contains(errOut, "could NOT be confirmed") || strings.Contains(errOut, "was NOT updated") {
 				t.Errorf("%s: undecodable answer must read as uncertain: %q", name, errOut)

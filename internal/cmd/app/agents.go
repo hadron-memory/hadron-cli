@@ -63,7 +63,35 @@ read whichever App you name (#383). This command is the filter.
 For a team App this is the INSTALL roster — the cast pool. The named staff
 (workers cast from these agents) is ` + "`hadron team worker list`" + ` (#428). The
 ROLE column is blank for an agent without persona dressing, which is the
-honest answer rather than an empty list.`,
+honest answer rather than an empty list.
+
+INSTALL shows installed for a row install or derived for a direct import of
+an installed Agent; IMPORTER names the Agent supplying a derived install.
+Only readable Agent details are listed. If the installation roster or Agent
+list is withheld, --json prints null (not []), human output says "roster
+withheld (not visible to you)", and the command exits 0. When the installation list is
+available, its entries give the installation count; an entry with a null
+Agent counts as an install not visible to you. A partial roster prints
+"N installed (M not visible to you)" alongside readable details; its JSON
+array contains only those readable details and is not an install count.
+Known-empty stays [] and "0 readable agents". INSTALL and IMPORTER are
+answered only when you can read every installed Agent.
+Otherwise every row has no install mark (? = not available); JSON installMethod and importer
+are explicitly null. Null does not establish how an Agent is installed.
+
+BOOT PROMPT (NEXT BIND) shows what a new bind would receive now: source level,
+compiled node id and served revision, or the typed refusal. It is not the
+current session's prompt. Only BOOT_PROMPT_NOT_SET means none; null means
+not visible or unknown. Approval is never inferred from a pointer. A visible
+own pointer is shown only when it matches the served level; no URN is built
+and no compiled content is fetched. The existing own deleted-pointer cue stays.
+--json retains its keys and adds pointerLevel, compiledNodeId, servedRevSeq,
+bootPromptRefusal (null when absent) and an optional bootPromptUrn.
+An exact initial missing-bootPromptServe validation may use one legacy listing;
+other schema, permission, transport or partial errors do not fall back.
+
+Requires a server with AppAgent.installMethod and AppAgent.importer (#3446).
+Older servers refuse the new fields; no installation method is inferred.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.MaximumNArgs(1),
@@ -89,7 +117,7 @@ honest answer rather than an empty list.`,
 			if err != nil {
 				return err
 			}
-			r, err := approster.Fetch(cmd.Context(), client, appRef)
+			r, err := approster.FetchEffective(cmd.Context(), client, appRef)
 			if err != nil {
 				return err
 			}

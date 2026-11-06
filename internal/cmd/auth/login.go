@@ -58,7 +58,8 @@ typing it on the command line.
 
 Login applies to the current server; add --server to sign in to another one.
 On success it prints "✓ Signed in to <server>" and where the token is stored;
-hadron auth status (or whoami) then shows which account it is.`,
+hadron auth whoami then shows which account it is; auth status checks only
+whether the credential authenticates.`,
 		Example: `  hadron auth login
   hadron auth login --provider google
   hadron --server https://hadron.example.com auth login

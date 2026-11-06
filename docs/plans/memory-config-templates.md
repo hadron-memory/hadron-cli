@@ -1,3 +1,5 @@
+> Historical single-apply plan. Bulk apply is described in [bulk-memory-config-template-1701.md](bulk-memory-config-template-1701.md).
+
 # Design as built: `memory config template` — owned, reusable rulebooks (#716 slice 2)
 
 > **Status: built in cli#735 (Jane) on `main`, after slice 1 (cli#733) merged

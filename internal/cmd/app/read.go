@@ -115,8 +115,17 @@ This is active-key inventory, not a history of revoked keys. Nullable values
 stay null in JSON and display as - in text, without guessing why they are null.
 An empty JSON result is []. Access refusals come from the server.
 
+Automatically reads every page, including with --scopes, --host-uses and
+--instruction. A later-page error
+fails the command without a partial inventory. Requires server 27671b4b
+(hadron-server#3189) or later; there is no unpaged fallback.
+
+This is not a snapshot: concurrent key changes can shift pages. A changed
+count or repeated ID fails without a partial inventory; equal-count changes
+can still escape detection. List again after changes settle.
+
 --scopes adds what each key holds now (scope, hostId for host:operate,
-grantedAt, grantedBy) in the same single read; a key with none shows [].
+grantedAt, grantedBy) on each page; a key with none shows [].
 --host-uses <n> (with --scopes) also adds each key's newest n host uses
 (host, action, count, refusedCode, usedAt), a refused use included. Neither
 ever returns the raw key.
@@ -152,7 +161,7 @@ characters, ending it with "…". --json keeps every original value.`,
 			if scopes {
 				return listKeysDetail(cmd, f, client, ref, instr, cmd.Flags().Changed("host-uses"), hostUses)
 			}
-			resp, err := keysMetadata(cmd.Context(), client, ref, instr)
+			rows, err := keysMetadata(cmd.Context(), client, ref, instr)
 			if err != nil {
 				if instr == nil {
 					return api.MapError(err)
@@ -160,7 +169,7 @@ characters, ending it with "…". --json keeps every original value.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			dto := []appKeyMetadataDTO{}
-			for _, k := range resp.AppKeys {
+			for _, k := range rows {
 				if k == nil {
 					return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key metadata row")
 				}
@@ -186,7 +195,7 @@ characters, ending it with "…". --json keeps every original value.`,
 	return cmd
 }
 
-// listKeysDetail is `list --scopes [--host-uses n]`: one appKeys call whose
+// listKeysDetail is `list --scopes [--host-uses n]`: paged App-key reads whose
 // selection carries scopes, and host uses only when asked for.
 func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, instr *gen.ActInstructionInput, withUses bool, first int) error {
 	dto := []appKeyDetailDTO{}
@@ -200,11 +209,11 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 		dto = append(dto, row)
 	}
 	if withUses {
-		resp, err := keysHostUses(cmd.Context(), client, ref, first, instr)
+		rows, err := keysHostUses(cmd.Context(), client, ref, first, instr)
 		if err != nil {
 			return api.WithServerCode(api.MapError(err), err)
 		}
-		for _, k := range resp.AppKeys {
+		for _, k := range rows {
 			if k == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key row")
 			}
@@ -223,11 +232,11 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 			add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc, &uses)
 		}
 	} else {
-		resp, err := keysScopes(cmd.Context(), client, ref, instr)
+		rows, err := keysScopes(cmd.Context(), client, ref, instr)
 		if err != nil {
 			return api.WithServerCode(api.MapError(err), err)
 		}
-		for _, k := range resp.AppKeys {
+		for _, k := range rows {
 			if k == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key row")
 			}

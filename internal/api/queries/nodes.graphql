@@ -15,10 +15,11 @@
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
-# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true, bind: "github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeTypeList")
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
 # @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
 # @genqlient(for: "NodeFilter.createdBy", omitempty: true)
@@ -81,6 +82,69 @@ query FindNodes(
         isRunnable
         role
         updatedAt
+        properties @include(if: $withProperties)
+        data @include(if: $withData)
+      }
+    }
+  }
+}
+
+# Opt-in document: omitted listings never name this provider-new field.
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
+query FindNodesWithCommentSummary(
+  # @genqlient(omitempty: true)
+  $query: String
+  # @genqlient(omitempty: true)
+  $mode: FindNodesMode
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  # @genqlient(omitempty: true)
+  $sort: NodeSort
+  # @genqlient(omitempty: true)
+  $sortProperty: NodePropertySort
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # The two JSONB columns are opt-in and INDEPENDENT (#602): a listing is a thin
+  # index, and a 500-row chat listing with full envelopes is a large payload to
+  # send by default. They are separate variables rather than one flag so
+  # --with-data fetches data ALONE. Both are `Boolean!` because @include(if:)
+  # takes a non-null argument; genqlient renders the selected fields as
+  # *json.RawMessage, nil when not selected.
+  $withProperties: Boolean!
+  $withData: Boolean!
+) {
+  findNodes(
+    query: $query
+    mode: $mode
+    filter: $filter
+    sort: $sort
+    sortProperty: $sortProperty
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    degraded
+    reason
+    hits {
+      score
+      node {
+        id
+        memoryId
+        loc
+        name
+        nodeType
+        tags
+        seq
+        isRunnable
+        role
+        updatedAt
+        commentSummary {
+          # @genqlient(pointer: true)
+          openThreads
+          oldestOpenThreadAt
+        }
         properties @include(if: $withProperties)
         data @include(if: $withData)
       }
@@ -253,6 +317,7 @@ query GetNode($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }
@@ -329,6 +394,7 @@ query GetNodeRaw($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }
@@ -881,6 +947,29 @@ mutation UpdateNodeData(
   }
 }
 
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodeDataAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $data: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodeDataUpdateNodeDataNode")
+  updateNodeData(authoredWith: $authoredWith, nodeRef: $nodeRef, data: $data, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
 # Unset optional variables must be omitted from the wire, not sent as
 # explicit nulls — the server rejects priority: null (hadron-server#263)
 # and treats condition/data: null as "clear".
@@ -1162,6 +1251,26 @@ mutation UpdateNodeProperties(
   $reason: String
 ) {
   updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodePropertiesAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodePropertiesUpdateNodePropertiesNode")
+  updateNodeProperties(authoredWith: $authoredWith, nodeRef: $nodeRef, properties: $properties, reason: $reason) {
     id
     memoryId
     loc

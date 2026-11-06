@@ -138,6 +138,14 @@ func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// cli#1655 defaults model ONLY the synthetic exact missing-capability
+	// policy. They are not a stock pre-2708 provider (its missing
+	// installMethod/importer produce mixed errors). Modern preview/provenance
+	// tests must explicitly stub the modern operations.
+	case "AppAgentEffectiveRoster":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerBootPromptServe":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.
@@ -162,6 +170,12 @@ func unstubbedDefault(op string) (string, bool) {
 		// answered as a server that predates draft corpora — describe then
 		// omits the state. Tests of the state stub it.
 		return `{"errors":[{"message":"Cannot query field \"corpusState\" on type \"Memory\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerRetireAdvisory":
+		// `team worker retire`'s advisory read (cli#494), answered as a server
+		// that predates Worker.continuity: the advisory degrades to
+		// "unavailable" and the retirement proceeds, so every existing retire
+		// test keeps its meaning. The advisory's own tests stub the modern answer.
+		return `{"errors":[{"message":"Cannot query field \"continuity\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerProfile":
 		// `team worker get`'s separate PROFILE-names read (#1355). An older
 		// server does not know Worker.appName; the ordinary lookup must work.
@@ -389,32 +403,21 @@ func TestWhoami(t *testing.T) {
 	}
 }
 
-// status resolves the active token via authContext and surfaces the principal
-// type plus the authenticating key.
+// #1726 replaces the detailed status report with the ruled answer-only DTO.
 func TestAuthStatus(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
-			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
-			"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":null,"revokedAt":null}}}}`,
-	})
+	gql := fakeGraphQL(t, map[string]string{"CheckAuthenticationStatus": `{"data":{"authenticationStatus":"AUTHENTICATED"}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+		t.Fatal(err)
 	}
-	var dto struct {
-		Authenticated bool   `json:"authenticated"`
-		PrincipalType string `json:"principalType"`
-		Key           *struct {
-			KeyPreview string `json:"keyPreview"`
-		} `json:"key"`
-	}
+	var dto map[string]any
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("not JSON: %v\n%s", err, out.String())
+		t.Fatal(err)
 	}
-	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
-		t.Errorf("unexpected status: %s", out.String())
+	if len(dto) != 1 || dto["status"] != "AUTHENTICATED" {
+		t.Fatalf("answer-only DTO: %s", out)
 	}
 }
 
@@ -443,11 +446,11 @@ func TestIsUsageErrorClassifiesRequiredFlag(t *testing.T) {
 	}
 }
 
-// Against an older/self-hosted server without authContext, status must surface
+// Against an older/self-hosted server without authenticationStatus, status must surface
 // the schema-skew error (exit 2), not masquerade it as a rejected token (Codex).
 func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"errors":[{"message":"Cannot query field \"authContext\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"CheckAuthenticationStatus": `{"errors":[{"message":"Cannot query field \"authenticationStatus\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

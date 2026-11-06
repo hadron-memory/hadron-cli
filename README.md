@@ -9,7 +9,7 @@ shelling out to it.
 Implemented v1 command surface: `auth login|logout|whoami|status`,
 `memory list|get|set|rm|clone|export`, `node list|get|add|update|rm`,
 `spec list|get|describe|register|find|new|edit|extract|link|lint|supersede|use`,
-`app list|install|uninstall|use`, `config get|set|list`, `api` (raw
+`app list|nodes|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
 `spec import spec-kit|code` is reserved as a stable command stub but is not yet
 implemented.
@@ -168,7 +168,7 @@ hadron run get <run-id> --json          # budgets, policy, failure payload
 Webhooks are the push variant: `hadron webhook create --app <ref> --name <n> --entry <node-urn>`
 prints a URL path and platform token **once** (POST to fire the run) — capture
 them then, as the secret is never queryable again. `hadron webhook rotate <id>`
-reissues it. Full flag reference: `hadron agentic-usage`.
+reissues it (person-only). Full flag reference: `hadron agentic-usage`.
 
 ### CLI coverage and deliberate exclusions
 

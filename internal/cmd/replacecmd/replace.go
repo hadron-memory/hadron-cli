@@ -173,6 +173,7 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 
 			run := func(dry bool) (replaceResultDTO, error) {
 				input := gen.SearchReplaceInNodesInput{
+					AuthoredWith:    cmdutil.AuthoredWith(cmd.Context()),
 					OldText:         oldText,
 					NewText:         newText,
 					Fields:          gqlFields,

@@ -14,6 +14,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/bootpreview"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -59,6 +60,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
+	cmd.AddCommand(newCmdWorkerTerminalTitle(f))
 	cmd.AddCommand(servedprompt.NewWorker(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerChangeAgent(f))
@@ -551,6 +553,7 @@ func workerForArg(cmd *cobra.Command, f *cmdutil.Factory, arg string) (gen.Worke
 // nullable keys and null means UNAVAILABLE (masked, an older server, or an App
 // URN that predates the grammar), never evidence that no App or owner exists.
 type workerGetDTO struct {
+	bootpreview.Fields
 	workerDTO
 	AppName   *string `json:"appName"`
 	OwnerName *string `json:"ownerName"`
@@ -737,6 +740,17 @@ model groups   the model groups the worker's model is currently in, computed
                  (a list, or null when withheld). A failed group lookup fails
                  the command: it is never shown as "none" or "unavailable".
 
+boot prompt (next bind)   the server's current served source level, compiled
+                 node id and revision, or typed refusal, for a NEW bind. This
+                 is not the current session's prompt. Only BOOT_PROMPT_NOT_SET
+                 means none; null is not visible/unknown. Approval is not
+                 inferred from a pointer; no compiled content is read or URN
+                 built. A matching own visible pointer may supply the URN.
+                 JSON adds pointerLevel, compiledNodeId, servedRevSeq,
+                 bootPromptRefusal and optional bootPromptUrn; old keys stay.
+                 Only the exact initial missing-field validation uses the old
+                 label. Auth, transport, mixed and partial errors fail normally.
+
 OVERDUE CLEARS when the worker's own session reads its team chat
 (` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
 the check. A worker that is OVERDUE, or has a wake due to it left
@@ -795,8 +809,34 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
+			guard := &bootpreview.ValidationRead{Client: client}
+			previewResp, previewErr := gen.GetWorkerBootPromptServe(cmd.Context(), guard, w.Id)
+			var preview *bootpreview.Preview
+			if previewErr != nil {
+				if !guard.MissingField(previewErr, "GetWorkerBootPromptServe", "Worker") {
+					return api.MapError(previewErr)
+				}
+			} else {
+				var outcome *gen.BootPromptPreviewFields
+				// Pair the optional own-pointer decoration with this decision read,
+				// rather than the earlier worker lookup. No extra request.
+				w.BootPromptRef = nil
+				w.BootPromptTargetDeleted = nil
+				if previewResp != nil && previewResp.Worker != nil {
+					w.BootPromptRef = previewResp.Worker.BootPromptRef
+					w.BootPromptTargetDeleted = previewResp.Worker.BootPromptTargetDeleted
+				}
+				if previewResp != nil && previewResp.Worker != nil && previewResp.Worker.BootPromptServe != nil {
+					outcome = previewResp.Worker.BootPromptServe
+				}
+				p := bootpreview.Project(outcome, "WORKER", w.BootPromptRef)
+				preview = &p
+			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
 				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
+			if preview != nil {
+				dto.Fields = preview.Fields
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
@@ -925,7 +965,13 @@ and every worker's state in ` + "`team roster`" + `.`,
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
-				if !profile || dto.BootPromptRef != nil {
+				if preview != nil {
+					label := preview.Label()
+					if dto.BootPromptTargetDeleted != nil && *dto.BootPromptTargetDeleted {
+						label += "; own pointer: " + output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+					}
+					fmt.Fprintf(out, "  boot prompt (next bind): %s\n", label)
+				} else if !profile || dto.BootPromptRef != nil {
 					fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
@@ -994,6 +1040,9 @@ type retireResultDTO struct {
 	Name      string  `json:"name"`
 	RetiredAt *string `json:"retiredAt"`
 	Status    string  `json:"status"`
+	// Advisory is the cli#494 handoff advisory read before the confirmation:
+	// stored continuity facts only, null where unavailable to this caller.
+	Advisory retireAdvisoryDTO `json:"advisory"`
 }
 
 func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
@@ -1015,6 +1064,19 @@ not retire it for you; run this command instead.
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
 
+Before it asks, retire prints a handoff advisory to stderr (also with --yes
+and --json), read from what the server reports for the worker: whether the
+last ended stint wrote the newest handoff (CURRENT), this is the first stint,
+or no handoff from the last stint is visible to you (MISSING — not proof none
+was written), plus a note when an open session may still write one. It states
+only what is stored: it never says a handoff is unread, unconsumed or lost,
+and "unavailable to you" is not evidence that none exists. Retirement stops
+new bindings and deletes no handoff nodes. The advisory is a warning only — it
+adds no refusal, prompt or acknowledgement; if it cannot be read, retire says
+so and continues through the same confirmation. With --json, the result gains
+an advisory object (continuityStatus, hasLiveSession, handoffURN; null means
+unavailable).
+
 Who may retire: the same people who may cast (` + "`worker cast --help`" + `). A NAME
 resolves within --app, the App context or the binding; an id or worker URN
 needs no App. On a terminal it asks first; without one, --yes is required
@@ -1033,12 +1095,17 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
-				return err
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
+				return err
+			}
+			// cli#494: one advisory read, shown on stderr BEFORE the prompt
+			// (and under --yes/--json). A warning only: it never refuses,
+			// adds no prompt, and a failed read degrades to "unavailable".
+			advisory := readRetireAdvisory(cmd.Context(), client, &w)
+			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
+			if err := cmdutil.Confirm(f.IOStreams, yes,
+				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -1049,7 +1116,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
 			dto := workerDTOFromFields(*retired)
-			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired"}
+			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
 				return err

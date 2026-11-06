@@ -80,7 +80,7 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
-		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd" || body.OperationName == "GetWorkerProfile" || body.OperationName == "GetWorkerTerminal" || body.OperationName == "GetWorkerModelGroups" || body.OperationName == "GetWorkerRendered") {
+		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd" || body.OperationName == "GetWorkerProfile" || body.OperationName == "GetWorkerTerminal" || body.OperationName == "GetWorkerModelGroups" || body.OperationName == "GetWorkerRendered" || body.OperationName == "GetWorkerBootPromptServe" || body.OperationName == "AppAgentEffectiveRoster" || body.OperationName == "GetWorkerRetireAdvisory") {
 			resp, ok = unstubbedDefault(body.OperationName)
 		}
 		if !ok {

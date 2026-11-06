@@ -25,6 +25,9 @@ import (
 const (
 	connectDefaultWait = 5 * time.Minute
 	connectPollEvery   = 3 * time.Second
+	// fillTimeout bounds the one read that fills a finished connection's
+	// details; the flow already succeeded, so it never decides the exit code.
+	fillTimeout = 10 * time.Second
 )
 
 // Hooks are the process seams `connection connect` touches: the browser
@@ -81,15 +84,19 @@ type connectedDTO struct {
 	DisplayName  *string `json:"displayName"`
 }
 
-// connectDTO is the stable --json shape. authorizeUrl is the ONLY place the
-// credential-bearing URL appears in any output (cor:api:240:02).
+// connectDTO is the stable --json shape. In JSON mode, authorizeUrl is the
+// only output field carrying the credential-bearing URL. Human mode may show
+// it once before the result when the browser is not opened; result and
+// error lines do not repeat it. This is CLI output policy, not platform law.
 type connectDTO struct {
 	Provider      string        `json:"provider"`
 	OrgID         string        `json:"orgId"`
 	AuthorizeURL  string        `json:"authorizeUrl"`
 	ExpiresAt     string        `json:"expiresAt"`
+	FlowID        string        `json:"flowId"`
 	BrowserOpened bool          `json:"browserOpened"`
 	Status        string        `json:"status"`
+	FailureCode   *string       `json:"failureCode"`
 	Connection    *connectedDTO `json:"connection"`
 }
 
@@ -149,10 +156,10 @@ MCP surface are refused, and so is a caller who is not an org ADMIN. The server
 decides; the CLI enforces nothing of its own.
 
 What happens: the command asks the server to start the flow, opens the
-authorize URL in your browser and waits for the new connection to appear in the
-org's connection list. Finish consent in the browser; the page it ends on tells
-you to return to the terminal. The link is single-use, expires (the command
-says when) and is a credential until opened once: treat it like a password.
+authorize URL in your browser and waits for that flow to finish. Finish consent
+in the browser; the page it ends on tells you to return to the terminal. The
+link is single-use, expires (the command says when) and is a credential until
+opened once: treat it like a password.
 
 The URL is shown exactly once. When the browser opens, only a notice is
 printed; the URL itself is printed with --no-browser, or when the browser could
@@ -161,17 +168,18 @@ document and appears nowhere else; because that document is written when the
 command finishes, --json with --no-browser needs --no-wait. Error output never
 contains the URL or its nonce, and nothing is written to disk.
 
---wait <duration> bounds the wait for the new connection (default 5m, never
-past the link's expiry). Only a new connection for that provider owned by you
-counts: one that existed before the start, or that another admin connects
-meanwhile, does not. Known limit: the server's start carries no flow id
-(hadron-server#2913), so two flows you start yourself for the same provider at
-once cannot be told apart; run them one at a time. With --json, if the browser cannot be opened the command
-does not wait: it returns the result (status "started") at once. --no-wait
-returns right after the start. If nothing appears in
-time the command exits 13 with "not found yet": the consent may still be
-completing, so check "hadron email connections --org <org>" before starting
-again.`,
+The wait follows this flow by its flow id (the result's "flowId"), so two flows
+you start at once for the same provider each end with their own connection, and
+reconnecting an account ends with the connection it already had. --wait
+<duration> bounds the wait (default 5m, never past the link's expiry). If the
+flow ends without a connection the command exits 1 and reports the flow's
+failure code (for example access_denied). If nothing finishes in time it exits
+13 with "not found yet": the consent may still be completing, so run
+"hadron connection flow <flow-id>" (the id is in the start notice and in the result,
+which is printed on a timeout too) or check "hadron email connections --org <org>" before
+starting again. With --json, if the browser cannot be opened the command does
+not wait: it returns the result (status "started") at once. --no-wait returns
+right after the start; follow that flow with "hadron connection flow <flow-id>".`,
 		Example: `  hadron connection connect gmail --org hrn:org:acme.com
   hadron connection connect ms-exchange --org acme.com --no-browser
   hadron connection connect google-drive --org hrn:org:acme.com --no-wait --json`,
@@ -220,32 +228,6 @@ again.`,
 				return exitcode.Newf(exitcode.Unavailable, "server returned an unreadable link expiry; the link was not shown")
 			}
 
-			// The flow runs as the signed-in caller, so only a connection owned
-			// by them can be this flow's result (another admin's concurrent
-			// connection for the same provider is not). The server's start
-			// carries no flow id to correlate on.
-			var self string
-			// The "before" snapshot is taken BEFORE the link is shown, so a
-			// connection that appears cannot predate it by consent timing.
-			baseline := map[string]bool{}
-			if !noWait {
-				ac, err := gen.AuthContext(cmd.Context(), client)
-				if err != nil {
-					return scrub(api.WithServerCode(api.MapError(err), err), redact)
-				}
-				if ac == nil || ac.AuthContext == nil || ac.AuthContext.User == nil {
-					return exitcode.Newf(exitcode.Unavailable, "server did not say who the signed-in caller is")
-				}
-				self = ac.AuthContext.User.Id
-				rows, err := listConnections(cmd.Context(), client, start.OrgId)
-				if err != nil {
-					return scrub(api.WithServerCode(api.MapError(err), err), redact)
-				}
-				for _, r := range rows {
-					baseline[r.ID] = true
-				}
-			}
-
 			opened := false
 			if !noBrowser {
 				if err := Hooks.Open(start.AuthorizeUrl); err != nil {
@@ -255,10 +237,10 @@ again.`,
 				}
 			}
 			dto := connectDTO{Provider: string(start.Provider), OrgID: start.OrgId, AuthorizeURL: start.AuthorizeUrl,
-				ExpiresAt: start.ExpiresAt, BrowserOpened: opened, Status: "started"}
+				ExpiresAt: start.ExpiresAt, FlowID: start.FlowId, BrowserOpened: opened, Status: "started"}
 			switch {
 			case opened:
-				fmt.Fprintf(ioStreams.ErrOut, "Opened your browser to connect %s. Finish consent there; the link expires %s.\n", output.SafeCell(rowKey), output.SafeCell(start.ExpiresAt))
+				fmt.Fprintf(ioStreams.ErrOut, "Opened your browser to connect %s (flow %s). Finish consent there; the link expires %s.\n", output.SafeCell(rowKey), output.SafeCell(start.FlowId), output.SafeCell(start.ExpiresAt))
 			case f.JSON:
 				// The result document is the only place the URL may appear, and
 				// it is written when the command ends: waiting would hold it
@@ -266,7 +248,7 @@ again.`,
 				fmt.Fprintln(ioStreams.ErrOut, "The browser could not be opened: not waiting; the link is in the result's authorizeUrl field.")
 				noWait = true
 			default:
-				fmt.Fprintf(ioStreams.ErrOut, "Open this link in a browser to connect %s (single-use, expires %s; treat it like a password):\n", output.SafeCell(rowKey), output.SafeCell(start.ExpiresAt))
+				fmt.Fprintf(ioStreams.ErrOut, "Open this link in a browser to connect %s (flow %s; single-use, expires %s; treat it like a password):\n", output.SafeCell(rowKey), output.SafeCell(start.FlowId), output.SafeCell(start.ExpiresAt))
 				fmt.Fprintf(ioStreams.Out, "%s\n", start.AuthorizeUrl)
 			}
 
@@ -276,28 +258,37 @@ again.`,
 					deadline = expiry
 					fmt.Fprintf(ioStreams.ErrOut, "Waiting only until the link expires (%s), not the full --wait.\n", output.SafeCell(start.ExpiresAt))
 				}
-				found, err := awaitConnection(cmd.Context(), client, start.OrgId, rowKey, self, baseline, deadline)
+				res, err := awaitFlow(cmd.Context(), client, start.FlowId, start.OrgId, rowKey, deadline)
 				if err != nil {
 					var ce *exitcode.CodedError
 					if errors.As(err, &ce) {
+						if ce.Code == exitcode.WaitTimeout {
+							// The flow was started and may still finish: hand over the
+							// record (its flowId) before the error, so a --json caller
+							// can follow it with "connection flow".
+							dto.Status = "pending"
+							if werr := writeConnect(ioStreams, f.JSON, dto, rowKey); werr != nil {
+								return werr
+							}
+						}
 						return scrub(err, redact)
 					}
 					return scrub(api.WithServerCode(api.MapError(err), err), redact)
 				}
+				if res.failureCode != "" {
+					// The flow's own outcome is the result, not a transport error.
+					code := res.failureCode
+					dto.Status, dto.FailureCode = "failed", &code
+					if err := writeConnect(ioStreams, f.JSON, dto, rowKey); err != nil {
+						return err
+					}
+					return scrub(exitcode.Newf(exitcode.Error, "the connection flow failed: %s", output.SafeCell(code)), redact)
+				}
 				dto.Status = "connected"
-				dto.Connection = found
+				dto.Connection = res.connection
 			}
 
-			return output.Write(ioStreams, f.JSON, dto, func(w io.Writer) error {
-				if dto.Connection == nil {
-					_, err := fmt.Fprintf(w, "started %s connection for org %s (link expires %s); confirm with: hadron email connections --org %s\n",
-						output.SafeCell(rowKey), output.SafeCell(dto.OrgID), output.SafeCell(dto.ExpiresAt), output.SafeCell(dto.OrgID))
-					return err
-				}
-				_, err := fmt.Fprintf(w, "✓ connected %s (%s) as %s\n",
-					output.SafeCell(dto.Connection.Provider), output.SafeCell(dto.Connection.MailboxEmail), output.SafeCell(dto.Connection.ID))
-				return err
-			})
+			return writeConnect(ioStreams, f.JSON, dto, rowKey)
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or hrn:org:<slug> URN (required)")
@@ -310,7 +301,7 @@ again.`,
 
 // listConnections reads the org's connection metadata (never credentials or
 // lastError: the operation does not select them).
-func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectionRow, error) {
+func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectedDTO, error) {
 	r, err := gen.EmailConnections(ctx, client, orgID)
 	if err != nil {
 		return nil, err
@@ -318,57 +309,141 @@ func listConnections(ctx context.Context, client graphql.Client, orgID string) (
 	if r == nil {
 		return nil, exitcode.Newf(exitcode.Unavailable, "server returned no connection list")
 	}
-	rows := make([]connectionRow, 0, len(r.ExchangeConnections))
+	rows := make([]connectedDTO, 0, len(r.ExchangeConnections))
 	for _, v := range r.ExchangeConnections {
 		if v == nil {
 			continue
 		}
-		rows = append(rows, connectionRow{connectedDTO: connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName}, userID: v.UserId})
+		rows = append(rows, connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName})
 	}
 	return rows, nil
 }
 
-// connectionRow is a listed connection plus its owner, which only the match
-// uses (the owner is not part of the --json result).
-type connectionRow struct {
-	connectedDTO
-	userID string
+// flowResult is where the wait ended: a connection (possibly with only its id
+// when the follow-up read could not fill the rest) or the flow's failure code.
+type flowResult struct {
+	connection  *connectedDTO
+	failureCode string
 }
 
-// awaitConnection polls until a connection for rowKey, owned by self and not in
-// baseline, appears, or the deadline passes (exit 13, "not found yet"). Each
-// read is bounded by what is left of the wait at the moment it starts, so no
-// read can run past the deadline; it reads first and sleeps after.
-func awaitConnection(ctx context.Context, client graphql.Client, orgID, rowKey, self string, baseline map[string]bool, deadline time.Time) (*connectedDTO, error) {
+// awaitFlow polls connectionFlow(flowId) until it is CONNECTED or FAILED, or the
+// deadline passes (exit 13, "not found yet"). PENDING is an answer, so only the
+// deadline ends it. Each read is bounded by what is left of the wait at the
+// moment it starts; it reads first and sleeps after. A refusal ends the wait at
+// once, as the one refusal, and is not retried.
+func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey string, deadline time.Time) (*flowResult, error) {
 	for {
 		remaining := deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
-			return nil, notFoundYet(rowKey, orgID)
+			return nil, notFoundYet(rowKey, orgID, flowID)
 		}
 		pctx, cancel := context.WithTimeout(ctx, remaining)
-		rows, err := listConnections(pctx, client, orgID)
+		fl, err := readFlow(pctx, client, flowID)
 		expired := pctx.Err() != nil && ctx.Err() == nil
 		cancel()
 		if err != nil {
 			if expired {
-				return nil, notFoundYet(rowKey, orgID)
+				return nil, notFoundYet(rowKey, orgID, flowID)
 			}
 			return nil, err
 		}
-		for _, r := range rows {
-			if r.Provider == rowKey && r.userID == self && !baseline[r.ID] {
-				c := r.connectedDTO
-				return &c, nil
+		switch fl.Status {
+		case gen.ConnectionFlowStatusFailed:
+			code := ""
+			if fl.FailureCode != nil {
+				code = *fl.FailureCode
 			}
+			if code == "" {
+				code = "unknown"
+			}
+			return &flowResult{failureCode: code}, nil
+		case gen.ConnectionFlowStatusConnected:
+			return &flowResult{connection: fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)}, nil
 		}
 		remaining = deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
-			return nil, notFoundYet(rowKey, orgID)
+			return nil, notFoundYet(rowKey, orgID, flowID)
 		}
 		if err := Hooks.Sleep(ctx, min(connectPollEvery, remaining)); err != nil {
 			return nil, exitcode.Newf(exitcode.Error, "interrupted while waiting for the connection: %v", err)
 		}
 	}
+}
+
+// readFlow is one connectionFlow read. A FORBIDDEN is mapped to the single
+// refusal whatever the server's message says, so an unknown, an expired and
+// another user's flow id cannot be told apart (cor:dmo:080:04).
+func readFlow(ctx context.Context, client graphql.Client, flowID string) (*gen.ConnectionFlowConnectionFlow, error) {
+	r, err := gen.ConnectionFlow(ctx, client, flowID)
+	if err != nil {
+		if api.ServerCodeOf(err) == "FORBIDDEN" {
+			return nil, flowRefusal()
+		}
+		return nil, err
+	}
+	if r == nil || r.ConnectionFlow == nil {
+		return nil, exitcode.Newf(exitcode.Unavailable, "server returned no connection flow")
+	}
+	fl := r.ConnectionFlow
+	// Only the documented answers are answers: an unknown status or a CONNECTED
+	// with no connection id is a malformed reply, not a successful read.
+	switch fl.Status {
+	case gen.ConnectionFlowStatusPending, gen.ConnectionFlowStatusFailed:
+	case gen.ConnectionFlowStatusConnected:
+		if fl.ConnectionId == nil || *fl.ConnectionId == "" {
+			return nil, exitcode.Newf(exitcode.Unavailable, "server reported the flow connected without a connection id")
+		}
+	default:
+		return nil, exitcode.Newf(exitcode.Unavailable, "server returned an unrecognized connection flow status")
+	}
+	return fl, nil
+}
+
+func flowRefusal() error {
+	return api.WithCode(exitcode.Newf(exitcode.Forbidden,
+		"no such connection flow for you: the id is unknown, expired (flows last one hour) or not yours to read"), "FORBIDDEN")
+}
+
+// fillConnection reads the org's connection list for the one row the flow made
+// (the flow answer carries only its id), within fillTimeout. If that read fails or the row is not
+// listed, the result still reports the id: the established success is never lost.
+func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) *connectedDTO {
+	bare := &connectedDTO{ID: id, Provider: rowKey}
+	rctx, cancel := context.WithTimeout(ctx, fillTimeout)
+	defer cancel()
+	rows, err := listConnections(rctx, client, orgID)
+	if err != nil {
+		return bare
+	}
+	for _, r := range rows {
+		if r.ID == id {
+			c := r
+			return &c
+		}
+	}
+	return bare
+}
+
+// writeConnect renders the connect result (human or --json).
+func writeConnect(ioStreams *output.IOStreams, asJSON bool, dto connectDTO, rowKey string) error {
+	return output.Write(ioStreams, asJSON, dto, func(w io.Writer) error {
+		switch {
+		case dto.FailureCode != nil:
+			_, err := fmt.Fprintf(w, "✗ %s connection failed: %s (flow %s)\n", output.SafeCell(rowKey), output.SafeCell(*dto.FailureCode), output.SafeCell(dto.FlowID))
+			return err
+		case dto.Status == "pending":
+			_, err := fmt.Fprintf(w, "%s connection flow %s has not finished (link expires %s); follow it with: hadron connection flow %s\n",
+				output.SafeCell(rowKey), output.SafeCell(dto.FlowID), output.SafeCell(dto.ExpiresAt), output.SafeCell(dto.FlowID))
+			return err
+		case dto.Connection == nil:
+			_, err := fmt.Fprintf(w, "started %s connection for org %s (flow %s, link expires %s); follow it with: hadron connection flow %s\n",
+				output.SafeCell(rowKey), output.SafeCell(dto.OrgID), output.SafeCell(dto.FlowID), output.SafeCell(dto.ExpiresAt), output.SafeCell(dto.FlowID))
+			return err
+		}
+		_, err := fmt.Fprintf(w, "✓ connected %s (%s) as %s\n",
+			output.SafeCell(dto.Connection.Provider), output.SafeCell(dto.Connection.MailboxEmail), output.SafeCell(dto.Connection.ID))
+		return err
+	})
 }
 
 // scrub makes sure nothing raised after the link was received can carry it.
@@ -380,7 +455,7 @@ func scrub(err error, redact func(string) string) error {
 	return api.Detached(err, redact)
 }
 
-func notFoundYet(rowKey, orgID string) error {
+func notFoundYet(rowKey, orgID, flowID string) error {
 	return exitcode.Newf(exitcode.WaitTimeout,
-		"not found yet: no new %s connection appeared; consent may still be completing — check \"hadron email connections --org %s\" before starting again", rowKey, orgID)
+		"not found yet: the %s connection flow has not finished; consent may still be completing — check \"hadron connection flow %s\" or \"hadron email connections --org %s\" before starting again", rowKey, flowID, orgID)
 }

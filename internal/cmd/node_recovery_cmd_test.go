@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -479,7 +480,7 @@ func TestRestoreCommentRefusalPointsAtTheCommentCommand(t *testing.T) {
 }
 
 func TestRestoreLostResponseIsNotRetriedAndSaysToVerify(t *testing.T) {
-	var n int
+	var n atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"capabilities":[]}`))
@@ -493,7 +494,7 @@ func TestRestoreLostResponseIsNotRetriedAndSaysToVerify(t *testing.T) {
 			_, _ = w.Write([]byte(`{"data":{"session":{"id":"s","endedAt":null,"endReason":null}}}`))
 			return
 		}
-		n++
+		n.Add(1)
 		// Drop the connection mid-response: the outcome is unknown.
 		hj, _ := w.(http.Hijacker)
 		conn, _, _ := hj.Hijack()
@@ -504,8 +505,8 @@ func TestRestoreLostResponseIsNotRetriedAndSaysToVerify(t *testing.T) {
 	if err == nil || code != exitcode.Unavailable {
 		t.Fatalf("want exit 7, got %d (%v)", code, err)
 	}
-	if n != 1 {
-		t.Errorf("exactly one restore request, got %d", n)
+	if n.Load() != 1 {
+		t.Errorf("exactly one restore request, got %d", n.Load())
 	}
 	if !strings.Contains(errOut, "node recovery get") {
 		t.Errorf("must tell the caller to verify before retrying: %q", errOut)
