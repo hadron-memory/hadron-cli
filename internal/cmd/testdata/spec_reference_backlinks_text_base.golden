@@ -1,0 +1,2 @@
+FROM        KIND  FIELD  TO          TEXT
+msg:010:02  EDGE  edge   msg:020:02  

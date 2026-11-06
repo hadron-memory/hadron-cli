@@ -1,0 +1,13 @@
+{
+  "memory": "micromentor.org::platform-specs",
+  "loc": "msg:010:02",
+  "references": [
+    {
+      "kind": "EDGE",
+      "field": "edge",
+      "sourceLoc": "msg:010:02",
+      "sourceNodeId": "n1",
+      "targetLoc": "msg:020:02"
+    }
+  ]
+}

@@ -122,7 +122,11 @@ In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserv
 placeholder is reported once as "placeholder" instead of being linted, and a
 reference to a spec that doesn't exist or is only a placeholder is reported as
 "unresolved-reference" at the citing spec. Both are warnings: "spec mint" is
-the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+the gate that refuses them. Reference pages (20 rows) are fully collected
+before lint decides; a failed page fails the command without partial findings.
+Older servers may use the full legacy reference read when the page field is
+unsupported; if both reports are unsupported, only ordinary lint rules run.
+Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs

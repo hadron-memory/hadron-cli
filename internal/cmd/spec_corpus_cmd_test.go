@@ -182,7 +182,7 @@ func TestSpecDraftCommandsOnMintedCorpusExit5(t *testing.T) {
 		{"RenumberSpec", []string{"spec", "renumber", "pas:010:04", "pas:010:05"}},
 		{"MintSpecCorpus", []string{"spec", "mint", "--dry-run"}},
 	} {
-		gql := fakeGraphQL(t, map[string]string{"Memories": memListJSON, c.op: notDraftErr})
+		gql := fakeGraphQL(t, map[string]string{"Memories": memListJSON, "SpecBacklinksPage": absentReferenceField1554("specBacklinksPage"), "SpecUnresolvedReferencesPage": absentReferenceField1554("specUnresolvedReferencesPage"), c.op: notDraftErr})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(c.args, "-m", "mem1", "--server", gql.URL))
@@ -194,8 +194,8 @@ func TestSpecDraftCommandsOnMintedCorpusExit5(t *testing.T) {
 
 func TestSpecBacklinksEmptyIsArrayNotNull(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"Memories":      memListJSON,
-		"SpecBacklinks": `{"data":{"specBacklinks":[]}}`,
+		"Memories":          memListJSON,
+		"SpecBacklinksPage": absentReferenceField1554("specBacklinksPage"), "SpecBacklinks": `{"data":{"specBacklinks":[]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -212,9 +212,9 @@ func TestSpecBacklinksAndUnresolvedCarryTheReference(t *testing.T) {
 	ref := `{"kind":"URN","field":"content","sourceLoc":"pas:010","sourceNodeId":"n9","targetLoc":"pas:010:01",` +
 		`"text":"hrn:node:micromentor.org:specs-draft:pas:010:01"`
 	gql := fakeGraphQL(t, map[string]string{
-		"Memories":                 memListJSON,
-		"SpecBacklinks":            `{"data":{"specBacklinks":[` + ref + `}]}}`,
-		"SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[` + ref + `,"reason":"PLACEHOLDER"}]}}`,
+		"Memories":          memListJSON,
+		"SpecBacklinksPage": absentReferenceField1554("specBacklinksPage"), "SpecBacklinks": `{"data":{"specBacklinks":[` + ref + `}]}}`,
+		"SpecUnresolvedReferencesPage": absentReferenceField1554("specUnresolvedReferencesPage"), "SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[` + ref + `,"reason":"PLACEHOLDER"}]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -661,9 +661,9 @@ func TestMemorySetDraftCorpusRefusedOffline(t *testing.T) {
 // array in the new DTOs.
 func TestSpecCorpusEmptyCollectionsAreArrays(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"Memories":                 memListJSON,
-		"SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[]}}`,
-		"RenumberSpec":             `{"data":{"renumberSpec":{"dryRun":true,"moved":[],"rewrites":[],"textCitations":[]}}}`,
+		"Memories":                     memListJSON,
+		"SpecUnresolvedReferencesPage": absentReferenceField1554("specUnresolvedReferencesPage"), "SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[]}}`,
+		"RenumberSpec": `{"data":{"renumberSpec":{"dryRun":true,"moved":[],"rewrites":[],"textCitations":[]}}}`,
 	})
 	for _, c := range []struct {
 		args []string
@@ -768,11 +768,11 @@ func TestSpecLintDraftReportsPlaceholdersAndUnresolved(t *testing.T) {
 		"FindNodes": `{"data":{"nodes":[` + specNodeList(written, `["spec","p1"]`) + `,` + specNodeList(placeholder, `[]`) + `]}}`,
 		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
 			specBatchNode(written) + `,` + specBatchNodeWithTags(placeholder, `[]`) + `]}}}`,
-		"Memories":            memListMicromentorJSON,
-		"GetMemory":           memGetVectorEnabledJSON,
-		"SpecCorpusState":     draftStateJSON,
-		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{written: false, placeholder: true}),
-		"SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[` +
+		"Memories":                     memListMicromentorJSON,
+		"GetMemory":                    memGetVectorEnabledJSON,
+		"SpecCorpusState":              draftStateJSON,
+		"SpecPlaceholderScan":          placeholderScanJSON(map[string]bool{written: false, placeholder: true}),
+		"SpecUnresolvedReferencesPage": absentReferenceField1554("specUnresolvedReferencesPage"), "SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[` +
 			`{"kind":"URN","field":"content","reason":"MISSING","sourceLoc":"` + written + `","sourceNodeId":"n1","targetLoc":"msg:010:09","text":"x"},` +
 			`{"kind":"EDGE","field":"edge","reason":"PLACEHOLDER","sourceLoc":"zzz:out:of:scope","sourceNodeId":"n2","targetLoc":"` + placeholder + `","text":"cites"}]}}`,
 	}
