@@ -289,3 +289,17 @@ func TestHostPlan1635AllArrayShapes(t *testing.T) {
 		}
 	}
 }
+
+func TestHostPlan1635BindingFromClonedServerIsConflict(t *testing.T) {
+	repo := hostRepo1635(t)
+	var b hostBinding
+	if err := json.Unmarshal([]byte(`{"workerId":"id-iris","appId":"app-id","sessionId":"s","server":"https://other.example"}`), &b); err != nil {
+		t.Fatal(err)
+	}
+	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &b}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
+	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Terminals: []string{}, Sessions: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
+	assembleHostPlan(&dto, "app-id", inv)
+	if len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != "binding_server_mismatch" || len(dto.Workers[0].Worktrees) != 0 || len(dto.Actions) != 0 {
+		t.Fatalf("foreign-server binding accepted: %+v", dto)
+	}
+}
