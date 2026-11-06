@@ -212,3 +212,24 @@ mutation SearchReplaceInSpecNodes(
     }
   }
 }
+
+# #1554 — whole-result consumers drain pages, preserving provider order/duplicates.
+query SpecBacklinksPage($memoryRef: ID!, $loc: String!, $limit: Int!, $offset: Int!) {
+  specBacklinksPage(memoryRef: $memoryRef, loc: $loc, limit: $limit, offset: $offset) {
+    items { kind field sourceLoc sourceNodeId targetLoc text }
+    # @genqlient(pointer: true)
+    total
+    # @genqlient(pointer: true)
+    hasMore
+  }
+}
+
+query SpecUnresolvedReferencesPage($memoryRef: ID!, $limit: Int!, $offset: Int!) {
+  specUnresolvedReferencesPage(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+    items { kind field reason sourceLoc sourceNodeId targetLoc text }
+    # @genqlient(pointer: true)
+    total
+    # @genqlient(pointer: true)
+    hasMore
+  }
+}

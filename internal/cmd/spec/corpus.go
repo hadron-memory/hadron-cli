@@ -178,6 +178,10 @@ The citation is matched exactly; references to its descendants are not
 included. A citation written only as bare text (a link label like
 "[pas:010:01]") is not a reference and is not listed.
 
+Results are read to completion in pages of 20 before output; a failed page
+fails the command. Older servers may use the full legacy read only when the
+page field itself is unsupported. Pages are not a cross-request snapshot.
+
 Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec backlinks pas:010:01 -m hrn:mem:micromentor.org:specs-draft
   hadron spec backlinks pas:010:01 --json`,
@@ -195,16 +199,11 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SpecBacklinks(cmd.Context(), client, memID, loc)
+			refs, err := readReferences(cmd.Context(), client, memID, loc)
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := backlinksDTO{Memory: memURN, Loc: loc, References: []referenceDTO{}}
-			for _, r := range resp.SpecBacklinks {
-				if r != nil {
-					dto.References = append(dto.References, referenceFrom(r, nil))
-				}
-			}
+			dto := backlinksDTO{Memory: memURN, Loc: loc, References: refs}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.References) == 0 {
 					_, err := fmt.Fprintf(w, "nothing in the corpus refers to %s\n", loc)
@@ -239,6 +238,10 @@ These are the corpus's open references. ` + "`spec mint`" + ` refuses while any 
 this lists them on their own. It exits 0 either way — listing them is not a
 failure; ` + "`spec mint --dry-run`" + ` is the gate.
 
+Results are read to completion in pages of 20 before output; a failed page
+fails the command. Older servers may use the full legacy read only when the
+page field itself is unsupported. Pages are not a cross-request snapshot.
+
 Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec unresolved -m hrn:mem:micromentor.org:specs-draft
   hadron spec unresolved --json`,
@@ -252,16 +255,11 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SpecUnresolvedReferences(cmd.Context(), client, memID)
+			refs, err := readReferences(cmd.Context(), client, memID, "")
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := unresolvedDTO{Memory: memURN, References: []referenceDTO{}}
-			for _, r := range resp.SpecUnresolvedReferences {
-				if r != nil {
-					dto.References = append(dto.References, referenceFrom(r, r.Reason))
-				}
-			}
+			dto := unresolvedDTO{Memory: memURN, References: refs}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.References) == 0 {
 					_, err := fmt.Fprintln(w, "✓ every reference reaches a written spec")
@@ -896,22 +894,22 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 // in a draft an open reference is work in progress, and `spec mint` is the
 // gate that refuses it (`--strict` escalates them like any warning).
 func unresolvedFindings(ctx context.Context, client graphql.Client, memRef string, inScope map[string]bool) ([]lintFindingDTO, error) {
-	resp, err := gen.SpecUnresolvedReferences(ctx, client, memRef)
+	refs, err := readReferences(ctx, client, memRef, "")
 	if err != nil {
 		// #1453 added this query after draft state and placeholders. Lint
 		// still runs its ordinary rules when this report is unavailable.
-		if api.IsGraphQLValidationFor(err, "specUnresolvedReferences") {
+		if api.IsUnknownQueryField(err, "specUnresolvedReferences") {
 			return nil, nil
 		}
 		return nil, api.MapError(err)
 	}
 	var out []lintFindingDTO
-	for _, r := range resp.SpecUnresolvedReferences {
-		if r == nil || !inScope[r.SourceLoc] {
+	for _, r := range refs {
+		if !inScope[r.SourceLoc] {
 			continue
 		}
 		what := "which has no spec"
-		if r.Reason != nil && *r.Reason == gen.SpecReferenceProblemPlaceholder {
+		if r.Reason == string(gen.SpecReferenceProblemPlaceholder) {
 			what = "which is only a placeholder"
 		}
 		how := "a URN in its " + r.Field

@@ -54,7 +54,7 @@ func TestSpecReferencePages1554AllThreeConsumers(t *testing.T) {
 						fmt.Fprint(w, `{"data":{"findNodes":{"hits":[]},"nodes":[]}}`)
 						return
 					}
-					data := map[string]string{"Memories": memListMicromentorJSON, "GetMemory": memGetVectorEnabledJSON, "SpecCorpusState": draftStateJSON, "SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"msg:010:02": false}), "FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec"]`) + `]}}`, "NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + specBatchNode("msg:010:02") + `]}}}`}
+					data := map[string]string{"Memories": memListMicromentorJSON, "GetMemory": memGetVectorEnabledJSON, "SpecCorpusState": draftStateJSON, "SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"msg:010:02": false}), "FindNodes": `{"data":{"findNodes":{"hits":[{"node":` + specNodeList("msg:010:02", `["spec"]`) + `}],"total":1}}}`, "NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + specBatchNode("msg:010:02") + `]}}}`}
 					if v, ok := data[q.OperationName]; ok {
 						fmt.Fprint(w, v)
 					} else {

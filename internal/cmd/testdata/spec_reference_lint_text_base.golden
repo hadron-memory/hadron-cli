@@ -1,0 +1,2 @@
+CITATION    SEVERITY  RULE                  MESSAGE
+msg:010:02  warning   unresolved-reference  refers to msg:020:02, which is only a placeholder (an edge) — `spec mint` refuses while it remains

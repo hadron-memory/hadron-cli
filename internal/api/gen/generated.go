@@ -80549,6 +80549,90 @@ func (v *SoftDeleteAssetSoftDeleteAsset) GetFilename() string { return v.Filenam
 // GetDeletedAt returns SoftDeleteAssetSoftDeleteAsset.DeletedAt, and is useful for accessing the field via an interface.
 func (v *SoftDeleteAssetSoftDeleteAsset) GetDeletedAt() *string { return v.DeletedAt }
 
+// SpecBacklinksPageResponse is returned by SpecBacklinksPage on success.
+type SpecBacklinksPageResponse struct {
+	// #3222 (#2213 S3, hrn:node:hadronmemory.com:specs:cor:api:120:04): specBacklinks as a page. Same
+	// read gate and refusals as specBacklinks, and the same list in the same order, so the pages
+	// concatenate to exactly what specBacklinks returns. total counts that whole list and hasMore says
+	// whether rows remain past this page. Default page 20, limit: 0 is count-only, a negative limit is
+	// 0, a limit over 200 is served as 200, a negative offset is 0. Paging bounds the response, not the
+	// work: each page still scans the whole corpus. memoryRef accepts the memory's ID or URN.
+	SpecBacklinksPage *SpecBacklinksPageSpecBacklinksPageSpecReferencePage `json:"specBacklinksPage"`
+}
+
+// GetSpecBacklinksPage returns SpecBacklinksPageResponse.SpecBacklinksPage, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageResponse) GetSpecBacklinksPage() *SpecBacklinksPageSpecBacklinksPageSpecReferencePage {
+	return v.SpecBacklinksPage
+}
+
+// SpecBacklinksPageSpecBacklinksPageSpecReferencePage includes the requested fields of the GraphQL type SpecReferencePage.
+// The GraphQL type's documentation follows.
+//
+// #3222 (#2213 S3) — one page of a spec-reference list, counted over the whole list.
+type SpecBacklinksPageSpecBacklinksPageSpecReferencePage struct {
+	Items   []*SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference `json:"items"`
+	Total   *int                                                                     `json:"total"`
+	HasMore *bool                                                                    `json:"hasMore"`
+}
+
+// GetItems returns SpecBacklinksPageSpecBacklinksPageSpecReferencePage.Items, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePage) GetItems() []*SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference {
+	return v.Items
+}
+
+// GetTotal returns SpecBacklinksPageSpecBacklinksPageSpecReferencePage.Total, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePage) GetTotal() *int { return v.Total }
+
+// GetHasMore returns SpecBacklinksPageSpecBacklinksPageSpecReferencePage.HasMore, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePage) GetHasMore() *bool { return v.HasMore }
+
+// SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference includes the requested fields of the GraphQL type SpecReference.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one reference to a spec in a draft corpus. For kind URN, field is
+// the text field it was found in and text the URN as written; for kind EDGE,
+// field is 'edge' and text the edge's relationship name.
+type SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference struct {
+	Kind SpecReferenceKind `json:"kind"`
+	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
+	Field        string `json:"field"`
+	SourceLoc    string `json:"sourceLoc"`
+	SourceNodeId string `json:"sourceNodeId"`
+	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	TargetLoc string  `json:"targetLoc"`
+	Text      *string `json:"text"`
+}
+
+// GetKind returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.Kind, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetKind() SpecReferenceKind {
+	return v.Kind
+}
+
+// GetField returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.Field, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetField() string {
+	return v.Field
+}
+
+// GetSourceLoc returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.SourceLoc, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceLoc() string {
+	return v.SourceLoc
+}
+
+// GetSourceNodeId returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetSourceNodeId() string {
+	return v.SourceNodeId
+}
+
+// GetTargetLoc returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.TargetLoc, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetTargetLoc() string {
+	return v.TargetLoc
+}
+
+// GetText returns SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference.Text, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksPageSpecBacklinksPageSpecReferencePageItemsSpecReference) GetText() *string {
+	return v.Text
+}
+
 // SpecBacklinksResponse is returned by SpecBacklinks on success.
 type SpecBacklinksResponse struct {
 	// #1449 — what refers to the spec at loc in a spec corpus (any memory since
@@ -81142,6 +81226,102 @@ const (
 var AllSpecTextField = []SpecTextField{
 	SpecTextFieldAbstract,
 	SpecTextFieldContent,
+}
+
+// SpecUnresolvedReferencesPageResponse is returned by SpecUnresolvedReferencesPage on success.
+type SpecUnresolvedReferencesPageResponse struct {
+	// #3222 (#2213 S3, hrn:node:hadronmemory.com:specs:cor:api:120:04): specUnresolvedReferences as a
+	// page. Same read gate and refusals as specUnresolvedReferences, and the same list in the same
+	// order, so the pages concatenate to exactly what specUnresolvedReferences returns. total counts
+	// that whole list and hasMore says whether rows remain past this page. Default page 20, limit: 0 is
+	// count-only, a negative limit is 0, a limit over 200 is served as 200, a negative offset is 0.
+	// Paging bounds the response, not the work: each page still scans the whole corpus. memoryRef
+	// accepts the memory's ID or URN.
+	SpecUnresolvedReferencesPage *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage `json:"specUnresolvedReferencesPage"`
+}
+
+// GetSpecUnresolvedReferencesPage returns SpecUnresolvedReferencesPageResponse.SpecUnresolvedReferencesPage, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageResponse) GetSpecUnresolvedReferencesPage() *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage {
+	return v.SpecUnresolvedReferencesPage
+}
+
+// SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage includes the requested fields of the GraphQL type SpecReferencePage.
+// The GraphQL type's documentation follows.
+//
+// #3222 (#2213 S3) — one page of a spec-reference list, counted over the whole list.
+type SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage struct {
+	Items   []*SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference `json:"items"`
+	Total   *int                                                                                           `json:"total"`
+	HasMore *bool                                                                                          `json:"hasMore"`
+}
+
+// GetItems returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage.Items, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage) GetItems() []*SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference {
+	return v.Items
+}
+
+// GetTotal returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage.Total, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage) GetTotal() *int {
+	return v.Total
+}
+
+// GetHasMore returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage.HasMore, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePage) GetHasMore() *bool {
+	return v.HasMore
+}
+
+// SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference includes the requested fields of the GraphQL type SpecReference.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one reference to a spec in a draft corpus. For kind URN, field is
+// the text field it was found in and text the URN as written; for kind EDGE,
+// field is 'edge' and text the edge's relationship name.
+type SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference struct {
+	Kind SpecReferenceKind `json:"kind"`
+	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
+	Field string `json:"field"`
+	// Set only by specUnresolvedReferences and specUnresolvedReferencesPage.
+	Reason       *SpecReferenceProblem `json:"reason"`
+	SourceLoc    string                `json:"sourceLoc"`
+	SourceNodeId string                `json:"sourceNodeId"`
+	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	TargetLoc string  `json:"targetLoc"`
+	Text      *string `json:"text"`
+}
+
+// GetKind returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Kind, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetKind() SpecReferenceKind {
+	return v.Kind
+}
+
+// GetField returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Field, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetField() string {
+	return v.Field
+}
+
+// GetReason returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Reason, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetReason() *SpecReferenceProblem {
+	return v.Reason
+}
+
+// GetSourceLoc returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.SourceLoc, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceLoc() string {
+	return v.SourceLoc
+}
+
+// GetSourceNodeId returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetSourceNodeId() string {
+	return v.SourceNodeId
+}
+
+// GetTargetLoc returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.TargetLoc, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetTargetLoc() string {
+	return v.TargetLoc
+}
+
+// GetText returns SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference.Text, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesPageSpecUnresolvedReferencesPageSpecReferencePageItemsSpecReference) GetText() *string {
+	return v.Text
 }
 
 // SpecUnresolvedReferencesResponse is returned by SpecUnresolvedReferences on success.
@@ -109534,6 +109714,26 @@ func (v *__SpecBacklinksInput) GetMemoryRef() string { return v.MemoryRef }
 // GetLoc returns __SpecBacklinksInput.Loc, and is useful for accessing the field via an interface.
 func (v *__SpecBacklinksInput) GetLoc() string { return v.Loc }
 
+// __SpecBacklinksPageInput is used internally by genqlient
+type __SpecBacklinksPageInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Loc       string `json:"loc"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+}
+
+// GetMemoryRef returns __SpecBacklinksPageInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksPageInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLoc returns __SpecBacklinksPageInput.Loc, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksPageInput) GetLoc() string { return v.Loc }
+
+// GetLimit returns __SpecBacklinksPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksPageInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __SpecBacklinksPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksPageInput) GetOffset() int { return v.Offset }
+
 // __SpecCorpusStateInput is used internally by genqlient
 type __SpecCorpusStateInput struct {
 	Ref string `json:"ref"`
@@ -109581,6 +109781,22 @@ type __SpecUnresolvedReferencesInput struct {
 
 // GetMemoryRef returns __SpecUnresolvedReferencesInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__SpecUnresolvedReferencesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __SpecUnresolvedReferencesPageInput is used internally by genqlient
+type __SpecUnresolvedReferencesPageInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+}
+
+// GetMemoryRef returns __SpecUnresolvedReferencesPageInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecUnresolvedReferencesPageInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLimit returns __SpecUnresolvedReferencesPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SpecUnresolvedReferencesPageInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __SpecUnresolvedReferencesPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SpecUnresolvedReferencesPageInput) GetOffset() int { return v.Offset }
 
 // __StartConnectionInput is used internally by genqlient
 type __StartConnectionInput struct {
@@ -142319,6 +142535,56 @@ func SpecBacklinks(
 	return data_, err_
 }
 
+// The query executed by SpecBacklinksPage.
+const SpecBacklinksPage_Operation = `
+query SpecBacklinksPage ($memoryRef: ID!, $loc: String!, $limit: Int!, $offset: Int!) {
+	specBacklinksPage(memoryRef: $memoryRef, loc: $loc, limit: $limit, offset: $offset) {
+		items {
+			kind
+			field
+			sourceLoc
+			sourceNodeId
+			targetLoc
+			text
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// #1554 — whole-result consumers drain pages, preserving provider order/duplicates.
+func SpecBacklinksPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	loc string,
+	limit int,
+	offset int,
+) (data_ *SpecBacklinksPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecBacklinksPage",
+		Query:  SpecBacklinksPage_Operation,
+		Variables: &__SpecBacklinksPageInput{
+			MemoryRef: memoryRef,
+			Loc:       loc,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &SpecBacklinksPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SpecCorpusState.
 const SpecCorpusState_Operation = `
 query SpecCorpusState ($ref: ID!) {
@@ -142521,6 +142787,54 @@ func SpecUnresolvedReferences(
 	}
 
 	data_ = &SpecUnresolvedReferencesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecUnresolvedReferencesPage.
+const SpecUnresolvedReferencesPage_Operation = `
+query SpecUnresolvedReferencesPage ($memoryRef: ID!, $limit: Int!, $offset: Int!) {
+	specUnresolvedReferencesPage(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+		items {
+			kind
+			field
+			reason
+			sourceLoc
+			sourceNodeId
+			targetLoc
+			text
+		}
+		total
+		hasMore
+	}
+}
+`
+
+func SpecUnresolvedReferencesPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	limit int,
+	offset int,
+) (data_ *SpecUnresolvedReferencesPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecUnresolvedReferencesPage",
+		Query:  SpecUnresolvedReferencesPage_Operation,
+		Variables: &__SpecUnresolvedReferencesPageInput{
+			MemoryRef: memoryRef,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &SpecUnresolvedReferencesPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
