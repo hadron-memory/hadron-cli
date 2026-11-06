@@ -19132,6 +19132,194 @@ func (v *AutomationApprovalsResponse) GetAutomationApprovals() *AutomationApprov
 	return v.AutomationApprovals
 }
 
+// Per-automation READ grant on one memory or loc prefix (#1566, server #2883).
+type AutomationReadGrantFields struct {
+	Id        string  `json:"id"`
+	AppId     string  `json:"appId"`
+	MemoryUrn *string `json:"memoryUrn"`
+	// The loc prefix (the loc itself and its colon-boundary descendants), or null for the whole memory.
+	Prefix *string `json:"prefix"`
+	// The AgentSchedule or AgentWebhook id.
+	TriggerId string `json:"triggerId"`
+	// SCHEDULE or WEBHOOK.
+	TriggerKind string `json:"triggerKind"`
+	// The person who gave it.
+	GrantedBy string  `json:"grantedBy"`
+	CreatedAt string  `json:"createdAt"`
+	RevokedAt *string `json:"revokedAt"`
+	RevokedBy *string `json:"revokedBy"`
+}
+
+// GetId returns AutomationReadGrantFields.Id, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetId() string { return v.Id }
+
+// GetAppId returns AutomationReadGrantFields.AppId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetAppId() string { return v.AppId }
+
+// GetMemoryUrn returns AutomationReadGrantFields.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetMemoryUrn() *string { return v.MemoryUrn }
+
+// GetPrefix returns AutomationReadGrantFields.Prefix, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetPrefix() *string { return v.Prefix }
+
+// GetTriggerId returns AutomationReadGrantFields.TriggerId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetTriggerId() string { return v.TriggerId }
+
+// GetTriggerKind returns AutomationReadGrantFields.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetTriggerKind() string { return v.TriggerKind }
+
+// GetGrantedBy returns AutomationReadGrantFields.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetGrantedBy() string { return v.GrantedBy }
+
+// GetCreatedAt returns AutomationReadGrantFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetRevokedAt returns AutomationReadGrantFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetRevokedBy returns AutomationReadGrantFields.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantFields) GetRevokedBy() *string { return v.RevokedBy }
+
+// AutomationReadGrantsAutomationReadGrantsAutomationReadGrant includes the requested fields of the GraphQL type AutomationReadGrant.
+// The GraphQL type's documentation follows.
+//
+// #2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type AutomationReadGrantsAutomationReadGrantsAutomationReadGrant struct {
+	AutomationReadGrantFields `json:"-"`
+}
+
+// GetId returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.Id, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetId() string {
+	return v.AutomationReadGrantFields.Id
+}
+
+// GetAppId returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.AppId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetAppId() string {
+	return v.AutomationReadGrantFields.AppId
+}
+
+// GetMemoryUrn returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetMemoryUrn() *string {
+	return v.AutomationReadGrantFields.MemoryUrn
+}
+
+// GetPrefix returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.Prefix, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetPrefix() *string {
+	return v.AutomationReadGrantFields.Prefix
+}
+
+// GetTriggerId returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetTriggerId() string {
+	return v.AutomationReadGrantFields.TriggerId
+}
+
+// GetTriggerKind returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetTriggerKind() string {
+	return v.AutomationReadGrantFields.TriggerKind
+}
+
+// GetGrantedBy returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetGrantedBy() string {
+	return v.AutomationReadGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetCreatedAt() string {
+	return v.AutomationReadGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetRevokedAt() *string {
+	return v.AutomationReadGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns AutomationReadGrantsAutomationReadGrantsAutomationReadGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) GetRevokedBy() *string {
+	return v.AutomationReadGrantFields.RevokedBy
+}
+
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AutomationReadGrantsAutomationReadGrantsAutomationReadGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AutomationReadGrantsAutomationReadGrantsAutomationReadGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationReadGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAutomationReadGrantsAutomationReadGrantsAutomationReadGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix *string `json:"prefix"`
+
+	TriggerId string `json:"triggerId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) __premarshalJSON() (*__premarshalAutomationReadGrantsAutomationReadGrantsAutomationReadGrant, error) {
+	var retval __premarshalAutomationReadGrantsAutomationReadGrantsAutomationReadGrant
+
+	retval.Id = v.AutomationReadGrantFields.Id
+	retval.AppId = v.AutomationReadGrantFields.AppId
+	retval.MemoryUrn = v.AutomationReadGrantFields.MemoryUrn
+	retval.Prefix = v.AutomationReadGrantFields.Prefix
+	retval.TriggerId = v.AutomationReadGrantFields.TriggerId
+	retval.TriggerKind = v.AutomationReadGrantFields.TriggerKind
+	retval.GrantedBy = v.AutomationReadGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationReadGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationReadGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationReadGrantFields.RevokedBy
+	return &retval, nil
+}
+
+// AutomationReadGrantsResponse is returned by AutomationReadGrants on success.
+type AutomationReadGrantsResponse struct {
+	// #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
+	AutomationReadGrants []*AutomationReadGrantsAutomationReadGrantsAutomationReadGrant `json:"automationReadGrants"`
+}
+
+// GetAutomationReadGrants returns AutomationReadGrantsResponse.AutomationReadGrants, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsResponse) GetAutomationReadGrants() []*AutomationReadGrantsAutomationReadGrantsAutomationReadGrant {
+	return v.AutomationReadGrants
+}
+
 // Per-automation own-App roster/task read grant (#1578, server #3363).
 type AutomationTeamSnapshotGrantFields struct {
 	Id          string  `json:"id"`
@@ -71602,6 +71790,146 @@ func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevo
 	return &retval, nil
 }
 
+// RevokeAutomationReadGrantResponse is returned by RevokeAutomationReadGrant on success.
+type RevokeAutomationReadGrantResponse struct {
+	// #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
+	RevokeAutomationReadGrant *RevokeAutomationReadGrantRevokeAutomationReadGrant `json:"revokeAutomationReadGrant"`
+}
+
+// GetRevokeAutomationReadGrant returns RevokeAutomationReadGrantResponse.RevokeAutomationReadGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantResponse) GetRevokeAutomationReadGrant() *RevokeAutomationReadGrantRevokeAutomationReadGrant {
+	return v.RevokeAutomationReadGrant
+}
+
+// RevokeAutomationReadGrantRevokeAutomationReadGrant includes the requested fields of the GraphQL type AutomationReadGrant.
+// The GraphQL type's documentation follows.
+//
+// #2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type RevokeAutomationReadGrantRevokeAutomationReadGrant struct {
+	AutomationReadGrantFields `json:"-"`
+}
+
+// GetId returns RevokeAutomationReadGrantRevokeAutomationReadGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetId() string {
+	return v.AutomationReadGrantFields.Id
+}
+
+// GetAppId returns RevokeAutomationReadGrantRevokeAutomationReadGrant.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetAppId() string {
+	return v.AutomationReadGrantFields.AppId
+}
+
+// GetMemoryUrn returns RevokeAutomationReadGrantRevokeAutomationReadGrant.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetMemoryUrn() *string {
+	return v.AutomationReadGrantFields.MemoryUrn
+}
+
+// GetPrefix returns RevokeAutomationReadGrantRevokeAutomationReadGrant.Prefix, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetPrefix() *string {
+	return v.AutomationReadGrantFields.Prefix
+}
+
+// GetTriggerId returns RevokeAutomationReadGrantRevokeAutomationReadGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetTriggerId() string {
+	return v.AutomationReadGrantFields.TriggerId
+}
+
+// GetTriggerKind returns RevokeAutomationReadGrantRevokeAutomationReadGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetTriggerKind() string {
+	return v.AutomationReadGrantFields.TriggerKind
+}
+
+// GetGrantedBy returns RevokeAutomationReadGrantRevokeAutomationReadGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetGrantedBy() string {
+	return v.AutomationReadGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns RevokeAutomationReadGrantRevokeAutomationReadGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetCreatedAt() string {
+	return v.AutomationReadGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns RevokeAutomationReadGrantRevokeAutomationReadGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetRevokedAt() *string {
+	return v.AutomationReadGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns RevokeAutomationReadGrantRevokeAutomationReadGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) GetRevokedBy() *string {
+	return v.AutomationReadGrantFields.RevokedBy
+}
+
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RevokeAutomationReadGrantRevokeAutomationReadGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RevokeAutomationReadGrantRevokeAutomationReadGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationReadGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRevokeAutomationReadGrantRevokeAutomationReadGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix *string `json:"prefix"`
+
+	TriggerId string `json:"triggerId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RevokeAutomationReadGrantRevokeAutomationReadGrant) __premarshalJSON() (*__premarshalRevokeAutomationReadGrantRevokeAutomationReadGrant, error) {
+	var retval __premarshalRevokeAutomationReadGrantRevokeAutomationReadGrant
+
+	retval.Id = v.AutomationReadGrantFields.Id
+	retval.AppId = v.AutomationReadGrantFields.AppId
+	retval.MemoryUrn = v.AutomationReadGrantFields.MemoryUrn
+	retval.Prefix = v.AutomationReadGrantFields.Prefix
+	retval.TriggerId = v.AutomationReadGrantFields.TriggerId
+	retval.TriggerKind = v.AutomationReadGrantFields.TriggerKind
+	retval.GrantedBy = v.AutomationReadGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationReadGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationReadGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationReadGrantFields.RevokedBy
+	return &retval, nil
+}
+
 // RevokeAutomationTeamSnapshotGrantInstructedResponse is returned by RevokeAutomationTeamSnapshotGrantInstructed on success.
 type RevokeAutomationTeamSnapshotGrantInstructedResponse struct {
 	// #3350: terminal revoke, App managers only. A held worker on a validated instruction may revoke within its own App; changing revokes record the worker and holder.
@@ -76825,6 +77153,146 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() boo
 // GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
 
+// SetAutomationReadGrantResponse is returned by SetAutomationReadGrant on success.
+type SetAutomationReadGrantResponse struct {
+	// #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise, as a person (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A refusal is the same Forbidden as an unknown App, trigger or memory.
+	SetAutomationReadGrant *SetAutomationReadGrantSetAutomationReadGrant `json:"setAutomationReadGrant"`
+}
+
+// GetSetAutomationReadGrant returns SetAutomationReadGrantResponse.SetAutomationReadGrant, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantResponse) GetSetAutomationReadGrant() *SetAutomationReadGrantSetAutomationReadGrant {
+	return v.SetAutomationReadGrant
+}
+
+// SetAutomationReadGrantSetAutomationReadGrant includes the requested fields of the GraphQL type AutomationReadGrant.
+// The GraphQL type's documentation follows.
+//
+// #2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type SetAutomationReadGrantSetAutomationReadGrant struct {
+	AutomationReadGrantFields `json:"-"`
+}
+
+// GetId returns SetAutomationReadGrantSetAutomationReadGrant.Id, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetId() string {
+	return v.AutomationReadGrantFields.Id
+}
+
+// GetAppId returns SetAutomationReadGrantSetAutomationReadGrant.AppId, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetAppId() string {
+	return v.AutomationReadGrantFields.AppId
+}
+
+// GetMemoryUrn returns SetAutomationReadGrantSetAutomationReadGrant.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetMemoryUrn() *string {
+	return v.AutomationReadGrantFields.MemoryUrn
+}
+
+// GetPrefix returns SetAutomationReadGrantSetAutomationReadGrant.Prefix, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetPrefix() *string {
+	return v.AutomationReadGrantFields.Prefix
+}
+
+// GetTriggerId returns SetAutomationReadGrantSetAutomationReadGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetTriggerId() string {
+	return v.AutomationReadGrantFields.TriggerId
+}
+
+// GetTriggerKind returns SetAutomationReadGrantSetAutomationReadGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetTriggerKind() string {
+	return v.AutomationReadGrantFields.TriggerKind
+}
+
+// GetGrantedBy returns SetAutomationReadGrantSetAutomationReadGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetGrantedBy() string {
+	return v.AutomationReadGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns SetAutomationReadGrantSetAutomationReadGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetCreatedAt() string {
+	return v.AutomationReadGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns SetAutomationReadGrantSetAutomationReadGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetRevokedAt() *string {
+	return v.AutomationReadGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns SetAutomationReadGrantSetAutomationReadGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *SetAutomationReadGrantSetAutomationReadGrant) GetRevokedBy() *string {
+	return v.AutomationReadGrantFields.RevokedBy
+}
+
+func (v *SetAutomationReadGrantSetAutomationReadGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAutomationReadGrantSetAutomationReadGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAutomationReadGrantSetAutomationReadGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationReadGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAutomationReadGrantSetAutomationReadGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix *string `json:"prefix"`
+
+	TriggerId string `json:"triggerId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *SetAutomationReadGrantSetAutomationReadGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAutomationReadGrantSetAutomationReadGrant) __premarshalJSON() (*__premarshalSetAutomationReadGrantSetAutomationReadGrant, error) {
+	var retval __premarshalSetAutomationReadGrantSetAutomationReadGrant
+
+	retval.Id = v.AutomationReadGrantFields.Id
+	retval.AppId = v.AutomationReadGrantFields.AppId
+	retval.MemoryUrn = v.AutomationReadGrantFields.MemoryUrn
+	retval.Prefix = v.AutomationReadGrantFields.Prefix
+	retval.TriggerId = v.AutomationReadGrantFields.TriggerId
+	retval.TriggerKind = v.AutomationReadGrantFields.TriggerKind
+	retval.GrantedBy = v.AutomationReadGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationReadGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationReadGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationReadGrantFields.RevokedBy
+	return &retval, nil
+}
+
 // SetAutomationTeamSnapshotGrantResponse is returned by SetAutomationTeamSnapshotGrant on success.
 type SetAutomationTeamSnapshotGrantResponse struct {
 	// #3350: App managers, as people acting as themselves, give this live schedule/webhook a read-only own-App team snapshot grant, off until given; identical repeat returns the live row. hrn:node:hadronmemory.com:specs:cor:agt:050:23
@@ -79642,6 +80110,265 @@ type SpecCorpusStateResponse struct {
 
 // GetMemory returns SpecCorpusStateResponse.Memory, and is useful for accessing the field via an interface.
 func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.Memory }
+
+// SpecDocumentResponse is returned by SpecDocument on success.
+type SpecDocumentResponse struct {
+	// #1302 (R218, hrn:node:hadronmemory.com:specs:cor:spc:030:01) — a Feature's specs as ONE ordered document, built on
+	// the server for the CLI and the portal. loc names the Feature (any live spec is accepted, and the document starts with
+	// it); the document covers it and its live descendants on colon boundaries. markdown is the whole document in the form
+	// of hrn:node:hadronmemory.com:specs:cor:spc:030:02; entries are the same specs with their records, in document order. Same read gate and refusals as
+	// specBacklinks: an unreadable and a missing memory answer alike, and an encrypted readable one refuses with
+	// SPEC_CORPUS_ENCRYPTED_UNSUPPORTED. A readable memory with no live spec at loc answers NODE_NOT_FOUND (a deleted spec
+	// and a never-written loc alike). Over 300 specs it refuses with SPEC_DOCUMENT_TOO_LARGE and extensions.cap, and never
+	// returns part of the document. Reads only: nothing is stored, approved or minted. The render time is the only part of
+	// the text that differs between two calls over the same specs, approval and mint state, includes, caller access and
+	// portal origin. No MCP tool offers this.
+	SpecDocument *SpecDocumentSpecDocument `json:"specDocument"`
+}
+
+// GetSpecDocument returns SpecDocumentResponse.SpecDocument, and is useful for accessing the field via an interface.
+func (v *SpecDocumentResponse) GetSpecDocument() *SpecDocumentSpecDocument { return v.SpecDocument }
+
+// SpecDocumentSpecDocument includes the requested fields of the GraphQL type SpecDocument.
+// The GraphQL type's documentation follows.
+//
+// #1302 — a Feature's specs as one document (see Query.specDocument).
+type SpecDocumentSpecDocument struct {
+	// The citation the document was built for.
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+	// The time in the text's header.
+	RenderedAt string `json:"renderedAt"`
+	// The whole document, one Markdown string (hrn:node:hadronmemory.com:specs:cor:spc:030:02). Every client shows this string unchanged.
+	Markdown string `json:"markdown"`
+	// One entry per spec the document covers, in document order, the Feature first.
+	Entries []*SpecDocumentSpecDocumentEntriesSpecDocumentEntry `json:"entries"`
+}
+
+// GetLoc returns SpecDocumentSpecDocument.Loc, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns SpecDocumentSpecDocument.MemoryId, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetMemoryId() string { return v.MemoryId }
+
+// GetRenderedAt returns SpecDocumentSpecDocument.RenderedAt, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetRenderedAt() string { return v.RenderedAt }
+
+// GetMarkdown returns SpecDocumentSpecDocument.Markdown, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetMarkdown() string { return v.Markdown }
+
+// GetEntries returns SpecDocumentSpecDocument.Entries, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocument) GetEntries() []*SpecDocumentSpecDocumentEntriesSpecDocumentEntry {
+	return v.Entries
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntry includes the requested fields of the GraphQL type SpecDocumentEntry.
+// The GraphQL type's documentation follows.
+//
+// #1302 — one spec in a document, read as the caller would read the node.
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntry struct {
+	Loc      string `json:"loc"`
+	Urn      string `json:"urn"`
+	Name     string `json:"name"`
+	Revision int    `json:"revision"`
+	// The body as an ordinary read returns it (includes resolved under the caller's own access). Null for a placeholder.
+	Content        *string                                                                           `json:"content"`
+	IsPlaceholder  bool                                                                              `json:"isPlaceholder"`
+	ApprovalStatus *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus `json:"approvalStatus"`
+	MintStatus     *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus         `json:"mintStatus"`
+}
+
+// GetLoc returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Loc, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetLoc() string { return v.Loc }
+
+// GetUrn returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Urn, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetUrn() string { return v.Urn }
+
+// GetName returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Name, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetName() string { return v.Name }
+
+// GetRevision returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Revision, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetRevision() int { return v.Revision }
+
+// GetContent returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.Content, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetContent() *string { return v.Content }
+
+// GetIsPlaceholder returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetIsPlaceholder() bool {
+	return v.IsPlaceholder
+}
+
+// GetApprovalStatus returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.ApprovalStatus, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetApprovalStatus() *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus {
+	return v.ApprovalStatus
+}
+
+// GetMintStatus returns SpecDocumentSpecDocumentEntriesSpecDocumentEntry.MintStatus, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntry) GetMintStatus() *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus {
+	return v.MintStatus
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus includes the requested fields of the GraphQL type NodeApprovalStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus struct {
+	NodeApprovalStatusFields `json:"-"`
+}
+
+// GetState returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus.State, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) GetState() NodeApprovalState {
+	return v.NodeApprovalStatusFields.State
+}
+
+// GetApproval returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus.Approval, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) GetApproval() *NodeApprovalStatusFieldsApprovalNodeApproval {
+	return v.NodeApprovalStatusFields.Approval
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus struct {
+	State NodeApprovalState `json:"state"`
+
+	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus) __premarshalJSON() (*__premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus, error) {
+	var retval __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryApprovalStatusNodeApprovalStatus
+
+	retval.State = v.NodeApprovalStatusFields.State
+	retval.Approval = v.NodeApprovalStatusFields.Approval
+	return &retval, nil
+}
+
+// SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus includes the requested fields of the GraphQL type NodeMintStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — whether a node is minted, and the record of it. Encrypted memories read not-minted with all record fields null; not-applicable is distinguished by approvalStatus. Minting protects nothing by itself (permanence is off for now).
+type SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus struct {
+	NodeMintStatusFields `json:"-"`
+}
+
+// GetMinted returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Minted, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMinted() bool {
+	return v.NodeMintStatusFields.Minted
+}
+
+// GetMintedAt returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedAt, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedAt() *string {
+	return v.NodeMintStatusFields.MintedAt
+}
+
+// GetMintedBy returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedBy, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedBy() *NodeMintStatusFieldsMintedByNodeRevisionEditor {
+	return v.NodeMintStatusFields.MintedBy
+}
+
+// GetMintedByInfo returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.MintedByInfo, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetMintedByInfo() *string {
+	return v.NodeMintStatusFields.MintedByInfo
+}
+
+// GetRevision returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Revision, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetRevision() *int {
+	return v.NodeMintStatusFields.Revision
+}
+
+// GetHash returns SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus.Hash, and is useful for accessing the field via an interface.
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) GetHash() *string {
+	return v.NodeMintStatusFields.Hash
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeMintStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus struct {
+	Minted bool `json:"minted"`
+
+	MintedAt *string `json:"mintedAt"`
+
+	MintedBy *NodeMintStatusFieldsMintedByNodeRevisionEditor `json:"mintedBy"`
+
+	MintedByInfo *string `json:"mintedByInfo"`
+
+	Revision *int `json:"revision"`
+
+	Hash *string `json:"hash"`
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus) __premarshalJSON() (*__premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus, error) {
+	var retval __premarshalSpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatus
+
+	retval.Minted = v.NodeMintStatusFields.Minted
+	retval.MintedAt = v.NodeMintStatusFields.MintedAt
+	retval.MintedBy = v.NodeMintStatusFields.MintedBy
+	retval.MintedByInfo = v.NodeMintStatusFields.MintedByInfo
+	retval.Revision = v.NodeMintStatusFields.Revision
+	retval.Hash = v.NodeMintStatusFields.Hash
+	return &retval, nil
+}
 
 // #1448 — why the mint report lists an item.
 type SpecMintFindingKind string
@@ -101952,6 +102679,22 @@ func (v *__AutomationApprovalsInput) GetAfter() *string { return v.After }
 // GetLimit returns __AutomationApprovalsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AutomationApprovalsInput) GetLimit() *int { return v.Limit }
 
+// __AutomationReadGrantsInput is used internally by genqlient
+type __AutomationReadGrantsInput struct {
+	AppRef         *string `json:"appRef,omitempty"`
+	MemoryRef      *string `json:"memoryRef,omitempty"`
+	IncludeRevoked *bool   `json:"includeRevoked,omitempty"`
+}
+
+// GetAppRef returns __AutomationReadGrantsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInput) GetAppRef() *string { return v.AppRef }
+
+// GetMemoryRef returns __AutomationReadGrantsInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInput) GetMemoryRef() *string { return v.MemoryRef }
+
+// GetIncludeRevoked returns __AutomationReadGrantsInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
 // __AutomationTeamSnapshotGrantsInput is used internally by genqlient
 type __AutomationTeamSnapshotGrantsInput struct {
 	AppRef         string `json:"appRef"`
@@ -107298,6 +108041,14 @@ func (v *__RevokeAppMemoryWriteGrantInstructedInput) GetInstruction() *ActInstru
 	return v.Instruction
 }
 
+// __RevokeAutomationReadGrantInput is used internally by genqlient
+type __RevokeAutomationReadGrantInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RevokeAutomationReadGrantInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAutomationReadGrantInput) GetId() string { return v.Id }
+
 // __RevokeAutomationTeamSnapshotGrantInput is used internally by genqlient
 type __RevokeAutomationTeamSnapshotGrantInput struct {
 	Id string `json:"id"`
@@ -107832,6 +108583,30 @@ func (v *__SetAssetPublicLinkInstructedInput) GetInstruction() *ActInstructionIn
 	return v.Instruction
 }
 
+// __SetAutomationReadGrantInput is used internally by genqlient
+type __SetAutomationReadGrantInput struct {
+	AppRef      string  `json:"appRef"`
+	MemoryRef   string  `json:"memoryRef"`
+	Prefix      *string `json:"prefix,omitempty"`
+	TriggerId   string  `json:"triggerId"`
+	TriggerKind string  `json:"triggerKind"`
+}
+
+// GetAppRef returns __SetAutomationReadGrantInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAutomationReadGrantInput) GetAppRef() string { return v.AppRef }
+
+// GetMemoryRef returns __SetAutomationReadGrantInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SetAutomationReadGrantInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetPrefix returns __SetAutomationReadGrantInput.Prefix, and is useful for accessing the field via an interface.
+func (v *__SetAutomationReadGrantInput) GetPrefix() *string { return v.Prefix }
+
+// GetTriggerId returns __SetAutomationReadGrantInput.TriggerId, and is useful for accessing the field via an interface.
+func (v *__SetAutomationReadGrantInput) GetTriggerId() string { return v.TriggerId }
+
+// GetTriggerKind returns __SetAutomationReadGrantInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__SetAutomationReadGrantInput) GetTriggerKind() string { return v.TriggerKind }
+
 // __SetAutomationTeamSnapshotGrantInput is used internally by genqlient
 type __SetAutomationTeamSnapshotGrantInput struct {
 	AppRef      string `json:"appRef"`
@@ -108015,6 +108790,18 @@ type __SpecCorpusStateInput struct {
 
 // GetRef returns __SpecCorpusStateInput.Ref, and is useful for accessing the field via an interface.
 func (v *__SpecCorpusStateInput) GetRef() string { return v.Ref }
+
+// __SpecDocumentInput is used internally by genqlient
+type __SpecDocumentInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Loc       string `json:"loc"`
+}
+
+// GetMemoryRef returns __SpecDocumentInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecDocumentInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLoc returns __SpecDocumentInput.Loc, and is useful for accessing the field via an interface.
+func (v *__SpecDocumentInput) GetLoc() string { return v.Loc }
 
 // __SpecPlaceholderScanInput is used internally by genqlient
 type __SpecPlaceholderScanInput struct {
@@ -117313,6 +118100,56 @@ func AutomationApprovals(
 	}
 
 	data_ = &AutomationApprovalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationReadGrants.
+const AutomationReadGrants_Operation = `
+query AutomationReadGrants ($appRef: String, $memoryRef: String, $includeRevoked: Boolean) {
+	automationReadGrants(appRef: $appRef, memoryRef: $memoryRef, includeRevoked: $includeRevoked) {
+		... AutomationReadGrantFields
+	}
+}
+fragment AutomationReadGrantFields on AutomationReadGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	triggerId
+	triggerKind
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func AutomationReadGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	memoryRef *string,
+	includeRevoked *bool,
+) (data_ *AutomationReadGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationReadGrants",
+		Query:  AutomationReadGrants_Operation,
+		Variables: &__AutomationReadGrantsInput{
+			AppRef:         appRef,
+			MemoryRef:      memoryRef,
+			IncludeRevoked: includeRevoked,
+		},
+	}
+
+	data_ = &AutomationReadGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -137085,6 +137922,52 @@ func RevokeAppMemoryWriteGrantInstructed(
 	return data_, err_
 }
 
+// The mutation executed by RevokeAutomationReadGrant.
+const RevokeAutomationReadGrant_Operation = `
+mutation RevokeAutomationReadGrant ($id: ID!) {
+	revokeAutomationReadGrant(id: $id) {
+		... AutomationReadGrantFields
+	}
+}
+fragment AutomationReadGrantFields on AutomationReadGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	triggerId
+	triggerKind
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func RevokeAutomationReadGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RevokeAutomationReadGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAutomationReadGrant",
+		Query:  RevokeAutomationReadGrant_Operation,
+		Variables: &__RevokeAutomationReadGrantInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RevokeAutomationReadGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeAutomationTeamSnapshotGrant.
 const RevokeAutomationTeamSnapshotGrant_Operation = `
 mutation RevokeAutomationTeamSnapshotGrant ($id: ID!) {
@@ -139015,6 +139898,62 @@ func SetAssetPublicLinkInstructed(
 	return data_, err_
 }
 
+// The mutation executed by SetAutomationReadGrant.
+const SetAutomationReadGrant_Operation = `
+mutation SetAutomationReadGrant ($appRef: String!, $memoryRef: String!, $prefix: String, $triggerId: ID!, $triggerKind: String!) {
+	setAutomationReadGrant(appRef: $appRef, memoryRef: $memoryRef, prefix: $prefix, triggerId: $triggerId, triggerKind: $triggerKind) {
+		... AutomationReadGrantFields
+	}
+}
+fragment AutomationReadGrantFields on AutomationReadGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	triggerId
+	triggerKind
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+// prefix is optional: an omitted prefix is the whole memory, and the server
+// refuses a blank one, so a nil pointer must be omitted, never sent as null.
+func SetAutomationReadGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	memoryRef string,
+	prefix *string,
+	triggerId string,
+	triggerKind string,
+) (data_ *SetAutomationReadGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAutomationReadGrant",
+		Query:  SetAutomationReadGrant_Operation,
+		Variables: &__SetAutomationReadGrantInput{
+			AppRef:      appRef,
+			MemoryRef:   memoryRef,
+			Prefix:      prefix,
+			TriggerId:   triggerId,
+			TriggerKind: triggerKind,
+		},
+	}
+
+	data_ = &SetAutomationReadGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAutomationTeamSnapshotGrant.
 const SetAutomationTeamSnapshotGrant_Operation = `
 mutation SetAutomationTeamSnapshotGrant ($appRef: ID!, $triggerKind: String!, $triggerId: ID!) {
@@ -139930,6 +140869,89 @@ func SpecCorpusState(
 	}
 
 	data_ = &SpecCorpusStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecDocument.
+const SpecDocument_Operation = `
+query SpecDocument ($memoryRef: ID!, $loc: String!) {
+	specDocument(memoryRef: $memoryRef, loc: $loc) {
+		loc
+		memoryId
+		renderedAt
+		markdown
+		entries {
+			loc
+			urn
+			name
+			revision
+			content
+			isPlaceholder
+			approvalStatus {
+				... NodeApprovalStatusFields
+			}
+			mintStatus {
+				... NodeMintStatusFields
+			}
+		}
+	}
+}
+fragment NodeApprovalStatusFields on NodeApprovalStatus {
+	state
+	approval {
+		... NodeApprovalFields
+	}
+}
+fragment NodeMintStatusFields on NodeMintStatus {
+	minted
+	mintedAt
+	mintedBy {
+		handle
+		urn
+	}
+	mintedByInfo
+	revision
+	hash
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+// #1302 (cli#1692) — a Feature's specs as ONE server-assembled document. The
+// server renders; the CLI prints `markdown` unchanged and never assembles,
+// reorders or rewrites anything itself.
+func SpecDocument(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	loc string,
+) (data_ *SpecDocumentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecDocument",
+		Query:  SpecDocument_Operation,
+		Variables: &__SpecDocumentInput{
+			MemoryRef: memoryRef,
+			Loc:       loc,
+		},
+	}
+
+	data_ = &SpecDocumentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

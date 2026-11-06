@@ -42,6 +42,7 @@ For raw trigger ids and an explicit digest, use preview and re-adopt instead
 of these name-based approval commands. They do not require an App context.`,
 	}
 	cmd.AddCommand(newCmdTeamSnapshotGrant(f))
+	cmd.AddCommand(newCmdGrant(f))
 	cmd.AddCommand(newCmdPreview(f))
 	cmd.AddCommand(newCmdReAdopt(f))
 	cmd.AddCommand(newCmdLs(f))

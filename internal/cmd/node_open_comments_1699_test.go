@@ -27,10 +27,16 @@ type openRun1699 struct {
 	Code  int
 }
 
-var openModes1699 = map[string][]string{
-	"drain": {}, "page": {"--limit", "1", "--offset", "1"}, "search": {"--search", "needle"},
-	"install": {"--install", c7Install}, "seq": {"--seq-gt", "1", "--sort-seq", "desc", "--limit", "1"},
-	"projected": {"--with-data", "--with-properties"},
+var openModes1699 = map[string]struct {
+	args     []string
+	wantRows int
+}{
+	"drain":     {nil, 3},
+	"page":      {[]string{"--limit", "1", "--offset", "1"}, 1},
+	"search":    {[]string{"--search", "needle"}, 3},
+	"install":   {[]string{"--install", c7Install}, 3},
+	"seq":       {[]string{"--seq-gt", "1", "--sort-seq", "desc", "--limit", "1"}, 1},
+	"projected": {[]string{"--with-data", "--with-properties"}, 3},
 }
 
 // Stateful clamped-page fake: records the actual query AND variables on each
@@ -115,17 +121,24 @@ func runOpen1699(t *testing.T, summary string, args ...string) openRun1699 {
 }
 
 func TestNodeOpenComments1699WireAndModes(t *testing.T) {
-	for mode, args := range openModes1699 {
+	for mode, tc := range openModes1699 {
 		for _, flag := range []string{"--has-unresolved-comments", "--has-unresolved-comments=false"} {
 			t.Run(mode+flag, func(t *testing.T) {
 				summary := `{"openThreads":2,"oldestOpenThreadAt":"2026-11-02T11:59:00Z"}`
 				if strings.HasSuffix(flag, "=false") {
 					summary = `{"openThreads":0,"oldestOpenThreadAt":null}`
 				}
-				argv := append(append([]string{}, args...), flag, "--json", "--memory-class", "system", "--role", "boot-prompt", "--prefix", "item:")
+				argv := append(append([]string{}, tc.args...), flag, "--json", "--memory-class", "system", "--role", "boot-prompt", "--prefix", "item:")
 				r := runOpen1699(t, summary, argv...)
 				if r.Code != 0 {
 					t.Fatalf("exit%d: %s", r.Code, r.Out)
+				}
+				var rows []map[string]json.RawMessage
+				if err := json.Unmarshal([]byte(r.Out), &rows); err != nil {
+					t.Fatalf("decode --json payload: %v\n%s", err, r.Out)
+				}
+				if len(rows) != tc.wantRows {
+					t.Fatalf("decoded row count: got %d, want %d", len(rows), tc.wantRows)
 				}
 				finds := 0
 				for _, c := range r.Calls {
@@ -154,7 +167,6 @@ func TestNodeOpenComments1699WireAndModes(t *testing.T) {
 				if mode != "page" && finds != 4 {
 					t.Fatalf("clamped drain calls%d", finds)
 				}
-				rows := decodeRows(t, r.Out)
 				for _, row := range rows {
 					if compact(t, row["commentSummary"]) != summary {
 						t.Fatalf("summary verbatim: %s", row["commentSummary"])
@@ -167,9 +179,9 @@ func TestNodeOpenComments1699WireAndModes(t *testing.T) {
 
 func TestNodeOpenComments1699OmittedBaseline(t *testing.T) {
 	got := map[string]string{}
-	for mode, args := range openModes1699 {
+	for mode, tc := range openModes1699 {
 		for _, format := range []string{"text", "json"} {
-			argv := append([]string{}, args...)
+			argv := append([]string{}, tc.args...)
 			if format == "json" {
 				argv = append(argv, "--json")
 			}

@@ -63,6 +63,7 @@ Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdLabelReport(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdDocument(f))
 	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))
 	cmd.AddCommand(newCmdFind(f))
