@@ -1,0 +1,82 @@
+{
+  "messages": [
+    {
+      "teamTags": null,
+      "nodeId": "message",
+      "seq": 1,
+      "body": "hello",
+      "at": "2026-11-06T01:20:59.987654321Z",
+      "author": "Iris",
+      "authorName": "Iris",
+      "authorUserId": null,
+      "authorWorkerId": "worker",
+      "sessionId": null,
+      "replyToSeq": null,
+      "mentions": []
+    },
+    {
+      "teamTags": null,
+      "nodeId": "message",
+      "seq": 2,
+      "body": "hello",
+      "at": "2026-11-06T03:20:15+02:00",
+      "author": "Iris",
+      "authorName": "Iris",
+      "authorUserId": null,
+      "authorWorkerId": "worker",
+      "sessionId": null,
+      "replyToSeq": null,
+      "mentions": []
+    },
+    {
+      "teamTags": null,
+      "nodeId": "message",
+      "seq": 3,
+      "body": "hello",
+      "at": "2026-01-01T00:05:00+01:00",
+      "author": "Iris",
+      "authorName": "Iris",
+      "authorUserId": null,
+      "authorWorkerId": "worker",
+      "sessionId": null,
+      "replyToSeq": null,
+      "mentions": []
+    },
+    {
+      "teamTags": null,
+      "nodeId": "message",
+      "seq": 4,
+      "body": "hello",
+      "at": "",
+      "author": "Iris",
+      "authorName": "Iris",
+      "authorUserId": null,
+      "authorWorkerId": "worker",
+      "sessionId": null,
+      "replyToSeq": null,
+      "mentions": []
+    },
+    {
+      "teamTags": null,
+      "nodeId": "message",
+      "seq": 5,
+      "body": "hello",
+      "at": "not-a-time\nFORGED",
+      "author": "Iris",
+      "authorName": "Iris",
+      "authorUserId": null,
+      "authorWorkerId": "worker",
+      "sessionId": null,
+      "replyToSeq": null,
+      "mentions": []
+    }
+  ],
+  "nextSince": 5,
+  "prevBefore": 1,
+  "readState": {
+    "head": 5,
+    "allocatedHead": 5,
+    "readCursor": null,
+    "suspectedStale": false
+  }
+}

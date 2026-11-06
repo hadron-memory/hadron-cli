@@ -518,6 +518,8 @@ func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"pull"},
 		Short:   "Read one page of team chat, newest page by default",
 		Long: `Read one page of team-chat messages, oldest first within the page.
+Text keeps [seq] first, then the message time in UTC at minute precision.
+A missing or invalid time is omitted; JSON at is unchanged.
 With no cursor, the server returns the newest page. Pass --before <seq> to
 walk back, or --since <seq> to walk forward from that seq. The response's
 prevBefore and nextSince are the respective cursors to pass next turn.
@@ -981,7 +983,11 @@ them "(human)" / "(worker)".`,
 					// successful render claims the reader SAW these messages, and a
 					// pipe that closes partway through means they saw only some
 					// (PR #493 review).
-					if _, err := fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply+teamTagText(m.TeamTags), m.Body); err != nil {
+					stamp := ""
+					if at, parseErr := time.Parse(time.RFC3339, m.At); parseErr == nil {
+						stamp = at.UTC().Format("2006-01-02T15:04Z") + " "
+					}
+					if _, err := fmt.Fprintf(w, "[%d] %s%s%s%s: %s\n", m.Seq, stamp, who, m.authorKind(), reply+teamTagText(m.TeamTags), m.Body); err != nil {
 						return err
 					}
 				}
