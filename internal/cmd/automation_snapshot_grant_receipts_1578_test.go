@@ -97,6 +97,21 @@ func TestSnapshotGrant1578RejectWriteReceipts(t *testing.T) {
 				if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
 					t.Fatalf("err=%v stdout=%q", err, out)
 				}
+				wantText := "the server returned an incomplete team snapshot grant; list grants before retrying a write"
+				if name == "null-payload" {
+					wantText = "the server did not confirm a team snapshot grant; list grants before retrying"
+					if verb == "revoke" {
+						wantText = "the server did not confirm revocation; list --include-revoked before retrying"
+					}
+				} else if !strings.HasPrefix(name, "empty-") {
+					wantText = "the server did not confirm a live grant for the selected trigger; list grants before retrying"
+					if verb == "revoke" {
+						wantText = "the server did not confirm revocation of the selected grant; list --include-revoked before retrying"
+					}
+				}
+				if !strings.Contains(err.Error(), wantText) {
+					t.Fatalf("wrong refusal: got %v, want %q", err, wantText)
+				}
 				if len(callsFor(calls, op)) != 1 {
 					t.Fatalf("write must be sent once: %+v", *calls)
 				}

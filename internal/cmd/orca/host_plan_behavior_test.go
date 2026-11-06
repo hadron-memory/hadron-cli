@@ -90,7 +90,7 @@ func TestHostPlan1635DeterministicAbsentExistingConflict(t *testing.T) {
 	if !reflect.DeepEqual(calls, []string{"app", "worker:Iris", "worker:Dara", "inventory"}) {
 		t.Fatal(calls)
 	}
-	if len(dto.Actions) != 3 || dto.Actions[0].Worker != "Dara" || len(dto.Workers[0].Sessions) != 1 || len(dto.Workers[1].Worktrees) != 0 {
+	if len(dto.Workers) != 2 || len(dto.Actions) != 3 || dto.Actions[0].Worker != "Dara" || len(dto.Workers[0].Sessions) != 1 || len(dto.Workers[1].Worktrees) != 0 {
 		t.Fatal(first)
 	}
 	_, code, second := executePlan1635(t, file, env)
@@ -304,7 +304,7 @@ func TestHostPlan1635BindingFromClonedServerIsConflict(t *testing.T) {
 	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &b}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
 	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Terminals: []string{}, Sessions: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
 	assembleHostPlan(&dto, "app-id", "https://target.example/graphql", inv)
-	if len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != "binding_server_mismatch" || len(dto.Workers[0].Worktrees) != 0 || len(dto.Actions) != 0 {
+	if len(dto.Workers) != 1 || len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != "binding_server_mismatch" || len(dto.Workers[0].Worktrees) != 0 || len(dto.Actions) != 0 {
 		t.Fatalf("foreign-server binding accepted: %+v", dto)
 	}
 }

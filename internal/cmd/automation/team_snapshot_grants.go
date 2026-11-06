@@ -231,7 +231,8 @@ func newCmdSnapshotRevoke(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant in the target App", Long: `Revoke the exact grant ID from list. The App is --app, else the active App
 selected by hadron app use. Read that App's grant history (including revoked
 rows), then show the returned App ID and trigger kind/ID for confirmation.
-Scripts must pass --yes. A row absent from this App is not found and sends no
+Scripts must pass --yes before any history lookup, even for an ended row.
+A row absent from this App is not found and sends no
 mutation; nothing is inferred about any other App. An already ended row is
 shown without re-sending revocation. Revocation is terminal; a future set
 creates a new row rather than reopening the old one.
@@ -256,6 +257,11 @@ Without the flag the returned App/trigger metadata is confirmed as before.`, Exa
 		app, source, err := cmdutil.TargetApp(cmd, f)
 		if err != nil {
 			return err
+		}
+		// A script cannot answer the later metadata-rich prompt. Refuse
+		// before building a client or reading even an ended grant.
+		if claim.claim == nil && !yes && !f.IOStreams.IsInputTerminal() {
+			return cmdutil.Confirm(f.IOStreams, yes, "")
 		}
 		if !f.JSON {
 			if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "App: %s (%s)\n", strconv.Quote(app), source); err != nil {
