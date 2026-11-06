@@ -1,10 +1,10 @@
 package orca
 
 import (
-	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"os"
 )
 
 func openHostReadOnly(string) (*os.File, error) {
-	return nil, errors.New("host planner file reads are unsupported on Windows")
+	return nil, exitcode.Newf(exitcode.Usage, "orca host plan file inspection is unavailable on Windows")
 }

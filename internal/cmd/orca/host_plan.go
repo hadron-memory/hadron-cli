@@ -152,6 +152,7 @@ A failed discovery is never an empty inventory. Diagnostics omit subprocess
 output and server prose. The plan emits no credential or transcript fields; input refs
 and paths remain operator-supplied data in the plan.
 
+File inspection is unavailable on Windows.
 This is a Linux-tested read-only snapshot, not a reviewed execution plan or a
 standing grant. Future host-write tooling requires its own authorization.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -235,6 +236,9 @@ func readHostRoster(path string) (hostRoster, error) {
 		return hostRoster{}, exitcode.Newf(exitcode.Usage, "invalid roster: require a regular UTF-8 version-1 JSON file, at most 1 MiB, with an explicit App and 1..200 valid workers")
 	}
 	data, err := readHostFile(path, rosterLimit1635)
+	if err != nil && exitcode.FromError(err) == exitcode.Usage {
+		return hostRoster{}, err
+	}
 	if err != nil || !utf8.Valid(data) {
 		return bad()
 	}
