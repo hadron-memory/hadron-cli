@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"reflect"
 	"regexp"
@@ -87,26 +88,8 @@ func TestAppAgentInstallMethod1646(t *testing.T) {
 				expectedCells["Support Bot"] = []string{"?", "?"}
 				expectedCells["Derived Bot"] = []string{"?", "?"}
 			}
-			separator := regexp.MustCompile(`\s{2,}`)
-			for _, line := range strings.Split(human, "\n") {
-				cells := separator.Split(strings.TrimSpace(line), -1)
-				if len(cells) == 0 {
-					continue
-				}
-				expected, ok := expectedCells[cells[0]]
-				if !ok {
-					continue
-				}
-				if len(cells) != 7 {
-					t.Fatalf("roster columns = %d, want 7: %q", len(cells), line)
-				}
-				if !reflect.DeepEqual(cells[5:], expected) {
-					t.Errorf("%s provenance cells = %q, want %q", cells[0], cells[5:], expected)
-				}
-				delete(expectedCells, cells[0])
-			}
-			if len(expectedCells) != 0 {
-				t.Fatalf("missing roster rows: %v; output: %s", expectedCells, human)
+			if err := checkProvenanceTable1682(human, expectedCells); err != nil {
+				t.Fatal(err)
 			}
 
 		})
@@ -131,5 +114,55 @@ func TestAppAgentInstallationOperation1646(t *testing.T) {
 		if hasField(gen.AppAgentRoster_Operation, field) {
 			t.Errorf("role-warning operation gained %s", field)
 		}
+	}
+}
+
+// Initially extracted without strengthening the existing row matcher. The
+// negative controls below expose the duplicate/header holes before the fix.
+func checkProvenanceTable1682(human string, want map[string][]string) error {
+	remaining := map[string][]string{}
+	for name, cells := range want {
+		remaining[name] = cells
+	}
+	separator := regexp.MustCompile(`\s{2,}`)
+	for _, line := range strings.Split(human, "\n") {
+		cells := separator.Split(strings.TrimSpace(line), -1)
+		expected, ok := remaining[cells[0]]
+		if !ok {
+			continue
+		}
+		if len(cells) != 7 || !reflect.DeepEqual(cells[5:], expected) {
+			return fmt.Errorf("provenance cells: %q", line)
+		}
+		delete(remaining, cells[0])
+	}
+	if len(remaining) != 0 {
+		return fmt.Errorf("missing roster rows: %v", remaining)
+	}
+	return nil
+}
+
+func TestAppAgentProvenanceTableControls1682(t *testing.T) {
+	const header = "AGENT  ROLE  AGENT URN/ID  BOOT PROMPT  INSTALL  IMPORTER"
+	// Seven columns use AGENT URN and ID as separate header cells in the real table.
+	const realHeader = "AGENT  ROLE  AGENT URN  ID  BOOT PROMPT  INSTALL  IMPORTER"
+	const row = "Support Bot  support  hrn:agent:acme.com:support-bot  agt9  —  installed  —"
+	want := map[string][]string{"Support Bot": {"installed", "—"}}
+	valid := realHeader + "\n" + row + "\n"
+	if err := checkProvenanceTable1682(valid, want); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, table string }{
+		{"duplicate", valid + row + "\n"},
+		{"extra", valid + strings.Replace(row, "Support Bot", "Unexpected Bot", 1) + "\n"},
+		{"missing", realHeader + "\n"},
+		{"header", strings.Replace(valid, "INSTALL  IMPORTER", "IMPORTER  INSTALL", 1)},
+		{"wrong columns", header + "\n" + row + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if checkProvenanceTable1682(tc.table, want) == nil {
+				t.Fatal("malformed table accepted")
+			}
+		})
 	}
 }
