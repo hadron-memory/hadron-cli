@@ -5,6 +5,7 @@ package orca
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,7 +70,7 @@ func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
 	}
 	dto := hostPlanDTO{Workers: []hostPlanWorker{{Worker: "Iris", ID: "id-iris", Repo: repo, Family: "codex", Worktrees: []string{}, Sessions: []string{}, Terminals: []string{}}}, Actions: []hostPlanAction{}, Conflicts: []hostPlanProblem{}, Unavailable: []hostPlanProblem{}}
 	assembleHostPlan(&dto, "app-id", "https://target.example/graphql", inv)
-	if len(dto.Actions) != 0 || len(dto.Conflicts) != 0 || len(dto.Workers[0].Worktrees) != 1 || len(dto.Workers[0].Terminals) != 1 {
+	if len(dto.Workers) != 1 || len(dto.Actions) != 0 || len(dto.Conflicts) != 0 || len(dto.Workers[0].Worktrees) != 1 || len(dto.Workers[0].Terminals) != 1 {
 		t.Fatalf("fulfilled inventory: %+v", dto)
 	}
 	after, err := os.ReadFile(binding)
@@ -149,6 +150,10 @@ printf 'isolated'
 
 func TestHostPlan1635RealLinkedAndPrunableWorktrees(t *testing.T) {
 	root := t.TempDir()
+	root, rootErr := filepath.EvalSymlinks(root)
+	if rootErr != nil {
+		t.Fatal(rootErr)
+	}
 	repo := filepath.Join(root, "repo")
 	linked := filepath.Join(root, "linked")
 	home := t.TempDir()
@@ -196,7 +201,7 @@ func TestHostPlan1635RealLinkedAndPrunableWorktrees(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := git("-C", repo, "worktree", "list", "--porcelain", "-z")
-	if !strings.Contains(string(before), "prunable") {
+	if !hostPorcelainAttribute1729(string(before), "prunable") {
 		t.Fatal("fixture does not have a prunable record")
 	}
 	inv, err = discoverHostInventory(context.Background(), rows, run)
@@ -222,11 +227,12 @@ func TestHostPlan1635RealLinkedAndPrunableWorktrees(t *testing.T) {
 			lockedRecord = record
 		}
 	}
-	if lockedRecord == "" || !strings.Contains(lockedRecord, "locked") || strings.Contains(lockedRecord, "prunable") {
+	if lockedRecord == "" || !hostPorcelainAttribute1729(lockedRecord, "locked") || hostPorcelainAttribute1729(lockedRecord, "prunable") {
 		t.Fatalf("fixture is not an unmarked missing worktree: %q", lockedRecord)
 	}
 	_, err = discoverHostInventory(context.Background(), rows, run)
-	if exitcode.FromError(err) != exitcode.Error {
+	var inventoryErr *hostInventoryError
+	if exitcode.FromError(err) != exitcode.Error || !errors.As(err, &inventoryErr) || inventoryErr.Reason != "git_inventory_unavailable" {
 		t.Fatalf("unmarked absent worktree treated as empty: %v", err)
 	}
 	after = git("-C", repo, "worktree", "list", "--porcelain", "-z")
@@ -247,5 +253,25 @@ func TestHostPlan1635SubprocessHonorsCallerDeadline(t *testing.T) {
 	out, err := runHostRead(ctx, "orca", []string{"terminal", "list", "--json"})
 	if err == nil || out != nil || time.Since(start) > 2*time.Second {
 		t.Fatalf("deadline not enforced: %v %v", err, time.Since(start))
+	}
+}
+
+func hostPorcelainAttribute1729(record, name string) bool {
+	for _, field := range strings.Split(record, "\x00") {
+		if field == name || strings.HasPrefix(field, name+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+func TestHostPorcelainFixtureAttributeIsExact1729(t *testing.T) {
+	for _, name := range []string{"locked", "prunable"} {
+		if hostPorcelainAttribute1729("worktree /tmp/"+name+"\x00HEAD abc\x00", name) {
+			t.Fatalf("path forged %s attribute", name)
+		}
+		if !hostPorcelainAttribute1729("worktree /tmp/repo\x00"+name+" reason\x00", name) {
+			t.Fatalf("actual %s field missed", name)
+		}
 	}
 }
