@@ -78,7 +78,13 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 		if loc != "" {
 			r, e := gen.SpecBacklinksPage(ctx, client, memory, loc, limit, offset)
 			err = e
-			if r != nil && r.SpecBacklinksPage != nil {
+			// Preserve a server error before interpreting any partial payload.
+			// Its presence still forbids capability fallback.
+			if err != nil {
+				if r != nil && r.SpecBacklinksPage != nil {
+					p = &referencePage{}
+				}
+			} else if r != nil && r.SpecBacklinksPage != nil {
 				v := r.SpecBacklinksPage
 				p = &referencePage{total: v.Total, more: v.HasMore}
 				if v.Items != nil {
@@ -98,7 +104,13 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 		} else {
 			r, e := gen.SpecUnresolvedReferencesPage(ctx, client, memory, limit, offset)
 			err = e
-			if r != nil && r.SpecUnresolvedReferencesPage != nil {
+			// Preserve a server error before interpreting any partial payload.
+			// Its presence still forbids capability fallback.
+			if err != nil {
+				if r != nil && r.SpecUnresolvedReferencesPage != nil {
+					p = &referencePage{}
+				}
+			} else if r != nil && r.SpecUnresolvedReferencesPage != nil {
 				v := r.SpecUnresolvedReferencesPage
 				p = &referencePage{total: v.Total, more: v.HasMore}
 				if v.Items != nil {
@@ -135,9 +147,6 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			return nil, invalidReferencePage("null error entry")
 		}
 		if e != nil {
-			if r != nil && r.SpecBacklinks != nil {
-				return nil, invalidReferencePage("legacy data beside errors")
-			}
 			return nil, e
 		}
 		if r == nil || r.SpecBacklinks == nil {
@@ -159,10 +168,7 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			return nil, invalidReferencePage("null error entry")
 		}
 		if e != nil {
-			if r != nil && r.SpecUnresolvedReferences != nil {
-				return nil, invalidReferencePage("legacy data beside errors")
-			}
-			if api.IsUnknownQueryField(e, "specUnresolvedReferences") {
+			if (r == nil || r.SpecUnresolvedReferences == nil) && api.IsUnknownQueryField(e, "specUnresolvedReferences") {
 				return nil, &legacyUnresolvedUnsupported{e}
 			}
 			return nil, e

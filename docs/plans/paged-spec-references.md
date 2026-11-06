@@ -16,7 +16,8 @@ page boundaries. Nothing renders or becomes a lint finding until the drain
 succeeds. Missing/null page, items, metadata, item or required item field; negative/changing total;
 excess rows; empty progress with hasMore; and contradictory terminal counts
 are failed reads (exit 1), never empty or partial success. Server and transport
-errors retain their normal mapped exits. Lint inScope and strict promotion
+errors retain their normal mapped exits, taking precedence over malformed
+partial data beside that error; no partial payload is rendered. Lint inScope and strict promotion
 happen after the whole read; DTO/text output is unchanged.
 
 Only a first-request exact parsed unknown Query-field validation rejection can
