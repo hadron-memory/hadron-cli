@@ -94,6 +94,31 @@ func TestMessagesC2CastURN(t *testing.T) {
 	}
 }
 
+func TestMessagesC2CastHostileURN(t *testing.T) {
+	var fixture map[string]any
+	if err := json.Unmarshal([]byte(irisWorkerJSON), &fixture); err != nil {
+		t.Fatal(err)
+	}
+	const hostile = "hrn:worker:server.example:team:iris\x1b]52;c;payload\a\nFORGED-LINE\r"
+	fixture["urn"] = hostile
+	data, err := json.Marshal(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, ops := runMessagesC2Cast(t, string(data), false)
+	if len(ops) != 1 || strings.ContainsAny(out, "\x1b\a\r") || strings.Contains(out, "\nFORGED-LINE") || !strings.Contains(out, "\n  urn: hrn:worker:server.example:team:iris") {
+		t.Fatalf("unsafe or absent URN: %q %v", out, ops)
+	}
+	raw, ops := runMessagesC2Cast(t, string(data), true)
+	var fields map[string]any
+	if err := json.Unmarshal([]byte(raw), &fields); err != nil {
+		t.Fatal(err)
+	}
+	if len(ops) != 1 || fields["urn"] != hostile {
+		t.Fatalf("JSON changed returned URN: %q %v", raw, ops)
+	}
+}
+
 func TestMessagesC2ChatTimes(t *testing.T) {
 	out, ops := runMessagesC2Chat(t, false)
 	wantLines := []string{
