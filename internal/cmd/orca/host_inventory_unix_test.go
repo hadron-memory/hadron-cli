@@ -56,6 +56,9 @@ func TestHostPlan1635ActualGitAndBindingReads(t *testing.T) {
 	rows := []hostRosterWorker{{Worker: "Iris", Repo: repo, Family: "codex"}}
 	before := snapshotHost1635(t, repo)
 	inv, err := discoverHostInventory(context.Background(), rows, run)
+	if _, e := os.Stat(marker); !os.IsNotExist(e) {
+		t.Fatal("shell interpolation executed")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
