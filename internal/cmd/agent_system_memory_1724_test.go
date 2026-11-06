@@ -74,10 +74,15 @@ func TestAgentSystemMemory1724(t *testing.T) {
 			if strings.Contains(baseline, "systemMemoryUrn") {
 				t.Fatal(baseline)
 			}
+			// An explicit empty id also needs no speculative lookup.
+			empty, emptyErr, emptyCalls := run(t, `""`, "", 200)
+			if emptyErr != "" || len(emptyCalls) != 1 || strings.Contains(empty, "systemMemoryUrn") {
+				t.Fatalf("empty id: %q %q %v", empty, emptyErr, emptyCalls)
+			}
 			// A missing/refused/failed lookup must retain exactly the old id-only output.
-			wantFallback := strings.Replace(baseline, `"systemMemoryId":null`, `"systemMemoryId":"sys-id"`, 1)
+			wantFallback := strings.Replace(baseline, `"systemMemoryId": null`, `"systemMemoryId": "sys-id"`, 1)
 			if !asJSON {
-				wantFallback = strings.Replace(baseline, "system memory: -", "system memory: sys-id", 1)
+				wantFallback = strings.Replace(baseline, "system memory: —", "system memory: sys-id", 1)
 			}
 			for _, tc := range []struct {
 				name, reply string

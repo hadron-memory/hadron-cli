@@ -1614,6 +1614,45 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 	return v.AgentSchedules
 }
 
+// AgentSystemMemoryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type AgentSystemMemoryMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+}
+
+// GetId returns AgentSystemMemoryMemory.Id, and is useful for accessing the field via an interface.
+func (v *AgentSystemMemoryMemory) GetId() string { return v.Id }
+
+// GetUrn returns AgentSystemMemoryMemory.Urn, and is useful for accessing the field via an interface.
+func (v *AgentSystemMemoryMemory) GetUrn() string { return v.Urn }
+
+// AgentSystemMemoryResponse is returned by AgentSystemMemory on success.
+type AgentSystemMemoryResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *AgentSystemMemoryMemory `json:"memory"`
+}
+
+// GetMemory returns AgentSystemMemoryResponse.Memory, and is useful for accessing the field via an interface.
+func (v *AgentSystemMemoryResponse) GetMemory() *AgentSystemMemoryMemory { return v.Memory }
+
 // AgentTaskAddBlockerAddAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -101689,6 +101728,14 @@ func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
+// __AgentSystemMemoryInput is used internally by genqlient
+type __AgentSystemMemoryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AgentSystemMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentSystemMemoryInput) GetRef() string { return v.Ref }
+
 // __AgentTaskAddBlockerInput is used internally by genqlient
 type __AgentTaskAddBlockerInput struct {
 	TaskRef        string `json:"taskRef"`
@@ -112606,6 +112653,43 @@ func AgentSchedules(
 	}
 
 	data_ = &AgentSchedulesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentSystemMemory.
+const AgentSystemMemory_Operation = `
+query AgentSystemMemory ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		urn
+	}
+}
+`
+
+// Optional agent-get enrichment only; preserve the memory resolver's access gate.
+// Do not reuse the full GetMemory projection (source, settings and data unneeded).
+func AgentSystemMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AgentSystemMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentSystemMemory",
+		Query:  AgentSystemMemory_Operation,
+		Variables: &__AgentSystemMemoryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AgentSystemMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
