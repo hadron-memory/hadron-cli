@@ -208,14 +208,14 @@ func hostDiscoveryRunner1635(repos ...string) hostReadRunner {
 
 func TestHostPlan1635IncompleteRequestedBindingNeverAllClear(t *testing.T) {
 	complete := map[string]string{"server": "https://target.example", "workerId": "id-iris", "appId": "app-id", "sessionId": "s"}
-	for _, field := range []string{"complete-control", "appId", "sessionId", "workerId", "missing-workerId", "invalid-json"} {
+	for _, field := range []string{"complete-control", "appId", "sessionId", "workerId", "missing-workerId", "missing-appId", "missing-sessionId", "invalid-json"} {
 		t.Run(field, func(t *testing.T) {
 			fields := map[string]string{}
 			for k, v := range complete {
 				fields[k] = v
 			}
-			if field == "missing-workerId" {
-				delete(fields, "workerId")
+			if strings.HasPrefix(field, "missing-") {
+				delete(fields, strings.TrimPrefix(field, "missing-"))
 			} else if field != "complete-control" {
 				fields[field] = ""
 			}

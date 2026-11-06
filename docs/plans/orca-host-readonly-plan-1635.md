@@ -116,11 +116,15 @@ process-tree cleanup guarantee. No process-group signal or host authority is
 introduced here. The test fixtures record and validate their own positive child
 PID and its Linux start time, then explicitly kill that same process during
 cleanup. The no-WaitDelay mutant can outlive the fixture child, so cleanup
-compares the recorded start time to avoid signaling a reused PID. Never signal
+compares the recorded start time to reject observed PID reuse; check-and-signal
+is not atomic and is not a pidfd guarantee. Never signal
 PID0 or a group.
 
 Durable Linux process tests separately exercise the intrinsic timeout with a longer caller
 watchdog, parent-exit pipe wait and cancellation with a surviving descendant.
+The cancellation leg waits for a positive PID and complete identity record before
+canceling; setup has its own watchdog, and pipe wait is measured from cancellation.
+An intentional setup delay keeps the old fixed200ms cancellation race detectable.
 A loaded host may affect wall time; broad timing windows discriminate a removed
 bound without claiming scheduling precision. The caller-deadline pin remains
 separate. Fake argv are exact and reject unexpected/short forms. Porcelain fixture

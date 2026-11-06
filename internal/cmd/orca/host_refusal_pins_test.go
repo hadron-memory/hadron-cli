@@ -32,7 +32,7 @@ func TestHostPlanUsageBeforeAnyRead1729(t *testing.T) {
 				f.AppFlag = "foreign-app"
 				c.SetArgs([]string{"--roster-file", roster1635(t, hostRepo1635(t), "Iris")})
 			} else {
-				c.SetArgs(nil)
+				c.SetArgs([]string{})
 			}
 			err := c.Execute()
 			if exitcode.FromError(err) != exitcode.Usage || err.Error() != "name --roster-file; its App is authoritative, so omit --app" || reads != 0 || out.Len() != 0 {

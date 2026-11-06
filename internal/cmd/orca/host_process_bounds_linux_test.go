@@ -46,7 +46,7 @@ func TestHostReadPipeWaitAndDescendantLifetime1729(t *testing.T) {
 			// Only this fixture's own child PID may be killed, never a process group.
 			script := "/bin/sleep 10 &\ncat /proc/\"$!\"/stat > '" + strings.ReplaceAll(pidFile+".identity", "'", "'\\''") + "'\nprintf '%s' \"$!\" > '" + strings.ReplaceAll(pidFile, "'", "'\\''") + "'\n"
 			if cancelParent {
-				script += "wait\n"
+				script = "/bin/sleep 0.4\n" + script + "wait\n"
 			} else {
 				script += "exit 0\n"
 			}
@@ -64,7 +64,8 @@ func TestHostReadPipeWaitAndDescendantLifetime1729(t *testing.T) {
 					return
 				}
 				// Compare the fixture-recorded Linux start time before signaling:
-				// a naturally exited child must never turn into a reused-PID kill.
+				// reject observed PID reuse after the child naturally exits. This
+				// check and Kill are not an atomic pidfd operation.
 				recorded, e := os.ReadFile(pidFile + ".identity")
 				if e != nil {
 					t.Errorf("child identity unavailable: %v", e)
@@ -88,14 +89,41 @@ func TestHostReadPipeWaitAndDescendantLifetime1729(t *testing.T) {
 					t.Errorf("fixture child cleanup: %v", err)
 				}
 			}()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			watchdog, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			ctx, cancel := context.WithCancel(watchdog)
 			defer cancel()
-			if cancelParent {
-				ctx, cancel = context.WithTimeout(ctx, 200*time.Millisecond)
-				defer cancel()
-			}
 			start := time.Now()
+			var cancellation chan time.Time
+			if cancelParent {
+				cancellation = make(chan time.Time, 1)
+				go func() {
+					for {
+						pidBytes, pidErr := os.ReadFile(pidFile)
+						pid, parseErr := strconv.Atoi(strings.TrimSpace(string(pidBytes)))
+						identity, identityErr := os.ReadFile(pidFile + ".identity")
+						_, identityOK := hostFixtureStartTime1729(string(identity))
+						if pidErr == nil && parseErr == nil && pid > 1 && identityErr == nil && identityOK {
+							cancellation <- time.Now()
+							cancel()
+							return
+						}
+						select {
+						case <-watchdog.Done():
+							cancellation <- time.Time{}
+							return
+						case <-time.After(10 * time.Millisecond):
+						}
+					}
+				}()
+			}
 			out, err := runHostRead(ctx, "orca", []string{"terminal", "list", "--json"})
+			if cancelParent {
+				start = <-cancellation
+				if start.IsZero() {
+					t.Fatal("fixture did not become ready before watchdog; cancellation leg not measured")
+				}
+			}
 			elapsed := time.Since(start)
 			if err == nil || out != nil || elapsed < 750*time.Millisecond || elapsed > 3500*time.Millisecond {
 				t.Fatalf("pipe wait bound: duration=%s out=%q err=%v", elapsed, out, err)
