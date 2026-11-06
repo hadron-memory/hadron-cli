@@ -10,6 +10,9 @@ import (
 
 func TestProjectionGolden(t *testing.T) {
 	for _, tc := range []struct{ name, wire, own, want, label string }{
+		{"empty-outcome", `{"served":null,"refusal":null}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":null}`, "unknown (next bind)"},
+		{"unknown-refusal", `{"refusal":"FUTURE_REFUSAL"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":null}`, "unknown (next bind)"},
+		{"unsigned", `{"refusal":"BOOT_PROMPT_NOT_SIGNED"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_NOT_SIGNED"}`, "BOOT_PROMPT_NOT_SIGNED (next bind)"},
 		{"agent", `{"served":{"pointerLevel":"AGENT","compiledNodeId":"n1","servedRevSeq":9}}`, "WORKER", `{"pointerLevel":"AGENT","compiledNodeId":"n1","servedRevSeq":9,"bootPromptRefusal":null}`, "AGENT n1 revision 9 (next bind)"},
 		{"own", `{"served":{"pointerLevel":"WORKER","compiledNodeId":"n1","servedRevSeq":9}}`, "WORKER", `{"pointerLevel":"WORKER","compiledNodeId":"n1","servedRevSeq":9,"bootPromptRefusal":null,"bootPromptUrn":"hrn:node:example.com:kb:boot"}`, "WORKER n1 revision 9 (next bind); hrn:node:example.com:kb:boot"},
 		{"none", `{"refusal":"BOOT_PROMPT_NOT_SET"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_NOT_SET"}`, "none (next bind)"},
@@ -56,7 +59,7 @@ func TestProjectionDegenerate1655(t *testing.T) {
 			t.Fatal(err)
 		}
 		p = Project(&o, "WORKER", &ref)
-		if p.PointerLevel != nil || p.CompiledNodeID != nil || p.ServedRevSeq != nil || p.BootPromptURN != nil || p.Label() != "unknown (next bind)" {
+		if p.PointerLevel != nil || p.CompiledNodeID != nil || p.ServedRevSeq != nil || p.BootPromptURN != nil || p.BootPromptRefusal != nil || p.Label() != "unknown (next bind)" {
 			t.Fatalf("malformed decided: %#v %s", p, p.Label())
 		}
 	}

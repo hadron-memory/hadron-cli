@@ -23,6 +23,8 @@ query AppAgentEffectiveRoster($appRef: ID!) {
 # Kept out of WorkerFields: only worker get opts in, never cast/update/roster.
 query GetWorkerBootPromptServe($id: ID!) {
   worker(ref: $id) {
+    bootPromptRef
+    bootPromptTargetDeleted
     # @genqlient(typename: "BootPromptPreviewFields")
     bootPromptServe {
       served {

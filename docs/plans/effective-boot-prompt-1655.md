@@ -11,19 +11,22 @@ The listing opts into `AppAgentEffectiveRoster`; role warnings keep
 `AppAgentRoster`. The legacy `AppAgentInstallationRoster` stays unchanged.
 Only worker get adds `GetWorkerBootPromptServe`; shared `WorkerFields`, casts,
 updates, rosters and other commands keep their selections and provider floors.
-No compiled-content, node or Agent lookup is added. The two new queries select
-only served pointerLevel/compiledNodeId/servedRevSeq and refusal.
+No compiled-content, node or Agent lookup is added. The preview selects only served pointerLevel/compiledNodeId/servedRevSeq and
+refusal. Worker get also selects the own pointer/deleted cue in that same
+response, avoiding association with its earlier worker lookup. This is not a
+transactional snapshot guarantee across resolver fields.
 
 Existing JSON keys are retained. Four nullable keys are added: `pointerLevel`,
 `compiledNodeId`, `servedRevSeq`, `bootPromptRefusal`. Optional `bootPromptUrn`
-comes only from the target's already-selected own visible pointer when the
-served level matches APP_AGENT or WORKER. No inherited URN is constructed or
+comes only from the target's own visible pointer selected in the decision
+read when the served level matches APP_AGENT or WORKER. No inherited URN is constructed or
 looked up. Agent-level inherited decisions still show their returned id and
 revision, without implying permission to read compiled content.
 
 Human text labels the next-bind result. Only typed `BOOT_PROMPT_NOT_SET` means
-none. A null preview means not visible; inconsistent or malformed decisions
-stay unknown and supply no served fields. Other typed refusals carry no level.
+none. A null preview means not visible; inconsistent or value-level malformed decisions
+stay unknown and supply no served fields. Structurally invalid JSON/typed wire
+values fail through the existing error mapping with no output or fallback. Other typed refusals carry no level.
 The existing visible own deleted-pointer cue remains, labelled as that own
 pointer, without claiming that an inherited refusal came from it.
 
@@ -32,9 +35,14 @@ pointer, without claiming that an inherited refusal came from it.
 A wrapper captures data before typed unmarshalling. Only an initial structured
 GRAPHQL_VALIDATION_FAILED for missing bootPromptServe on the exact AppAgent or
 Worker type/operation can use the legacy path once. The exact checked message
-may include graphql-js's single bootPromptRef suggestion. Auth, transport/5xx,
+may include graphql-js's single bootPromptRef suggestion. HTTP 200 and 400
+accept absent or null data equally; every nonnull data shape excludes fallback. Auth, transport/5xx,
 partial data, unrelated/mixed errors, paths and other message shapes fail via
-the existing error mapping. No retries or later-error fallback exist.
+the existing error mapping. An opt-in API observer records whether the original
+error list contained a null entry before ordinary sanitization; that disqualifies
+fallback even if the remaining errors match. It stores no messages/data and
+changes neither normal sanitization nor error mapping. Structurally malformed
+error collections fail decoding or the exact predicate. No retries or later-error fallback exist.
 
 The listing's legacy path performs one legacy installation read. Worker get
 has already obtained its ordinary worker row; an absent preview capability uses
@@ -92,3 +100,14 @@ help inventory, coverage matrix and hosted CI complete the author checks.
 Independent cross-family LOCAL and FULL BLIND, scoped security at every head,
 and one qualifying compiled-CLI fresh-stack QA remain required before ready.
 No production probe or worker-session bind/end is part of this change.
+
+
+Review-fix red pins are 8a3ee3bf (worker own-pointer/cue and projection/status
+boundaries) and 7c06e918 (null-plus-exact original error envelopes through the
+configured client). The modern provenance cases are characterization controls,
+not claimed red failures. Direct modern ROW/DERIVED/importer/id-join/withheld
+cases, own URN/deleted cues, HTTP200/400 request counts, malformed-wire failures,
+and ordinary API mapping parity cover the necessary fix. Mutation packets retain
+both killed runs and the initial weaker null-data mutation that survived; the
+replacement restoring the original predicate is killed. Equivalent revision
+comparison and repeated mutations are not counted as new guards.

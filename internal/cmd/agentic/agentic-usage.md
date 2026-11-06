@@ -5822,8 +5822,9 @@ prompt: `pointerLevel`, `compiledNodeId`, `servedRevSeq`, or a typed
 `bootPromptRefusal`. These nullable JSON keys are additive; `bootPromptUrn`
 appears only from an already-visible own pointer at the matching served level.
 No URN is constructed, content fetched, or approval inferred from the pointer.
-Only `BOOT_PROMPT_NOT_SET` means none. A null/malformed/redacted preview is
-unknown or not visible, and a refusal carries no source level. An exact initial
+Only `BOOT_PROMPT_NOT_SET` means none. A null/redacted preview is not visible; inconsistent or value-level malformed
+decisions stay unknown. Structurally invalid JSON/typed values fail the command,
+without output or fallback. A refusal carries no source level. An exact initial
 missing-field validation may use the old label/listing once; auth, transport,
 partial results and unrelated or mixed schema errors never select it. This is
 not a generic old-stock version guarantee: the listing still requires its

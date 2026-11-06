@@ -1,12 +1,15 @@
 package bootpreview
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 // ValidationRead captures the original envelope before typed unmarshalling.
@@ -15,16 +18,21 @@ import (
 // two opt-in preview operations, never a shared retry policy.
 type ValidationRead struct {
 	graphql.Client
-	operation string
-	data      bool
+	operation     string
+	data          bool
+	invalidErrors bool
 }
 
 func (c *ValidationRead) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
 	c.operation = req.OpName
 	var raw json.RawMessage
 	captured := graphql.Response{Data: &raw}
-	err := c.Client.MakeRequest(ctx, req, &captured)
-	c.data = len(raw) > 0 || captured.Data == nil
+	observedCtx, shape := api.WithGraphQLErrorShape(ctx)
+	err := c.Client.MakeRequest(observedCtx, req, &captured)
+	c.invalidErrors = shape.HadNullEntry()
+	// Both absent and explicit null carry no data values. Any nonnull
+	// JSON shape excludes fallback, even an empty object.
+	c.data = len(bytes.TrimSpace(raw)) > 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 	resp.Errors = captured.Errors
 	resp.Extensions = captured.Extensions
 	if err != nil {
@@ -41,7 +49,7 @@ func (c *ValidationRead) MissingField(err error, operation, typ string) bool {
 	if !allowed {
 		return false
 	}
-	if c.operation != operation || c.data {
+	if c.operation != operation || c.data || c.invalidErrors {
 		return false
 	}
 	var list gqlerror.List

@@ -504,7 +504,7 @@ func TestEffectiveBootModernWithheldRoster1655(t *testing.T) {
 func TestEffectiveBootNullErrorsRefuse1655(t *testing.T) {
 	const valid = `{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
 	for _, status := range []int{200, 400} {
-		for _, entries := range []string{`null,` + valid, valid + `,null`, `null`} {
+		for _, entries := range []string{`null,` + valid, valid + `,null`, `null`, `{}`, `"not-an-error",` + valid, `42,` + valid} {
 			t.Run(fmt.Sprintf("%d/%s", status, entries), func(t *testing.T) {
 				var modern, legacy atomic.Int32
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -536,5 +536,104 @@ func TestEffectiveBootNullErrorsRefuse1655(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestWorkerBootValidationParity1655(t *testing.T) {
+	const valid = `{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
+	for _, status := range []int{200, 400} {
+		for _, tc := range []struct {
+			name, body string
+			ok         bool
+		}{
+			{"absent", `{"errors":[` + valid + `]}`, true},
+			{"null", `{"data":null,"errors":[` + valid + `]}`, true},
+			{"object", `{"data":{},"errors":[` + valid + `]}`, false},
+			{"partial", `{"data":{"worker":null},"errors":[` + valid + `]}`, false},
+			{"null-error", `{"errors":[null,` + valid + `]}`, false},
+			{"mixed", `{"errors":[` + valid + `,{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, false},
+		} {
+			t.Run(fmt.Sprintf("%d/%s", status, tc.name), func(t *testing.T) {
+				var lookup, preview, total atomic.Int32
+				responses := bootResponses1655(t, `null`)
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var req struct {
+						OperationName string `json:"operationName"`
+					}
+					_ = json.NewDecoder(r.Body).Decode(&req)
+					w.Header().Set("Content-Type", "application/json")
+					total.Add(1)
+					if req.OperationName == "GetWorkerBootPromptServe" {
+						preview.Add(1)
+						w.WriteHeader(status)
+						fmt.Fprint(w, tc.body)
+						return
+					}
+					if req.OperationName == "GetWorker" {
+						lookup.Add(1)
+					}
+					response, ok := responses[req.OperationName]
+					if !ok {
+						response, ok = unstubbedDefault(req.OperationName)
+					}
+					if !ok {
+						t.Errorf("unexpected operation %s", req.OperationName)
+					}
+					fmt.Fprint(w, response)
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"team", "worker", "get", profileHexID, "--server", srv.URL, "--json"})
+				err := root.Execute()
+				if (err == nil) != tc.ok || lookup.Load() != 1 || preview.Load() != 1 || total.Load() != 6 {
+					t.Fatalf("err%v lookup%d preview%d total%d", err, lookup.Load(), preview.Load(), total.Load())
+				}
+				if !tc.ok && out.Len() != 0 {
+					t.Fatal("failure emitted output", out.String())
+				}
+			})
+		}
+	}
+}
+
+// Synthetic decisions with an own pointer at another level must not decorate
+// the inherited served identity with that unrelated pointer's URN.
+func TestEffectiveBootOwnLevelCallSites1655(t *testing.T) {
+	for _, surface := range []string{"app", "worker"} {
+		t.Run(surface, func(t *testing.T) {
+			own := "hrn:node:example.com:own:boot"
+			outcome := `{"served":{"pointerLevel":"AGENT","compiledNodeId":"inherited","servedRevSeq":1},"refusal":null}`
+			r := bootResponses1655(t, outcome)
+			args := []string{"app", "agent", "list", "hrn:app:acme.com:support", "--json"}
+			if surface == "app" {
+				var p map[string]any
+				_ = json.Unmarshal([]byte(r["AppAgentEffectiveRoster"]), &p)
+				p["data"].(map[string]any)["app"].(map[string]any)["appAgents"].([]any)[0].(map[string]any)["bootPromptRef"] = own
+				wire, _ := json.Marshal(p)
+				r["AppAgentEffectiveRoster"] = string(wire)
+			} else {
+				r["GetWorkerBootPromptServe"] = `{"data":{"worker":{"bootPromptRef":"` + own + `","bootPromptTargetDeleted":false,"bootPromptServe":{"served":{"pointerLevel":"APP_AGENT","compiledNodeId":"inherited","servedRevSeq":1},"refusal":null}}}}`
+				args = []string{"team", "worker", "get", profileHexID, "--json"}
+			}
+			_, out, err := runTeamTask(t, r, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var row map[string]any
+			if surface == "app" {
+				var rows []map[string]any
+				_ = json.Unmarshal([]byte(out), &rows)
+				if len(rows) != 1 {
+					t.Fatal(out)
+				}
+				row = rows[0]
+			} else {
+				_ = json.Unmarshal([]byte(out), &row)
+			}
+			if _, ok := row["bootPromptUrn"]; ok || row["bootPromptRef"] != own || row["compiledNodeId"] != "inherited" {
+				t.Fatalf("own pointer decorated inherited source: %s", out)
+			}
+		})
 	}
 }

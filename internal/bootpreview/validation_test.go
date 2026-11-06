@@ -19,6 +19,7 @@ func TestExactLegacyBoundary(t *testing.T) {
 		status         int
 		want           bool
 	}{
+		{"empty-errors400", `{"errors":[]}`, "GetWorkerBootPromptServe", 400, false},
 		{"200", `{"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, true},
 		{"checked-suggestion", `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\". Did you mean \"bootPromptRef\"?","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, "GetWorkerBootPromptServe", 200, true},
 		{"null200", `{"data":null,"errors":[` + old + `]}`, "GetWorkerBootPromptServe", 200, true},

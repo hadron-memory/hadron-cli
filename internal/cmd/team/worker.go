@@ -818,6 +818,14 @@ and every worker's state in ` + "`team roster`" + `.`,
 				}
 			} else {
 				var outcome *gen.BootPromptPreviewFields
+				// Pair the optional own-pointer decoration with this decision read,
+				// rather than the earlier worker lookup. No extra request.
+				w.BootPromptRef = nil
+				w.BootPromptTargetDeleted = nil
+				if previewResp != nil && previewResp.Worker != nil {
+					w.BootPromptRef = previewResp.Worker.BootPromptRef
+					w.BootPromptTargetDeleted = previewResp.Worker.BootPromptTargetDeleted
+				}
 				if previewResp != nil && previewResp.Worker != nil && previewResp.Worker.BootPromptServe != nil {
 					outcome = previewResp.Worker.BootPromptServe
 				}
@@ -960,7 +968,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 				if preview != nil {
 					label := preview.Label()
 					if dto.BootPromptTargetDeleted != nil && *dto.BootPromptTargetDeleted {
-						label += "; own pointer: " + cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)
+						label += "; own pointer: " + output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 					}
 					fmt.Fprintf(out, "  boot prompt (next bind): %s\n", label)
 				} else if !profile || dto.BootPromptRef != nil {

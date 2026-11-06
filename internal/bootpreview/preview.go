@@ -36,7 +36,7 @@ func Project(o *gen.BootPromptPreviewFields, ownLevel string, ref *string) Previ
 	if o.Served != nil && o.Refusal == nil {
 		s := o.Served
 		level := string(s.PointerLevel)
-		if (level != "WORKER" && level != "APP_AGENT" && level != "AGENT") || strings.TrimSpace(s.CompiledNodeId) == "" || s.ServedRevSeq < 1 || int64(s.ServedRevSeq) > math.MaxInt32 {
+		if (ownLevel == "APP_AGENT" && level == "WORKER") || (level != "WORKER" && level != "APP_AGENT" && level != "AGENT") || strings.TrimSpace(s.CompiledNodeId) == "" || s.ServedRevSeq < 1 || int64(s.ServedRevSeq) > math.MaxInt32 {
 			return p
 		}
 		p.PointerLevel = &level

@@ -18,6 +18,11 @@ func selects1655(doc, field string) bool {
 }
 
 func TestPreviewSelectionBoundary(t *testing.T) {
+	for _, f := range []string{"bootPromptRef", "bootPromptTargetDeleted"} {
+		if !selects1655(gen.GetWorkerBootPromptServe_Operation, f) {
+			t.Errorf("missing own same-read field %s", f)
+		}
+	}
 	for _, doc := range []string{gen.AppAgentEffectiveRoster_Operation, gen.GetWorkerBootPromptServe_Operation} {
 		for _, f := range []string{"bootPromptServe", "pointerLevel", "compiledNodeId", "servedRevSeq", "refusal"} {
 			if !selects1655(doc, f) {

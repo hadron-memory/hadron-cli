@@ -48885,12 +48885,27 @@ func (v *GetWorkerBootPromptServeResponse) GetWorker() *GetWorkerBootPromptServe
 // cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 // by its id or by the computed `urn` below (#991).
 type GetWorkerBootPromptServeWorker struct {
+	// #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now
+	// (set for customised workers only). Null when no pointer is set OR when the caller may not see it (WORKING-STATE
+	// field, behind the worker read gate): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
 	// #2708 — what this worker's NEXT bind would be served now (hrn:node:hadronmemory.com:specs:cor:agt:040:10): its own
 	// pointer, else the install's, else the Agent's. Computed by the resolver the bind itself uses, so the bind is refused
 	// exactly when refusal is set and records exactly the revision served names. Only the boot prompt is judged: a bind
 	// can still be refused for other reasons (a retired worker, a held worker). Null when the caller may not see it (same
 	// gate as bootPromptRef, WORKING-STATE), which is judged before anything is resolved.
 	BootPromptServe *BootPromptPreviewFields `json:"bootPromptServe"`
+}
+
+// GetBootPromptRef returns GetWorkerBootPromptServeWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeWorker) GetBootPromptRef() *string { return v.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns GetWorkerBootPromptServeWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *GetWorkerBootPromptServeWorker) GetBootPromptTargetDeleted() *bool {
+	return v.BootPromptTargetDeleted
 }
 
 // GetBootPromptServe returns GetWorkerBootPromptServeWorker.BootPromptServe, and is useful for accessing the field via an interface.
@@ -130620,6 +130635,8 @@ func GetWorker(
 const GetWorkerBootPromptServe_Operation = `
 query GetWorkerBootPromptServe ($id: ID!) {
 	worker(ref: $id) {
+		bootPromptRef
+		bootPromptTargetDeleted
 		bootPromptServe {
 			served {
 				pointerLevel
