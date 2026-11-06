@@ -2232,7 +2232,15 @@ Conventions:
   spec (`references[]` of `{kind: URN|EDGE, field, sourceLoc, sourceNodeId,
   targetLoc, text}`, exact citation only); `spec unresolved` lists references
   that reach no written spec (`reason: MISSING|PLACEHOLDER`), exit 0 either
-  way. `spec document <citation> [-m] [-o <file>]` prints a feature's specs as
+  way. Backlinks/unresolved and draft-lint reference enrichment drain 20-row
+  pages by served count/hasMore before rendering or deciding; provider order
+  and duplicate rows survive. A failed/malformed/later-refused page fails with
+  no partial output or all-clear. Only an exact first-request unknown-page-field
+  validation permits one full legacy read; never on auth/transport/5xx or a later
+  page. If the legacy unresolved report is also unsupported, draft lint keeps
+  ordinary rules only. Paging bounds responses, not whole-corpus scan work;
+  totals defend against some changes, not same-count edits or a snapshot.
+  `spec document <citation> [-m] [-o <file>]` prints a feature's specs as
   ONE document the SERVER assembles (cor:spc:030:02; read-only, no MCP tool):
   stdout is the server's Markdown byte for byte (a newline added only on a
   terminal); `-o <file>` writes exactly those bytes atomically after the fetch
