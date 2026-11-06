@@ -91,7 +91,7 @@ func defaultHostPlanEnv(f *cmdutil.Factory) hostPlanEnv {
 			if err != nil {
 				return "", err
 			}
-			r, err := gen.GetAppMetadata(ctx, client, ref)
+			r, err := gen.HostPlanApp(ctx, client, ref)
 			if err != nil {
 				return "", api.MapErrorKeepingCode(err)
 			}
@@ -105,7 +105,7 @@ func defaultHostPlanEnv(f *cmdutil.Factory) hostPlanEnv {
 			if err != nil {
 				return hostWorkerIdentity{}, err
 			}
-			r, err := gen.GetWorkerInApp(ctx, client, app, ref)
+			r, err := gen.HostPlanWorker(ctx, client, app, ref)
 			if err != nil {
 				return hostWorkerIdentity{}, api.MapErrorKeepingCode(err)
 			}
@@ -123,6 +123,9 @@ func newCmdHostPlan(f *cmdutil.Factory, env hostPlanEnv) *cobra.Command {
 		Long: `Read a version-1 JSON roster and inspect existing worker identities and this
 host's git/Orca inventory. Actions in the result are DATA ONLY: there is no apply
 verb, launch, terminal input, session binding or host-state write.
+
+Needs git and the Orca CLI on PATH on this host, with Orca running, and your
+usual sign-in permitted to read the named existing App and workers.
 
 Roster: {"version":1,"app":"hrn:app:acme.com:team","workers":[{"worker":"Iris","repo":"/absolute/existing/checkout","family":"codex"}]}
 Use a regular UTF-8 file, at most 1 MiB, with 1..200 rows. Unknown/duplicate JSON
@@ -142,7 +145,8 @@ Missing roster rows never delete, retire, close or release anything.
 conflicts, unavailable. Arrays are always []. Input order is stable. A conflict
 exits 5, incomplete discovery exits nonzero, and missing/broken Orca exits 10.
 A failed discovery is never an empty inventory. Diagnostics omit subprocess
-output and server prose. No credentials or transcripts are emitted.
+output and server prose. Stored credentials and transcripts are never selected or emitted; input refs
+and paths remain operator-supplied data in the plan.
 
 This is a Linux-tested read-only snapshot, not a reviewed execution plan or a
 standing grant. Future host-write tooling requires its own authorization.`,

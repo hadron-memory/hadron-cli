@@ -50656,6 +50656,100 @@ func (v *HostOperationsResponse) GetHostOperations() *HostOperationsHostOperatio
 	return v.HostOperations
 }
 
+// HostPlanAppApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostPlanAppApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostPlanAppApp.Id, and is useful for accessing the field via an interface.
+func (v *HostPlanAppApp) GetId() string { return v.Id }
+
+// HostPlanAppResponse is returned by HostPlanApp on success.
+type HostPlanAppResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *HostPlanAppApp `json:"app"`
+}
+
+// GetApp returns HostPlanAppResponse.App, and is useful for accessing the field via an interface.
+func (v *HostPlanAppResponse) GetApp() *HostPlanAppApp { return v.App }
+
+// HostPlanWorkerResponse is returned by HostPlanWorker on success.
+type HostPlanWorkerResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *HostPlanWorkerWorker `json:"worker"`
+}
+
+// GetWorker returns HostPlanWorkerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerResponse) GetWorker() *HostPlanWorkerWorker { return v.Worker }
+
+// HostPlanWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostPlanWorkerWorker struct {
+	Id    string `json:"id"`
+	AppId string `json:"appId"`
+	// #1707 — the model family of this worker's binding (hrn:node:hadronmemory.com:specs:cor:agt:060:04):
+	// its newest open session's family. It follows the binding, not activity: a
+	// quiet session keeps it, and it is cleared when the session ends or replaced
+	// by a newer bind. Null when unbound, when the binding reported none, or on
+	// the same read gate as hasLiveSession. A matching input, never an
+	// authorization input.
+	Family *string `json:"family"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+}
+
+// GetId returns HostPlanWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetId() string { return v.Id }
+
+// GetAppId returns HostPlanWorkerWorker.AppId, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetAppId() string { return v.AppId }
+
+// GetFamily returns HostPlanWorkerWorker.Family, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetFamily() *string { return v.Family }
+
+// GetRetiredAt returns HostPlanWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *HostPlanWorkerWorker) GetRetiredAt() *string { return v.RetiredAt }
+
 // HostRegistrationFields includes the GraphQL fields of HostRegistration requested by the fragment HostRegistrationFields.
 // The GraphQL type's documentation follows.
 //
@@ -105046,6 +105140,26 @@ func (v *__HostOperationsInput) GetFirst() *int { return v.First }
 // GetAfter returns __HostOperationsInput.After, and is useful for accessing the field via an interface.
 func (v *__HostOperationsInput) GetAfter() *string { return v.After }
 
+// __HostPlanAppInput is used internally by genqlient
+type __HostPlanAppInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HostPlanAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostPlanAppInput) GetRef() string { return v.Ref }
+
+// __HostPlanWorkerInput is used internally by genqlient
+type __HostPlanWorkerInput struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __HostPlanWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostPlanWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __HostPlanWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostPlanWorkerInput) GetRef() string { return v.Ref }
+
 // __HostRegistrationsInput is used internally by genqlient
 type __HostRegistrationsInput struct {
 	AppRef string `json:"appRef"`
@@ -128870,6 +128984,81 @@ func HostOperations(
 	}
 
 	data_ = &HostOperationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostPlanApp.
+const HostPlanApp_Operation = `
+query HostPlanApp ($ref: ID!) {
+	app(ref: $ref) {
+		id
+	}
+}
+`
+
+func HostPlanApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HostPlanAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostPlanApp",
+		Query:  HostPlanApp_Operation,
+		Variables: &__HostPlanAppInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HostPlanAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostPlanWorker.
+const HostPlanWorker_Operation = `
+query HostPlanWorker ($appRef: ID!, $ref: ID!) {
+	worker(appRef: $appRef, ref: $ref) {
+		id
+		appId
+		family
+		retiredAt
+	}
+}
+`
+
+// cli#1635: existing worker identity only. Do not fetch the briefing, prompts,
+// signature, credentials or transcript while inspecting a local host roster.
+func HostPlanWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *HostPlanWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostPlanWorker",
+		Query:  HostPlanWorker_Operation,
+		Variables: &__HostPlanWorkerInput{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &HostPlanWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -198,7 +198,7 @@ func TestHostPlan1635ClosedReadArgv(t *testing.T) {
 	}
 }
 func TestHostPlan1635DiscoveryFailureNeverEmpty(t *testing.T) {
-	for _, raw := range []string{`{}`, `{"ok":true}`, `{"ok":true,"result":{}}`, `{"ok":true,"result":{"terminals":null}}`, `{"ok":true,"result":{"terminals":[null]}}`} {
+	for _, raw := range []string{`{}`, `{"ok":true}`, `{"ok":true,"result":{}}`, `{"ok":true,"result":{"terminals":null}}`, `{"ok":true,"result":{"terminals":[null]}}`, `{"ok":true,"result":{"terminals":[{"handle":"t"}]}}`} {
 		run := func(context.Context, string, []string) ([]byte, error) { return []byte(raw), nil }
 		_, err := discoverHostInventory(context.Background(), nil, run)
 		if exitcode.FromError(err) != 10 {
@@ -264,4 +264,28 @@ func snapshotHost1635(t *testing.T, root string) map[string]string {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func TestHostPlan1635AllArrayShapes(t *testing.T) {
+	repo := hostRepo1635(t)
+	file := roster1635(t, repo, "Iris")
+	calls := []string{}
+	inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"id-iris", "app-id", "s"}}}, Terminals: []hostTerminal{{"t", repo, "codex"}}}
+	dto, code, out := executePlan1635(t, file, fakePlan1635(inv, &calls))
+	if code != 0 {
+		t.Fatal(code, out)
+	}
+	if dto.Workers == nil || dto.Actions == nil || dto.Conflicts == nil || dto.Unavailable == nil {
+		t.Fatal("top-level arrays must be present and non-null", out)
+	}
+	for _, w := range dto.Workers {
+		if w.Worktrees == nil || w.Terminals == nil || w.Sessions == nil {
+			t.Fatal("worker arrays must be present and non-null", out)
+		}
+	}
+	for _, key := range []string{"actions", "conflicts", "unavailable"} {
+		if !strings.Contains(out, `"`+key+`": []`) {
+			t.Fatal("explicit empty array missing", key, out)
+		}
+	}
 }

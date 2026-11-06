@@ -125,8 +125,8 @@ func discoverHostInventory(ctx context.Context, rows []hostRosterWorker, run hos
 		}
 		seenHandles[t.Handle] = true
 		if t.Path == "" {
-			continue
-		} // An unassociated terminal is never guessed by name.
+			return inv, exitcode.Newf(exitcode.OrcaUnreachable, "Orca inventory unavailable")
+		} // An unknown path must not turn into an absent worker resource.
 		p, err := canonicalHostPath(t.Path)
 		if err != nil {
 			return inv, exitcode.Newf(exitcode.OrcaUnreachable, "Orca inventory unavailable")
