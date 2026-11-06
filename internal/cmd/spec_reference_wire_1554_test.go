@@ -201,6 +201,7 @@ func TestReferenceFirstPageRefusalNeverFallback1554(t *testing.T) {
 		{"permission exact prose", strings.Replace(unknown, "GRAPHQL_VALIDATION_FAILED", "FORBIDDEN", 1), 400},
 		{"500 exact validation", unknown, 500},
 		{"unrelated field", absentReferenceField1554("other"), 400},
+		{"legacy name from page is unrelated", absentReferenceField1554("specUnresolvedReferences"), 400},
 		{"mixed", strings.Replace(unknown, `}]}`, `},{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, 1), 400},
 		{"null error entry", strings.Replace(unknown, `}]}`, `},null]}`, 1), 200},
 		{"populated partial", strings.Replace(unknown, `{"errors":`, `{"data":{"specUnresolvedReferencesPage":{"items":[],"total":0,"hasMore":false}},"errors":`, 1), 200},
@@ -322,6 +323,30 @@ func TestReferenceRequiredItemFields1554(t *testing.T) {
 					})
 				}
 			}
+		}
+	}
+}
+
+func TestReferenceEmptyStringsRemainValues1554(t *testing.T) {
+	for _, verb := range []string{"backlinks", "unresolved"} {
+		out, _, err := runReferenceWire1554(t, verb, true, func(op string, v map[string]any) (string, int) {
+			field := "specUnresolvedReferencesPage"
+			if verb == "backlinks" {
+				field = "specBacklinksPage"
+			}
+			return `{"data":{"` + field + `":{"items":[{"kind":"URN","field":"","sourceNodeId":"","sourceLoc":"","targetLoc":"","text":null,"reason":null}],"total":1,"hasMore":false}}}`, 200
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			References []map[string]any `json:"references"`
+		}
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatal(err)
+		}
+		if len(got.References) != 1 || got.References[0]["sourceLoc"] != "" {
+			t.Fatal(out)
 		}
 	}
 }
