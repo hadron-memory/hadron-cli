@@ -109,15 +109,17 @@ same row and exits 0.`,
 	}
 }
 
-const leaveKeptNote = "Your personal memory in the App is kept and re-attaches if you join again."
+const leaveKeptNote = "Your personal memory in the App is kept and re-attaches if you can join again. Rejoining is subject to self-join policy and capacity."
 
 func newCmdLeave(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "leave <app-ref> [--instruction <kind>:<ref>]",
 		Short: "Leave an App you are a member of",
-		Long: `Leave an App as the signed-in user (leaveApp). Reversible: join again to
-restore the membership. ` + leaveKeptNote + `
+		Long: `Leave an App as the signed-in user (leaveApp).
+
+Your personal memory in the App is kept and re-attaches if you can join again.
+Rejoining is subject to self-join policy and capacity.
 
 Idempotent: leaving an App you are not a member of is a no-op that exits 0, so
 success means "not a member now", not "was removed". Confirmed first: pass
