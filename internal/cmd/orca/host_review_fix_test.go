@@ -66,3 +66,80 @@ func TestHostPlan1635UnrelatedLegacyBindingDoesNotPoisonInventory(t *testing.T) 
 		t.Fatalf("known unrelated worker binding poisoned inventory: %v", err)
 	}
 }
+
+func TestHostPlan1635DecisionTable(t *testing.T) {
+	for _, name := range []string{"open-terminal", "inspect-agent", "terminal-family", "multiple-worktrees", "multiple-terminals", "recorded-family", "retired", "foreign-app"} {
+		t.Run(name, func(t *testing.T) {
+			repo := hostRepo1635(t)
+			inv := hostInventory{Repos: map[string]string{repo: "common"}, Trees: []hostTree{{repo, "common", &hostBinding{"https://target.example", "id-iris", "app-id", "session"}}}, Terminals: []hostTerminal{}}
+			reason, action, wantCode := "", "", 0
+			switch name {
+			case "open-terminal":
+				action = "open-terminal"
+			case "inspect-agent":
+				inv.Terminals = []hostTerminal{{"t", repo, ""}}
+				action = "inspect-agent"
+			case "terminal-family":
+				inv.Terminals = []hostTerminal{{"t", repo, "claude"}}
+				reason = "terminal_family_mismatch"
+				wantCode = 5
+			case "multiple-worktrees":
+				inv.Trees = append(inv.Trees, hostTree{repo + "-other", "common", &hostBinding{"https://target.example", "id-iris", "app-id", "other-session"}})
+				reason = "multiple_bound_worktrees"
+				wantCode = 5
+			case "multiple-terminals":
+				inv.Terminals = []hostTerminal{{"a", repo, "codex"}, {"b", repo, "codex"}}
+				reason = "multiple_bound_terminals"
+				wantCode = 5
+			case "recorded-family":
+				reason = "recorded_family_mismatch"
+				wantCode = 5
+			case "retired", "foreign-app":
+				wantCode = 2
+			}
+			calls := []string{}
+			env := fakePlan1635(inv, &calls)
+			if name == "recorded-family" || name == "retired" || name == "foreign-app" {
+				env.Worker = func(context.Context, string, string) (hostWorkerIdentity, error) {
+					w := hostWorkerIdentity{ID: "id-iris", AppID: "app-id", Family: "codex"}
+					if name == "recorded-family" {
+						w.Family = "claude"
+					}
+					if name == "retired" {
+						w.Retired = true
+					}
+					if name == "foreign-app" {
+						w.AppID = "foreign"
+					}
+					return w, nil
+				}
+			}
+			dto, code, raw := executePlan1635(t, roster1635(t, repo, "Iris"), env)
+			if code != wantCode {
+				t.Fatalf("code%d want%d: %s", code, wantCode, raw)
+			}
+			if reason != "" && (len(dto.Conflicts) != 1 || dto.Conflicts[0].Reason != reason || len(dto.Actions) != 0) {
+				t.Fatalf("guard/action mismatch: %s", raw)
+			}
+			if action != "" && (len(dto.Actions) != 1 || dto.Actions[0].Kind != action) {
+				t.Fatalf("action mismatch: %s", raw)
+			}
+			if wantCode == 2 && strings.Contains(strings.Join(calls, ","), "inventory") {
+				t.Fatal("refused identity reached host discovery")
+			}
+		})
+	}
+}
+
+func TestHostPlan1635DiscoveryScopeExplicit(t *testing.T) {
+	repo := hostRepo1635(t)
+	calls := []string{}
+	_, code, raw := executePlan1635(t, roster1635(t, repo, "Iris"), fakePlan1635(hostInventory{Repos: map[string]string{repo: "common"}}, &calls))
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(raw), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 || dto["discoveryScope"] != "roster-repositories-and-reported-terminals" {
+		t.Fatalf("scope of absence not explicit: code%d %s", code, raw)
+	}
+}
