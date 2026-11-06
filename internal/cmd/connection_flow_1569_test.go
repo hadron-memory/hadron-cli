@@ -331,3 +331,49 @@ func TestUnknownFlowStatusIsNotASuccessfulRead(t *testing.T) {
 		}
 	}
 }
+
+// These lines follow a successful browser handoff: none may repeat the link.
+func TestConnectHumanOutcomeLines1717(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		flows               []string
+		args                []string
+		wantOut             string
+		wantCode, wantPolls int
+	}{
+		{"started", []string{pend}, []string{"--no-wait"}, "started gmail connection for org org_1 (flow flow_1, link expires 2099-01-01T00:00:00Z); follow it with: hadron connection flow flow_1\n", 0, 0},
+		{"pending", []string{pend}, []string{"--wait", "10s"}, "gmail connection flow flow_1 has not finished (link expires 2099-01-01T00:00:00Z); follow it with: hadron connection flow flow_1\n", exitcode.WaitTimeout, 4},
+		{"failed", []string{pend, flowResp("FAILED", "", "access_denied")}, nil, "✗ gmail connection failed: access_denied (flow flow_1)\n", exitcode.Error, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"connection", "connect", "gmail", "--org", "org_1"}, tc.args...)
+			r := runFlowConnect(t, tc.flows, connRows(), args...)
+			if len(r.opened) != 1 || r.opened[0] != connectURL {
+				t.Fatalf("browser handoff: %v", r.opened)
+			}
+			for _, secret := range []string{connectURL, "SECRETNONCE123456", "hadron.example"} {
+				if strings.Contains(r.out+r.errOut, secret) {
+					t.Fatalf("authorize link repeated on human streams: %q %q", r.out, r.errOut)
+				}
+			}
+			if r.code != tc.wantCode || r.out != tc.wantOut {
+				t.Fatalf("human outcome: exit %d want %d, stdout %q want %q", r.code, tc.wantCode, r.out, tc.wantOut)
+			}
+			if count(r.ops, "StartConnection") != 1 || count(r.ops, "ConnectionFlow") != tc.wantPolls || count(r.ops, "EmailConnections") != 0 || len(r.ops) != 1+tc.wantPolls {
+				t.Fatalf("requests: got %v, want one start + %d flow reads only", r.ops, tc.wantPolls)
+			}
+		})
+	}
+}
+
+func TestConnectConnectedWithoutIDKeepsReadGuard1717(t *testing.T) {
+	for _, response := range []string{flowResp("CONNECTED", "", ""), strings.Replace(flowResp("CONNECTED", "", ""), `"connectionId":null`, `"connectionId":""`, 1)} {
+		r := runFlowConnect(t, []string{response}, connRows(), "connection", "connect", "gmail", "--org", "org_1")
+		if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != "server reported the flow connected without a connection id" || r.out != "" {
+			t.Fatalf("guard: exit %d err %v stdout %q", r.code, r.err, r.out)
+		}
+		if count(r.ops, "StartConnection") != 1 || count(r.ops, "ConnectionFlow") != 1 || len(r.ops) != 2 {
+			t.Fatalf("malformed answer should end after one flow read: %v", r.ops)
+		}
+	}
+}

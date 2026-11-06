@@ -359,7 +359,7 @@ func TestConnectionConnectJSONOpenFailureReturnsStarted(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.out), &dto); err != nil || dto.AuthorizeURL != connectURL || dto.Status != "started" || dto.BrowserOpened {
 		t.Fatalf("dto %+v err %v out %q", dto, err, r.out)
 	}
-	if count(r.ops, "ConnectionFlow") > 1 || r.slept != 0 {
+	if count(r.ops, "ConnectionFlow") != 0 || count(r.ops, "StartConnection") != 1 || len(r.ops) != 1 || r.slept != 0 {
 		t.Fatalf("waited after a failed launch: ops %v slept %s", r.ops, r.slept)
 	}
 }
