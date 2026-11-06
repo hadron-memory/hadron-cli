@@ -112,3 +112,35 @@ func TestHostPlan1635FileTypeAndSymlinkRefusal(t *testing.T) {
 		t.Fatal("symlink accepted")
 	}
 }
+
+func TestHostPlan1635SubprocessOutputCap(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "orca"), []byte("#!/bin/sh\nexec /usr/bin/head -c 9000000 /dev/zero\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+":/usr/bin:/bin")
+	out, err := runHostRead(context.Background(), "orca", []string{"terminal", "list", "--json"})
+	if err == nil || out != nil {
+		t.Fatalf("oversized subprocess output accepted: bytes=%d err=%v", len(out), err)
+	}
+}
+
+func TestHostPlan1635SubprocessEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	script := `#!/bin/sh
+if [ -n "$HADRON_TOKEN$PROVIDER_SECRET$GIT_CONFIG_COUNT$GIT_CONFIG_KEY_0$GIT_CONFIG_VALUE_0" ]; then echo leaked; exit 1; fi
+if [ "$GIT_CONFIG_GLOBAL" != /dev/null ] || [ "$GIT_CONFIG_NOSYSTEM" != 1 ] || [ "$GIT_OPTIONAL_LOCKS" != 0 ] || [ "$GIT_TERMINAL_PROMPT" != 0 ]; then echo config-not-isolated; exit 1; fi
+printf 'isolated'
+`
+	if err := os.WriteFile(filepath.Join(dir, "orca"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+":/usr/bin:/bin")
+	for _, key := range []string{"HADRON_TOKEN", "PROVIDER_SECRET", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"} {
+		t.Setenv(key, "SENTINEL")
+	}
+	out, err := runHostRead(context.Background(), "orca", []string{"terminal", "list", "--json"})
+	if err != nil || string(out) != "isolated" {
+		t.Fatalf("environment isolation failed: %q %v", out, err)
+	}
+}
