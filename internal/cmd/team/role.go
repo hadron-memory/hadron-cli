@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -128,8 +129,20 @@ func scanTeamRoles(ctx context.Context, client graphql.Client, appRef string, te
 func roleAppScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
 	ctx := cmd.Context()
 	b, err := readBindingOrNilWithApp(ctx, f)
-	if err != nil {
+	if err != nil && !errors.Is(err, errNoWorktree) {
 		return appScope{}, err
+	}
+	// A role belongs to an App, not a worktree. With no App in a binding,
+	// ask for that scope instead of suggesting a worker session. Other binding
+	// errors (including corruption) still surface above.
+	if b == nil || (b.AppID == "" && b.TeamMemory == "") {
+		appRef, err := f.App()
+		if err != nil {
+			return appScope{}, err
+		}
+		if appRef == "" {
+			return appScope{}, exitcode.Newf(exitcode.Usage, "no team App — pass --app <ref> (or set a default App context)")
+		}
 	}
 	return resolveTeamAppScope(ctx, f, b)
 }
