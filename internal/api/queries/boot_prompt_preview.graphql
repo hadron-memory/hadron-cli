@@ -1,0 +1,36 @@
+# cli#1655: command-specific next-bind preview, no content or provenance lookup.
+# Kept out of AppAgentRosterData: role warnings keep their provider floor.
+query AppAgentEffectiveRoster($appRef: ID!) {
+  app(ref: $appRef) {
+    ...AppAgentRosterData
+    appAgents {
+      agent { id }
+      installMethod
+      importer { id urn name }
+      # @genqlient(typename: "BootPromptPreviewFields")
+      bootPromptServe {
+        served {
+          pointerLevel
+          compiledNodeId
+          servedRevSeq
+        }
+        refusal
+      }
+    }
+  }
+}
+
+# Kept out of WorkerFields: only worker get opts in, never cast/update/roster.
+query GetWorkerBootPromptServe($id: ID!) {
+  worker(ref: $id) {
+    # @genqlient(typename: "BootPromptPreviewFields")
+    bootPromptServe {
+      served {
+        pointerLevel
+        compiledNodeId
+        servedRevSeq
+      }
+      refusal
+    }
+  }
+}

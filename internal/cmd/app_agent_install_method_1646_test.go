@@ -64,6 +64,9 @@ func TestAppAgentInstallMethod1646(t *testing.T) {
 					}
 				}
 				expected["agentName"] = app["agents"].([]any)[i].(map[string]any)["name"]
+				for _, key := range []string{"pointerLevel", "compiledNodeId", "servedRevSeq", "bootPromptRefusal"} {
+					expected[key] = nil
+				}
 				expected["bootPromptRef"] = nil
 				expected["bootPromptTargetDeleted"] = nil
 				expected["installMethod"] = rows[i].(map[string]any)["installMethod"]

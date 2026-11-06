@@ -79,6 +79,17 @@ answered only when you can read every installed Agent.
 Otherwise every row has no install mark (? = not available); JSON installMethod and importer
 are explicitly null. Null does not establish how an Agent is installed.
 
+BOOT PROMPT (NEXT BIND) shows what a new bind would receive now: source level,
+compiled node id and served revision, or the typed refusal. It is not the
+current session's prompt. Only BOOT_PROMPT_NOT_SET means none; null means
+not visible or unknown. Approval is never inferred from a pointer. A visible
+own pointer is shown only when it matches the served level; no URN is built
+and no compiled content is fetched. The existing own deleted-pointer cue stays.
+--json retains its keys and adds pointerLevel, compiledNodeId, servedRevSeq,
+bootPromptRefusal (null when absent) and an optional bootPromptUrn.
+An exact initial missing-bootPromptServe validation may use one legacy listing;
+other schema, permission, transport or partial errors do not fall back.
+
 Requires a server with AppAgent.installMethod and AppAgent.importer (#3446).
 Older servers refuse the new fields; no installation method is inferred.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
@@ -106,7 +117,7 @@ Older servers refuse the new fields; no installation method is inferred.`,
 			if err != nil {
 				return err
 			}
-			r, err := approster.FetchInstallations(cmd.Context(), client, appRef)
+			r, err := approster.FetchEffective(cmd.Context(), client, appRef)
 			if err != nil {
 				return err
 			}

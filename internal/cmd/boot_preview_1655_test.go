@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -144,5 +145,100 @@ func TestEffectiveBootFallback1655(t *testing.T) {
 				t.Fatalf("legacy inferred none: %s", out)
 			}
 		})
+	}
+}
+
+func TestEffectiveBootActualPre2708Refuses1655(t *testing.T) {
+	body, err := os.ReadFile("testdata/boot_preview_pre2708_1655.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := bootResponses1655(t, `null`)
+	r["AppAgentEffectiveRoster"] = string(body)
+	calls, out, err := runTeamTask(t, r, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
+	if err == nil || out != "" {
+		t.Fatalf("old mixed schema accepted: %s %v", out, err)
+	}
+	for _, c := range *calls {
+		if c.Op == "AppAgentInstallationRoster" {
+			t.Fatal("mixed schema fallback")
+		}
+	}
+}
+
+func TestWorkerBootRefusalAndCompatibility1655(t *testing.T) {
+	for _, tc := range []struct {
+		name, reply string
+		ok          bool
+		refusal     string
+	}{
+		{"denied", `{"data":{"worker":{"bootPromptServe":null}}}`, true, ""},
+		{"none", `{"data":{"worker":{"bootPromptServe":{"served":null,"refusal":"BOOT_PROMPT_NOT_SET"}}}}`, true, "BOOT_PROMPT_NOT_SET"},
+		{"unapproved", `{"data":{"worker":{"bootPromptServe":{"served":null,"refusal":"BOOT_PROMPT_NOT_APPROVED"}}}}`, true, "BOOT_PROMPT_NOT_APPROVED"},
+		{"old", `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\". Did you mean \"bootPromptRef\"?","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true, ""},
+		{"auth", `{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, false, ""},
+		{"mixed", `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, false, ""},
+		{"partial", `{"data":{"worker":null},"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, false, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := bootResponses1655(t, `null`)
+			r["GetWorkerBootPromptServe"] = tc.reply
+			calls, out, err := runTeamTask(t, r, "team", "worker", "get", profileHexID, "--json")
+			if (err == nil) != tc.ok {
+				t.Fatalf("err=%v out=%s", err, out)
+			}
+			modern := 0
+			for _, c := range *calls {
+				if c.Op == "GetWorkerBootPromptServe" {
+					modern++
+				}
+				if c.Op == "GetNode" || c.Op == "Workers" || c.Op == "GetAgent" {
+					t.Fatalf("alternate lookup %s", c.Op)
+				}
+			}
+			if modern != 1 {
+				t.Fatal(modern)
+			}
+			if !tc.ok {
+				if out != "" {
+					t.Fatal(out)
+				}
+				return
+			}
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			for _, k := range []string{"pointerLevel", "compiledNodeId", "servedRevSeq"} {
+				if v, ok := dto[k]; !ok || v != nil {
+					t.Fatalf("unknown/refusal leaks %s: %s", k, out)
+				}
+			}
+			if tc.refusal != "" && dto["bootPromptRefusal"] != tc.refusal {
+				t.Fatal(out)
+			}
+		})
+	}
+}
+
+func TestEffectiveBootLegacyErrorNoLoop1655(t *testing.T) {
+	r := bootResponses1655(t, `null`)
+	r["AppAgentEffectiveRoster"] = `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	r["AppAgentInstallationRoster"] = `{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`
+	calls, out, err := runTeamTask(t, r, "app", "agent", "list", "hrn:app:acme.com:support", "--json")
+	if err == nil || out != "" || exitCodeFor(err) != 8 {
+		t.Fatalf("legacy error hidden: out%s err%v", out, err)
+	}
+	modern, legacy := 0, 0
+	for _, c := range *calls {
+		if c.Op == "AppAgentEffectiveRoster" {
+			modern++
+		}
+		if c.Op == "AppAgentInstallationRoster" {
+			legacy++
+		}
+	}
+	if modern != 1 || legacy != 1 {
+		t.Fatalf("retry loop modern%d legacy%d", modern, legacy)
 	}
 }

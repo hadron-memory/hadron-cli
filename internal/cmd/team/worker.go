@@ -14,6 +14,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/bootpreview"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -552,6 +553,7 @@ func workerForArg(cmd *cobra.Command, f *cmdutil.Factory, arg string) (gen.Worke
 // nullable keys and null means UNAVAILABLE (masked, an older server, or an App
 // URN that predates the grammar), never evidence that no App or owner exists.
 type workerGetDTO struct {
+	bootpreview.Fields
 	workerDTO
 	AppName   *string `json:"appName"`
 	OwnerName *string `json:"ownerName"`
@@ -738,6 +740,17 @@ model groups   the model groups the worker's model is currently in, computed
                  (a list, or null when withheld). A failed group lookup fails
                  the command: it is never shown as "none" or "unavailable".
 
+boot prompt (next bind)   the server's current served source level, compiled
+                 node id and revision, or typed refusal, for a NEW bind. This
+                 is not the current session's prompt. Only BOOT_PROMPT_NOT_SET
+                 means none; null is not visible/unknown. Approval is not
+                 inferred from a pointer; no compiled content is read or URN
+                 built. A matching own visible pointer may supply the URN.
+                 JSON adds pointerLevel, compiledNodeId, servedRevSeq,
+                 bootPromptRefusal and optional bootPromptUrn; old keys stay.
+                 Only the exact initial missing-field validation uses the old
+                 label. Auth, transport, mixed and partial errors fail normally.
+
 OVERDUE CLEARS when the worker's own session reads its team chat
 (` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
 the check. A worker that is OVERDUE, or has a wake due to it left
@@ -796,8 +809,26 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
+			guard := &bootpreview.ValidationRead{Client: client}
+			previewResp, previewErr := gen.GetWorkerBootPromptServe(cmd.Context(), guard, w.Id)
+			var preview *bootpreview.Preview
+			if previewErr != nil {
+				if !guard.MissingField(previewErr, "GetWorkerBootPromptServe", "Worker") {
+					return api.MapError(previewErr)
+				}
+			} else {
+				var outcome *gen.BootPromptPreviewFields
+				if previewResp != nil && previewResp.Worker != nil && previewResp.Worker.BootPromptServe != nil {
+					outcome = previewResp.Worker.BootPromptServe
+				}
+				p := bootpreview.Project(outcome, "WORKER", w.BootPromptRef)
+				preview = &p
+			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
 				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
+			if preview != nil {
+				dto.Fields = preview.Fields
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
@@ -926,7 +957,13 @@ and every worker's state in ` + "`team roster`" + `.`,
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
-				if !profile || dto.BootPromptRef != nil {
+				if preview != nil {
+					label := preview.Label()
+					if dto.BootPromptTargetDeleted != nil && *dto.BootPromptTargetDeleted {
+						label += "; own pointer: " + cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)
+					}
+					fmt.Fprintf(out, "  boot prompt (next bind): %s\n", label)
+				} else if !profile || dto.BootPromptRef != nil {
 					fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
