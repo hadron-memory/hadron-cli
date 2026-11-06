@@ -114,7 +114,7 @@ func TestTemplateOrgDefaultFileEdges(t *testing.T) {
 	}
 	// A null is a hand edit (get --json never prints it): refused before any call.
 	gql2, captured2 := captureGraphQL(t, map[string]string{})
-	out, code := runConfig(t, gql2.URL, "memory", "config", "template", "update", "t9", "--file", writeFile(t, `{"revision":7,"orgDefault":null}`))
+	out, code := runConfig(t, gql2.URL, "memory", "config", "template", "update", "t9", "--file", writeFile(t, `{"revision":7,"name":"x","orgDefault":null}`))
 	if code != exitcode.Usage || len(captured2) != 0 {
 		t.Errorf("null orgDefault: exit %d, calls %v, want usage and no call\n%s", code, captured2, out)
 	}
@@ -128,9 +128,14 @@ func TestTemplateOrgDefaultRefusalsAreVerbatim(t *testing.T) {
 	} {
 		body := `{"errors":[{"message":"` + msg + `","extensions":{"code":"BAD_USER_INPUT","reason":"` + reason + `"}}]}`
 		gql, _ := captureGraphQL(t, map[string]string{"UpdateMemoryConfigTemplate": body})
-		out, code := runConfig(t, gql.URL, "memory", "config", "template", "update", "t9", "--file", writeFile(t, `{"revision":7,"orgDefault":true}`))
-		if code != exitcode.Usage || !strings.Contains(out, msg) {
-			t.Errorf("%s: exit %d, want %d with the server message verbatim:\n%s", reason, code, exitcode.Usage, out)
+		f, out := testFactory(t)
+		errOut := &strings.Builder{}
+		f.IOStreams.ErrOut = errOut
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "config", "template", "update", "t9", "--file", writeFile(t, `{"revision":7,"orgDefault":true}`), "--server", gql.URL})
+		code := renderError(f, root.Execute())
+		if code != exitcode.Usage || !strings.Contains(errOut.String(), msg) || out.Len() != 0 {
+			t.Errorf("%s: exit %d, want %d with the server message verbatim on stderr and nothing on stdout:\nstderr: %s\nstdout: %s", reason, code, exitcode.Usage, errOut.String(), out.String())
 		}
 	}
 }

@@ -67,13 +67,28 @@ type sourceTemplateDTO struct {
 // [], for a memory whose manager has written no rule yet — that is the empty
 // config, a success, not a refusal.
 type memoryConfigDTO struct {
-	ID        *string           `json:"id"`
-	MemoryID  string            `json:"memoryId"`
-	Rules     []nodeRoleRuleDTO `json:"rules"`
-	CreatedAt *string           `json:"createdAt"`
-	CreatedBy *string           `json:"createdBy"`
-	UpdatedAt *string           `json:"updatedAt"`
-	UpdatedBy *string           `json:"updatedBy"`
+	ID           *string           `json:"id"`
+	MemoryID     string            `json:"memoryId"`
+	Rules        []nodeRoleRuleDTO `json:"rules"`
+	DefaultSkips []defaultSkipDTO  `json:"defaultSkips"`
+	CreatedAt    *string           `json:"createdAt"`
+	CreatedBy    *string           `json:"createdBy"`
+	UpdatedAt    *string           `json:"updatedAt"`
+	UpdatedBy    *string           `json:"updatedBy"`
+}
+
+// defaultSkipDTO is one org-default rule skipped when the memory was created
+// (#3426). `ref` and `refState` are the template rule's reference as the
+// CALLING manager sees it now: null and BROKEN once the template or rule is
+// gone. The CLI never builds a URN the server withheld.
+type defaultSkipDTO struct {
+	Role           string             `json:"role"`
+	Field          string             `json:"field"`
+	Reason         string             `json:"reason"`
+	Ref            *string            `json:"ref"`
+	RefState       string             `json:"refState"`
+	CreatedAt      string             `json:"createdAt"`
+	SourceTemplate *sourceTemplateDTO `json:"sourceTemplate"`
 }
 
 // configWarningDTO is a non-fatal finding about a saved rule. It never changes
@@ -178,7 +193,12 @@ Each task or description reference shows its state:
   OK          the node's URN
   —           not configured
   BROKEN      the node was deleted; a manager must repoint it
-  UNREADABLE  the node exists but you may not read it, so its URN is withheld`,
+  UNREADABLE  the node exists but you may not read it, so its URN is withheld
+
+A "Skipped org defaults" table lists the rules an organization's default
+templates meant to give this memory but could not, at creation (a reference
+deleted, unreadable to the organization or not a task). It is a record, not
+a rule in force: repoint or add the rule yourself.`,
 		Example: `  hadron memory config get hrn:mem:acme.com:kb
   hadron memory config get hrn:mem:acme.com:kb --json`,
 		Args: cobra.ExactArgs(1),
@@ -196,7 +216,7 @@ Each task or description reference shows its state:
 				return notFoundMemory(args[0])
 			}
 			dto := memoryConfigDTO{
-				ID: cfg.Id, MemoryID: cfg.MemoryId, Rules: []nodeRoleRuleDTO{},
+				ID: cfg.Id, MemoryID: cfg.MemoryId, Rules: []nodeRoleRuleDTO{}, DefaultSkips: []defaultSkipDTO{},
 				CreatedAt: cfg.CreatedAt, CreatedBy: cfg.CreatedBy, UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy,
 			}
 			for _, r := range cfg.Rules {
@@ -204,26 +224,67 @@ Each task or description reference shows its state:
 					dto.Rules = append(dto.Rules, dtoFromRule(&r.NodeRoleRuleFields))
 				}
 			}
+			for _, s := range cfg.DefaultSkips {
+				if s == nil {
+					continue
+				}
+				sd := defaultSkipDTO{Role: s.Role, Field: s.Field, Reason: s.Reason, Ref: s.Ref, RefState: string(s.RefState), CreatedAt: s.CreatedAt}
+				if st := s.SourceTemplate; st != nil {
+					sd.SourceTemplate = &sourceTemplateDTO{ID: st.Id, Name: st.Name, Deleted: st.Deleted}
+				}
+				dto.DefaultSkips = append(dto.DefaultSkips, sd)
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Rules) == 0 {
-					_, err := fmt.Fprintf(w, "memory %s: no rules\n", dto.MemoryID)
-					return err
-				}
-				if _, err := fmt.Fprintf(w, "memory %s: %d rule(s)\n", dto.MemoryID, len(dto.Rules)); err != nil {
-					return err
-				}
-				for _, r := range dto.Rules {
-					if _, err := fmt.Fprintln(w); err != nil {
+					if _, err := fmt.Fprintf(w, "memory %s: no rules\n", dto.MemoryID); err != nil {
 						return err
 					}
-					if err := renderRule(w, r); err != nil {
+				} else {
+					if _, err := fmt.Fprintf(w, "memory %s: %d rule(s)\n", dto.MemoryID, len(dto.Rules)); err != nil {
 						return err
 					}
+					for _, r := range dto.Rules {
+						if _, err := fmt.Fprintln(w); err != nil {
+							return err
+						}
+						if err := renderRule(w, r); err != nil {
+							return err
+						}
+					}
 				}
-				return nil
+				return renderDefaultSkips(w, dto.DefaultSkips)
 			})
 		},
 	}
+}
+
+// renderDefaultSkips prints nothing when no org default was skipped.
+func renderDefaultSkips(w io.Writer, skips []defaultSkipDTO) error {
+	if len(skips) == 0 {
+		return nil
+	}
+	if _, err := fmt.Fprintf(w, "\nSkipped org defaults (%d): rules an organization default template meant to give this memory, left out at creation\n", len(skips)); err != nil {
+		return err
+	}
+	t := output.NewTable(w, "ROLE", "FIELD", "REASON", "REFERENCE", "TEMPLATE")
+	for _, s := range skips {
+		ref := "—"
+		switch {
+		case s.Ref != nil:
+			ref = *s.Ref
+		case s.RefState != "NONE":
+			ref = s.RefState
+		}
+		template := "—"
+		if s.SourceTemplate != nil {
+			template = s.SourceTemplate.Name
+			if s.SourceTemplate.Deleted {
+				template += " (deleted)"
+			}
+		}
+		t.Row(output.SafeCell(s.Role), output.SafeCell(s.Field), output.SafeCell(s.Reason), output.SafeCell(ref), output.SafeCell(template))
+	}
+	return t.Flush()
 }
 
 // renderRule prints one rule as a labelled block: a rule carries too many

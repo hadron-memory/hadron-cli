@@ -52,6 +52,21 @@ query MemoryConfig($memoryRef: ID!) {
   memoryConfig(memoryRef: $memoryRef) {
     id
     memoryId
+    # #3426: org-default rules skipped at this memory's creation. Managers only,
+    # like the rest of the config.
+    defaultSkips {
+      role
+      field
+      reason
+      ref
+      refState
+      createdAt
+      sourceTemplate {
+        id
+        name
+        deleted
+      }
+    }
     createdAt
     createdBy
     updatedAt

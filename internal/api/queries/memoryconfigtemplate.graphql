@@ -21,6 +21,7 @@ fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
   ownerType
   ownerId
   required
+  orgDefault
   revision
   createdAt
   createdBy
@@ -71,6 +72,7 @@ query MemoryConfigTemplates(
 # must name the owner.
 # @genqlient(for: "CreateMemoryConfigTemplateInput.description", omitempty: true)
 # @genqlient(for: "CreateMemoryConfigTemplateInput.required", omitempty: true)
+# @genqlient(for: "CreateMemoryConfigTemplateInput.orgDefault", omitempty: true)
 # @genqlient(for: "CreateMemoryConfigTemplateInput.rules", omitempty: true)
 # @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
 # @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
@@ -108,6 +110,7 @@ mutation CreateMemoryConfigTemplate(
 # @genqlient(for: "UpdateMemoryConfigTemplateInput.name", omitempty: true)
 # @genqlient(for: "UpdateMemoryConfigTemplateInput.description", omitempty: true)
 # @genqlient(for: "UpdateMemoryConfigTemplateInput.required", omitempty: true)
+# @genqlient(for: "UpdateMemoryConfigTemplateInput.orgDefault", omitempty: true)
 # @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
 # @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
 # @genqlient(for: "CreateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
@@ -149,6 +152,10 @@ mutation UpdateMemoryConfigTemplateClearingDescription(
   $name: String
   # @genqlient(omitempty: true)
   $required: Boolean
+  # omitempty: a nil pointer is omitted (unchanged), a pointer to false is kept
+  # (false clears the designation, #3426).
+  # @genqlient(omitempty: true)
+  $orgDefault: Boolean
   # NOT omitempty, for the same reason as the update above: [] must reach the
   # server; nil is sent as null, which it reads as unchanged. Explicit, because
   # use_struct_references would otherwise add it.
@@ -158,7 +165,7 @@ mutation UpdateMemoryConfigTemplateClearingDescription(
   updateMemoryConfigTemplate(
     ref: $ref
     expectedRevision: $expectedRevision
-    input: { description: null, name: $name, required: $required, rules: $rules }
+    input: { description: null, name: $name, required: $required, orgDefault: $orgDefault, rules: $rules }
   ) {
     template {
       ...MemoryConfigTemplateFields
