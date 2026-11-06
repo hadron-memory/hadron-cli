@@ -283,3 +283,45 @@ func TestReferenceDraftScopeAndLegacyAbsence1554(t *testing.T) {
 		t.Fatalf("ordinary-rule compatibility out=%s err=%v calls=%d", out, err, calls)
 	}
 }
+
+func TestReferenceRequiredItemFields1554(t *testing.T) {
+	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
+		for _, legacy := range []bool{false, true} {
+			for _, field := range []string{"kind", "field", "sourceLoc", "sourceNodeId", "targetLoc"} {
+				for _, missing := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/legacy=%v/%s/missing=%v", verb, legacy, field, missing), func(t *testing.T) {
+						row := map[string]any{}
+						if err := json.Unmarshal([]byte(referenceRow1554), &row); err != nil {
+							t.Fatal(err)
+						}
+						if missing {
+							delete(row, field)
+						} else {
+							row[field] = nil
+						}
+						encoded, err := json.Marshal(row)
+						if err != nil {
+							t.Fatal(err)
+						}
+						out, _, err := runReferenceWire1554(t, verb, true, func(op string, v map[string]any) (string, int) {
+							root := "specUnresolvedReferences"
+							if verb == "backlinks" {
+								root = "specBacklinks"
+							}
+							if strings.HasSuffix(op, "Page") {
+								if legacy {
+									return absentReferenceField1554(root + "Page"), 400
+								}
+								return `{"data":{"` + root + `Page":{"items":[` + string(encoded) + `],"total":1,"hasMore":false}}}`, 200
+							}
+							return `{"data":{"` + root + `":[` + string(encoded) + `]}}`, 200
+						})
+						if err == nil || out != "" {
+							t.Fatalf("malformed item must fail whole read: out=%s err=%v", out, err)
+						}
+					})
+				}
+			}
+		}
+	}
+}
