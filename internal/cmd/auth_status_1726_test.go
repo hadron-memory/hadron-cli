@@ -349,7 +349,22 @@ func TestAuthImpersonationHelpUsesWhoamiForIdentity1726(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "hadron auth status") || strings.Count(out.String(), "hadron auth whoami") != 2 {
+	if strings.Contains(out.String(), "hadron auth status") || strings.Count(out.String(), "hadron auth whoami") != 2 || !strings.Contains(out.String(), `shows "IMPERSONATED (read-only)"`) {
 		t.Fatalf("impersonation pointer/example drift: %s", out)
+	}
+}
+
+// Follow the pointer, rather than assuming whoami uses status's old words.
+// This response fixture proves rendering, not actual impersonation rights.
+func TestAuthWhoamiImpersonationPointerTarget1726(t *testing.T) {
+	srv := fakeGraphQL(t, map[string]string{"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,"user":{"id":"fixture-user","name":"Fixture target","email":null,"handle":null,"githubUsername":null,"roles":[]},"apiKey":null,"impersonation":{"sessionId":"fixture-session","organizationId":"fixture-org","expiresAt":"2100-01-01T00:00:00Z","readOnly":true,"actorUser":{"id":"fixture-actor","handle":"actor-handle","name":"Fixture actor"}}}}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "whoami", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "Fixture target — IMPERSONATED (read-only), org fixture-org, as Fixture actor, expires 2100-01-01T00:00:00Z\n"; got != want {
+		t.Fatalf("pointer target text=%q want=%q", got, want)
 	}
 }
