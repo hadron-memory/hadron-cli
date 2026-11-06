@@ -41676,6 +41676,74 @@ type DeleteWorkerInstructedResponse struct {
 // GetDeleteWorker returns DeleteWorkerInstructedResponse.DeleteWorker, and is useful for accessing the field via an interface.
 func (v *DeleteWorkerInstructedResponse) GetDeleteWorker() bool { return v.DeleteWorker }
 
+// DeleteWorkerPreviewDeleteWorkerPreview includes the requested fields of the GraphQL type DeleteWorkerPreview.
+// The GraphQL type's documentation follows.
+//
+// #3599: a non-reserving delete preview. No census detail is returned.
+type DeleteWorkerPreviewDeleteWorkerPreview struct {
+	WorkerId string `json:"workerId"`
+	// Always true: the real delete still requires the caller's explicit external-attribution confirmation.
+	AttestationRequired bool `json:"attestationRequired"`
+}
+
+// GetWorkerId returns DeleteWorkerPreviewDeleteWorkerPreview.WorkerId, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewDeleteWorkerPreview) GetWorkerId() string { return v.WorkerId }
+
+// GetAttestationRequired returns DeleteWorkerPreviewDeleteWorkerPreview.AttestationRequired, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewDeleteWorkerPreview) GetAttestationRequired() bool {
+	return v.AttestationRequired
+}
+
+// DeleteWorkerPreviewInstructedDeleteWorkerPreview includes the requested fields of the GraphQL type DeleteWorkerPreview.
+// The GraphQL type's documentation follows.
+//
+// #3599: a non-reserving delete preview. No census detail is returned.
+type DeleteWorkerPreviewInstructedDeleteWorkerPreview struct {
+	WorkerId string `json:"workerId"`
+	// Always true: the real delete still requires the caller's explicit external-attribution confirmation.
+	AttestationRequired bool `json:"attestationRequired"`
+}
+
+// GetWorkerId returns DeleteWorkerPreviewInstructedDeleteWorkerPreview.WorkerId, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewInstructedDeleteWorkerPreview) GetWorkerId() string { return v.WorkerId }
+
+// GetAttestationRequired returns DeleteWorkerPreviewInstructedDeleteWorkerPreview.AttestationRequired, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewInstructedDeleteWorkerPreview) GetAttestationRequired() bool {
+	return v.AttestationRequired
+}
+
+// DeleteWorkerPreviewInstructedResponse is returned by DeleteWorkerPreviewInstructed on success.
+type DeleteWorkerPreviewInstructedResponse struct {
+	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// confirmNoExternalAttribution and may refuse if anything changed
+	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. No census detail,
+	// removal plan, attestation bypass or durable lock/lease is returned.
+	DeleteWorkerPreview *DeleteWorkerPreviewInstructedDeleteWorkerPreview `json:"deleteWorkerPreview"`
+}
+
+// GetDeleteWorkerPreview returns DeleteWorkerPreviewInstructedResponse.DeleteWorkerPreview, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewInstructedResponse) GetDeleteWorkerPreview() *DeleteWorkerPreviewInstructedDeleteWorkerPreview {
+	return v.DeleteWorkerPreview
+}
+
+// DeleteWorkerPreviewResponse is returned by DeleteWorkerPreview on success.
+type DeleteWorkerPreviewResponse struct {
+	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// confirmNoExternalAttribution and may refuse if anything changed
+	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. No census detail,
+	// removal plan, attestation bypass or durable lock/lease is returned.
+	DeleteWorkerPreview *DeleteWorkerPreviewDeleteWorkerPreview `json:"deleteWorkerPreview"`
+}
+
+// GetDeleteWorkerPreview returns DeleteWorkerPreviewResponse.DeleteWorkerPreview, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerPreviewResponse) GetDeleteWorkerPreview() *DeleteWorkerPreviewDeleteWorkerPreview {
+	return v.DeleteWorkerPreview
+}
+
 // DeleteWorkerResponse is returned by DeleteWorker on success.
 type DeleteWorkerResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
@@ -105657,6 +105725,28 @@ func (v *__DeleteWorkerInstructedInput) GetConfirmNoExternalAttribution() *bool 
 // GetInstruction returns __DeleteWorkerInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__DeleteWorkerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __DeleteWorkerPreviewInput is used internally by genqlient
+type __DeleteWorkerPreviewInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __DeleteWorkerPreviewInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerPreviewInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __DeleteWorkerPreviewInstructedInput is used internally by genqlient
+type __DeleteWorkerPreviewInstructedInput struct {
+	WorkerRef   string               `json:"workerRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __DeleteWorkerPreviewInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerPreviewInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInstruction returns __DeleteWorkerPreviewInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerPreviewInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __DeliveryBatchesInput is used internally by genqlient
 type __DeliveryBatchesInput struct {
 	AppRef string  `json:"appRef"`
@@ -127192,6 +127282,85 @@ func DeleteWorkerInstructed(
 	}
 
 	data_ = &DeleteWorkerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DeleteWorkerPreview.
+const DeleteWorkerPreview_Operation = `
+query DeleteWorkerPreview ($workerRef: ID!) {
+	deleteWorkerPreview(workerRef: $workerRef) {
+		workerId
+		attestationRequired
+	}
+}
+`
+
+// cli#1735: a non-reserving preview of deleteWorker (server#3599). One Query on
+// the same worker reference and act gate as the delete: no census detail, no
+// confirmation argument (the preview never stands in for the attestation), and
+// no mutation. attestationRequired is always true.
+func DeleteWorkerPreview(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *DeleteWorkerPreviewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteWorkerPreview",
+		Query:  DeleteWorkerPreview_Operation,
+		Variables: &__DeleteWorkerPreviewInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &DeleteWorkerPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DeleteWorkerPreviewInstructed.
+const DeleteWorkerPreviewInstructed_Operation = `
+query DeleteWorkerPreviewInstructed ($workerRef: ID!, $instruction: ActInstructionInput!) {
+	deleteWorkerPreview(workerRef: $workerRef, instruction: $instruction) {
+		workerId
+		attestationRequired
+	}
+}
+`
+
+// An instructed preview is NOT write-free: the server records one claim event
+// (operation worker.delete-preview, the target as its subject) and bumps the
+// {actor, target} fences.
+func DeleteWorkerPreviewInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	instruction *ActInstructionInput,
+) (data_ *DeleteWorkerPreviewInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteWorkerPreviewInstructed",
+		Query:  DeleteWorkerPreviewInstructed_Operation,
+		Variables: &__DeleteWorkerPreviewInstructedInput{
+			WorkerRef:   workerRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &DeleteWorkerPreviewInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
