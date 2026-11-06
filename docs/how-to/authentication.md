@@ -96,7 +96,15 @@ reported as valid too (`principalType: APP`), not a false "invalid".
 ## Inspecting and clearing credentials
 
 ```sh
-hadron auth status      # am I signed in?  exit 0 yes / 3 no
+hadron auth status      # AUTHENTICATED: 0; REFUSED or ANONYMOUS: 3
 hadron auth whoami
 hadron auth logout
 ```
+
+`auth status` asks the server about this request's credential, including an
+anonymous query when none is held. Its JSON is only `{"status":"AUTHENTICATED"}`,
+`{"status":"REFUSED"}` or `{"status":"ANONYMOUS"}`. No cause, identity or token is
+included. A failed check is an error rather than REFUSED, with an exit other
+than 3 (a missing or unknown status value exits 7). Servers without
+`authenticationStatus` return an explicit schema error (exit 2); the CLI never
+retries using `authContext`.

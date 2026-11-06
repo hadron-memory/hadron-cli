@@ -437,7 +437,7 @@ const UnsupportedScopeRemedy = "Sign in again with `hadron auth logout && hadron
 	"If the key comes from HADRON_TOKEN, replace that variable instead."
 
 // ScopeRefusal names why the server refused a credential by its OAuth scope.
-// Its values are also `auth status` / `auth token validate`'s rejectedReason.
+// Its values are also `auth token validate`'s rejectedReason.
 type ScopeRefusal string
 
 const (
