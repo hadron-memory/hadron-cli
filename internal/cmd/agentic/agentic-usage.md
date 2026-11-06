@@ -5760,7 +5760,8 @@ before retrying. A failed preflight instead says no sync mutation was sent.
 
 `hadron team worker terminal-title <name-or-id> [--app <app>] [--json]`
 reads one worker and prints `<Name> [<role>, <model>, <leader>]` plus newline;
-null leader omits its element. Same reference and retired-worker handling as
+null or scrub-empty leader omits its element; a scrub-empty worker name becomes
+`worker unavailable`. Raw JSON values stay unchanged. Same reference and retired-worker handling as
 `worker get`. The model is session-reported, then family, then `model unavailable`;
 null/blank role is `role unavailable`. This is advisory display, never verified
 identity or authorization. Text replaces controls, bidi/format characters,

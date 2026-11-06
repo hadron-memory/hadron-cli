@@ -13,7 +13,8 @@ The returned title is not a parseable identity.
 Explicit command DTOs retain nullable raw model/family/role/reporting and the
 server-returned worker/leader references. Source classification follows usable
 scrubbed model, then family, then none. Null role falls back honestly, null leader
-is omitted, retired leader is retained. Never infer unbound or withholding.
+or scrub-empty leader is omitted, retired leader is retained. A scrub-empty
+worker name becomes `worker unavailable`, with raw identity retained in JSON. Never infer unbound or withholding.
 Each element uses output.SafeLine before replacing delimiters and collapsing
 whitespace. Render first, then cap at 256 runes with an ellipsis and closing ].
 JSON raw parts are not scrubbed. Existing worker DTOs have no added JSON key.
@@ -26,6 +27,21 @@ and unchanged worker-get text. Normal generation/schema/full-suite/lint and
 independent compiled-fake QA are required; no live or host claim.
 
 Schema refreshed from explicit server main d5f71aa0f6; existing model already in
-old snapshot. Incoming schema additions retained; generated differences beyond
-the model selection are comments for clone refusal codes and sync-not-attempted.
+old snapshot. Incoming SDL additions are LocSegment/LocSegmentsPage and
+memoryLocSegments (#3456; CLI companion gap #1744); SDL comment changes cover
+clone refusal spelling, sync-not-attempted, sendChatMessage (#3501) and
+updateChatTitle (cor:dmo:060:04/16). Generated differences beyond the model
+selection are only comments for clone refusal codes and sync-not-attempted.
 No earliest/deployed provider revision inferred from these sources.
+
+Compatibility evidence (source only, not deployment or a semver floor): model
+was introduced in 25894376d1 (#2252), an ancestor of the existing required
+teamPlacement introduction d523a06709 (#2468). That latter SDL already contains
+model. Existing worker help already requires #2468 for all shared-fragment
+commands. This does not claim compatibility for arbitrary forked providers.
+
+Fix-head scope: scrub-empty worker name -> `worker unavailable`; scrub-empty
+non-null leader -> omitted display element, with the raw leader object retained.
+Red-first tests pin both failures; raw JSON, cap boundaries and worker-get JSON
+parity are pinned. The cap counts Unicode runes, not grapheme clusters, and can
+split a combining sequence as the original contract permits.

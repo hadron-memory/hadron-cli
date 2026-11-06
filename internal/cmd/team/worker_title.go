@@ -35,10 +35,12 @@ type terminalTitleDTO struct {
 	ReportsToRetired bool                   `json:"reportsToRetired"`
 }
 
+var terminalTitleDelimiters = strings.NewReplacer("[", " ", "]", " ", ",", " ")
+
 // Scrub before testing emptiness; raw nonempty control-only values are not labels.
 func terminalTitleElement(raw string) string {
 	safe := output.SafeLine(raw, utf8.RuneCountInString(raw)+1)
-	safe = strings.NewReplacer("[", " ", "]", " ", ",", " ").Replace(safe)
+	safe = terminalTitleDelimiters.Replace(safe)
 	return strings.Join(strings.Fields(safe), " ")
 }
 
@@ -46,7 +48,7 @@ func terminalTitleFromWorker(w gen.WorkerFields) terminalTitleDTO {
 	dto := terminalTitleDTO{
 		Worker:      terminalTitleWorkerDTO{ID: w.Id, Name: w.Name, URN: w.Urn},
 		Parts:       terminalTitlePartsDTO{Name: w.Name, Role: w.Role, Model: w.Model, Family: w.Family},
-		ModelSource: "none", TeamPlacement: workerDTOFromFields(w).TeamPlacement, ReportsToRetired: w.ReportsToRetired,
+		ModelSource: "none", TeamPlacement: placementString(w.TeamPlacement), ReportsToRetired: w.ReportsToRetired,
 	}
 	role := terminalTitleElement(titleRaw(w.Role))
 	if role == "" {
@@ -66,9 +68,15 @@ func terminalTitleFromWorker(w gen.WorkerFields) terminalTitleDTO {
 	elements := []string{role, model}
 	if w.ReportsTo != nil {
 		dto.Parts.ReportsTo = &terminalTitleWorkerDTO{ID: w.ReportsTo.Id, Name: w.ReportsTo.Name, URN: w.ReportsTo.Urn}
-		elements = append(elements, terminalTitleElement(w.ReportsTo.Name))
+		if leader := terminalTitleElement(w.ReportsTo.Name); leader != "" {
+			elements = append(elements, leader)
+		}
 	}
-	title := terminalTitleElement(w.Name) + " [" + strings.Join(elements, ", ") + "]"
+	name := terminalTitleElement(w.Name)
+	if name == "" {
+		name = "worker unavailable"
+	}
+	title := name + " [" + strings.Join(elements, ", ") + "]"
 	runes := []rune(title)
 	if len(runes) > 256 {
 		title = string(runes[:254]) + "…]"
@@ -82,7 +90,8 @@ func newCmdWorkerTerminalTitle(f *cmdutil.Factory) *cobra.Command {
 		Use:   "terminal-title <name-or-id>",
 		Short: "Print a worker's current terminal title",
 		Long: `Print one display label: <Name> [<role>, <model>, <leader>].
-The leader element is omitted when reportsTo is null. A retired leader's name
+The leader element is omitted when reportsTo is null or its name scrubs to empty.
+A worker name that scrubs to empty becomes "worker unavailable". A retired leader's name
 is kept. References and retired workers resolve as in worker get; a name uses
 --app, App context or the worktree binding, while an id or worker URN needs no App.
 
