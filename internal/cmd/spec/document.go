@@ -93,6 +93,11 @@ without the assembled document answers exit 7.`,
 			if err != nil {
 				return specDocumentError(err)
 			}
+			// A success reply with no document ({}, null, no loc) is a malformed
+			// answer: refuse it before anything is printed or a file is replaced.
+			if resp == nil || resp.SpecDocument == nil || resp.SpecDocument.Loc == "" {
+				return exitcode.Newf(exitcode.Error, "the server answered without a spec document for %s; nothing was printed or written", loc)
+			}
 			doc := resp.SpecDocument
 			markdown := doc.Markdown
 

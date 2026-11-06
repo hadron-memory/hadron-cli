@@ -313,3 +313,29 @@ func TestSpecDocumentRejectsAnInvalidCitationBeforeAnyRequest(t *testing.T) {
 		t.Errorf("exit %d with ops %v, want usage and no request", r.code, r.ops)
 	}
 }
+
+// A success reply that is not a document ({}, null, or an object with no loc)
+// is a malformed answer: it must fail, never panic, and never replace the file
+// with zero bytes behind a success receipt.
+func TestSpecDocumentMalformedSuccessReplyIsRefusedAndKeepsTheFile(t *testing.T) {
+	for _, body := range []string{
+		`{"data":{}}`,
+		`{"data":{"specDocument":null}}`,
+		`{"data":{"specDocument":{}}}`,
+		`{"data":null}`,
+	} {
+		path := filepath.Join(t.TempDir(), "feature.md")
+		if err := os.WriteFile(path, []byte("PRECIOUS"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{{"cor:spc:030", "-m", "mem1", "-o", path}, {"cor:spc:030", "-m", "mem1"}, {"cor:spc:030", "-m", "mem1", "--json"}} {
+			r := runDocument1692(t, body, args...)
+			if r.code == exitcode.OK || strings.Contains(r.stderr, "wrote") {
+				t.Errorf("%s %v: must fail, got %+v", body, args, r)
+			}
+		}
+		if got, _ := os.ReadFile(path); string(got) != "PRECIOUS" {
+			t.Errorf("%s: the file changed: %q", body, got)
+		}
+	}
+}
