@@ -21,8 +21,9 @@ func AuthoredWith(ctx context.Context) *gen.AuthoredWithInput {
 	return claim
 }
 
-// AuthoredWithRecovery supplies bounded recovery on both fatal refusals and
-// best-effort write warnings. Call only from a command that supports the flags.
+// AuthoredWithRecovery supplies task/load advice for a partial-write warning.
+// It deliberately offers no retry fragment: repeating the original write may
+// duplicate work that has already committed.
 func AuthoredWithRecovery(err error) string {
 	d := api.AuthoringAttestationDetails(err)
 	if d == nil || d["taskAccess"] != "READABLE" {
@@ -37,9 +38,6 @@ func AuthoredWithRecovery(err error) string {
 		if cli, ok := load["cli"].(string); ok && cli != "" {
 			text += "\nLoad: " + output.SafeLine(cli, 2048)
 		}
-	}
-	if task != "" && output.SafeLine(task, 512) == task && d["taskRevision"] != nil {
-		text += fmt.Sprintf("\nRetry with: --authored-with %s --authored-revision %v", ShellQuote(task), d["taskRevision"])
 	}
 	return text
 }

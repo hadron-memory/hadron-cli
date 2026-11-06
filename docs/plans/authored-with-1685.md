@@ -96,7 +96,7 @@ routing reached by the covered generic node commands retains the same input
 claim through the existing shared authoring helpers.
 
 
-QA applicability was confirmed by Xan (team chat #83634) and Eden (#83637):
+QA applicability follows the checked slice-B reachability clarification:
 one fresh private stack at 07d96c78 drives four real codes through a
 flag-bearing write and MISSING/BROKEN through a flagless write. A flagless
 write cannot supply a wrong or stale claim, so those two combinations are
@@ -104,4 +104,14 @@ unreachable on the real provider; the synthetic four-by-two human/JSON matrix
 covers their rendering. This is not a fake-only substitution for stack QA.
 Supersede retains an attestation cause across partial retirement errors;
 extract keeps its existing best-effort trim exit and adds recovery to its
-warning. Large integer revisions remain decimal in retry hints.
+warning. Extraction already committed before trim failure: its warning offers
+task/load advice and a separate spec edit, never a repeat-extraction hint.
+Supersede can safely resume the retirement once its sole successor edge is
+confirmed; the attested resume test verifies no second create or edge write.
+Large integer revisions remain decimal in retry hints.
+
+Remaining constructors are explicitly tracked in [cli#684's call-site
+checklist](https://github.com/hadron-memory/hadron-cli/issues/684#issuecomment-6685783660),
+with rescind/retire migration under cli#1736. The generated coverage matrix
+records schema-argument reachability, not coverage of every constructor;
+removing an argument gap does not close that checklist or the parent issue.

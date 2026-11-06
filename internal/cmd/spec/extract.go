@@ -265,6 +265,9 @@ chunk leaves the source alone with a warning.`,
 					if _, serr := api.UpdateSpecNode(cmd.Context(), client, &srcInput); serr != nil {
 						result.StripMatched = false
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: trimming %s failed: %v\n", source.Format(), api.MapError(serr))
+						if api.AuthoringAttestationDetails(serr) != nil {
+							fmt.Fprintln(f.IOStreams.ErrOut, "The extracted node was created; do not rerun spec extract. Review the source and finish trimming it separately with spec edit.")
+						}
 						if recovery := cmdutil.AuthoredWithRecovery(serr); recovery != "" {
 							fmt.Fprintln(f.IOStreams.ErrOut, recovery)
 						}

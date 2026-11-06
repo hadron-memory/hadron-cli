@@ -5771,4 +5771,13 @@ that an owner must fix access or the rule, with no task identity, revision or
 load route in either output mode, even if an inconsistent server sends them.
 It never distinguishes an unreadable task from a nonexistent or unusable one.
 
-The explicit revision must fit a GraphQL Int (-2147483648 through 2147483647); an out-of-range value refuses before any request. Role clearing (`node update --role ""`) carries the same explicit claim through its typed clearing mutation; ordinary clearing keeps its existing document.
+The explicit revision must fit a GraphQL Int (-2147483648 through 2147483647);
+an out-of-range value refuses before any request. Role clearing
+(`node update --role ""`) carries the same explicit claim through its typed
+clearing mutation; ordinary clearing keeps its existing document.
+
+When extraction has succeeded but --strip-source is refused, do not rerun
+spec extract. Load the required authoring task and finish the source edit
+separately with spec edit; the warning gives task/load advice, not a retry
+fragment. Supersede with an existing sole successor edge resumes retirement
+without creating another replacement.
