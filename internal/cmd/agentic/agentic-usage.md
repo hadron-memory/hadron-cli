@@ -5829,3 +5829,18 @@ spec extract. Load the required authoring task and finish the source edit
 separately with spec edit; the warning gives task/load advice, not a retry
 fragment. Supersede with an existing sole successor edge resumes retirement
 without creating another replacement.
+
+**Effective boot prompt preview (cli#1655).** `app agent list` and `team worker
+get` show what the next bind would be served now, not the current session's
+prompt: `pointerLevel`, `compiledNodeId`, `servedRevSeq`, or a typed
+`bootPromptRefusal`. These nullable JSON keys are additive; `bootPromptUrn`
+appears only from an already-visible own pointer at the matching served level.
+No URN is constructed, content fetched, or approval inferred from the pointer.
+Only `BOOT_PROMPT_NOT_SET` means none. A null/redacted preview is not visible; inconsistent or value-level malformed
+decisions stay unknown. Structurally invalid JSON/typed values fail the command,
+without output or fallback. A refusal carries no source level. An exact initial
+missing-field validation may use the old label/listing once; auth, transport,
+partial results and unrelated or mixed schema errors never select it. This is
+not a generic old-stock version guarantee: the listing still requires its
+existing installMethod/importer provider fields. A participant's ability to
+see a served identity does not grant access to the compiled content.
