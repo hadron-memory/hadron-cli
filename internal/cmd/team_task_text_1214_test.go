@@ -239,14 +239,14 @@ func textPages1214(t *testing.T, base [][]task1044, text []string, value string)
 			if b < len(base) {
 				r = taskPage1044(base[b])
 			}
-			responses[op] = r
+			setAttnResponse(responses, op, r)
 			b++
 		case "AgentTaskListText":
 			r := `{"data":{"agentTasks":[]}}`
 			if n < len(text) {
 				r = text[n]
 			}
-			responses[op] = r
+			setAttnResponse(responses, op, r)
 			n++
 		}
 	})

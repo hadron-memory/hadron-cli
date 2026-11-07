@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -146,9 +147,7 @@ func TestMessagesC2ChatTimes(t *testing.T) {
 	if err := json.Unmarshal(expected, &wantOps); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(ops, wantOps) {
-		t.Fatalf("operations %v != baseline %v", ops, wantOps)
-	}
+	assertChatOpsEconomy1677(t, ops, wantOps)
 	raw, _ := runMessagesC2Chat(t, true)
 	want, err := os.ReadFile("testdata/messages_c2_chat_base.json")
 	if err != nil {
@@ -225,12 +224,45 @@ func TestChatTimestampEdges1762(t *testing.T) {
 	}
 	wantJSONOps := []string{"TeamAppIdentity", "TeamChatReadHead", "TeamChatReadMetadata", "ChannelReadState", "TeamChatMessages"}
 	wantTextOps := append(append([]string{}, wantJSONOps...), "TeamAppIdentity") // Existing text-only App description.
-	if len(dto.Messages) != len(times) || !reflect.DeepEqual(jsonOps, wantJSONOps) || !reflect.DeepEqual(ops, wantTextOps) {
+	if len(dto.Messages) != len(times) {
 		t.Fatalf("JSON/economics: %s %v/%v", jsonOut, jsonOps, ops)
 	}
+	assertChatOpsEconomy1677(t, jsonOps, wantJSONOps)
+	assertChatOpsEconomy1677(t, ops, wantTextOps)
 	for i, m := range dto.Messages {
 		if m.At != times[i] {
 			t.Fatalf("raw timestamp %d: got %q want %q", i, m.At, times[i])
 		}
+	}
+}
+
+// assertChatOpsEconomy1677 pins a chat read's request set and its ordering
+// CONSTRAINTS, not one arrival order (cli#1677). The allocator-head and
+// read-cursor reads overlap the head and page reads, so their relative arrival
+// is not a contract; these are: the exact multiset of operations (a re-added or
+// duplicated request changes it), the head probe before the page (its claim is
+// about messages seen before the page was asked for), and the cursor read after
+// the metadata read it depends on.
+func assertChatOpsEconomy1677(t *testing.T, got, want []string) {
+	t.Helper()
+	a, b := append([]string{}, got...), append([]string{}, want...)
+	sort.Strings(a)
+	sort.Strings(b)
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("operations %v != baseline set %v", got, want)
+	}
+	idx := func(op string) int {
+		for i, g := range got {
+			if g == op {
+				return i
+			}
+		}
+		return -1
+	}
+	if idx("TeamChatReadHead") > idx("TeamChatMessages") {
+		t.Fatalf("head probe must precede the page: %v", got)
+	}
+	if idx("TeamChatReadMetadata") > idx("ChannelReadState") && idx("ChannelReadState") >= 0 {
+		t.Fatalf("cursor read must follow the metadata read: %v", got)
 	}
 }

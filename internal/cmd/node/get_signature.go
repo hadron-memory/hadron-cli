@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -46,15 +47,50 @@ type signatureSummaryDTO struct {
 	Verified          int    `json:"verified"`
 }
 
+// startSigningProbe begins the capability read in the background and returns
+// the function that waits for its answer plus a stop that cancels and joins it
+// (cli#1677). `node get` starts it before the node is resolved, so the one
+// /capabilities round trip overlaps the resolve and the content read instead of
+// following them. The gate is unchanged: it is still the same probe and the
+// same answer, only earlier. A failure still reads as "not advertised".
+//
+// The probe runs on its own cancellable context: a command that fails before it
+// consumes the answer calls stop, so no request outlives the command. stop is
+// idempotent and safe after wait.
+func startSigningProbe(ctx context.Context, f *cmdutil.Factory) (wait func() (bool, error), stop func()) {
+	type answer struct {
+		advertised bool
+		err        error
+	}
+	probeCtx, cancel := context.WithCancel(ctx)
+	done := make(chan answer, 1)
+	server, err := f.Server()
+	if err != nil {
+		done <- answer{err: err}
+	} else {
+		go func() {
+			advertised, err := SigningCapabilityProbe(probeCtx, server)
+			done <- answer{advertised, err}
+		}()
+	}
+	var got answer
+	var once sync.Once
+	wait = func() (bool, error) {
+		once.Do(func() { got = <-done })
+		return got.advertised, got.err
+	}
+	stop = func() {
+		cancel()
+		_, _ = wait()
+	}
+	return wait, stop
+}
+
 // loadSignatureSummary folds the summary into the single-ref node get, gated
 // on the capability probe. Any failure past the gate leaves the summary nil
 // (rendered "unavailable") — the node read itself already succeeded.
-func loadSignatureSummary(ctx context.Context, f *cmdutil.Factory, client graphql.Client, ref string, dto *nodeDetailDTO) {
-	server, err := f.Server()
-	if err != nil {
-		return
-	}
-	advertised, err := SigningCapabilityProbe(ctx, server)
+func loadSignatureSummary(ctx context.Context, client graphql.Client, probe func() (bool, error), ref string, dto *nodeDetailDTO) {
+	advertised, err := probe()
 	if err != nil || !advertised {
 		return
 	}

@@ -99,7 +99,7 @@ func TestC3bAllProvenanceBuffersAndChecksRecord(t *testing.T) {
 				}
 				count++
 				if count > 2 {
-					responses[op] = gqlErrorJSON("FORBIDDEN")
+					setAttnResponse(responses, op, gqlErrorJSON("FORBIDDEN"))
 					return
 				}
 				if count == 1 {
@@ -198,7 +198,7 @@ func TestC3bAllHumanPrintsCompletedProvenance(t *testing.T) {
 	srv, calls := attnServerHook(t, responses, func(op string) {
 		requests++
 		if requests > 2 {
-			responses[op] = gqlErrorJSON("FORBIDDEN")
+			setAttnResponse(responses, op, gqlErrorJSON("FORBIDDEN"))
 			return
 		}
 		record := c3bRecord

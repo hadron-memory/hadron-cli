@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -362,6 +363,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 func sessionAwareRendered1525(t *testing.T, recorded map[string]string, responses map[string]string) (*httptest.Server, map[string]string) {
 	t.Helper()
 	headers := map[string]string{}
+	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
@@ -373,7 +375,9 @@ func sessionAwareRendered1525(t *testing.T, recorded map[string]string, response
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		session := r.Header.Get("X-Hadron-Session")
+		mu.Lock()
 		headers[body.OperationName] = session
+		mu.Unlock()
 		resp, ok := responses[body.OperationName]
 		if body.OperationName == "GetWorkerRendered" {
 			sig := "current-signature"

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -15,6 +16,10 @@ import (
 
 // captureGraphQL is like fakeGraphQL but also records request bodies
 // per operation so tests can assert on variables.
+// capturedMu guards the captured-variables maps: a command may issue
+// independent reads concurrently (cli#1677), and the fakes record each one.
+var capturedMu sync.Mutex
+
 func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server, map[string]json.RawMessage) {
 	t.Helper()
 	captured := map[string]json.RawMessage{}
@@ -34,7 +39,9 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
+		capturedMu.Lock()
 		captured[body.OperationName] = body.Variables
+		capturedMu.Unlock()
 		resp, ok := responses[body.OperationName]
 		if !ok && body.OperationName == "NodeBatchContent" {
 			resp, ok = responses["NodeBatch"]
@@ -83,7 +90,9 @@ func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
+		capturedMu.Lock()
 		captured[body.OperationName] = body.Variables
+		capturedMu.Unlock()
 		resp := pageBeyondFirst(body.OperationName, body.Variables, respond(body.OperationName))
 		if resp == "" {
 			resp, _ = unstubbedDefault(body.OperationName)

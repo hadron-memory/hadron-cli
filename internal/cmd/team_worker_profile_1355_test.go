@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -91,8 +92,18 @@ func TestWorkerGetProfileByURNIsDirectAndHonest(t *testing.T) {
 			if err != nil {
 				t.Fatalf("execute: %v\n%s", err, out)
 			}
-			if got := log.String(); got != "GetWorker,GetWorkerProfile,GetWorkerTerminal,GetWorkerModelGroups,GetWorkerRendered,GetWorkerBootPromptServe" {
-				t.Errorf("operations = %s, want exactly GetWorker,GetWorkerProfile,GetWorkerTerminal,GetWorkerModelGroups,GetWorkerRendered,GetWorkerBootPromptServe (no roster, no App lookup)", got)
+			// cli#1677: the five reads after the worker row are independent and go
+			// out together, so their ARRIVAL order is not a contract. What is: the
+			// row first, then each read exactly once, and nothing else (no roster,
+			// no App lookup). A re-added or duplicated request changes this count.
+			ops := strings.Split(log.String(), ",")
+			if ops[0] != "GetWorker" {
+				t.Errorf("first operation = %s, want GetWorker", ops[0])
+			}
+			sort.Strings(ops[1:])
+			wantRest := "GetWorkerBootPromptServe,GetWorkerModelGroups,GetWorkerProfile,GetWorkerRendered,GetWorkerTerminal"
+			if got := strings.Join(ops[1:], ","); got != wantRest || len(ops) != 6 {
+				t.Errorf("operations = %s, want GetWorker then exactly %s (no roster, no App lookup)", log.String(), wantRest)
 			}
 			for _, want := range []string{"Iris", "backend-engineer", "app: hrn:app:acme.com:eng-team — Eng Team", "owner: acme.com", "working state: not visible to you"} {
 				if !strings.Contains(out, want) {
