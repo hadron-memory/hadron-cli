@@ -204,3 +204,33 @@ func TestSessionNarration1721DriverReadCases(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionNarration1721ServerRefusalUser(t *testing.T) {
+	for _, tc := range []struct{ name, user, want string }{
+		{"readable", `{"data":{"user":{"id":"u-holger","urn":"hrn:user:fixture"}}}`, "hrn:user:fixture"},
+		{"unreadable", `{"errors":[{"message":"not readable","extensions":{"code":"FORBIDDEN"}}]}`, "u-holger"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			srv, count := narrationServer1721(t, map[string]string{
+				"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
+				"StartTeamSession": `{"errors":[{"message":"taken","extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-old","lastDriver":"u-holger","lastSeenAt":"2026-11-07T09:00:00Z"}}]}`,
+				"GetUser":          tc.user,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", srv.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Conflict {
+				t.Fatalf("refusal must stay conflict: %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("missing user ref %q: %v", tc.want, err)
+			}
+			if count("GetUser") != 1 || count("StartTeamSession") != 1 {
+				t.Errorf("lookup/start count=%d/%d", count("GetUser"), count("StartTeamSession"))
+			}
+		})
+	}
+}
