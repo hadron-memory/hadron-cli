@@ -779,7 +779,7 @@ THE FIELDS:
   driven         live (a session drove it recently), or when it last was
   check status   whether it reads its team chat as expected:
                    NO_SESSION  no live session
-                   PENDING     not expected to (paused, isolated, standby,
+                   PENDING     not expected to (paused, dormant,
                                or no open task), with the reason
                    OK          has an open task and checked in time
                    OVERDUE     has an open task and has not checked within

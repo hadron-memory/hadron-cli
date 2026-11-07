@@ -15721,10 +15721,6 @@ type AppDeliverySettingsFields struct {
 	BusyDelaySeconds int `json:"busyDelaySeconds"`
 	// Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window. DEPRECATED (#2138): superseded by channel checks.
 	StuckWindowSeconds int `json:"stuckWindowSeconds"`
-	// Stored configuration; default false. Enabling is refused until standby behavior ships.
-	StandbyEnabled bool `json:"standbyEnabled"`
-	// False until S7 supplies standby behavior; configuration alone has no effect.
-	StandbyEffective bool `json:"standbyEffective"`
 	// #2138: a worker with a task is expected to check its team channel every period. Whole seconds, 60..86400; default 600. Set together with the team ticker's cadence.
 	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
 	// #2138: a worker with a task is OVERDUE after this many missed periods plus 5 minutes. Whole number, 1..100; default 2.
@@ -15743,53 +15739,11 @@ func (v *AppDeliverySettingsFields) GetBusyDelaySeconds() int { return v.BusyDel
 // GetStuckWindowSeconds returns AppDeliverySettingsFields.StuckWindowSeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsFields) GetStuckWindowSeconds() int { return v.StuckWindowSeconds }
 
-// GetStandbyEnabled returns AppDeliverySettingsFields.StandbyEnabled, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsFields) GetStandbyEnabled() bool { return v.StandbyEnabled }
-
-// GetStandbyEffective returns AppDeliverySettingsFields.StandbyEffective, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsFields) GetStandbyEffective() bool { return v.StandbyEffective }
-
 // GetCheckPeriodSeconds returns AppDeliverySettingsFields.CheckPeriodSeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsFields) GetCheckPeriodSeconds() int { return v.CheckPeriodSeconds }
 
 // GetFailedChecksToOverdue returns AppDeliverySettingsFields.FailedChecksToOverdue, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsFields) GetFailedChecksToOverdue() int { return v.FailedChecksToOverdue }
-
-// Atomic patch: omit to preserve, explicit null refuses. Empty patch returns the current authorized settings.
-type AppDeliverySettingsInput struct {
-	// Shared ticker floor/window; existing floor, self-cadence and live-ticker limits apply.
-	BatchWindowSeconds *int `json:"batchWindowSeconds,omitempty"`
-	BusyDelaySeconds   *int `json:"busyDelaySeconds,omitempty"`
-	// #2138: whole seconds, 60..86400.
-	CheckPeriodSeconds *int `json:"checkPeriodSeconds,omitempty"`
-	// #2755: whole seconds, 300..86400.
-	DarkAlarmWindowSeconds *int `json:"darkAlarmWindowSeconds,omitempty"`
-	// #2138: whole number, 1..100.
-	FailedChecksToOverdue *int  `json:"failedChecksToOverdue,omitempty"`
-	StandbyEnabled        *bool `json:"standbyEnabled,omitempty"`
-	StuckWindowSeconds    *int  `json:"stuckWindowSeconds,omitempty"`
-}
-
-// GetBatchWindowSeconds returns AppDeliverySettingsInput.BatchWindowSeconds, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetBatchWindowSeconds() *int { return v.BatchWindowSeconds }
-
-// GetBusyDelaySeconds returns AppDeliverySettingsInput.BusyDelaySeconds, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetBusyDelaySeconds() *int { return v.BusyDelaySeconds }
-
-// GetCheckPeriodSeconds returns AppDeliverySettingsInput.CheckPeriodSeconds, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetCheckPeriodSeconds() *int { return v.CheckPeriodSeconds }
-
-// GetDarkAlarmWindowSeconds returns AppDeliverySettingsInput.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetDarkAlarmWindowSeconds() *int { return v.DarkAlarmWindowSeconds }
-
-// GetFailedChecksToOverdue returns AppDeliverySettingsInput.FailedChecksToOverdue, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetFailedChecksToOverdue() *int { return v.FailedChecksToOverdue }
-
-// GetStandbyEnabled returns AppDeliverySettingsInput.StandbyEnabled, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetStandbyEnabled() *bool { return v.StandbyEnabled }
-
-// GetStuckWindowSeconds returns AppDeliverySettingsInput.StuckWindowSeconds, and is useful for accessing the field via an interface.
-func (v *AppDeliverySettingsInput) GetStuckWindowSeconds() *int { return v.StuckWindowSeconds }
 
 // Filter for the uniform apps() list (#473). Clauses AND-combine.
 type AppFilter struct {
@@ -27944,154 +27898,6 @@ type ClearNodeHistoryResponse struct {
 
 // GetClearNodeHistory returns ClearNodeHistoryResponse.ClearNodeHistory, and is useful for accessing the field via an interface.
 func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
-
-// ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
-// The GraphQL type's documentation follows.
-//
-// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
-type ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings struct {
-	WorkerWakeSettingsFields `json:"-"`
-}
-
-// GetWorker returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
-	return v.WorkerWakeSettingsFields.Worker
-}
-
-// GetMentions returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetMentions() MentionWake {
-	return v.WorkerWakeSettingsFields.Mentions
-}
-
-// GetPausedUntil returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetPausedUntil() *string {
-	return v.WorkerWakeSettingsFields.PausedUntil
-}
-
-// GetSubscriptions returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
-	return v.WorkerWakeSettingsFields.Subscriptions
-}
-
-// GetEffectiveCadenceSeconds returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
-	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
-}
-
-// GetDormant returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetDormant() bool {
-	return v.WorkerWakeSettingsFields.Dormant
-}
-
-// GetIsolated returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolated() bool {
-	return v.WorkerWakeSettingsFields.Isolated
-}
-
-// GetIsolatedAt returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedAt() *string {
-	return v.WorkerWakeSettingsFields.IsolatedAt
-}
-
-// GetIsolatedByHandle returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedByHandle() *string {
-	return v.WorkerWakeSettingsFields.IsolatedByHandle
-}
-
-// GetIsolatedUntil returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedUntil() *string {
-	return v.WorkerWakeSettingsFields.IsolatedUntil
-}
-
-// GetCanManageIsolation returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetCanManageIsolation() bool {
-	return v.WorkerWakeSettingsFields.CanManageIsolation
-}
-
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.WorkerWakeSettingsFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings struct {
-	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
-
-	Mentions MentionWake `json:"mentions"`
-
-	PausedUntil *string `json:"pausedUntil"`
-
-	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
-
-	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
-
-	Dormant bool `json:"dormant"`
-
-	Isolated bool `json:"isolated"`
-
-	IsolatedAt *string `json:"isolatedAt"`
-
-	IsolatedByHandle *string `json:"isolatedByHandle"`
-
-	IsolatedUntil *string `json:"isolatedUntil"`
-
-	CanManageIsolation bool `json:"canManageIsolation"`
-}
-
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) __premarshalJSON() (*__premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings, error) {
-	var retval __premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings
-
-	retval.Worker = v.WorkerWakeSettingsFields.Worker
-	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
-	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
-	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
-	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
-	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
-	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
-	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
-	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
-	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
-	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
-	return &retval, nil
-}
-
-// ClearWorkerIsolationResponse is returned by ClearWorkerIsolation on success.
-type ClearWorkerIsolationResponse struct {
-	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
-	ClearWorkerIsolation *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings `json:"clearWorkerIsolation"`
-}
-
-// GetClearWorkerIsolation returns ClearWorkerIsolationResponse.ClearWorkerIsolation, and is useful for accessing the field via an interface.
-func (v *ClearWorkerIsolationResponse) GetClearWorkerIsolation() *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings {
-	return v.ClearWorkerIsolation
-}
 
 // CloneAgentCloneAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -53851,161 +53657,6 @@ type InviteUserResponse struct {
 
 // GetInviteUser returns InviteUserResponse.InviteUser, and is useful for accessing the field via an interface.
 func (v *InviteUserResponse) GetInviteUser() *InviteUserInviteUserUserInvitation { return v.InviteUser }
-
-// IsolateWorkerIsolateWorkerWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
-// The GraphQL type's documentation follows.
-//
-// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
-type IsolateWorkerIsolateWorkerWorkerWakeSettings struct {
-	WorkerWakeSettingsFields `json:"-"`
-}
-
-// GetWorker returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
-	return v.WorkerWakeSettingsFields.Worker
-}
-
-// GetMentions returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetMentions() MentionWake {
-	return v.WorkerWakeSettingsFields.Mentions
-}
-
-// GetPausedUntil returns IsolateWorkerIsolateWorkerWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetPausedUntil() *string {
-	return v.WorkerWakeSettingsFields.PausedUntil
-}
-
-// GetSubscriptions returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
-	return v.WorkerWakeSettingsFields.Subscriptions
-}
-
-// GetEffectiveCadenceSeconds returns IsolateWorkerIsolateWorkerWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
-	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
-}
-
-// GetDormant returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetDormant() bool {
-	return v.WorkerWakeSettingsFields.Dormant
-}
-
-// GetIsolated returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolated() bool {
-	return v.WorkerWakeSettingsFields.Isolated
-}
-
-// GetIsolatedAt returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedAt() *string {
-	return v.WorkerWakeSettingsFields.IsolatedAt
-}
-
-// GetIsolatedByHandle returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedByHandle() *string {
-	return v.WorkerWakeSettingsFields.IsolatedByHandle
-}
-
-// GetIsolatedUntil returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedUntil() *string {
-	return v.WorkerWakeSettingsFields.IsolatedUntil
-}
-
-// GetCanManageIsolation returns IsolateWorkerIsolateWorkerWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetCanManageIsolation() bool {
-	return v.WorkerWakeSettingsFields.CanManageIsolation
-}
-
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*IsolateWorkerIsolateWorkerWorkerWakeSettings
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.IsolateWorkerIsolateWorkerWorkerWakeSettings = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.WorkerWakeSettingsFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings struct {
-	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
-
-	Mentions MentionWake `json:"mentions"`
-
-	PausedUntil *string `json:"pausedUntil"`
-
-	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
-
-	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
-
-	Dormant bool `json:"dormant"`
-
-	Isolated bool `json:"isolated"`
-
-	IsolatedAt *string `json:"isolatedAt"`
-
-	IsolatedByHandle *string `json:"isolatedByHandle"`
-
-	IsolatedUntil *string `json:"isolatedUntil"`
-
-	CanManageIsolation bool `json:"canManageIsolation"`
-}
-
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) __premarshalJSON() (*__premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings, error) {
-	var retval __premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings
-
-	retval.Worker = v.WorkerWakeSettingsFields.Worker
-	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
-	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
-	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
-	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
-	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
-	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
-	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
-	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
-	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
-	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
-	return &retval, nil
-}
-
-// IsolateWorkerResponse is returned by IsolateWorker on success.
-type IsolateWorkerResponse struct {
-	// S7 (#2023, R85) — isolate a worker until a time (default 2 hours, at most 7 days; a later time extends, an earlier one shortens).
-	// Only a person managing the App or holding the worker, as themselves or, on their instruction, through their held worker
-	// (hrn:node:hadronmemory.com:specs:cor:agt:080:29, ruling 0118), recorded as one app.manager-act event, ids only. Refusals, in the order they are checked:
-	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session with no
-	// instruction (even a manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
-	// (clearing is unaffected), so an ordinary person gets this before the manager/holder check; an impersonation that reaches the
-	// write is refused FORBIDDEN (read-only); a participant who neither manages the App nor holds the worker is
-	// WORKER_ISOLATION_FORBIDDEN. Never touches the worker's own pause.
-	IsolateWorker *IsolateWorkerIsolateWorkerWorkerWakeSettings `json:"isolateWorker"`
-}
-
-// GetIsolateWorker returns IsolateWorkerResponse.IsolateWorker, and is useful for accessing the field via an interface.
-func (v *IsolateWorkerResponse) GetIsolateWorker() *IsolateWorkerIsolateWorkerWorkerWakeSettings {
-	return v.IsolateWorker
-}
 
 type IssueHostOperationInput struct {
 	AppRef string `json:"appRef"`
@@ -80897,31 +80548,6 @@ func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetDormant() bool {
 	return v.WorkerWakeSettingsFields.Dormant
 }
 
-// GetIsolated returns SetWorkerWakeSettingsSetWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
-func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolated() bool {
-	return v.WorkerWakeSettingsFields.Isolated
-}
-
-// GetIsolatedAt returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
-func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedAt() *string {
-	return v.WorkerWakeSettingsFields.IsolatedAt
-}
-
-// GetIsolatedByHandle returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
-func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedByHandle() *string {
-	return v.WorkerWakeSettingsFields.IsolatedByHandle
-}
-
-// GetIsolatedUntil returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
-func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedUntil() *string {
-	return v.WorkerWakeSettingsFields.IsolatedUntil
-}
-
-// GetCanManageIsolation returns SetWorkerWakeSettingsSetWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
-func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetCanManageIsolation() bool {
-	return v.WorkerWakeSettingsFields.CanManageIsolation
-}
-
 func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -80959,16 +80585,6 @@ type __premarshalSetWorkerWakeSettingsSetWorkerWakeSettings struct {
 	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
 
 	Dormant bool `json:"dormant"`
-
-	Isolated bool `json:"isolated"`
-
-	IsolatedAt *string `json:"isolatedAt"`
-
-	IsolatedByHandle *string `json:"isolatedByHandle"`
-
-	IsolatedUntil *string `json:"isolatedUntil"`
-
-	CanManageIsolation bool `json:"canManageIsolation"`
 }
 
 func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) MarshalJSON() ([]byte, error) {
@@ -80988,11 +80604,6 @@ func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) __premarshalJSON() (*__prem
 	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
 	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
 	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
-	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
-	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
-	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
-	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
-	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
 	return &retval, nil
 }
 
@@ -86768,16 +86379,6 @@ func (v *TeamDeliverySettingsAppDeliverySettings) GetStuckWindowSeconds() int {
 	return v.AppDeliverySettingsFields.StuckWindowSeconds
 }
 
-// GetStandbyEnabled returns TeamDeliverySettingsAppDeliverySettings.StandbyEnabled, and is useful for accessing the field via an interface.
-func (v *TeamDeliverySettingsAppDeliverySettings) GetStandbyEnabled() bool {
-	return v.AppDeliverySettingsFields.StandbyEnabled
-}
-
-// GetStandbyEffective returns TeamDeliverySettingsAppDeliverySettings.StandbyEffective, and is useful for accessing the field via an interface.
-func (v *TeamDeliverySettingsAppDeliverySettings) GetStandbyEffective() bool {
-	return v.AppDeliverySettingsFields.StandbyEffective
-}
-
 // GetCheckPeriodSeconds returns TeamDeliverySettingsAppDeliverySettings.CheckPeriodSeconds, and is useful for accessing the field via an interface.
 func (v *TeamDeliverySettingsAppDeliverySettings) GetCheckPeriodSeconds() int {
 	return v.AppDeliverySettingsFields.CheckPeriodSeconds
@@ -86822,10 +86423,6 @@ type __premarshalTeamDeliverySettingsAppDeliverySettings struct {
 
 	StuckWindowSeconds int `json:"stuckWindowSeconds"`
 
-	StandbyEnabled bool `json:"standbyEnabled"`
-
-	StandbyEffective bool `json:"standbyEffective"`
-
 	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
 
 	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
@@ -86846,8 +86443,6 @@ func (v *TeamDeliverySettingsAppDeliverySettings) __premarshalJSON() (*__premars
 	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
 	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
-	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
-	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
 	retval.CheckPeriodSeconds = v.AppDeliverySettingsFields.CheckPeriodSeconds
 	retval.FailedChecksToOverdue = v.AppDeliverySettingsFields.FailedChecksToOverdue
 	return &retval, nil
@@ -86903,16 +86498,6 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStuckWindowSeconds() 
 	return v.AppDeliverySettingsFields.StuckWindowSeconds
 }
 
-// GetStandbyEnabled returns TeamDeliverySettingsSetSetAppDeliverySettings.StandbyEnabled, and is useful for accessing the field via an interface.
-func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStandbyEnabled() bool {
-	return v.AppDeliverySettingsFields.StandbyEnabled
-}
-
-// GetStandbyEffective returns TeamDeliverySettingsSetSetAppDeliverySettings.StandbyEffective, and is useful for accessing the field via an interface.
-func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStandbyEffective() bool {
-	return v.AppDeliverySettingsFields.StandbyEffective
-}
-
 // GetCheckPeriodSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.CheckPeriodSeconds, and is useful for accessing the field via an interface.
 func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetCheckPeriodSeconds() int {
 	return v.AppDeliverySettingsFields.CheckPeriodSeconds
@@ -86957,10 +86542,6 @@ type __premarshalTeamDeliverySettingsSetSetAppDeliverySettings struct {
 
 	StuckWindowSeconds int `json:"stuckWindowSeconds"`
 
-	StandbyEnabled bool `json:"standbyEnabled"`
-
-	StandbyEffective bool `json:"standbyEffective"`
-
 	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
 
 	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
@@ -86981,8 +86562,6 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
 	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
-	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
-	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
 	retval.CheckPeriodSeconds = v.AppDeliverySettingsFields.CheckPeriodSeconds
 	retval.FailedChecksToOverdue = v.AppDeliverySettingsFields.FailedChecksToOverdue
 	return &retval, nil
@@ -102952,9 +102531,8 @@ var AllWorkerTerminalState = []WorkerTerminalState{
 }
 
 // A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
-// the read and the write, which both return WorkerWakeSettings. The isolation
-// fields are projected as the server returns them; the isolate/clear commands
-// are cli#911 slice B2 and reuse this fragment rather than adding a second copy.
+// the continuing read and pause/mention writes. Retired isolation fields and
+// documents are deliberately absent (cli#1743, server#3606 Phase 1).
 type WorkerWakeSettingsFields struct {
 	Worker   *WorkerWakeSettingsFieldsWorker `json:"worker"`
 	Mentions MentionWake                     `json:"mentions"`
@@ -102966,15 +102544,6 @@ type WorkerWakeSettingsFields struct {
 	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
 	// None of the worker's sessions has had activity within the App's dormancy period (hrn:node:hadronmemory.com:specs:cor:agt:080:07). A dormant worker is never woken.
 	Dormant bool `json:"dormant"`
-	// Live: isolatedUntil is in the future.
-	Isolated   bool    `json:"isolated"`
-	IsolatedAt *string `json:"isolatedAt"`
-	// The handle of the person who set it: only a person managing the App or holding the worker, acting as themselves, can.
-	IsolatedByHandle *string `json:"isolatedByHandle"`
-	// S7 (#2023, R85) — isolation is its own state, never pausedUntil. While live the worker gets no chat batches or ordinary wakes and is not matched.
-	IsolatedUntil *string `json:"isolatedUntil"`
-	// Whether this caller, acting as a person, may set or clear isolation: whoever manages the App or holds the worker. False for worker sessions and impersonation. Reports permission even while isolation is unavailable; does not grant read access. hrn:node:hadronmemory.com:specs:cor:agt:080:29
-	CanManageIsolation bool `json:"canManageIsolation"`
 }
 
 // GetWorker returns WorkerWakeSettingsFields.Worker, and is useful for accessing the field via an interface.
@@ -102998,21 +102567,6 @@ func (v *WorkerWakeSettingsFields) GetEffectiveCadenceSeconds() *int {
 
 // GetDormant returns WorkerWakeSettingsFields.Dormant, and is useful for accessing the field via an interface.
 func (v *WorkerWakeSettingsFields) GetDormant() bool { return v.Dormant }
-
-// GetIsolated returns WorkerWakeSettingsFields.Isolated, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsFields) GetIsolated() bool { return v.Isolated }
-
-// GetIsolatedAt returns WorkerWakeSettingsFields.IsolatedAt, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsFields) GetIsolatedAt() *string { return v.IsolatedAt }
-
-// GetIsolatedByHandle returns WorkerWakeSettingsFields.IsolatedByHandle, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsFields) GetIsolatedByHandle() *string { return v.IsolatedByHandle }
-
-// GetIsolatedUntil returns WorkerWakeSettingsFields.IsolatedUntil, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsFields) GetIsolatedUntil() *string { return v.IsolatedUntil }
-
-// GetCanManageIsolation returns WorkerWakeSettingsFields.CanManageIsolation, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsFields) GetCanManageIsolation() bool { return v.CanManageIsolation }
 
 // WorkerWakeSettingsFieldsSubscriptionsTickerSubscription includes the requested fields of the GraphQL type TickerSubscription.
 // The GraphQL type's documentation follows.
@@ -103176,31 +102730,6 @@ func (v *WorkerWakeSettingsWorkerWakeSettings) GetDormant() bool {
 	return v.WorkerWakeSettingsFields.Dormant
 }
 
-// GetIsolated returns WorkerWakeSettingsWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolated() bool {
-	return v.WorkerWakeSettingsFields.Isolated
-}
-
-// GetIsolatedAt returns WorkerWakeSettingsWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedAt() *string {
-	return v.WorkerWakeSettingsFields.IsolatedAt
-}
-
-// GetIsolatedByHandle returns WorkerWakeSettingsWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedByHandle() *string {
-	return v.WorkerWakeSettingsFields.IsolatedByHandle
-}
-
-// GetIsolatedUntil returns WorkerWakeSettingsWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedUntil() *string {
-	return v.WorkerWakeSettingsFields.IsolatedUntil
-}
-
-// GetCanManageIsolation returns WorkerWakeSettingsWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
-func (v *WorkerWakeSettingsWorkerWakeSettings) GetCanManageIsolation() bool {
-	return v.WorkerWakeSettingsFields.CanManageIsolation
-}
-
 func (v *WorkerWakeSettingsWorkerWakeSettings) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -103238,16 +102767,6 @@ type __premarshalWorkerWakeSettingsWorkerWakeSettings struct {
 	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
 
 	Dormant bool `json:"dormant"`
-
-	Isolated bool `json:"isolated"`
-
-	IsolatedAt *string `json:"isolatedAt"`
-
-	IsolatedByHandle *string `json:"isolatedByHandle"`
-
-	IsolatedUntil *string `json:"isolatedUntil"`
-
-	CanManageIsolation bool `json:"canManageIsolation"`
 }
 
 func (v *WorkerWakeSettingsWorkerWakeSettings) MarshalJSON() ([]byte, error) {
@@ -103267,11 +102786,6 @@ func (v *WorkerWakeSettingsWorkerWakeSettings) __premarshalJSON() (*__premarshal
 	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
 	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
 	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
-	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
-	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
-	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
-	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
-	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
 	return &retval, nil
 }
 
@@ -106175,14 +105689,6 @@ type __ClearNodeHistoryInput struct {
 // GetNodeRef returns __ClearNodeHistoryInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__ClearNodeHistoryInput) GetNodeRef() string { return v.NodeRef }
 
-// __ClearWorkerIsolationInput is used internally by genqlient
-type __ClearWorkerIsolationInput struct {
-	WorkerRef string `json:"workerRef"`
-}
-
-// GetWorkerRef returns __ClearWorkerIsolationInput.WorkerRef, and is useful for accessing the field via an interface.
-func (v *__ClearWorkerIsolationInput) GetWorkerRef() string { return v.WorkerRef }
-
 // __CloneAgentInput is used internally by genqlient
 type __CloneAgentInput struct {
 	Source string  `json:"source"`
@@ -109008,18 +108514,6 @@ func (v *__InviteUserInput) GetExpiresInDays() *int { return v.ExpiresInDays }
 
 // GetMaxActivations returns __InviteUserInput.MaxActivations, and is useful for accessing the field via an interface.
 func (v *__InviteUserInput) GetMaxActivations() *int { return v.MaxActivations }
-
-// __IsolateWorkerInput is used internally by genqlient
-type __IsolateWorkerInput struct {
-	WorkerRef string  `json:"workerRef"`
-	Until     *string `json:"until,omitempty"`
-}
-
-// GetWorkerRef returns __IsolateWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
-func (v *__IsolateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
-
-// GetUntil returns __IsolateWorkerInput.Until, and is useful for accessing the field via an interface.
-func (v *__IsolateWorkerInput) GetUntil() *string { return v.Until }
 
 // __IssueHostOperationInput is used internally by genqlient
 type __IssueHostOperationInput struct {
@@ -111933,15 +111427,39 @@ func (v *__TeamDeliverySettingsInput) GetAppRef() string { return v.AppRef }
 
 // __TeamDeliverySettingsSetInput is used internally by genqlient
 type __TeamDeliverySettingsSetInput struct {
-	AppRef string                    `json:"appRef"`
-	Input  *AppDeliverySettingsInput `json:"input,omitempty"`
+	AppRef                 string `json:"appRef"`
+	BatchWindowSeconds     *int   `json:"batchWindowSeconds,omitempty"`
+	BusyDelaySeconds       *int   `json:"busyDelaySeconds,omitempty"`
+	StuckWindowSeconds     *int   `json:"stuckWindowSeconds,omitempty"`
+	CheckPeriodSeconds     *int   `json:"checkPeriodSeconds,omitempty"`
+	DarkAlarmWindowSeconds *int   `json:"darkAlarmWindowSeconds,omitempty"`
+	FailedChecksToOverdue  *int   `json:"failedChecksToOverdue,omitempty"`
 }
 
 // GetAppRef returns __TeamDeliverySettingsSetInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamDeliverySettingsSetInput) GetAppRef() string { return v.AppRef }
 
-// GetInput returns __TeamDeliverySettingsSetInput.Input, and is useful for accessing the field via an interface.
-func (v *__TeamDeliverySettingsSetInput) GetInput() *AppDeliverySettingsInput { return v.Input }
+// GetBatchWindowSeconds returns __TeamDeliverySettingsSetInput.BatchWindowSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetBatchWindowSeconds() *int { return v.BatchWindowSeconds }
+
+// GetBusyDelaySeconds returns __TeamDeliverySettingsSetInput.BusyDelaySeconds, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetBusyDelaySeconds() *int { return v.BusyDelaySeconds }
+
+// GetStuckWindowSeconds returns __TeamDeliverySettingsSetInput.StuckWindowSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetStuckWindowSeconds() *int { return v.StuckWindowSeconds }
+
+// GetCheckPeriodSeconds returns __TeamDeliverySettingsSetInput.CheckPeriodSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetCheckPeriodSeconds() *int { return v.CheckPeriodSeconds }
+
+// GetDarkAlarmWindowSeconds returns __TeamDeliverySettingsSetInput.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetDarkAlarmWindowSeconds() *int {
+	return v.DarkAlarmWindowSeconds
+}
+
+// GetFailedChecksToOverdue returns __TeamDeliverySettingsSetInput.FailedChecksToOverdue, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetFailedChecksToOverdue() *int {
+	return v.FailedChecksToOverdue
+}
 
 // __TeamDueWakesInput is used internally by genqlient
 type __TeamDueWakesInput struct {
@@ -124523,68 +124041,6 @@ func ClearNodeHistory(
 	return data_, err_
 }
 
-// The mutation executed by ClearWorkerIsolation.
-const ClearWorkerIsolation_Operation = `
-mutation ClearWorkerIsolation ($workerRef: String!) {
-	clearWorkerIsolation(workerRef: $workerRef) {
-		... WorkerWakeSettingsFields
-	}
-}
-fragment WorkerWakeSettingsFields on WorkerWakeSettings {
-	worker {
-		id
-		name
-		urn
-	}
-	mentions
-	pausedUntil
-	subscriptions {
-		id
-		ticker {
-			id
-			urn
-			name
-			cadenceSeconds
-			enabled
-		}
-		viaGrant
-		createdAt
-	}
-	effectiveCadenceSeconds
-	dormant
-	isolated
-	isolatedAt
-	isolatedByHandle
-	isolatedUntil
-	canManageIsolation
-}
-`
-
-func ClearWorkerIsolation(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	workerRef string,
-) (data_ *ClearWorkerIsolationResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ClearWorkerIsolation",
-		Query:  ClearWorkerIsolation_Operation,
-		Variables: &__ClearWorkerIsolationInput{
-			WorkerRef: workerRef,
-		},
-	}
-
-	data_ = &ClearWorkerIsolationResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by CloneAgent.
 const CloneAgent_Operation = `
 mutation CloneAgent ($source: ID!, $target: ID!, $name: String, $slug: String) {
@@ -134507,70 +133963,6 @@ func InviteUser(
 	return data_, err_
 }
 
-// The mutation executed by IsolateWorker.
-const IsolateWorker_Operation = `
-mutation IsolateWorker ($workerRef: String!, $until: DateTime) {
-	isolateWorker(workerRef: $workerRef, until: $until) {
-		... WorkerWakeSettingsFields
-	}
-}
-fragment WorkerWakeSettingsFields on WorkerWakeSettings {
-	worker {
-		id
-		name
-		urn
-	}
-	mentions
-	pausedUntil
-	subscriptions {
-		id
-		ticker {
-			id
-			urn
-			name
-			cadenceSeconds
-			enabled
-		}
-		viaGrant
-		createdAt
-	}
-	effectiveCadenceSeconds
-	dormant
-	isolated
-	isolatedAt
-	isolatedByHandle
-	isolatedUntil
-	canManageIsolation
-}
-`
-
-func IsolateWorker(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	workerRef string,
-	until *string,
-) (data_ *IsolateWorkerResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "IsolateWorker",
-		Query:  IsolateWorker_Operation,
-		Variables: &__IsolateWorkerInput{
-			WorkerRef: workerRef,
-			Until:     until,
-		},
-	}
-
-	data_ = &IsolateWorkerResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by IssueHostOperation.
 const IssueHostOperation_Operation = `
 mutation IssueHostOperation ($input: IssueHostOperationInput!) {
@@ -144389,11 +143781,6 @@ fragment WorkerWakeSettingsFields on WorkerWakeSettings {
 	}
 	effectiveCadenceSeconds
 	dormant
-	isolated
-	isolatedAt
-	isolatedByHandle
-	isolatedUntil
-	canManageIsolation
 }
 `
 
@@ -146408,8 +145795,6 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
 	batchWindowSeconds
 	busyDelaySeconds
 	stuckWindowSeconds
-	standbyEnabled
-	standbyEffective
 	checkPeriodSeconds
 	failedChecksToOverdue
 }
@@ -146442,8 +145827,8 @@ func TeamDeliverySettings(
 
 // The mutation executed by TeamDeliverySettingsSet.
 const TeamDeliverySettingsSet_Operation = `
-mutation TeamDeliverySettingsSet ($appRef: String!, $input: AppDeliverySettingsInput!) {
-	setAppDeliverySettings(appRef: $appRef, input: $input) {
+mutation TeamDeliverySettingsSet ($appRef: String!, $batchWindowSeconds: Int, $busyDelaySeconds: Int, $stuckWindowSeconds: Int, $checkPeriodSeconds: Int, $darkAlarmWindowSeconds: Int, $failedChecksToOverdue: Int) {
+	setAppDeliverySettings(appRef: $appRef, input: {batchWindowSeconds:$batchWindowSeconds,busyDelaySeconds:$busyDelaySeconds,stuckWindowSeconds:$stuckWindowSeconds,checkPeriodSeconds:$checkPeriodSeconds,darkAlarmWindowSeconds:$darkAlarmWindowSeconds,failedChecksToOverdue:$failedChecksToOverdue}) {
 		... AppDeliverySettingsFields
 	}
 }
@@ -146452,25 +145837,34 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
 	batchWindowSeconds
 	busyDelaySeconds
 	stuckWindowSeconds
-	standbyEnabled
-	standbyEffective
 	checkPeriodSeconds
 	failedChecksToOverdue
 }
 `
 
+// cli#1743: spell out supported input fields; never serialize the retired standby key.
 func TeamDeliverySettingsSet(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	input *AppDeliverySettingsInput,
+	batchWindowSeconds *int,
+	busyDelaySeconds *int,
+	stuckWindowSeconds *int,
+	checkPeriodSeconds *int,
+	darkAlarmWindowSeconds *int,
+	failedChecksToOverdue *int,
 ) (data_ *TeamDeliverySettingsSetResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "TeamDeliverySettingsSet",
 		Query:  TeamDeliverySettingsSet_Operation,
 		Variables: &__TeamDeliverySettingsSetInput{
-			AppRef: appRef,
-			Input:  input,
+			AppRef:                 appRef,
+			BatchWindowSeconds:     batchWindowSeconds,
+			BusyDelaySeconds:       busyDelaySeconds,
+			StuckWindowSeconds:     stuckWindowSeconds,
+			CheckPeriodSeconds:     checkPeriodSeconds,
+			DarkAlarmWindowSeconds: darkAlarmWindowSeconds,
+			FailedChecksToOverdue:  failedChecksToOverdue,
 		},
 	}
 
@@ -152352,11 +151746,6 @@ fragment WorkerWakeSettingsFields on WorkerWakeSettings {
 	}
 	effectiveCadenceSeconds
 	dormant
-	isolated
-	isolatedAt
-	isolatedByHandle
-	isolatedUntil
-	canManageIsolation
 }
 `
 

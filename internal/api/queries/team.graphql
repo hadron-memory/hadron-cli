@@ -1454,26 +1454,36 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
   batchWindowSeconds
   busyDelaySeconds
   stuckWindowSeconds
-  standbyEnabled
-  standbyEffective
   checkPeriodSeconds
   failedChecksToOverdue
 }
 query TeamDeliverySettings($appRef: String!) {
   appDeliverySettings(appRef: $appRef) { ...AppDeliverySettingsFields }
 }
-# @genqlient(for: "AppDeliverySettingsInput.batchWindowSeconds", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.busyDelaySeconds", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.stuckWindowSeconds", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.standbyEnabled", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.checkPeriodSeconds", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.failedChecksToOverdue", omitempty: true)
+# cli#1743: spell out supported input fields; never serialize the retired standby key.
 mutation TeamDeliverySettingsSet(
   $appRef: String!
-  $input: AppDeliverySettingsInput!
+  # @genqlient(omitempty: true)
+  $batchWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $busyDelaySeconds: Int
+  # @genqlient(omitempty: true)
+  $stuckWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $checkPeriodSeconds: Int
+  # @genqlient(omitempty: true)
+  $darkAlarmWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $failedChecksToOverdue: Int
 ) {
-  setAppDeliverySettings(appRef: $appRef, input: $input) { ...AppDeliverySettingsFields }
+  setAppDeliverySettings(appRef: $appRef, input: {
+    batchWindowSeconds: $batchWindowSeconds
+    busyDelaySeconds: $busyDelaySeconds
+    stuckWindowSeconds: $stuckWindowSeconds
+    checkPeriodSeconds: $checkPeriodSeconds
+    darkAlarmWindowSeconds: $darkAlarmWindowSeconds
+    failedChecksToOverdue: $failedChecksToOverdue
+  }) { ...AppDeliverySettingsFields }
 }
 
 # C5 slice B1 (#911): stop signals (server #2022/#2166, cor:agt:090). Ids and

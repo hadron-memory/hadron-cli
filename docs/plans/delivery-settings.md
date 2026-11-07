@@ -1,3 +1,10 @@
+> cli#1743 retirement update: the standby input/flag, both standby output keys,
+> and stored/effective standby rows described below are historical and removed.
+> Continuing delivery controls retain their gates and omission behavior. The
+> setter now spells out supported fields in its GraphQL input, omitting unset
+> variables; no retired compatibility key is sent. Server Phase 1 #3611 remains
+> released-client compatible; later Phase 2 still requires release evidence.
+
 # Delivery settings (CLI #911 slice A)
 
 Dispatched by Ada #22886; CHECKED T2+§10+UX6259474601, Victor FIT6259424645.
