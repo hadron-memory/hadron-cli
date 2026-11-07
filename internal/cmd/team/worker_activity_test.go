@@ -318,7 +318,7 @@ func TestDrivenByDistinguishesFailedMaskedAndAbsent(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := drivenBy(tc.narr, tc.live)
+			got := drivenBy(tc.narr, tc.live, describeSession)
 			if !strings.Contains(got, tc.want) {
 				t.Errorf("drivenBy = %q, want it to contain %q", got, tc.want)
 			}
@@ -341,7 +341,7 @@ func TestDrivenByDistinguishesFailedMaskedAndAbsent(t *testing.T) {
 // as a driver the caller is not permitted to see: a confident, specific,
 // entirely invented claim about permissions, from a network failure.
 func TestAFailedReadIsNotReportedAsMasked(t *testing.T) {
-	got := drivenBy(sessionNarration{answered: false}, liveYes)
+	got := drivenBy(sessionNarration{answered: false}, liveYes, describeSession)
 	if strings.Contains(got, "not permitted") {
 		t.Errorf("a failed read must not be reported as a permissions fact: %q", got)
 	}

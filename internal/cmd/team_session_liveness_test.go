@@ -94,6 +94,7 @@ func TestWithLivenessSetsOrPanics(t *testing.T) {
 func TestTeamSessionStartLiveRefusesAndNamesLiveness(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	})
@@ -142,6 +143,7 @@ func TestTeamSessionStartLiveRefusesAndNamesLiveness(t *testing.T) {
 func TestTeamSessionStartNotLiveBindsOverAnOpenSession(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -214,6 +216,7 @@ func TestTeamSessionStartMaskedLivenessDefersToTheServer(t *testing.T) {
 	// hasLiveSession at all, which is how the seven tests #550 broke came to
 	// test this branch while believing they tested TAKEN.
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -252,6 +255,7 @@ func TestTeamSessionStartMaskedLivenessDefersToTheServer(t *testing.T) {
 func TestTeamSessionStartMaskedLivenessRendersServerTakenRefusal(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That worker is taken.",

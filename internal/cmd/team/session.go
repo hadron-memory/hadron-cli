@@ -402,10 +402,10 @@ func tookOver(live liveness) *bool {
 // em-dashes on its own clauses, and a third would collide. The server's wording keeps its article because it is a
 // quotation, not a phrasing choice: changing it would reintroduce the two
 // vocabularies #552 removed.
-func drivenBy(n sessionNarration, live liveness) string {
+func drivenBy(n sessionNarration, live liveness, describe func(*gen.TeamSessionFields) string) string {
 	switch {
 	case n.active != nil:
-		return describeSession(n.active)
+		return describe(n.active)
 	case !n.answered:
 		return "someone this CLI could not identify (the session list could not be read)"
 	case live == liveYes && n.last == nil:
@@ -427,7 +427,11 @@ func describeSession(s *gen.TeamSessionFields) string {
 	if s.Host != nil && *s.Host != "" {
 		parts = append(parts, "on "+*s.Host)
 	}
-	return fmt.Sprintf("%s since %s (session %s)", strings.Join(parts, " "), s.StartedAt, s.Id)
+	when := "since " + s.StartedAt
+	if s.EndedAt != nil {
+		when = "ended " + *s.EndedAt
+	}
+	return fmt.Sprintf("%s %s (session %s)", strings.Join(parts, " "), when, s.Id)
 }
 
 // checkExistingBinding refuses a second binding in one worktree only when the
@@ -929,6 +933,7 @@ ends the recovered session: run start again to pick it up.`,
 			if err != nil {
 				return err
 			}
+			userLabel := sessionUserLabeller(ctx, client)
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
 			// leave a session open. Since hadron-server#1114 there is no
@@ -946,7 +951,8 @@ ends the recovered session: run start again to pick it up.`,
 				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil, nil); endErr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not end previously bound session %s (%v) — if it is still active, end it manually\n", existing.SessionID, endErr)
 				} else {
-					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (worker %s)\n", existing.SessionID, existing.WorkerName)
+					fmt.Fprintf(f.IOStreams.ErrOut, "previously bound session %s is ended\n", existing.SessionID)
+					fmt.Fprintln(f.IOStreams.ErrOut, "the old session is ended without a handoff from this command; any handoff it already saved is kept")
 				}
 			}
 			// The App scope for resolving a worker NAME: -m names the team
@@ -984,6 +990,7 @@ ends the recovered session: run start again to pick it up.`,
 			// worker), and there is no takeover to inform since --force is
 			// refused with a grant.
 			if grant == "" {
+				describe := sessionDescriber(userLabel)
 				// LIVENESS FIRST, because it is what decides whether the read below
 				// is narration or the decision — and it costs nothing, being a field
 				// on the worker row already in hand.
@@ -1081,7 +1088,7 @@ ends the recovered session: run start again to pick it up.`,
 					case holdUnknownWhose:
 						return exitcode.Newf(exitcode.Conflict,
 							"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-							w.Name, drivenBy(narr, live), holder)
+							w.Name, drivenBy(narr, live, describe), holder)
 					}
 					// "clears on its own", NOT "nothing frees it by waiting"
 					// (@codex, P2). The first draft said the second, which is the
@@ -1092,12 +1099,12 @@ ends the recovered session: run start again to pick it up.`,
 					// instead. #550's own defect, in the message announcing the fix.
 					return exitcode.Newf(exitcode.Conflict,
 						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
-						w.Name, drivenBy(narr, live))
+						w.Name, drivenBy(narr, live, describe))
 				}
 				switch {
 				case live == liveYes:
 					// Reached only under --force: the gate above refuses otherwise.
-					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live))
+					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live, describe))
 				case live == liveNo && active != nil:
 					// The ordinary post-#1114 shape, and worth naming rather than
 					// calling a takeover: the name is free, and the open row is
@@ -1107,14 +1114,14 @@ ends the recovered session: run start again to pick it up.`,
 					// This response cannot show whether the row is the caller's, and
 					// the bind has not happened yet, so the line names both outcomes
 					// and claims neither as done.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is open (%s). A successful bind supersedes it if it is your own (it then takes no handoff); another driver's session is left open for them\n", w.Name, describeSession(active))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is open (%s). A successful bind supersedes it if it is your own (it then takes no handoff); another driver's session is left open for them\n", w.Name, describe(active))
 				case active != nil:
 					// live == liveUnknown. State the row, claim nothing about it:
 					// "not live" would be a fact the server declined to show us.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describeSession(active))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describe(active))
 				case last != nil:
 					// Informational, not a conflict: the last stint ended.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describe(last))
 				}
 			}
 			if host == "" {
@@ -1178,6 +1185,10 @@ ends the recovered session: run start again to pick it up.`,
 					who := detail.LastDriver
 					if who == "" {
 						who = "an unknown driver"
+					} else {
+						// Older providers may send a handle rather than an id here;
+						// the same best-effort lookup preserves that raw ref on refusal.
+						who = userLabel(&who)
 					}
 					seen := detail.LastSeenAt
 					if seen == "" {
@@ -3735,6 +3746,20 @@ func describeSessionUser(ctx context.Context, client graphql.Client, userID stri
 		return userID
 	}
 	return *resp.User.Urn
+}
+
+// sessionDescriber decorates a copy for narration only. It reuses the same
+// best-effort, memoized user-URN lookup as session tables; lookup failures must
+// not change the separate driver-read/liveness decision or the wire DTO.
+func sessionDescriber(label func(*string) string) func(*gen.TeamSessionFields) string {
+	return func(s *gen.TeamSessionFields) string {
+		cp := *s
+		if s.UserId != nil && *s.UserId != "" {
+			user := label(s.UserId)
+			cp.UserId = &user
+		}
+		return describeSession(&cp)
+	}
 }
 
 // sessionUserLabeller memoizes describeSessionUser across a table.
