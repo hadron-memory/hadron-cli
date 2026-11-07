@@ -61,21 +61,38 @@ func invalidReferencePage(why string) error {
 	return exitcode.Newf(exitcode.Error, "server returned an invalid spec-reference page: %s", why)
 }
 
+// The caller selects an operation explicitly; an empty citation is not a mode.
+type referenceOperation uint8
+
+const (
+	referenceBacklinks referenceOperation = iota
+	referenceUnresolved
+)
+
+func invalidLegacyReferenceList(why string) error {
+	return exitcode.Newf(exitcode.Error, "server returned an invalid legacy spec-reference list: %s", why)
+}
+
 // readReferences uses a page field normally. A field-specific first-request
 // validation rejection alone selects the full legacy twin once; no restart
 // after accepted pages, and no fallback on a populated data+errors answer.
-func readReferences(ctx context.Context, client graphql.Client, memory, loc string) ([]referenceDTO, error) {
+func readReferences(ctx context.Context, client graphql.Client, memory string, operation referenceOperation, loc string) ([]referenceDTO, error) {
 	ctx, shape := api.WithGraphQLErrorShape(ctx)
-	field := "specUnresolvedReferencesPage"
-	if loc != "" {
+	var field string
+	switch operation {
+	case referenceBacklinks:
 		field = "specBacklinksPage"
+	case referenceUnresolved:
+		field = "specUnresolvedReferencesPage"
+	default:
+		return nil, invalidReferencePage("unknown reference operation")
 	}
 	first := true
 	legacy := false
 	rows, err := drainReferences(func(limit, offset int) (*referencePage, error) {
 		var p *referencePage
 		var err error
-		if loc != "" {
+		if operation == referenceBacklinks {
 			r, e := gen.SpecBacklinksPage(ctx, client, memory, loc, limit, offset)
 			err = e
 			// Preserve a server error before interpreting any partial payload.
@@ -93,7 +110,7 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 						if it == nil {
 							return nil, invalidReferencePage("null item")
 						}
-						item, e := referenceFrom(it, nil)
+						item, e := referenceFrom(it, nil, invalidReferencePage)
 						if e != nil {
 							return nil, e
 						}
@@ -119,7 +136,7 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 						if it == nil {
 							return nil, invalidReferencePage("null item")
 						}
-						item, e := referenceFrom(it, it.Reason)
+						item, e := referenceFrom(it, it.Reason, invalidReferencePage)
 						if e != nil {
 							return nil, e
 						}
@@ -141,22 +158,22 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 		return rows, err
 	}
 	out := []referenceDTO{}
-	if loc != "" {
+	if operation == referenceBacklinks {
 		r, e := gen.SpecBacklinks(ctx, client, memory, loc)
 		if shape.HadNullEntry() {
-			return nil, invalidReferencePage("null error entry")
+			return nil, invalidLegacyReferenceList("null error entry")
 		}
 		if e != nil {
 			return nil, e
 		}
 		if r == nil || r.SpecBacklinks == nil {
-			return nil, invalidReferencePage("missing legacy items")
+			return nil, invalidLegacyReferenceList("missing legacy items")
 		}
 		for _, it := range r.SpecBacklinks {
 			if it == nil {
-				return nil, invalidReferencePage("null legacy item")
+				return nil, invalidLegacyReferenceList("null legacy item")
 			}
-			item, e := referenceFrom(it, nil)
+			item, e := referenceFrom(it, nil, invalidLegacyReferenceList)
 			if e != nil {
 				return nil, e
 			}
@@ -165,7 +182,7 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 	} else {
 		r, e := gen.SpecUnresolvedReferences(ctx, client, memory)
 		if shape.HadNullEntry() {
-			return nil, invalidReferencePage("null error entry")
+			return nil, invalidLegacyReferenceList("null error entry")
 		}
 		if e != nil {
 			if (r == nil || r.SpecUnresolvedReferences == nil) && api.IsUnknownQueryField(e, "specUnresolvedReferences") {
@@ -174,13 +191,13 @@ func readReferences(ctx context.Context, client graphql.Client, memory, loc stri
 			return nil, e
 		}
 		if r == nil || r.SpecUnresolvedReferences == nil {
-			return nil, invalidReferencePage("missing legacy items")
+			return nil, invalidLegacyReferenceList("missing legacy items")
 		}
 		for _, it := range r.SpecUnresolvedReferences {
 			if it == nil {
-				return nil, invalidReferencePage("null legacy item")
+				return nil, invalidLegacyReferenceList("null legacy item")
 			}
-			item, e := referenceFrom(it, it.Reason)
+			item, e := referenceFrom(it, it.Reason, invalidLegacyReferenceList)
 			if e != nil {
 				return nil, e
 			}

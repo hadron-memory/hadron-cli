@@ -11,10 +11,6 @@ import (
 	"testing"
 )
 
-func absentReferenceField1554(field string) string {
-	return fmt.Sprintf(`{"errors":[{"message":%q,"extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, `Cannot query field "`+field+`" on type "Query".`)
-}
-
 // Literal legacy output pins reason/text omission and field projection, not page metadata.
 const referenceRow1554 = `{"kind":"EDGE","field":"edge","sourceNodeId":"n1","sourceLoc":"msg:010:02","targetLoc":"msg:020:02","text":null,"reason":"PLACEHOLDER"}`
 

@@ -55,9 +55,9 @@ type specReference interface {
 
 // Required-field presence is checked before converting to the stable DTO.
 // Empty strings and nullable text/reason retain their existing semantics.
-func referenceFrom(r specReference, reason *gen.SpecReferenceProblem) (referenceDTO, error) {
+func referenceFrom(r specReference, reason *gen.SpecReferenceProblem, invalidItem func(string) error) (referenceDTO, error) {
 	if r.GetKind() == nil || r.GetField() == nil || r.GetSourceLoc() == nil || r.GetSourceNodeId() == nil || r.GetTargetLoc() == nil {
-		return referenceDTO{}, invalidReferencePage("missing required item field")
+		return referenceDTO{}, invalidItem("missing required item field")
 	}
 	d := referenceDTO{Kind: string(*r.GetKind()), Field: *r.GetField(), SourceLoc: *r.GetSourceLoc(), SourceNodeID: *r.GetSourceNodeId(), TargetLoc: *r.GetTargetLoc()}
 	if t := r.GetText(); t != nil {
@@ -202,7 +202,7 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			refs, err := readReferences(cmd.Context(), client, memID, loc)
+			refs, err := readReferences(cmd.Context(), client, memID, referenceBacklinks, loc)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -258,7 +258,7 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			refs, err := readReferences(cmd.Context(), client, memID, "")
+			refs, err := readReferences(cmd.Context(), client, memID, referenceUnresolved, "")
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -897,7 +897,7 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 // in a draft an open reference is work in progress, and `spec mint` is the
 // gate that refuses it (`--strict` escalates them like any warning).
 func unresolvedFindings(ctx context.Context, client graphql.Client, memRef string, inScope map[string]bool) ([]lintFindingDTO, error) {
-	refs, err := readReferences(ctx, client, memRef, "")
+	refs, err := readReferences(ctx, client, memRef, referenceUnresolved, "")
 	if err != nil {
 		// #1453 added this query after draft state and placeholders. Lint
 		// still runs its ordinary rules when this report is unavailable.

@@ -34,6 +34,11 @@ func TestUnknownQueryField1554(t *testing.T) {
 		{"resolver path", gqlerror.List{{Message: unknown().Message, Extensions: unknown().Extensions, Path: ast.Path{ast.PathName(field)}}}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Fatalf("unknown-field classifier panicked: %v", p)
+				}
+			}()
 			if got := IsUnknownQueryField(tt.err, field); got != tt.want {
 				t.Fatalf("got=%v", got)
 			}
