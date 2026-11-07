@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -86,13 +89,17 @@ provider failures only when error.transient permits it.`,
 					return err
 				}
 			}
+			var submittedKey string
+			if override != nil {
+				_ = json.Unmarshal(override.APIKey, &submittedKey) // validated string/null by loadTestOverride
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
 			if err != nil {
-				return api.MapError(err)
+				return redactTestError(api.MapError(err), submittedKey)
 			}
 			v := r.TestAiServiceConfig
 			if v == nil || v.Used == nil {
@@ -101,7 +108,7 @@ provider failures only when error.transient permits it.`,
 			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: styleString(v.ApiStyle), LatencyMS: v.LatencyMs, Reply: v.Reply,
 				Used: testUsedDTO{Provider: string(v.Used.Provider), Model: string(v.Used.Model), Endpoint: string(v.Used.Endpoint), APIStyle: string(v.Used.ApiStyle), Key: string(v.Used.Key), Params: string(v.Used.Params)}, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
 			if v.Error != nil {
-				dto.Error = &testErrorDTO{Code: v.Error.Code, Message: v.Error.Message, Transient: v.Error.Transient}
+				dto.Error = &testErrorDTO{Code: redactSubmittedKey(v.Error.Code, submittedKey), Message: redactSubmittedKey(v.Error.Message, submittedKey), Transient: v.Error.Transient}
 			}
 			for _, k := range v.Knobs {
 				if k != nil {
@@ -186,4 +193,40 @@ func loadTestOverride(path string, in io.Reader) (*gqltypes.AiServiceConfigTestO
 		return nil, exitcode.Newf(exitcode.Usage, "override params must be an object or null")
 	}
 	return &v, nil
+}
+
+// redactTestError classifies before redaction, so even a key that equals an
+// error code cannot change the exit. Only an echoing error loses its original
+// chain: root renderers must not recover unsanitized fields from that chain.
+func redactTestError(err error, key string) error {
+	if err == nil || key == "" {
+		return err
+	}
+	clean := redactSubmittedKey(err.Error(), key)
+	if clean == err.Error() {
+		return err
+	}
+	return exitcode.Newf(exitcode.FromError(err), "%s", clean)
+}
+
+// Only the submitted override is known here; saved keys never reach the CLI.
+// Old coercion diagnostics can quote the key, so cover literal and JSON/Go
+// string-escaped spellings without changing the submitted request.
+func redactSubmittedKey(message, key string) string {
+	if key == "" {
+		return message
+	}
+	quoted, _ := json.Marshal(key)
+	goQuoted := strconv.Quote(key)
+	forms := []string{key, string(quoted[1 : len(quoted)-1]), goQuoted[1 : len(goQuoted)-1]}
+	sort.SliceStable(forms, func(i, j int) bool { return len(forms[i]) > len(forms[j]) })
+	replacement := "[redacted]"
+	if strings.Contains(replacement, key) {
+		replacement = ""
+	}
+	pairs := make([]string, 0, len(forms)*2)
+	for _, form := range forms {
+		pairs = append(pairs, form, replacement)
+	}
+	return strings.NewReplacer(pairs...).Replace(message)
 }

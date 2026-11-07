@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,12 +15,37 @@ import (
 func TestAiConfigSubmittedKeyErrors1538(t *testing.T) {
 	for _, key := range []string{"sk-test-1538-secret", "key-\"quoted\"-\\slash\nline", "FORBIDDEN"} {
 		for _, mode := range []bool{false, true} {
-			for _, code := range []string{"BAD_USER_INPUT", "FORBIDDEN", "NOT_FOUND"} {
-				t.Run(fmt.Sprintf("%q/json%t/%s", key, mode, code), func(t *testing.T) {
+			for _, cell := range []struct {
+				code   string
+				status int
+			}{{"BAD_USER_INPUT", 200}, {"FORBIDDEN", 200}, {"NOT_FOUND", 200}, {"BAD_USER_INPUT", 400}, {"FORBIDDEN", 400}, {"NOT_FOUND", 400}} {
+				code := cell.code
+				t.Run(fmt.Sprintf("%q/json%t/%s/http%d", key, mode, code, cell.status), func(t *testing.T) {
 					quoted, _ := json.Marshal(key)
 					message := "override rejected apiKey=" + key + "; encoded=" + string(quoted) + "; try a supported input"
 					payload, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": code}}}})
-					gql, captured := captureGraphQL(t, map[string]string{"TestAiServiceConfig": string(payload)})
+					var wire map[string]json.RawMessage
+					calls := 0
+					gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						var request struct {
+							OperationName string                     `json:"operationName"`
+							Variables     map[string]json.RawMessage `json:"variables"`
+						}
+						if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+							t.Error(err)
+							w.WriteHeader(500)
+							return
+						}
+						if request.OperationName != "TestAiServiceConfig" {
+							t.Error("unexpected operation")
+						}
+						wire = request.Variables
+						calls++
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(cell.status)
+						_, _ = w.Write(payload)
+					}))
+					defer gql.Close()
 					f, out := testFactory(t)
 					var stderr bytes.Buffer
 					f.IOStreams.ErrOut = &stderr
@@ -62,7 +89,11 @@ func TestAiConfigSubmittedKeyErrors1538(t *testing.T) {
 					if !strings.Contains(all, "[redacted]") || !strings.Contains(all, "try a supported input") {
 						t.Fatalf("safe diagnostic lost: %q", all)
 					}
-					v := unmarshalVars(t, captured["TestAiServiceConfig"])
+					if calls != 1 {
+						t.Fatalf("requests %d want1", calls)
+					}
+					wireBytes, _ := json.Marshal(wire)
+					v := unmarshalVars(t, wireBytes)
 					if v["override"].(map[string]any)["apiKey"] != key {
 						t.Fatal("submitted key changed on wire")
 					}
@@ -76,7 +107,8 @@ func TestAiConfigCompletedErrorRedacts1538(t *testing.T) {
 	const key = "sk-completed-error-secret"
 	for _, mode := range []bool{false, true} {
 		t.Run(fmt.Sprint(mode), func(t *testing.T) {
-			payload := strings.Replace(aiTest1347, "No API key", "rejected "+key, -1)
+			payload := strings.ReplaceAll(aiTest1347, "No API key", "rejected "+key)
+			payload = strings.ReplaceAll(payload, "NO_API_KEY", key)
 			gql, _ := captureGraphQL(t, map[string]string{"TestAiServiceConfig": `{"data":{"testAiServiceConfig":` + payload + `}}`})
 			f, out := testFactory(t)
 			path := filepath.Join(t.TempDir(), "override.json")
