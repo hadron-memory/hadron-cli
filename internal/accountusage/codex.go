@@ -220,7 +220,7 @@ func ReadCodex(a Account) (CodexSnapshot, error) {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file is larger than %d bytes", a.Label, maxRolloutBytes)
 	}
 	afterRolloutStat()
-	f, err := openRollout(path)
+	f, err := openRollout(a.ConfigDir, path)
 	if err != nil {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file cannot be read", a.Label)
 	}
