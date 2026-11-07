@@ -52,7 +52,8 @@ func Project(o *gen.BootPromptPreviewFields, ownLevel string, ref *string) Previ
 		switch refusal {
 		case "BOOT_PROMPT_NOT_SET":
 			p.label = "none (next bind)"
-		case "BOOT_PROMPT_NOT_APPROVED", "BOOT_PROMPT_NOT_SIGNED", "BOOT_PROMPT_TARGET_DELETED":
+		case "BOOT_PROMPT_NOT_APPROVED", "BOOT_PROMPT_NOT_SIGNED", "BOOT_PROMPT_TARGET_DELETED",
+			"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE":
 			p.label = refusal + " (next bind)"
 		default:
 			return p

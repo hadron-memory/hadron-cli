@@ -5901,6 +5901,10 @@ prompt: `pointerLevel`, `compiledNodeId`, `servedRevSeq`, or a typed
 `bootPromptRefusal`. These nullable JSON keys are additive; `bootPromptUrn`
 appears only from an already-visible own pointer at the matching served level.
 No URN is constructed, content fetched, or approval inferred from the pointer.
+`BOOT_PROMPT_INSTALL_LICENSE_INACTIVE` (the owner no longer qualifies for an
+organization Agent; reachable from hadron-server cd0da474 on) previews as a
+refusal like the others, and when a bind, cast or change-agent is refused with
+it the command exits 8 (forbidden), not 1 (cli#1776).
 Only `BOOT_PROMPT_NOT_SET` means none. A null/redacted preview is not visible; inconsistent or value-level malformed
 decisions stay unknown. Structurally invalid JSON/typed values fail the command,
 without output or fallback. A refusal carries no source level. An exact initial

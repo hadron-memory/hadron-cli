@@ -1139,6 +1139,15 @@ func codeForExtension(code string) int {
 	case code == "AGENT_ORG_GRANT_REQUIRED" || code == "AGENT_ORG_GRANT_INACTIVE" ||
 		code == "AGENT_SUBSCRIPTION_REQUIRED":
 		return exitcode.Forbidden
+	// cli#1776 (hadron-server#3626): the owner of a personal App no longer
+	// qualifies for the organization Agent it runs (the org licence lapsed).
+	// Authenticated but not permitted, the same class as the licence trio
+	// above, not the sibling boot-prompt serve refusals' exit 1 (those are
+	// configuration states). Exit 8 was ruled at the gate (Xanthos); it is not
+	// new law and may be overturned. No suffix rule matches (_INACTIVE is not
+	// one), so without this case it fell to the default, exit 1.
+	case code == "BOOT_PROMPT_INSTALL_LICENSE_INACTIVE":
+		return exitcode.Forbidden
 	case code == "AGENT_BASE_CYCLE" || code == "AGENT_BASE_CHAIN_TOO_LONG" || code == "AGENT_IN_USE":
 		return exitcode.Conflict
 	// Key supply the server refused (hadron-server#1817): BAD_UNLOCK_INPUT is

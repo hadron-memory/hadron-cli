@@ -17,6 +17,7 @@ func TestProjectionGolden(t *testing.T) {
 		{"own", `{"served":{"pointerLevel":"WORKER","compiledNodeId":"n1","servedRevSeq":9}}`, "WORKER", `{"pointerLevel":"WORKER","compiledNodeId":"n1","servedRevSeq":9,"bootPromptRefusal":null,"bootPromptUrn":"hrn:node:example.com:kb:boot"}`, "WORKER n1 revision 9 (next bind); hrn:node:example.com:kb:boot"},
 		{"none", `{"refusal":"BOOT_PROMPT_NOT_SET"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_NOT_SET"}`, "none (next bind)"},
 		{"refused", `{"refusal":"BOOT_PROMPT_TARGET_DELETED"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_TARGET_DELETED"}`, "BOOT_PROMPT_TARGET_DELETED (next bind)"},
+		{"license-inactive", `{"refusal":"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"}`, "BOOT_PROMPT_INSTALL_LICENSE_INACTIVE (next bind)"},
 		{"malformed", `{"served":{"pointerLevel":"PRIVATE","compiledNodeId":"secret","servedRevSeq":9}}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":null}`, "unknown (next bind)"},
 		{"unapproved-pointer", `{"refusal":"BOOT_PROMPT_NOT_APPROVED"}`, "WORKER", `{"pointerLevel":null,"compiledNodeId":null,"servedRevSeq":null,"bootPromptRefusal":"BOOT_PROMPT_NOT_APPROVED"}`, "BOOT_PROMPT_NOT_APPROVED (next bind)"},
 	} {
