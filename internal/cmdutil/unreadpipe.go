@@ -12,8 +12,10 @@ import (
 // leaves stdin open and never closes it) would block a plain read forever, and
 // a guard must never turn a working invocation into a hang. A pipe that has
 // bytes offers them at once (`cat f | …`, a heredoc), so a short wait loses
-// nothing: a writer slower than this is not caught, which is the accepted
-// edge of a best-effort guard. A var so tests can shorten it.
+// nothing. This is a deliberate RACE between the writer and the clock: a writer
+// whose first byte arrives after the wait is not caught, which is the accepted
+// edge of a best-effort guard (the failure is the pre-guard behaviour, not a
+// new one). A var so tests can shorten it.
 var unreadPipeWait = 250 * time.Millisecond
 
 // RefuseUnreadStdinPipe refuses a NON-EMPTY stdin that no flag was told to read
@@ -27,7 +29,10 @@ var unreadPipeWait = 250 * time.Millisecond
 // terminal and a one-byte peek returns a byte. An empty pipe or /dev/null
 // (EOF), a silent open pipe (the wait above), and a read error all pass: the
 // guard exists for a pipe that is offering input, not to police stdin. The
-// peeked byte is not restored, because on a refusal nothing reads stdin again.
+// peeked byte of a non-seekable pipe cannot be restored; the refusal ends the
+// command, so only a caller that shares one stdin across several commands (a
+// `while read` loop) can observe it, and the message names `< /dev/null` for
+// that case. A seekable stdin (a file redirect) is repaired by seeking back.
 //
 // flags names the flags that would read the pipe (the remedy) and consequence
 // what would otherwise happen, so each command's message is specific to it.
@@ -56,9 +61,15 @@ func RefuseUnreadStdinPipe(stdin io.Reader, stdinIsTerminal bool, flags, consequ
 		if p.n == 0 {
 			return nil
 		}
+		// Undo the peek where the stream allows it, so a refusal inside a
+		// `while read …; done < file` loop does not also eat a byte of the
+		// loop's next line.
+		if sk, ok := stdin.(io.Seeker); ok {
+			_, _ = sk.Seek(-1, io.SeekCurrent)
+		}
 	case <-time.After(unreadPipeWait):
 		return nil
 	}
 	return exitcode.Newf(exitcode.Usage,
-		"stdin has input but no flag reads it — pass %s to read a pipe; refusing rather than %s", flags, consequence)
+		"stdin has input but no flag reads it — pass %s to read a pipe (or redirect stdin from /dev/null if it is not meant for this command); refusing rather than %s", flags, consequence)
 }

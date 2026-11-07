@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -99,4 +101,26 @@ func TestNodeUpdateStdinReaderSuppressesGuard1450(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+// The file-form flags read a PATH, never stdin, so a pipe beside them is still
+// unread and refused (#1450 BLIND P2-b: pins the reader inventory per flag).
+func TestNodeUpdateFileFlagsDoNotConsumeStdin1450(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "in.txt")
+	if err := os.WriteFile(file, []byte(`{"a":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--abstract-file", "--data-merge-file", "--data-file", "--properties-file"} {
+		t.Run(flag, func(t *testing.T) {
+			_, _, captured, err := runNode(t, stubs1450(), "piped body",
+				"node", "update", testNodeURN, flag, file)
+			if exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("a pipe beside %s is unread and must be refused, got %v", flag, err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("a refused update must send no request, sent %v", captured)
+			}
+		})
+	}
 }

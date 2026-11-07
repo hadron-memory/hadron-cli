@@ -59,6 +59,48 @@ func TestRefuseUnreadStdinPipe(t *testing.T) {
 	})
 }
 
+func TestRefuseUnreadStdinPipeDelayedByte(t *testing.T) {
+	old := unreadPipeWait
+	unreadPipeWait = 2 * time.Second
+	defer func() { unreadPipeWait = old }()
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+	go func() {
+		time.Sleep(75 * time.Millisecond)
+		_, _ = pw.Write([]byte("x"))
+	}()
+	err := RefuseUnreadStdinPipe(pr, false, "f", "c")
+	if exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("a byte arriving inside the window must refuse, got %v", err)
+	}
+}
+
+func TestRefuseUnreadStdinPipeLateByteMissesWindow(t *testing.T) {
+	old := unreadPipeWait
+	unreadPipeWait = 20 * time.Millisecond
+	defer func() { unreadPipeWait = old }()
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_, _ = pw.Write([]byte("x"))
+	}()
+	if err := RefuseUnreadStdinPipe(pr, false, "f", "c"); err != nil {
+		t.Fatalf("a byte after the window is the accepted edge and must pass, got %v", err)
+	}
+}
+
+func TestRefuseUnreadStdinPipeRestoresSeekableStdin(t *testing.T) {
+	r := strings.NewReader("line1\nline2\n")
+	if err := RefuseUnreadStdinPipe(r, false, "f", "c"); exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("want refusal, got %v", err)
+	}
+	rest, _ := io.ReadAll(r)
+	if string(rest) != "line1\nline2\n" {
+		t.Errorf("a refusal must not consume a seekable stdin, left %q", rest)
+	}
+}
+
 type boom struct{}
 
 func (*boom) Read([]byte) (int, error) { return 0, errors.New("boom") }
