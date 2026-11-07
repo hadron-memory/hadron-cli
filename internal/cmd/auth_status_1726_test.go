@@ -207,7 +207,7 @@ func (*authStatusStore1726) Name() string { return "fixture" }
 func (s *authStatusStore1726) Get(key string) (string, error) {
 	s.reads++
 	s.keys = append(s.keys, key)
-	if s.failOrdinary && !strings.HasSuffix(key, "#impersonation") {
+	if s.failOrdinary && key != s.impersonationKey {
 		return "", errors.New("fixture keychain read failed")
 	}
 	value, ok := s.values[key]
@@ -227,26 +227,47 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 		name, env, stored, imp, want string
 		failStore                    bool
 		wantReads                    int
+		absentLogin, absentImp       bool
 	}{
-		{"stored login", "", "stored-fixture", "", "stored-fixture", false, 2},
-		{"impersonation precedes login", "", "stored-fixture", impersonation, impersonation, false, 1},
-		{"environment precedes both", "env-fixture", "stored-fixture", impersonation, "env-fixture", false, 0},
-		{"environment does not probe broken store", "env-fixture", "", "", "env-fixture", true, 0},
+		{"stored login", "", "stored-fixture", "", "stored-fixture", false, 2, false, false},
+		{"impersonation precedes login", "", "stored-fixture", impersonation, impersonation, false, 1, false, false},
+		{"environment precedes both", "env-fixture", "stored-fixture", impersonation, "env-fixture", false, 0, false, false},
+		{"environment does not probe broken store", "env-fixture", "", "", "env-fixture", true, 0, false, false},
+		{"absent login and impersonation", "", "", "", "", false, 2, true, true},
+		{"empty login and impersonation", "", "", "", "", false, 2, false, false},
+		{"empty login absent impersonation", "", "", "", "", false, 2, false, true},
+		{"absent login empty impersonation", "", "", "", "", false, 2, true, false},
 	} {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
 				var calls atomic.Int32
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					calls.Add(1)
-					if got := r.Header.Get("Authorization"); got != "Bearer "+tc.want {
+					wantHeader := ""
+					if tc.want != "" {
+						wantHeader = "Bearer " + tc.want
+					}
+					if got := r.Header.Get("Authorization"); got != wantHeader {
 						t.Errorf("wrong selected credential header: %q", got)
 					}
-					_, _ = w.Write([]byte(`{"data":{"authenticationStatus":"AUTHENTICATED"}}`))
+					answer := "AUTHENTICATED"
+					if tc.want == "" {
+						answer = "ANONYMOUS"
+					}
+					_, _ = fmt.Fprintf(w, `{"data":{"authenticationStatus":%q}}`, answer)
 				}))
 				defer srv.Close()
 				f, out := testFactory(t)
 				t.Setenv("HADRON_TOKEN", tc.env)
-				st := &authStatusStore1726{values: map[string]string{authpkg.Host(srv.URL): tc.stored, authpkg.ImpersonationHostKey(srv.URL): tc.imp}, failOrdinary: tc.failStore}
+				host, impKey := authpkg.Host(srv.URL), authpkg.ImpersonationHostKey(srv.URL)
+				values := map[string]string{}
+				if !tc.absentLogin {
+					values[host] = tc.stored
+				}
+				if !tc.absentImp {
+					values[impKey] = tc.imp
+				}
+				st := &authStatusStore1726{values: values, impersonationKey: impKey, failOrdinary: tc.failStore}
 				f.TokenStoreFn = func() store.Store { return st }
 				root := NewRootCmd(f)
 				args := []string{"auth", "status", "--server", srv.URL}
@@ -254,8 +275,22 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 					args = append(args, "--json")
 				}
 				root.SetArgs(args)
-				if err := root.Execute(); err != nil {
-					t.Fatal(err)
+				wantAnswer, wantCode := "AUTHENTICATED", 0
+				if tc.want == "" {
+					wantAnswer, wantCode = "ANONYMOUS", 3
+				}
+				if err := root.Execute(); exitCodeFor(err) != wantCode {
+					t.Fatalf("exit=%d err=%v", exitCodeFor(err), err)
+				}
+				wantKeys := []string{}
+				if tc.wantReads > 0 {
+					wantKeys = append(wantKeys, impKey)
+				}
+				if tc.wantReads > 1 {
+					wantKeys = append(wantKeys, host)
+				}
+				if len(st.keys) != len(wantKeys) || (len(wantKeys) > 0 && !reflect.DeepEqual(st.keys, wantKeys)) {
+					t.Fatalf("store keys=%q want=%q", st.keys, wantKeys)
 				}
 				if calls.Load() != 1 || st.reads != tc.wantReads {
 					t.Fatalf("requests=%d store reads=%d want=%d", calls.Load(), st.reads, tc.wantReads)
@@ -265,14 +300,14 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 					if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 						t.Fatal(err)
 					}
-					if len(got) != 1 || got["status"] != "AUTHENTICATED" {
+					if len(got) != 1 || got["status"] != wantAnswer {
 						t.Fatalf("not answer-only: %s", out)
 					}
-				} else if out.String() != "credential authenticated\n" {
+				} else if wantText := map[string]string{"AUTHENTICATED": "credential authenticated\n", "ANONYMOUS": "no credential was presented\n"}[wantAnswer]; out.String() != wantText {
 					t.Fatalf("output=%q", out.String())
 				}
 				for _, secret := range []string{"stored-fixture", "env-fixture", impersonation} {
-					if strings.Contains(out.String(), secret) {
+					if secret != "" && strings.Contains(out.String(), secret) {
 						t.Fatal("selected credential leaked")
 					}
 				}
@@ -294,7 +329,7 @@ func TestAuthStatusStoredCredentialErrorStopsBeforeRequest1726(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "")
 			var stderr strings.Builder
 			f.IOStreams.ErrOut = &stderr
-			st := &authStatusStore1726{values: map[string]string{}, failOrdinary: true}
+			st := &authStatusStore1726{values: map[string]string{}, impersonationKey: authpkg.ImpersonationHostKey(srv.URL), failOrdinary: true}
 			f.TokenStoreFn = func() store.Store { return st }
 			root := NewRootCmd(f)
 			args := []string{"auth", "status", "--server", srv.URL}
@@ -412,5 +447,24 @@ func TestAuthStatusStoreDiscriminator1754(t *testing.T) {
 	}
 	if !reflect.DeepEqual(st.keys, []string{exact, "unrelated#impersonation"}) {
 		t.Fatalf("keys=%q", st.keys)
+	}
+}
+
+func TestAuthStatusStoreEmptyAndAbsent1754(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		values      map[string]string
+		wantMissing bool
+	}{
+		{"absent", map[string]string{}, true},
+		{"present empty", map[string]string{"fixture-host": ""}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &authStatusStore1726{values: tc.values}
+			value, err := st.Get("fixture-host")
+			if value != "" || errors.Is(err, store.ErrNotFound) != tc.wantMissing || (!tc.wantMissing && err != nil) {
+				t.Fatalf("value=%q err=%v missing=%t", value, err, tc.wantMissing)
+			}
+		})
 	}
 }
