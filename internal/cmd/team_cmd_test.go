@@ -1549,6 +1549,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	freeStaffJSON := `{"data":{"workers":{"total":2,"items":[` +
 		withLiveness(irisWorkerJSON, "false") + `,` + retiredWorkerJSON + `]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"Workers":          freeStaffJSON,
 		"WorkersRoster":    freeStaffJSON,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
@@ -1759,6 +1760,7 @@ func TestTeamSessionStartRefusesRetiredWorker(t *testing.T) {
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":null}}`,
 		// LIVE, said explicitly: the refusal keys on derived liveness (#550),
 		// and the bare fixture would be a MASKED row, which now defers.
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
@@ -1784,6 +1786,7 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":null}}`,
 		// LIVE, so this is a real takeover — which is what `tookOver` claims
 		// below, and since #550 it claims it from liveness rather than from an
 		// open session row.
@@ -1822,6 +1825,7 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"This worker is taken.",
@@ -3864,6 +3868,8 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 				requestedLaterPage = true
 				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":201,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`))
 			}
+		case "GetUser":
+			_, _ = w.Write([]byte(`{"data":{"user":null}}`))
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
@@ -4809,6 +4815,7 @@ func TestTeamSessionListAsFiltersServerSide(t *testing.T) {
 func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,

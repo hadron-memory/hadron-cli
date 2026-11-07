@@ -36,6 +36,7 @@ func assertNoRetiredSupersedeClaims(t *testing.T, note string) {
 func TestTeamSessionStartPreBindNoteIsNeutralAboutWhoseSessionEnds(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -66,6 +67,7 @@ func TestTeamSessionStartPreBindNoteIsNeutralAboutWhoseSessionEnds(t *testing.T)
 func TestTeamSessionStartFailedBindClaimsNothingEnded(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":          `{"data":{"user":null}}`,
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That worker is taken.",
