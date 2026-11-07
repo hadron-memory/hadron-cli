@@ -42,7 +42,8 @@ type contentValidationDTO struct {
 }
 
 type validationReportDTO struct {
-	Outcome string `json:"outcome"`
+	Outcome     string   `json:"outcome"`
+	AuthorCheck **string `json:"authorCheck,omitempty"`
 	// NodeRevision is the revision the report was made for — on a STALE
 	// state, an older one.
 	NodeRevision           int     `json:"nodeRevision"`
@@ -76,6 +77,23 @@ func contentValidationFrom(v *gen.NodeContentValidationFields) *contentValidatio
 	return d
 }
 
+func contentValidationCheckedFrom(v *gen.NodeContentValidationCheckedFields) *contentValidationDTO {
+	if v == nil {
+		return nil
+	}
+	d := &contentValidationDTO{State: string(v.State)}
+	if r := v.LatestReport; r != nil {
+		d.LatestReport = &validationReportDTO{Outcome: string(r.Outcome), NodeRevision: r.NodeRevision, ReportedAt: r.ReportedAt, ValidationTaskRef: r.ValidationTaskRef, ValidationTaskRevision: r.ValidationTaskRevision}
+		var check *string
+		if r.AuthorCheck != nil {
+			value := string(*r.AuthorCheck)
+			check = &value
+		}
+		d.LatestReport.AuthorCheck = &check
+	}
+	return d
+}
+
 // renderStamps prints the two stamps as indented lines. `subject` names what
 // they describe ("this revision" for a live node, "this snapshot" for history).
 func renderStamps(w io.Writer, indent string, a *authorshipDTO, v *contentValidationDTO, subject string) {
@@ -103,7 +121,7 @@ func renderStamps(w io.Writer, indent string, a *authorshipDTO, v *contentValida
 		fmt.Fprintf(w, "%svalidation: UNVALIDATED — no report for %s (advisory)\n", indent, subject)
 	case string(gen.NodeContentValidationStateStale):
 		if r != nil {
-			fmt.Fprintf(w, "%svalidation: STALE — the latest report (%s) was for revision %d, not %s (advisory)\n", indent, r.Outcome, r.NodeRevision, subject)
+			fmt.Fprintf(w, "%svalidation: STALE — the latest report (%s) was for revision %d, not %s%s (advisory)\n", indent, r.Outcome, r.NodeRevision, subject, authorComparison(r))
 		} else {
 			fmt.Fprintf(w, "%svalidation: STALE — the latest report was for an earlier revision (advisory)\n", indent)
 		}
@@ -117,7 +135,7 @@ func renderStamps(w io.Writer, indent string, a *authorshipDTO, v *contentValida
 				by = fmt.Sprintf(", reported %s", r.ReportedAt)
 			}
 		}
-		fmt.Fprintf(w, "%svalidation: %s for %s%s (advisory)\n", indent, v.State, subject, by)
+		fmt.Fprintf(w, "%svalidation: %s for %s%s (advisory)\n", indent, v.State, subject, by+authorComparison(r))
 	}
 }
 
@@ -126,4 +144,18 @@ func atRevision(rev *int) string {
 		return ""
 	}
 	return fmt.Sprintf(" rev %d", *rev)
+}
+
+func authorComparison(r *validationReportDTO) string {
+	if r == nil || r.AuthorCheck == nil || *r.AuthorCheck == nil {
+		return ""
+	}
+	switch **r.AuthorCheck {
+	case "CHECKED":
+		return "; author comparison checked (not proof of independence)"
+	case "AUTHOR_UNKNOWN":
+		return "; author could not be compared"
+	default:
+		return "; author comparison unavailable"
+	}
 }

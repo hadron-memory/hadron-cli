@@ -210,6 +210,8 @@ func unstubbedDefault(op string) (string, bool) {
 		// cli#802's optional status probe against a server that predates
 		// hadron-server#1591. The revision and stamp fallbacks still run.
 		return `{"errors":[{"message":"Cannot query field \"approvalStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "NodeLiveRevisionsContentChecked":
+		return `{"errors":[{"message":"Cannot query field \"authorCheck\" on type \"NodeContentValidationReport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "NodeLiveRevisionsMinted":
 		return `{"errors":[{"message":"Cannot query field \"mintStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "MintMemoryNodes":

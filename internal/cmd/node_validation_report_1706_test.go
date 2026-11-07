@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -12,7 +14,7 @@ func TestNodeGetContentValidationAuthorCheck1706(t *testing.T) {
 			t.Run(check+state, func(t *testing.T) {
 				cv := validation(state, "PASS", 7)
 				checked := strings.Replace(cv, `"outcome":"PASS"`, `"outcome":"PASS","authorCheck":"`+check+`"`, 1)
-				srv, _ := captureGraphQL(t, map[string]string{
+				srv := contentCheckedServer1706(t, map[string]string{
 					"ResolveUrn":                      `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
 					"GetNode":                         nodeGetJSON(testNodeURL),
 					"NodeLiveRevisionsContentChecked": stampedLive(7, taskAuthorship, checked),
@@ -65,4 +67,40 @@ func TestNodeGetContentValidationOlderAuthorCheck1706(t *testing.T) {
 	if probes != 1 || !strings.Contains(raw, `"authorCheck": null`) || !strings.Contains(raw, `"state": "PASS"`) {
 		t.Fatalf("older-field fallback must preserve stamps with unknown author comparison: probes%d %s", probes, raw)
 	}
+}
+
+func contentCheckedServer1706(t *testing.T, responses map[string]string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		var q struct {
+			OperationName string `json:"operationName"`
+			Query         string `json:"query"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+			t.Error(err)
+			http.Error(w, "bad request", 400)
+			return
+		}
+		if q.OperationName == "NodeLiveRevisionsContentChecked" && !strings.Contains(q.Query, "authorCheck") {
+			t.Error("authorCheck missing from actual wire selection")
+		}
+		body, ok := responses[q.OperationName]
+		if !ok {
+			body, ok = unstubbedDefault(q.OperationName)
+		}
+		if !ok {
+			t.Errorf("unexpected operation %s", q.OperationName)
+			http.Error(w, "unexpected", 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }

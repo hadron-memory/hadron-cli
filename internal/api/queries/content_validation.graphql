@@ -1,0 +1,27 @@
+# #1706: a distinct node-get projection; older servers keep the original
+# mint/approval/stamp reads unchanged when authorCheck is unsupported.
+query NodeLiveRevisionsContentChecked(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated omitted unavailable
+    nodes {
+      id revision
+      authorship { ...NodeAuthorshipFields }
+      contentValidation { ...NodeContentValidationCheckedFields }
+      approvalStatus { ...NodeApprovalStatusFields }
+      mintStatus { ...NodeMintStatusFields }
+    }
+  }
+}
+fragment NodeContentValidationCheckedFields on NodeContentValidationStatus {
+  state
+  latestReport {
+    outcome nodeRevision reportedAt validationTaskRef validationTaskRevision authorCheck
+  }
+}
