@@ -11,7 +11,7 @@ func TestSpecListGovernance1658(t *testing.T) {
 		tag := specNodeList("tag-only", `["spec"]`)
 		role := specNodeListWithRole("role-only", `[]`)
 		both := specNodeListWithRole("both", `["spec"]`)
-		gql, _ := captureGraphQL(t, map[string]string{"FindNodes": `{"data":{"nodes":[` + tag + `,` + role + `,` + both + `]}}`})
+		gql, _ := captureGraphQL(t, map[string]string{"Memories": memListJSON, "FindNodes": `{"data":{"nodes":[` + tag + `,` + role + `,` + both + `]}}`})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		args := []string{"spec", "list", "--server", gql.URL}
