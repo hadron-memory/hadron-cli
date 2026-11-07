@@ -16,7 +16,7 @@ func TestOpenRollout1666WindowsReparse(t *testing.T) {
 	if err := os.WriteFile(target, []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	f, err := openRollout(target)
+	f, err := openRollout(dir, target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestOpenRollout1666WindowsReparse(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("Windows symlink privilege unavailable: %v", err)
 	}
-	f, err = openRollout(link)
+	f, err = openRollout(dir, link)
 	if f != nil {
 		_ = f.Close()
 	}

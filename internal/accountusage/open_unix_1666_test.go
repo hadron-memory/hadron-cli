@@ -50,7 +50,7 @@ func TestOpenRollout1666RejectsLinksAtEveryComponent(t *testing.T) {
 			if tc.name == "directory" {
 				link = filepath.Join(link, "rollout.jsonl")
 			}
-			f, err := openRollout(link)
+			f, err := openRollout(root, link)
 			if f != nil {
 				_ = f.Close()
 			}
@@ -59,7 +59,7 @@ func TestOpenRollout1666RejectsLinksAtEveryComponent(t *testing.T) {
 			}
 		})
 	}
-	f, err := openRollout(file)
+	f, err := openRollout(root, file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,5 +97,24 @@ func TestCodex1666RefusesSwappedHomeSymlink(t *testing.T) {
 	snap, err := ReadCodex(codexAcct(home))
 	if err == nil || snap.Present {
 		t.Fatalf("ConfigDir itself must be nofollow: present=%v err=%v", snap.Present, err)
+	}
+}
+
+func TestOpenRollout1666RejectsOutsideHome(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	if err := os.Mkdir(home, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside.jsonl")
+	if err := os.WriteFile(outside, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := openRollout(home, outside)
+	if f != nil {
+		_ = f.Close()
+	}
+	if err == nil {
+		t.Fatal("accepted rollout outside ConfigDir")
 	}
 }
