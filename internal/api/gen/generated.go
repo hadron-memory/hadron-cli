@@ -46067,8 +46067,16 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesFindN
 type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	Id       string `json:"id"`
 	MemoryId string `json:"memoryId"`
-	Loc      string `json:"loc"`
-	Name     string `json:"name"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom `json:"inheritedFrom"`
+	Loc           string                                                         `json:"loc"`
+	Name          string                                                         `json:"name"`
 	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
 	// retrieval and rendering.
 	//
@@ -46113,6 +46121,14 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetId() string { retu
 // GetMemoryId returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string { return v.MemoryId }
 
+// GetUrn returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Urn, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetUrn() string { return v.Urn }
+
+// GetInheritedFrom returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetInheritedFrom() *FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
 // GetLoc returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
 
@@ -46144,6 +46160,27 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json
 
 // GetData returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage { return v.Data }
+
+// FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
 
 // Retrieval modes for findNodes (hrn:node:hadronmemory.com:specs:cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match. vector/hybrid offset pages are not snapshot-stable while the index fills; page with keyword over one memory when every match must appear exactly once (#2991).
 type FindNodesMode string
@@ -46250,8 +46287,16 @@ func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHit) GetNode
 type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode struct {
 	Id       string `json:"id"`
 	MemoryId string `json:"memoryId"`
-	Loc      string `json:"loc"`
-	Name     string `json:"name"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom `json:"inheritedFrom"`
+	Loc           string                                                                           `json:"loc"`
+	Name          string                                                                           `json:"name"`
 	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
 	// retrieval and rendering.
 	//
@@ -46300,6 +46345,16 @@ func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) Get
 // GetMemoryId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string {
 	return v.MemoryId
+}
+
+// GetUrn returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Urn, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetUrn() string {
+	return v.Urn
+}
+
+// GetInheritedFrom returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode) GetInheritedFrom() *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom {
+	return v.InheritedFrom
 }
 
 // GetLoc returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
@@ -46375,6 +46430,27 @@ func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeComme
 // GetOldestOpenThreadAt returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary.OldestOpenThreadAt, and is useful for accessing the field via an interface.
 func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeCommentSummary) GetOldestOpenThreadAt() *string {
 	return v.OldestOpenThreadAt
+}
+
+// FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
 }
 
 // FindNodesWithCommentSummaryResponse is returned by FindNodesWithCommentSummary on success.
@@ -131281,6 +131357,11 @@ query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sor
 			node {
 				id
 				memoryId
+				urn
+				inheritedFrom {
+					agentId
+					agentUrn
+				}
 				loc
 				name
 				nodeType
@@ -131366,6 +131447,11 @@ query FindNodesWithCommentSummary ($query: String, $mode: FindNodesMode, $filter
 			node {
 				id
 				memoryId
+				urn
+				inheritedFrom {
+					agentId
+					agentUrn
+				}
 				loc
 				name
 				nodeType

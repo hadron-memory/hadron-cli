@@ -74,6 +74,8 @@ query FindNodes(
       node {
         id
         memoryId
+        urn
+        inheritedFrom { agentId agentUrn }
         loc
         name
         nodeType
@@ -132,6 +134,8 @@ query FindNodesWithCommentSummary(
       node {
         id
         memoryId
+        urn
+        inheritedFrom { agentId agentUrn }
         loc
         name
         nodeType
