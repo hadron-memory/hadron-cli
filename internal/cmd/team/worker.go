@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
@@ -671,6 +672,53 @@ func readWorkerRendered(ctx context.Context, client graphql.Client, id, session 
 	return resp.Worker.RenderedSignature, resp.Worker.RenderedTrailer, true, nil
 }
 
+// workerGetExtras holds the independent reads `worker get` makes after the
+// worker row (cli#1677). Every field is written by exactly one goroutine and
+// read only after they have all finished.
+type workerGetExtras struct {
+	appName, ownerName, appURN *string
+	profileErr                 error
+	terminal                   *workerTerminalDTO
+	terminalErr                error
+	modelGroups                []string
+	groupsErr                  error
+	renderedSig                *string
+	renderedTrailer            *string
+	renderedErr                error
+	previewResp                *gen.GetWorkerBootPromptServeResponse
+	previewErr                 error
+	previewMissingField        bool
+}
+
+// readWorkerGetExtras runs the profile, terminal, model-group, rendered and
+// boot-preview reads concurrently and waits for all of them.
+func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session string) *workerGetExtras {
+	r := &workerGetExtras{}
+	var wg sync.WaitGroup
+	run := func(fn func()) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fn()
+		}()
+	}
+	run(func() { r.appName, r.ownerName, r.appURN, r.profileErr = readWorkerProfile(ctx, client, id) })
+	run(func() { r.terminal, r.terminalErr = readWorkerTerminal(ctx, client, id) })
+	run(func() { r.modelGroups, r.groupsErr = readWorkerModelGroups(ctx, client, id) })
+	run(func() {
+		r.renderedSig, r.renderedTrailer, _, r.renderedErr = readWorkerRendered(ctx, client, id, session)
+	})
+	run(func() {
+		guard := &bootpreview.ValidationRead{Client: client}
+		r.previewResp, r.previewErr = gen.GetWorkerBootPromptServe(ctx, guard, id)
+		if r.previewErr != nil {
+			r.previewMissingField = guard.MissingField(r.previewErr, "GetWorkerBootPromptServe", "Worker")
+		}
+	})
+	wg.Wait()
+	return r
+}
+
 // ownBoundSession is the session `worker get` reads the rendered lines for
 // (cli#1529 LOCAL P2): this worktree's binding, but only when it binds THIS
 // worker on THIS server — so `worker get <me>` shows what `whoami --signature`
@@ -805,27 +853,32 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
-			appName, ownerName, appURN, err := readWorkerProfile(cmd.Context(), client, w.Id)
-			if err != nil {
-				return err
+			// cli#1677: the five reads below are independent of one another
+			// (each takes only the worker id), so they go out together and
+			// the command pays one round trip's latency, not five. Each keeps
+			// its own operation, so the per-operation old-server fallbacks are
+			// untouched. Errors are then taken in the order the sequential
+			// code took them, so the first failure a caller sees is unchanged.
+			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
+			if reads.profileErr != nil {
+				return reads.profileErr
 			}
-			terminal, err := readWorkerTerminal(cmd.Context(), client, w.Id)
-			if err != nil {
-				return err
+			if reads.terminalErr != nil {
+				return reads.terminalErr
 			}
-			modelGroups, err := readWorkerModelGroups(cmd.Context(), client, w.Id)
-			if err != nil {
-				return err
+			if reads.groupsErr != nil {
+				return reads.groupsErr
 			}
-			renderedSig, renderedTrailer, _, err := readWorkerRendered(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
-			if err != nil {
-				return err
+			if reads.renderedErr != nil {
+				return reads.renderedErr
 			}
-			guard := &bootpreview.ValidationRead{Client: client}
-			previewResp, previewErr := gen.GetWorkerBootPromptServe(cmd.Context(), guard, w.Id)
+			appName, ownerName, appURN := reads.appName, reads.ownerName, reads.appURN
+			terminal, modelGroups := reads.terminal, reads.modelGroups
+			renderedSig, renderedTrailer := reads.renderedSig, reads.renderedTrailer
+			previewResp, previewErr := reads.previewResp, reads.previewErr
 			var preview *bootpreview.Preview
 			if previewErr != nil {
-				if !guard.MissingField(previewErr, "GetWorkerBootPromptServe", "Worker") {
+				if !reads.previewMissingField {
 					return api.MapError(previewErr)
 				}
 			} else {

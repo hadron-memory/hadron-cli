@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -33,6 +34,7 @@ type unlockCall1234 struct {
 func unlockServer1234(t *testing.T, reply func(op, header string) (int, string)) (*httptest.Server, *[]unlockCall1234) {
 	t.Helper()
 	calls := []unlockCall1234{}
+	var mu sync.Mutex // independent reads may arrive together (cli#1677)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -44,7 +46,9 @@ func unlockServer1234(t *testing.T, reply func(op, header string) (int, string))
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		h := r.Header.Get(unlockHeader1234)
+		mu.Lock()
 		calls = append(calls, unlockCall1234{op: body.OperationName, header: h})
+		mu.Unlock()
 		status, resp := reply(body.OperationName, h)
 		if def, ok := unstubbedDefault(body.OperationName); ok && status == 200 && strings.Contains(resp, "unexpected "+body.OperationName) {
 			resp = def

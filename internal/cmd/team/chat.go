@@ -734,10 +734,18 @@ them "(human)" / "(worker)".`,
 				pageSize = teamChatDefaultLimit
 			}
 			attribution := newChatReadAttribution(ctx, f, appRef, b)
-			state, err := probeChatReadState(ctx, f, client, appRef, b, attribution)
+			// cli#1677: the head probe stays before the page (its claim is
+			// about messages seen BEFORE the page was asked for), but the
+			// allocator-head and read-cursor reads are diagnostics that
+			// neither decide staleness nor acknowledge anything, so they
+			// overlap the head and page reads. The deferred wait keeps their
+			// notes on every exit path; the explicit one below fills state.
+			state, err := probeChatHead(ctx, f, client, appRef, attribution)
 			if err != nil {
 				return err
 			}
+			meta := startChatReadMetadata(ctx, f, client, appRef, b)
+			defer meta.wait(f, nil)
 			msgs := []teamChatMessageDTO{}
 			lastPageCount := 0
 			cursor := since
@@ -795,6 +803,7 @@ them "(human)" / "(worker)".`,
 				}
 				cursor = msgs[len(msgs)-1].Seq
 			}
+			meta.wait(f, state)
 			// A full DEFAULT page cannot show that the chat ended: say so on
 			// stderr (cli#967); an explicit --limit is the caller's own page.
 			if !all && !cmd.Flags().Changed("limit") && lastPageCount >= pageSize {

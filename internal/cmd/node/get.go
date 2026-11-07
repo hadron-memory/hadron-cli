@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -138,15 +139,31 @@ asks for that memory's passphrase for this one invocation.
 			// contract and callers of `node get <ref>` must not have to care
 			// that a batch form now exists.
 			if !prefixMode && len(args) == 1 {
+				// cli#1677: the capability read is independent of everything
+				// before it is consumed, so it starts now and overlaps the
+				// resolve and the content read. The body-only form never uses it.
+				var signingProbe func() (bool, error)
+				if !bodyOnly {
+					signingProbe = startSigningProbe(cmd.Context(), f)
+				}
+				// A full node URN names its node outright, so the bracket's
+				// before-probe can be asked in the same breath as the resolve.
+				var early *earlyBefore
+				if !bodyOnly && memory == "" && strings.HasPrefix(args[0], "hrn:node:") {
+					early = startEarlyBefore(cmd, client, args[0])
+				}
 				id, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 				if err != nil {
+					if early != nil {
+						<-early.done // never leave a request running past the command
+					}
 					return err
 				}
 				if bodyOnly {
 					return writeBodyOnly(cmd, f, client, id, args[0])
 				}
 				var dto nodeDetailDTO
-				err = readConsistently(cmd, client, revisionSelector{refs: []string{id}}, func() ([]*nodeDetailDTO, error) {
+				err = readConsistentlyEarly(cmd, client, revisionSelector{refs: []string{id}}, early, func() ([]*nodeDetailDTO, error) {
 					node, err := fetchNodeByID(cmd, client, id, args[0], raw)
 					if err != nil {
 						return nil, err
@@ -158,14 +175,30 @@ asks for that memory's passphrase for this one invocation.
 				if err != nil {
 					return err
 				}
-				loadCommentSummaries(cmd.Context(), f, client, []*nodeDetailDTO{&dto})
-				// cli#878 part 3: advisory, and gated on the server advertising
-				// signing, so an off or older server pays no refused round trip.
-				// The RESOLVED id, never args[0]: a bare loc plus -m already
-				// resolved here, and the raw spelling is ambiguous across
-				// memories (Andi's cycle-1 P2).
-				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
+				// cli#1677: the three advisories below read independent things
+				// of the resolved id, so they run together and cost one
+				// round trip's latency, not three. Their stderr notes go
+				// through one locked writer; each is a single whole-line write.
+				// cli#878 part 3: the signature fold is advisory, and gated on
+				// the server advertising signing, so an off or older server pays
+				// no refused round trip. The RESOLVED id, never args[0]: a bare
+				// loc plus -m already resolved here, and the raw spelling is
+				// ambiguous across memories (Andi's cycle-1 P2).
+				restoreErr := lockErrOut(f)
+				advisoryCtx := cmd.Context() // loadLintWarnings may SetContext
+				var wg sync.WaitGroup
+				wg.Add(2)
+				go func() {
+					defer wg.Done()
+					loadCommentSummaries(advisoryCtx, f, client, []*nodeDetailDTO{&dto})
+				}()
+				go func() {
+					defer wg.Done()
+					loadSignatureSummary(advisoryCtx, client, signingProbe, id, &dto)
+				}()
 				dto.LintWarnings = loadLintWarnings(cmd, client, id)
+				wg.Wait()
+				restoreErr()
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -511,13 +544,59 @@ const (
 // is correctly absent from a read of that moment; every node that IS printed
 // carries the revision of the content printed.
 func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
+	return readConsistentlyEarly(cmd, client, sel, nil, read)
+}
+
+// earlyBefore is the before-probe of the FIRST attempt, started before the
+// node's id was known and awaited here (cli#1677). It is the same bracket read,
+// asked by the node URN the caller typed instead of the resolved id, so it still
+// completes before the content read starts; it only overlaps the URN resolve
+// that used to precede it.
+type earlyBefore struct {
+	stamps  *stampReads
+	done    chan struct{}
+	revs    map[string]int
+	support revisionSupport
+	err     error
+}
+
+// startEarlyBefore asks the before-probe for ref in the background.
+func startEarlyBefore(cmd *cobra.Command, client graphql.Client, ref string) *earlyBefore {
+	e := &earlyBefore{stamps: &stampReads{}, done: make(chan struct{})}
+	go func() {
+		defer close(e.done)
+		e.revs, e.support, e.err = liveRevisions(cmd, client, revisionSelector{refs: []string{ref}}, e.stamps)
+	}()
+	return e
+}
+
+// readConsistentlyEarly is readConsistently with an optional early first
+// before-probe. A probe that failed, or that saw no node, is discarded and the
+// attempt asks again by the resolved id exactly as before, so the early read can
+// only save a round trip, never change an answer.
+func readConsistentlyEarly(cmd *cobra.Command, client graphql.Client, sel revisionSelector, early *earlyBefore, read func() ([]*nodeDetailDTO, error)) error {
 	// Stamp support is learned once and kept across attempts: a server that
 	// refused the stamps once is not asked again (cli#752).
 	stamps := &stampReads{}
+	var usable *earlyBefore
+	if early != nil {
+		<-early.done
+		if early.err == nil && len(early.revs) > 0 {
+			usable = early
+			stamps = early.stamps
+		}
+	}
 	for attempt := 1; ; attempt++ {
-		before, supportBefore, err := liveRevisions(cmd, client, sel, stamps)
-		if err != nil {
-			return err
+		var before map[string]int
+		var supportBefore revisionSupport
+		var err error
+		if attempt == 1 && usable != nil {
+			before, supportBefore = usable.revs, usable.support
+		} else {
+			before, supportBefore, err = liveRevisions(cmd, client, sel, stamps)
+			if err != nil {
+				return err
+			}
 		}
 		dtos, err := read()
 		if err != nil {

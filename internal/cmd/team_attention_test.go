@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -46,6 +47,7 @@ func attnServer(t *testing.T, responses map[string]string) (*httptest.Server, *[
 func attnServerHook(t *testing.T, responses map[string]string, onOp func(op string)) (*httptest.Server, *[]attnCall) {
 	t.Helper()
 	calls := &[]attnCall{}
+	var mu sync.Mutex // independent reads may arrive together (cli#1677)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string         `json:"operationName"`
@@ -64,10 +66,14 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		// tests pin their command's own request order, and the notice's read
 		// is pinned by team_ended_binding_test.go.
 		if body.OperationName != "GetBoundSessionEnd" {
+			// onOp runs OUTSIDE the lock: a test that stages a barrier across
+			// concurrent requests (cli#1677) must be able to block in it.
 			if onOp != nil {
 				onOp(body.OperationName)
 			}
+			mu.Lock()
 			*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp, RawVars: rawBody.Variables})
+			mu.Unlock()
 		}
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[rawOp]

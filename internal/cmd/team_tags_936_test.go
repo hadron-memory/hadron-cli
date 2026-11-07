@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -18,6 +19,7 @@ import (
 func tag936Server(t *testing.T, tags string, refuse string, override ...func(attnCall, int) string) (*httptest.Server, *[]attnCall) {
 	t.Helper()
 	calls := &[]attnCall{}
+	var mu sync.Mutex // independent reads may arrive together (cli#1677)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			OperationName string         `json:"operationName"`
@@ -27,7 +29,11 @@ func tag936Server(t *testing.T, tags string, refuse string, override ...func(att
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 		}
-		*calls = append(*calls, attnCall{RawOp: req.OperationName, Op: req.OperationName, Vars: req.Variables, Query: req.Query, Session: r.Header.Get("X-Hadron-Session")})
+		this := attnCall{RawOp: req.OperationName, Op: req.OperationName, Vars: req.Variables, Query: req.Query, Session: r.Header.Get("X-Hadron-Session")}
+		mu.Lock()
+		*calls = append(*calls, this)
+		pages := len(tag936Pages(*calls))
+		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(req.OperationName, "ReadHead") || strings.Contains(req.OperationName, "ReadMetadata") {
 			fmt.Fprint(w, strings.ReplaceAll(teamThreadHead, "9", "8"))
@@ -58,7 +64,7 @@ func tag936Server(t *testing.T, tags string, refuse string, override ...func(att
 			key = "channelMessages"
 		}
 		if len(override) > 0 {
-			if body := override[0]((*calls)[len(*calls)-1], len(tag936Pages(*calls))); body != "" {
+			if body := override[0](this, pages); body != "" {
 				fmt.Fprint(w, body)
 				return
 			}

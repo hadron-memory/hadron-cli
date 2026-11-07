@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -46,15 +47,40 @@ type signatureSummaryDTO struct {
 	Verified          int    `json:"verified"`
 }
 
+// startSigningProbe begins the capability read in the background and returns
+// the function that waits for its answer (cli#1677). `node get` starts it
+// before the node is resolved, so the one /capabilities round trip overlaps
+// the resolve and the content read instead of following them. The gate is
+// unchanged: it is still the same probe and the same answer, only earlier. A
+// failure still reads as "not advertised".
+func startSigningProbe(ctx context.Context, f *cmdutil.Factory) func() (bool, error) {
+	type answer struct {
+		advertised bool
+		err        error
+	}
+	done := make(chan answer, 1)
+	server, err := f.Server()
+	if err != nil {
+		done <- answer{err: err}
+	} else {
+		go func() {
+			advertised, err := SigningCapabilityProbe(ctx, server)
+			done <- answer{advertised, err}
+		}()
+	}
+	var got answer
+	var once sync.Once
+	return func() (bool, error) {
+		once.Do(func() { got = <-done })
+		return got.advertised, got.err
+	}
+}
+
 // loadSignatureSummary folds the summary into the single-ref node get, gated
 // on the capability probe. Any failure past the gate leaves the summary nil
 // (rendered "unavailable") — the node read itself already succeeded.
-func loadSignatureSummary(ctx context.Context, f *cmdutil.Factory, client graphql.Client, ref string, dto *nodeDetailDTO) {
-	server, err := f.Server()
-	if err != nil {
-		return
-	}
-	advertised, err := SigningCapabilityProbe(ctx, server)
+func loadSignatureSummary(ctx context.Context, client graphql.Client, probe func() (bool, error), ref string, dto *nodeDetailDTO) {
+	advertised, err := probe()
 	if err != nil || !advertised {
 		return
 	}
@@ -103,4 +129,25 @@ func stateOrNone(state string) string {
 		return "none"
 	}
 	return state
+}
+
+// lockedWriter serialises Writes so concurrent advisory reads can each report
+// a note on stderr without interleaving inside a line.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
+}
+
+// lockErrOut swaps the command's stderr for a locked writer and returns the
+// function that puts the original back.
+func lockErrOut(f *cmdutil.Factory) func() {
+	orig := f.IOStreams.ErrOut
+	f.IOStreams.ErrOut = &lockedWriter{w: orig}
+	return func() { f.IOStreams.ErrOut = orig }
 }
