@@ -49,3 +49,20 @@ func TestRedactTestError1538DetachesRawChain(t *testing.T) {
 		t.Fatal("safe diagnostic/classification changed")
 	}
 }
+
+func TestRedactTestError1538MetadataOnlyEcho(t *testing.T) {
+	// The server code is rendered separately; the visible Error() is clean.
+	const key = "INTERNAL_SERVER_ERROR"
+	original := api.NewInternalFaultError("safe-request-1538", nil)
+	if strings.Contains(original.Error(), key) {
+		t.Fatal("control is not metadata-only")
+	}
+	got := redactTestError(original, key)
+	fault, ok := api.InternalFaultOf(got)
+	if !ok || fault.ServerCode != "[redacted]" || fault.RequestID != "safe-request-1538" {
+		t.Fatalf("metadata not sanitized: %#v", fault)
+	}
+	if got.Error() != original.Error() || exitcode.FromError(got) != exitcode.Error {
+		t.Fatal("clean message/classification changed")
+	}
+}
