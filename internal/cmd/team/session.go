@@ -3775,12 +3775,13 @@ func isDefinitiveRefusal(err error) bool {
 }
 
 // pointerRefusalExit reports whether a mapped exit code belongs to the family
-// a server REFUSAL maps to (usage 2, auth 3, not found 4). Anything else — an
-// unavailable answer (7), a generic failure (1), or a code outside the family
+// a server REFUSAL maps to (usage 2, auth 3, not found 4, conflict 5, forbidden 8).
+// Anything else — an unavailable answer (7), a generic failure (1), or a code
+// outside the family
 // — proves nothing about whether the update landed (cli#1495).
 func pointerRefusalExit(code int) bool {
 	switch code {
-	case exitcode.Usage, exitcode.AuthRequired, exitcode.NotFound:
+	case exitcode.Usage, exitcode.AuthRequired, exitcode.NotFound, exitcode.Conflict, exitcode.Forbidden:
 		return true
 	}
 	return false

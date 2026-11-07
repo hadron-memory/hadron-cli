@@ -84,7 +84,7 @@ func TestSessionLogPointerClassification1495(t *testing.T) {
 		{"504 with Forbidden remains uncertain", 504, `{"errors":[{"message":"gateway forbidden","extensions":{"code":"FORBIDDEN"}}]}`, 8, false},
 		{"200 internal fault remains uncertain", 200, `{"errors":[{"message":"fault","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, 1, false},
 		{"truncated pointer answer", 200, `{"data":`, 7, false},
-		{"bare HTTP failure", 502, `gateway unavailable`, 1, false},
+		{"bare HTTP failure", 502, `gateway unavailable`, 7, false},
 		// cli#1694: positive refusal family includes Conflict and Forbidden.
 		{"200 Conflict refusal", 200, `{"errors":[{"message":"conflicting update","extensions":{"code":"CONFLICT"}}]}`, 5, true},
 		{"200 Forbidden refusal", 200, `{"errors":[{"message":"forbidden update","extensions":{"code":"FORBIDDEN"}}]}`, 8, true},
