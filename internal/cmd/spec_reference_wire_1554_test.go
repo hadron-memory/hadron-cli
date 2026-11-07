@@ -205,29 +205,37 @@ func TestReferenceFallback1554(t *testing.T) {
 }
 
 func TestReferenceFirstPageRefusalNeverFallback1554(t *testing.T) {
-	unknown := absentReferenceField1554("specUnresolvedReferencesPage")
-	for _, tt := range []struct {
-		name, body string
-		status     int
-	}{
-		{"permission exact prose", strings.Replace(unknown, "GRAPHQL_VALIDATION_FAILED", "FORBIDDEN", 1), 400},
-		{"500 exact validation", unknown, 500},
-		{"unrelated field", absentReferenceField1554("other"), 400},
-		{"legacy name from page is unrelated", absentReferenceField1554("specUnresolvedReferences"), 400},
-		{"mixed", strings.Replace(unknown, `}]}`, `},{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, 1), 400},
-		{"null error entry", strings.Replace(unknown, `}]}`, `},null]}`, 1), 200},
-		{"populated partial", strings.Replace(unknown, `{"errors":`, `{"data":{"specUnresolvedReferencesPage":{"items":[],"total":0,"hasMore":false}},"errors":`, 1), 200},
-		{"http data partial", strings.Replace(unknown, `{"errors":`, `{"data":{"specUnresolvedReferencesPage":null},"errors":`, 1), 400},
-		{"missing page", `{"data":{}}`, 200},
-		{"null item with zero total", `{"data":{"specUnresolvedReferencesPage":{"items":[null],"total":0,"hasMore":false}}}`, 200},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			calls := 0
-			out, _, err := runReferenceWire1554(t, "lint", true, func(op string, v map[string]any) (string, int) { calls++; return tt.body, tt.status })
-			if err == nil || out != "" || calls != 1 {
-				t.Fatalf("out=%s err=%v calls=%d", out, err, calls)
+	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
+		for _, jsonMode := range []bool{false, true} {
+			field := "specUnresolvedReferencesPage"
+			if verb == "backlinks" {
+				field = "specBacklinksPage"
 			}
-		})
+			unknown := absentReferenceField1554(field)
+			for _, tt := range []struct {
+				name, body string
+				status     int
+			}{
+				{"permission exact prose", strings.Replace(unknown, "GRAPHQL_VALIDATION_FAILED", "FORBIDDEN", 1), 400},
+				{"500 exact validation", unknown, 500},
+				{"unrelated field", absentReferenceField1554("other"), 400},
+				{"legacy name from page is unrelated", absentReferenceField1554(strings.TrimSuffix(field, "Page")), 400},
+				{"mixed", strings.Replace(unknown, `}]}`, `},{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, 1), 400},
+				{"null error entry", strings.Replace(unknown, `}]}`, `},null]}`, 1), 200},
+				{"populated partial", strings.Replace(unknown, `{"errors":`, `{"data":{"`+field+`":{"items":[],"total":0,"hasMore":false}},"errors":`, 1), 200},
+				{"http data partial", strings.Replace(unknown, `{"errors":`, `{"data":{"`+field+`":null},"errors":`, 1), 400},
+				{"missing page", `{"data":{}}`, 200},
+				{"null item with zero total", `{"data":{"` + field + `":{"items":[null],"total":0,"hasMore":false}}}`, 200},
+			} {
+				t.Run(fmt.Sprintf("%s/json=%v/%s", verb, jsonMode, tt.name), func(t *testing.T) {
+					calls := 0
+					out, _, err := runReferenceWire1554(t, verb, jsonMode, func(op string, v map[string]any) (string, int) { calls++; return tt.body, tt.status })
+					if err == nil || out != "" || calls != 1 {
+						t.Fatalf("out=%s err=%v calls=%d", out, err, calls)
+					}
+				})
+			}
+		}
 	}
 }
 
@@ -395,6 +403,92 @@ func TestReferenceTypedPartialErrorWins1554(t *testing.T) {
 						t.Fatalf("out=%q err=%v code=%d want=%d calls=%d", out, err, exitCodeFor(err), want, calls)
 					}
 				})
+			}
+		}
+	}
+}
+
+func TestReferenceMissingCodeCompatibility1768(t *testing.T) {
+	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%v", verb, jsonMode), func(t *testing.T) {
+				calls := 0
+				out, _, err := runReferenceWire1554(t, verb, jsonMode, func(op string, _ map[string]any) (string, int) {
+					calls++
+					field := "specUnresolvedReferences"
+					if verb == "backlinks" {
+						field = "specBacklinks"
+					}
+					if strings.HasSuffix(op, "Page") {
+						return fmt.Sprintf(`{"errors":[{"message":%q}]}`, `Cannot query field "`+field+`Page" on type "Query".`), 400
+					}
+					return `{"data":{"` + field + `":[]}}`, 200
+				})
+				if err != nil || calls != 2 || out == "" {
+					t.Fatalf("calls=%d out=%q err=%v", calls, out, err)
+				}
+			})
+		}
+	}
+}
+
+func TestReferenceLegacyDiagnostics1768(t *testing.T) {
+	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
+		for _, jsonMode := range []bool{false, true} {
+			for _, malformed := range []string{`null`, `[null]`, `[{"kind":null}]`} {
+				t.Run(fmt.Sprintf("%s/json=%v/%s", verb, jsonMode, malformed), func(t *testing.T) {
+					calls := 0
+					out, _, err := runReferenceWire1554(t, verb, jsonMode, func(op string, _ map[string]any) (string, int) {
+						calls++
+						field := "specUnresolvedReferences"
+						if verb == "backlinks" {
+							field = "specBacklinks"
+						}
+						if strings.HasSuffix(op, "Page") {
+							return absentReferenceField1554(field + "Page"), 400
+						}
+						return `{"data":{"` + field + `":` + malformed + `}}`, 200
+					})
+					if exitCodeFor(err) != exitcode.Error || out != "" || calls != 2 || !strings.Contains(err.Error(), "invalid legacy spec-reference list:") {
+						t.Fatalf("exit=%d calls=%d out=%q err=%v", exitCodeFor(err), calls, out, err)
+					}
+				})
+			}
+		}
+	}
+}
+
+// A null ORIGINAL error member takes precedence over its typed sibling; it is
+// malformed-envelope exit1, not mapped8/4. Both stages fail closed with no retry.
+func TestReferenceNullErrorPrecedence1768(t *testing.T) {
+	for _, verb := range []string{"backlinks", "unresolved", "lint"} {
+		for _, legacy := range []bool{false, true} {
+			for _, jsonMode := range []bool{false, true} {
+				for _, code := range []string{"FORBIDDEN", "NOT_FOUND"} {
+					t.Run(fmt.Sprintf("%s/legacy=%v/json=%v/%s", verb, legacy, jsonMode, code), func(t *testing.T) {
+						calls := 0
+						out, _, err := runReferenceWire1554(t, verb, jsonMode, func(op string, _ map[string]any) (string, int) {
+							calls++
+							field := "specUnresolvedReferencesPage"
+							if verb == "backlinks" {
+								field = "specBacklinksPage"
+							}
+							if legacy && strings.HasSuffix(op, "Page") {
+								return absentReferenceField1554(field), 400
+							}
+							return fmt.Sprintf(`{"errors":[null,{"message":"typed sibling","extensions":{"code":%q}}]}`, code), 200
+						})
+						wantCalls := 1
+						prefix := "invalid spec-reference page:"
+						if legacy {
+							wantCalls = 2
+							prefix = "invalid legacy spec-reference list:"
+						}
+						if exitCodeFor(err) != exitcode.Error || out != "" || calls != wantCalls || !strings.Contains(err.Error(), prefix+" null error entry") {
+							t.Fatalf("exit=%d calls=%d out=%q err=%v", exitCodeFor(err), calls, out, err)
+						}
+					})
+				}
 			}
 		}
 	}
