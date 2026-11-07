@@ -71,15 +71,17 @@ func TestAiConfigSubmittedKeyErrors1538(t *testing.T) {
 					}
 					all := out.String() + stderr.String()
 					if mode {
-						var v struct {
-							Error struct {
-								Message string `json:"message"`
-							}
-						}
-						if e := json.Unmarshal([]byte(out.String()), &v); e != nil {
+						var envelope map[string]any
+						if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
 							t.Fatal(e)
 						}
-						all = v.Error.Message
+						failure, ok := envelope["error"].(map[string]any)
+						if !ok || len(failure) != 2 || failure["code"] != float64(want) {
+							t.Fatal("unexpected error envelope shape")
+						}
+						// Check all raw streams AND every decoded envelope value, not
+						// only message. error.code is numeric, even for key=FORBIDDEN.
+						all += fmt.Sprint(envelope)
 					}
 					for _, secret := range []string{key, string(quoted[1 : len(quoted)-1])} {
 						if strings.Contains(all, secret) {
@@ -126,6 +128,53 @@ func TestAiConfigCompletedErrorRedacts1538(t *testing.T) {
 			}
 			if strings.Contains(out.String(), key) || !strings.Contains(out.String(), "[redacted]") {
 				t.Fatal("completed test error not redacted")
+			}
+		})
+	}
+}
+
+// Root metadata is preserved when clean; secret-bearing request IDs are removed
+// from the unsafe chain while safe structured metadata and classification survive.
+func TestAiConfigErrorMetadata1538(t *testing.T) {
+	const key = "sk-metadata-1538-secret"
+	for _, requestID := range []string{"safe-request-1538", key} {
+		t.Run(requestID, func(t *testing.T) {
+			payload, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": "hidden server details " + key, "extensions": map[string]any{"code": "INTERNAL_SERVER_ERROR", "requestId": requestID}}}})
+			gql, _ := captureGraphQL(t, map[string]string{"TestAiServiceConfig": string(payload)})
+			f, out := testFactory(t)
+			var stderr bytes.Buffer
+			f.IOStreams.ErrOut = &stderr
+			path := filepath.Join(t.TempDir(), "override.json")
+			if err := os.WriteFile(path, []byte(`{"apiKey":"`+key+`"}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"ai-config", "test", "cfg1", "--json", "--override-file", path, "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected failure")
+			}
+			if got := renderError(f, err); got != 1 {
+				t.Fatalf("exit %d", got)
+			}
+			var envelope struct {
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.Error["code"] != float64(1) {
+				t.Fatal("numeric code changed")
+			}
+			if strings.Contains(out.String()+stderr.String()+fmt.Sprint(envelope.Error), key) {
+				t.Fatal("metadata leaked submitted key")
+			}
+			if requestID == key {
+				if len(envelope.Error) != 4 || envelope.Error["requestId"] != "[redacted]" || envelope.Error["serverCode"] != "INTERNAL_SERVER_ERROR" || !strings.Contains(envelope.Error["message"].(string), "[redacted]") {
+					t.Fatal("secret-bearing metadata not sanitized")
+				}
+			} else if len(envelope.Error) != 4 || envelope.Error["serverCode"] != "INTERNAL_SERVER_ERROR" || envelope.Error["requestId"] != requestID {
+				t.Fatal("clean metadata changed")
 			}
 		})
 	}
