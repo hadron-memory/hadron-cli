@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmd/node"
 )
 
 // cli#1677: worker get, node get and chat read overlap requests that used to
@@ -175,5 +179,170 @@ func TestChatReadMetadataOverlapsPage1677(t *testing.T) {
 	}
 	if headAt < 0 || pageAt < 0 || headAt > pageAt {
 		t.Errorf("the head probe must complete before the page is requested: %v", ops)
+	}
+}
+
+const gqlBoom1677 = `{"errors":[{"message":"boom"}]}`
+
+// blockingProbe swaps node.SigningCapabilityProbe for one that announces it
+// started and then blocks until its context is cancelled, reporting when it has
+// actually returned.
+func blockingProbe1677(t *testing.T) (started, returned chan struct{}) {
+	t.Helper()
+	started, returned = make(chan struct{}), make(chan struct{})
+	prev := node.SigningCapabilityProbe
+	node.SigningCapabilityProbe = func(ctx context.Context, _ string) (bool, error) {
+		close(started)
+		defer close(returned)
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(rendezvousTimeout):
+			t.Errorf("the capability probe was never cancelled")
+			return false, nil
+		}
+	}
+	t.Cleanup(func() { node.SigningCapabilityProbe = prev })
+	return started, returned
+}
+
+// A failed resolve or content read must not leave the capability request
+// running: the command cancels and joins it on every exit path.
+func TestNodeGetFailureCancelsCapabilityProbe1677(t *testing.T) {
+	for _, failing := range []string{"ResolveUrn", "GetNode"} {
+		t.Run(failing, func(t *testing.T) {
+			started, returned := blockingProbe1677(t)
+			stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+			gql, _ := captureGraphQLFunc(t, func(op string) string {
+				if op == failing {
+					// The probe is in flight before the failure is answered.
+					select {
+					case <-started:
+					case <-time.After(rendezvousTimeout):
+						t.Errorf("the capability probe never started before %s was answered", op)
+					}
+					return gqlBoom1677
+				}
+				if strings.HasPrefix(op, "NodeLiveRevisions") {
+					return liveRevisions(map[string]int{"n1": 12})
+				}
+				return stubs[op]
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+			if err := root.Execute(); err == nil {
+				t.Fatalf("expected %s failure", failing)
+			}
+			select {
+			case <-returned:
+			default:
+				t.Fatalf("command returned while the capability probe was still running")
+			}
+		})
+	}
+}
+
+// The capability read starts with the resolve, not after the content read.
+func TestNodeGetCapabilityProbeOverlapsResolve1677(t *testing.T) {
+	rv := newRendezvous(t, "ResolveUrn", "Capability")
+	prev := node.SigningCapabilityProbe
+	node.SigningCapabilityProbe = func(context.Context, string) (bool, error) {
+		rv.arrive("Capability")
+		return false, nil
+	}
+	t.Cleanup(func() { node.SigningCapabilityProbe = prev })
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		if op == "ResolveUrn" {
+			rv.arrive(op)
+		}
+		if strings.HasPrefix(op, "NodeLiveRevisions") {
+			return liveRevisions(map[string]int{"n1": 12})
+		}
+		return stubs[op]
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+}
+
+// Both advisories fail at once, the later-in-order one finishing first: the
+// notes still print comments before lint, as they did when the reads ran in
+// sequence.
+func TestNodeGetAdvisoryNotesKeepOrder1677(t *testing.T) {
+	withSigningProbe(t, false, nil)
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	lintServed := make(chan struct{})
+	var lintOnce sync.Once
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "GetNodeLintWarnings":
+			lintOnce.Do(func() { close(lintServed) })
+			return gqlBoom1677
+		case "NodeCommentSummaries":
+			// Fail only after lint has already failed, so completion order is
+			// the reverse of the documented order.
+			select {
+			case <-lintServed:
+			case <-time.After(rendezvousTimeout):
+				t.Errorf("lint read never ran beside the comment read")
+			}
+			time.Sleep(50 * time.Millisecond)
+			return gqlBoom1677
+		}
+		if strings.HasPrefix(op, "NodeLiveRevisions") {
+			return liveRevisions(map[string]int{"n1": 12})
+		}
+		return stubs[op]
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--lint-warnings", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+	commentAt := strings.Index(stderr, "feedback counts unavailable")
+	lintAt := strings.Index(stderr, "lint warnings: unavailable")
+	if commentAt < 0 || lintAt < 0 || commentAt > lintAt {
+		t.Errorf("notes must print comments then lint, got:\n%s", stderr)
+	}
+}
+
+// The first revision probe must finish before the content read starts: the
+// bracket's "before" is only a before if nothing reads content meanwhile.
+func TestNodeGetBracketBeforeProbeCompletesFirst1677(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	revs := liveRevisions(map[string]int{"n1": 12})
+	released := make(chan struct{})
+	time.AfterFunc(300*time.Millisecond, func() { close(released) })
+	var first sync.Once
+	var early atomic.Bool
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		if strings.HasPrefix(op, "NodeLiveRevisions") {
+			first.Do(func() { <-released })
+			return revs
+		}
+		if op == "GetNode" {
+			select {
+			case <-released:
+			default:
+				early.Store(true)
+			}
+		}
+		return stubs[op]
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if early.Load() {
+		t.Errorf("the content read started before the first revision probe was answered")
 	}
 }

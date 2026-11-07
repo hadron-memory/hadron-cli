@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -144,7 +145,11 @@ asks for that memory's passphrase for this one invocation.
 				// resolve and the content read. The body-only form never uses it.
 				var signingProbe func() (bool, error)
 				if !bodyOnly {
-					signingProbe = startSigningProbe(cmd.Context(), f)
+					var stopProbe func()
+					signingProbe, stopProbe = startSigningProbe(cmd.Context(), f)
+					// Every exit path cancels and joins the probe, so a failed
+					// resolve or content read never leaves its request running.
+					defer stopProbe()
 				}
 				// A full node URN names its node outright, so the bracket's
 				// before-probe can be asked in the same breath as the resolve.
@@ -177,28 +182,35 @@ asks for that memory's passphrase for this one invocation.
 				}
 				// cli#1677: the three advisories below read independent things
 				// of the resolved id, so they run together and cost one
-				// round trip's latency, not three. Their stderr notes go
-				// through one locked writer; each is a single whole-line write.
+				// round trip's latency, not three. Each one's stderr notes go to
+				// its own buffer and are emitted afterwards in the historical
+				// order (comments, then lint), so concurrency never reorders output.
 				// cli#878 part 3: the signature fold is advisory, and gated on
 				// the server advertising signing, so an off or older server pays
 				// no refused round trip. The RESOLVED id, never args[0]: a bare
 				// loc plus -m already resolved here, and the raw spelling is
 				// ambiguous across memories (Andi's cycle-1 P2).
-				restoreErr := lockErrOut(f)
 				advisoryCtx := cmd.Context() // loadLintWarnings may SetContext
+				var commentNotes, lintNotes bytes.Buffer
+				origErr := cmd.ErrOrStderr()
 				var wg sync.WaitGroup
 				wg.Add(2)
 				go func() {
 					defer wg.Done()
-					loadCommentSummaries(advisoryCtx, f, client, []*nodeDetailDTO{&dto})
+					loadCommentSummariesTo(advisoryCtx, &commentNotes, client, []*nodeDetailDTO{&dto})
 				}()
 				go func() {
 					defer wg.Done()
 					loadSignatureSummary(advisoryCtx, client, signingProbe, id, &dto)
 				}()
+				// The lint advisory prints through the command's stderr; only
+				// this goroutine touches it until wg.Wait.
+				cmd.SetErr(&lintNotes)
 				dto.LintWarnings = loadLintWarnings(cmd, client, id)
+				cmd.SetErr(origErr)
 				wg.Wait()
-				restoreErr()
+				_, _ = origErr.Write(commentNotes.Bytes())
+				_, _ = origErr.Write(lintNotes.Bytes())
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})

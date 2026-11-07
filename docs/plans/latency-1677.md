@@ -23,7 +23,7 @@ None of them can come from `GetWorkerInApp`'s selection: each is its own operati
 The per-operation documents are untouched. Independent requests now go out together.
 
 - **worker get:** after the worker row, the profile, terminal, model-group, rendered and boot-preview reads run concurrently (`readWorkerGetExtras`). Errors are taken in the old order, so the first failure a caller sees is unchanged.
-- **node get:** the `/capabilities` read starts before the URN resolve; the comment-summary, signature and lint advisories run together. For a full `hrn:node:` URN the bracket's first revision probe is asked in the same breath as the resolve.
+- **node get:** the `/capabilities` read starts before the URN resolve; the comment-summary, signature and lint advisories run together, each buffering its stderr note and emitting in the old order (comments, then lint). The capability probe runs on a cancellable context that every exit path cancels and joins, so a failed resolve or read leaves no request behind. For a full `hrn:node:` URN the bracket's first revision probe is asked in the same breath as the resolve.
 - **chat read:** the allocator-head and read-cursor reads overlap the head and page reads. Their stderr notes are held and printed in the old order.
 
 ## What did not change, and why
@@ -34,4 +34,4 @@ The per-operation documents are untouched. Independent requests now go out toget
 
 ## Pins
 
-`internal/cmd/latency_1677_test.go` holds each request at a barrier until its peers have arrived, so a command that went back to one-at-a-time goes red after 3 s. The request sets are also pinned (each read exactly once). Production mutants run: sequential `worker get`, a duplicated `GetWorkerProfile`, the early node probe disabled, and the chat metadata read moved before the page; each is red.
+`internal/cmd/latency_1677_test.go` holds each request at a barrier until its peers have arrived, so a command that went back to one-at-a-time goes red after 3 s. The request sets are also pinned (each read exactly once). Production mutants run: sequential `worker get`, a duplicated `GetWorkerProfile`, the early node probe disabled, and the chat metadata read moved before the page; each is red. Blind-review fix (Gizelle, P2/P3): also pinned are probe cancellation on a failed resolve and a failed content read, capability/resolve overlap, advisory note order under simultaneous failures, and the first revision probe completing before the content read; mutants for the missing cancel and the swapped note order are red.

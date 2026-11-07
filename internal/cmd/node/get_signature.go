@@ -48,32 +48,42 @@ type signatureSummaryDTO struct {
 }
 
 // startSigningProbe begins the capability read in the background and returns
-// the function that waits for its answer (cli#1677). `node get` starts it
-// before the node is resolved, so the one /capabilities round trip overlaps
-// the resolve and the content read instead of following them. The gate is
-// unchanged: it is still the same probe and the same answer, only earlier. A
-// failure still reads as "not advertised".
-func startSigningProbe(ctx context.Context, f *cmdutil.Factory) func() (bool, error) {
+// the function that waits for its answer plus a stop that cancels and joins it
+// (cli#1677). `node get` starts it before the node is resolved, so the one
+// /capabilities round trip overlaps the resolve and the content read instead of
+// following them. The gate is unchanged: it is still the same probe and the
+// same answer, only earlier. A failure still reads as "not advertised".
+//
+// The probe runs on its own cancellable context: a command that fails before it
+// consumes the answer calls stop, so no request outlives the command. stop is
+// idempotent and safe after wait.
+func startSigningProbe(ctx context.Context, f *cmdutil.Factory) (wait func() (bool, error), stop func()) {
 	type answer struct {
 		advertised bool
 		err        error
 	}
+	probeCtx, cancel := context.WithCancel(ctx)
 	done := make(chan answer, 1)
 	server, err := f.Server()
 	if err != nil {
 		done <- answer{err: err}
 	} else {
 		go func() {
-			advertised, err := SigningCapabilityProbe(ctx, server)
+			advertised, err := SigningCapabilityProbe(probeCtx, server)
 			done <- answer{advertised, err}
 		}()
 	}
 	var got answer
 	var once sync.Once
-	return func() (bool, error) {
+	wait = func() (bool, error) {
 		once.Do(func() { got = <-done })
 		return got.advertised, got.err
 	}
+	stop = func() {
+		cancel()
+		_, _ = wait()
+	}
+	return wait, stop
 }
 
 // loadSignatureSummary folds the summary into the single-ref node get, gated
@@ -129,25 +139,4 @@ func stateOrNone(state string) string {
 		return "none"
 	}
 	return state
-}
-
-// lockedWriter serialises Writes so concurrent advisory reads can each report
-// a note on stderr without interleaving inside a line.
-type lockedWriter struct {
-	mu sync.Mutex
-	w  io.Writer
-}
-
-func (l *lockedWriter) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.w.Write(p)
-}
-
-// lockErrOut swaps the command's stderr for a locked writer and returns the
-// function that puts the original back.
-func lockErrOut(f *cmdutil.Factory) func() {
-	orig := f.IOStreams.ErrOut
-	f.IOStreams.ErrOut = &lockedWriter{w: orig}
-	return func() { f.IOStreams.ErrOut = orig }
 }
