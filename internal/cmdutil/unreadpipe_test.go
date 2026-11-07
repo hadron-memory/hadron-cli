@@ -45,7 +45,7 @@ func TestRefuseUnreadStdinPipe(t *testing.T) {
 		unreadPipeWait = 20 * time.Millisecond
 		defer func() { unreadPipeWait = old }()
 		pr, pw := io.Pipe()
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 		done := make(chan error, 1)
 		go func() { done <- RefuseUnreadStdinPipe(pr, false, "f", "c") }()
 		select {

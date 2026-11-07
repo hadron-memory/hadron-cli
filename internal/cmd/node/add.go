@@ -105,6 +105,16 @@ Details:
 			if err := cmdutil.ValidateURNPath("--loc", loc); err != nil {
 				return err
 			}
+			// #1450: a non-empty pipe with no flag to read it used to be dropped
+			// silently, storing an empty body under a success line. Before any
+			// request, and only when neither content flag was passed (an inline
+			// --content wins; a flag that names stdin consumes it).
+			if !cmd.Flags().Changed("content") && !cmd.Flags().Changed("content-file") {
+				if err := cmdutil.RefuseUnreadStdinPipe(f.IOStreams.In, f.IOStreams.IsInputTerminal(),
+					"--content - (or --content-file -)", "store an empty body"); err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
