@@ -3,10 +3,12 @@
 // final component (cli#1223). The destination is opened BEFORE the secret exists, and the
 // caller commits or aborts afterwards.
 //
-// On windows "0600" only clears the read-only attribute: the file's
-// confidentiality is the ACL it inherits from its directory, so it is private
-// under the user profile and not in a shared directory (#1324). An owner-only
-// DACL is not set here (#1325).
+// On windows the file is created with an explicit protected DACL granting only
+// the current user and SYSTEM (#1325), set on the create itself so it is never
+// readable by anyone else, wherever it is written. The Go mode 0600 means
+// nothing there: it only clears the read-only attribute. Administrators are
+// not granted, but an elevated process's file may be owned by the
+// Administrators group, and an owner can always read and rewrite its own DACL.
 package secretfile
 
 import (
@@ -67,13 +69,12 @@ type Pending struct {
 // Open creates the destination: O_CREAT|O_EXCL|O_NOFOLLOW at 0600 on the path
 // itself, or — with force — on a fresh temp file in the same directory, which
 // Commit renames over the path. The final path component is never followed if it is a symlink (O_NOFOLLOW;
-// on windows, CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT — see noFollow);
-// symlinked parent directories are followed like any other path. On windows the
-// 0600 mode only clears the read-only bit: the file takes its directory's
-// inherited ACL.
+// on windows, CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT — see createExcl);
+// symlinked parent directories are followed like any other path. On windows
+// the file is created with the owner-only DACL (current user + SYSTEM,
+// protected), not the directory's inherited ACL (#1325).
 func Open(final string, force bool) (*Pending, error) {
 	p := &Pending{final: final, path: final, force: force}
-	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY | noFollow
 	if force {
 		if fi, err := os.Lstat(final); err == nil && fi.IsDir() {
 			return nil, fmt.Errorf("%w: %s", ErrIsDir, final)
@@ -84,7 +85,7 @@ func Open(final string, force bool) (*Pending, error) {
 		}
 		p.path = filepath.Join(filepath.Dir(final), "."+filepath.Base(final)+".tmp-"+hex.EncodeToString(suffix[:]))
 	}
-	f, err := os.OpenFile(p.path, flags, 0o600)
+	f, err := createExcl(p.path)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) && !force {
 			return nil, fmt.Errorf("%w: %s", ErrExists, final)
