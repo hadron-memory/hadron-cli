@@ -117,7 +117,7 @@ func TestMemoryLocSegmentsMalformed1744(t *testing.T) {
 }
 func TestMemoryLocSegmentsTextAndNull1744(t *testing.T) {
 	r := runLoc1744(t, locPage1744, "--memory", "m")
-	if r.err != nil || !strings.Contains(r.out, "MEMORY ID") || strings.Contains(r.out, "more segments") || r.stderr != "more segments remain — continue with --after opaque+/:=\n" {
+	if r.err != nil || !strings.Contains(r.out, "MEMORY ID") || strings.Contains(r.out, "more segments") || r.stderr != "more segments remain — continue with --after 'opaque+/:='\n" {
 		t.Fatalf("text err%v out%q stderr%q", r.err, r.out, r.stderr)
 	}
 	// genqlient bools cannot distinguish null from false; retain/pin that limit.
