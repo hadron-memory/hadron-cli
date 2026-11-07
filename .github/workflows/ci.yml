@@ -41,6 +41,20 @@ jobs:
       - name: CLI coverage matrix
         run: make coverage-matrix-check
 
+  # #1325: the key file's owner-only DACL on windows is a security claim, so it
+  # is pinned by tests that read the DACL back through the Windows API. Only
+  # this package runs here: the cost is one runner, and unrelated packages'
+  # windows-only noise stays out. No paths filter, so it can be made required.
+  windows-secretfile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - name: Test secretfile
+        run: go test ./internal/secretfile/...
+
   lint:
     runs-on: ubuntu-latest
     steps:
