@@ -42,6 +42,8 @@ func TestValidationProjection1706(t *testing.T) {
 		{"conflict", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 5, 1},
 		{"urn-choice", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "hrn:node:example.com:kb:one", 0, 1},
 		{"conflicting-duplicate", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3},{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":4}]}`, "", 1, 0},
+		{"ready-broken", `{"state":"READY","tasks":[{"broken":true,"taskId":null,"taskRef":null,"revision":null},{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 1, 0},
+		{"bare-task-ref", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"one","revision":3}]}`, "", 1, 0},
 		{"unknown", `{"state":"FUTURE","tasks":[]}`, "", 1, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -79,6 +81,9 @@ func TestValidationProjection1706(t *testing.T) {
 					fmt.Fprintf(w, `{"data":{"node":{"id":"n1","revision":7,"memoryId":"m1","validationTasks":%s}}}`, tc.set)
 				case "RecordContentValidation":
 					writes++
+					if len(q.Variables) != 6 || q.Variables["nodeRef"] != "n1" || q.Variables["nodeRevision"] != float64(7) || q.Variables["outcome"] != "PASS" {
+						t.Errorf("record payload lost node/revision/outcome/arity: %v", q.Variables)
+					}
 					if _, ok := q.Variables["reporter"]; ok || strings.Contains(q.Query, "reporter") {
 						t.Error("reporter remains server-derived")
 					}
@@ -120,6 +125,13 @@ func TestValidationProjection1706(t *testing.T) {
 			err := root.Execute()
 			if exitCodeFor(err) != tc.exit || writes != tc.writes || reads != 1 {
 				t.Fatalf("exit=%d want=%d writes=%d want=%d reads=%d err=%v", exitCodeFor(err), tc.exit, writes, tc.writes, reads, err)
+			}
+			if tc.name == "multiple" {
+				for _, fragment := range []string{"t1", "t2", "hrn:node:example.com:kb:one", "hrn:node:example.com:kb:two", "revision 3", "revision 4", "--task"} {
+					if !strings.Contains(fmt.Sprint(err), fragment) {
+						t.Errorf("choice guidance missing %q: %v", fragment, err)
+					}
+				}
 			}
 			if tc.exit == 8 && tc.writes == 0 && fmt.Sprint(err) != "validation task set is unavailable for this caller; no report sent" {
 				t.Fatalf("unavailable/null must be identical and cause-free: %v", err)
