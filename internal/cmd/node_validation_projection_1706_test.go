@@ -41,6 +41,7 @@ func TestValidationProjection1706(t *testing.T) {
 		{"author-refusal", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 8, 1},
 		{"conflict", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 5, 1},
 		{"urn-choice", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "hrn:node:example.com:kb:one", 0, 1},
+		{"conflicting-duplicate", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3},{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":4}]}`, "", 1, 0},
 		{"unknown", `{"state":"FUTURE","tasks":[]}`, "", 1, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
