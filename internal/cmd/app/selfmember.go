@@ -114,7 +114,7 @@ const leaveKeptNote = "Your personal memory in the App is kept and re-attaches i
 func newCmdLeave(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "leave <app-ref> [--instruction <kind>:<ref>]",
+		Use:   "leave <app-ref> [--yes] [--instruction <kind>:<ref>]",
 		Short: "Leave an App you are a member of",
 		Long: `Leave an App as the signed-in user (leaveApp).
 
