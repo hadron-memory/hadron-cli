@@ -75,7 +75,7 @@ func TestSpecMintStaleAbstractSummaryScope1807(t *testing.T) {
 						t.Fatal("human pointer changed JSON")
 					}
 				} else {
-					want := "  stale abstracts: 2 (reported only) — this mint's scope only; whole-memory audit: hadron spec validate -m hadronmemory.com::platform-specs\n"
+					want := "  stale abstracts: 2 (reported only) — this mint's scope only; whole-memory audit: hadron spec validate --all -m hadronmemory.com::platform-specs\n"
 					if strings.Count(out.String(), want) != 1 {
 						t.Fatalf("missing scoped summary %q in:\n%s", want, out.String())
 					}
