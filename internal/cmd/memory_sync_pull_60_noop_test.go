@@ -111,6 +111,9 @@ func TestMemorySyncPull60StoredFailedAndUnknownCode(t *testing.T) {
 		status       string
 	}{
 		{"failed", `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"SYNC_FAILED"}`, 1, "recorded"},
+		{"failed-unknown", `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"FUTURE_CODE"}`, 1, "unavailable"},
+		{"failed-wrong-entry", `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[{"kind":"deferred","loc":"x","code":"PROTECTED_LOC"}],"code":"SYNC_FAILED"}`, 1, "unavailable"},
+		{"partial-wrong-entry", `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"deferred","loc":"x","code":"PROTECTED_LOC"}]}`, 0, "unavailable"},
 		{"newcode", `{"version":1,"outcome":"unknown","recordedAt":"` + recordedAt + `","entries":[],"code":"NEW_CODE"}`, 0, "unavailable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
