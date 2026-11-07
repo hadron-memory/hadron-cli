@@ -25,3 +25,33 @@ fragment NodeContentValidationCheckedFields on NodeContentValidationStatus {
     outcome nodeRevision reportedAt validationTaskRef validationTaskRevision authorCheck
   }
 }
+
+# Interim #1706 discovery. This manager-only projection is replaced by #3659;
+# it is deliberately separate from shared config reads and node-get fragments.
+query ContentValidationNode($ref: ID!) {
+  node(ref: $ref) { id memoryId revision role isRunnable }
+}
+query ContentValidationRules($memoryRef: ID!) {
+  memoryConfig(memoryRef: $memoryRef) {
+    rules { role enabled strictSubRoles validationTask validationTaskId validationTaskState }
+  }
+}
+query ContentValidationTask($ref: ID!) {
+  node(ref: $ref) { id revision isRunnable }
+}
+mutation RecordContentValidation(
+  $nodeRef: ID!
+  $nodeRevision: Int!
+  $validationTaskRef: ID!
+  $validationTaskRevision: Int!
+  $outcome: NodeContentValidationOutcome!
+  # @genqlient(omitempty: true)
+  $runId: String
+) {
+  recordNodeContentValidationReport(nodeRef: $nodeRef, nodeRevision: $nodeRevision,
+    validationTaskRef: $validationTaskRef, validationTaskRevision: $validationTaskRevision,
+    outcome: $outcome, runId: $runId) {
+    nodeId replayed state
+    report { nodeRevision validationTaskRef validationTaskRevision outcome reportedAt authorCheck }
+  }
+}

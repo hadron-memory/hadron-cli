@@ -945,6 +945,14 @@ func ExtensionCount(err error, code string) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Content-validation reports (#1706 / server #1332): caller-provided
+	// revision/task inputs, server-owned configuration state and identity.
+	case code == "CONTENT_VALIDATION_REPORTER_UNKNOWN" || code == "CONTENT_VALIDATION_REPORTER_IS_AUTHOR":
+		return exitcode.Forbidden
+	case code == "CONTENT_VALIDATION_NODE_REVISION_INVALID" || code == "CONTENT_VALIDATION_TASK_REVISION_INVALID" || code == "CONTENT_VALIDATION_WRONG_TASK":
+		return exitcode.Usage
+	case code == "CONTENT_VALIDATION_NOT_CONFIGURED" || code == "CONTENT_VALIDATION_TASK_BROKEN" || code == "CONTENT_VALIDATION_RUN_ID_CONFLICT":
+		return exitcode.Conflict
 	// Install-memory target ownership changed while the native write acquired
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":

@@ -3636,6 +3636,35 @@ server error fails the command).
     or the legacy `<org>::<memory>::<loc>`) — a bare loc is rejected (exit 2). `--app`
     defaults to the App context (`hadron app set-active` / `--app`) when omitted.
 
+
+### Content-validation reports (cli#1706)
+
+`node validation record` records an advisory result of a task already run; it
+never runs that task or edits the node. It reads the current node/task revisions,
+so record before either changes. The server derives the reporter and checks the
+write, task and author gates. CHECKED only compares recorded authors; it is not
+proof of independence. AUTHOR_UNKNOWN means the server could not compare them.
+`node get` shows this comparison in the existing validation line and JSON report;
+older servers fall back with an unknown (`null`) comparison.
+
+Interim discovery reads manager-only memory configuration. A caller who cannot
+read it gets exit 8 with a discovery explanation; the writer-readable server
+projection is tracked separately in server#3659. The CLI never infers a task from
+a prior report. It derives effective role/runnable rules (including dotted
+ancestors): one task is automatic, multiple tasks require `--task` from the listed
+refs/revisions. No task returns CONTENT_VALIDATION_NOT_CONFIGURED locally without
+a mutation; an explicit task outside the set exits 2. Broken/unreadable applicable
+tasks fail closed. No client reporter field is sent.
+
+`--run-id` is passed through, including on a deliberate retry. JSON is
+`{nodeId,replayed,report:{nodeRevision,validationTaskRef,validationTaskRevision,
+outcome,reportedAt,authorCheck},state}`. `replayed:true` is success and writes
+nothing. No automatic retry occurs. Exit 4 = missing/unreadable node; 8 = access,
+reporter or author refusal; 2 = invalid task/revision/input; 5 = configuration,
+node revision or run-ID conflict. Exit 7 is an uncertain outcome: inspect before
+retrying. Reports are advisory, not approvals, and history is outside this command.
+
+
 ## The escape hatch: hadron api
 
 Anything the curated commands don't cover is reachable through raw
@@ -3807,6 +3836,7 @@ hadron node list --memory hrn:mem:acme.com:kb --json
 
 # Read one node's content and edges
 hadron node get hrn:node:acme.com:kb:findings:flaky-ci --json
+hadron node validation record <node-ref> [-m <memory>] --outcome PASS|FAIL|ERROR [--task <ID-or-listed-URN>] [--run-id <key>] [--json]
 
 # Create a node from stdin
 cat finding.md | hadron node add -m hrn:mem:acme.com:kb --loc findings:flaky-ci \
