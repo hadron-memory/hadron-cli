@@ -319,7 +319,7 @@ func TestMemoryGetSyncStringsAreQuoted1775(t *testing.T) {
 }
 
 // The two guards Rodolfo's §10 mutants showed unpinned (cli#1067): an unknown
-// report-level code in the failed summary is quoted, and syncError is capped.
+// report-level code makes the report unavailable, and syncError is capped.
 // Also: a password with an unencoded @ is masked whole, not up to its first @.
 func TestMemoryGetFailedSummaryAndSyncErrorAreGuarded(t *testing.T) {
 	report := `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"NEW\u001b[31m"}`
@@ -425,10 +425,10 @@ func TestMemoryGetUnknownVocabulary1775(t *testing.T) {
 		"v1-attestation":  `{"kind":"attestation_refused","loc":"DO_NOT_PRINT","code":"AUTHORING_ATTESTATION_MISSING"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[` + entry + `]}`
+			report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"protected","loc":"PREFIX_MUST_NOT_PRINT","code":"PROTECTED_LOC"},` + entry + `]}`
 			m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
 			out, err := runMemoryGetSync(t, m, false)
-			if err != nil || !strings.Contains(out, "sync: report unavailable") || strings.Contains(out, "DO_NOT_PRINT") || strings.Contains(out, "other") {
+			if err != nil || !strings.Contains(out, "sync: report unavailable") || strings.Contains(out, "DO_NOT_PRINT") || strings.Contains(out, "PREFIX_MUST_NOT_PRINT") || strings.Contains(out, "other") {
 				t.Fatalf("out=%q err=%v", out, err)
 			}
 			dto := memoryGetSyncJSON(t, m)
@@ -436,5 +436,31 @@ func TestMemoryGetUnknownVocabulary1775(t *testing.T) {
 				t.Fatal(dto)
 			}
 		})
+	}
+}
+
+func TestMemoryGetClosedV1Vocabulary1775(t *testing.T) {
+	for kind, codes := range map[string][]string{
+		"protected":            {"PROTECTED_LOC", "PROTECTED_COMMENT", "PROTECTED_BOOT_PROMPT", "PROTECTED_DECISION"},
+		"object_type_rejected": {"OBJECT_TYPE_REJECTED"},
+		"undeclared_role":      {"ROLE_NOT_DECLARED"},
+		"invalid_include":      {"INVALID_INCLUDE", "INCLUDE_CYCLE", "INCLUDE_TARGET_UNAVAILABLE"},
+		"deferred":             {"ROW_CHANGED"},
+		"held_move":            {"MOVE_HELD", "DESTINATION_PROTECTED"},
+	} {
+		for _, code := range codes {
+			t.Run(kind+"/"+code, func(t *testing.T) {
+				report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"` + kind + `","loc":"x","code":"` + code + `"}]}`
+				m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
+				dto := memoryGetSyncJSON(t, m)
+				if dto["syncReportStatus"] != "recorded" || dto["syncReport"] == nil {
+					t.Fatal(dto)
+				}
+				out, err := runMemoryGetSync(t, m, false)
+				if err != nil || !strings.Contains(out, "("+code+")") {
+					t.Fatalf("%s %v", out, err)
+				}
+			})
+		}
 	}
 }

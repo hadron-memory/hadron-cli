@@ -4,7 +4,7 @@ Design as built. The gate is Xan's CHECKED stamp on hadron-cli#1014 (Patrick's P
 
 ## What changes
 
-`hadron memory get` reads three more Memory fields, `lastSyncedAt`, `syncError` and `lastSyncReport`, and shows them. No other command changes. `memory list` is unchanged.
+`hadron memory get` reads three more Memory fields, `lastSyncedAt`, `syncError` and `lastSyncReport`, and shows them. The #1775 vocabulary follow-up also shares this parser with `memory sync pull`. `memory list` is unchanged.
 
 ## Read path
 
@@ -31,7 +31,7 @@ Design as built. The gate is Xan's CHECKED stamp on hadron-cli#1014 (Patrick's P
 
 The CLI never repairs a report.
 
-An unknown entry `kind` or `code` does not make a report unavailable, because the server may add vocabulary within v1. `--json` passes it through as-is, and the text view labels it `other "<value>"`. Entries are never dropped.
+The #1775 unknown-vocabulary slice makes an unknown entry kind, code, a code belonging to another kind, or an unknown report-level code unavailable as a whole. Neither text nor JSON guesses at unknown vocabulary. `memory get` still exits 0 with `syncReport: null` and status `unavailable`; `memory sync pull` retains exit 1 when the raw report says `failed`, even when unavailable. Version 2 support remains a separate acceptance half of #1775; this slice accepts v1 only.
 
 ## Text view
 
@@ -53,9 +53,9 @@ The `ERROR`, `SYNCING` and `PENDING` rows cover rows written before the provider
 
 ## Terminal safety (§10 surface)
 
-- **Quoting.** Every server-supplied free-form string (`loc`, `fromLoc`, unknown kind and code values, `syncError`) prints through `strconv.Quote`, the `email.go` pattern. Control and escape sequences therefore print as escapes. `recordedAt` prints bare only because parsing has already validated it as a timestamp.
+- **Quoting.** Every server-supplied free-form string (`loc`, `fromLoc`, `syncError`) prints through `strconv.Quote`, the `email.go` pattern. Control and escape sequences therefore print as escapes. `recordedAt` prints bare only because parsing has already validated it as a timestamp.
 - **Caps.**
-  - A loc, or an unknown kind or code value, is capped at 200 runes, with a trailing `…`.
+  - A loc is capped at 200 runes, with a trailing `…`.
   - `syncError` is capped at 500 runes.
   - The text view prints at most 50 entries, then `… and N more`.
   - `--json` is uncapped: it is the machine contract.

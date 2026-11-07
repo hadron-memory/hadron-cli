@@ -43,9 +43,8 @@ const (
 // parseSyncReport reads the stored string. A nil input is "none"; anything
 // that is not a well-formed v1 report (bad JSON, another version, a non-object,
 // an outcome or field outside v1, an omitted or null entries array) is
-// "unavailable" with no report. Unknown
-// entry kinds and codes are NOT a reason to refuse: the server may add
-// vocabulary within v1, and those render as "other".
+// "unavailable" with no report. Entry kinds, per-kind codes and report codes
+// are closed sets: unknown vocabulary makes the entire report unavailable.
 func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if raw == nil {
 		return nil, syncReportNone
@@ -78,6 +77,9 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if _, err := time.Parse(time.RFC3339Nano, *wire.RecordedAt); err != nil {
 		return nil, syncReportUnavailable
 	}
+	if wire.Code != nil && !syncReportCodes[*wire.Code] {
+		return nil, syncReportUnavailable
+	}
 	rep := &syncReportDTO{
 		Version:    1,
 		Outcome:    *wire.Outcome,
@@ -86,7 +88,7 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 		Code:       wire.Code,
 	}
 	for _, e := range *wire.Entries {
-		if e.Kind == nil || e.Loc == nil || e.Code == nil {
+		if e.Kind == nil || e.Loc == nil || e.Code == nil || !syncEntryCodes[*e.Kind][*e.Code] {
 			return nil, syncReportUnavailable
 		}
 		rep.Entries = append(rep.Entries, syncReportEntryDTO{Kind: *e.Kind, Loc: *e.Loc, FromLoc: e.FromLoc, Code: *e.Code})
@@ -94,8 +96,7 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	return rep, syncReportRecorded
 }
 
-// Human labels for the v1 vocabulary (syncReport.ts). Anything else is shown
-// quoted under "other".
+// Human labels and closed per-kind vocabulary for version 1 (cor:int:010:01).
 var (
 	syncKindLabels = map[string]string{
 		"protected":            "protected",
@@ -105,18 +106,33 @@ var (
 		"deferred":             "deferred",
 		"held_move":            "move held",
 	}
-	syncEntryCodes = map[string]bool{
-		"PROTECTED_LOC": true, "PROTECTED_COMMENT": true, "PROTECTED_BOOT_PROMPT": true, "PROTECTED_DECISION": true,
-		"OBJECT_TYPE_REJECTED": true, "ROLE_NOT_DECLARED": true,
-		"INVALID_INCLUDE": true, "INCLUDE_CYCLE": true, "INCLUDE_TARGET_UNAVAILABLE": true,
-		"ROW_CHANGED": true, "MOVE_HELD": true, "DESTINATION_PROTECTED": true,
+	syncEntryCodes = map[string]map[string]bool{
+		"protected":            {"PROTECTED_LOC": true, "PROTECTED_COMMENT": true, "PROTECTED_BOOT_PROMPT": true, "PROTECTED_DECISION": true},
+		"object_type_rejected": {"OBJECT_TYPE_REJECTED": true},
+		"undeclared_role":      {"ROLE_NOT_DECLARED": true},
+		"invalid_include":      {"INVALID_INCLUDE": true, "INCLUDE_CYCLE": true, "INCLUDE_TARGET_UNAVAILABLE": true},
+		"deferred":             {"ROW_CHANGED": true},
+		"held_move":            {"MOVE_HELD": true, "DESTINATION_PROTECTED": true},
 	}
 	syncReportCodes = map[string]bool{"SYNC_FAILED": true, "BAD_USER_INPUT": true}
 )
 
+// syncReportSaysFailed preserves pull's failed-attempt exit independently of
+// whether the shared display parser can understand its vocabulary. It reads
+// only the outcome; it does not certify or expose the report's other fields.
+func syncReportSaysFailed(raw *string) bool {
+	if raw == nil {
+		return false
+	}
+	var header struct {
+		Outcome string `json:"outcome"`
+	}
+	return json.Unmarshal([]byte(*raw), &header) == nil && header.Outcome == "failed"
+}
+
 const (
 	syncEntryCap    = 50  // entries printed before "… and N more"
-	syncStringCap   = 200 // runes of a loc / unknown kind or code
+	syncStringCap   = 200 // runes of a loc
 	syncErrorRunCap = 500 // runes of syncError
 )
 
@@ -129,20 +145,6 @@ func quoteCapped(s string, max int) string {
 		return strconv.Quote(s)
 	}
 	return strconv.Quote(string(r[:max])) + "…"
-}
-
-func vocab(s string, known bool) string {
-	if known {
-		return s
-	}
-	return "other " + quoteCapped(s, syncStringCap)
-}
-
-func kindLabel(kind string) string {
-	if l, ok := syncKindLabels[kind]; ok {
-		return l
-	}
-	return vocab(kind, false)
 }
 
 // urlUserinfo matches the credentials part of a URL (`scheme://user:pass@`),
@@ -182,7 +184,7 @@ func writeSyncBlock(w io.Writer, dto memoryDetailDTO) {
 			if e.FromLoc != nil {
 				from = " from " + quoteCapped(*e.FromLoc, syncStringCap)
 			}
-			fmt.Fprintf(w, "    - %s: %s%s (%s)\n", kindLabel(e.Kind), quoteCapped(e.Loc, syncStringCap), from, vocab(e.Code, syncEntryCodes[e.Code]))
+			fmt.Fprintf(w, "    - %s: %s%s (%s)\n", syncKindLabels[e.Kind], quoteCapped(e.Loc, syncStringCap), from, e.Code)
 		}
 	}
 	if dto.SyncError != nil {
@@ -201,7 +203,7 @@ func syncSummary(dto memoryDetailDTO) string {
 			return fmt.Sprintf("last sync committed with %d file(s) skipped or held", len(rep.Entries))
 		case "failed":
 			if rep.Code != nil {
-				return "last sync failed (" + vocab(*rep.Code, syncReportCodes[*rep.Code]) + ")"
+				return "last sync failed (" + *rep.Code + ")"
 			}
 			return "last sync failed"
 		default: // "unknown"
