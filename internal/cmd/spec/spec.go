@@ -36,7 +36,9 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec is a node with the spec tag or spec role family, and its loc is its citation. Any valid node
+A governed spec has a spec / spec.* role, and its loc is its citation.
+List, describe and lint mark legacy tag-only candidates as not governed.
+Other spec commands retain their existing legacy-marker support. Any valid node
 loc works, at any depth and in any shape: create one with
 "spec new <loc> --title <title>".
 
@@ -1083,6 +1085,16 @@ func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int) []*api.
 // neither one may silently exclude the other's nodes.
 func isSpec(tags []string, role *string) bool {
 	return hasTag(tags, "spec") || api.RoleInFamily(role, api.SpecNodeRole)
+}
+
+// isGovernedSpec matches the server's role base-kind signal (cor:acl:130:01).
+// Keep isSpec's legacy candidate discovery/write-door behavior unchanged.
+func isGovernedSpec(role *string) bool {
+	return api.RoleInFamily(role, api.SpecNodeRole)
+}
+
+func isTagOnlySpec(tags []string, role *string) bool {
+	return hasTag(tags, "spec") && !isGovernedSpec(role)
 }
 
 // fetchSpecTaggedNode validates an address, reads the node, and requires it to

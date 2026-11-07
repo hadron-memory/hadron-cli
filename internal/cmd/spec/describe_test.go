@@ -19,6 +19,7 @@ func TestDescribeInventory(t *testing.T) {
 	got := describeInventory("hrn:mem:x:specs", locs)
 	want := describeDTO{
 		Memory:           "hrn:mem:x:specs",
+		NotGovernedNodes: []ungovernedSpecDTO{},
 		Specs:            6,
 		Roots:            []string{"app", "cli", "msg", "onboarding"},
 		MaxDepth:         7,
@@ -33,7 +34,7 @@ func TestDescribeInventory(t *testing.T) {
 func TestDescribeInventoryEmptyRendersRootsAsList(t *testing.T) {
 	got := describeInventory("m", nil)
 	b, _ := json.Marshal(got)
-	if string(b) != `{"memory":"m","specs":0,"roots":[],"maxDepth":0,"legacyNumbered":0,"outsideNumbering":0,"corpusState":null,"approvalStates":null,"mintStates":null}` {
+	if string(b) != `{"memory":"m","specs":0,"notGoverned":0,"notGovernedNodes":[],"roots":[],"maxDepth":0,"legacyNumbered":0,"outsideNumbering":0,"corpusState":null,"approvalStates":null,"mintStates":null}` {
 		t.Errorf("empty inventory JSON = %s", b)
 	}
 }

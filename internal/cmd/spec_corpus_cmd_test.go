@@ -443,7 +443,7 @@ func TestSpecDescribeSeparatesDraftPlaceholders(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"Memories":        memListJSON,
 		"GetMemory":       memGetJSON(`null`),
-		"FindNodes":       `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec"]`) + `,` + specNodeList("msg:010:02", `["spec"]`) + `,` + specNodeList("msg:010:03", `["spec"]`) + `]}}`,
+		"FindNodes":       `{"data":{"nodes":[` + specNodeListWithRole("msg:010:01", `["spec"]`) + `,` + specNodeListWithRole("msg:010:02", `["spec"]`) + `,` + specNodeListWithRole("msg:010:03", `["spec"]`) + `]}}`,
 		"SpecCorpusState": draftStateJSON,
 		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{
 			"msg:010:02": true, "msg:010:03": false, "msg:010:01": true,

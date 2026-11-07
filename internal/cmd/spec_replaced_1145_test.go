@@ -88,7 +88,7 @@ func TestSpecListReplacedJSONIsAdditive(t *testing.T) {
 				t.Errorf("existing key %q dropped: %v", k, row)
 			}
 		}
-		if len(row) != 9 { // the existing keys (incl. memoryUrn) + exactly two
+		if len(row) != 10 { // existing keys plus replaced/replacedBy and governed
 			t.Errorf("unexpected key set: %v", row)
 		}
 	}

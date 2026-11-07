@@ -26,7 +26,7 @@ func unwiredSpec(loc, title string, edges ...string) string {
 	body, _ := json.Marshal(specBatchContent)
 	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
 		`"description":null,"abstract":"An abstract for %s.","abstractOriginHash":%q,`+
-		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,"content":%s,`+
+		`"role":"spec","tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,"content":%s,`+
 		`"updatedAt":"2026-06-14T00:00:00Z","outgoingEdges":[%s],"incomingEdges":[]}`,
 		loc, loc, loc+" — "+title, loc, specOriginHash(specBatchContent), string(body), strings.Join(out, ","))
 }
