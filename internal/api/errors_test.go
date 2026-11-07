@@ -69,6 +69,11 @@ func TestMapError(t *testing.T) {
 		{"validation task_broken", gqlErr("CONTENT_VALIDATION_TASK_BROKEN"), exitcode.Conflict},
 		{"validation run_id_conflict", gqlErr("CONTENT_VALIDATION_RUN_ID_CONFLICT"), exitcode.Conflict},
 
+		// cli#1776: the owner no longer qualifies for an organization Agent
+		// (hadron-server#3626): authenticated but not permitted, the class of
+		// AGENT_SUBSCRIPTION_REQUIRED; exit 8 ruled at the gate, not the default 1.
+		{"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE", gqlErr("BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"), exitcode.Forbidden},
+
 		{"nil", nil, exitcode.OK},
 		// cli#1335: the decision group's refusals (hadron-server #1641).
 		{"DECISION_FORBIDDEN", gqlErr("DECISION_FORBIDDEN"), exitcode.Forbidden},
