@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -79,23 +80,35 @@ func TestSessionLogPointerClassification1495(t *testing.T) {
 		{"504 with a typed BAD_USER_INPUT envelope", 504, `{"data":null,"errors":[{"message":"gateway timeout","extensions":{"code":"BAD_USER_INPUT"}}]}`, 2, false},
 		{"429 with an untyped envelope", 429, `{"data":null,"errors":[{"message":"slow down"}]}`, 1, false},
 		{"200 with an untyped envelope", 200, `{"data":null,"errors":[{"message":"weird"}]}`, 1, false},
+		{"502 with Conflict remains uncertain", 502, `{"errors":[{"message":"gateway conflict","extensions":{"code":"CONFLICT"}}]}`, 5, false},
+		{"504 with Forbidden remains uncertain", 504, `{"errors":[{"message":"gateway forbidden","extensions":{"code":"FORBIDDEN"}}]}`, 8, false},
+		{"200 internal fault remains uncertain", 200, `{"errors":[{"message":"fault","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, 1, false},
+		{"truncated pointer answer", 200, `{"data":`, 7, false},
+		{"bare HTTP failure", 502, `gateway unavailable`, 7, false},
+		// cli#1694: positive refusal family includes Conflict and Forbidden.
+		{"200 Conflict refusal", 200, `{"errors":[{"message":"conflicting update","extensions":{"code":"CONFLICT"}}]}`, 5, true},
+		{"200 Forbidden refusal", 200, `{"errors":[{"message":"forbidden update","extensions":{"code":"FORBIDDEN"}}]}`, 8, true},
+		{"200 PermissionDenied refusal", 200, `{"errors":[{"message":"denied update","extensions":{"code":"PERMISSION_DENIED"}}]}`, 8, true},
 		// Controls: a refusal the server really issued is still definite.
 		{"200 with a typed refusal", 200, `{"data":null,"errors":[{"message":"session is ended","extensions":{"code":"BAD_USER_INPUT"}}]}`, 2, true},
 		{"400 with a typed refusal", 400, `{"data":null,"errors":[{"message":"bad input","extensions":{"code":"BAD_USER_INPUT"}}]}`, 2, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errOut, err := runLog1495(t, map[string]resp1495{
+			called, errOut, err := runLog1495(t, map[string]resp1495{
 				"UpdateTeamSession": {tc.status, tc.body},
 				"RecordTeamWork":    {200, recorded1495},
 			})
 			if got := exitCodeFor(err); got != tc.wantExit {
 				t.Fatalf("exit = %d, want %d (err %v)", got, tc.wantExit, err)
 			}
+			if !called["RecordTeamWork"] || !called["UpdateTeamSession"] {
+				t.Fatalf("both writes must be attempted: %v", called)
+			}
 			if !strings.Contains(errOut, "worklog row WAS recorded") {
 				t.Fatalf("stderr does not say the row was recorded: %q", errOut)
 			}
 			if tc.definite {
-				if !strings.Contains(errOut, "was NOT updated") {
+				if !strings.Contains(errOut, "was NOT updated") || strings.Contains(errOut, "could NOT be confirmed") || strings.Contains(errOut, "may have been applied") {
 					t.Errorf("a definite refusal must still say NOT updated: %q", errOut)
 				}
 				return
@@ -141,12 +154,15 @@ func TestSessionLogLostRecordAnswer1495(t *testing.T) {
 	}
 
 	t.Run("a refused record carries no such note", func(t *testing.T) {
-		_, errOut, err := runLog1495(t, map[string]resp1495{
+		called, errOut, err := runLog1495(t, map[string]resp1495{
 			"UpdateTeamSession": {200, modelLogSessionJSON},
 			"RecordTeamWork":    {200, `{"data":null,"errors":[{"message":"Team Agent cannot be inferred","extensions":{"code":"NOT_FOUND"}}]}`},
 		})
 		if exitCodeFor(err) != 4 {
 			t.Fatalf("want exit 4, got %v", err)
+		}
+		if !called["RecordTeamWork"] || called["UpdateTeamSession"] {
+			t.Fatalf("refused record must be attempted without pointer update: %v", called)
 		}
 		if strings.Contains(errOut, "may or may not have been recorded") {
 			t.Errorf("a proven refusal wrote nothing; the duplicate warning is false: %q", errOut)
@@ -162,9 +178,10 @@ func TestSessionLogLostLegacyRecordAnswer1495(t *testing.T) {
 		name string
 		resp resp1495
 		note bool
+		exit int
 	}{
-		{"truncated legacy answer", resp1495{200, `{"data":`}, true},
-		{"refused legacy record", resp1495{200, `{"data":null,"errors":[{"message":"nope","extensions":{"code":"NOT_FOUND"}}]}`}, false},
+		{"truncated legacy answer", resp1495{200, `{"data":`}, true, 7},
+		{"refused legacy record", resp1495{200, `{"data":null,"errors":[{"message":"nope","extensions":{"code":"NOT_FOUND"}}]}`}, false, 4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			called, errOut, err := runLog1495(t, map[string]resp1495{
@@ -172,7 +189,10 @@ func TestSessionLogLostLegacyRecordAnswer1495(t *testing.T) {
 				"RecordTeamWork":       skew,
 				"RecordTeamWorkLegacy": tc.resp,
 			})
-			if err == nil || !called["RecordTeamWorkLegacy"] {
+			if got := exitCodeFor(err); got != tc.exit {
+				t.Fatalf("legacy exit=%d want%d: %v", got, tc.exit, err)
+			}
+			if err == nil || !called["RecordTeamWork"] || !called["RecordTeamWorkLegacy"] {
 				t.Fatalf("legacy path not reached: err=%v called=%v", err, called)
 			}
 			if called["UpdateTeamSession"] {
@@ -218,5 +238,36 @@ func TestSessionLogAppMismatchNeedsADefiniteAnswer1495(t *testing.T) {
 				t.Errorf("the pointer moved although the record was not confirmed")
 			}
 		})
+	}
+}
+
+// cli#1694: both current and legacy record refusals prove that no row was
+// written. The mapped exit survives and no pointer update or retry is allowed.
+func TestSessionLogDefinitiveRecordRefusals1694(t *testing.T) {
+	for _, code := range []struct {
+		name string
+		exit int
+	}{{"CONFLICT", 5}, {"FORBIDDEN", 8}, {"PERMISSION_DENIED", 8}} {
+		for _, legacy := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/legacy=%t", code.name, legacy), func(t *testing.T) {
+				op := "RecordTeamWork"
+				responses := map[string]resp1495{"UpdateTeamSession": {200, modelLogSessionJSON}}
+				if legacy {
+					responses[op] = resp1495{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
+					op = "RecordTeamWorkLegacy"
+				}
+				responses[op] = resp1495{200, fmt.Sprintf(`{"errors":[{"message":"definite refusal","extensions":{"code":%q}}]}`, code.name)}
+				called, stderr, err := runLog1495(t, responses)
+				if got := exitCodeFor(err); got != code.exit {
+					t.Fatalf("exit=%d want%d: %v", got, code.exit, err)
+				}
+				if !called["RecordTeamWork"] || (legacy && !called["RecordTeamWorkLegacy"]) || called["UpdateTeamSession"] {
+					t.Fatalf("wrong write attempts: %v", called)
+				}
+				if strings.Contains(stderr, "may or may not have been recorded") || strings.Contains(stderr, "may duplicate") || strings.Contains(stderr, "could NOT be confirmed") {
+					t.Fatalf("definite refusal must not claim uncertainty: %q", stderr)
+				}
+			})
+		}
 	}
 }
