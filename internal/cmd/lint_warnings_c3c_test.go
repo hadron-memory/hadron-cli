@@ -366,7 +366,7 @@ func TestC3cMergeUnconfirmedDoesNotReadLintOrWrite(t *testing.T) {
 // These cases isolate lint rendering from optional pre-existing read metadata.
 func c3StubReadMetadata(t *testing.T, responses map[string]string) {
 	t.Helper()
-	for _, op := range []string{"NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions", "NodeCommentSummaries"} {
+	for _, op := range []string{"NodeLiveRevisionsContentChecked", "NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions", "NodeCommentSummaries"} {
 		value, ok := unstubbedDefault(op)
 		if !ok {
 			t.Fatalf("missing read-metadata fixture for %s", op)

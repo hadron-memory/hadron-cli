@@ -59,6 +59,16 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
+		// #1706 content-validation report refusals.
+		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
+		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
+		{"validation node_revision_invalid", gqlErr("CONTENT_VALIDATION_NODE_REVISION_INVALID"), exitcode.Usage},
+		{"validation task_revision_invalid", gqlErr("CONTENT_VALIDATION_TASK_REVISION_INVALID"), exitcode.Usage},
+		{"validation wrong_task", gqlErr("CONTENT_VALIDATION_WRONG_TASK"), exitcode.Usage},
+		{"validation not_configured", gqlErr("CONTENT_VALIDATION_NOT_CONFIGURED"), exitcode.Conflict},
+		{"validation task_broken", gqlErr("CONTENT_VALIDATION_TASK_BROKEN"), exitcode.Conflict},
+		{"validation run_id_conflict", gqlErr("CONTENT_VALIDATION_RUN_ID_CONFLICT"), exitcode.Conflict},
+
 		{"nil", nil, exitcode.OK},
 		// cli#1335: the decision group's refusals (hadron-server #1641).
 		{"DECISION_FORBIDDEN", gqlErr("DECISION_FORBIDDEN"), exitcode.Forbidden},

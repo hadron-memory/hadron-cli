@@ -16,7 +16,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
-var revisionProjections1199 = []string{"NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions"}
+var revisionProjections1199 = []string{"NodeLiveRevisionsContentChecked", "NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions"}
 
 type revisionRequest1199 struct {
 	operation string
@@ -64,7 +64,7 @@ func revisionChunkServer1199(t *testing.T, projection string, stuck bool) (*http
 							}
 						}
 						if i < target {
-							_, _ = w.Write([]byte(missingFieldJSON([]string{"mintStatus", "approvalStatus", "authorship"}[i])))
+							_, _ = w.Write([]byte(missingFieldJSON([]string{"authorCheck", "mintStatus", "approvalStatus", "authorship"}[i])))
 							return
 						}
 					}
