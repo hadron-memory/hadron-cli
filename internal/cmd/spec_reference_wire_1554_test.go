@@ -158,6 +158,18 @@ func TestReferenceFallback1554(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
+				// #1658 adds only this field to lint findings. Preserve the pinned
+				// main output byte-for-byte apart from that explicit addition.
+				if verb == "lint" && jsonMode {
+					marker := "\n  }"
+					if strings.Count(string(baseline), marker) != 1 {
+						t.Fatal("expected one baseline finding")
+					}
+					baseline = []byte(strings.Replace(string(baseline), marker, ",\n    \"governed\": true\n  }", 1))
+					if !json.Valid(baseline) {
+						t.Fatal("invalid augmented baseline")
+					}
+				}
 				if modern != string(baseline) {
 					t.Fatalf("output changed from main3edded21: got=%q want=%q", modern, baseline)
 				}
