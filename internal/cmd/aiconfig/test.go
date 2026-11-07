@@ -198,6 +198,7 @@ func loadTestOverride(path string, in io.Reader) (*gqltypes.AiServiceConfigTestO
 // redactTestError classifies before redaction, so even a key that equals an
 // error code cannot change the exit. Only an echoing error loses its original
 // chain: root renderers must not recover unsanitized fields from that chain.
+// Detached retains redacted supported metadata and classification, not raw causes.
 func redactTestError(err error, key string) error {
 	if err == nil || key == "" {
 		return err
@@ -206,7 +207,7 @@ func redactTestError(err error, key string) error {
 	if clean == err.Error() {
 		return err
 	}
-	return exitcode.Newf(exitcode.FromError(err), "%s", clean)
+	return api.Detached(err, func(text string) string { return redactSubmittedKey(text, key) })
 }
 
 // Only the submitted override is known here; saved keys never reach the CLI.

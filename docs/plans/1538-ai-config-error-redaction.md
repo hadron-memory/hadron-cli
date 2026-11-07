@@ -12,7 +12,8 @@ mapped diagnostic. Empty/null/omitted keys do nothing. A placeholder that itself
 contains a very short submitted key is replaced by an empty string instead.
 
 When a diagnostic actually contains a secret, the returned error preserves the
-numeric exit class but deliberately drops the original error chain. Keeping
+numeric exit class and redacted supported metadata via api.Detached, but
+deliberately drops the original error chain. Keeping
 that chain would let root JSON/detail/human renderers recover unsanitized
 metadata. Non-echoing errors are returned unchanged, including their chain.
 Completed provider diagnostics also scrub their error code and message while
@@ -36,3 +37,18 @@ Mutation checks (landed, compiling, then restored): bypassing request-error
 redaction, bypassing completed-error message redaction, and dropping escaped
 spellings each fail the intended disclosure assertions. HTTP 200 and 400
 envelopes preserve exits 2/4/8 and one request; safe guidance remains.
+
+BLIND follow-up: the leak oracle checks full stdout/stderr plus decoded JSON
+values, not only error.message. An INTERNAL_SERVER_ERROR request-id control
+pins the metadata tradeoff: safe requestId/serverCode remain on non-echoing
+errors; a secret-bearing requestId is scrubbed and its original typed fields
+are retained with sanitized values through the shared api.Detached helper.
+The agent contract states this explicitly. A raw GraphQL-list reachability
+control pins detachment; non-echoing errors retain identity.
+
+Known optional limit from scoped security: an unstructured non-200 raw body can
+encode an already-escaped message again. That doubly-escaped spelling is not
+covered by this bounded list; the reported graphql-js coercion window uses
+structured errors and is covered. Arbitrary transformations/fragments and other
+successful payload fields remain outside this slice. Follow-up owner Jane,
+trigger: next raw-body redaction/credential-echo work.

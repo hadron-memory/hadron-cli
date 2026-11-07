@@ -2307,6 +2307,10 @@ Conventions:
   The submitted override key is redacted locally from request-error messages
   and completed-test error code/message fields (literal and string-escaped
   echoes); this does not change the sent key or a request refusal's exit code.
+  When a mapped request error contains the submitted key, its original typed
+  error chain is detached. Numeric code, message and supported structured
+  metadata (such as internal-fault requestId/serverCode) are retained with
+  string values redacted. Non-echoing errors retain their existing metadata.
   `create --api-style` (also file apiStyle) and `update --api-style` set
   CHAT_COMPLETIONS or RESPONSES; `update --clear-api-style` sends null to use
   the provider default; omit both update flags to preserve the stored style.
