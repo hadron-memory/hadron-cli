@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
@@ -17,10 +18,17 @@ func TestErrorShapeObservation1655(t *testing.T) {
 	for _, status := range []int{200, 400} {
 		for _, entries := range []string{valid, `null,` + valid, valid + `,null`, `null`} {
 			t.Run(fmt.Sprintf("%d/%s", status, entries), func(t *testing.T) {
+				var calls atomic.Int32
+				var clean atomic.Bool
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(status)
-					fmt.Fprint(w, `{"errors":[`+entries+`]}`)
+					reply := entries
+					if clean.Load() {
+						reply = valid
+					}
+					fmt.Fprint(w, `{"errors":[`+reply+`]}`)
 				}))
 				defer srv.Close()
 				client, err := NewClient(srv.URL, "", srv.Client())
@@ -41,7 +49,18 @@ func TestErrorShapeObservation1655(t *testing.T) {
 					t.Fatalf("null observation=%v", shape.HadNullEntry())
 				}
 				// Another observer/context does not receive the first one's state.
-				_, fresh := WithGraphQLErrorShape(context.Background())
+				clean.Store(true)
+				freshCtx, fresh := WithGraphQLErrorShape(context.Background())
+				cleanErr := invoke(freshCtx)
+				if cleanErr == nil || exitcode.FromError(MapError(cleanErr)) != exitcode.NotFound {
+					t.Fatalf("clean request mapping: %v", cleanErr)
+				}
+				if shape.HadNullEntry() != (entries != valid) {
+					t.Fatal("second request changed first observer")
+				}
+				if calls.Load() != 3 {
+					t.Fatalf("requests=%d want baseline+A+B", calls.Load())
+				}
 				if fresh.HadNullEntry() {
 					t.Fatal("observer leaked between contexts")
 				}
