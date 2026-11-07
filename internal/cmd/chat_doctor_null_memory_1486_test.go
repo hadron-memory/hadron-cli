@@ -55,3 +55,21 @@ func TestChatDoctorUnavailableWording1486(t *testing.T) {
 		t.Fatalf("%q %v", out, err)
 	}
 }
+
+func TestChatDoctorReadableMemory1486(t *testing.T) {
+	chatConfigDir(t, `{"chat":{"node":"hrn:node:acme.com:tc:chats:api:messages"}}`)
+	gql, _ := captureGraphQL(t, map[string]string{"GetChannel": `{"data":{"channel":` + doctorChannelJSON + `}}`})
+	out, err := runChat(t, "chat", "doctor", "--json", "--server", gql.URL)
+	var dto map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &dto) != nil {
+		t.Fatalf("%q %v", out, err)
+	}
+	ch := dto["channel"].(map[string]any)
+	if dto["ok"] != true || ch["status"] != "readable" || ch["memory"] != "hrn:mem:acme.com:tc" {
+		t.Fatal(dto)
+	}
+	out, err = runChat(t, "chat", "doctor", "--server", gql.URL)
+	if err != nil || !strings.Contains(out, "channel: readable") || strings.Contains(out, "memory: unavailable") {
+		t.Fatalf("%q %v", out, err)
+	}
+}
