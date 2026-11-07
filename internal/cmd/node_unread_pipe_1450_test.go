@@ -118,8 +118,37 @@ func TestNodeUpdateFileFlagsDoNotConsumeStdin1450(t *testing.T) {
 			if exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("a pipe beside %s is unread and must be refused, got %v", flag, err)
 			}
+			if !strings.Contains(err.Error(), "stdin has input but no flag reads it") {
+				t.Errorf("must be the guard's refusal, not another usage error: %v", err)
+			}
 			if len(captured) != 0 {
 				t.Errorf("a refused update must send no request, sent %v", captured)
+			}
+		})
+	}
+}
+
+// The dash spelling of a *-file flag is a file literally named "-", never
+// stdin (os.ReadFile, not the pipe), so a pipe beside it is unread too: pinned
+// for update and for create's data/properties file flags (#1450 BLIND P2-b).
+func TestDashFileFlagsDoNotConsumeStdin1450(t *testing.T) {
+	cases := [][]string{
+		{"node", "update", testNodeURN, "--abstract-file", "-"},
+		{"node", "update", testNodeURN, "--data-merge-file", "-"},
+		{"node", "update", testNodeURN, "--data-file", "-"},
+		{"node", "update", testNodeURN, "--properties-file", "-"},
+		{"node", "create", "-m", "acme.com::kb", "--loc", "x:y", "--name", "N", "--data-file", "-"},
+		{"node", "create", "-m", "acme.com::kb", "--loc", "x:y", "--name", "N", "--properties-file", "-"},
+	}
+	for _, args := range cases {
+		t.Run(strings.Join(args[1:2], "")+" "+args[len(args)-2], func(t *testing.T) {
+			_, _, captured, err := runNode(t, stubs1450(), "piped body", args...)
+			if exitCodeFor(err) != exitcode.Usage || err == nil ||
+				!strings.Contains(err.Error(), "stdin has input but no flag reads it") {
+				t.Fatalf("want the guard's exit-2 refusal, got %v", err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("a refused command must send nothing, sent %v", captured)
 			}
 		})
 	}
