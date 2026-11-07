@@ -18,7 +18,9 @@ while listing, describing or linting them.
   locs. They receive just warning `not-governed`, without spec-shape,
   corpus, draft/reference or unwired checks. Existing `--strict` promotes
   warnings as before. A numbered node with neither marker retains `tag-spec`.
-  Findings gain `governed` only on this command's JSON; other users of the
+  Findings gain nullable `governed` only on this command's JSON: true/false
+  for a known scanned node, null when the finding has no known node
+  (for example a memory-wide vector-index warning). Other users of the
   shared lint-result DTO keep their shapes.
 
 One shared `isGovernedSpec` predicate supplies the three decisions. The legacy

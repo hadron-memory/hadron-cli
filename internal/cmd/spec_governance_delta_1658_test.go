@@ -93,7 +93,7 @@ func TestSpecListRoleSelection1658(t *testing.T) {
 				t.Error("missing FindNodes operation")
 				return
 			}
-			var fields ast.SelectionSet = op.SelectionSet
+			fields := op.SelectionSet
 			for _, name := range []string{"findNodes", "hits", "node", "role"} {
 				var found *ast.Field
 				for _, selection := range fields {
@@ -107,7 +107,7 @@ func TestSpecListRoleSelection1658(t *testing.T) {
 					http.Error(w, "projection", 500)
 					return
 				}
-				if name == "role" && len(found.Directives) != 0 {
+				if name == "role" && (len(found.Directives) != 0 || (found.Alias != "" && found.Alias != "role")) {
 					t.Error("role must be unconditional")
 				}
 				fields = found.SelectionSet

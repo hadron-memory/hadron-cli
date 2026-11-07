@@ -19,7 +19,7 @@ import (
 
 type lintReadFindingDTO struct {
 	lintFindingDTO
-	Governed bool `json:"governed"`
+	Governed *bool `json:"governed"`
 }
 
 const (
@@ -267,6 +267,13 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
+			// Unknown/non-node findings have no governance fact to assert.
+			governanceByLoc := map[string]bool{}
+			for _, n := range nodes {
+				if !n.Unavailable {
+					governanceByLoc[n.Loc] = isGovernedSpec(n.Role)
+				}
+			}
 			// Report tag-only candidates, but never run spec/corpus/draft rules on them.
 			ungovernedFindings := []lintFindingDTO{}
 			governedOrMalformed := make([]specNode, 0, len(nodes))
@@ -290,10 +297,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			if err != nil {
 				return err
 			}
-			governanceByLoc := map[string]bool{}
-			for _, n := range nodes {
-				governanceByLoc[n.Loc] = isGovernedSpec(n.Role)
-			}
+
 			scoped := len(nodes)
 			nodes, placeholders, inScope := partitionDraftLintNodes(nodes, draft)
 
@@ -345,7 +349,10 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 
 			report := make([]lintReadFindingDTO, 0, len(findings))
 			for _, finding := range findings {
-				governed := governanceByLoc[finding.Citation]
+				var governed *bool
+				if known, ok := governanceByLoc[finding.Citation]; ok {
+					governed = &known
+				}
 				report = append(report, lintReadFindingDTO{lintFindingDTO: finding, Governed: governed})
 			}
 			if err := output.Write(f.IOStreams, f.JSON, report, func(w io.Writer) error {
