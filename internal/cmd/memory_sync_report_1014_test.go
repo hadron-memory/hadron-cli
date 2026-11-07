@@ -282,11 +282,11 @@ func TestMemoryGetUnknownOutcomeNeverReadsClean(t *testing.T) {
 }
 
 // Server-supplied strings reach a terminal: quoted (no raw control or escape
-// sequences), unknown vocabulary labelled "other", and URL credentials masked.
-func TestMemoryGetSyncStringsAreQuotedAndUnknownVocabularyIsOther(t *testing.T) {
+// sequences), known vocabulary only, and URL credentials masked.
+func TestMemoryGetSyncStringsAreQuoted1775(t *testing.T) {
 	report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[` +
 		`{"kind":"protected","loc":"evil\u001b[31m\nline","code":"PROTECTED_LOC"},` +
-		`{"kind":"new_kind\u001b]0;x\u0007","loc":"y","code":"NEW_CODE"}],"code":"NEW_TOP\u001b"}`
+		`{"kind":"deferred","loc":"y","code":"ROW_CHANGED"}]}`
 	syncErr := "fetch https://x-access-token:ghs_SECRET@github.com/acme/kb.git failed\u001b[2J\nnext"
 	m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), sp(syncErr), sp(report), "OK")
 	out, err := runMemoryGetSync(t, m, false)
@@ -300,7 +300,7 @@ func TestMemoryGetSyncStringsAreQuotedAndUnknownVocabularyIsOther(t *testing.T) 
 	}
 	for _, want := range []string{
 		`- protected: "evil\x1b[31m\nline" (PROTECTED_LOC)`,
-		`- other "new_kind\x1b]0;x\a": "y" (other "NEW_CODE")`,
+		`- deferred: "y" (ROW_CHANGED)`,
 		`sync error: "fetch https://[redacted]@github.com/acme/kb.git failed\x1b[2J\nnext"`,
 	} {
 		if !strings.Contains(out, want) {
@@ -313,13 +313,13 @@ func TestMemoryGetSyncStringsAreQuotedAndUnknownVocabularyIsOther(t *testing.T) 
 	}
 	rep, _ := dto["syncReport"].(map[string]any)
 	entries, _ := rep["entries"].([]any)
-	if e, _ := entries[1].(map[string]any); e == nil || e["kind"] != "new_kind\x1b]0;x\a" || e["code"] != "NEW_CODE" {
-		t.Errorf("--json passes unknown vocabulary through as-is: %v", entries)
+	if e, _ := entries[1].(map[string]any); e == nil || e["kind"] != "deferred" || e["code"] != "ROW_CHANGED" {
+		t.Errorf("--json retains known vocabulary: %v", entries)
 	}
 }
 
 // The two guards Rodolfo's §10 mutants showed unpinned (cli#1067): an unknown
-// report-level code in the failed summary is quoted, and syncError is capped.
+// report-level code makes the report unavailable, and syncError is capped.
 // Also: a password with an unencoded @ is masked whole, not up to its first @.
 func TestMemoryGetFailedSummaryAndSyncErrorAreGuarded(t *testing.T) {
 	report := `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"NEW\u001b[31m"}`
@@ -329,8 +329,8 @@ func TestMemoryGetFailedSummaryAndSyncErrorAreGuarded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out, `sync: last sync failed (other "NEW\x1b[31m")`) || strings.Contains(out, "\x1b") {
-		t.Errorf("an unknown report code is quoted under other:\n%s", out)
+	if !strings.Contains(out, "sync: report unavailable") || strings.Contains(out, "NEW") || strings.Contains(out, "\x1b") {
+		t.Errorf("an unknown report code is unavailable:\n%s", out)
 	}
 	if strings.Contains(out, "ss@github.com") || !strings.Contains(out, "https://[redacted]@github.com/acme/kb.git") {
 		t.Errorf("the whole userinfo is masked, up to the last @:\n%s", out)
@@ -413,5 +413,54 @@ func TestOnlyMemoryGetRequestsTheSyncReport(t *testing.T) {
 	}
 	if _, ok := captured["GetMemory"]; ok {
 		t.Errorf("memory get must not use the shared GetMemory")
+	}
+}
+
+// Closed vocabulary per version: neither text nor JSON may guess at an entry.
+func TestMemoryGetUnknownVocabulary1775(t *testing.T) {
+	for name, entry := range map[string]string{
+		"kind":            `{"kind":"FUTURE_KIND","loc":"DO_NOT_PRINT","code":"PROTECTED_LOC"}`,
+		"code":            `{"kind":"protected","loc":"DO_NOT_PRINT","code":"FUTURE_CODE"}`,
+		"wrong-kind-code": `{"kind":"deferred","loc":"DO_NOT_PRINT","code":"PROTECTED_LOC"}`,
+		"v1-attestation":  `{"kind":"attestation_refused","loc":"DO_NOT_PRINT","code":"AUTHORING_ATTESTATION_MISSING"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"protected","loc":"PREFIX_MUST_NOT_PRINT","code":"PROTECTED_LOC"},` + entry + `]}`
+			m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
+			out, err := runMemoryGetSync(t, m, false)
+			if err != nil || !strings.Contains(out, "sync: report unavailable") || strings.Contains(out, "DO_NOT_PRINT") || strings.Contains(out, "PREFIX_MUST_NOT_PRINT") || strings.Contains(out, "other") {
+				t.Fatalf("out=%q err=%v", out, err)
+			}
+			dto := memoryGetSyncJSON(t, m)
+			if dto["syncReport"] != nil || dto["syncReportStatus"] != "unavailable" {
+				t.Fatal(dto)
+			}
+		})
+	}
+}
+
+func TestMemoryGetClosedV1Vocabulary1775(t *testing.T) {
+	for kind, codes := range map[string][]string{
+		"protected":            {"PROTECTED_LOC", "PROTECTED_COMMENT", "PROTECTED_BOOT_PROMPT", "PROTECTED_DECISION"},
+		"object_type_rejected": {"OBJECT_TYPE_REJECTED"},
+		"undeclared_role":      {"ROLE_NOT_DECLARED"},
+		"invalid_include":      {"INVALID_INCLUDE", "INCLUDE_CYCLE", "INCLUDE_TARGET_UNAVAILABLE"},
+		"deferred":             {"ROW_CHANGED"},
+		"held_move":            {"MOVE_HELD", "DESTINATION_PROTECTED"},
+	} {
+		for _, code := range codes {
+			t.Run(kind+"/"+code, func(t *testing.T) {
+				report := `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"` + kind + `","loc":"x","code":"` + code + `"}]}`
+				m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
+				dto := memoryGetSyncJSON(t, m)
+				if dto["syncReportStatus"] != "recorded" || dto["syncReport"] == nil {
+					t.Fatal(dto)
+				}
+				out, err := runMemoryGetSync(t, m, false)
+				if err != nil || !strings.Contains(out, "("+code+")") {
+					t.Fatalf("%s %v", out, err)
+				}
+			})
+		}
 	}
 }
