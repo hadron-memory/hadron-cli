@@ -101,7 +101,7 @@ func field1708(fields ast.SelectionSet, name string) *ast.Field {
 func hit1708(row string) string { return `{"score":0,"node":` + row + `}` }
 func TestNodeListInherited1708(t *testing.T) {
 	rows := hit1708(inheritedRow1708) + "," + hit1708(ownRow1708)
-	for _, flags := range [][]string{nil, {"--with-data"}, {"--with-properties"}, {"--with-data", "--with-properties"}, {"--with-comment-summary"}, {"--seq-gt", "1"}} {
+	for _, flags := range [][]string{nil, {"--with-data"}, {"--with-properties"}, {"--with-data", "--with-properties"}, {"--has-unresolved-comments=false"}, {"--seq-gt", "1"}} {
 		t.Run(strings.Join(flags, "_"), func(t *testing.T) {
 			out, err, reads := runInherited1708(t, rows, true, append(append([]string{}, flags...), "--json")...)
 			if err != nil {
