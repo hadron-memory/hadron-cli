@@ -554,7 +554,14 @@ func TestWorkerBootValidationParity1655(t *testing.T) {
 			{"mixed", `{"errors":[` + valid + `,{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, false},
 		} {
 			t.Run(fmt.Sprintf("%d/%s", status, tc.name), func(t *testing.T) {
+				// Five existing worker-profile reads plus one preview; no fanout.
+				const existingWorkerReads = 5
+				const previewReads = 1
 				var lookup, preview, total atomic.Int32
+				counts := map[string]*atomic.Int32{}
+				for _, op := range []string{"GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerBootPromptServe"} {
+					counts[op] = &atomic.Int32{}
+				}
 				responses := bootResponses1655(t, `null`)
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					var req struct {
@@ -563,6 +570,14 @@ func TestWorkerBootValidationParity1655(t *testing.T) {
 					_ = json.NewDecoder(r.Body).Decode(&req)
 					w.Header().Set("Content-Type", "application/json")
 					total.Add(1)
+					switch req.OperationName {
+					case "GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerBootPromptServe":
+						counts[req.OperationName].Add(1)
+					case "GetAgent", "GetNode", "NodeBatch", "Workers", "GetWorkerInApp", "GetWorkerIdInApp":
+						t.Errorf("forbidden alternate preview operation %s", req.OperationName)
+					default:
+						t.Errorf("outside six-read worker budget: %s", req.OperationName)
+					}
 					if req.OperationName == "GetWorkerBootPromptServe" {
 						preview.Add(1)
 						w.WriteHeader(status)
@@ -586,8 +601,13 @@ func TestWorkerBootValidationParity1655(t *testing.T) {
 				root := NewRootCmd(f)
 				root.SetArgs([]string{"team", "worker", "get", profileHexID, "--server", srv.URL, "--json"})
 				err := root.Execute()
-				if (err == nil) != tc.ok || lookup.Load() != 1 || preview.Load() != 1 || total.Load() != 6 {
+				if (err == nil) != tc.ok || lookup.Load() != 1 || preview.Load() != 1 || total.Load() != existingWorkerReads+previewReads {
 					t.Fatalf("err%v lookup%d preview%d total%d", err, lookup.Load(), preview.Load(), total.Load())
+				}
+				for op, count := range counts {
+					if count.Load() != 1 {
+						t.Fatalf("%s calls=%d want1", op, count.Load())
+					}
 				}
 				if !tc.ok && out.Len() != 0 {
 					t.Fatal("failure emitted output", out.String())
@@ -633,6 +653,70 @@ func TestEffectiveBootOwnLevelCallSites1655(t *testing.T) {
 			}
 			if _, ok := row["bootPromptUrn"]; ok || row["bootPromptRef"] != own || row["compiledNodeId"] != "inherited" {
 				t.Fatalf("own pointer decorated inherited source: %s", out)
+			}
+		})
+	}
+}
+
+// A capable preview read supplies the current own-pointer keys, including nulls;
+// the earlier lookup must not decorate a now-withheld preview with stale state.
+func TestWorkerBootNullTarget1756(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
+			responses := bootResponses1655(t, `null`)
+			var lookup map[string]any
+			if err := json.Unmarshal([]byte(responses["GetWorker"]), &lookup); err != nil {
+				t.Fatal(err)
+			}
+			worker := lookup["data"].(map[string]any)["worker"].(map[string]any)
+			const stale = "hrn:node:example.com:stale:boot"
+			worker["bootPromptRef"], worker["bootPromptTargetDeleted"] = stale, true
+			wire, err := json.Marshal(lookup)
+			if err != nil {
+				t.Fatal(err)
+			}
+			responses["GetWorker"] = string(wire)
+			responses["GetWorkerBootPromptServe"] = `{"data":{"worker":null}}`
+			args := []string{"team", "worker", "get", profileHexID}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			calls, out, err := runTeamTask(t, responses, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(out, stale) || strings.Contains(out, "deleted: clear or repoint") {
+				t.Fatalf("stale own-pointer cue: %s", out)
+			}
+			if asJSON {
+				var dto map[string]any
+				if err := json.Unmarshal([]byte(out), &dto); err != nil {
+					t.Fatal(err)
+				}
+				for _, key := range []string{"bootPromptRef", "bootPromptTargetDeleted", "pointerLevel", "compiledNodeId", "servedRevSeq", "bootPromptRefusal"} {
+					if value, ok := dto[key]; !ok || value != nil {
+						t.Fatalf("%s must be present null: %s", key, out)
+					}
+				}
+				if _, ok := dto["bootPromptUrn"]; ok {
+					t.Fatalf("served URN invented: %s", out)
+				}
+			} else if !strings.Contains(out, "  boot prompt (next bind): not visible to you (next bind)\n") {
+				t.Fatalf("missing/augmented preview outcome: %s", out)
+			}
+			lookupCalls, previewCalls := 0, 0
+			for _, call := range *calls {
+				switch call.Op {
+				case "GetWorker":
+					lookupCalls++
+				case "GetWorkerBootPromptServe":
+					previewCalls++
+				case "GetAgent", "GetNode", "NodeBatch", "Workers", "GetWorkerInApp", "GetWorkerIdInApp":
+					t.Fatalf("alternate lookup: %s", call.Op)
+				}
+			}
+			if lookupCalls != 1 || previewCalls != 1 {
+				t.Fatalf("lookup=%d preview=%d", lookupCalls, previewCalls)
 			}
 		})
 	}

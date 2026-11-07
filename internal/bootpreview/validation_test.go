@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 func TestExactLegacyBoundary(t *testing.T) {
@@ -67,5 +68,46 @@ func TestExactLegacyBoundary(t *testing.T) {
 	err := c.MakeRequest(context.Background(), &graphql.Request{OpName: "GetWorkerBootPromptServe", Query: "query X{x}"}, &graphql.Response{Data: &data})
 	if c.MissingField(err, "GetWorkerBootPromptServe", "Worker") {
 		t.Fatal("transport fallback")
+	}
+}
+
+// Direct seam control: the configured HTTP client decodes a data:null envelope
+// to nil before this seam. This client deliberately supplies literal RawMessage
+// bytes, so the explicit-null predicate is exercised without an HTTP claim.
+type literalDataClient1756 struct {
+	raw   string
+	calls int
+}
+
+func (c *literalDataClient1756) MakeRequest(_ context.Context, _ *graphql.Request, resp *graphql.Response) error {
+	c.calls++
+	raw, ok := resp.Data.(*json.RawMessage)
+	if !ok {
+		return fmt.Errorf("expected raw capture, got %T", resp.Data)
+	}
+	*raw = json.RawMessage(c.raw)
+	return gqlerror.List{&gqlerror.Error{Message: `Cannot query field "bootPromptServe" on type "Worker".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
+}
+
+func TestValidationLiteralNullSeam1756(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		fallback  bool
+	}{
+		{"absent", "", true},
+		{"literal null", "null", true},
+		{"padded null", " \nnull\t", true},
+		{"empty object", "{}", false},
+		{"partial worker", `{"worker":null}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &literalDataClient1756{raw: tc.raw}
+			guard := &ValidationRead{Client: client}
+			var data any
+			err := guard.MakeRequest(context.Background(), &graphql.Request{OpName: "GetWorkerBootPromptServe"}, &graphql.Response{Data: &data})
+			if err == nil || guard.MissingField(err, "GetWorkerBootPromptServe", "Worker") != tc.fallback || client.calls != 1 {
+				t.Fatalf("fallback=%t calls=%d err=%v", guard.MissingField(err, "GetWorkerBootPromptServe", "Worker"), client.calls, err)
+			}
+		})
 	}
 }

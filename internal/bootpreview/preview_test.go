@@ -81,10 +81,27 @@ func TestProjectionTerminalSafety1655(t *testing.T) {
 }
 
 func TestProjectionInstallCannotServeWorker1655(t *testing.T) {
-	var o gen.BootPromptPreviewFields
-	_ = json.Unmarshal([]byte(`{"served":{"pointerLevel":"WORKER","compiledNodeId":"private-worker","servedRevSeq":3}}`), &o)
-	p := Project(&o, "APP_AGENT", nil)
-	if p.PointerLevel != nil || p.CompiledNodeID != nil || p.Label() != "unknown (next bind)" {
-		t.Fatalf("inconsistent surface accepted: %#v %s", p, p.Label())
+	for _, tc := range []struct {
+		level    string
+		accepted bool
+	}{{"WORKER", false}, {"APP_AGENT", true}} {
+		t.Run(tc.level, func(t *testing.T) {
+			var o gen.BootPromptPreviewFields
+			wire := `{"served":{"pointerLevel":"` + tc.level + `","compiledNodeId":"fixture-node","servedRevSeq":3}}`
+			if err := json.Unmarshal([]byte(wire), &o); err != nil {
+				t.Fatal(err)
+			}
+			if o.Served == nil || string(o.Served.PointerLevel) != tc.level {
+				t.Fatal("fixture lost discriminator")
+			}
+			p := Project(&o, "APP_AGENT", nil)
+			if !tc.accepted {
+				if p.PointerLevel != nil || p.CompiledNodeID != nil || p.Label() != "unknown (next bind)" {
+					t.Fatalf("inconsistent surface accepted: %#v %s", p, p.Label())
+				}
+			} else if p.PointerLevel == nil || *p.PointerLevel != "APP_AGENT" || p.CompiledNodeID == nil || *p.CompiledNodeID != "fixture-node" || p.ServedRevSeq == nil || *p.ServedRevSeq != 3 || p.Label() != "APP_AGENT fixture-node revision 3 (next bind)" {
+				t.Fatalf("valid install rejected: %#v %s", p, p.Label())
+			}
+		})
 	}
 }
