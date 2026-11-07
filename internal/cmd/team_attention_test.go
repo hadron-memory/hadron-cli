@@ -44,6 +44,18 @@ func attnServer(t *testing.T, responses map[string]string) (*httptest.Server, *[
 
 // attnServerHook is attnServer with a hook run as each operation arrives —
 // how a test stages something another agent does mid-command.
+// attnRespMu guards the responses map handed to attnServerHook: the fake answers
+// requests concurrently, and a hook that restages a response must not race the
+// lookup. Hooks write through setAttnResponse and never hold this lock while
+// blocking.
+var attnRespMu sync.RWMutex
+
+func setAttnResponse(m map[string]string, op, resp string) {
+	attnRespMu.Lock()
+	defer attnRespMu.Unlock()
+	m[op] = resp
+}
+
 func attnServerHook(t *testing.T, responses map[string]string, onOp func(op string)) (*httptest.Server, *[]attnCall) {
 	t.Helper()
 	calls := &[]attnCall{}
@@ -76,6 +88,9 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 			mu.Unlock()
 		}
 		w.Header().Set("Content-Type", "application/json")
+		// A hook may restage a response (setAttnResponse) while a concurrent
+		// request is being answered (cli#1677), so reads take the same lock.
+		attnRespMu.RLock()
 		resp, ok := responses[rawOp]
 		if !ok {
 			resp, ok = responses[body.OperationName]
@@ -86,6 +101,7 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
+		attnRespMu.RUnlock()
 		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd" || body.OperationName == "GetWorkerProfile" || body.OperationName == "GetWorkerTerminal" || body.OperationName == "GetWorkerModelGroups" || body.OperationName == "GetWorkerRendered" || body.OperationName == "GetWorkerBootPromptServe" || body.OperationName == "AppAgentEffectiveRoster" || body.OperationName == "GetWorkerRetireAdvisory") {
 			resp, ok = unstubbedDefault(body.OperationName)
 		}

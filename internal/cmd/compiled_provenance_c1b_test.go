@@ -133,7 +133,7 @@ func c1bReadPagesLimit(t *testing.T, pages []string, limit int) (*[]attnCall, st
 		}
 		if n >= len(pages) {
 			t.Errorf("unexpected extra page request %d", n)
-			responses[op] = `{"data":{"compiledPromptProvenance":null}}`
+			setAttnResponse(responses, op, `{"data":{"compiledPromptProvenance":null}}`)
 			return
 		}
 		if pages[n] == "integrity error" {

@@ -134,7 +134,7 @@ func TestC3cPagesAreCompleteOrUnavailableWithoutRetryingWrite(t *testing.T) {
 				if op == "GetNodeLintWarnings" {
 					reads++
 					if reads > 1 {
-						responses[op] = tc.second
+						setAttnResponse(responses, op, tc.second)
 					}
 				}
 			})

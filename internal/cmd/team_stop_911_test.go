@@ -23,7 +23,7 @@ func stopResponses() map[string]string {
 	r := taskResponses()
 	r["TeamStopSignalSet"] = `{"data":{"setTeamStopSignal":` + stopSignalJSON + `}}`
 	r["TeamStopSignalLift"] = `{"data":{"liftTeamStopSignal":{"changed":true,"signal":` + endedStopSignalJSON + `}}}`
-	r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+	setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`)
 	return r
 }
 
@@ -203,9 +203,9 @@ func TestTeamStopList911DrainsPagesAndMapsFilters(t *testing.T) {
 		}
 		page++
 		if page == 1 {
-			r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":"c1","hasNextPage":true}}}}`
+			setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":{"endCursor":"c1","hasNextPage":true}}}}`)
 		} else {
-			r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + endedStopSignalJSON + `],"pageInfo":{"endCursor":"c2","hasNextPage":false}}}}`
+			setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+endedStopSignalJSON+`],"pageInfo":{"endCursor":"c2","hasNextPage":false}}}}`)
 		}
 	})
 	setTeamBindingServer(t, srv.URL)
@@ -233,7 +233,7 @@ func TestTeamStopList911DrainsPagesAndMapsFilters(t *testing.T) {
 
 func TestTeamStopList911OmitsUnsetFiltersAndRendersEmpty(t *testing.T) {
 	r := stopResponses()
-	r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+	setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`)
 	calls, out, err := runTeamTask(t, r, "team", "stop", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestTeamStopList911OmitsUnsetFiltersAndRendersEmpty(t *testing.T) {
 func TestTeamStopList911RefusesAStalledCursor(t *testing.T) {
 	for _, pageInfo := range []string{`{"endCursor":null,"hasNextPage":true}`, `{"endCursor":"","hasNextPage":true}`} {
 		r := stopResponses()
-		r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":` + pageInfo + `}}}`
+		setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":`+pageInfo+`}}}`)
 		_, out, err := runTeamTask(t, r, "team", "stop", "list", "--json")
 		if exitCodeFor(err) != exitcode.Error || out != "" {
 			t.Fatalf("%s: err %v out %q", pageInfo, err, out)
@@ -259,7 +259,7 @@ func TestTeamStopList911RefusesAStalledCursor(t *testing.T) {
 	// A cursor that repeats the one just sent never progresses.
 	writeTeamBinding(t)
 	r := stopResponses()
-	r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":"same","hasNextPage":true}}}}`
+	setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":{"endCursor":"same","hasNextPage":true}}}}`)
 	srv, calls := attnServer(t, r)
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
@@ -288,10 +288,10 @@ func TestTeamStopList911RefusesACursorCycle(t *testing.T) {
 			cursor = "a"
 		}
 		if page >= 4 {
-			r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+			setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`)
 			return
 		}
-		r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":"` + cursor + `","hasNextPage":true}}}}`
+		setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[`+stopSignalJSON+`],"pageInfo":{"endCursor":"`+cursor+`","hasNextPage":true}}}}`)
 	})
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
@@ -465,7 +465,7 @@ func TestTeamStopLift911SendsTheTrimmedID(t *testing.T) {
 // The empty-list line claims only what the read covered.
 func TestTeamStopList911EmptyTextMatchesTheRead(t *testing.T) {
 	r := stopResponses()
-	r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+	setAttnResponse(r, "TeamStopSignals", `{"data":{"teamStopSignals":{"signals":[],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`)
 	for _, tc := range []struct {
 		args []string
 		want string

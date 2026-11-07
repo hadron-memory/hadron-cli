@@ -267,7 +267,7 @@ func TestTeamChatReadUnsupportedLatchAndNoteCoverEveryWalkPage(t *testing.T) {
 			if page >= len(pages) {
 				t.Fatal("unexpected extra page")
 			}
-			r[op] = pages[page]
+			setAttnResponse(r, op, pages[page])
 			page++
 		}
 	})
