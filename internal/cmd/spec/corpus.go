@@ -760,7 +760,7 @@ func renderMint(w io.Writer, d mintDTO) error {
 	if d.StaleAbstractsBlock {
 		block = "these block"
 	}
-	fmt.Fprintf(w, "  stale abstracts: %d (%s)\n", len(d.StaleAbstracts), block)
+	fmt.Fprintf(w, "  stale abstracts: %d (%s) — this mint's scope only; whole-memory audit: hadron spec validate --all -m %s\n", len(d.StaleAbstracts), block, cmdutil.ShellQuote(d.Memory))
 	for _, s := range d.StaleAbstracts {
 		fmt.Fprintf(w, "    %s  %s\n", s.Loc, s.Message)
 	}
