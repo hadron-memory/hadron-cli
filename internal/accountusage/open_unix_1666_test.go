@@ -67,3 +67,35 @@ func TestOpenRollout1666RejectsLinksAtEveryComponent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCodex1666PreservesHostPrefixAlias(t *testing.T) {
+	home, _ := oneRollout(t)
+	parent := filepath.Dir(home)
+	alias := filepath.Join(t.TempDir(), "host-prefix")
+	if err := os.Symlink(parent, alias); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := ReadCodex(codexAcct(filepath.Join(alias, filepath.Base(home))))
+	if err != nil || !snap.Present {
+		t.Fatalf("host prefix alias must remain readable: present=%v err=%v", snap.Present, err)
+	}
+}
+
+func TestCodex1666RefusesSwappedHomeSymlink(t *testing.T) {
+	home, _ := oneRollout(t)
+	moved := home + "-moved"
+	t.Cleanup(func() { _ = os.RemoveAll(moved) })
+	afterRolloutStat = func() {
+		if err := os.Rename(home, moved); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(moved, home); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { afterRolloutStat = func() {} })
+	snap, err := ReadCodex(codexAcct(home))
+	if err == nil || snap.Present {
+		t.Fatalf("ConfigDir itself must be nofollow: present=%v err=%v", snap.Present, err)
+	}
+}
