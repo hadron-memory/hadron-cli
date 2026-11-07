@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -195,15 +196,18 @@ func TestAuthenticationStatusDocument1726(t *testing.T) {
 
 // This is a read-only Store double; no shared config or keychain is touched.
 type authStatusStore1726 struct {
-	values       map[string]string
-	failOrdinary bool
-	reads        int
+	impersonationKey string
+	keys             []string
+	values           map[string]string
+	failOrdinary     bool
+	reads            int
 }
 
 func (*authStatusStore1726) Name() string { return "fixture" }
 func (s *authStatusStore1726) Get(key string) (string, error) {
 	s.reads++
-	if s.failOrdinary && !strings.HasSuffix(key, "#impersonation") {
+	s.keys = append(s.keys, key)
+	if s.failOrdinary && key != s.impersonationKey {
 		return "", errors.New("fixture keychain read failed")
 	}
 	value, ok := s.values[key]
@@ -223,26 +227,47 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 		name, env, stored, imp, want string
 		failStore                    bool
 		wantReads                    int
+		absentLogin, absentImp       bool
 	}{
-		{"stored login", "", "stored-fixture", "", "stored-fixture", false, 2},
-		{"impersonation precedes login", "", "stored-fixture", impersonation, impersonation, false, 1},
-		{"environment precedes both", "env-fixture", "stored-fixture", impersonation, "env-fixture", false, 0},
-		{"environment does not probe broken store", "env-fixture", "", "", "env-fixture", true, 0},
+		{"stored login", "", "stored-fixture", "", "stored-fixture", false, 2, false, false},
+		{"impersonation precedes login", "", "stored-fixture", impersonation, impersonation, false, 1, false, false},
+		{"environment precedes both", "env-fixture", "stored-fixture", impersonation, "env-fixture", false, 0, false, false},
+		{"environment does not probe broken store", "env-fixture", "", "", "env-fixture", true, 0, false, false},
+		{"absent login and impersonation", "", "", "", "", false, 2, true, true},
+		{"empty login and impersonation", "", "", "", "", false, 2, false, false},
+		{"empty login absent impersonation", "", "", "", "", false, 2, false, true},
+		{"absent login empty impersonation", "", "", "", "", false, 2, true, false},
 	} {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
 				var calls atomic.Int32
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					calls.Add(1)
-					if got := r.Header.Get("Authorization"); got != "Bearer "+tc.want {
+					wantHeader := ""
+					if tc.want != "" {
+						wantHeader = "Bearer " + tc.want
+					}
+					if got := r.Header.Get("Authorization"); got != wantHeader {
 						t.Errorf("wrong selected credential header: %q", got)
 					}
-					_, _ = w.Write([]byte(`{"data":{"authenticationStatus":"AUTHENTICATED"}}`))
+					answer := "AUTHENTICATED"
+					if tc.want == "" {
+						answer = "ANONYMOUS"
+					}
+					_, _ = fmt.Fprintf(w, `{"data":{"authenticationStatus":%q}}`, answer)
 				}))
 				defer srv.Close()
 				f, out := testFactory(t)
 				t.Setenv("HADRON_TOKEN", tc.env)
-				st := &authStatusStore1726{values: map[string]string{authpkg.Host(srv.URL): tc.stored, authpkg.ImpersonationHostKey(srv.URL): tc.imp}, failOrdinary: tc.failStore}
+				host, impKey := authpkg.Host(srv.URL), authpkg.ImpersonationHostKey(srv.URL)
+				values := map[string]string{}
+				if !tc.absentLogin {
+					values[host] = tc.stored
+				}
+				if !tc.absentImp {
+					values[impKey] = tc.imp
+				}
+				st := &authStatusStore1726{values: values, impersonationKey: impKey, failOrdinary: tc.failStore}
 				f.TokenStoreFn = func() store.Store { return st }
 				root := NewRootCmd(f)
 				args := []string{"auth", "status", "--server", srv.URL}
@@ -250,8 +275,22 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 					args = append(args, "--json")
 				}
 				root.SetArgs(args)
-				if err := root.Execute(); err != nil {
-					t.Fatal(err)
+				wantAnswer, wantCode := "AUTHENTICATED", 0
+				if tc.want == "" {
+					wantAnswer, wantCode = "ANONYMOUS", 3
+				}
+				if err := root.Execute(); exitCodeFor(err) != wantCode {
+					t.Fatalf("exit=%d err=%v", exitCodeFor(err), err)
+				}
+				wantKeys := []string{}
+				if tc.wantReads > 0 {
+					wantKeys = append(wantKeys, impKey)
+				}
+				if tc.wantReads > 1 {
+					wantKeys = append(wantKeys, host)
+				}
+				if len(st.keys) != len(wantKeys) || (len(wantKeys) > 0 && !reflect.DeepEqual(st.keys, wantKeys)) {
+					t.Fatalf("store keys=%q want=%q", st.keys, wantKeys)
 				}
 				if calls.Load() != 1 || st.reads != tc.wantReads {
 					t.Fatalf("requests=%d store reads=%d want=%d", calls.Load(), st.reads, tc.wantReads)
@@ -261,14 +300,14 @@ func TestAuthStatusCredentialSources1726(t *testing.T) {
 					if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 						t.Fatal(err)
 					}
-					if len(got) != 1 || got["status"] != "AUTHENTICATED" {
+					if len(got) != 1 || got["status"] != wantAnswer {
 						t.Fatalf("not answer-only: %s", out)
 					}
-				} else if out.String() != "credential authenticated\n" {
+				} else if wantText := map[string]string{"AUTHENTICATED": "credential authenticated\n", "ANONYMOUS": "no credential was presented\n"}[wantAnswer]; out.String() != wantText {
 					t.Fatalf("output=%q", out.String())
 				}
 				for _, secret := range []string{"stored-fixture", "env-fixture", impersonation} {
-					if strings.Contains(out.String(), secret) {
+					if secret != "" && strings.Contains(out.String(), secret) {
 						t.Fatal("selected credential leaked")
 					}
 				}
@@ -290,7 +329,7 @@ func TestAuthStatusStoredCredentialErrorStopsBeforeRequest1726(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "")
 			var stderr strings.Builder
 			f.IOStreams.ErrOut = &stderr
-			st := &authStatusStore1726{values: map[string]string{}, failOrdinary: true}
+			st := &authStatusStore1726{values: map[string]string{}, impersonationKey: authpkg.ImpersonationHostKey(srv.URL), failOrdinary: true}
 			f.TokenStoreFn = func() store.Store { return st }
 			root := NewRootCmd(f)
 			args := []string{"auth", "status", "--server", srv.URL}
@@ -315,20 +354,37 @@ func TestAuthStatusStoredCredentialErrorStopsBeforeRequest1726(t *testing.T) {
 	}
 }
 
+type countedRefusingTransport1754 struct{ calls atomic.Int32 }
+
+func (tr *countedRefusingTransport1754) RoundTrip(req *http.Request) (*http.Response, error) {
+	tr.calls.Add(1)
+	return (refusingTransport{}).RoundTrip(req)
+}
+
 func TestAuthStatusTransportFailureIsNoAnswer1726(t *testing.T) {
 	for _, asJSON := range []bool{false, true} {
 		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
 			f, out := testFactory(t)
-			f.HTTPClient = &http.Client{Transport: refusingTransport{}}
+			var serverCalls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				serverCalls.Add(1)
+				_, _ = w.Write([]byte(`{"data":{"authenticationStatus":"AUTHENTICATED"}}`))
+			}))
+			defer srv.Close()
+			tr := &countedRefusingTransport1754{}
+			f.HTTPClient = &http.Client{Transport: tr}
 			var stderr strings.Builder
 			f.IOStreams.ErrOut = &stderr
 			root := NewRootCmd(f)
-			args := []string{"auth", "status", "--server", "http://127.0.0.1:1"}
+			args := []string{"auth", "status", "--server", srv.URL}
 			if asJSON {
 				args = append(args, "--json")
 			}
 			root.SetArgs(args)
 			err := root.Execute()
+			if tr.calls.Load() != 1 || serverCalls.Load() != 0 {
+				t.Fatalf("injected transport calls=%d reachable server calls=%d", tr.calls.Load(), serverCalls.Load())
+			}
 			if exitCodeFor(err) != exitcode.Unavailable || out.Len() != 0 {
 				t.Fatalf("code=%d stdout=%s err=%v", exitCodeFor(err), out, err)
 			}
@@ -349,7 +405,14 @@ func TestAuthImpersonationHelpUsesWhoamiForIdentity1726(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "hadron auth status") || strings.Count(out.String(), "hadron auth whoami") != 2 || !strings.Contains(out.String(), `shows "IMPERSONATED (read-only)"`) {
+	command, _, err := root.Find([]string{"auth", "impersonate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "hadron auth status") ||
+		!strings.Contains(command.Long, `hadron auth whoami
+shows "IMPERSONATED (read-only)"`) ||
+		!strings.Contains(command.Example, "\n  hadron auth whoami\n") {
 		t.Fatalf("impersonation pointer/example drift: %s", out)
 	}
 }
@@ -366,5 +429,42 @@ func TestAuthWhoamiImpersonationPointerTarget1726(t *testing.T) {
 	}
 	if got, want := out.String(), "Fixture target — IMPERSONATED (read-only), org fixture-org, as Fixture actor, expires 2100-01-01T00:00:00Z\n"; got != want {
 		t.Fatalf("pointer target text=%q want=%q", got, want)
+	}
+}
+
+// The fixture must distinguish an exact impersonation key from a suffix lookalike.
+func TestAuthStatusStoreDiscriminator1754(t *testing.T) {
+	server := "https://fixture.example"
+	st := &authStatusStore1726{values: map[string]string{}, failOrdinary: true}
+	exact := authpkg.ImpersonationHostKey(server)
+	// Bind the selector without depending on a future key's textual format.
+	st.impersonationKey = exact
+	if _, err := st.Get(exact); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("exact key: %v", err)
+	}
+	if _, err := st.Get("unrelated#impersonation"); err == nil || errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("lookalike did not take ordinary failure: %v", err)
+	}
+	if !reflect.DeepEqual(st.keys, []string{exact, "unrelated#impersonation"}) {
+		t.Fatalf("keys=%q", st.keys)
+	}
+}
+
+func TestAuthStatusStoreEmptyAndAbsent1754(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		values      map[string]string
+		wantMissing bool
+	}{
+		{"absent", map[string]string{}, true},
+		{"present empty", map[string]string{"fixture-host": ""}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &authStatusStore1726{values: tc.values}
+			value, err := st.Get("fixture-host")
+			if value != "" || errors.Is(err, store.ErrNotFound) != tc.wantMissing || (!tc.wantMissing && err != nil) {
+				t.Fatalf("value=%q err=%v missing=%t", value, err, tc.wantMissing)
+			}
+		})
 	}
 }
