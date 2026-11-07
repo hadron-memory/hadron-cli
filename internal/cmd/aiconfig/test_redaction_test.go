@@ -12,10 +12,12 @@ import (
 
 func TestRedactTestError1538Controls(t *testing.T) {
 	original := exitcode.New(exitcode.Forbidden, errors.New("permission denied"))
-	for _, key := range []string{"", "sk-not-echoed"} {
-		if got := redactTestError(original, key); got != original {
-			t.Fatal("non-echo error chain changed")
-		}
+	if got := redactTestError(original, ""); got != original {
+		t.Fatal("empty-key error changed")
+	}
+	gotClean := redactTestError(original, "sk-not-echoed")
+	if gotClean.Error() != original.Error() || exitcode.FromError(gotClean) != exitcode.FromError(original) {
+		t.Fatal("non-echo public face changed")
 	}
 	if got := redactTestError(nil, "secret"); got != nil {
 		t.Fatal("nil error changed")

@@ -11,11 +11,13 @@ then literal and JSON/Go string-escaped echoes of that key are replaced in the
 mapped diagnostic. Empty/null/omitted keys do nothing. A placeholder that itself
 contains a very short submitted key is replaced by an empty string instead.
 
-When a diagnostic actually contains a secret, the returned error preserves the
+Whenever a nonempty override key was supplied, the returned error preserves the
 numeric exit class and redacted supported metadata via api.Detached, but
 deliberately drops the original error chain. Keeping
 that chain would let root JSON/detail/human renderers recover unsanitized
-metadata. Non-echoing errors are returned unchanged, including their chain.
+metadata. Errors with no nonempty override key are returned unchanged. With a known
+key, even a clean message is detached: separately rendered metadata can echo
+the key without Error() containing it.
 Completed provider diagnostics also scrub their error code and message while
 retaining ok/transient, exit 0 and the existing DTO shape. Other successful
 provider payload fields are outside this bounded error-redaction change.
@@ -44,7 +46,8 @@ pins the metadata tradeoff: safe requestId/serverCode remain on non-echoing
 errors; a secret-bearing requestId is scrubbed and its original typed fields
 are retained with sanitized values through the shared api.Detached helper.
 The agent contract states this explicitly. A raw GraphQL-list reachability
-control pins detachment; non-echoing errors retain identity.
+control pins detachment; non-echoing errors retain their public message and
+classification, while no-key errors retain identity.
 
 Known optional limit from scoped security: an unstructured non-200 raw body can
 encode an already-escaped message again. That doubly-escaped spelling is not
@@ -52,3 +55,8 @@ covered by this bounded list; the reported graphql-js coercion window uses
 structured errors and is covered. Arbitrary transformations/fragments and other
 successful payload fields remain outside this slice. Follow-up owner Jane,
 trigger: next raw-body redaction/credential-echo work.
+
+Delta follow-up: red a4ab1999 proves a metadata-only collision (submitted
+key INTERNAL_SERVER_ERROR, clean internal-fault message, serverCode carries
+key). Always detaching mapped errors for a known nonempty override key closes
+the conditional gate. No broader API/transport behavior changes.

@@ -195,16 +195,12 @@ func loadTestOverride(path string, in io.Reader) (*gqltypes.AiServiceConfigTestO
 	return &v, nil
 }
 
-// redactTestError classifies before redaction, so even a key that equals an
-// error code cannot change the exit. Only an echoing error loses its original
-// chain: root renderers must not recover unsanitized fields from that chain.
-// Detached retains redacted supported metadata and classification, not raw causes.
+// redactTestError detaches every mapped error when a key was submitted: a
+// separately rendered metadata field can echo it even when Error() is clean.
+// Classification happens before this call. Detached retains the redacted
+// public face and sentinels without retaining raw GraphQL/HTTP causes.
 func redactTestError(err error, key string) error {
 	if err == nil || key == "" {
-		return err
-	}
-	clean := redactSubmittedKey(err.Error(), key)
-	if clean == err.Error() {
 		return err
 	}
 	return api.Detached(err, func(text string) string { return redactSubmittedKey(text, key) })
