@@ -53,7 +53,9 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Test secretfile
-        run: go test ./internal/secretfile/...
+        run: go test -v ./internal/secretfile/...
+      - name: Build all packages
+        run: go build ./...
 
   lint:
     runs-on: ubuntu-latest

@@ -72,7 +72,10 @@ type Pending struct {
 // on windows, CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT — see createExcl);
 // symlinked parent directories are followed like any other path. On windows
 // the file is created with the owner-only DACL (current user + SYSTEM,
-// protected), not the directory's inherited ACL (#1325).
+// protected), not the directory's inherited ACL (#1325). Windows long paths
+// (over about 248 characters) are out of scope: the create uses the path as
+// given, without os.OpenFile's extended-length fixup, so such a path errors
+// (availability only; it never creates a wider file).
 func Open(final string, force bool) (*Pending, error) {
 	p := &Pending{final: final, path: final, force: force}
 	if force {
