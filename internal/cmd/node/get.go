@@ -582,6 +582,45 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 	revs := map[string]int{}
 	var yes, no bool
 	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
+		if !stamps.authorCheckUnsupported {
+			resp, err := gen.NodeLiveRevisionsContentChecked(cmd.Context(), client, refs, memory, prefix)
+			switch {
+			case err == nil && resp.NodeBatch != nil:
+				yes = true
+				out := &gen.NodeLiveRevisionsNodeBatchNodeBatchResult{Truncated: resp.NodeBatch.Truncated, Omitted: resp.NodeBatch.Omitted, Unavailable: resp.NodeBatch.Unavailable}
+				for _, n := range resp.NodeBatch.Nodes {
+					if n == nil {
+						continue
+					}
+					revs[n.Id] = n.Revision
+					if stamps.byID != nil {
+						st := nodeStamps{}
+						if n.Authorship != nil {
+							st.authorship = authorshipFrom(&n.Authorship.NodeAuthorshipFields)
+						}
+						if n.ContentValidation != nil {
+							st.validation = contentValidationCheckedFrom(&n.ContentValidation.NodeContentValidationCheckedFields)
+						}
+						if n.ApprovalStatus != nil {
+							st.approval = approvalStatusFrom(&n.ApprovalStatus.NodeApprovalStatusFields)
+						}
+						if n.MintStatus != nil {
+							st.mint = mintStatusFrom(&n.MintStatus.NodeMintStatusFields)
+						}
+						stamps.byID[n.Id] = st
+					}
+				}
+				return out, nil
+			case err == nil:
+				return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node author-comparison read")
+			case (resp == nil || resp.NodeBatch == nil) && isUnknownContentValidationProjection(err):
+				// Keep every older projection unchanged. Learn this once, then
+				// let the existing mint/approval/stamp ladder decide support.
+				stamps.authorCheckUnsupported = true
+			default:
+				return nil, api.MapError(err)
+			}
+		}
 		if !stamps.mintUnsupported {
 			resp, err := gen.NodeLiveRevisionsMinted(cmd.Context(), client, refs, memory, prefix)
 			switch {
@@ -852,10 +891,11 @@ type nodeStamps struct {
 // currently collecting (the AFTER probe; byID is nil otherwise) — each
 // node's stamps.
 type stampReads struct {
-	unsupported         bool
-	approvalUnsupported bool
-	mintUnsupported     bool
-	byID                map[string]nodeStamps
+	authorCheckUnsupported bool
+	unsupported            bool
+	approvalUnsupported    bool
+	mintUnsupported        bool
+	byID                   map[string]nodeStamps
 }
 
 // apply sets each DTO's stamps from the after-probe. On a server without them
@@ -867,6 +907,12 @@ func (s *stampReads) apply(dtos []*nodeDetailDTO) {
 	for _, d := range dtos {
 		if st, ok := s.byID[d.ID]; ok {
 			d.Authorship, d.ContentValidation = st.authorship, st.validation
+			// Only node get adds authorCheck; history projections remain unchanged.
+			// An older read has an explicit unknown comparison, never CHECKED.
+			if d.ContentValidation != nil && d.ContentValidation.LatestReport != nil && d.ContentValidation.LatestReport.AuthorCheck == nil {
+				var unknown *string
+				d.ContentValidation.LatestReport.AuthorCheck = &unknown
+			}
 			d.ApprovalStatus = st.approval
 			d.MintStatus = st.mint
 		}

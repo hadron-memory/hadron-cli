@@ -234,6 +234,7 @@ Maintainers
 	cmd.AddCommand(newCmdRecovery(f))
 	cmd.AddCommand(newCmdRestore(f))
 	cmd.AddCommand(newCmdApprove(f))
+	cmd.AddCommand(newCmdValidation(f))
 	cmd.AddCommand(newCmdVerify(f))
 	cmd.AddCommand(newCmdMint(f))
 	cmd.AddCommand(newCmdSign(f))
