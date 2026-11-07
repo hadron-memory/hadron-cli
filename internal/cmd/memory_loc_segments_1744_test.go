@@ -102,13 +102,13 @@ func TestMemoryLocSegmentsWire1744(t *testing.T) {
 func TestMemoryLocSegmentsUsage1744(t *testing.T) {
 	for _, args := range [][]string{nil, {"--memory", ""}, {"--memory", "m", "--limit", "0"}, {"--memory", "m", "--limit", "-1"}, {"--memory", "m", "--after", ""}} {
 		r := runLoc1744(t, locPage1744, args...)
-		if r.err == nil || len(r.vars) != 0 || r.out != "" {
+		if r.err == nil || exitCodeFor(r.err) != 2 || len(r.vars) != 0 || r.out != "" {
 			t.Fatalf("args%v err%v calls%d out%q", args, r.err, len(r.vars), r.out)
 		}
 	}
 }
 func TestMemoryLocSegmentsMalformed1744(t *testing.T) {
-	for _, page := range []string{`{}`, `{"items":null}`, `{"items":[null]}`, `{"items":[{"segment":"","memoryId":"m"}]}`, `{"items":[{"segment":"a","memoryId":""}]}`, `{"items":[],"hasMore":true}`, `{"items":[],"hasMore":true,"endCursor":""}`, `{"items":[],"hasMore":false,"endCursor":"bad\nnext"}`} {
+	for _, page := range []string{`null`, `{}`, `{"items":null}`, `{"items":[null]}`, `{"items":[{"segment":"","memoryId":"m"}]}`, `{"items":[{"segment":"a","memoryId":""}]}`, `{"items":[],"hasMore":true}`, `{"items":[],"hasMore":true,"endCursor":""}`, `{"items":[],"hasMore":false,"endCursor":"bad\nnext"}`} {
 		r := runLoc1744(t, `{"data":{"memoryLocSegments":`+page+`}}`, "--memory", "m", "--json")
 		if r.err == nil || r.out != "" || r.stderr != "" || len(r.vars) != 1 {
 			t.Errorf("page%s err%v out%q stderr%q calls%d", page, r.err, r.out, r.stderr, len(r.vars))
@@ -131,6 +131,24 @@ func TestMemoryLocSegmentsErrors1744(t *testing.T) {
 		r := runLoc1744(t, body, "--memory", "m", "--json")
 		if r.err == nil || r.out != "" || len(r.vars) != 1 {
 			t.Fatalf("err%v out%q calls%d", r.err, r.out, len(r.vars))
+		}
+	}
+}
+
+func TestMemoryLocSegmentsSafeText1744(t *testing.T) {
+	body := `{"data":{"memoryLocSegments":{"items":[{"segment":"a\nb","hasNode":false,"memoryId":"m\tq"}],"hasMore":false,"endCursor":null}}}`
+	r := runLoc1744(t, body, "--memory", "m")
+	if r.err != nil || strings.Contains(r.out, "a\nb") || strings.Contains(r.out, "m\tq") || r.stderr != "" {
+		t.Fatalf("text err%v out%q stderr%q", r.err, r.out, r.stderr)
+	}
+	r = runLoc1744(t, body, "--memory", "m", "--json")
+	if r.err != nil || !strings.Contains(r.out, `"a\nb"`) || !strings.Contains(r.out, `"m\tq"`) {
+		t.Fatalf("raw JSON: %v %q", r.err, r.out)
+	}
+	for _, arg := range []string{"empty", "unreadable", "garbage"} {
+		r = runLoc1744(t, `{"data":{"memoryLocSegments":{"items":[],"hasMore":false,"endCursor":null}}}`, "--memory", arg)
+		if r.err != nil || r.stderr != "" || !strings.Contains(r.out, "MEMORY ID") || strings.Contains(r.out, "not found") {
+			t.Fatalf("empty %s err%v out%q stderr%q", arg, r.err, r.out, r.stderr)
 		}
 	}
 }

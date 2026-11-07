@@ -20728,13 +20728,15 @@ func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetServedRevSeq()
 type BootPromptServeRefusal string
 
 const (
-	BootPromptServeRefusalBootPromptNotApproved   BootPromptServeRefusal = "BOOT_PROMPT_NOT_APPROVED"
-	BootPromptServeRefusalBootPromptNotSet        BootPromptServeRefusal = "BOOT_PROMPT_NOT_SET"
-	BootPromptServeRefusalBootPromptNotSigned     BootPromptServeRefusal = "BOOT_PROMPT_NOT_SIGNED"
-	BootPromptServeRefusalBootPromptTargetDeleted BootPromptServeRefusal = "BOOT_PROMPT_TARGET_DELETED"
+	BootPromptServeRefusalBootPromptInstallLicenseInactive BootPromptServeRefusal = "BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"
+	BootPromptServeRefusalBootPromptNotApproved            BootPromptServeRefusal = "BOOT_PROMPT_NOT_APPROVED"
+	BootPromptServeRefusalBootPromptNotSet                 BootPromptServeRefusal = "BOOT_PROMPT_NOT_SET"
+	BootPromptServeRefusalBootPromptNotSigned              BootPromptServeRefusal = "BOOT_PROMPT_NOT_SIGNED"
+	BootPromptServeRefusalBootPromptTargetDeleted          BootPromptServeRefusal = "BOOT_PROMPT_TARGET_DELETED"
 )
 
 var AllBootPromptServeRefusal = []BootPromptServeRefusal{
+	BootPromptServeRefusalBootPromptInstallLicenseInactive,
 	BootPromptServeRefusalBootPromptNotApproved,
 	BootPromptServeRefusalBootPromptNotSet,
 	BootPromptServeRefusalBootPromptNotSigned,
@@ -34877,7 +34879,7 @@ func (v *CreateMcpServerResponse) GetCreateMcpServer() *CreateMcpServerCreateMcp
 // CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
 type CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
 	Template *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
-	// Empty until #1327 adds its visibility warnings.
+	// Always empty for a template save: less-visible-task warnings are computed when a template is applied to a memory (there is no target memory here).
 	Warnings []*CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -35051,7 +35053,7 @@ func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplat
 // CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -35893,7 +35895,7 @@ func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.Cr
 // CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
 type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload struct {
 	Rule *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
-	// Empty until #1327 adds its visibility warnings.
+	// TASK_LESS_VISIBLE for each task reference of the saved rule that a reader of this memory may not be able to read. Advisory: it never changes the save. Empty for unlock.
 	Warnings []*CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -36145,7 +36147,7 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 // CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -47353,7 +47355,7 @@ type GetMemoryDetailMemory struct {
 	SyncStatus     SyncStatus        `json:"syncStatus"`
 	LastSyncedAt   *string           `json:"lastSyncedAt"`
 	SyncError      *string           `json:"syncError"`
-	// Version 1 JSON outcome of the last sync: partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
+	// Versioned JSON outcome of the last sync (v1, or v2 when an attestation-refused entry requires it): partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
 	LastSyncReport     *string `json:"lastSyncReport"`
 	VectorIndexEnabled bool    `json:"vectorIndexEnabled"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
@@ -53327,7 +53329,12 @@ var AllInstallMethod = []InstallMethod{
 // is created by the App's first customisation: a createNode through this target
 // finds-or-creates it in the same transaction as the write, so a refused write
 // leaves nothing behind. Only whoever manages the App may write through it, and
-// only while the App is live and the Agent installed.
+// only while the App is live and the Agent installed. For createNode(input.install),
+// an Agent held only through an import without the App organisation's active grant
+// is refused with AGENT_ORG_GRANT_REQUIRED; an absent Agent is refused with
+// AGENT_NOT_INSTALLED. Both createNode refusals leave no node or install memory
+// behind (hrn:node:hadronmemory.com:specs:cor:agt:040:15).
+// These typed createNode refusals do not describe updateNode's lookup/write errors.
 type InstallTargetInput struct {
 	AgentRef string `json:"agentRef"`
 	AppRef   string `json:"appRef"`
@@ -56735,7 +56742,7 @@ type MemoryConfigApplyFields struct {
 	DryRun           bool `json:"dryRun"`
 	// One per template rule, role-ascending.
 	Entries []*MemoryConfigApplyFieldsEntriesMemoryConfigApplyEntry `json:"entries"`
-	// Empty until #1327 adds its visibility warnings.
+	// TASK_LESS_VISIBLE for each rule this apply wrote, or on a dry run would write. A dry run and the real apply report the same warnings.
 	Warnings []*MemoryConfigApplyFieldsWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -57044,7 +57051,7 @@ func (v *MemoryConfigApplyFieldsTemplateNodeRoleRuleSourceTemplate) GetDeleted()
 // MemoryConfigApplyFieldsWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type MemoryConfigApplyFieldsWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -58061,7 +58068,7 @@ func (v *MemoryConfigTemplatesResponse) GetMemoryConfigTemplates() *MemoryConfig
 // MemoryConfigWarningFields includes the GraphQL fields of MemoryConfigWarning requested by the fragment MemoryConfigWarningFields.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type MemoryConfigWarningFields struct {
 	Code      string                `json:"code"`
 	Role      string                `json:"role"`
@@ -58155,6 +58162,77 @@ func (v *MemoryFilter) GetSharedWithMe() *bool { return v.SharedWithMe }
 
 // GetVisibility returns MemoryFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *MemoryFilter) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage includes the requested fields of the GraphQL type LocSegmentsPage.
+// The GraphQL type's documentation follows.
+//
+// #3456 - one page of memoryLocSegments.
+type MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage struct {
+	Items   []*MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment `json:"items"`
+	HasMore bool                                                                `json:"hasMore"`
+	// Opaque. Null when hasMore is false.
+	EndCursor *string `json:"endCursor"`
+}
+
+// GetItems returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage.Items, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage) GetItems() []*MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment {
+	return v.Items
+}
+
+// GetHasMore returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage) GetHasMore() bool { return v.HasMore }
+
+// GetEndCursor returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage.EndCursor, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment includes the requested fields of the GraphQL type LocSegment.
+// The GraphQL type's documentation follows.
+//
+// #3456 - one row of memoryLocSegments: a next loc segment under the parent, and the memory it comes from.
+type MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment struct {
+	// The next segment name (no colon).
+	Segment string `json:"segment"`
+	// True when an eligible node sits at exactly <parent>:<segment> in this memory; false for a branch that only has nodes below it.
+	HasNode bool `json:"hasNode"`
+	// The memory the row comes from (an inherited system memory names itself).
+	MemoryId string `json:"memoryId"`
+}
+
+// GetSegment returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment.Segment, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment) GetSegment() string {
+	return v.Segment
+}
+
+// GetHasNode returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment.HasNode, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment) GetHasNode() bool {
+	return v.HasNode
+}
+
+// GetMemoryId returns MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment.MemoryId, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// MemoryLocSegmentsResponse is returned by MemoryLocSegments on success.
+type MemoryLocSegmentsResponse struct {
+	// #3456 (hrn:node:hadronmemory.com:specs:cor:api:090:05): one page of the distinct next loc segments
+	// under parentLoc ("" for the root), including a branch with no node of its own. Reads over exactly
+	// the nodes findNodes would read for the same memoryIds with no query: the same readable set, access
+	// intersection, defaults and inheritance. memoryIds is required and non-empty (an empty list is
+	// BAD_USER_INPUT); when no entry survives the gate the answer is the empty page, never the caller's
+	// default scope. An unreadable, unresolvable or empty memory, and a parent with nothing at or under
+	// it, all give the identical empty page. Rows are grouped by memory id; inside a memory, node-backed
+	// segments with a position come first by position, then every other segment by name (ruling 0217).
+	// Default page 20, cap 200 (larger is served as 200); after is the previous page's endCursor.
+	MemoryLocSegments *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage `json:"memoryLocSegments"`
+}
+
+// GetMemoryLocSegments returns MemoryLocSegmentsResponse.MemoryLocSegments, and is useful for accessing the field via an interface.
+func (v *MemoryLocSegmentsResponse) GetMemoryLocSegments() *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPage {
+	return v.MemoryLocSegments
+}
 
 // 023-app-shape US4: role on a MemoryMember row. Symmetric team
 // membership for group-class memory.
@@ -61971,11 +62049,11 @@ type NodeFilter struct {
 	MemoryIds []string `json:"memoryIds,omitempty"`
 	// #1591 — only minted (true) or unminted (false) nodes.
 	Minted *bool `json:"minted,omitempty"`
-	// An explicit 'comment' with no contentScope searches comments (as COMMENTS).
+	// Without it, system and chat-message nodes are left out (hrn:node:hadronmemory.com:specs:cor:api:090:02); naming one of them returns it. record nodes are never left out. An explicit 'comment' with no contentScope searches comments (as COMMENTS).
 	NodeType *string `json:"nodeType,omitempty"`
 	// #3113 — an explicit list of node types, a union: only nodes whose type is in the list
 	// (hrn:node:hadronmemory.com:specs:cor:api:090:02). It narrows, ANDs every other filter and, being
-	// explicit, replaces the default that leaves out system nodes; it never lifts the memory-class
+	// explicit, replaces the default that leaves out system and chat-message nodes; it never lifts the memory-class
 	// default, access, deleted rows or inheritance. Values are exact and case-sensitive; an unknown
 	// value matches nothing. null is the same as omitted. Refused with BAD_USER_INPUT: an empty list,
 	// both nodeType and nodeTypes (an empty string counts as set), more than 20 entries (counted
@@ -82741,7 +82819,7 @@ type SyncMemorySyncMemory struct {
 	SyncStatus   SyncStatus `json:"syncStatus"`
 	SyncError    *string    `json:"syncError"`
 	LastSyncedAt *string    `json:"lastSyncedAt"`
-	// Version 1 JSON outcome of the last sync: partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
+	// Versioned JSON outcome of the last sync (v1, or v2 when an attestation-refused entry requires it): partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
 	LastSyncReport *string `json:"lastSyncReport"`
 }
 
@@ -91030,7 +91108,7 @@ func (v *UnlockNodeRoleRuleResponse) GetUnlockNodeRoleRule() *UnlockNodeRoleRule
 // UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
 type UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload struct {
 	Rule *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
-	// Empty until #1327 adds its visibility warnings.
+	// TASK_LESS_VISIBLE for each task reference of the saved rule that a reader of this memory may not be able to read. Advisory: it never changes the save. Empty for unlock.
 	Warnings []*UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -91282,7 +91360,7 @@ func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 // UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -93876,7 +93954,7 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionResponse) GetUpdateMemoryC
 // UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
 type UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
 	Template *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
-	// Empty until #1327 adds its visibility warnings.
+	// Always empty for a template save: less-visible-task warnings are computed when a template is applied to a memory (there is no target memory here).
 	Warnings []*UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -94050,7 +94128,7 @@ func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplate
 // UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -94185,7 +94263,7 @@ func (v *UpdateMemoryConfigTemplateResponse) GetUpdateMemoryConfigTemplate() *Up
 // UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
 type UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
 	Template *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
-	// Empty until #1327 adds its visibility warnings.
+	// Always empty for a template save: less-visible-task warnings are computed when a template is applied to a memory (there is no target memory here).
 	Warnings []*UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -94359,7 +94437,7 @@ func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplat
 // UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -95683,7 +95761,7 @@ func (v *UpdateNodeRoleRuleClearingValidateByResponse) GetUpdateNodeRoleRule() *
 // UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
 type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload struct {
 	Rule *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
-	// Empty until #1327 adds its visibility warnings.
+	// TASK_LESS_VISIBLE for each task reference of the saved rule that a reader of this memory may not be able to read. Advisory: it never changes the save. Empty for unlock.
 	Warnings []*UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -95935,7 +96013,7 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 // UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -96074,7 +96152,7 @@ func (v *UpdateNodeRoleRuleResponse) GetUpdateNodeRoleRule() *UpdateNodeRoleRule
 // UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
 type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload struct {
 	Rule *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
-	// Empty until #1327 adds its visibility warnings.
+	// TASK_LESS_VISIBLE for each task reference of the saved rule that a reader of this memory may not be able to read. Advisory: it never changes the save. Empty for unlock.
 	Warnings []*UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
 }
 
@@ -96326,7 +96404,7 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 // UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
 // The GraphQL type's documentation follows.
 //
-// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success. Today the only code is TASK_LESS_VISIBLE (#1327): a task the saver can read that some reader of the memory may not; taskUrn and taskState are the saver's own reference projection, so a task the saver cannot read is named by state alone. It is also what a save answers when that check could not be completed after the rule was saved (containment not established, not proof that a reader is missing): the save still succeeds, and taskUrn and taskState are then null when the saver's own projection was unavailable. An App write or automation read grant on the memory counts as a reader that cannot be proven to read the task.
 type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
 	MemoryConfigWarningFields `json:"-"`
 }
@@ -108343,6 +108421,26 @@ func (v *__MemoryConfigTemplatesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __MemoryConfigTemplatesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoryConfigTemplatesInput) GetOffset() *int { return v.Offset }
+
+// __MemoryLocSegmentsInput is used internally by genqlient
+type __MemoryLocSegmentsInput struct {
+	MemoryIds []string `json:"memoryIds"`
+	ParentLoc string   `json:"parentLoc"`
+	Limit     *int     `json:"limit,omitempty"`
+	After     *string  `json:"after,omitempty"`
+}
+
+// GetMemoryIds returns __MemoryLocSegmentsInput.MemoryIds, and is useful for accessing the field via an interface.
+func (v *__MemoryLocSegmentsInput) GetMemoryIds() []string { return v.MemoryIds }
+
+// GetParentLoc returns __MemoryLocSegmentsInput.ParentLoc, and is useful for accessing the field via an interface.
+func (v *__MemoryLocSegmentsInput) GetParentLoc() string { return v.ParentLoc }
+
+// GetLimit returns __MemoryLocSegmentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MemoryLocSegmentsInput) GetLimit() *int { return v.Limit }
+
+// GetAfter returns __MemoryLocSegmentsInput.After, and is useful for accessing the field via an interface.
+func (v *__MemoryLocSegmentsInput) GetAfter() *string { return v.After }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
@@ -134810,6 +134908,53 @@ func MemoryConfigTemplates(
 	}
 
 	data_ = &MemoryConfigTemplatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryLocSegments.
+const MemoryLocSegments_Operation = `
+query MemoryLocSegments ($memoryIds: [ID!]!, $parentLoc: String!, $limit: Int, $after: String) {
+	memoryLocSegments(memoryIds: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
+		items {
+			segment
+			hasNode
+			memoryId
+		}
+		hasMore
+		endCursor
+	}
+}
+`
+
+// cli#1744: one explicit page, no default-scope fallback or client sorting.
+func MemoryLocSegments(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryIds []string,
+	parentLoc string,
+	limit *int,
+	after *string,
+) (data_ *MemoryLocSegmentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryLocSegments",
+		Query:  MemoryLocSegments_Operation,
+		Variables: &__MemoryLocSegmentsInput{
+			MemoryIds: memoryIds,
+			ParentLoc: parentLoc,
+			Limit:     limit,
+			After:     after,
+		},
+	}
+
+	data_ = &MemoryLocSegmentsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
