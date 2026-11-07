@@ -41,7 +41,6 @@ func TestNodeCreateUnreadPipeLegsUnchanged1450(t *testing.T) {
 		args  []string
 	}{
 		{"no pipe attached", "", nil},
-		{"inline content wins over a live pipe", "ignored", []string{"--content", "inline"}},
 		{"content - reads the pipe", "piped body", []string{"--content", "-"}},
 		{"content-file - reads the pipe", "piped body", []string{"--content-file", "-"}},
 	} {
@@ -149,6 +148,28 @@ func TestDashFileFlagsDoNotConsumeStdin1450(t *testing.T) {
 			}
 			if len(captured) != 0 {
 				t.Errorf("a refused command must send nothing, sent %v", captured)
+			}
+		})
+	}
+}
+
+// create counts stdin readers like update: a body from an inline value or a
+// file PATH leaves a live pipe unread, so it is refused too (#1450 LOCAL P2).
+func TestNodeCreateInlineOrPathBodyWithUnreadPipe1450(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "body.md")
+	if err := os.WriteFile(file, []byte("from file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range [][]string{{"--content", "inline"}, {"--content-file", file}} {
+		t.Run(flag[0], func(t *testing.T) {
+			args := append([]string{"node", "create", "-m", "acme.com::kb", "--loc", "x:y", "--name", "N"}, flag...)
+			_, _, captured, err := runNode(t, stubs1450(), "piped body", args...)
+			if exitCodeFor(err) != exitcode.Usage || err == nil ||
+				!strings.Contains(err.Error(), "stdin has input but no flag reads it") {
+				t.Fatalf("want the guard's exit-2 refusal, got %v", err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("a refused create must send nothing, sent %v", captured)
 			}
 		})
 	}

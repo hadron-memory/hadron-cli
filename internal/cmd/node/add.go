@@ -105,13 +105,17 @@ Details:
 			if err := cmdutil.ValidateURNPath("--loc", loc); err != nil {
 				return err
 			}
-			// #1450: a non-empty pipe with no flag to read it used to be dropped
-			// silently, storing an empty body under a success line. Before any
-			// request, and only when neither content flag was passed (an inline
-			// --content wins; a flag that names stdin consumes it).
-			if !cmd.Flags().Changed("content") && !cmd.Flags().Changed("content-file") {
+			// #1450: a non-empty pipe that no flag reads used to be dropped
+			// silently. Before any request, and only when neither content flag
+			// names stdin ("-"): any other value (an inline body, a file path)
+			// leaves the pipe unread, exactly as update counts its readers.
+			if content != "-" && contentFile != "-" {
+				consequence := "ignore it"
+				if !cmd.Flags().Changed("content") && !cmd.Flags().Changed("content-file") {
+					consequence = "store an empty body"
+				}
 				if err := cmdutil.RefuseUnreadStdinPipe(f.IOStreams.In, f.IOStreams.IsInputTerminal(),
-					"--content - (or --content-file -)", "store an empty body"); err != nil {
+					"--content - (or --content-file -)", consequence); err != nil {
 					return err
 				}
 			}
