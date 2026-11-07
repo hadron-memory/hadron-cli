@@ -8,9 +8,11 @@ import (
 	"testing"
 )
 
-func messagesC2Page(t *testing.T) string {
+func messagesC2Page(t *testing.T, times ...any) string {
 	t.Helper()
-	times := []any{"2026-11-06T01:20:59.987654321Z", "2026-11-06T03:20:15+02:00", "2026-01-01T00:05:00+01:00", nil, "not-a-time\nFORGED"}
+	if times == nil {
+		times = []any{"2026-11-06T01:20:59.987654321Z", "2026-11-06T03:20:15+02:00", "2026-01-01T00:05:00+01:00", nil, "not-a-time\nFORGED"}
+	}
 	items := make([]map[string]any, 0, len(times))
 	for i, at := range times {
 		items = append(items, map[string]any{"nodeId": "message", "seq": i + 1, "body": "hello", "at": at, "authorName": "Iris", "authorWorkerId": "worker", "authorUserId": nil, "mentions": []string{}, "replyToSeq": nil})
@@ -22,10 +24,10 @@ func messagesC2Page(t *testing.T) string {
 	return string(raw)
 }
 
-func runMessagesC2Chat(t *testing.T, asJSON bool) (string, []string) {
+func runMessagesC2Chat(t *testing.T, asJSON bool, times ...any) (string, []string) {
 	t.Helper()
 	r := chatReadResponses()
-	r["TeamChatMessages"] = messagesC2Page(t)
+	r["TeamChatMessages"] = messagesC2Page(t, times...)
 	args := []string{"team", "chat", "read", "--app", "acme.com:eng-team"}
 	if asJSON {
 		args = append(args, "--json")
@@ -55,8 +57,11 @@ func TestMessagesC2CastURN(t *testing.T) {
 	if !reflect.DeepEqual(ops, []string{"CastWorker"}) {
 		t.Fatalf("new lookup: %v", ops)
 	}
-	if !strings.Contains(out, "\n  urn: hrn:worker:acme.com:eng-team:iris\n") {
-		t.Fatalf("URN absent: %s", out)
+	wantText := "✓ cast Iris (backend-engineer) — worker wkr1\n" +
+		"  urn: hrn:worker:acme.com:eng-team:iris\n" +
+		"reporting choice withheld from this caller\n\nYou are Iris.\n"
+	if out != wantText {
+		t.Fatalf("cast line order/text: got %q want %q", out, wantText)
 	}
 	raw, ops := runMessagesC2Cast(t, irisWorkerJSON, true)
 	want, err := os.ReadFile("testdata/messages_c2_cast_base.json")
@@ -128,11 +133,7 @@ func TestMessagesC2ChatTimes(t *testing.T) {
 		"[4] Iris (worker): hello",
 		"[5] Iris (worker): hello",
 	}
-	for _, line := range wantLines {
-		if !strings.Contains(out, line+"\n") {
-			t.Errorf("missing %q in %s", line, out)
-		}
-	}
+	assertMessageLines1762(t, out, wantLines)
 	if strings.Contains(out, "FORGED") {
 		t.Fatal(out)
 	}
@@ -155,5 +156,81 @@ func TestMessagesC2ChatTimes(t *testing.T) {
 	}
 	if raw != string(want) {
 		t.Fatalf("JSON changed:\n%s", raw)
+	}
+}
+
+func assertMessageLines1762(t *testing.T, out string, want []string) {
+	t.Helper()
+	var lines []string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "[") {
+			lines = append(lines, line)
+		}
+	}
+	if !reflect.DeepEqual(lines, want) {
+		t.Fatalf("exact message lines: got %q want %q", lines, want)
+	}
+}
+
+func TestCastBlankRenderedURN1762(t *testing.T) {
+	for _, raw := range []string{"   ", "\t\r\n\x1b\u202e", "\u00a0\u200b\u2028", " hrn:worker:acme.com:eng-team:iris "} {
+		t.Run(raw, func(t *testing.T) {
+			var fixture map[string]any
+			if err := json.Unmarshal([]byte(irisWorkerJSON), &fixture); err != nil {
+				t.Fatal(err)
+			}
+			fixture["urn"] = raw
+			data, err := json.Marshal(fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, ops := runMessagesC2Cast(t, string(data), false)
+			want := "✓ cast Iris (backend-engineer) — worker wkr1\n"
+			if strings.HasPrefix(raw, " hrn:") {
+				want += "  urn: " + raw + "\n"
+			}
+			want += "reporting choice withheld from this caller\n\nYou are Iris.\n"
+			if out != want || !reflect.DeepEqual(ops, []string{"CastWorker"}) {
+				t.Fatalf("text/economics: got %q ops %v want %q", out, ops, want)
+			}
+			jsonOut, jsonOps := runMessagesC2Cast(t, string(data), true)
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(jsonOut), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if dto["urn"] != raw || !reflect.DeepEqual(jsonOps, ops) {
+				t.Fatalf("raw JSON/economics: %q %v", jsonOut, jsonOps)
+			}
+		})
+	}
+}
+
+func TestChatTimestampEdges1762(t *testing.T) {
+	times := []any{"2026-11-06T01:20:59Z", "2026-11-06T01:20:59+00:00", "2026-11-06T01:20:59", "2026-11-06t01:20:59z", "2026-11-06 01:20:59Z", " 2026-11-06T01:20:59Z ", "2026-11-06T01:20:59Z ", " 2026-11-06T01:20:59Z"}
+	out, ops := runMessagesC2Chat(t, false, times...)
+	assertMessageLines1762(t, out, []string{
+		"[1] 2026-11-06T01:20Z Iris (worker): hello",
+		"[2] 2026-11-06T01:20Z Iris (worker): hello",
+		"[3] Iris (worker): hello", "[4] Iris (worker): hello", "[5] Iris (worker): hello",
+		"[6] Iris (worker): hello", "[7] Iris (worker): hello", "[8] Iris (worker): hello",
+	})
+	jsonOut, jsonOps := runMessagesC2Chat(t, true, times...)
+	var dto struct {
+		Messages []struct {
+			At string `json:"at"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(jsonOut), &dto); err != nil {
+		t.Fatal(err)
+	}
+	wantJSONOps := []string{"TeamAppIdentity", "TeamChatReadHead", "TeamChatReadMetadata", "ChannelReadState", "TeamChatMessages"}
+	wantTextOps := append(append([]string{}, wantJSONOps...), "TeamAppIdentity") // Existing text-only App description.
+	if len(dto.Messages) != len(times) || !reflect.DeepEqual(jsonOps, wantJSONOps) || !reflect.DeepEqual(ops, wantTextOps) {
+		t.Fatalf("JSON/economics: %s %v/%v", jsonOut, jsonOps, ops)
+	}
+	for i, m := range dto.Messages {
+		if m.At != times[i] {
+			t.Fatalf("raw timestamp %d: got %q want %q", i, m.At, times[i])
+		}
 	}
 }
