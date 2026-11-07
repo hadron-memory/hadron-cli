@@ -19,6 +19,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+type listInheritedFromDTO struct {
+	AgentID  string `json:"agentId"`
+	AgentURN string `json:"agentUrn"`
+}
+
 // nodeListDTO is the `node list` row: the shared nodeDTO plus the two JSONB
 // columns, which arrive only when --with-properties / --with-data asked for
 // them (#602).
@@ -51,6 +56,7 @@ import (
 // present here, never the returned value. See fill below.
 type nodeListDTO struct {
 	nodeDTO
+	InheritedFrom  *listInheritedFromDTO  `json:"inheritedFrom,omitempty"`
 	Properties     json.RawMessage        `json:"properties,omitempty"`
 	Data           json.RawMessage        `json:"data,omitempty"`
 	CommentSummary *listCommentSummaryDTO `json:"commentSummary,omitempty"`
@@ -104,6 +110,15 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List nodes",
 		Long: `List the nodes of a memory, one row each: loc, name, type, seq and whether it
 is runnable. Use node get to read a node's content.
+
+Inherited system-memory nodes keep the base's canonical URN and name the base
+Agent. A mixed/inherited table adds URN and INHERITED FROM columns; projected
+--with-data/--with-properties blocks add those metadata lines. An own-only table
+keeps its existing layout. JSON carries the server's urn and, for inherited
+rows, inheritedFrom {agentId,agentUrn}. Do not build a child-memory URN from an
+inherited loc. A base address grants no extra access: reading/editing the base
+still needs its permissions; writing at that loc through the child creates a
+child-owned override, as before. No memory-id guessing or extra node reads.
 
   hadron node list -m hrn:mem:acme.com:kb
   hadron node list -m hrn:mem:acme.com:kb --prefix findings:
@@ -362,6 +377,7 @@ Details:
 			for _, n := range rawNodes {
 				row := nodeListDTO{nodeDTO: nodeDTO{
 					ID:         n.Id,
+					URN:        n.Urn,
 					MemoryID:   n.MemoryId,
 					Loc:        n.Loc,
 					Name:       n.Name,
@@ -372,6 +388,12 @@ Details:
 					Role:       n.Role,
 					UpdatedAt:  n.UpdatedAt,
 				}}
+				if n.InheritedFrom != nil {
+					if n.Urn == "" || n.InheritedFrom.AgentId == "" || n.InheritedFrom.AgentUrn == "" {
+						return exitcode.Newf(exitcode.Error, "server returned incomplete inherited-node provenance")
+					}
+					row.InheritedFrom = &listInheritedFromDTO{AgentID: n.InheritedFrom.AgentId, AgentURN: n.InheritedFrom.AgentUrn}
+				}
 				// Keyed off the FLAG, not off whether the server sent a value:
 				// an unselected column and a selected-but-null one both arrive
 				// as a nil pointer, so the response cannot tell them apart and
@@ -473,7 +495,17 @@ Details:
 				if withProperties || withData {
 					return writeProjected(w, nodes)
 				}
+				showInheritance := false
+				for _, n := range nodes {
+					if n.InheritedFrom != nil {
+						showInheritance = true
+						break
+					}
+				}
 				headers := []string{"LOC", "NAME", "TYPE", "SEQ", "RUN"}
+				if showInheritance {
+					headers = append(headers, "URN", "INHERITED FROM")
+				}
 				if withCommentSummary && len(nodes) > 0 {
 					headers = append(headers, "OPEN THREADS", "OLDEST")
 				}
@@ -488,6 +520,13 @@ Details:
 						runStr = "✓"
 					}
 					cells := []string{output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), seqStr, runStr}
+					if showInheritance {
+						base := ""
+						if n.InheritedFrom != nil {
+							base = n.InheritedFrom.AgentURN
+						}
+						cells = append(cells, output.SafeCell(n.URN), output.SafeCell(base))
+					}
 					if n.CommentSummary != nil {
 						cells = append(cells, fmt.Sprint(n.CommentSummary.OpenThreads), n.oldestAge)
 					}
@@ -544,6 +583,11 @@ func writeProjected(w io.Writer, nodes []nodeListDTO) error {
 		}
 		if _, err := fmt.Fprintf(w, "%s  %s  (%s)%s\n", n.Loc, n.Name, n.NodeType, seqStr); err != nil {
 			return err
+		}
+		if n.InheritedFrom != nil {
+			if _, err := fmt.Fprintf(w, "  URN: %s\n  INHERITED FROM: %s\n", output.SafeCell(n.URN), output.SafeCell(n.InheritedFrom.AgentURN)); err != nil {
+				return err
+			}
 		}
 		if n.CommentSummary != nil {
 			if _, err := fmt.Fprintf(w, "  OPEN THREADS: %d  OLDEST: %s\n", n.CommentSummary.OpenThreads, n.oldestAge); err != nil {
