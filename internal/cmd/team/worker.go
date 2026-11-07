@@ -188,8 +188,9 @@ instead block each of your colleagues on a release they should never have
 needed. It also means casting a worker does not reserve it for you: if you
 intend to drive it, bind it.
 
-On success, text also shows the server-returned worker URN when available.
-JSON keeps its existing urn field. No extra lookup is made for the address.
+On success, text also shows the server-returned worker URN when its displayed
+value is not blank. JSON keeps its existing raw urn field. No extra lookup
+is made for the address.
 
 For per-worker boot customisation write boot:workers:<id>:source (role
 boot-prompt) in the App install memory, then compile and approve it with
@@ -349,9 +350,12 @@ context).
 				if _, err := fmt.Fprintf(w, "✓ cast %s%s — worker %s\n", dto.Name, roleSuffix(dto.Role), dto.ID); err != nil {
 					return err
 				}
-				if dto.URN != nil && *dto.URN != "" {
-					if _, err := fmt.Fprintf(w, "  urn: %s\n", output.SafeCell(*dto.URN)); err != nil {
-						return err
+				if dto.URN != nil {
+					urn := output.SafeCell(*dto.URN)
+					if strings.TrimSpace(urn) != "" {
+						if _, err := fmt.Fprintf(w, "  urn: %s\n", urn); err != nil {
+							return err
+						}
 					}
 				}
 				if _, err := fmt.Fprintf(w, "%s\n", placementText(dto.TeamPlacement, workerRefName(dto.ReportsTo))); err != nil {
