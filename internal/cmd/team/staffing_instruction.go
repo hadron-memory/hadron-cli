@@ -65,7 +65,7 @@ func castPreview(cmd *cobra.Command, client graphql.Client, appRef, agentRef, ro
 	if err != nil {
 		return nil, false, err
 	}
-	resp, err := gen.CastWorkerPreviewInstructed(ctx, client, appRef, optStr(agentRef), optStr(role), optStr(name), reportsTo, noTeam, claim)
+	resp, err := gen.CastWorkerPreviewInstructed(api.WithNoRedirect(ctx), client, appRef, optStr(agentRef), optStr(role), optStr(name), reportsTo, noTeam, claim)
 	if err != nil {
 		return nil, false, castChoiceRemedy(err)
 	}
