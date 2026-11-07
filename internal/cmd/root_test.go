@@ -153,6 +153,11 @@ func unstubbedDefault(op string) (string, bool) {
 		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
 		return missingFieldJSON("commentSummary"), true
+	// cli#1720: `session end --handoff` reads the saved handoff's URN back.
+	// Answered as a server without Worker.continuity, which is today's output,
+	// so existing end tests are unchanged; the read-back's own tests stub it.
+	case "GetWorkerHandoffReadBack":
+		return missingFieldJSON("continuity"), true
 	// `team chat read`'s best-effort server-side mark after delivery (#1353):
 	// answered as a server OUTSIDE the team-attention pilot, where the mark
 	// is refused and silently skipped. Tests of the mark stub both.

@@ -50046,6 +50046,129 @@ func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySessi
 	return v.AutoExpiredAt
 }
 
+// GetWorkerHandoffReadBackResponse is returned by GetWorkerHandoffReadBack on success.
+type GetWorkerHandoffReadBackResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerHandoffReadBackWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerHandoffReadBackResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackResponse) GetWorker() *GetWorkerHandoffReadBackWorker {
+	return v.Worker
+}
+
+// GetWorkerHandoffReadBackWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerHandoffReadBackWorker struct {
+	// #1029 — what a fresh binding of this worker inherits from the last one.
+	//
+	// Returned by startSession alongside the boot briefing (binding is briefing,
+	// so binding is handoff) and by the worker read, which is the recovery path
+	// after a context compaction — the reader who has most lost the handoff and
+	// least knows one exists. Working-state field: behind the worker read gate,
+	// masked to null on deny, like prompt/memoryId.
+	Continuity *GetWorkerHandoffReadBackWorkerContinuity `json:"continuity"`
+}
+
+// GetContinuity returns GetWorkerHandoffReadBackWorker.Continuity, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorker) GetContinuity() *GetWorkerHandoffReadBackWorkerContinuity {
+	return v.Continuity
+}
+
+// GetWorkerHandoffReadBackWorkerContinuity includes the requested fields of the GraphQL type WorkerContinuity.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the continuity a worker carries between stints.
+//
+// Handoffs are ordinary nodes in the worker's working memory, so a client walks
+// the whole sequence through the node surface. This type exists for the ONE
+// handoff that cannot be discovered: the newest, which a fresh session does not
+// know to look for.
+type GetWorkerHandoffReadBackWorkerContinuity struct {
+	Status WorkerContinuityStatus `json:"status"`
+	// The newest handoff node, or null when the worker has none. Present even
+	// when status is MISSING — a stale handoff is still the best available
+	// account of where this worker got to, and withholding it helps nobody.
+	Handoff *GetWorkerHandoffReadBackWorkerContinuityHandoffNode `json:"handoff"`
+	// The worker's most recent ENDED session, as a SANITIZED projection — the
+	// three facts continuity needs, and deliberately not the Session object.
+	//
+	// The worker read gate that admits this field is WIDER than the session read
+	// gate: an AppMember who is not an org member passes the first and fails the
+	// second. Returning a Session here would hand them another driver's
+	// transcriptPath, host, repo and summary through its field resolvers, which
+	// assume the outer query authorized them (#552 / #983).
+	PreviousSession *GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession `json:"previousSession"`
+}
+
+// GetStatus returns GetWorkerHandoffReadBackWorkerContinuity.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorkerContinuity) GetStatus() WorkerContinuityStatus {
+	return v.Status
+}
+
+// GetHandoff returns GetWorkerHandoffReadBackWorkerContinuity.Handoff, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorkerContinuity) GetHandoff() *GetWorkerHandoffReadBackWorkerContinuityHandoffNode {
+	return v.Handoff
+}
+
+// GetPreviousSession returns GetWorkerHandoffReadBackWorkerContinuity.PreviousSession, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorkerContinuity) GetPreviousSession() *GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession {
+	return v.PreviousSession
+}
+
+// GetWorkerHandoffReadBackWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
+type GetWorkerHandoffReadBackWorkerContinuityHandoffNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns GetWorkerHandoffReadBackWorkerContinuityHandoffNode.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorkerContinuityHandoffNode) GetUrn() string { return v.Urn }
+
+// GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession includes the requested fields of the GraphQL type WorkerContinuitySession.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the previous stint, reduced to what a successor needs to know: which
+// session it was, when it ended, and whether the server reaped it. Not a
+// Session, on purpose (see WorkerContinuity.previousSession).
+type GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession struct {
+	Id string `json:"id"`
+}
+
+// GetId returns GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerHandoffReadBackWorkerContinuityPreviousSessionWorkerContinuitySession) GetId() string {
+	return v.Id
+}
+
 // GetWorkerIdInAppResponse is returned by GetWorkerIdInApp on success.
 type GetWorkerIdInAppResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -108657,6 +108780,14 @@ type __GetWorkerContinuityInput struct {
 // GetRef returns __GetWorkerContinuityInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerContinuityInput) GetRef() string { return v.Ref }
 
+// __GetWorkerHandoffReadBackInput is used internally by genqlient
+type __GetWorkerHandoffReadBackInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerHandoffReadBackInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerHandoffReadBackInput) GetRef() string { return v.Ref }
+
 // __GetWorkerIdInAppInput is used internally by genqlient
 type __GetWorkerIdInAppInput struct {
 	AppRef string `json:"appRef"`
@@ -133262,6 +133393,53 @@ func GetWorkerContinuity(
 	}
 
 	data_ = &GetWorkerContinuityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerHandoffReadBack.
+const GetWorkerHandoffReadBack_Operation = `
+query GetWorkerHandoffReadBack ($ref: ID!) {
+	worker(ref: $ref) {
+		continuity {
+			status
+			handoff {
+				urn
+			}
+			previousSession {
+				id
+			}
+		}
+	}
+}
+`
+
+// cli#1720: `session end --handoff` reads back where the handoff landed. Only
+// what the match needs: the status, the handoff's URN and the previous session's
+// id (to prove it is THIS end's handoff) — never the body. Its own operation for
+// the reason GetWorkerContinuity is: an older server rejects Worker.continuity at
+// validation, and that must cost the end nothing (the end is already committed).
+func GetWorkerHandoffReadBack(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerHandoffReadBackResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerHandoffReadBack",
+		Query:  GetWorkerHandoffReadBack_Operation,
+		Variables: &__GetWorkerHandoffReadBackInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerHandoffReadBackResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

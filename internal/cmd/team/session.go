@@ -2584,6 +2584,42 @@ type endResultDTO struct {
 	// ResumeClaim (hadron-cli#842): --resume-claim was passed and the server
 	// wrote the claim before the end. False on a plain end.
 	ResumeClaim bool `json:"resumeClaim"`
+	// Handoff (cli#1720) is the URN of the handoff node this end saved, read
+	// back from Worker.continuity. Omitted when no handoff was sent or the
+	// read-back could not prove the node belongs to THIS end.
+	Handoff string `json:"handoff,omitempty"`
+	// handoffNote is the human-only line for a handoff that was saved but whose
+	// URN was not read back. Never in --json.
+	handoffNote string
+}
+
+// handoffReadBack1720 asks where the handoff of the session just ended landed.
+// The end is already committed, so nothing here may change the outcome: it
+// returns the URN, or a reason it could not be shown. An older server that does
+// not know Worker.continuity returns neither (today's output).
+func handoffReadBack1720(ctx context.Context, client graphql.Client, workerID *string, endedID string) (urn, reason string) {
+	if workerID == nil || *workerID == "" {
+		return "", "the server did not name the worker"
+	}
+	r, err := gen.GetWorkerHandoffReadBack(ctx, client, *workerID)
+	switch {
+	case err != nil && api.IsGraphQLValidationFor(err, "continuity"):
+		return "", ""
+	case err != nil:
+		return "", api.MapError(err).Error()
+	case r == nil || r.Worker == nil || r.Worker.Continuity == nil:
+		return "", "continuity unavailable"
+	}
+	c := r.Worker.Continuity
+	switch {
+	case c.Status != gen.WorkerContinuityStatusCurrent:
+		return "", "continuity status is " + string(c.Status)
+	case c.PreviousSession == nil || c.PreviousSession.Id != endedID:
+		return "", "continuity names a different session"
+	case c.Handoff == nil || c.Handoff.Urn == "":
+		return "", "continuity carries no handoff"
+	}
+	return c.Handoff.Urn, ""
 }
 
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
@@ -2649,6 +2685,15 @@ context that composed it is gone. A session with no worker has no sequence
 to write to, so passing --handoff there is refused rather than dropped.
 That ordering is a platform guarantee, not this client's choice
 (cor:agt:020:10).
+
+AFTER A SUCCESSFUL END THAT SENT A HANDOFF, the saved node is read back and
+its URN printed under the ✓ line ("handoff saved: <urn>"), and --json gains
+"handoff". The URN shows only when the worker's continuity is CURRENT and names
+THIS session; otherwise the end still succeeds, exit 0, with one line "handoff
+saved; URN not read back (<reason>)" and no "handoff" key. The end is already
+committed: nothing is retried and no second handoff is written. Ending without
+a handoff, or against an older server without Worker.continuity, prints what it
+always did.
 
 RETRY IS SAFE, and cannot double-write. One stint records one handoff,
 and that is keyed on the STINT rather than on whether a write already
@@ -2843,6 +2888,21 @@ nothing ends. For a SHED, which keeps the session open, use
 				endedAt = *ended.EndedAt
 			}
 			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt, ResumeClaim: resumeClaim}
+			// cli#1720: the end is committed and, with a handoff, the server wrote
+			// the handoff first (cor:agt:020:10), so "ended" implies "saved". Show
+			// where. A read-back that fails or does not match changes nothing but
+			// one line: no exit code, no retry, no second write.
+			if text != "" {
+				var workerID *string
+				if ended != nil {
+					workerID = ended.WorkerId
+				}
+				urn, reason := handoffReadBack1720(ctx, client, workerID, id)
+				result.Handoff = urn
+				if urn == "" && reason != "" {
+					result.handoffNote = "handoff saved; URN not read back (" + reason + ")"
+				}
+			}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				who := ""
 				if workerName != "" {
@@ -2850,6 +2910,15 @@ nothing ends. For a SHED, which keeps the session open, use
 				}
 				if _, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who); err != nil {
 					return err
+				}
+				if result.Handoff != "" {
+					if _, err := fmt.Fprintf(w, "  handoff saved: %s\n", result.Handoff); err != nil {
+						return err
+					}
+				} else if result.handoffNote != "" {
+					if _, err := fmt.Fprintf(w, "  %s\n", result.handoffNote); err != nil {
+						return err
+					}
 				}
 				if resumeClaim {
 					_, err := fmt.Fprintln(w, "  resume claim written: within 60 seconds, `hadron team session start` with no worker named starts this worker's next session")
