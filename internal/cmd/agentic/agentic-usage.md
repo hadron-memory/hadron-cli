@@ -3246,7 +3246,12 @@ server error fails the command).
   write REFUSES the end (`HANDOFF_WRITE_FAILED`, exit 1) rather than ending
   anyway: a still-bound worker is recoverable, an ended session whose handoff
   evaporated is not. **That ordering is a platform guarantee**
-  (`cor:agt:020:10`), not this client's choice. Passing it on a session with no
+  (`cor:agt:020:10`), not this client's choice. After a successful end that sent a
+  handoff, the saved node's URN is read back and printed (`handoff saved: <urn>`;
+  `--json` adds `handoff`) only when the worker's continuity is `CURRENT` and names
+  this session; otherwise exit stays 0 with one line `handoff saved; URN not read
+  back (<reason>)` and no `handoff` key (the end is committed; nothing is retried).
+  Passing it on a session with no
   worker is refused — there is no sequence to write to. An EXPLICIT empty
   handoff is refused exit 2 (somebody meant to write something); omitting it
   entirely is the normal way to end without a record, and the next bind is told

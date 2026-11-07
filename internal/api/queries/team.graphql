@@ -423,6 +423,25 @@ query GetWorkerContinuity($ref: ID!) {
   }
 }
 
+# cli#1720: `session end --handoff` reads back where the handoff landed. Only
+# what the match needs: the status, the handoff's URN and the previous session's
+# id (to prove it is THIS end's handoff) — never the body. Its own operation for
+# the reason GetWorkerContinuity is: an older server rejects Worker.continuity at
+# validation, and that must cost the end nothing (the end is already committed).
+query GetWorkerHandoffReadBack($ref: ID!) {
+  worker(ref: $ref) {
+    continuity {
+      status
+      handoff {
+        urn
+      }
+      previousSession {
+        id
+      }
+    }
+  }
+}
+
 # cli#494: the retirement advisory reads the SAME server-owned continuity
 # facts as GetWorkerContinuity, but only the metadata `worker retire` may show
 # before its confirmation: status and the handoff's reference (urn/loc/time) —
