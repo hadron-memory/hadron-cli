@@ -26,7 +26,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 whose loc is msg:010 or starts with msg:010:, at any depth. A node is a spec
 only when its role is "spec" or "spec.*". A "spec" tag alone is not
 governed: it stays visible, marked "not governed" (JSON governed: false).
-Repair through spec edit with an actual reviewed change; a no-op writes nothing.
+Repair with hadron node update <node-urn> --role spec.
 
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to display one page

@@ -94,8 +94,8 @@ segments, the deepest loc, and how many sit in the legacy numbering (which
 
 A spec is governed by a "spec" / "spec.*" role. Tag-only nodes stay visible
 as not governed and do not count as specs. JSON reports notGoverned and
-notGovernedNodes separately. Repair with spec edit and an actual reviewed
-change; a no-op writes nothing.
+notGovernedNodes separately. Repair with hadron node update
+<node-urn> --role spec.
 
 In a draft, reserved placeholder citations are listed separately from the
 total spec count. A minted corpus has none.

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -100,17 +101,83 @@ func TestSpecLintTagOnlyCommand1658(t *testing.T) {
 	}
 }
 
-func TestTagOnlyEditRemedy1658(t *testing.T) {
-	_, captured, err := runSpecEdit(t, titleMocks(titleWriteOK), "", "--title", "New title", "--json")
-	if err != nil {
+func TestTagOnlyNodeRemedy1658(t *testing.T) {
+	var mu sync.Mutex
+	role := ""
+	writes := 0
+	srv := newVarServer(t, func(op string, vars json.RawMessage) string {
+		mu.Lock()
+		defer mu.Unlock()
+		switch op {
+		case "ResolveUrn":
+			return resolveNodeJSON
+		case "GetNode", "GetNodeRaw":
+			var n map[string]any
+			if err := json.Unmarshal([]byte(nodeDetailJSON), &n); err != nil {
+				t.Error(err)
+			}
+			n["role"] = nil
+			n["tags"] = []string{"spec"}
+			n["isRunnable"] = false
+			if role != "" {
+				n["role"] = role
+			}
+			return `{"data":{"node":` + string(mustJSON1550(t, n)) + `}}`
+		case "UpdateSpecNode":
+			var v struct {
+				Input struct {
+					Role *string `json:"role"`
+				} `json:"input"`
+			}
+			if err := json.Unmarshal(vars, &v); err != nil {
+				t.Error(err)
+			}
+			if v.Input.Role == nil || *v.Input.Role != "spec" {
+				t.Errorf("missing role claim: %s", vars)
+			} else {
+				role = *v.Input.Role
+			}
+			writes++
+			return `{"data":{"updateSpecNode":` + nodeDetailJSON + `}}`
+		case "FindNodes":
+			n := specNodeList("tag-only", `["spec"]`)
+			if role != "" {
+				n = strings.Replace(specNodeListWithRole("tag-only", `["spec"]`), `"spec.rule"`, `"`+role+`"`, 1)
+			}
+			return translateFindNodes(op, pageBeyondFirst(op, vars, `{"data":{"nodes":[`+n+`]}}`))
+		case "Memories":
+			return memListJSON
+		default:
+			if b, ok := unstubbedDefault(op); ok {
+				return b
+			}
+			t.Errorf("unexpected operation %s", op)
+			return `{"errors":[{"message":"unexpected"}]}`
+		}
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--role", "spec", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(captured["UpdateSpecNode"]) != 1 {
-		t.Fatalf("tag-only remedy must use spec door: %v", captured)
+	f, out := testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
 	}
-	// This fixture begins with role:null. Actual server role assignment is the private-stack QA leg.
-	in := sentTitleEditInput(t, captured["UpdateSpecNode"][0])
-	if in["name"] != "msg:010:02 — New title" {
-		t.Fatalf("input=%v", in)
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatal(err)
 	}
+	if len(rows) != 1 || rows[0]["governed"] != true {
+		t.Fatalf("post-remedy=%s", out)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if writes != 1 || role != "spec" {
+		t.Fatalf("writes=%d role=%q", writes, role)
+	}
+	// Server assignment is simulated here; actual governedKind agreement is private-stack QA.
 }

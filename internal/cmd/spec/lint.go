@@ -80,8 +80,8 @@ Names may be human-readable; they need not start with the citation.
 
 Governance requires a "spec" or "spec.*" role. A "spec" tag alone gets only
 warning "not-governed", with no spec-shape checks; JSON adds governed: false.
-Use hadron spec edit <loc> -m <memory> --content-file <reviewed-body-file>
-with an actual reviewed change to enter governance. A no-op sends no write.
+Use hadron node update <node-urn> --role spec to enter governance.
+This changes the role; lint itself writes nothing.
 Without --strict this warning leaves the exit code unchanged.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
@@ -417,7 +417,11 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 // Other consumers (get/mint compatibility checks) retain lintNode's behavior.
 func lintReadNode(n specNode, memURN string) []lintFindingDTO {
 	if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
-		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; use hadron spec edit " + cmdutil.ShellQuote(n.Loc) + " -m " + cmdutil.ShellQuote(memURN) + " --content-file <reviewed-body-file> with an actual change (a no-op writes nothing)"}}
+		ref := cmdutil.NodeURN(memURN, n.Loc)
+		if ref == "" {
+			ref = specNodeRef(memURN, n.Loc)
+		}
+		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; use hadron node update " + cmdutil.ShellQuote(ref) + " --role spec"}}
 	}
 	return lintNode(n, memURN)
 }

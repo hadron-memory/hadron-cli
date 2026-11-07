@@ -36,7 +36,9 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec is a node with the spec tag or spec role family, and its loc is its citation. Any valid node
+A governed spec has a spec / spec.* role, and its loc is its citation.
+List, describe and lint mark legacy tag-only candidates as not governed.
+Other spec commands retain their existing legacy-marker support. Any valid node
 loc works, at any depth and in any shape: create one with
 "spec new <loc> --title <title>".
 

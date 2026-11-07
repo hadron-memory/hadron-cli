@@ -1888,9 +1888,8 @@ Conventions:
   `notGoverned` and `notGovernedNodes` (`citation`, `governed: false`).
   `lint` emits only warning `not-governed` for a tag-only candidate, without
   spec-shape checks; `--strict` retains its warning-to-error policy. Findings
-  add `governed`. Repair with `hadron spec edit <loc> -m <memory>
-  --content-file <reviewed-body-file>` and an actual reviewed change: a no-op
-  sends no write and does not govern the node. Other legacy-marker users,
+  add `governed`. Repair with `hadron node update <node-urn> --role spec`, which explicitly
+  sets the role. `spec edit` alone preserves a missing role. Other legacy-marker users,
   including `link` and `edit`, remain unchanged. Its loc is its citation. **Any
   valid node loc works, at any depth and in any shape (#708)**: `get`, `list`,
   `edit`, `link`, `find`, `grep`, `replace` and `check-tools` check only the
