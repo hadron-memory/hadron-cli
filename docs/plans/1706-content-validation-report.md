@@ -1,9 +1,9 @@
 # Content-validation reports: CLI as built
 
-Scope: cli#1706, cor:dmo:160:01 r7, CHECKED 6677935238 and discovery
-ruling 6703322576. Server#1332 merged as bc40260e. The writer-readable
-projection is tracked by server#3659; this PR implements the expressly allowed
-interim discovery path, not that projection. Report history remains portal work.
+Scope: cli#1706, cor:dmo:160:01, CHECKED 6677935238, step-3 restatements
+6705464951 / 6705477233 and reconciliation 6705487959. Server#3664 merged
+9568052d supplies writer-only Node.validationTasks. This follow-through removes
+the shipped interim manager-config derivation. Report history remains portal work.
 
 `node validation record <ref> --outcome PASS|FAIL|ERROR [-m memory]
 [--task ID-or-listed-URN] [--run-id key] [--json]` records a result of a task
@@ -15,36 +15,30 @@ No mutation failure triggers a retry.
 ## Reads and selection
 
 1. Resolve the usual node reference (IDs avoid a resolve request).
-2. Read id, memoryId, revision, role, isRunnable from that node.
-3. Read only role, enabled, strictSubRoles, validationTask/Id/State from
-   memoryConfig. The interim manager-only read's not-found/forbidden maps to
-   exit 8 and explains the missing discovery permission; no past report is used.
-4. Mirror server `ruleKeysOf` and `resolveNodeRoleRule`: role plus runnable
-   `task`, no duplicate task key, closest enabled dotted ancestor, strict
-   undeclared subroles do not inherit. Disabled rows still declare a subrole.
-   A rule with no task state is omitted, but broken/unreadable rules are retained
-   to fail closed. Deduplicate selected task IDs, not the rule walk.
-5. Read each applicable task's id, current revision and runnable marker, once.
-   One task is automatic. Multiple tasks list refs/revisions and require an
-   explicit --task; a task outside the effective set exits 2 before any write.
-   Empty set: Patrick's 88137 issue fold directs a local typed
-   CONTENT_VALIDATION_NOT_CONFIGURED with server-identical text and mapped exit 5;
-   no sentinel ref/revision and no mutation.
-6. Send exactly one RecordContentValidation. --run-id is omitted when unset,
-   otherwise forwarded unchanged. A replayed receipt succeeds. A missing/malformed
-   receipt is uncertain (exit 7), never success or a reason to retry blindly.
+2. Read node id/revision and validationTasks {state, tasks {broken, taskId,
+   taskRef, revision}} in one operation. The server owns rule resolution and task
+   readability. No config/history fallback or separate task read exists.
+3. Validate the projection. READY needs healthy entries with identity/ref and a
+   positive revision; identical task IDs are deduplicated, conflicting duplicates
+   fail closed. One distinct task is automatic; multiple require explicit --task.
+   Choice outside the set exits 2. NOT_CONFIGURED with [] maps to existing local
+   CONTENT_VALIDATION_NOT_CONFIGURED (5). BROKEN with redacted broken entries
+   blocks even healthy siblings (5). UNAVAILABLE with [] and null both refuse
+   generically (8), without diagnosing their hidden cause. Contradictory, unknown
+   or malformed shapes fail closed (1). Missing field on older servers uses the
+   existing schema-skew exit 2, no automatic fallback.
+4. Send exactly one RecordContentValidation using the selected returned identity
+   and revision, not a synthesized one. --run-id remains omitted when unset and
+   forwarded otherwise; replay succeeds. All author/access/report gates remain
+   server-owned. Missing/malformed receipt remains uncertain (7), never retried.
 
-Source trace: server main 387927bd, contentValidationReport.ts validationRules
-and tasks.find, governedRole.ts resolveNodeRoleRule, nodeRoleWriters.ts ruleKeysOf;
-resolvers.contentValidationReport.ts validates task refs before rule discovery.
-The CLI mirror is interim, and the server rechecks current state authoritatively.
-
-Economics: ID input sends 2 discovery requests + T task reads + 1 mutation,
-where T is the deduplicated applicable task count (normally 1-2); URN input adds
-one ResolveUrn. No node/task bodies, author identities or reporter details are
-selected. Multiple-choice refusal uses 2+T reads and zero writes. Realistic small
-rulebooks produce kilobytes, not a corpus scan; QA measures actual response bytes
-and wall time on the compiled fake matrix. No live-provider or ACL proof is made.
+Source pin: schema exported from isolated merged server9568052d, with the generated
+client regenerated normally. Its other schema change is deleteWorkerPreview's
+source comment, carried into generated comments only. No hand-edited generated code.
+Economics: ID input is one discovery read plus one mutation; URN adds ResolveUrn.
+Every discovery refusal sends zero mutations. No body, reporter identity, rule
+keys or memory configuration is selected. QA must qualify synthetic versus real
+provider evidence; no deployment floor is invented.
 
 ## Output and errors
 
@@ -86,3 +80,12 @@ c435bc26 checkout (before the recorder existed): it fails on unknown --outcome,
 zero requests. The temporary checkout was removed. Full suite, focused race, lint
 and matrix checks passed after the implementation; the last source edit changed
 help wording only.
+
+## Step-3 evidence
+
+Red ac7ef300 pins the projection query and forbids legacy discovery operations;
+it fails against fresh main for the missing selection and attempted config read.
+The former local rule-resolution tests are removed with the deleted rule mirror;
+wire selection/state tests replace them. Existing mutation-refusal and input
+controls remain, now supplied a READY projection. Prior interim evidence above
+is historical, not a claim that removed derivation code remains exercised.

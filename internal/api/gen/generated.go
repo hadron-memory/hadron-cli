@@ -31349,49 +31349,72 @@ var AllConnectionProvider = []ConnectionProvider{
 
 // ContentValidationNodeNode includes the requested fields of the GraphQL type Node.
 type ContentValidationNodeNode struct {
-	Id       string `json:"id"`
-	MemoryId string `json:"memoryId"`
+	Id string `json:"id"`
 	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
 	Revision int `json:"revision"`
-	// #1201 — what this node is FOR, as an OPEN string. A closed governed
-	// subset has dedicated authoring doors; memory role rules can additionally
-	// constrain arbitrary roles.
-	//
-	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
-	// 'objectType' (the collection discriminator, schema-validated). This field
-	// does not change default retrieval or ranking; NodeFilter.role explicitly
-	// selects its exact dotted family (#1322).
-	//
-	// A GOVERNED family routes the write to that kind's own authoring door, and
-	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
-	// gated on 'isRunnable'
-	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other roles do not invoke a governed door, but can still be
-	// constrained by memory role rules and selected by explicit role filters.
-	Role *string `json:"role"`
-	// Whether this node can be run as a task (nullable; #513) — it drives the tree
-	// action indicator, and since #1201 it is also the CAPABILITY gate for the
-	// task kind: a write that would PRODUCE a runnable node must come through
-	// createTaskNode / updateTaskNode. Gated here rather than on a label because
-	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool `json:"isRunnable"`
+	// #3659 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — the validation tasks a content-validation report for this node may name now, as the recorder judges them for this caller. Null on an inherited, install-concealed or deleted node, or one whose memory fails the node-content gate.
+	ValidationTasks *ContentValidationNodeNodeValidationTasksNodeValidationTaskSet `json:"validationTasks"`
 }
 
 // GetId returns ContentValidationNodeNode.Id, and is useful for accessing the field via an interface.
 func (v *ContentValidationNodeNode) GetId() string { return v.Id }
 
-// GetMemoryId returns ContentValidationNodeNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *ContentValidationNodeNode) GetMemoryId() string { return v.MemoryId }
-
 // GetRevision returns ContentValidationNodeNode.Revision, and is useful for accessing the field via an interface.
 func (v *ContentValidationNodeNode) GetRevision() int { return v.Revision }
 
-// GetRole returns ContentValidationNodeNode.Role, and is useful for accessing the field via an interface.
-func (v *ContentValidationNodeNode) GetRole() *string { return v.Role }
+// GetValidationTasks returns ContentValidationNodeNode.ValidationTasks, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNode) GetValidationTasks() *ContentValidationNodeNodeValidationTasksNodeValidationTaskSet {
+	return v.ValidationTasks
+}
 
-// GetIsRunnable returns ContentValidationNodeNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *ContentValidationNodeNode) GetIsRunnable() *bool { return v.IsRunnable }
+// ContentValidationNodeNodeValidationTasksNodeValidationTaskSet includes the requested fields of the GraphQL type NodeValidationTaskSet.
+type ContentValidationNodeNodeValidationTasksNodeValidationTaskSet struct {
+	State NodeValidationTaskSetState                                                                   `json:"state"`
+	Tasks []*ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry `json:"tasks"`
+}
+
+// GetState returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSet.State, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSet) GetState() NodeValidationTaskSetState {
+	return v.State
+}
+
+// GetTasks returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSet.Tasks, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSet) GetTasks() []*ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry {
+	return v.Tasks
+}
+
+// ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry includes the requested fields of the GraphQL type NodeValidationTaskEntry.
+// The GraphQL type's documentation follows.
+//
+// #3659 — one task a report may name, or one broken rule. A broken entry has every other field null.
+type ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry struct {
+	Broken *bool   `json:"broken"`
+	TaskId *string `json:"taskId"`
+	// The canonical node URN. A report may name this or taskId.
+	TaskRef *string `json:"taskRef"`
+	// The task's current revision, the newest a report may name.
+	Revision *int `json:"revision"`
+}
+
+// GetBroken returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry.Broken, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry) GetBroken() *bool {
+	return v.Broken
+}
+
+// GetTaskId returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry.TaskId, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry) GetTaskId() *string {
+	return v.TaskId
+}
+
+// GetTaskRef returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry.TaskRef, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry) GetTaskRef() *string {
+	return v.TaskRef
+}
+
+// GetRevision returns ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry.Revision, and is useful for accessing the field via an interface.
+func (v *ContentValidationNodeNodeValidationTasksNodeValidationTaskSetTasksNodeValidationTaskEntry) GetRevision() *int {
+	return v.Revision
+}
 
 // ContentValidationNodeResponse is returned by ContentValidationNode on success.
 type ContentValidationNodeResponse struct {
@@ -31421,129 +31444,6 @@ type ContentValidationNodeResponse struct {
 
 // GetNode returns ContentValidationNodeResponse.Node, and is useful for accessing the field via an interface.
 func (v *ContentValidationNodeResponse) GetNode() *ContentValidationNodeNode { return v.Node }
-
-// ContentValidationRulesMemoryConfig includes the requested fields of the GraphQL type MemoryConfig.
-// The GraphQL type's documentation follows.
-//
-// #1325 — a memory's config: exactly one per memory, holding its node-role
-// rules (one per role or declared sub-role). Read and changed only by the
-// memory's managers. Materialized by the first rule write; before that it reads
-// as empty, with a null id.
-type ContentValidationRulesMemoryConfig struct {
-	// Role-ascending.
-	Rules []*ContentValidationRulesMemoryConfigRulesNodeRoleRule `json:"rules"`
-}
-
-// GetRules returns ContentValidationRulesMemoryConfig.Rules, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfig) GetRules() []*ContentValidationRulesMemoryConfigRulesNodeRoleRule {
-	return v.Rules
-}
-
-// ContentValidationRulesMemoryConfigRulesNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
-// The GraphQL type's documentation follows.
-//
-// #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as a URN and an id, each with its
-// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
-type ContentValidationRulesMemoryConfigRulesNodeRoleRule struct {
-	// The dotted role or sub-role this rule governs, unique within the config.
-	Role    string `json:"role"`
-	Enabled bool   `json:"enabled"`
-	// On a parent role: refuse its undeclared sub-roles instead of falling back to it.
-	StrictSubRoles      bool                 `json:"strictSubRoles"`
-	ValidationTask      *string              `json:"validationTask"`
-	ValidationTaskId    *string              `json:"validationTaskId"`
-	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
-}
-
-// GetRole returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.Role, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetRole() string { return v.Role }
-
-// GetEnabled returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetEnabled() bool { return v.Enabled }
-
-// GetStrictSubRoles returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetStrictSubRoles() bool {
-	return v.StrictSubRoles
-}
-
-// GetValidationTask returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetValidationTask() *string {
-	return v.ValidationTask
-}
-
-// GetValidationTaskId returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetValidationTaskId() *string {
-	return v.ValidationTaskId
-}
-
-// GetValidationTaskState returns ContentValidationRulesMemoryConfigRulesNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesMemoryConfigRulesNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
-	return v.ValidationTaskState
-}
-
-// ContentValidationRulesResponse is returned by ContentValidationRules on success.
-type ContentValidationRulesResponse struct {
-	// #1325 — a memory's config, for the memory's managers only. For anyone else,
-	// and for a missing memory, the same MEMORY_NOT_FOUND.
-	MemoryConfig *ContentValidationRulesMemoryConfig `json:"memoryConfig"`
-}
-
-// GetMemoryConfig returns ContentValidationRulesResponse.MemoryConfig, and is useful for accessing the field via an interface.
-func (v *ContentValidationRulesResponse) GetMemoryConfig() *ContentValidationRulesMemoryConfig {
-	return v.MemoryConfig
-}
-
-// ContentValidationTaskNode includes the requested fields of the GraphQL type Node.
-type ContentValidationTaskNode struct {
-	Id string `json:"id"`
-	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
-	Revision int `json:"revision"`
-	// Whether this node can be run as a task (nullable; #513) — it drives the tree
-	// action indicator, and since #1201 it is also the CAPABILITY gate for the
-	// task kind: a write that would PRODUCE a runnable node must come through
-	// createTaskNode / updateTaskNode. Gated here rather than on a label because
-	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool `json:"isRunnable"`
-}
-
-// GetId returns ContentValidationTaskNode.Id, and is useful for accessing the field via an interface.
-func (v *ContentValidationTaskNode) GetId() string { return v.Id }
-
-// GetRevision returns ContentValidationTaskNode.Revision, and is useful for accessing the field via an interface.
-func (v *ContentValidationTaskNode) GetRevision() int { return v.Revision }
-
-// GetIsRunnable returns ContentValidationTaskNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *ContentValidationTaskNode) GetIsRunnable() *bool { return v.IsRunnable }
-
-// ContentValidationTaskResponse is returned by ContentValidationTask on success.
-type ContentValidationTaskResponse struct {
-	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
-	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
-	//
-	// 1. a primary key (the unambiguous read — the old nodeById),
-	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
-	// legacy `urn:` scheme accepted),
-	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
-	// it resolves across every readable memory and a cross-memory loc
-	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
-	// (listing the candidate memoryIds) rather than silently returning
-	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a live memory is treated as form 2 (a full URN); pass
-	// 'memoryRef' to force loc interpretation.
-	//
-	// raw: true selects stored content without include or variable resolution.
-	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
-	// set. A denied or missing node returns null; an explicit memoryRef that is
-	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
-	// memory by memoryRef or a full node URN, a loc with no local node may read
-	// through to an eligible inherited node under its own address; overrides and
-	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
-	Node *ContentValidationTaskNode `json:"node"`
-}
-
-// GetNode returns ContentValidationTaskResponse.Node, and is useful for accessing the field via an interface.
-func (v *ContentValidationTaskResponse) GetNode() *ContentValidationTaskNode { return v.Node }
 
 type ContentValidator string
 
@@ -42814,8 +42714,10 @@ type DeleteWorkerPreviewInstructedResponse struct {
 	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. No census detail,
-	// removal plan, attestation bypass or durable lock/lease is returned.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
+	// the race, the answer is WORKER_NOT_FOUND. WORKER_REFERENCE_NOT_FOUND refuses a claim only when the
+	// acting worker or session no longer exists. No census detail, removal plan, attestation bypass or
+	// durable lock/lease is returned.
 	DeleteWorkerPreview *DeleteWorkerPreviewInstructedDeleteWorkerPreview `json:"deleteWorkerPreview"`
 }
 
@@ -42830,8 +42732,10 @@ type DeleteWorkerPreviewResponse struct {
 	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. No census detail,
-	// removal plan, attestation bypass or durable lock/lease is returned.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
+	// the race, the answer is WORKER_NOT_FOUND. WORKER_REFERENCE_NOT_FOUND refuses a claim only when the
+	// acting worker or session no longer exists. No census detail, removal plan, attestation bypass or
+	// durable lock/lease is returned.
 	DeleteWorkerPreview *DeleteWorkerPreviewDeleteWorkerPreview `json:"deleteWorkerPreview"`
 }
 
@@ -65873,6 +65777,23 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldDescription,
 	NodeTextFieldName,
 	NodeTextFieldTags,
+}
+
+// #3659 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — READY: a report may name any listed task at revisions 1 to its revision. NOT_CONFIGURED: no rule applies. BROKEN: a rule's task reference is broken, so every report is refused, including one naming a listed task. UNAVAILABLE: the caller does not write the memory, or cannot read a task a rule names (ruling 0199); nothing is listed.
+type NodeValidationTaskSetState string
+
+const (
+	NodeValidationTaskSetStateBroken        NodeValidationTaskSetState = "BROKEN"
+	NodeValidationTaskSetStateNotConfigured NodeValidationTaskSetState = "NOT_CONFIGURED"
+	NodeValidationTaskSetStateReady         NodeValidationTaskSetState = "READY"
+	NodeValidationTaskSetStateUnavailable   NodeValidationTaskSetState = "UNAVAILABLE"
+)
+
+var AllNodeValidationTaskSetState = []NodeValidationTaskSetState{
+	NodeValidationTaskSetStateBroken,
+	NodeValidationTaskSetStateNotConfigured,
+	NodeValidationTaskSetStateReady,
+	NodeValidationTaskSetStateUnavailable,
 }
 
 // #2162 — the agent process a host observed: its pid and the kernel's start time for it (a token).
@@ -106339,22 +106260,6 @@ type __ContentValidationNodeInput struct {
 // GetRef returns __ContentValidationNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__ContentValidationNodeInput) GetRef() string { return v.Ref }
 
-// __ContentValidationRulesInput is used internally by genqlient
-type __ContentValidationRulesInput struct {
-	MemoryRef string `json:"memoryRef"`
-}
-
-// GetMemoryRef returns __ContentValidationRulesInput.MemoryRef, and is useful for accessing the field via an interface.
-func (v *__ContentValidationRulesInput) GetMemoryRef() string { return v.MemoryRef }
-
-// __ContentValidationTaskInput is used internally by genqlient
-type __ContentValidationTaskInput struct {
-	Ref string `json:"ref"`
-}
-
-// GetRef returns __ContentValidationTaskInput.Ref, and is useful for accessing the field via an interface.
-func (v *__ContentValidationTaskInput) GetRef() string { return v.Ref }
-
 // __ContextResetInput is used internally by genqlient
 type __ContextResetInput struct {
 	AppRef  string `json:"appRef"`
@@ -125362,16 +125267,21 @@ const ContentValidationNode_Operation = `
 query ContentValidationNode ($ref: ID!) {
 	node(ref: $ref) {
 		id
-		memoryId
 		revision
-		role
-		isRunnable
+		validationTasks {
+			state
+			tasks {
+				broken
+				taskId
+				taskRef
+				revision
+			}
+		}
 	}
 }
 `
 
-// Interim #1706 discovery. This manager-only projection is replaced by #3659;
-// it is deliberately separate from shared config reads and node-get fragments.
+// #1706 step 3: server-owned writer-readable task selection; no config/history fallback.
 func ContentValidationNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -125386,83 +125296,6 @@ func ContentValidationNode(
 	}
 
 	data_ = &ContentValidationNodeResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by ContentValidationRules.
-const ContentValidationRules_Operation = `
-query ContentValidationRules ($memoryRef: ID!) {
-	memoryConfig(memoryRef: $memoryRef) {
-		rules {
-			role
-			enabled
-			strictSubRoles
-			validationTask
-			validationTaskId
-			validationTaskState
-		}
-	}
-}
-`
-
-func ContentValidationRules(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	memoryRef string,
-) (data_ *ContentValidationRulesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ContentValidationRules",
-		Query:  ContentValidationRules_Operation,
-		Variables: &__ContentValidationRulesInput{
-			MemoryRef: memoryRef,
-		},
-	}
-
-	data_ = &ContentValidationRulesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by ContentValidationTask.
-const ContentValidationTask_Operation = `
-query ContentValidationTask ($ref: ID!) {
-	node(ref: $ref) {
-		id
-		revision
-		isRunnable
-	}
-}
-`
-
-func ContentValidationTask(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-) (data_ *ContentValidationTaskResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ContentValidationTask",
-		Query:  ContentValidationTask_Operation,
-		Variables: &__ContentValidationTaskInput{
-			Ref: ref,
-		},
-	}
-
-	data_ = &ContentValidationTaskResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

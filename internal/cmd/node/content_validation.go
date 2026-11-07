@@ -21,49 +21,72 @@ type validationReceiptDTO struct {
 	State    string              `json:"state"`
 }
 
-type validationRule = gen.ContentValidationRulesMemoryConfigRulesNodeRoleRule
-
 type validationTask struct {
 	id, ref  string
 	revision int
 }
 
-// Interim mirror of server validationRules/ruleKeysOf/resolveNodeRoleRule at
-// 387927bd. A disabled exact row declares a sub-role but does not govern it.
-// #3659 replaces this manager-only discovery; the mutation remains authoritative.
-func effectiveValidationRules(role *string, runnable bool, rules []*validationRule) []validationRule {
-	keys := []string{}
-	if role != nil && *role != "" {
-		keys = append(keys, *role)
+func validationTasksFrom(set *gen.ContentValidationNodeNodeValidationTasksNodeValidationTaskSet) ([]validationTask, error) {
+	malformed := func() ([]validationTask, error) {
+		return nil, exitcode.Newf(exitcode.Error, "invalid validation task-set response; no report sent")
 	}
-	if runnable && (role == nil || *role != "task") {
-		keys = append(keys, "task")
+	if set == nil {
+		return nil, exitcode.Newf(exitcode.Forbidden, "validation task set is unavailable for this caller; no report sent")
 	}
-	declared := map[string]bool{}
-	enabled := map[string]validationRule{}
-	for _, r := range rules {
-		declared[r.Role] = true
-		if r.Enabled {
-			enabled[r.Role] = *r
+	if set.Tasks == nil {
+		return malformed()
+	}
+	tasks := []validationTask{}
+	seen := map[string]validationTask{}
+	broken := false
+	for _, entry := range set.Tasks {
+		if entry == nil || entry.Broken == nil {
+			return malformed()
 		}
-	}
-	out := []validationRule{}
-	for _, key := range keys {
-		for candidate := key; candidate != ""; {
-			if r, ok := enabled[candidate]; ok {
-				if (!r.StrictSubRoles || declared[key]) && r.ValidationTaskState != gen.NodeRoleRuleRefStateNone {
-					out = append(out, r)
-				}
-				break
+		if *entry.Broken {
+			if entry.TaskId != nil || entry.TaskRef != nil || entry.Revision != nil {
+				return malformed()
 			}
-			dot := strings.LastIndexByte(candidate, '.')
-			if dot < 0 {
-				break
-			}
-			candidate = candidate[:dot]
+			broken = true
+			continue
 		}
+		if entry.TaskId == nil || strings.TrimSpace(*entry.TaskId) == "" || entry.TaskRef == nil || !strings.HasPrefix(*entry.TaskRef, "hrn:node:") || entry.Revision == nil || *entry.Revision < 1 {
+			return malformed()
+		}
+		task := validationTask{id: *entry.TaskId, ref: *entry.TaskRef, revision: *entry.Revision}
+		if prior, ok := seen[task.id]; ok {
+			if prior != task {
+				return malformed()
+			}
+			continue
+		}
+		seen[task.id] = task
+		tasks = append(tasks, task)
 	}
-	return out
+	switch set.State {
+	case gen.NodeValidationTaskSetStateReady:
+		if broken || len(tasks) == 0 {
+			return malformed()
+		}
+		return tasks, nil
+	case gen.NodeValidationTaskSetStateNotConfigured:
+		if len(set.Tasks) != 0 {
+			return malformed()
+		}
+		return tasks, nil
+	case gen.NodeValidationTaskSetStateBroken:
+		if !broken {
+			return malformed()
+		}
+		return nil, validationRefusal("CONTENT_VALIDATION_TASK_BROKEN", "The validation task of this node's rule is unavailable, so no report is recorded until a manager of the memory repairs the rule.")
+	case gen.NodeValidationTaskSetStateUnavailable:
+		if len(set.Tasks) != 0 {
+			return malformed()
+		}
+		return nil, exitcode.Newf(exitcode.Forbidden, "validation task set is unavailable for this caller; no report sent")
+	default:
+		return malformed()
+	}
 }
 
 func newCmdValidation(f *cmdutil.Factory) *cobra.Command {
@@ -78,8 +101,8 @@ not run the task or edit the node. It reads the current node and task revisions;
 record before either changes. The server derives the reporter and checks access,
 task selection and authorship. CHECKED compares recorded authors, not independence.
 
-Interim discovery needs permission to read the memory's configuration. If it is
-unavailable to you, this command exits 8; it never guesses from a past report.
+Discovery uses the server's validation task set for this caller. An unavailable
+or non-applicable set exits 8; it never guesses from configuration or past reports.
 One effective task is selected automatically. Multiple tasks are listed with
 revisions: choose one with --task (ID or the listed URN). A choice outside that
 set exits 2 before any write. --run-id is passed through for server idempotency;
@@ -115,51 +138,12 @@ the node before retrying. The result is advisory, not approval or independence.`
 				return exitcode.Newf(exitcode.NotFound, "node not found")
 			}
 			n := nr.Node
-			if n.Id == "" || n.MemoryId == "" || n.Revision < 1 {
+			if n.Id == "" || n.Revision < 1 {
 				return exitcode.Newf(exitcode.Error, "invalid node revision response; no report sent")
 			}
-			cr, err := gen.ContentValidationRules(cmd.Context(), client, n.MemoryId)
+			tasks, err := validationTasksFrom(n.ValidationTasks)
 			if err != nil {
-				if !api.FromNon200Envelope(err) && (api.HasErrorCode(err, "MEMORY_NOT_FOUND") || api.HasErrorCode(err, "FORBIDDEN")) {
-					return exitcode.Newf(exitcode.Forbidden, "cannot discover the validation task set for this caller: interim discovery requires memory-configuration access; writer-readable server discovery is not available yet; no report sent")
-				}
-				return api.MapError(err)
-			}
-			if cr.MemoryConfig == nil || cr.MemoryConfig.Rules == nil {
-				return exitcode.Newf(exitcode.Error, "invalid validation-rule response; no report sent")
-			}
-			for _, rule := range cr.MemoryConfig.Rules {
-				if rule == nil {
-					return exitcode.Newf(exitcode.Error, "invalid null validation rule; no report sent")
-				}
-			}
-			effective := effectiveValidationRules(n.Role, n.IsRunnable != nil && *n.IsRunnable, cr.MemoryConfig.Rules)
-			tasks := []validationTask{}
-			seen := map[string]bool{}
-			for _, r := range effective {
-				if r.ValidationTaskState == gen.NodeRoleRuleRefStateUnreadable {
-					return validationRefusal("CONTENT_VALIDATION_WRONG_TASK", "The task is not the validation task this node's rule names.")
-				}
-				if r.ValidationTaskState != gen.NodeRoleRuleRefStateOk || r.ValidationTaskId == nil || *r.ValidationTaskId == "" {
-					return validationRefusal("CONTENT_VALIDATION_TASK_BROKEN", "The validation task of this node's rule is unavailable, so no report is recorded until a manager of the memory repairs the rule.")
-				}
-				tid := *r.ValidationTaskId
-				if seen[tid] {
-					continue
-				}
-				seen[tid] = true
-				tr, err := gen.ContentValidationTask(cmd.Context(), client, tid)
-				if err != nil {
-					return api.MapError(err)
-				}
-				if tr.Node == nil || tr.Node.Id != tid || tr.Node.Revision < 1 || (tr.Node.IsRunnable == nil || !*tr.Node.IsRunnable) {
-					return exitcode.Newf(exitcode.Conflict, "an applicable validation task is unavailable or not runnable; no report sent")
-				}
-				ref := tid
-				if r.ValidationTask != nil && *r.ValidationTask != "" {
-					ref = *r.ValidationTask
-				}
-				tasks = append(tasks, validationTask{id: tid, ref: ref, revision: tr.Node.Revision})
+				return err
 			}
 			// #1706 author/gate fold: no sentinel task or invented revision.
 			if len(tasks) == 0 {

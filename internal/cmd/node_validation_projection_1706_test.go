@@ -21,6 +21,26 @@ func TestValidationProjection1706(t *testing.T) {
 		{"wrong-choice", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "other", 2, 0},
 		{"none", `{"state":"NOT_CONFIGURED","tasks":[]}`, "", 5, 0},
 		{"broken-sibling", `{"state":"BROKEN","tasks":[{"broken":true,"taskId":null,"taskRef":null,"revision":null},{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 5, 0},
+		{"null", `null`, "", 8, 0},
+		{"nonwriter", `{"state":"UNAVAILABLE","tasks":[]}`, "", 8, 0},
+		{"hidden-task-writer", `{"state":"UNAVAILABLE","tasks":[]}`, "", 8, 0},
+		{"null-tasks", `{"state":"READY","tasks":null}`, "", 1, 0},
+		{"empty-ready", `{"state":"READY","tasks":[]}`, "", 1, 0},
+		{"nil-entry", `{"state":"READY","tasks":[null]}`, "", 1, 0},
+		{"bad-revision", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":0}]}`, "", 1, 0},
+		{"missing-ref", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","revision":3}]}`, "", 1, 0},
+		{"contradictory-unavailable", `{"state":"UNAVAILABLE","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 1, 0},
+		{"contradictory-none", `{"state":"NOT_CONFIGURED","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 1, 0},
+		{"broken-identity", `{"state":"BROKEN","tasks":[{"broken":true,"taskId":"secret"}]}`, "", 1, 0},
+		{"duplicate", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3},{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 0, 1},
+		{"missing-broken", `{"state":"READY","tasks":[{"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 1, 0},
+		{"old-field", `null`, "", 2, 0},
+		{"bad-receipt", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 7, 1},
+		{"node-null", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 4, 0},
+		{"node-bad-revision", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 1, 0},
+		{"author-refusal", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 8, 1},
+		{"conflict", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "", 5, 1},
+		{"urn-choice", `{"state":"READY","tasks":[{"broken":false,"taskId":"t1","taskRef":"hrn:node:example.com:kb:one","revision":3}]}`, "hrn:node:example.com:kb:one", 0, 1},
 		{"unknown", `{"state":"FUTURE","tasks":[]}`, "", 1, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -40,12 +60,39 @@ func TestValidationProjection1706(t *testing.T) {
 				switch q.OperationName {
 				case "ContentValidationNode":
 					reads++
+					if tc.name == "node-null" {
+						fmt.Fprint(w, `{"data":{"node":null}}`)
+						return
+					}
+					if tc.name == "node-bad-revision" {
+						fmt.Fprint(w, `{"data":{"node":{"id":"n1","revision":0}}}`)
+						return
+					}
+					if tc.name == "old-field" {
+						fmt.Fprint(w, `{"errors":[{"message":"Cannot query field \"validationTasks\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`)
+						return
+					}
 					if !strings.Contains(q.Query, "validationTasks") {
 						t.Error("discovery query omits server projection")
 					}
 					fmt.Fprintf(w, `{"data":{"node":{"id":"n1","revision":7,"memoryId":"m1","validationTasks":%s}}}`, tc.set)
 				case "RecordContentValidation":
 					writes++
+					if _, ok := q.Variables["reporter"]; ok || strings.Contains(q.Query, "reporter") {
+						t.Error("reporter remains server-derived")
+					}
+					if tc.name == "bad-receipt" {
+						fmt.Fprint(w, `{"data":{}}`)
+						return
+					}
+					if tc.name == "author-refusal" {
+						fmt.Fprint(w, `{"errors":[{"message":"author cannot report","extensions":{"code":"CONTENT_VALIDATION_REPORTER_IS_AUTHOR"}}]}`)
+						return
+					}
+					if tc.name == "conflict" {
+						fmt.Fprint(w, `{"errors":[{"message":"node changed","extensions":{"code":"CONFLICT"}}]}`)
+						return
+					}
 					want := "t1"
 					rev := float64(3)
 					if tc.choice == "t2" {
@@ -73,10 +120,13 @@ func TestValidationProjection1706(t *testing.T) {
 			if exitCodeFor(err) != tc.exit || writes != tc.writes || reads != 1 {
 				t.Fatalf("exit=%d want=%d writes=%d want=%d reads=%d err=%v", exitCodeFor(err), tc.exit, writes, tc.writes, reads, err)
 			}
+			if tc.exit == 8 && tc.writes == 0 && fmt.Sprint(err) != "validation task set is unavailable for this caller; no report sent" {
+				t.Fatalf("unavailable/null must be identical and cause-free: %v", err)
+			}
 			if tc.writes == 0 && out.Len() != 0 {
 				t.Fatal("partial output on refusal")
 			}
-			if tc.writes == 1 && !strings.Contains(out.String(), `"replayed": true`) && !strings.Contains(out.String(), `"replayed":true`) {
+			if tc.exit == 0 && tc.writes == 1 && !strings.Contains(out.String(), `"replayed": true`) && !strings.Contains(out.String(), `"replayed":true`) {
 				t.Fatal("replay receipt missing")
 			}
 		})
