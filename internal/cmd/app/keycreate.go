@@ -58,10 +58,12 @@ file beside it and renames it over --out, so the key never sits in a file wider
 than 0600 and a symlink is replaced, never followed. If the server refuses, the
 file this command created is removed.
 
-On Windows, mode 0600 only clears the read-only attribute. The key file is
-private only because of the access list it inherits from its directory: private
-under your user profile, readable by others in a shared directory. Keep key
-files under your user profile.
+On Windows, mode 0600 only clears the read-only attribute, so the key file is
+created with an explicit protected access list instead: only your account and
+SYSTEM, set when the file is created and kept by --force, whatever directory it
+is in. Administrators and other users are not granted access, but when run
+elevated the file is owned by the Administrators group, and an owner can
+rewrite its own access list.
 
 createAppKey is never retried. If its answer is lost (timeout, gateway error),
 a key may exist whose value nobody has: the message names the label; run
