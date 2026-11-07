@@ -11,7 +11,9 @@ import (
 )
 
 // ListNode is the shallow node projection the unified `findNodes` field returns
-// under hits[].node — id/loc/name/type/tags/seq/isRunnable/updatedAt. Aliased
+// under hits[].node — id/loc/name/type/tags/seq/isRunnable/updatedAt.
+// Canonical urn and nullable inheritedFrom preserve server-authorized provenance
+// (cli#1708); they never cause a separate base-memory read. Aliased
 // here so callers don't spell the deeply-nested genqlient type name (and so a
 // future projection change is a one-line edit), matching the batchNode alias
 // pattern in nodedoc.go.
@@ -130,5 +132,9 @@ func ListNodeFromProjection(n *gen.FindNodesFindNodesFindNodesResultHitsNodeHitN
 	if n == nil {
 		return nil
 	}
-	return &ListNode{Id: n.Id, MemoryId: n.MemoryId, Loc: n.Loc, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, Seq: n.Seq, IsRunnable: n.IsRunnable, Role: n.Role, UpdatedAt: n.UpdatedAt, Properties: n.Properties, Data: n.Data}
+	row := &ListNode{Id: n.Id, Urn: n.Urn, MemoryId: n.MemoryId, Loc: n.Loc, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, Seq: n.Seq, IsRunnable: n.IsRunnable, Role: n.Role, UpdatedAt: n.UpdatedAt, Properties: n.Properties, Data: n.Data}
+	if n.InheritedFrom != nil {
+		row.InheritedFrom = &gen.FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNodeInheritedFrom{AgentId: n.InheritedFrom.AgentId, AgentUrn: n.InheritedFrom.AgentUrn}
+	}
+	return row
 }

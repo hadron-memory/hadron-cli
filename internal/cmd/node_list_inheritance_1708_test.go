@@ -17,7 +17,7 @@ const baseAgent1708 = "hrn:agent:acme.com:base"
 const inheritedRow1708 = `{"id":"base-node","urn":"` + inheritedURN1708 + `","memoryId":"base-memory","loc":"tasks:review","name":"Review","nodeType":"task","seq":2,"tags":[],"role":"task","inheritedFrom":{"agentId":"base-agent","agentUrn":"` + baseAgent1708 + `"},"commentSummary":{"openThreads":0,"oldestOpenThreadAt":null},"data":{"x":1},"properties":{"y":2}}`
 const ownRow1708 = `{"id":"own-node","urn":"hrn:node:acme.com:child-system:tasks:build","memoryId":"child-memory","loc":"tasks:build","name":"Build","nodeType":"task","seq":3,"tags":[],"role":"task","inheritedFrom":null,"commentSummary":{"openThreads":0,"oldestOpenThreadAt":null},"data":null,"properties":null}`
 
-func runInherited1708(t *testing.T, rows string, checkDocument bool, args ...string) (string, error, int32) {
+func runInherited1708(t *testing.T, rows string, checkDocument bool, args ...string) (string, int32, error) {
 	t.Helper()
 	var reads atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +52,7 @@ func runInherited1708(t *testing.T, rows string, checkDocument bool, args ...str
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"node", "list", "--server", srv.URL, "-m", "hrn:mem:acme.com:child-system"}, args...))
 	err := root.Execute()
-	return out.String(), err, reads.Load()
+	return out.String(), reads.Load(), err
 }
 func assertInheritedSelection1708(t *testing.T, query, opName string) {
 	t.Helper()
@@ -101,9 +101,9 @@ func field1708(fields ast.SelectionSet, name string) *ast.Field {
 func hit1708(row string) string { return `{"score":0,"node":` + row + `}` }
 func TestNodeListInherited1708(t *testing.T) {
 	rows := hit1708(inheritedRow1708) + "," + hit1708(ownRow1708)
-	for _, flags := range [][]string{nil, {"--with-data"}, {"--with-properties"}, {"--with-data", "--with-properties"}, {"--has-unresolved-comments=false"}, {"--seq-gt", "1"}} {
+	for _, flags := range [][]string{nil, {"--with-data"}, {"--with-properties"}, {"--with-data", "--with-properties"}, {"--has-unresolved-comments=false"}, {"--seq-gt", "1"}, {"--has-unresolved-comments=false", "--with-data", "--with-properties", "--seq-gt", "1"}} {
 		t.Run(strings.Join(flags, "_"), func(t *testing.T) {
-			out, err, reads := runInherited1708(t, rows, true, append(append([]string{}, flags...), "--json")...)
+			out, reads, err := runInherited1708(t, rows, true, append(append([]string{}, flags...), "--json")...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -133,7 +133,7 @@ func TestNodeListInherited1708(t *testing.T) {
 			if v := got[1]["inheritedFrom"]; len(v) > 0 && string(v) != "null" {
 				t.Fatalf("own node invented inheritance %s", out)
 			}
-			out, err, _ = runInherited1708(t, rows, false, flags...)
+			out, _, err = runInherited1708(t, rows, false, flags...)
 			if err != nil || !strings.Contains(out, inheritedURN1708) || !strings.Contains(out, baseAgent1708) || !strings.Contains(strings.ToLower(out), "inherited") {
 				t.Fatalf("text err%v out%q", err, out)
 			}
@@ -141,14 +141,37 @@ func TestNodeListInherited1708(t *testing.T) {
 	}
 }
 func TestNodeListOwnAndConcealed1708(t *testing.T) {
-	out, err, _ := runInherited1708(t, hit1708(ownRow1708), false)
+	out, _, err := runInherited1708(t, hit1708(ownRow1708), false)
 	if err != nil || strings.Contains(strings.ToLower(out), "inherited") || !strings.Contains(out, "tasks:build") {
 		t.Fatalf("own text %v %q", err, out)
 	}
 	// A base memory id alone is not evidence of inheritance: never infer a base.
 	concealed := strings.Replace(inheritedRow1708, `{"agentId":"base-agent","agentUrn":"`+baseAgent1708+`"}`, `null`, 1)
-	out, err, _ = runInherited1708(t, hit1708(concealed), false, "--json")
+	out, _, err = runInherited1708(t, hit1708(concealed), false, "--json")
 	if err != nil || strings.Contains(out, baseAgent1708) {
 		t.Fatalf("concealed %v %q", err, out)
+	}
+}
+
+func TestNodeListInheritedMalformed1708(t *testing.T) {
+	for _, pair := range [][2]string{{`"urn":"` + inheritedURN1708 + `"`, `"urn":""`}, {`"agentId":"base-agent"`, `"agentId":""`}, {`"agentUrn":"` + baseAgent1708 + `"`, `"agentUrn":""`}} {
+		row := strings.Replace(inheritedRow1708, pair[0], pair[1], 1)
+		out, reads, err := runInherited1708(t, hit1708(row), false, "--limit", "1", "--json")
+		if err == nil || out != "" || reads != 1 {
+			t.Fatalf("malformed %v out%q reads%d", err, out, reads)
+		}
+	}
+}
+func TestNodeListInheritedSafeText1708(t *testing.T) {
+	row := strings.Replace(inheritedRow1708, baseAgent1708, baseAgent1708+`\nFORGED`, 1)
+	for _, flags := range [][]string{nil, {"--with-data"}} {
+		out, _, err := runInherited1708(t, hit1708(row), false, flags...)
+		if err != nil || strings.Contains(out, "\nFORGED") {
+			t.Fatalf("unsafe %v %q", err, out)
+		}
+	}
+	out, _, err := runInherited1708(t, hit1708(row), false, "--json")
+	if err != nil || !strings.Contains(out, `\nFORGED`) {
+		t.Fatalf("raw provenance %v %q", err, out)
 	}
 }
