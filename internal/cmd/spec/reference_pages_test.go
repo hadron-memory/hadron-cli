@@ -1,8 +1,15 @@
 package spec
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/Khan/genqlient/graphql"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"sync/atomic"
 	"testing"
 )
 
@@ -100,5 +107,48 @@ func TestDrainReferenceOrder1554(t *testing.T) {
 	})
 	if err != nil || !reflect.DeepEqual(got, rows) {
 		t.Fatalf("order/multiplicity got=%v err=%v", got, err)
+	}
+}
+
+// Operation choice is independent of the citation value. The public backlinks
+// command separately rejects an empty citation before creating its client.
+func TestReferenceExplicitOperation1768(t *testing.T) {
+	for _, tc := range []struct {
+		name, loc, operationName, field string
+		operation                       referenceOperation
+	}{
+		{"empty backlinks stays backlinks", "", "SpecBacklinksPage", "specBacklinksPage", referenceBacklinks},
+		{"unresolved ignores citation", "unused", "SpecUnresolvedReferencesPage", "specUnresolvedReferencesPage", referenceUnresolved},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				var req struct {
+					OperationName string         `json:"operationName"`
+					Variables     map[string]any `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Error(err)
+					return
+				}
+				if req.OperationName != tc.operationName || req.Variables["memoryRef"] != "fixture-memory" || req.Variables["limit"] != float64(20) || req.Variables["offset"] != float64(0) {
+					t.Errorf("wrong operation/variables: %+v", req)
+				}
+				if tc.operation == referenceBacklinks {
+					if loc, ok := req.Variables["loc"]; !ok || loc != tc.loc {
+						t.Errorf("loc=%v present=%t", loc, ok)
+					}
+				} else if _, ok := req.Variables["loc"]; ok {
+					t.Error("unresolved gained a citation variable")
+				}
+				fmt.Fprintf(w, `{"data":{"%s":{"items":[],"total":0,"hasMore":false}}}`, tc.field)
+			}))
+			defer srv.Close()
+			rows, err := readReferences(context.Background(), graphql.NewClient(srv.URL, srv.Client()), "fixture-memory", tc.operation, tc.loc)
+			if err != nil || rows == nil || len(rows) != 0 || calls.Load() != 1 {
+				t.Fatalf("rows=%v calls=%d err=%v", rows, calls.Load(), err)
+			}
+		})
 	}
 }

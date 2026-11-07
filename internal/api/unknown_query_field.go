@@ -29,7 +29,7 @@ func IsUnknownQueryField(err error, field string) bool {
 	}
 	prefix := `Cannot query field "` + field + `" on type "Query".`
 	for _, e := range list {
-		if e == nil || len(e.Path) != 0 || !strings.HasPrefix(e.Message, prefix) {
+		if len(e.Path) != 0 || !strings.HasPrefix(e.Message, prefix) {
 			return false
 		}
 		code := extensionCode(e)
