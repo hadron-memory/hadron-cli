@@ -3653,14 +3653,17 @@ proof of independence. AUTHOR_UNKNOWN means the server could not compare them.
 `node get` shows this comparison in the existing validation line and JSON report;
 older servers fall back with an unknown (`null`) comparison.
 
-Interim discovery reads manager-only memory configuration. A caller who cannot
-read it gets exit 8 with a discovery explanation; the writer-readable server
-projection is tracked separately in server#3659. The CLI never infers a task from
-a prior report. It derives effective role/runnable rules (including dotted
-ancestors): one task is automatic, multiple tasks require `--task` from the listed
-refs/revisions. No task returns CONTENT_VALIDATION_NOT_CONFIGURED locally without
-a mutation; an explicit task outside the set exits 2. Broken/unreadable applicable
-tasks fail closed. No client reporter field is sent.
+Discovery uses the server's `Node.validationTasks` projection, available to
+writers. It never reads manager configuration or infers tasks from past reports.
+One distinct READY task is automatic; multiple tasks require `--task` from the
+listed refs/revisions. NOT_CONFIGURED returns the existing local exit 5 without a
+mutation. BROKEN blocks the entire set, even alongside healthy tasks (exit 5).
+UNAVAILABLE or a null projection refuses generically with exit 8 and no mutation;
+it does not identify whether access or an unreadable task caused the answer.
+Malformed or unknown states fail closed (exit 1). An older server lacking this
+field returns the existing schema-skew exit 2, without legacy discovery fallback.
+An explicit task outside the set exits 2. No client reporter field is sent;
+a READY selection does not waive the mutation's author or access checks.
 
 `--run-id` is passed through, including on a deliberate retry. JSON is
 `{nodeId,replayed,report:{nodeRevision,validationTaskRef,validationTaskRevision,

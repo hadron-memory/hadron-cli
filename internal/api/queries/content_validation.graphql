@@ -26,18 +26,19 @@ fragment NodeContentValidationCheckedFields on NodeContentValidationStatus {
   }
 }
 
-# Interim #1706 discovery. This manager-only projection is replaced by #3659;
-# it is deliberately separate from shared config reads and node-get fragments.
+# #1706 step 3: server-owned writer-readable task selection; no config/history fallback.
 query ContentValidationNode($ref: ID!) {
-  node(ref: $ref) { id memoryId revision role isRunnable }
-}
-query ContentValidationRules($memoryRef: ID!) {
-  memoryConfig(memoryRef: $memoryRef) {
-    rules { role enabled strictSubRoles validationTask validationTaskId validationTaskState }
+  node(ref: $ref) {
+    id revision
+    validationTasks {
+      state
+      tasks {
+        # @genqlient(pointer: true)
+        broken
+        taskId taskRef revision
+      }
+    }
   }
-}
-query ContentValidationTask($ref: ID!) {
-  node(ref: $ref) { id revision isRunnable }
 }
 mutation RecordContentValidation(
   $nodeRef: ID!
