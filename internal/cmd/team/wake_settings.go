@@ -3,8 +3,7 @@ package team
 // `team wake-settings` — one worker's wake settings (cli#1292 over server
 // #1747, cor:agt:080:03). `get` is any App participant's read; `set` is the
 // worker itself, its holder or whoever manages the App (cor:agt:080:21).
-// Isolation fields are projected as the server returns them; isolating and
-// clearing isolation are `team isolation` (cli#911 slice B2).
+// Retired isolation surfaces are absent (cli#1743).
 
 import (
 	"fmt"
@@ -43,11 +42,6 @@ type wakeSettingsDTO struct {
 	Subscriptions           []wakeSubscriptionDTO `json:"subscriptions"`
 	EffectiveCadenceSeconds *int                  `json:"effectiveCadenceSeconds"`
 	Dormant                 bool                  `json:"dormant"`
-	Isolated                bool                  `json:"isolated"`
-	IsolatedAt              *string               `json:"isolatedAt"`
-	IsolatedByHandle        *string               `json:"isolatedByHandle"`
-	IsolatedUntil           *string               `json:"isolatedUntil"`
-	CanManageIsolation      bool                  `json:"canManageIsolation"`
 }
 
 func wakeSettingsDTOFrom(s *gen.WorkerWakeSettingsFields) wakeSettingsDTO {
@@ -57,11 +51,6 @@ func wakeSettingsDTOFrom(s *gen.WorkerWakeSettingsFields) wakeSettingsDTO {
 		Subscriptions:           []wakeSubscriptionDTO{},
 		EffectiveCadenceSeconds: s.EffectiveCadenceSeconds,
 		Dormant:                 s.Dormant,
-		Isolated:                s.Isolated,
-		IsolatedAt:              s.IsolatedAt,
-		IsolatedByHandle:        s.IsolatedByHandle,
-		IsolatedUntil:           s.IsolatedUntil,
-		CanManageIsolation:      s.CanManageIsolation,
 	}
 	if s.Worker != nil {
 		n := s.Worker.Name
@@ -115,7 +104,7 @@ func newCmdTeamWakeSettings(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show or change a worker's wake settings",
 		Long: `A worker's wake settings (cor:agt:080:03): whether a mention wakes it at
 once or not at all, an optional pause, its live ticker subscriptions and the
-fastest cadence they give, and whether it is dormant or isolated. ` + "`get`" + ` shows
+fastest cadence they give, and whether it is dormant. ` + "`get`" + ` shows
 them for any participant of the App, with the server's defaults when the worker
 has none stored; ` + "`set`" + ` changes the mention setting and the pause for the
 worker itself, its holder or whoever manages the App (cor:agt:080:21), never
@@ -132,7 +121,7 @@ func newCmdTeamWakeSettingsGet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a worker's wake settings",
 		Long: `Show one worker's wake settings exactly as the server returns them: the
 mention setting (IMMEDIATE or OFF), the pause, the live ticker subscriptions
-and the effective cadence they give, dormant, and the isolation fields. A
+and the effective cadence they give, and dormant. A
 worker with no stored settings shows the server's defaults.`,
 		Example: `  hadron team wake-settings get --worker hrn:worker:acme.com:ops:iris
   hadron team wake-settings get --worker <worker-id> --json`,
@@ -240,10 +229,6 @@ func renderWakeSettings(w io.Writer, d wakeSettingsDTO) error {
 	if d.EffectiveCadenceSeconds != nil {
 		cadence = fmt.Sprintf("%d s", *d.EffectiveCadenceSeconds)
 	}
-	handle := "-"
-	if d.IsolatedByHandle != nil {
-		handle = output.SafeCell(*d.IsolatedByHandle)
-	}
 	for _, kv := range [][2]string{
 		{"worker", name},
 		{"worker id", d.Worker.ID},
@@ -252,11 +237,6 @@ func renderWakeSettings(w io.Writer, d wakeSettingsDTO) error {
 		{"paused until", strOr(d.PausedUntil)},
 		{"effective cadence", cadence},
 		{"dormant", yesNo(d.Dormant)},
-		{"isolated", yesNo(d.Isolated)},
-		{"isolated at", strOr(d.IsolatedAt)},
-		{"isolated until", strOr(d.IsolatedUntil)},
-		{"isolated by", handle},
-		{"you may manage isolation", yesNo(d.CanManageIsolation)},
 	} {
 		if err := line(kv[0], kv[1]); err != nil {
 			return err

@@ -13,7 +13,8 @@ import threading
 
 BINARY = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'bin/hadron').resolve())
 SETTINGS = dict(batchWindowSeconds=120, busyDelaySeconds=600,
-                stuckWindowSeconds=900, standbyEnabled=True, standbyEffective=False)
+                stuckWindowSeconds=900, darkAlarmWindowSeconds=1800,
+                checkPeriodSeconds=600, failedChecksToOverdue=2)
 requests = []
 refusal = None
 transport_fail = False
@@ -40,6 +41,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             data = {'app': {'id': 'app1', 'urn': 'hrn:app:acme.com:ops', 'name': 'Ops'}}
         elif op in ('TeamDeliverySettings', 'TeamDeliverySettingsSet'):
             assert all(field in q['query'] for field in SETTINGS), q['query']
+            assert 'standbyEnabled' not in q['query'] and 'standbyEffective' not in q['query']
             key = 'appDeliverySettings' if op == 'TeamDeliverySettings' else 'setAppDeliverySettings'
             data = {key: None if missing else SETTINGS}
         else:
@@ -62,7 +64,7 @@ count = 0
 try:
     with tempfile.TemporaryDirectory(prefix='delivery-settings-cli-') as work:
         env = os.environ.copy()
-        env.update(HADRON_TOKEN='hdr_user_synthetic', HADRON_SERVER='', XDG_CONFIG_HOME=work)
+        env.update(HADRON_TOKEN='hdr_user_synthetic', HADRON_SERVER='', XDG_CONFIG_HOME=work, HOME=work)
 
         def run(args, mode=True, code=0):
             global count
@@ -87,10 +89,8 @@ try:
                 assert len(calls) == 1  # no render-only identity query
             else:
                 assert 'from --app' in result.stdout and 'ticker cadence floor' in result.stdout
-                rows = {line.rsplit(None, 1)[0].strip(): line.rsplit(None, 1)[-1] for line in result.stdout.splitlines() if 'standby (' in line}
-                assert rows == {'standby (stored)': 'true', 'standby (effective)': 'false'}, rows
+                assert 'standby' not in result.stdout
             for args, expected in [
-                (['set', '--standby=false'], {'standbyEnabled': False}),
                 (['set', '--busy-delay-seconds', '700'], {'busyDelaySeconds': 700}),
                 (['set', '--batch-window-seconds', '60', '--stuck-window-seconds', '1000'],
                  {'batchWindowSeconds': 60, 'stuckWindowSeconds': 1000}),
@@ -98,7 +98,7 @@ try:
             ]:
                 result, calls = run(args, mode)
                 mutations = [q for q in calls if q['operationName'] == 'TeamDeliverySettingsSet']
-                assert len(mutations) == 1 and mutations[0]['variables']['input'] == expected
+                assert len(mutations) == 1 and {k: v for k, v in mutations[0]['variables'].items() if k != 'appRef'} == expected
                 if mode:
                     assert json.loads(result.stdout) == SETTINGS
                 elif expected == {}:
@@ -109,9 +109,9 @@ try:
                 ('FORBIDDEN', 8), ('APP_NOT_FOUND', 4), ('BAD_USER_INPUT', 2),
                 ('DELIVERY_SETTINGS_OUT_OF_RANGE', 2), ('DELIVERY_SETTINGS_CONFLICT', 2),
                 ('TICKER_SETTINGS_OUT_OF_RANGE', 2), ('TICKER_SETTINGS_CONFLICT', 5),
-                ('DELIVERY_STANDBY_UNAVAILABLE', 5), ('SESSION_NOT_LIVE', 1),
+                ('SESSION_NOT_LIVE', 1),
             ]:
-                result, calls = run(['set', '--standby=true'], mode, code)
+                result, calls = run(['set', '--busy-delay-seconds', '700'], mode, code)
                 if mode:
                     assert json.loads(result.stdout)['error']['message'] == MESSAGE
                 else:
@@ -121,13 +121,16 @@ try:
                 assert len(calls) == 1 and calls[0]['operationName'] == 'TeamDeliverySettings'
             refusal = None
             transport_fail = True
-            result, calls = run(['set', '--standby=false'], mode, 7)
+            result, calls = run(['set', '--busy-delay-seconds', '700'], mode, 7)
             assert len(calls) == 1 and calls[0]['operationName'] == 'TeamDeliverySettingsSet'
             transport_fail = False
             missing = True
             result, calls = run(['get'], mode, 1)
             assert len(calls) == 1 and 'no delivery settings' in (result.stdout + result.stderr)
             missing = False
+        for value in ('true', 'false'):
+            result, calls = run(['set', '--standby=' + value], True, 2)
+            assert calls == []
         for value in ('', 'null', 'default', '1.5', '2147483648', '-2147483649'):
             result, calls = run(['set', '--busy-delay-seconds=' + value], True, 2)
             assert calls == []

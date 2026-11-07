@@ -112,19 +112,18 @@ func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 	}
 }
 
-// The pinned schema adds this unrelated nullable input. Never introduce an
-// explicit null into an existing settings write while refreshing the schema.
+// Omitted fields stay absent after #1743's explicit supported-field input.
 func TestTaskTextSchemaRefreshPreservesSettingsOmission1214(t *testing.T) {
-	b, err := json.Marshal(gen.AppDeliverySettingsInput{})
+	calls, _, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var vars map[string]any
-	if err := json.Unmarshal(b, &vars); err != nil {
-		t.Fatal(err)
-	}
-	if _, present := vars["darkAlarmWindowSeconds"]; present {
-		t.Fatal("schema refresh sends an unselected nullable setting")
+	for _, c := range *calls {
+		if c.Op == "TeamDeliverySettingsSet" {
+			if len(c.Vars) != 1 || c.Vars["appRef"] == nil {
+				t.Fatalf("empty patch carries fields: %v", c.Vars)
+			}
+		}
 	}
 }
 

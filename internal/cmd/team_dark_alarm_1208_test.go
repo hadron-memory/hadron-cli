@@ -57,7 +57,7 @@ func TestDarkSettings1208(t *testing.T) {
 	for _, c := range *calls {
 		if c.Op == "TeamDeliverySettingsSet" {
 			found = true
-			input := c.Vars["input"].(map[string]any)
+			input := c.Vars
 			if input["darkAlarmWindowSeconds"] != float64(1800) {
 				t.Fatal(c.Vars)
 			}
@@ -108,7 +108,7 @@ func TestDarkSettingsGetAndPresence1208(t *testing.T) {
 	for _, c := range *calls {
 		if c.Op == "TeamDeliverySettingsSet" {
 			found = true
-			input := c.Vars["input"].(map[string]any)
+			input := c.Vars
 			if _, ok := input["darkAlarmWindowSeconds"]; ok {
 				t.Fatalf("omitted field sent %v", input)
 			}

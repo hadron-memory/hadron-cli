@@ -4,7 +4,7 @@ Dispatched by Ada (task 01a16960, #32626). Gate: Xan's re-gate CHECKED
 T2 + §10 + UX (issue comment 6358452428), scope per Joshua's re-attach
 6358431984, wire per Joost's exact-wire delta 6305150650 with Victor's FIT
 6305264102 (and its correction 6305431396). Refs #911: the umbrella stays open.
-Slice B2 (worker isolation) is a separate PR after its own fit.
+Historical slice B2 (worker isolation) is retired by cli#1743 after server Phase 1 #3611; stop signals are unchanged.
 
 ## Wire
 

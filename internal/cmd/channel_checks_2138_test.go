@@ -48,7 +48,7 @@ func Test2138TickerLiveCheckReasonsWire(t *testing.T) {
 
 func Test2138CheckSettingsPresence(t *testing.T) {
 	r := deliveryResponses()
-	r["TeamDeliverySettingsSet"] = `{"data":{"setAppDeliverySettings":{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"standbyEnabled":false,"standbyEffective":false,"checkPeriodSeconds":600,"failedChecksToOverdue":2}}}`
+	r["TeamDeliverySettingsSet"] = `{"data":{"setAppDeliverySettings":{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"checkPeriodSeconds":600,"failedChecksToOverdue":2}}}`
 	calls, out, err := runTeamTask(t, r, "team", "delivery-settings", "set", "--check-period-seconds", "600", "--failed-checks-to-overdue", "2", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -57,15 +57,14 @@ func Test2138CheckSettingsPresence(t *testing.T) {
 	if len(writes) != 1 {
 		t.Fatalf("writes=%d", len(writes))
 	}
-	var vars struct {
-		Input map[string]any `json:"input"`
-	}
+	var vars map[string]any
 	if err := json.Unmarshal(writes[0].RawVars, &vars); err != nil {
 		t.Fatal(err)
 	}
+	delete(vars, "appRef")
 	want := map[string]any{"checkPeriodSeconds": float64(600), "failedChecksToOverdue": float64(2)}
-	if !reflect.DeepEqual(vars.Input, want) {
-		t.Fatalf("settings patch %v want %v", vars.Input, want)
+	if !reflect.DeepEqual(vars, want) {
+		t.Fatalf("settings patch %v want %v", vars, want)
 	}
 	var dto map[string]any
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {

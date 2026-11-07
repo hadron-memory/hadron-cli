@@ -18,10 +18,10 @@ const c1292Worker = "hrn:worker:acme.com:ops:iris"
 
 const c1292Stored = `{"worker":{"id":"w1","name":"Iris","urn":"` + c1292Worker + `"},"mentions":"OFF","pausedUntil":"2026-11-01T00:00:00Z",` +
 	`"subscriptions":[{"id":"sub1","ticker":{"id":"tk1","urn":"hrn:ticker:acme.com:ops:standup","name":"standup","cadenceSeconds":1800,"enabled":true},"viaGrant":true,"createdAt":"2026-10-30T00:00:00Z"}],` +
-	`"effectiveCadenceSeconds":1800,"dormant":true,"isolated":true,"isolatedAt":"2026-10-30T01:00:00Z","isolatedByHandle":"holger","isolatedUntil":"2026-10-31T00:00:00Z","canManageIsolation":true}`
+	`"effectiveCadenceSeconds":1800,"dormant":true}`
 
 const c1292Defaults = `{"worker":{"id":"w1","name":"Iris","urn":null},"mentions":"IMMEDIATE","pausedUntil":null,"subscriptions":[],` +
-	`"effectiveCadenceSeconds":null,"dormant":false,"isolated":false,"isolatedAt":null,"isolatedByHandle":null,"isolatedUntil":null,"canManageIsolation":false}`
+	`"effectiveCadenceSeconds":null,"dormant":false}`
 
 func c1292Get(body string) map[string]string {
 	return map[string]string{"WorkerWakeSettings": `{"data":{"workerWakeSettings":` + body + `}}`}
@@ -43,13 +43,12 @@ func TestC1292GetRendersTheFullShapeInJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, out)
 	}
-	for _, key := range []string{"worker", "mentions", "pausedUntil", "subscriptions", "effectiveCadenceSeconds", "dormant",
-		"isolated", "isolatedAt", "isolatedByHandle", "isolatedUntil", "canManageIsolation"} {
+	for _, key := range []string{"worker", "mentions", "pausedUntil", "subscriptions", "effectiveCadenceSeconds", "dormant"} {
 		if _, ok := dto[key]; !ok {
 			t.Errorf("--json lacks %q: %s", key, out)
 		}
 	}
-	if dto["mentions"] != "OFF" || dto["pausedUntil"] != "2026-11-01T00:00:00Z" || dto["dormant"] != true || dto["canManageIsolation"] != true {
+	if dto["mentions"] != "OFF" || dto["pausedUntil"] != "2026-11-01T00:00:00Z" || dto["dormant"] != true {
 		t.Errorf("values changed on the way out: %s", out)
 	}
 	subs, _ := dto["subscriptions"].([]any)
@@ -70,7 +69,7 @@ func TestC1292GetShowsTheServersDefaultsAndEmptySubscriptionsAsAnArray(t *testin
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatal(err)
 	}
-	if dto["mentions"] != "IMMEDIATE" || dto["pausedUntil"] != nil || dto["effectiveCadenceSeconds"] != nil || dto["isolated"] != false {
+	if dto["mentions"] != "IMMEDIATE" || dto["pausedUntil"] != nil || dto["effectiveCadenceSeconds"] != nil {
 		t.Fatalf("defaults not shown as the server answered them: %s", out)
 	}
 }
@@ -80,7 +79,7 @@ func TestC1292GetTextNamesEveryField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Iris", "mentions", "OFF", "2026-11-01T00:00:00Z", "standup", "1800", "dormant", "isolated", "holger", "2026-10-31T00:00:00Z",
+	for _, want := range []string{"Iris", "mentions", "OFF", "2026-11-01T00:00:00Z", "standup", "1800", "dormant",
 		"w1", c1292Worker, "tk1", "hrn:ticker:acme.com:ops:standup", "sub1", "2026-10-30T00:00:00Z"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("text lacks %q:\n%s", want, out)

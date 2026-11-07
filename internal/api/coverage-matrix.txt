@@ -236,7 +236,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 339: 284 command, 43 gap, 12 excluded
+[Mutation] 339: 282 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -277,7 +277,7 @@ claimContextReset  command team host run
 claimUntrackedTaskItems  command team task find-untracked
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
-clearWorkerIsolation  command team isolation clear
+clearWorkerIsolation  excluded deprecated: retired in server#3611 Phase 1; cli#1743 removes the compatibility door
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
 cloneMemory  command memory clone
@@ -398,7 +398,7 @@ handBackAgentTask  command team task hand-back
 importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite
-isolateWorker  command team isolation set
+isolateWorker  excluded deprecated: retired in server#3611 Phase 1; cli#1743 removes the compatibility door
 issueHostOperation  command team host issue
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
@@ -577,7 +577,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 78: 43 gap, 35 excluded
+[Arguments] 77: 41 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -587,7 +587,6 @@ Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (ac
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
 Mutation.cancelAgentTask(instruction)  gap #1617
-Mutation.clearWorkerIsolation(instruction)  gap #1617
 Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
@@ -606,7 +605,6 @@ Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.importNode(input.authoredWith)  gap #684
-Mutation.isolateWorker(instruction)  gap #1617
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
@@ -624,6 +622,7 @@ Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
+Mutation.setAppDeliverySettings(input.standbyEnabled)  excluded deprecated: retired in server#3611 Phase 1; cli#1743 never sends the compatibility input
 Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
 Mutation.setAppProperties(instruction)  gap #1617
