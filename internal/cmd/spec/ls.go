@@ -24,7 +24,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 
 --prefix filters by the citation prefix: --prefix msg:010 lists every spec
 whose loc is msg:010 or starts with msg:010:, at any depth. A node is a spec
-when it has the legacy "spec" tag or a "spec" / "spec.*" role.
+only when its role is "spec" or "spec.*". A "spec" tag alone is not
+governed: it stays visible, marked "not governed" (JSON governed: false).
+Repair through spec edit with an actual reviewed change; a no-op writes nothing.
 
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to display one page
@@ -123,11 +125,13 @@ after merging both spec markers.`,
 			specs := make([]specDTO, 0, len(rawNodes))
 			var cands []replacedCandidate
 			var specIDs []string
+			governedByID := map[string]bool{}
 			for _, n := range rawNodes {
 				if n == nil || !underPrefix(n.Loc, prefix) {
 					continue // the server's prefix is character-wise; keep the branch
 				}
 				specIDs = append(specIDs, n.Id)
+				governedByID[n.Id] = isGovernedSpec(n.Role)
 				cands = append(cands, replacedCandidate{ID: n.Id, Loc: n.Loc, MemoryID: n.MemoryId, Tags: n.Tags})
 				specs = append(specs, specDTO{
 					Citation:       n.Loc,
@@ -156,9 +160,12 @@ after merging both spec markers.`,
 			marked := make([]specDTO, len(specs))
 			for i, sp := range specs {
 				r := repl[specIDs[i]]
-				listed[i] = specListDTO{specDTO: sp, Replaced: r.Replaced, ReplacedBy: r.By}
+				listed[i] = specListDTO{specDTO: sp, Governed: governedByID[specIDs[i]], Replaced: r.Replaced, ReplacedBy: r.By}
 				marked[i] = sp
 				marked[i].Name += replacedMarker(r, "")
+				if !listed[i].Governed {
+					marked[i].Name += " [not governed]"
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, listed, func(w io.Writer) error {
 				return writeSpecListTable(w, marked)
@@ -181,6 +188,7 @@ after merging both spec markers.`,
 // name, type and value, and `spec find`, which shares specDTO, is untouched.
 type specListDTO struct {
 	specDTO
+	Governed   bool    `json:"governed"`
 	Replaced   bool    `json:"replaced"`
 	ReplacedBy *string `json:"replacedBy"`
 }

@@ -27,8 +27,10 @@ import (
 // with no tier assigned to any depth.
 type describeDTO struct {
 	Memory string `json:"memory"`
-	// Specs is how many nodes are specs (the spec tag or the spec role).
-	Specs int `json:"specs"`
+	// Specs counts governed spec-role nodes only.
+	Specs            int                 `json:"specs"`
+	NotGoverned      int                 `json:"notGoverned"`
+	NotGovernedNodes []ungovernedSpecDTO `json:"notGovernedNodes"`
 	// Roots are the distinct first loc segments of those specs, sorted.
 	Roots []string `json:"roots"`
 	// MaxDepth is the most segments any spec's loc has (0 when there are none).
@@ -75,6 +77,11 @@ type approvalCountsDTO struct {
 	Unknown     int `json:"unknown"`
 }
 
+type ungovernedSpecDTO struct {
+	Citation string `json:"citation"`
+	Governed bool   `json:"governed"`
+}
+
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
 	var memory, declare string
 	cmd := &cobra.Command{
@@ -84,6 +91,11 @@ func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
 		Long: `Inventory a memory's spec corpus: how many specs it holds, their root
 segments, the deepest loc, and how many sit in the legacy numbering (which
 "spec new"'s allocation, "spec register" and "spec extract" operate on).
+
+A spec is governed by a "spec" / "spec.*" role. Tag-only nodes stay visible
+as not governed and do not count as specs. JSON reports notGoverned and
+notGovernedNodes separately. Repair with spec edit and an actual reviewed
+change; a no-op writes nothing.
 
 In a draft, reserved placeholder citations are listed separately from the
 total spec count. A minted corpus has none.
@@ -126,13 +138,19 @@ shown as retired and ignored.`,
 			}
 			var locs []string
 			var specIDs []string
+			ungoverned := []ungovernedSpecDTO{}
 			for _, n := range all {
-				if n != nil && isSpec(n.Tags, n.Role) {
+				if n != nil && isTagOnlySpec(n.Tags, n.Role) {
+					ungoverned = append(ungoverned, ungovernedSpecDTO{Citation: n.Loc})
+				}
+				if n != nil && isGovernedSpec(n.Role) {
 					locs = append(locs, n.Loc)
 					specIDs = append(specIDs, n.Id)
 				}
 			}
 			dto := describeInventory(memURN, locs)
+			dto.NotGovernedNodes = ungoverned
+			dto.NotGoverned = len(ungoverned)
 			statuses, minted, supported, mintSupported, err := specStatuses(cmd.Context(), client, specIDs)
 			if err != nil {
 				return err
@@ -220,7 +238,7 @@ func schemeFromData(data *json.RawMessage) string {
 
 // describeInventory builds the neutral inventory of the given spec locs.
 func describeInventory(memURN string, locs []string) describeDTO {
-	dto := describeDTO{Memory: memURN, Roots: []string{}}
+	dto := describeDTO{Memory: memURN, Roots: []string{}, NotGovernedNodes: []ungovernedSpecDTO{}}
 	roots := map[string]bool{}
 	for _, loc := range locs {
 		dto.Specs++
@@ -243,6 +261,12 @@ func describeInventory(memURN string, locs []string) describeDTO {
 }
 
 func renderDescribe(w io.Writer, d describeDTO) error {
+	if d.NotGoverned > 0 {
+		fmt.Fprintf(w, "not governed: %d\n", d.NotGoverned)
+		for _, n := range d.NotGovernedNodes {
+			fmt.Fprintf(w, "  %s [not governed]\n", output.SafeCell(n.Citation))
+		}
+	}
 	fmt.Fprintf(w, "Spec corpus — %s\n", d.Memory)
 	state := ""
 	if d.CorpusState != nil {

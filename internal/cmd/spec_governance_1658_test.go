@@ -69,3 +69,48 @@ func TestSpecDescribeGovernance1658(t *testing.T) {
 		t.Fatalf("row=%v", r)
 	}
 }
+
+func TestSpecLintTagOnlyCommand1658(t *testing.T) {
+	for _, strict := range []bool{false, true} {
+		detail := strings.Replace(cleanSpecDetail, `"role":"spec",`, "", 1)
+		detail = strings.Replace(detail, `"nodeType":"info"`, `"nodeType":"task"`, 1)
+		gql, _ := captureGraphQL(t, map[string]string{"Memories": memListJSON, "GetMemory": memGetVectorEnabledJSON, "ResolveUrn": resolveSpecJSON, "GetNode": `{"data":{"node":` + detail + `}}`, "NodeBatch": specLintRawBodyStub(detail)})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"spec", "lint", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL}
+		if strict {
+			args = append(args, "--strict")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		wantCode := 0
+		if strict {
+			wantCode = 5
+		}
+		if exitCodeFor(err) != wantCode {
+			t.Fatalf("err=%v output=%s", err, out)
+		}
+		var fs []map[string]any
+		if err := json.Unmarshal([]byte(out.String()), &fs); err != nil {
+			t.Fatal(err)
+		}
+		if len(fs) != 1 || fs[0]["rule"] != "not-governed" || fs[0]["governed"] != false {
+			t.Fatalf("findings=%v", fs)
+		}
+	}
+}
+
+func TestTagOnlyEditRemedy1658(t *testing.T) {
+	_, captured, err := runSpecEdit(t, titleMocks(titleWriteOK), "", "--title", "New title", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(captured["UpdateSpecNode"]) != 1 {
+		t.Fatalf("tag-only remedy must use spec door: %v", captured)
+	}
+	// This fixture begins with role:null. Actual server role assignment is the private-stack QA leg.
+	in := sentTitleEditInput(t, captured["UpdateSpecNode"][0])
+	if in["name"] != "msg:010:02 — New title" {
+		t.Fatalf("input=%v", in)
+	}
+}

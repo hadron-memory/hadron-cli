@@ -75,24 +75,35 @@ func specOriginHash(content string) string {
 
 func specBatchNodeWithTags(loc, tags string) string {
 	body, _ := json.Marshal(specBatchContent)
-	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+	roleJSON := ""
+	if strings.Contains(tags, `"spec"`) {
+		roleJSON = `"role":"spec",`
+	}
+	return roleJSONFixture1658(fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
 		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":%q,`+
 		`"tags":%s,"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
 		`"content":%s,`+
 		`"updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
 		`"incomingEdges":[]}`,
-		loc, loc, loc+" — W2", specOriginHash(specBatchContent), tags, string(body))
+		loc, loc, loc+" — W2", specOriginHash(specBatchContent), tags, string(body)), roleJSON)
 }
 
 func specBatchHeaderNode(loc, title, tags string) string {
-	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+	roleJSON := ""
+	if strings.Contains(tags, `"spec"`) {
+		roleJSON = `"role":"spec",`
+	}
+	return roleJSONFixture1658(fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
 		`"description":null,"abstract":null,"abstractOriginHash":null,`+
 		`"tags":%s,"seq":null,"data":null,"properties":null,`+
 		`"content":"# %s — %s\n","updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[],"incomingEdges":[]}`,
-		loc, loc, loc+" — "+title, tags, loc, title)
+		loc, loc, loc+" — "+title, tags, loc, title), roleJSON)
 }
+
+// roleJSONFixture1658 keeps corpus-shape fixtures governed; tag-only fixtures stay explicit.
+func roleJSONFixture1658(node, role string) string { return strings.Replace(node, "{", "{"+role, 1) }
 
 func specBatchResp(locs ...string) string {
 	nodes := make([]string, len(locs))
@@ -124,7 +135,7 @@ func specLintRawBodyStub(detail string) string {
 var cleanSpecDetail = func() string {
 	body, _ := json.Marshal(cleanSpecDetailContent)
 	return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+		`"role":"spec","description":null,"abstract":"Win back users who never engaged after signup.",` +
 		`"abstractOriginHash":"` + specOriginHash(cleanSpecDetailContent) + `",` +
 		`"nodeType":"info","tags":["spec","p1","messaging"],` +
 		`"content":` + string(body) + `,` +
@@ -135,7 +146,7 @@ var cleanSpecDetail = func() string {
 
 // A spec detail missing abstract and the "what invalidates" section.
 const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+	`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
 	`"content":"# msg:010:02 — W2\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 	`"outgoingEdges":[],"incomingEdges":[]}`
 
@@ -144,7 +155,7 @@ const resolveSpecJSON = `{"data":{"resolveUrn":{"id":"sp1","kind":"node","memory
 // A clean product-rooted module header (cli:cha), used to prove --module product
 // inference lints the right node (#99 item 4).
 const cliChaModuleDetail = `{"id":"id-cli:cha","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — Chat",` +
-	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
+	`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
 	`"content":"# cli:cha — Chat\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 	`"outgoingEdges":[],"incomingEdges":[]}`
 
@@ -982,7 +993,7 @@ func TestSpecDescribeResolvesByPK(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Memories":  memListJSON,
 		"GetMemory": memGetJSON(`null`),
-		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
+		"FindNodes": `{"data":{"nodes":[` + specNodeListWithRole("cli", `["spec"]`) + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1164,10 +1175,10 @@ const memListMicromentorJSON = `{"data":{"memories":{"total":1,"items":[{"id":"m
 // the retired --declare is disclosed, never applied.
 func TestSpecDescribeInventory(t *testing.T) {
 	nodes := strings.Join([]string{
-		specNodeList("cli", `["spec"]`),
-		specNodeList("cli:cha:010:01", `["spec"]`),
-		specNodeList("msg:010:02", `["spec"]`),
-		specNodeList("onboarding:mentor:screens", `["spec"]`),
+		specNodeListWithRole("cli", `["spec"]`),
+		specNodeListWithRole("cli:cha:010:01", `["spec"]`),
+		specNodeListWithRole("msg:010:02", `["spec"]`),
+		specNodeListWithRole("onboarding:mentor:screens", `["spec"]`),
 		specNodeList("register", `["index"]`),
 	}, ",")
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -2335,7 +2346,7 @@ func supersedeEdgeServer(t *testing.T, createEdge, reread string) (*httptest.Ser
 // rather than prescribing a `spec link` that would fail on it.
 func TestSpecSupersedeLostEdgeResponseFinishesRetirement(t *testing.T) {
 	landed := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
 		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
 		`"incomingEdges":[]}}}`
@@ -2387,7 +2398,7 @@ func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 // successor, or it stops with a conflict and retires nothing.
 func TestSpecSupersedeRaceWithBothEdgesCreatedRetiresNothing(t *testing.T) {
 	both := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
 		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 		`"outgoingEdges":[` +
 		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
@@ -2936,7 +2947,7 @@ func TestSpecSupersedeUnverifiedSoleSuccessorRetiresNothing(t *testing.T) {
 // listed first. It refuses instead.
 func TestSpecSupersedeRerunWithTwoSuccessorsIsAConflict(t *testing.T) {
 	two := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
 		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 		`"outgoingEdges":[` +
 		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
@@ -2968,7 +2979,7 @@ func TestSpecSupersedeRerunWithTwoSuccessorsIsAConflict(t *testing.T) {
 // and prescribe no write.
 func TestSpecSupersedeConcurrentSuccessorIsAConflict(t *testing.T) {
 	other := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"role":"spec","description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
 		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 		`"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:07","isRunnable":false,"priority":0,"target":{"id":"n7","loc":"msg:010:07","memoryId":"mem1"}}],` +
 		`"incomingEdges":[]}}}`
@@ -3110,7 +3121,7 @@ func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 
 func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
 	oldWithEdge := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
+		`"role":"spec","description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
 		`"nodeType":"info","tags":["spec","p1"],` +
 		`"content":"# msg:010:02 — W2\n\n## What invalidates this spec\nChanges.\n",` +
 		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
@@ -4399,7 +4410,7 @@ func TestSpecGetReportsStalenessFromTheRawBody(t *testing.T) {
 	detail := func(body string) string {
 		b, _ := json.Marshal(body)
 		return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-			`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+			`"role":"spec","description":null,"abstract":"Win back users who never engaged after signup.",` +
 			`"abstractOriginHash":"deadbeef","nodeType":"info","tags":["spec","p1","messaging"],` +
 			`"content":` + string(b) + `,"data":{"version":"0.0.1"},"seq":null,` +
 			`"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +

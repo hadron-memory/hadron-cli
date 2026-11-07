@@ -1110,8 +1110,8 @@ func TestLintSelectsEverySpec(t *testing.T) {
 		n    api.ListNode
 		want bool
 	}{
-		{"tagged, legacy", api.ListNode{Loc: "msg:010:02", Tags: []string{"spec"}}, true},
-		{"tagged, any loc", api.ListNode{Loc: "onboarding:mentor:screens", Tags: []string{"spec"}}, true},
+		{"tagged, legacy", api.ListNode{Loc: "msg:010:02", Tags: []string{"spec"}}, false},
+		{"tagged, any loc", api.ListNode{Loc: "onboarding:mentor:screens", Tags: []string{"spec"}}, false},
 		{"role only, any loc", api.ListNode{Loc: "glossary", Role: &role}, true},
 		{"untagged, legacy-shaped (missing-tag finding)", api.ListNode{Loc: "msg:010:03"}, true},
 		{"untagged, any other loc (not a spec)", api.ListNode{Loc: "register"}, false},

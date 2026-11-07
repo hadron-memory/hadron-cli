@@ -17,6 +17,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+type lintReadFindingDTO struct {
+	lintFindingDTO
+	Governed bool `json:"governed"`
+}
+
 const (
 	sevError   = "error"
 	sevWarning = "warning"
@@ -72,6 +77,12 @@ Content checks live in each corpus's own authoring framework — its review
 checks and review tasks (for the Hadron platform corpus,
 hrn:mem:hadronmemory.com:specs-engineer-system).
 Names may be human-readable; they need not start with the citation.
+
+Governance requires a "spec" or "spec.*" role. A "spec" tag alone gets only
+warning "not-governed", with no spec-shape checks; JSON adds governed: false.
+Use hadron spec edit <loc> -m <memory> --content-file <reviewed-body-file>
+with an actual reviewed change to enter governance. A no-op sends no write.
+Without --strict this warning leaves the exit code unchanged.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
@@ -256,6 +267,18 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
+			// Report tag-only candidates, but never run spec/corpus/draft rules on them.
+			ungovernedFindings := []lintFindingDTO{}
+			governedOrMalformed := make([]specNode, 0, len(nodes))
+			for _, n := range nodes {
+				if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
+					ungovernedFindings = append(ungovernedFindings, lintReadNode(n, memURN)...)
+					continue
+				}
+				governedOrMalformed = append(governedOrMalformed, n)
+			}
+			nodes = governedOrMalformed
+
 			// Draft corpora (hadron-server#1447, cli#777 slice 2). One state read;
 			// only a DRAFT is scanned for placeholders and unresolved references.
 			// A placeholder is a reserved citation, not a malformed spec, so it
@@ -266,6 +289,10 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			draft, err := loadDraftInfo(cmd.Context(), client, memRef, "")
 			if err != nil {
 				return err
+			}
+			governanceByLoc := map[string]bool{}
+			for _, n := range nodes {
+				governanceByLoc[n.Loc] = isGovernedSpec(n.Role)
 			}
 			scoped := len(nodes)
 			nodes, placeholders, inScope := partitionDraftLintNodes(nodes, draft)
@@ -283,6 +310,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			if vw := vectorIndexWarning(cmd, client, memURN); vw != nil {
 				findings = append(findings, *vw)
 			}
+			findings = append(findings, ungovernedFindings...)
 			findings = append(findings, placeholders...)
 			if draft.Draft {
 				unresolved, err := unresolvedFindings(cmd.Context(), client, memRef, inScope)
@@ -298,6 +326,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				}
 				findings = append(findings, fs...)
 			}
+
 			if strict {
 				for i := range findings {
 					if findings[i].Severity == sevWarning {
@@ -314,7 +343,12 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				}
 			}
 
-			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
+			report := make([]lintReadFindingDTO, 0, len(findings))
+			for _, finding := range findings {
+				governed := governanceByLoc[finding.Citation]
+				report = append(report, lintReadFindingDTO{lintFindingDTO: finding, Governed: governed})
+			}
+			if err := output.Write(f.IOStreams, f.JSON, report, func(w io.Writer) error {
 				if len(findings) == 0 {
 					fmt.Fprintf(w, "✓ %d spec(s) OK\n", scoped)
 					return nil
@@ -377,6 +411,15 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 		return exitcode.Newf(exitcode.Usage, "--all cannot be combined with --product/--module")
 	}
 	return nil
+}
+
+// lintReadNode distinguishes legacy candidates from law for the lint command.
+// Other consumers (get/mint compatibility checks) retain lintNode's behavior.
+func lintReadNode(n specNode, memURN string) []lintFindingDTO {
+	if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
+		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; use hadron spec edit " + cmdutil.ShellQuote(n.Loc) + " -m " + cmdutil.ShellQuote(memURN) + " --content-file <reviewed-body-file> with an actual change (a no-op writes nothing)"}}
+	}
+	return lintNode(n, memURN)
 }
 
 // lintNode runs the per-node rules and returns findings tagged with the
@@ -712,20 +755,23 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 		if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
 			continue // keep the scan scoped to the requested subtree
 		}
-		if lintSelects(n) {
+		if lintSelects(n) || isTagOnlySpec(n.Tags, n.Role) {
 			nodes = append(nodes, n)
 		}
 	}
 	return fetchDetails(cmd, client, nodes)
 }
 
-// lintSelects is what a lint scan reads (#708): every spec (the tag or the
-// spec role), at ANY loc, plus an untagged citation-shaped node, so the
-// missing-spec-tag finding still reaches a legacy spec that lost its tag
+// lintSelects selects nodes for spec-shape checks: governed roles at any
+// loc, plus an untagged citation-shaped node, so the
+// missing-spec-tag finding still reaches a legacy spec that lost its markers
 // (#241). A spec outside the legacy numbering used to be dropped here, so a
 // corpus lint came back clean without ever checking it (@codex on #710).
 func lintSelects(n *api.ListNode) bool {
-	if isSpec(n.Tags, n.Role) {
+	if isTagOnlySpec(n.Tags, n.Role) {
+		return false
+	}
+	if isGovernedSpec(n.Role) {
 		return true
 	}
 	_, err := ParseCitation(n.Loc)
@@ -769,7 +815,7 @@ func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN strin
 func citationListNodes(all []*api.ListNode) []*api.ListNode {
 	nodes := make([]*api.ListNode, 0, len(all))
 	for _, n := range all {
-		if n != nil && lintSelects(n) {
+		if n != nil && (lintSelects(n) || isTagOnlySpec(n.Tags, n.Role)) {
 			nodes = append(nodes, n)
 		}
 	}

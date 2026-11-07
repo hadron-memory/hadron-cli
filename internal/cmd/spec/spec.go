@@ -1085,6 +1085,16 @@ func isSpec(tags []string, role *string) bool {
 	return hasTag(tags, "spec") || api.RoleInFamily(role, api.SpecNodeRole)
 }
 
+// isGovernedSpec matches the server's role base-kind signal (cor:acl:130:01).
+// Keep isSpec's legacy candidate discovery/write-door behavior unchanged.
+func isGovernedSpec(role *string) bool {
+	return api.RoleInFamily(role, api.SpecNodeRole)
+}
+
+func isTagOnlySpec(tags []string, role *string) bool {
+	return hasTag(tags, "spec") && !isGovernedSpec(role)
+}
+
 // fetchSpecTaggedNode validates an address, reads the node, and requires it to
 // be part of the spec corpus (isSpec). Lint and register intentionally use the
 // generic fetchSpecNode path because they validate malformed or advisory nodes.

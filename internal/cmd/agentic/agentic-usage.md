@@ -1881,8 +1881,17 @@ Conventions:
   change its role with `subscription set-role`. `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member list` or `auth whoami`.
-- `spec` manages product-spec nodes: a node is a spec when it carries the
-  `spec` tag (or the governed spec role), and its loc is its citation. **Any
+- `spec` manages product-spec nodes. Governance requires a `spec` / `spec.*`
+  role, not a tag alone (cor:acl:130:01). `list` marks tag-only candidates
+  `[not governed]` and adds `governed` on every JSON row. `describe` counts
+  only governed specs and reports tag-only candidates separately through
+  `notGoverned` and `notGovernedNodes` (`citation`, `governed: false`).
+  `lint` emits only warning `not-governed` for a tag-only candidate, without
+  spec-shape checks; `--strict` retains its warning-to-error policy. Findings
+  add `governed`. Repair with `hadron spec edit <loc> -m <memory>
+  --content-file <reviewed-body-file>` and an actual reviewed change: a no-op
+  sends no write and does not govern the node. Other legacy-marker users,
+  including `link` and `edit`, remain unchanged. Its loc is its citation. **Any
   valid node loc works, at any depth and in any shape (#708)**: `get`, `list`,
   `edit`, `link`, `find`, `grep`, `replace` and `check-tools` check only the
   generic loc rule (colon-separated slug segments), and never drop a spec from
