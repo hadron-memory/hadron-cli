@@ -36,6 +36,8 @@ own outright. Add --agent <id-or-URN> to keep only Apps with that Agent installe
 Used alone, --agent searches the Apps you may read without choosing an organization.
 It combines with --org or --owned-by-me; all supplied filters must match.
 An unreadable or missing Agent returns an empty list, not an error.
+A nonblank --agent value is forwarded verbatim; supply it without surrounding
+whitespace. An empty or whitespace-only value is exit 2 before any request.
 Choose at least one of --org, --owned-by-me or --agent. This reads only:
 it changes no App. Output is a table; --json keeps the existing bare array
 of Apps; memberCount is explicit null when withheld, never a fabricated 0.
@@ -99,6 +101,9 @@ this is a question about a user. (To CREATE an App in this slice, see
 			}
 			// Paged { items, total } envelope (hadron-server#473), drained to
 			// exhaustion — this command's contract is "all Apps in the slice".
+			// The Agent selector has no user page-size override: cor:api:120:04
+			// limits unasked-for requests to 20, not the complete result to 20.
+			// This is a client request ceiling, not an Agent-specific server cap.
 			items, err := api.CollectAll(func(limit, offset int) ([]*gen.AppsAppsAppsPageItemsApp, int, error) {
 				if cmd.Flags().Changed("agent") && limit > 20 {
 					limit = 20
