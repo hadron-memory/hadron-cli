@@ -234,6 +234,7 @@ func shedTailOf(path string) (string, error) {
 const (
 	shedNotesEmptyFlag = "--note-file was empty (an unset variable?); omit it for no notes"
 	shedNotesOpen      = "--note-file could not be opened"
+	shedNotesRead      = "--note-file could not be read"
 	shedNotesNotFile   = "--note-file is not a regular file"
 	shedNotesBlank     = "--note-file holds nothing but whitespace"
 	shedNotesTooBig    = "--note-file is larger than 64 KiB"
@@ -268,7 +269,7 @@ func shedNotesOf(path string) (string, string) {
 func shedNotesFrom(r io.Reader) (string, string) {
 	data, err := io.ReadAll(io.LimitReader(r, shedNotesCap+1))
 	if err != nil {
-		return "", shedNotesOpen
+		return "", shedNotesRead
 	}
 	if len(data) > shedNotesCap {
 		return "", shedNotesTooBig
