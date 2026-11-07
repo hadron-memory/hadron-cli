@@ -112,7 +112,7 @@ is made. Old-provider schema errors use the existing CLI/server-skew refusal.`,
 					return err
 				}
 				if dto.HasMore {
-					_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more segments remain — continue with --after %s\n", *dto.EndCursor)
+					_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more segments remain — continue with --after %s\n", shellQuote(*dto.EndCursor))
 					return err
 				}
 				return nil
@@ -124,4 +124,15 @@ is made. Old-provider schema errors use the existing CLI/server-skew refusal.`,
 	cmd.Flags().IntVar(&limit, "limit", 0, "positive page size; server defaults to 20 and caps at 200")
 	cmd.Flags().StringVar(&after, "after", "", "opaque continuation from the previous page")
 	return cmd
+}
+
+// shellQuote quotes s for a copy-pasteable command (cli#1787): bare when every
+// byte is in the safe set, else single-quoted with ' escaped, so an opaque
+// cursor always pastes back as one inert argument. JSON keeps the raw value.
+// Same rule as the other per-package copies (app, automation).
+func shellQuote(s string) string {
+	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._/@-") == "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
