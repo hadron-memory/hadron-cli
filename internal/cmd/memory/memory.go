@@ -104,6 +104,7 @@ Create and choose
   set-active    make it the default memory for spec and coding commands
   list          list the memories you can access
   get           show one memory's settings
+  loc-segments  browse one page of next loc segments
 See who has access, and give it
   member        group memories: add people as reader, writer or owner
   share         personal memories: give one person read or write access
@@ -129,6 +130,7 @@ Encryption and Apps
   hadron memory list`,
 	}
 	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdLocSegments(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdSync(f))
 	cmd.AddCommand(newCmdSet(f))

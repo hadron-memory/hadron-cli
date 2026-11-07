@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 211: 170 command, 17 gap, 24 excluded
+[Query] 211: 171 command, 16 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -142,7 +142,7 @@ memoryConfig  command memory config get
 memoryConfigTemplate  command memory config template get
 memoryConfigTemplates  command memory config template list
 memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
-memoryLocSegments  gap #1744: paged loc browsing companion
+memoryLocSegments  command memory loc-segments
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
 myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)

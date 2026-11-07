@@ -754,3 +754,19 @@ query MemorySyncPrerequisites($ref: ID!) {
     isEncrypted
   }
 }
+
+# cli#1744: one explicit page, no default-scope fallback or client sorting.
+query MemoryLocSegments(
+  $memoryIds: [ID!]!
+  $parentLoc: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  memoryLocSegments(memoryIds: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
+    items { segment hasNode memoryId }
+    hasMore
+    endCursor
+  }
+}
