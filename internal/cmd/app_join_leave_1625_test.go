@@ -60,22 +60,21 @@ func TestAppJoin1625(t *testing.T) {
 			t.Fatalf("--json shape:\n got %#v\nwant %#v", dto, want)
 		}
 	})
-	t.Run("a second join prints the same row, exits 0, claims nothing", func(t *testing.T) {
-		var first string
-		for i := 0; i < 2; i++ {
-			_, r := run1625(nil).exec(t, "app", "join", joinApp1625)
-			if r.err != nil {
-				t.Fatalf("join %d: %v", i, r.err)
-			}
-			if i == 0 {
-				first = r.out
-			}
-			if r.out != first || !strings.Contains(r.out, "member") {
-				t.Fatalf("join %d printed %q, first %q", i, r.out, first)
-			}
-			if low := strings.ToLower(r.out + r.errOut); strings.Contains(low, "already") {
-				t.Fatalf("no 'already a member' claim may be made: %q", low)
-			}
+	t.Run("a join returning an existing row prints that row and claims nothing", func(t *testing.T) {
+		// The server owns idempotency. An older row with a non-default role
+		// distinguishes rendering its answer from inventing a fresh membership.
+		existing := strings.Replace(joinMember, `"role":"member"`, `"role":"reviewer"`, 1)
+		existing = strings.Replace(existing, "2026-11-04T00:00:00Z", "2025-01-02T03:04:05Z", 1)
+		resp := responses1625()
+		resp["JoinApp"] = `{"data":{"joinApp":{"appMember":` + existing + `}}}`
+		calls, r := run1625(resp).exec(t, "app", "join", joinApp1625)
+		want := "✓ You are a member of hrn:app:acme.com:eng-team with role reviewer\n" +
+			"  app: Eng Team\n  member since: 2025-01-02T03:04:05Z\n"
+		if r.err != nil || r.out != want || r.errOut != "" {
+			t.Fatalf("existing row: err=%v out=%q stderr=%q want=%q", r.err, r.out, r.errOut, want)
+		}
+		if len(*calls) != 1 || (*calls)[0].Op != "JoinApp" || (*calls)[0].Vars["appId"] != joinApp1625 {
+			t.Fatalf("one join without a membership pre-read or retry: %+v", *calls)
 		}
 	})
 	t.Run("needs exactly one app-ref and sends nothing without it", func(t *testing.T) {
@@ -281,10 +280,35 @@ func TestAppLeaveRefusalsPassThrough1625(t *testing.T) {
 // A lost or ambiguous answer to a write is not a refusal: never a success
 // line, never retried, and the check is named.
 func TestAppLeaveMalformedAnswerIsNotSuccess1625(t *testing.T) {
-	resp := responses1625()
-	resp["LeaveApp"] = `{"data":{"leaveApp":null}}`
-	calls, r := run1625(resp).exec(t, "app", "leave", joinApp1625, "--yes")
-	if r.err == nil || r.out != "" || len(writes1592(calls, "LeaveApp")) != 1 {
-		t.Fatalf("err=%v out=%q calls=%+v", r.err, r.out, *calls)
+	for _, tc := range []struct {
+		name, op string
+		extra    []string
+	}{
+		{"plain", "LeaveApp", nil},
+		{"instructed", "LeaveAppInstructed", []string{"--instruction", instrTask1592}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := responses1625()
+			resp[tc.op] = `{"data":{"leaveApp":null}}`
+			args := append([]string{"app", "leave", joinApp1625, "--yes"}, tc.extra...)
+			calls, r := run1625(resp).exec(t, args...)
+			if exitCodeFor(r.err) != 7 || r.out != "" || !strings.Contains(r.errOut, "outcome unknown") {
+				t.Fatalf("exit=%d err=%v out=%q stderr=%q", exitCodeFor(r.err), r.err, r.out, r.errOut)
+			}
+			if len(*calls) != 1 || (*calls)[0].Op != tc.op {
+				t.Fatalf("one %s, no retry: %+v", tc.op, *calls)
+			}
+		})
+	}
+}
+
+func TestAppLeaveUsage1772(t *testing.T) {
+	_, r := run1625(nil).exec(t, "app", "leave", "--help")
+	if r.err != nil || !strings.Contains(r.out, "hadron app leave <app-ref> [--yes] [--instruction <kind>:<ref>]") {
+		t.Fatalf("leave usage must show --yes: err=%v help=%q", r.err, r.out)
+	}
+	_, join := run1625(nil).exec(t, "app", "join", "--help")
+	if join.err != nil || strings.Contains(join.out, "--yes") {
+		t.Fatalf("join must not advertise --yes: err=%v help=%q", join.err, join.out)
 	}
 }
