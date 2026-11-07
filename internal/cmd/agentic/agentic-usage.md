@@ -1114,6 +1114,16 @@ Conventions:
   <path>`; `cat file | hadron ...` is a pipe, not a terminal, and still works.
   The same refusal covers `node update --abstract -` / `--data-merge -` (use
   the `-file` form) and `node import -` (pass the path) (#648).
+  **A non-empty pipe that no flag reads is REFUSED too (exit 2, #1450).**
+  `cat body.md | hadron node create …` with no `--content -` used to exit 0
+  and store an empty body; now `node create` (neither `--content -` nor
+  `--content-file -`, so also an inline `--content "<text>"` or a
+  `--content-file <path>` beside a live pipe) and `node update` (none of `--content -`,
+  `--content-file -`, `--abstract -`, `--data-merge -`) refuse before any
+  request, naming the flag that reads a pipe. An empty pipe, `</dev/null`, no
+  pipe at all are unchanged; `--allow-empty` does not bypass it (it covers a deliberately empty body, not
+  dropped bytes). The check peeks one byte for at most 250 ms, so a pipe whose
+  writer stays open and silent never hangs the command.
   The refusal is on DOCUMENT reads only — `--data-key -` and other secret
   reads from a terminal are deliberate and unaffected;
   the abstract likewise from `--abstract`, `--abstract -`, or

@@ -232,6 +232,15 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 					}
 				}
 			}
+			// #1450: a non-empty pipe that none of the four stdin readers
+			// consumes is refused rather than ignored, before the ref is resolved
+			// or the node fetched. A pipe a reader consumes never gets here.
+			if stdinReaders == 0 {
+				if err := cmdutil.RefuseUnreadStdinPipe(f.IOStreams.In, f.IOStreams.IsInputTerminal(),
+					"--content - (or --content-file -), --abstract - or --data-merge -", "leave the node unchanged"); err != nil {
+					return err
+				}
+			}
 			// --abstract and --abstract-file are mutually exclusive. Guard on
 			// Changed() (not the resolved value): an explicit --abstract "" to
 			// clear would otherwise slip past ResolveTextInput's value check and
