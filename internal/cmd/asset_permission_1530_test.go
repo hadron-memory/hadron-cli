@@ -27,6 +27,8 @@ func TestAssetPermission1530Wire(t *testing.T) {
 						}))
 						defer srv.Close()
 						f, out := testFactory(t)
+						errOut := &strings.Builder{}
+						f.IOStreams.ErrOut = errOut
 						root := NewRootCmd(f)
 						args := []string{"app", "asset-upload", verb, "hrn:agent:acme.com:bot", "--yes", "--server", srv.URL}
 						if js {
@@ -60,8 +62,23 @@ func TestAssetPermission1530Wire(t *testing.T) {
 							if tc.code == "INTERNAL_SERVER_ERROR" && env.Error.RequestID != "req-1530" {
 								t.Fatalf("lost requestId %s", out.String())
 							}
+							if errOut.Len() != 0 {
+								t.Fatalf("JSON refusal unexpectedly wrote stderr: %q", errOut.String())
+							}
+						} else {
+							if tc.code == "INTERNAL_SERVER_ERROR" && !strings.Contains(errOut.String(), "req-1530") {
+								t.Fatalf("text refusal lost requestId: %q", errOut.String())
+							}
+							if out.Len() != 0 || !strings.HasPrefix(errOut.String(), "hadron: ") {
+								t.Fatalf("text refusal routing stdout=%q stderr=%q", out.String(), errOut.String())
+							}
 						}
-						if strings.Contains(out.String(), "can't read") {
+						// renderError routes text refusals to stderr and JSON to stdout.
+						message := out.String()
+						if !js {
+							message = errOut.String()
+						}
+						if strings.Contains(message, "can't read") {
 							t.Fatal("must not distinguish hidden from missing")
 						}
 					})
