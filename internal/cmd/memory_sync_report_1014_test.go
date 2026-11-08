@@ -157,8 +157,9 @@ func TestMemoryGetFailedReportShowsCodeAndErrorSeparately(t *testing.T) {
 // An unreadable report is "report unavailable" — never success, never a guess.
 func TestMemoryGetUnreadableReportIsUnavailable(t *testing.T) {
 	for name, report := range map[string]string{
-		"invalid JSON":        `{not json`,
-		"unknown version":     `{"version":2,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
+		"invalid JSON": `{not json`,
+		// #1775: version 2 is accepted, so the unknown-version pin rides 3.
+		"unknown version":     `{"version":3,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
 		"missing version":     `{"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
 		"string payload":      `"partial"`,
 		"number payload":      `123`,

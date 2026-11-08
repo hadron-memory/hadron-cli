@@ -18,12 +18,12 @@ Design as built. The gate is Xan's CHECKED stamp on hadron-cli#1014 (Patrick's P
 | Stored value | `syncReportStatus` | `syncReport` |
 |---|---|---|
 | null | `none` | null |
-| well-formed v1 | `recorded` | parsed object |
+| well-formed version 1 or 2 | `recorded` | parsed object (wire `version` carried through) |
 | anything else | `unavailable` | null |
 
 "Anything else" covers:
 - invalid JSON, or a payload that is not an object;
-- a `version` other than 1, or a missing one;
+- a `version` other than 1 or 2, or a missing one;
 - an outcome outside `partial|failed|unknown`;
 - a `recordedAt` that is not RFC 3339;
 - an `entries` that is omitted, null or not an array (an explicit `[]` is valid);
@@ -31,7 +31,9 @@ Design as built. The gate is Xan's CHECKED stamp on hadron-cli#1014 (Patrick's P
 
 The CLI never repairs a report.
 
-The #1775 unknown-vocabulary slice makes an unknown entry kind, code, a code belonging to another kind, or an unknown report-level code unavailable as a whole. Neither text nor JSON guesses at unknown vocabulary. `memory get` still exits 0 with `syncReport: null` and status `unavailable`; `memory sync pull` retains exit 1 when the raw report says `failed`, even when unavailable. Version 2 support remains a separate acceptance half of #1775; this slice accepts v1 only.
+The #1775 unknown-vocabulary slice makes an unknown entry kind, code, a code belonging to another kind, or an unknown report-level code unavailable as a whole. Neither text nor JSON guesses at unknown vocabulary. `memory get` still exits 0 with `syncReport: null` and status `unavailable`; `memory sync pull` retains exit 1 when the raw report says `failed`, even when unavailable.
+
+The #1775 v2 acceptance half adds the reviewed version 2 (hadron-server#3612, landed as server PR #3632): version 2 admits v1's six kinds plus `attestation_refused` (`attestation refused` in text) with `AUTHORING_ATTESTATION_MISSING`, `AUTHORING_ATTESTATION_WRONG_TASK`, `AUTHORING_ATTESTATION_STALE` and `AUTHOR_TASK_BROKEN`. The sets are closed per version: a version 1 report carrying the attestation kind, or a version 2 report carrying vocabulary outside its table, is unavailable. Report-level codes and outcomes are unchanged from v1.
 
 ## Text view
 
