@@ -166,3 +166,90 @@ func TestStopReporterAcceptedRecordWithNoAuthorNeedsAPerson_1660(t *testing.T) {
 		t.Fatalf("a record with no accepted author was finished: %+v", out)
 	}
 }
+
+// Review F1 (Jane LOCAL, Anne BLIND at 41f8bc22): an interrupted cleanup must
+// be retried by the next run, and a failure at each durability boundary must
+// stop before the next step.
+func reportedAndAged1660(t *testing.T) (*reporterFixture, *StopReporter) {
+	t.Helper()
+	f := newReporterFixture(t)
+	r := f.reporter()
+	r.RetainReported = time.Hour
+	f.run(r)
+	if !f.reported() {
+		t.Fatal("setup: not reported")
+	}
+	f.clock = f.clock.Add(2 * time.Hour)
+	return f, r
+}
+
+func has1660(f *reporterFixture, suffix string) bool {
+	_, err := os.Stat(filepath.Join(f.box.Dir, ev1Base()+suffix))
+	return err == nil
+}
+
+func TestStopReporterRetentionFinishesAnInterruptedCleanup_1660(t *testing.T) {
+	f, r := reportedAndAged1660(t)
+	// The state a crash leaves after the record is gone: only the marker.
+	for _, suffix := range []string{".sending", ".json"} {
+		if err := os.Remove(filepath.Join(f.box.Dir, ev1Base()+suffix)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run := f.run(r)
+	if run.Pruned != 1 || has1660(f, ".reported") {
+		t.Fatalf("an orphaned marker was not cleaned: pruned %d", run.Pruned)
+	}
+}
+
+func TestStopReporterRetentionFailureKeepsTheRecordListedAsReported_1660(t *testing.T) {
+	f, r := reportedAndAged1660(t)
+	// A non-empty directory where .lastfail would be makes its removal fail.
+	blocker := filepath.Join(f.box.Dir, ev1Base()+".lastfail")
+	if err := os.MkdirAll(filepath.Join(blocker, "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run := f.run(r)
+	if run.Pruned != 0 || !has1660(f, ".json") || !has1660(f, ".reported") {
+		t.Fatalf("a failed cleanup must leave the record AND its marker: pruned %d", run.Pruned)
+	}
+	posts := f.chat.posts
+	f.run(r)
+	if f.chat.posts != posts {
+		t.Fatal("a half-cleaned record was reported again")
+	}
+	if err := os.RemoveAll(blocker); err != nil {
+		t.Fatal(err)
+	}
+	if run := f.run(r); run.Pruned != 1 || has1660(f, ".json") || has1660(f, ".reported") {
+		t.Fatalf("the next run did not finish the cleanup: %+v", run)
+	}
+}
+
+func TestStopReporterRetentionSyncsBeforeTheNextStep_1660(t *testing.T) {
+	for n := 1; n <= 3; n++ {
+		f, r := reportedAndAged1660(t)
+		calls := 0
+		r.syncDirFn = func(string) error {
+			calls++
+			if calls == n {
+				return os.ErrInvalid
+			}
+			return nil
+		}
+		run := f.run(r)
+		if run.Pruned != 0 {
+			t.Fatalf("sync %d failed but the record counted as removed", n)
+		}
+		// The marker goes only after the record's removal is synced.
+		if n <= 2 && !has1660(f, ".reported") {
+			t.Fatalf("sync %d failed but the marker was already removed", n)
+		}
+		if n == 2 && has1660(f, ".json") {
+			t.Fatal("record removal ran after the failed sync")
+		}
+		if calls != n {
+			t.Fatalf("sync failed at %d, but ran %d syncs", n, calls)
+		}
+	}
+}

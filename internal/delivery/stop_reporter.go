@@ -149,6 +149,9 @@ type StopReporter struct {
 	// run removes it. Zero means DefaultRetainReported; a negative value keeps
 	// reported records forever. A record with no report marker is never removed.
 	RetainReported time.Duration
+	// syncDirFn is a test seam for the directory sync (nil means syncDir), so
+	// a failure at each durability boundary of the retention cleanup can be pinned.
+	syncDirFn func(string) error
 	// Test seams: called just before the intent is written, and just after a
 	// post is accepted, so a crash at either point can be pinned.
 	beforeIntent       func()
@@ -183,7 +186,10 @@ type ReportRun struct {
 }
 
 // DefaultRetainReported is how long a reported record is kept (#1660). A
-// reported notice's record has done its job; the poller never rewrites it.
+// reported notice's record has done its job. The only producer is the
+// poller's flagDroppedHalts, which records a notice each time the server hands
+// the same still-unacknowledged HALT over; if one outlives the window it is
+// recorded and reported once more, which is true (it has still not been typed).
 const DefaultRetainReported = 30 * 24 * time.Hour
 
 // Pending reports how many records have no marker (pending) and, of those,
@@ -439,10 +445,13 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 
 // pruneReported removes records whose report marker is older than the
 // retention window, and answers how many it removed. Only a record with a
-// marker is ever a candidate. The record itself goes first and the marker
-// last, so a crash part-way never leaves a record without its marker (which
-// would report the notice again). A failed removal leaves the rest for the
-// next run.
+// marker is ever a candidate. The order is chosen so an interruption can be
+// retried (#1660 review, F1): the record's siblings go first, then the record
+// (.json, the name discovery lists), and the marker last, with the directory
+// synced after each step. Until the marker is gone the record still lists as
+// reported, so it is never reported twice; once the record is gone, the sweep
+// below finds its marker by name and finishes the removal. A failed removal
+// leaves the rest for the next run.
 func (r *StopReporter) pruneReported(entries []namedDrop) int {
 	keep := r.RetainReported
 	if keep < 0 {
@@ -452,41 +461,68 @@ func (r *StopReporter) pruneReported(entries []namedDrop) int {
 		keep = DefaultRetainReported
 	}
 	pruned := 0
+	seen := map[string]bool{}
 	for _, e := range entries {
-		if !validStopBase(e.base) {
-			continue
-		}
-		marker := filepath.Join(r.Outbox.Dir, e.base+".reported")
-		info, err := os.Lstat(marker)
-		if err != nil || !info.Mode().IsRegular() {
-			continue
-		}
-		at := info.ModTime()
-		if data, err := os.ReadFile(marker); err == nil {
-			var m stopReported
-			if json.Unmarshal(data, &m) == nil && !m.ReportedAt.IsZero() {
-				at = m.ReportedAt
-			}
-		}
-		if r.now().Sub(at) <= keep {
-			continue
-		}
-		ok := true
-		for _, suffix := range []string{".json", ".sending", ".lastfail", ".reported"} {
-			err := os.Remove(filepath.Join(r.Outbox.Dir, e.base+suffix))
-			if err != nil && !errors.Is(err, fs.ErrNotExist) {
-				ok = false
-				break
-			}
-		}
-		if ok {
+		seen[e.base] = true
+		if r.reportedLongAgo(e.base, keep) && r.removeRecord(e.base) {
 			pruned++
 		}
 	}
-	if pruned > 0 {
-		_ = syncDir(r.Outbox.Dir)
+	// A run interrupted after the record was removed leaves its marker alone.
+	if names, err := os.ReadDir(r.Outbox.Dir); err == nil {
+		for _, n := range names {
+			base, ok := strings.CutSuffix(n.Name(), ".reported")
+			if !ok || seen[base] || !validStopBase(base) || r.exists(base+".json") {
+				continue
+			}
+			if r.reportedLongAgo(base, keep) && r.removeRecord(base) {
+				pruned++
+			}
+		}
 	}
 	return pruned
+}
+
+// reportedLongAgo is true only for a base with a regular .reported marker
+// older than keep.
+func (r *StopReporter) reportedLongAgo(base string, keep time.Duration) bool {
+	if !validStopBase(base) {
+		return false
+	}
+	marker := filepath.Join(r.Outbox.Dir, base+".reported")
+	info, err := os.Lstat(marker)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	at := info.ModTime()
+	if data, err := os.ReadFile(marker); err == nil {
+		var m stopReported
+		if json.Unmarshal(data, &m) == nil && !m.ReportedAt.IsZero() {
+			at = m.ReportedAt
+		}
+	}
+	return r.now().Sub(at) > keep
+}
+
+// removeRecord removes one reported record in the retry-safe order, syncing
+// the directory after each step. It answers whether every step completed.
+func (r *StopReporter) removeRecord(base string) bool {
+	for _, step := range [][]string{{".sending", ".lastfail"}, {".json"}, {".reported"}} {
+		for _, suffix := range step {
+			err := os.Remove(filepath.Join(r.Outbox.Dir, base+suffix))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return false
+			}
+		}
+		sync := r.syncDirFn
+		if sync == nil {
+			sync = syncDir
+		}
+		if err := sync(r.Outbox.Dir); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID string) ReportOutcome {
