@@ -81,11 +81,15 @@ func (s *fakeServer) finalReports() []report {
 type fakeAgent struct {
 	done chan struct{}
 	pid  int
+	// terminated counts Terminate calls, so a failed start's cleanup is
+	// observable (#1474).
+	terminated int
 }
 
 func (a *fakeAgent) Done() <-chan struct{} { return a.done }
 func (a *fakeAgent) ExitDetail() string    { return "exit status 1" }
 func (a *fakeAgent) PID() int              { return a.pid }
+func (a *fakeAgent) Terminate() string     { a.terminated++; return "terminated the fake" }
 
 type fakeHost struct {
 	mu       sync.Mutex
@@ -96,6 +100,8 @@ type fakeHost struct {
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
+	// occupantErr fails Occupied (a scan the host cannot answer).
+	occupantErr error
 	// launchErr / promptErr fail Launch / Prompt; promptEnvs records each
 	// prompt's environment.
 	launchErr  error
@@ -113,7 +119,7 @@ type fakeHost struct {
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.occupant, nil
+	return h.occupant, h.occupantErr
 }
 
 func (h *fakeHost) Alive(pid int) bool {
@@ -506,12 +512,23 @@ func TestWorkerStartAlreadyBoundIsNotRelaunched(t *testing.T) {
 }
 
 func TestWorkerStartFailsWhenNothingBindsInTheGrantLifetime(t *testing.T) {
-	p, srv, _ := testPoller(t)
+	p, srv, host := testPoller(t)
 	srv.notDone["s1"] = 1 << 20
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "no session was bound") {
 		t.Errorf("%+v", r)
+	}
+	// #1474: a start that fails stops what it launched and leaves no agents
+	// entry behind — the crash-looping wrapper of the incident must not
+	// outlive the FAILED report.
+	if host.agent == nil || host.agent.terminated != 1 {
+		t.Error("a start whose session never binds must terminate the process group it launched")
+	}
+	if st, err := LoadState(p.cfg.StateFile); err != nil {
+		t.Fatal(err)
+	} else if len(st.Agents) != 0 {
+		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
 	}
 }
 
@@ -524,6 +541,70 @@ func TestWorkerStartFailsWhenTheAgentExitsFirst(t *testing.T) {
 	step(t, p)
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "exited before binding") {
 		t.Errorf("%+v", r)
+	}
+	// #1474: the failure still drops the state entry (the process is gone;
+	// nothing may be signalled for it).
+	if st, err := LoadState(p.cfg.StateFile); err != nil {
+		t.Fatal(err)
+	} else if len(st.Agents) != 0 {
+		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
+	}
+}
+
+// A start into a worktree another process is already working in is refused
+// before anything launches, naming the process (#1474: the /proc check
+// worktree.remove uses, which sees agents an older wrapper runs in a
+// terminal — invisible to this poller's own records).
+func TestWorkerStartRefusesAnOccupiedTreeBeforeLaunching(t *testing.T) {
+	t.Run("occupied", func(t *testing.T) {
+		p, srv, host := testPoller(t)
+		host.occupant = "pid 4242, worker-supervise --wrapper cedric"
+		srv.notDone["s1"] = 1
+		srv.batches = [][]Operation{{startOp()}}
+		step(t, p)
+		r := only(t, srv)
+		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "worker-supervise --wrapper cedric") {
+			t.Errorf("the refusal must name the pid and the argv: %+v", r)
+		}
+		if len(host.launches) != 0 {
+			t.Error("an occupied worktree must launch nothing")
+		}
+	})
+	t.Run("unreadable", func(t *testing.T) {
+		p, srv, host := testPoller(t)
+		host.occupantErr = fmt.Errorf("cannot read /proc")
+		srv.notDone["s1"] = 1
+		srv.batches = [][]Operation{{startOp()}}
+		step(t, p)
+		r := only(t, srv)
+		if r.outcome != Failed || !strings.Contains(r.reason, "could not tell") {
+			t.Errorf("an unreadable scan fails closed: %+v", r)
+		}
+		if len(host.launches) != 0 {
+			t.Error("an unreadable scan must launch nothing")
+		}
+	})
+}
+
+// The cleanup belongs to failure only: a start that binds leaves its agent
+// running and tracked.
+func TestWorkerStartSuccessKeepsTheAgentRunning(t *testing.T) {
+	p, srv, host := testPoller(t)
+	srv.notDone["s1"] = 1 // the pre-launch ask only
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Fatalf("%+v", r)
+	}
+	if host.agent == nil || host.agent.terminated != 0 {
+		t.Error("a start whose session binds must not be terminated")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("a successful start keeps its agents entry")
 	}
 }
 
@@ -700,13 +781,25 @@ func TestWorkerStartRefusesATreeWithALiveAgent(t *testing.T) {
 }
 
 func TestWorkerStartStopsWhenTheServerAlreadyFinishedIt(t *testing.T) {
-	p, srv, _ := testPoller(t)
+	p, srv, host := testPoller(t)
 	fin := &finalServer{fakeServer: srv}
 	p.server = fin
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
 	if fin.asks > 3 {
 		t.Errorf("an already-finished start must not be asked again for the grant's lifetime: %d asks", fin.asks)
+	}
+	// #1474: ALREADY_REPORTED answering a SUCCEEDED ask means the server
+	// recorded the other outcome (an idempotent re-report returns the
+	// operation), so the start failed: stop what was launched and leave no
+	// agents entry.
+	if host.agent == nil || host.agent.terminated != 1 {
+		t.Error("a start the server already failed must terminate the process group it launched")
+	}
+	if st, err := LoadState(p.cfg.StateFile); err != nil {
+		t.Fatal(err)
+	} else if len(st.Agents) != 0 {
+		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
 	}
 }
 
