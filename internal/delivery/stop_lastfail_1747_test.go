@@ -118,7 +118,7 @@ func TestLastFailInvalidAcceptedRecordCounts_1747(t *testing.T) {
 	for _, reason := range []string{"readback-not-found", "invalid-accepted-record", "readback-unavailable"} {
 		t.Run("null field on "+reason, func(t *testing.T) {
 			f := cache1747(t, reason, "")
-			drops, err := f.box.listNamed()
+			drops, _, err := f.box.listNamed()
 			if err != nil || len(drops) != 1 {
 				t.Fatalf("fixture drops=%+v err=%v", drops, err)
 			}
