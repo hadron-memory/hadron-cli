@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -107,10 +106,12 @@ const workerWithBoss1747 = `{"data":{"worker":{"id":"w-gil","name":"Gil","slug":
 
 const postOK1747 = `{"data":{"createTeamChatMessage":{"nodeId":"n","seq":2,"body":"b","at":"2026-11-08T01:00:00Z","authorWorkerId":"w-hugo","authorName":"Hugo","sessionId":"sess-hugo","mentions":[]}}}`
 
-func msgBody1747(seq int, authorWorkerID, body string) string {
+// msgBody1747 answers a read-back page holding exactly the accepted post —
+// every leg's read-back is of seq 2, so that seq is part of the pin.
+func msgBody1747(authorWorkerID, body string) string {
 	b, _ := json.Marshal(body)
-	return `{"data":{"teamChatMessages":{"total":1,"items":[{"nodeId":"n","seq":` + strconv.Itoa(seq) +
-		`,"body":` + string(b) + `,"at":"2026-11-08T01:00:00Z","authorWorkerId":"` + authorWorkerID + `","authorName":"Hugo","mentions":[]}]}}}`
+	return `{"data":{"teamChatMessages":{"total":1,"items":[{"nodeId":"n","seq":2,"body":` + string(b) +
+		`,"at":"2026-11-08T01:00:00Z","authorWorkerId":"` + authorWorkerID + `","authorName":"Hugo","mentions":[]}]}}}`
 }
 
 // write1747 writes a small file (a hand-made .sending) into a directory.
@@ -141,6 +142,8 @@ func stopFixture1747(t *testing.T, worker string, handlers map[string]func(vars 
 }
 
 // run1747 runs the real command against the fixture's server and binding.
+// --config is wired here, not at the call sites: every leg runs against its
+// fixture's own cfg, and only the varying flags are passed as args.
 func run1747(t *testing.T, srv *httptest.Server, cfg string, args ...string) (string, error) {
 	t.Helper()
 	io, out, _ := output.Test()
@@ -149,7 +152,7 @@ func run1747(t *testing.T, srv *httptest.Server, cfg string, args ...string) (st
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "")
 	root.PersistentFlags().StringVar(&f.AppFlag, "app", "", "")
 	root.AddCommand(newCmdTeamHostReportStops(f))
-	root.SetArgs(append([]string{"report-stops", "--app", "hrn:app:example.com:team"}, args...))
+	root.SetArgs(append([]string{"report-stops", "--app", "hrn:app:example.com:team", "--config", cfg}, args...))
 	root.SetOut(&bytes.Buffer{})
 	err := root.Execute()
 	return out.String(), err
@@ -169,9 +172,9 @@ func TestReportStopsRecordedFailureText_1747(t *testing.T) {
 		read string // the read-back page the server answers
 		want string
 	}{
-		{"mismatch body", msgBody1747(2, "w-hugo", "different"),
+		{"mismatch body", msgBody1747("w-hugo", "different"),
 			"failed ev-1 Gil #2: read-back of #2 does not match (body); needs a person\n"},
-		{"mismatch author and body", msgBody1747(2, "w-gil", "different"),
+		{"mismatch author and body", msgBody1747("w-gil", "different"),
 			"failed ev-1 Gil #2: read-back of #2 does not match (author, body); needs a person\n"},
 		{"not found", `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
 			"failed ev-1 Gil #2: #2 not found on read-back; needs a person if it persists\n"},
@@ -184,7 +187,7 @@ func TestReportStopsRecordedFailureText_1747(t *testing.T) {
 			}
 			cfg, dir, fake := stopFixture1747(t, "Gil", handlers)
 			write1747(t, dir, ev1747Base()+".sending", acceptedSending1747())
-			out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+			out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 			if out != tc.want {
 				t.Fatalf("human %q err %v", out, err)
 			}
@@ -196,11 +199,11 @@ func TestReportStopsRecordedFailureText_1747(t *testing.T) {
 	t.Run("json keeps the old mismatch prose", func(t *testing.T) {
 		handlers := map[string]func(vars map[string]json.RawMessage) string{
 			"GetTeamSession":             func(map[string]json.RawMessage) string { return sessionOK1747 },
-			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747(2, "w-hugo", "different") },
+			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747("w-hugo", "different") },
 		}
 		cfg, dir, fake := stopFixture1747(t, "Gil", handlers)
 		write1747(t, dir, ev1747Base()+".sending", acceptedSending1747())
-		out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo", "--json")
+		out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo", "--json")
 		if c := code(err); c != 7 {
 			t.Fatalf("exit %d, want 7: %s", c, out)
 		}
@@ -235,7 +238,7 @@ func TestReportStopsDefaultArmIsSafeAndBounded_1747(t *testing.T) {
 	// First leg: capture the exact error text the JSON run carries.
 	msg0 := esc + strings.Repeat("x", 600)
 	cfg, _, fake := stopFixture1747(t, "Gil", fresh(msg0))
-	out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo", "--json")
+	out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo", "--json")
 	if c := code(err); c != 7 {
 		t.Fatalf("exit %d: %s", c, out)
 	}
@@ -256,7 +259,7 @@ func TestReportStopsDefaultArmIsSafeAndBounded_1747(t *testing.T) {
 		t.Fatalf("expected error is %d runes, want exactly 1024", got)
 	}
 	cfg, _, fake = stopFixture1747(t, "Gil", fresh(msg2))
-	out, err = run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+	out, err = run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 	want := "failed ev-1 Gil: " + output.SafeLine(expected2, 1024) + "\n"
 	if out != want || strings.Contains(out, "\x1b") || strings.Contains(out, "…") {
 		t.Fatalf("at the bound:\n got %q\nwant %q", out, want)
@@ -268,10 +271,13 @@ func TestReportStopsDefaultArmIsSafeAndBounded_1747(t *testing.T) {
 	msg3 := msg2 + "y"
 	expected3 := strings.TrimSuffix(expected2, ")") + "y)"
 	cfg, _, fake = stopFixture1747(t, "Gil", fresh(msg3))
-	out, err = run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+	out, err = run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 	want = "failed ev-1 Gil: " + output.SafeLine(expected3, 1024) + "\n"
 	if out != want || !strings.Contains(out, "…") || strings.Contains(out, "\x1b") {
 		t.Fatalf("past the bound:\n got %q\nwant %q", out, want)
+	}
+	if c := code(err); c != 7 {
+		t.Fatalf("exit %d", c)
 	}
 	segment := strings.TrimSuffix(strings.TrimPrefix(out, "failed ev-1 Gil: "), "\n")
 	if n := utf8.RuneCountInString(segment); n != 1024 {
@@ -285,11 +291,11 @@ func TestReportStopsDefaultArmIsSafeAndBounded_1747(t *testing.T) {
 func TestReportStopsForgedWorkerIsSanitised_1747(t *testing.T) {
 	handlers := map[string]func(vars map[string]json.RawMessage) string{
 		"GetTeamSession":             func(map[string]json.RawMessage) string { return sessionOK1747 },
-		"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747(2, "w-hugo", "different") },
+		"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747("w-hugo", "different") },
 	}
 	cfg, dir, fake := stopFixture1747(t, "Gi\x1b]0;pwned\x07l", handlers)
 	write1747(t, dir, ev1747Base()+".sending", acceptedSending1747())
-	out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+	out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 	want := "failed ev-1 Gi ]0;pwned l #2: read-back of #2 does not match (body); needs a person\n"
 	if out != want || strings.Contains(out, "\x1b") {
 		t.Fatalf("human %q err %v", out, err)
@@ -304,7 +310,7 @@ func TestReportStopsStatusFileSuffixes_1747(t *testing.T) {
 	t.Run("write failure", func(t *testing.T) {
 		handlers := map[string]func(vars map[string]json.RawMessage) string{
 			"GetTeamSession":             func(map[string]json.RawMessage) string { return sessionOK1747 },
-			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747(2, "w-hugo", "different") },
+			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747("w-hugo", "different") },
 		}
 		cfg, dir, fake := stopFixture1747(t, "Gil", handlers)
 		write1747(t, dir, ev1747Base()+".sending", acceptedSending1747())
@@ -313,7 +319,7 @@ func TestReportStopsStatusFileSuffixes_1747(t *testing.T) {
 		if err := os.Mkdir(filepath.Join(dir, ev1747Base()+".lastfail"), 0700); err != nil {
 			t.Fatal(err)
 		}
-		out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+		out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 		want := "failed ev-1 Gil #2: read-back of #2 does not match (body); needs a person (status file not updated)\n"
 		if out != want {
 			t.Fatalf("human %q err %v", out, err)
@@ -325,7 +331,7 @@ func TestReportStopsStatusFileSuffixes_1747(t *testing.T) {
 	t.Run("remove failure after a durable marker", func(t *testing.T) {
 		handlers := map[string]func(vars map[string]json.RawMessage) string{
 			"GetTeamSession":             func(map[string]json.RawMessage) string { return sessionOK1747 },
-			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747(2, "w-hugo", "frozen") },
+			"TeamChatMessagesAttributed": func(map[string]json.RawMessage) string { return msgBody1747("w-hugo", "frozen") },
 		}
 		cfg, dir, fake := stopFixture1747(t, "Gil", handlers)
 		write1747(t, dir, ev1747Base()+".sending", acceptedSending1747())
@@ -336,7 +342,7 @@ func TestReportStopsStatusFileSuffixes_1747(t *testing.T) {
 			t.Fatal(err)
 		}
 		write1747(t, stale, "keep", "sentinel")
-		out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+		out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 		want := "reconciled ev-1 Gil #2 (status file not removed)\n"
 		if out != want || err != nil {
 			t.Fatalf("human %q err %v", out, err)
@@ -365,9 +371,9 @@ func TestReportStopsReportsOnceThenNothing_1747(t *testing.T) {
 		fake.mu.Unlock()
 		var body string
 		_ = json.Unmarshal([]byte(posted), &body)
-		return msgBody1747(2, "w-hugo", body)
+		return msgBody1747("w-hugo", body)
 	}
-	out, err := run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+	out, err := run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 	if out != "reported ev-1 Gil #2\n" || err != nil {
 		t.Fatalf("human %q err %v", out, err)
 	}
@@ -379,7 +385,7 @@ func TestReportStopsReportsOnceThenNothing_1747(t *testing.T) {
 	}
 	// No-repost: with the marker durable, the next run talks to no one.
 	fake.dropHandlers()
-	out, err = run1747(t, fake.srv, cfg, "--config", cfg, "--reporter-worker", "Hugo")
+	out, err = run1747(t, fake.srv, cfg, "--reporter-worker", "Hugo")
 	if out != "nothing to report\n" || err != nil {
 		t.Fatalf("second run %q err %v", out, err)
 	}
