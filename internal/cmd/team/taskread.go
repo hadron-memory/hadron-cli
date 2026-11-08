@@ -51,6 +51,30 @@ func partyCell(p *taskPartyDTO) string {
 	return output.SafeCell(p.ID)
 }
 
+// reservedNoProjectParent reports whether a parented task's parent is the
+// App's reserved AT0 "No project" project (cli#1320; server#2553,
+// cor:agt:050:01). The handle grammar settles this without another read:
+// the first segment is the project, AT0 is reserved for "no project", and
+// parentage is fixed at creation — so a task parented on the reserved
+// project carries exactly the handle AT0.<n>, one child segment. A real
+// project (AT<n>, n ≥ 1), a subtask path (AT0.5.3, parented on a TASK), or
+// a missing or malformed handle is NOT the reserved parent, and the display
+// keeps today's parent line: unknown shapes fail open to the ordinary line,
+// never hiding a real parent on data the grammar cannot vouch for.
+func reservedNoProjectParent(handle string) bool {
+	rest, ok := strings.CutPrefix(handle, "AT0.")
+	if !ok || rest == "" || strings.Contains(rest, ".") {
+		return false
+	}
+	for i, r := range rest {
+		// The grammar's child segment: [1-9][0-9]*, no leading zero.
+		if r < '0' || r > '9' || (i == 0 && r == '0') {
+			return false
+		}
+	}
+	return true
+}
+
 // ---- get ------------------------------------------------------------------
 
 func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
@@ -202,7 +226,16 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.ParentTaskID != nil {
-		if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
+		if reservedNoProjectParent(task.Handle) {
+			// cli#1320, option A (Holger 2026-11-04): the parent is the
+			// reserved AT0 "No project" project the server parents every
+			// --parent-less task on — not a parent anybody asked for, and
+			// the task's own handle AT0.<n> already says "no project".
+			// Say that instead of an unexplained id.
+			if err := line("  project: none"); err != nil {
+				return err
+			}
+		} else if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
 			return err
 		}
 	}
@@ -929,12 +962,30 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 			// NOTHING at exit 0 — the #470-class sin in this very render).
 			children := map[string][]*taskDTO{}
 			roots := []*taskDTO{}
+			// cli#1320: the reserved AT0 "No project" row is not drawn as a
+			// parent node. A task whose parent is AT0 renders as a root —
+			// its own handle AT0.<n> already says "no project" — unless AT0
+			// is the root asked for BY NAME (id or handle), in which case
+			// the ask overrides the hiding: the row is the requested
+			// subject, not an implied parent.
+			reservedID, reservedAsked := "", false
 			for i := range tasks {
+				if tasks[i].Handle == "AT0" {
+					reservedID = tasks[i].ID
+					reservedAsked = rootId == tasks[i].ID || strings.EqualFold(rootId, tasks[i].Handle)
+				}
+			}
+			hideReserved := reservedID != "" && !reservedAsked
+			for i := range tasks {
+				if hideReserved && tasks[i].ID == reservedID {
+					continue // the implied reserved parent is not drawn
+				}
 				if tasks[i].ParentTaskID == nil {
 					roots = append(roots, &tasks[i])
 					continue
 				}
-				if parent, ok := findByID(tasks, *tasks[i].ParentTaskID); ok {
+				parent, ok := findByID(tasks, *tasks[i].ParentTaskID)
+				if ok && (!hideReserved || parent.ID != reservedID) {
 					children[parent.ID] = append(children[parent.ID], &tasks[i])
 				} else {
 					roots = append(roots, &tasks[i])

@@ -434,11 +434,22 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 	for i, t := range tasks {
 		byID[t.ID] = i
 	}
+	// cli#1320: nothing nests under the reserved AT0 "No project" row — a
+	// task parented on it is a root, its own handle AT0.<n> already saying
+	// "no project". The row itself was selected on its own merits here, so
+	// it still renders as a plain root; only the parent display goes.
+	reservedID := ""
+	for _, t := range tasks {
+		if t.Handle == "AT0" {
+			reservedID = t.ID
+			break
+		}
+	}
 	children := map[string][]int{}
 	roots := []int{}
 	for i, t := range tasks {
 		if t.ParentTaskID != nil {
-			if _, ok := byID[*t.ParentTaskID]; ok {
+			if _, ok := byID[*t.ParentTaskID]; ok && *t.ParentTaskID != reservedID {
 				children[*t.ParentTaskID] = append(children[*t.ParentTaskID], i)
 				continue
 			}
