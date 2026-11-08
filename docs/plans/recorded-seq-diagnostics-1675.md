@@ -9,7 +9,9 @@ recorded accepted-seq failures receive a reason: mismatch (author/body/both),
 not-found, unavailable, invalid accepted record. Matching reads still reconcile.
 A structured error carries classification, not remote prose. Read-back server
 errors render a fixed unavailable line so they cannot echo a body/author id;
-legacy mismatch/needs-a-person substrings remain. Failed-record exit stays 7.
+legacy mismatch/needs-a-person substrings remain: they live in
+`ReportOutcome.error`, which preserves the old mismatch text, while the human
+CLI line deliberately renders the new gated wording. Failed-record exit stays 7.
 
 After failure, under the existing lock, write the six-key v1 `.lastfail`
 observation via the existing synced-temp/rename/directory-sync writer. Only
