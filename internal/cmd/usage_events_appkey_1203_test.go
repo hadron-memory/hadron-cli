@@ -33,14 +33,64 @@ func TestUsageEventsAppKeyAbsentRequestIsUnchanged(t *testing.T) {
 // Old-server compatibility (review: old-server-graphql-document-compatibility).
 // GraphQL validates the static document, so an unset variable does not hide a
 // new argument: the plain operation's DOCUMENT must not mention appKey at all,
-// or every `usage events` fails on a server that predates the argument.
-func TestUsageEventsPlainDocumentCarriesNoAppKey(t *testing.T) {
-	if strings.Contains(gen.UsageEventsPage_Operation, "appKey") {
-		t.Errorf("UsageEventsPage must keep its pre-#2944 document:\n%s", gen.UsageEventsPage_Operation)
+// or every `usage events` fails on a server that predates the argument. Both
+// documents are pinned WHOLE (golden): any drift in either (a selection field,
+// an argument rename, a regeneration reformat) fails here, not on an old server.
+const usageEventsPageGolden1203 = `
+query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+		total
+		hasMore
+		items {
+			id
+			type
+			createdAt
+			memoryId
+			nodeLoc
+			provider
+			model
+			keyOwnerType
+			tokensIn
+			tokensOut
+			costMicroCents
+		}
 	}
-	if !strings.Contains(gen.UsageEventsPageByAppKey_Operation, "$appKey: ID!") ||
-		!strings.Contains(gen.UsageEventsPageByAppKey_Operation, "appKey: $appKey") {
-		t.Errorf("the by-key operation must require and forward the key id:\n%s", gen.UsageEventsPageByAppKey_Operation)
+}
+`
+
+const usageEventsPageByAppKeyGolden1203 = `
+query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+		total
+		hasMore
+		items {
+			id
+			type
+			createdAt
+			memoryId
+			nodeLoc
+			provider
+			model
+			keyOwnerType
+			tokensIn
+			tokensOut
+			costMicroCents
+		}
+	}
+}
+`
+
+func TestUsageEventsPlainDocumentCarriesNoAppKey(t *testing.T) {
+	if gen.UsageEventsPage_Operation != usageEventsPageGolden1203 {
+		t.Errorf("UsageEventsPage must keep its exact pre-#2944 document:\n got %s\nwant %s",
+			gen.UsageEventsPage_Operation, usageEventsPageGolden1203)
+	}
+	if strings.Contains(gen.UsageEventsPage_Operation, "appKey") {
+		t.Errorf("UsageEventsPage must not mention appKey:\n%s", gen.UsageEventsPage_Operation)
+	}
+	if gen.UsageEventsPageByAppKey_Operation != usageEventsPageByAppKeyGolden1203 {
+		t.Errorf("the by-key document drifted:\n got %s\nwant %s",
+			gen.UsageEventsPageByAppKey_Operation, usageEventsPageByAppKeyGolden1203)
 	}
 }
 

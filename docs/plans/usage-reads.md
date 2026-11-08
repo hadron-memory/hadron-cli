@@ -57,8 +57,9 @@ merged at main `0c46aa6a`). The schema snapshot was exported from that revision.
   folded.
 - Help follows the gate addendum and ruling 0254 (cor:acl:090:01 rev 12): no
   resource named is your own activity; a memory shows every caller's events as
-  volumes; the key flag shows that key's events in memories readable now plus its
-  no-memory events, for the key's App manager or the key itself.
+  volumes; the key flag shows that key's events in memories readable now, for the key's
+  App manager or the key itself; a manager's read excludes the key's no-memory
+  events, the key itself also reads its own no-memory events.
 
 Not built, not pinned: K's events in a memory K can no longer read (open for
 Holger); an executed key-self read before the server serves it (the QA seat runs
