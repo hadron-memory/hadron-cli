@@ -118,11 +118,25 @@ func TestLastFailInvalidAcceptedRecordCounts_1747(t *testing.T) {
 	for _, reason := range []string{"readback-not-found", "invalid-accepted-record", "readback-unavailable"} {
 		t.Run("null field on "+reason, func(t *testing.T) {
 			f := cache1747(t, reason, "")
+			drops, err := f.box.listNamed()
+			if err != nil || len(drops) != 1 {
+				t.Fatalf("fixture drops=%+v err=%v", drops, err)
+			}
+			reader := f.reporter()
+			reader.API = nil
+			if got := reader.readLastFail(drops[0]); got == nil || got.Reason != reason || got.Field != "" {
+				t.Fatalf("valid empty-field cache rejected: %+v", got)
+			}
 			path := filepath.Join(f.box.Dir, ev1Base()+".lastfail")
 			valid := map[string]any{}
 			_ = json.Unmarshal(readBytes1675(t, path), &valid)
 			valid["field"] = nil
 			writeBytes1675(t, path, mustJSON1747(valid))
+			// #1814: status excludes readback-unavailable even if the reader
+			// admits it, so only the private reader can pin this rejection.
+			if got := reader.readLastFail(drops[0]); got != nil {
+				t.Fatalf("null field admitted by reader for %s: %+v", reason, got)
+			}
 			p := status1747(t, f)
 			if p.Pending != 1 || p.NeedsPerson != 0 || len(p.Records) != 0 {
 				t.Fatalf("null field admitted for %s: %+v", reason, p)
