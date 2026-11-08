@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // cli#1203: `usage events --app-key <id>` is ONE pass-through flag over the
@@ -23,8 +25,22 @@ func TestUsageEventsAppKeyAbsentRequestIsUnchanged(t *testing.T) {
 	if got := string(calls["UsageEventsPage"]); got != want {
 		t.Errorf("request changed with the flag absent:\n got %s\nwant %s", got, want)
 	}
-	if strings.Contains(string(calls["UsageEventsPage"]), "appKey") {
-		t.Error("appKey must be omitted, never null, when the flag is absent")
+	if len(calls) != 1 || calls["UsageEventsPageByAppKey"] != nil {
+		t.Errorf("the plain read must not touch the by-key operation: %v", appKey1203Ops(calls))
+	}
+}
+
+// Old-server compatibility (review: old-server-graphql-document-compatibility).
+// GraphQL validates the static document, so an unset variable does not hide a
+// new argument: the plain operation's DOCUMENT must not mention appKey at all,
+// or every `usage events` fails on a server that predates the argument.
+func TestUsageEventsPlainDocumentCarriesNoAppKey(t *testing.T) {
+	if strings.Contains(gen.UsageEventsPage_Operation, "appKey") {
+		t.Errorf("UsageEventsPage must keep its pre-#2944 document:\n%s", gen.UsageEventsPage_Operation)
+	}
+	if !strings.Contains(gen.UsageEventsPageByAppKey_Operation, "$appKey: ID!") ||
+		!strings.Contains(gen.UsageEventsPageByAppKey_Operation, "appKey: $appKey") {
+		t.Errorf("the by-key operation must require and forward the key id:\n%s", gen.UsageEventsPageByAppKey_Operation)
 	}
 }
 
@@ -36,7 +52,13 @@ func TestUsageEventsAppKeySentVerbatimAndComposes(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d %s", code, stderr)
 	}
-	vars := usage1205Vars(t, calls)
+	if calls["UsageEventsPage"] != nil {
+		t.Error("a key-filtered read must use the by-key operation only")
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
 	for k, want := range map[string]any{
 		"appKey": "01abcDEF-key", "memoryId": "hrn:mem:acme.com:kb", "eventType": "read",
 		"limit": float64(5), "since": "2026-10-22T00:00:00Z", "until": "2026-10-23T00:00:00Z",
@@ -50,7 +72,8 @@ func TestUsageEventsAppKeySentVerbatimAndComposes(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	vars = usage1205Vars(t, calls)
+	vars = nil
+	_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
 	if vars["appKey"] != "k1" {
 		t.Errorf("appKey = %v", vars["appKey"])
 	}
@@ -85,11 +108,11 @@ func TestUsageEventsAppKeyUnknownAndUnfilterableAreIdentical(t *testing.T) {
 	var codes []int
 	for _, key := range []string{"key-that-does-not-exist", "key-of-another-tenant"} {
 		out, stderr, code, calls := usage65Run(t, refusal, "usage", "events", "--app-key", key)
-		if len(calls) != 1 || calls["UsageEventsPage"] == nil {
-			t.Errorf("only UsageEventsPage may be called, got %v", appKey1203Ops(calls))
+		if len(calls) != 1 || calls["UsageEventsPageByAppKey"] == nil {
+			t.Errorf("only UsageEventsPageByAppKey may be called, got %v", appKey1203Ops(calls))
 		}
 		var vars map[string]any
-		_ = json.Unmarshal(calls["UsageEventsPage"], &vars)
+		_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
 		if vars["appKey"] != key {
 			t.Errorf("the ref must go straight to the server: %v", vars)
 		}

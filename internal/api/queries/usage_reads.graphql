@@ -26,6 +26,38 @@ query UsageEventsPage(
     }
   }
 }
+# cli#1203: the same page filtered by one App key (hadron-server#2944). A SEPARATE
+# operation on purpose: a new argument in UsageEventsPage's document would make
+# every plain `usage events` fail against a server that predates it (GraphQL
+# validates the static document, omitempty or not), and the flag-absent request
+# must stay byte-identical. The key id is required here and never optional.
+query UsageEventsPageByAppKey(
+  $appKey: ID!
+  # @genqlient(omitempty: true)
+  $memoryId: ID
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $nodeId: ID
+  # @genqlient(omitempty: true)
+  $eventType: String
+  $limit: Int!
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
+) {
+  usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+    total
+    hasMore
+    items {
+      id type createdAt memoryId nodeLoc provider model keyOwnerType
+      tokensIn tokensOut costMicroCents
+    }
+  }
+}
 query MemoryUsageSummary($memoryRef: ID!) {
   memoryUsageSummary(memoryRef: $memoryRef) { nodeLoc type count }
 }
