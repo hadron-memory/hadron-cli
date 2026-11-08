@@ -145,6 +145,10 @@ type StopReporter struct {
 	ReporterWorker string
 	Now            func() time.Time
 	ReconcileAfter time.Duration
+	// RetainReported is how long after its report a record is kept before a
+	// run removes it. Zero means DefaultRetainReported; a negative value keeps
+	// reported records forever. A record with no report marker is never removed.
+	RetainReported time.Duration
 	// Test seams: called just before the intent is written, and just after a
 	// post is accepted, so a crash at either point can be pinned.
 	beforeIntent       func()
@@ -158,8 +162,11 @@ type ReportOutcome struct {
 	EventID string `json:"eventId"`
 	Worker  string `json:"worker"`
 	// Result: reported, reconciled, duplicate, waiting, failed.
-	Result          string `json:"result"`
-	Seq             int    `json:"seq,omitempty"`
+	Result string `json:"result"`
+	Seq    int    `json:"seq,omitempty"`
+	// File names an outbox record that could not be read (#1660); such an
+	// outcome has no event id or worker, and is always failed.
+	File            string `json:"file,omitempty"`
 	Error           string `json:"error,omitempty"`
 	Reason          string `json:"reason,omitempty"`
 	Field           string `json:"field,omitempty"`
@@ -171,7 +178,13 @@ type ReportRun struct {
 	// Busy: another reporter holds the lock; this run did nothing.
 	Busy     bool            `json:"busy"`
 	Outcomes []ReportOutcome `json:"outcomes"`
+	// Pruned counts reported records removed by the retention rule this run.
+	Pruned int `json:"pruned,omitempty"`
 }
+
+// DefaultRetainReported is how long a reported record is kept (#1660). A
+// reported notice's record has done its job; the poller never rewrites it.
+const DefaultRetainReported = 30 * 24 * time.Hour
 
 // Pending reports how many records have no marker (pending) and, of those,
 // how many were first held more than olderThan ago. Read-only; takes no lock.
@@ -182,9 +195,12 @@ func (r *StopReporter) Pending(olderThan time.Duration) (pending, stale int, err
 
 // PendingReport is a cached observation, never a current diagnosis or authority.
 type PendingReport struct {
-	Pending          int                  `json:"pending"`
-	Stale            int                  `json:"stale"`
-	NeedsPerson      int                  `json:"needsPerson"`
+	Pending     int `json:"pending"`
+	Stale       int `json:"stale"`
+	NeedsPerson int `json:"needsPerson"`
+	// Corrupt counts record files that could not be read; they are not in
+	// Pending (no notice can be read from them) and a run reports them failed.
+	Corrupt          int                  `json:"corrupt,omitempty"`
 	Records          []PendingObservation `json:"records"`
 	RecordsTotal     int                  `json:"recordsTotal"`
 	RecordsTruncated bool                 `json:"recordsTruncated"`
@@ -211,10 +227,11 @@ type stopLastFail struct {
 // PendingStatus reads only local state, without taking a lock or creating files.
 func (r *StopReporter) PendingStatus(olderThan time.Duration) (PendingReport, error) {
 	status := PendingReport{Records: []PendingObservation{}}
-	entries, err := r.Outbox.listNamed()
+	entries, corrupt, err := r.Outbox.listNamed()
 	if err != nil {
 		return status, err
 	}
+	status.Corrupt = len(corrupt)
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].rec.HeldAt.Equal(entries[j].rec.HeldAt) {
 			return entries[i].rec.EventID < entries[j].rec.EventID
@@ -390,9 +407,14 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 		run.Busy = true
 		return run, nil
 	}
-	entries, err := r.Outbox.listNamed()
+	entries, corrupt, err := r.Outbox.listNamed()
 	if err != nil {
 		return run, err
+	}
+	// A corrupt record fails alone: every other notice is still reported.
+	for _, c := range corrupt {
+		run.Outcomes = append(run.Outcomes, ReportOutcome{File: c.file, Result: "failed",
+			Error: fmt.Sprintf("record %s %s; not reported, remove or repair it", c.file, c.cause)})
 	}
 	var workerID string
 	for _, e := range entries {
@@ -411,7 +433,60 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 		}
 		run.Outcomes = append(run.Outcomes, r.reportOne(ctx, e, workerID))
 	}
+	run.Pruned = r.pruneReported(entries)
 	return run, nil
+}
+
+// pruneReported removes records whose report marker is older than the
+// retention window, and answers how many it removed. Only a record with a
+// marker is ever a candidate. The record itself goes first and the marker
+// last, so a crash part-way never leaves a record without its marker (which
+// would report the notice again). A failed removal leaves the rest for the
+// next run.
+func (r *StopReporter) pruneReported(entries []namedDrop) int {
+	keep := r.RetainReported
+	if keep < 0 {
+		return 0
+	}
+	if keep == 0 {
+		keep = DefaultRetainReported
+	}
+	pruned := 0
+	for _, e := range entries {
+		if !validStopBase(e.base) {
+			continue
+		}
+		marker := filepath.Join(r.Outbox.Dir, e.base+".reported")
+		info, err := os.Lstat(marker)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		at := info.ModTime()
+		if data, err := os.ReadFile(marker); err == nil {
+			var m stopReported
+			if json.Unmarshal(data, &m) == nil && !m.ReportedAt.IsZero() {
+				at = m.ReportedAt
+			}
+		}
+		if r.now().Sub(at) <= keep {
+			continue
+		}
+		ok := true
+		for _, suffix := range []string{".json", ".sending", ".lastfail", ".reported"} {
+			err := os.Remove(filepath.Join(r.Outbox.Dir, e.base+suffix))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			pruned++
+		}
+	}
+	if pruned > 0 {
+		_ = syncDir(r.Outbox.Dir)
+	}
+	return pruned
 }
 
 func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID string) ReportOutcome {
