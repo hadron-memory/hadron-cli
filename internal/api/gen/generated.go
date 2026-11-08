@@ -11276,7 +11276,8 @@ func (v *AgentTaskTreeResponse) GetAgentTaskTree() []*AgentTaskTreeAgentTaskTree
 type AgentTaskUpdateResponse struct {
 	// #2645 — edit descriptive fields using assignment authority (Proposed Editing rule,
 	// hrn:node:hadronmemory.com:specs:cor:agt:050:09). Owner, reporting-chain coordinator or App manager;
-	// never an assignee alone or an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
+	// an assignee alone may write only properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28) and references
+	// (#3441, ruling 0233); any other field it names refuses the whole call TASK_NOT_OWNER. Never an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
 	// empty optional fields clear, tags/requirements replace whole. An edit is not progress and clears no wake.
 	// Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
 	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -53436,12 +53437,15 @@ var AllInstallMethod = []InstallMethod{
 // is created by the App's first customisation: a createNode through this target
 // finds-or-creates it in the same transaction as the write, so a refused write
 // leaves nothing behind. Only whoever manages the App may write through it, and
-// only while the App is live and the Agent installed. For createNode(input.install),
-// an Agent held only through an import without the App organisation's active grant
-// is refused with AGENT_ORG_GRANT_REQUIRED; an absent Agent is refused with
-// AGENT_NOT_INSTALLED. Both createNode refusals leave no node or install memory
-// behind (hrn:node:hadronmemory.com:specs:cor:agt:040:15).
-// These typed createNode refusals do not describe updateNode's lookup/write errors.
+// only while the App is live and the Agent installed. After the App participant
+// and manager gates, both createNode(input.install) and updateNode(input.install)
+// refuse an Agent held only through an import without the App organisation's
+// active grant with AGENT_ORG_GRANT_REQUIRED, and an absent Agent with
+// AGENT_NOT_INSTALLED. These refusals write nothing; physical install rows keep
+// their existing behavior (hrn:node:hadronmemory.com:specs:cor:agt:040:15).
+// updateNode never creates an install memory: an installed, licensed Agent with
+// no customisation memory answers INSTALL_MEMORY_NOT_FOUND. A detached retained
+// memory does not make an Agent installed.
 type InstallTargetInput struct {
 	AgentRef string `json:"agentRef"`
 	AppRef   string `json:"appRef"`
@@ -59140,9 +59144,10 @@ func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintAc
 // The GraphQL type's documentation follows.
 //
 // #1448 — the mint report. blockers must all be gone for a mint to succeed.
-// staleAbstracts are listed separately; they block only when
-// staleAbstractsBlock is true (once abstract re-affirmation is saved and
-// deployed, server#1408). openQuestions never block.
+// staleAbstracts are listed separately, over every node in this mint's scope
+// (a minted, unchanged node is not counted; spec validate audits the whole
+// memory); they block only when staleAbstractsBlock is true. openQuestions
+// never block.
 type MintMemoryNodesMintMemoryNodesSpecCorpusMintReport struct {
 	MemoryId string `json:"memoryId"`
 	DryRun   bool   `json:"dryRun"`
@@ -59343,9 +59348,10 @@ func (v *MintMemoryNodesResponse) GetMintMemoryNodes() *MintMemoryNodesMintMemor
 // The GraphQL type's documentation follows.
 //
 // #1448 — the mint report. blockers must all be gone for a mint to succeed.
-// staleAbstracts are listed separately; they block only when
-// staleAbstractsBlock is true (once abstract re-affirmation is saved and
-// deployed, server#1408). openQuestions never block.
+// staleAbstracts are listed separately, over every node in this mint's scope
+// (a minted, unchanged node is not counted; spec validate audits the whole
+// memory); they block only when staleAbstractsBlock is true. openQuestions
+// never block.
 type MintSpecCorpusMintSpecCorpusSpecCorpusMintReport struct {
 	MemoryId string `json:"memoryId"`
 	DryRun   bool   `json:"dryRun"`
@@ -99892,14 +99898,130 @@ func (v *UsageEventInput) GetTokensOut() *int { return v.TokensOut }
 // GetType returns UsageEventInput.Type, and is useful for accessing the field via an interface.
 func (v *UsageEventInput) GetType() string { return v.Type }
 
-// UsageEventsPageResponse is returned by UsageEventsPage on success.
-type UsageEventsPageResponse struct {
-	// #2212 - `usageEvents` as a page: the same READER gate, the same loc/nodeId rules and the same readable-memory
-	// scope, ordered newest first with an id tiebreak, with the windowed total.
+// UsageEventsPageByAppKeyResponse is returned by UsageEventsPageByAppKey on success.
+type UsageEventsPageByAppKeyResponse struct {
+	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeId rules and the same two scopes
+	// (own activity when no resource is named, #2817), ordered newest first with an id tiebreak, with the windowed total.
 	// since is inclusive and until is exclusive: since <= createdAt < until.
 	// Bounds must be ISO date-times with Z or an explicit offset.
 	// Either bound may be omitted; invalid bounds or since >= until are BAD_USER_INPUT.
 	// hrn:node:hadronmemory.com:specs:cor:acl:090:01; paging: hrn:node:hadronmemory.com:specs:cor:api:120:04. Sizes as `tickersPage`.
+	// appKey filters by an App key exactly as on usageEvents (#2944), and the total counts the filtered rows.
+	UsageEventsPage *UsageEventsPageByAppKeyUsageEventsPageUsageEventPage `json:"usageEventsPage"`
+}
+
+// GetUsageEventsPage returns UsageEventsPageByAppKeyResponse.UsageEventsPage, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyResponse) GetUsageEventsPage() *UsageEventsPageByAppKeyUsageEventsPageUsageEventPage {
+	return v.UsageEventsPage
+}
+
+// UsageEventsPageByAppKeyUsageEventsPageUsageEventPage includes the requested fields of the GraphQL type UsageEventPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of usage events in the caller's readable memories.
+type UsageEventsPageByAppKeyUsageEventsPageUsageEventPage struct {
+	Total   int                                                                    `json:"total"`
+	HasMore bool                                                                   `json:"hasMore"`
+	Items   []*UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent `json:"items"`
+}
+
+// GetTotal returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPage.Total, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPage.HasMore, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPage.Items, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPage) GetItems() []*UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent {
+	return v.Items
+}
+
+// UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent includes the requested fields of the GraphQL type UsageEvent.
+type UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent struct {
+	Id        string `json:"id"`
+	Type      string `json:"type"`
+	CreatedAt string `json:"createdAt"`
+	// Memory the event is attributed to (#796). Stored at write time, so it
+	// outlives the node — null only for events written before the backfill
+	// whose node was already deleted, or paths with no memory in scope.
+	MemoryId *string `json:"memoryId"`
+	NodeLoc  *string `json:"nodeLoc"`
+	Provider *string `json:"provider"`
+	Model    *string `json:"model"`
+	// Owner level of the API key that served the call
+	// (HADRON_SERVER means platform-paid; anything else is BYOK).
+	KeyOwnerType *string `json:"keyOwnerType"`
+	TokensIn     *int    `json:"tokensIn"`
+	TokensOut    *int    `json:"tokensOut"`
+	// Provider cost snapshot in micro-cents (1e-8 USD), as a base-10
+	// integer string. Null when the (provider, model) pair is unpriced.
+	CostMicroCents *string `json:"costMicroCents"`
+}
+
+// GetId returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.Id, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetId() string {
+	return v.Id
+}
+
+// GetType returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.Type, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetType() string {
+	return v.Type
+}
+
+// GetCreatedAt returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetMemoryId returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.MemoryId, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetMemoryId() *string {
+	return v.MemoryId
+}
+
+// GetNodeLoc returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.NodeLoc, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetNodeLoc() *string {
+	return v.NodeLoc
+}
+
+// GetProvider returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.Provider, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetProvider() *string {
+	return v.Provider
+}
+
+// GetModel returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.Model, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetModel() *string {
+	return v.Model
+}
+
+// GetKeyOwnerType returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.KeyOwnerType, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetKeyOwnerType() *string {
+	return v.KeyOwnerType
+}
+
+// GetTokensIn returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.TokensIn, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetTokensIn() *int {
+	return v.TokensIn
+}
+
+// GetTokensOut returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.TokensOut, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetTokensOut() *int {
+	return v.TokensOut
+}
+
+// GetCostMicroCents returns UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) GetCostMicroCents() *string {
+	return v.CostMicroCents
+}
+
+// UsageEventsPageResponse is returned by UsageEventsPage on success.
+type UsageEventsPageResponse struct {
+	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeId rules and the same two scopes
+	// (own activity when no resource is named, #2817), ordered newest first with an id tiebreak, with the windowed total.
+	// since is inclusive and until is exclusive: since <= createdAt < until.
+	// Bounds must be ISO date-times with Z or an explicit offset.
+	// Either bound may be omitted; invalid bounds or since >= until are BAD_USER_INPUT.
+	// hrn:node:hadronmemory.com:specs:cor:acl:090:01; paging: hrn:node:hadronmemory.com:specs:cor:api:120:04. Sizes as `tickersPage`.
+	// appKey filters by an App key exactly as on usageEvents (#2944), and the total counts the filtered rows.
 	UsageEventsPage *UsageEventsPageUsageEventsPageUsageEventPage `json:"usageEventsPage"`
 }
 
@@ -101660,17 +101782,17 @@ func (v *WorkerLookupFields) GetName() string { return v.Name }
 // GetRetiredAt returns WorkerLookupFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerLookupFields) GetRetiredAt() *string { return v.RetiredAt }
 
-// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, ISOLATED, STANDBY, NO_TASK.
+// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, NO_TASK. ISOLATED and STANDBY are compatibility-only values never returned.
 type WorkerPendingReason string
 
 const (
-	// In isolation (unreachable until isolation is built).
+	// Deprecated compatibility value; isolation is removed and this value is never returned.
 	WorkerPendingReasonIsolated WorkerPendingReason = "ISOLATED"
 	// No open task assigned, and its Agent uses tasks.
 	WorkerPendingReasonNoTask WorkerPendingReason = "NO_TASK"
 	// Its own pause (pausedUntil) is in force.
 	WorkerPendingReasonPaused WorkerPendingReason = "PAUSED"
-	// On standby (unreachable until standby is built).
+	// Compatibility-only value: standby has been removed; never returned.
 	WorkerPendingReasonStandby WorkerPendingReason = "STANDBY"
 	// #2022: a PAUSE or HALT stop signal covers the worker, so it is not ticked (hrn:node:hadronmemory.com:specs:cor:agt:090:03).
 	WorkerPendingReasonStopped WorkerPendingReason = "STOPPED"
@@ -113778,6 +113900,46 @@ func (v *__UsageActivityInput) GetMemoryRefs() []string { return v.MemoryRefs }
 
 // GetTimeZone returns __UsageActivityInput.TimeZone, and is useful for accessing the field via an interface.
 func (v *__UsageActivityInput) GetTimeZone() *string { return v.TimeZone }
+
+// __UsageEventsPageByAppKeyInput is used internally by genqlient
+type __UsageEventsPageByAppKeyInput struct {
+	AppKey    string  `json:"appKey"`
+	MemoryId  *string `json:"memoryId,omitempty"`
+	Loc       *string `json:"loc,omitempty"`
+	NodeId    *string `json:"nodeId,omitempty"`
+	EventType *string `json:"eventType,omitempty"`
+	Limit     int     `json:"limit"`
+	Offset    *int    `json:"offset,omitempty"`
+	Since     *string `json:"since,omitempty"`
+	Until     *string `json:"until,omitempty"`
+}
+
+// GetAppKey returns __UsageEventsPageByAppKeyInput.AppKey, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetAppKey() string { return v.AppKey }
+
+// GetMemoryId returns __UsageEventsPageByAppKeyInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetLoc returns __UsageEventsPageByAppKeyInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetLoc() *string { return v.Loc }
+
+// GetNodeId returns __UsageEventsPageByAppKeyInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetNodeId() *string { return v.NodeId }
+
+// GetEventType returns __UsageEventsPageByAppKeyInput.EventType, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetEventType() *string { return v.EventType }
+
+// GetLimit returns __UsageEventsPageByAppKeyInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __UsageEventsPageByAppKeyInput.Offset, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetOffset() *int { return v.Offset }
+
+// GetSince returns __UsageEventsPageByAppKeyInput.Since, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetSince() *string { return v.Since }
+
+// GetUntil returns __UsageEventsPageByAppKeyInput.Until, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageByAppKeyInput) GetUntil() *string { return v.Until }
 
 // __UsageEventsPageInput is used internally by genqlient
 type __UsageEventsPageInput struct {
@@ -151070,6 +151232,75 @@ func UsageEventsPage(
 	}
 
 	data_ = &UsageEventsPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by UsageEventsPageByAppKey.
+const UsageEventsPageByAppKey_Operation = `
+query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+		total
+		hasMore
+		items {
+			id
+			type
+			createdAt
+			memoryId
+			nodeLoc
+			provider
+			model
+			keyOwnerType
+			tokensIn
+			tokensOut
+			costMicroCents
+		}
+	}
+}
+`
+
+// cli#1203: the same page filtered by one App key (hadron-server#2944). A SEPARATE
+// operation on purpose: a new argument in UsageEventsPage's document would make
+// every plain `usage events` fail against a server that predates it (GraphQL
+// validates the static document, omitempty or not), and the flag-absent request
+// must stay byte-identical. The key id is required here and never optional.
+func UsageEventsPageByAppKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appKey string,
+	memoryId *string,
+	loc *string,
+	nodeId *string,
+	eventType *string,
+	limit int,
+	offset *int,
+	since *string,
+	until *string,
+) (data_ *UsageEventsPageByAppKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UsageEventsPageByAppKey",
+		Query:  UsageEventsPageByAppKey_Operation,
+		Variables: &__UsageEventsPageByAppKeyInput{
+			AppKey:    appKey,
+			MemoryId:  memoryId,
+			Loc:       loc,
+			NodeId:    nodeId,
+			EventType: eventType,
+			Limit:     limit,
+			Offset:    offset,
+			Since:     since,
+			Until:     until,
+		},
+	}
+
+	data_ = &UsageEventsPageByAppKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

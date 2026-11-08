@@ -12,7 +12,7 @@ import (
 func usage65Run(t *testing.T, response string, args ...string) (string, string, int, map[string]json.RawMessage) {
 	t.Helper()
 	srv, calls := captureGraphQLFunc(t, func(op string) string {
-		if op != "UsageEventsPage" && op != "MemoryUsageSummary" {
+		if op != "UsageEventsPage" && op != "UsageEventsPageByAppKey" && op != "MemoryUsageSummary" {
 			t.Errorf("unexpected %s", op)
 		}
 		return response
