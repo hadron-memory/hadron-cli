@@ -73,6 +73,7 @@ func TestMemoryGetSyncReportV2UnknownVocabulary1775(t *testing.T) {
 		"code":                `{"kind":"attestation_refused","loc":"DO_NOT_PRINT","code":"FUTURE_CODE"}`,
 		"att-code-on-v1-kind": `{"kind":"protected","loc":"DO_NOT_PRINT","code":"AUTHORING_ATTESTATION_MISSING"}`,
 		"att-code-wrong-kind": `{"kind":"deferred","loc":"DO_NOT_PRINT","code":"AUTHORING_ATTESTATION_STALE"}`,
+		"v1-code-on-att-kind": `{"kind":"attestation_refused","loc":"DO_NOT_PRINT","code":"PROTECTED_LOC"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			report := v2Partial(`{"kind":"protected","loc":"PREFIX_MUST_NOT_PRINT","code":"PROTECTED_LOC"},` + entry)
@@ -86,6 +87,41 @@ func TestMemoryGetSyncReportV2UnknownVocabulary1775(t *testing.T) {
 				t.Fatal(dto)
 			}
 		})
+	}
+}
+
+func TestMemoryGetSyncReportV2AttestationFromLoc1816(t *testing.T) {
+	report := v2Partial(`{"kind":"attestation_refused","loc":"c:d","fromLoc":"old:place","code":"AUTHOR_TASK_BROKEN"}`)
+	m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
+	out, err := runMemoryGetSync(t, m, false)
+	if err != nil || !strings.Contains(out, `- attestation refused: "c:d" from "old:place" (AUTHOR_TASK_BROKEN)`) {
+		t.Fatalf("out=%q err=%v", out, err)
+	}
+	dto := memoryGetSyncJSON(t, m)
+	rep, ok := dto["syncReport"].(map[string]any)
+	if !ok {
+		t.Fatal(dto)
+	}
+	entries, ok := rep["entries"].([]any)
+	if !ok || len(entries) != 1 {
+		t.Fatal(rep)
+	}
+	entry, ok := entries[0].(map[string]any)
+	if !ok || entry["fromLoc"] != "old:place" {
+		t.Fatal(entries)
+	}
+}
+
+// Defensive consumer fixture only: the server's failed reports are version 1.
+func TestMemorySyncPullV2FailedText1816(t *testing.T) {
+	report := `{"version":2,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"SYNC_FAILED"}`
+	gql, _ := captureSyncPull60(t, map[string]string{"SyncMemory": `{"data":{"syncMemory":` + syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK") + `}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 1 || !strings.Contains(out.String(), "sync: last sync failed (SYNC_FAILED)") {
+		t.Fatalf("out=%q err=%v", out.String(), err)
 	}
 }
 
