@@ -152,8 +152,131 @@ func TestExecHostSeesAProcessWorkingInATree(t *testing.T) {
 	if !strings.Contains(who, "sleep") {
 		t.Errorf("a process in a subdirectory occupies the tree: %q", who)
 	}
+	if !strings.Contains(who, "sleep 30") {
+		t.Errorf("the occupant is named by its argv (#1474): %q", who)
+	}
 	if !h.Alive(a.PID()) {
 		t.Error("the launched process is alive")
+	}
+}
+
+// Terminate stops the whole process group a launch created: the launched
+// process AND the child it runs (#1474 — a wrapper relaunching its agent
+// must not survive its start's failure). A bare kill of the leader would
+// leave the child working in the tree; the group signal must not.
+func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	dir := t.TempDir()
+	ready := filepath.Join(dir, "child-running")
+	h := ExecHost{TerminateGrace: 2 * time.Second}
+	// sleep as a child the leader waits on: killing only the leader would
+	// orphan it in the tree.
+	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"sh", "-c", `sleep 30 & touch "$0"; wait`, ready}, Dir: dir, Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = a.Terminate() }()
+	// Gate on the child existing: a TERM that outruns the fork kills the
+	// leader before there is a group to leave behind, which would prove
+	// nothing.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the child never started")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if detail := a.Terminate(); !strings.Contains(detail, "terminated the launched process group") {
+		t.Errorf("a live group is stopped: %q", detail)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the launched process must exit after Terminate")
+	}
+	if h.Alive(a.PID()) {
+		t.Error("the group leader died with its group")
+	}
+	// The child went with it: nothing is left working in the tree.
+	sweepDeadline := time.Now().Add(5 * time.Second)
+	for {
+		who, _ := h.Occupied(context.Background(), dir)
+		if who == "" {
+			break
+		}
+		if time.Now().After(sweepDeadline) {
+			t.Fatalf("the group's child survived the leader: %q", who)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// The incident's exact shape: a wrapper that ignores SIGTERM and keeps
+// relaunching a child is killed by the escalation after the grace.
+func TestExecHostTerminateEscalatesOnAWrapperThatKeepsRelaunching(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	dir := t.TempDir()
+	ready := filepath.Join(dir, "armed")
+	h := ExecHost{TerminateGrace: 300 * time.Millisecond}
+	a, err := h.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sh", "-c", `trap '' TERM; touch "$0"; while :; do sleep 5 & wait $!; done`, ready},
+		Dir:  dir, Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = a.Terminate() }()
+	// Wait for the trap to be armed: a TERM that lands first kills the shell
+	// before it ever ignores one, which is not the shape under test.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the wrapper never armed its trap")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	start := time.Now()
+	if detail := a.Terminate(); !strings.Contains(detail, "killed the launched process group") {
+		t.Errorf("a TERM-ignoring wrapper is killed after the grace: %q", detail)
+	}
+	if elapsed := time.Since(start); elapsed < 250*time.Millisecond {
+		t.Errorf("the escalation must wait the grace first: %s", elapsed)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the wrapper must be dead after the escalation")
+	}
+}
+
+// An agent that already exited is signalled nothing — its pid may have been
+// reused — and Terminate says so.
+func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
+	h := ExecHost{}
+	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	if detail := a.Terminate(); detail != "" {
+		t.Errorf("an exited agent is signalled nothing: %q", detail)
 	}
 }
 

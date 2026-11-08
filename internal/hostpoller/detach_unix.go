@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // detach starts the agent in a new session, so it outlives the poller and
@@ -34,9 +35,11 @@ func processAlive(pid int) bool {
 	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
-// occupied scans /proc/<pid>/cwd for a process working inside path. Only
-// processes this user may inspect are seen, which covers agents the holder's
-// user runs. Without /proc (macOS) it reports none.
+// occupied scans /proc/<pid>/cwd for a process working inside path and names
+// it by pid and argv (#1474: an operator must be able to tell WHICH process
+// holds the tree — the comm name alone cannot). Only processes this user may
+// inspect are seen, which covers agents the holder's user runs. Without /proc
+// (macOS) it reports none.
 func occupied(path string) (string, error) {
 	root, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -60,9 +63,49 @@ func occupied(path string) (string, error) {
 			continue // gone, or not ours to inspect
 		}
 		if cwd == root || strings.HasPrefix(cwd, root+string(os.PathSeparator)) {
-			comm, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "comm"))
-			return fmt.Sprintf("pid %d, %s", pid, strings.TrimSpace(string(comm))), nil
+			return fmt.Sprintf("pid %d, %s", pid, processArgv(e.Name())), nil
 		}
 	}
 	return "", nil
+}
+
+// processArgv names a process by its command line (/proc/<pid>/cmdline,
+// NUL-separated), falling back to comm for a process with no command line
+// (a kernel thread) or an unreadable one.
+func processArgv(dir string) string {
+	raw, err := os.ReadFile(filepath.Join("/proc", dir, "cmdline"))
+	fields := strings.FieldsFunc(string(raw), func(r rune) bool { return r == 0 })
+	if err == nil && len(fields) > 0 {
+		return strings.Join(fields, " ")
+	}
+	comm, _ := os.ReadFile(filepath.Join("/proc", dir, "comm"))
+	return strings.TrimSpace(string(comm))
+}
+
+// terminateGroup stops the process group a launch created. A launched agent
+// runs as its own session leader (detach sets Setsid), so its group id is its
+// pid: SIGTERM to the group, a bounded grace, then SIGKILL to the group. The
+// caller has checked the agent is not Done, and a pid cannot be reused while
+// its exit is unreaped — reaping is what closes Done — so a group id reached
+// here can only be the launch's own.
+func terminateGroup(pid int, grace time.Duration, done <-chan struct{}) string {
+	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
+	}
+	timer := time.NewTimer(grace)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return fmt.Sprintf("terminated the launched process group (pid %d)", pid)
+	case <-timer.C:
+	}
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return fmt.Sprintf("SIGTERM did not stop the launched process group (pid %d) and SIGKILL failed: %v", pid, err)
+	}
+	select {
+	case <-done:
+		return fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, grace)
+	case <-time.After(grace):
+		return fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, grace)
+	}
 }

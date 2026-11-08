@@ -58,6 +58,11 @@ type Agent interface {
 	ExitDetail() string
 	// PID is its process id (0 when unknown).
 	PID() int
+	// Terminate stops the agent and everything it started — the process
+	// group (Unix) or tree (Windows) the launch created — and says what it
+	// did. An agent that already exited is signalled nothing: its pid may
+	// have been reused, and this must not reach an unrelated process (#1474).
+	Terminate() string
 }
 
 // Environment variables a launched agent must never inherit: the host key's

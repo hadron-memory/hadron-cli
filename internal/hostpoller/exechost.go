@@ -20,6 +20,9 @@ import (
 type ExecHost struct {
 	// PromptTimeout bounds worker.end's prompt command.
 	PromptTimeout time.Duration
+	// TerminateGrace is how long a failed start's SIGTERM gets before the
+	// escalation to SIGKILL (zero: 5s).
+	TerminateGrace time.Duration
 }
 
 func git(ctx context.Context, dir string, args ...string) (string, error) {
@@ -111,7 +114,7 @@ func (ExecHost) RemoveWorktree(ctx context.Context, path string) error {
 // Launch starts the agent and returns at once. On Unix it gets its own
 // session (setsid), so the poller's signals do not reach it; on Windows it
 // stays in the poller's console group.
-func (ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	cmd := exec.Command(spec.Argv[0], spec.Argv[1:]...)
 	cmd.Dir = spec.Dir
 	cmd.Env = spec.Env
@@ -119,7 +122,11 @@ func (ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid}
+	grace := h.TerminateGrace
+	if grace <= 0 {
+		grace = 5 * time.Second
+	}
+	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace}
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
@@ -136,11 +143,24 @@ type execAgent struct {
 	done   chan struct{}
 	detail string
 	pid    int
+	grace  time.Duration
 }
 
 func (a *execAgent) Done() <-chan struct{} { return a.done }
 func (a *execAgent) ExitDetail() string    { return a.detail }
 func (a *execAgent) PID() int              { return a.pid }
+
+// Terminate stops the process group this launch created. After Done it
+// signals nothing: the exit is reaped before Done closes, and a reaped pid
+// can be reused by an unrelated process.
+func (a *execAgent) Terminate() string {
+	select {
+	case <-a.done:
+		return ""
+	default:
+	}
+	return terminateGroup(a.pid, a.grace, a.done)
+}
 
 // Occupied looks for a process whose working directory is inside path, via
 // /proc (Linux). Without /proc it cannot tell and reports none.

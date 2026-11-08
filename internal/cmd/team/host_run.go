@@ -196,7 +196,11 @@ reports every outcome. One poller per host or container.
                    <repo>/<label> under worktrees_root
   worker.start     run the worker's configured launch argv in a registered
                    worktree with HADRON_LAUNCH_GRANT, then report once the
-                   agent's session binds (team session start reads the grant)
+                   agent's session binds (team session start reads the grant);
+                   refused before launching when any process is working in the
+                   tree (Linux /proc, the pid and argv named), and a start
+                   that fails stops the process group it launched and leaves
+                   no agents entry in the state file
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report; never kills the agent
@@ -225,7 +229,10 @@ user, with key_file readable by that user only, to close that.
 THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
 its exit is read as the agent's. A launcher that starts a detached session
 and returns (a tmux or wrapper script) is reported failed if no session has
-bound by then, which revokes the grant.
+bound by then, which revokes the grant. A start reported failed stops the
+process group it launched — TERM, a short grace, KILL — and forgets its
+entry in the state file, so a wrapper that keeps relaunching its agent does
+not outlive the failure.
 
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a

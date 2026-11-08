@@ -182,6 +182,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("an agent this host launched is still running in %s", token))
 		return
 	}
+	// Any process working in the tree refuses the start too — an agent an
+	// older wrapper runs in a terminal there, a human's shell (#1474). The
+	// same /proc scan worktree.remove uses, which is what sees a process
+	// this poller has no record of; it names the pid and argv, and fails
+	// closed when it cannot tell.
+	if who, err := p.host.Occupied(ctx, dir); err != nil {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("could not tell whether a process is working in %s: %s; nothing was launched", token, err.Error()))
+		return
+	} else if who != "" {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("a process is already working in %s (%s); nothing was launched", token, who))
+		return
+	}
 	deadline := p.now().Add(LaunchGrantTTL)
 	agent, err := p.host.Launch(ctx, LaunchSpec{
 		Argv: w.Launch,
@@ -203,11 +215,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 				p.log("reported", op.ID, op.Type, Succeeded, "its session bound before the agent exited")
 				return
 			}
+			// The start failed with its agent already gone: nothing to
+			// signal, but the record of it must not outlive the report.
+			p.stopLaunchedAgent(op, agent)
 			p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+"); the launch command must stay in the foreground for the agent's life")
 			return
 		default:
 		}
 		if !p.now().Before(deadline) {
+			// The launch's grant is spent and nothing bound: stop what was
+			// launched (a wrapper that keeps relaunching its agent must not
+			// outlive the failure) and forget it, then report (#1474).
+			p.stopLaunchedAgent(op, agent)
 			p.finish(ctx, op, Failed, "", fmt.Sprintf("no session was bound within %s, the launch grant's lifetime", LaunchGrantTTL))
 			return
 		}
@@ -220,13 +239,35 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			return
 		}
 		if errors.Is(err, ErrFinal) {
-			// Already decided server-side (e.g. a refused bind failed it).
+			// ALREADY_REPORTED answers a SUCCEEDED ask only when the server
+			// recorded the other outcome — an idempotent re-report returns
+			// the operation itself — so this start failed (e.g. a refused
+			// bind), and what was launched is stopped and forgotten (#1474).
+			p.stopLaunchedAgent(op, agent)
 			p.log("reported", op.ID, op.Type, "", "the server already finished it: "+err.Error())
 			return
 		}
 		if !errors.Is(err, ErrNotDone) {
 			p.log("report-failed", op.ID, op.Type, Succeeded, err.Error())
 		}
+	}
+}
+
+// stopLaunchedAgent cleans up after a start that failed: terminate the
+// process group the poller launched (an agent that already exited is
+// signalled nothing) and forget the agent, in memory and in the state file,
+// so nothing of the failed launch is left running or recorded (#1474).
+func (p *Poller) stopLaunchedAgent(op Operation, agent Agent) {
+	if detail := agent.Terminate(); detail != "" {
+		p.log("stopped", op.ID, op.Type, "", detail)
+	}
+	p.mu.Lock()
+	delete(p.agents, op.WorkerID)
+	delete(p.agentTrees, op.WorkerID)
+	delete(p.agentIDs, op.WorkerID)
+	p.mu.Unlock()
+	if err := p.state.dropAgent(op.WorkerID); err != nil {
+		p.log("state-failed", op.ID, op.Type, "", err.Error())
 	}
 }
 
