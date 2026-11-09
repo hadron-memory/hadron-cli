@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -798,7 +799,9 @@ func TestSkillLintPlanRefusalDoesNotFallBackToLocal(t *testing.T) {
 func TestSkillLintUnreachableServerFailsWithoutLocalLint(t *testing.T) {
 	n := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when a."}}}`, `"# A"`)
-	planSeen := false
+	// The hijack/EOF deliberately removes the completed-response ordering that
+	// ordinarily synchronizes a recording handler with the test's reads.
+	var planSeen atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
@@ -810,7 +813,7 @@ func TestSkillLintUnreachableServerFailsWithoutLocalLint(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body.OperationName == "SkillLintPlan" {
-			planSeen = true
+			planSeen.Store(true)
 			conn, _, err := w.(http.Hijacker).Hijack()
 			if err != nil {
 				t.Error(err)
@@ -831,7 +834,7 @@ func TestSkillLintUnreachableServerFailsWithoutLocalLint(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Unavailable {
 		t.Fatalf("unreachable plan exit = %d, want %d; err=%v", exitCodeFor(err), exitcode.Unavailable, err)
 	}
-	if !planSeen {
+	if !planSeen.Load() {
 		t.Fatal("selection failed before the lint plan; transport control is vacuous")
 	}
 	if strings.TrimSpace(out.String()) != "" {
