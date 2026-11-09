@@ -5979,3 +5979,11 @@ the JSON error envelope. After an uncertain finish answer, inspect the findings
 before deciding what to do; do not resend automatically. Findings are immutable
 and separate from finding dispositions. Existing task get/list/tree/mine shapes
 and event reads do not change.
+
+## Worker-own grants (cli#1832)
+
+`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it. The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
+
+Scope as shipped: grants naming this worker directly as holder, plus its own requests that are neither activated nor revoked. Role-agent, other-worker, person and App holders are not listed. This group only reads; top-level `hadron grant list|get` remains the separate organization action-grants surface. No new create/request/activate/revoke command.
+
+List JSON is `{items:[],total:N}` (empty items stays `[]`); count-only JSON is `{total:N}`. Get JSON and each item contain exactly id, action, values, holderKind, holderId, startsAt, expiresAt, maxUses, useCount, reason, createdAt, activatedAt, revokedAt, allows. Nullable values stay null, values keeps its JSON shape, and allows is the server's boolean fact about now. Human output uses yes/no for allows, raw timestamps, and no derived state label; terminal cells are sanitized, JSON retains original values. Get returns exit4 and the same not-found-or-not-visible line for null (hidden and missing indistinguishable). Transport/GraphQL errors use the standard mapping; malformed paging or a missing/cross-server binding exits2. New reads require a server containing hadron-server70bedd14bd; existing top-level grant reads use their old documents.

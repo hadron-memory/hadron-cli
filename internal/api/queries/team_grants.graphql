@@ -1,0 +1,12 @@
+# Worker-own grant read, scoped by the bound person-driven session.
+query TeamGrant($ref: ID!) {
+  grant(ref: $ref) { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+}
+
+# One explicit page of the bound worker's grants; zero limit counts only.
+query TeamGrants($limit: Int!, $offset: Int!) {
+  grants(limit: $limit, offset: $offset) {
+    total
+    items { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+  }
+}

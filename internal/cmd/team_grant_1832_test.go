@@ -131,7 +131,12 @@ func TestTeamGrant1832CountAndEmpty(t *testing.T) {
 			if len(*calls) != 1 || (*calls)[0].Vars["limit"] != float64(0) {
 				t.Fatal(calls)
 			}
-			if strings.TrimSpace(out) != map[string]string{"text": "total: 8", "json": `{"total":8}`}[flag] {
+			if flag == "json" {
+				var got map[string]any
+				if err := json.Unmarshal([]byte(out), &got); err != nil || !reflect.DeepEqual(got, map[string]any{"total": float64(8)}) {
+					t.Fatal(out)
+				}
+			} else if strings.TrimSpace(out) != "total: 8" {
 				t.Fatal(out)
 			}
 		})
@@ -160,7 +165,7 @@ func TestTeamGrant1832GetAndNull(t *testing.T) {
 	for _, label := range []string{"missing", "hidden"} {
 		t.Run(label, func(t *testing.T) {
 			_, out, e := runTeamTask(t, map[string]string{"TeamGrant": `{"data":{"grant":null}}`}, "team", "grant", "get", "same-id")
-			if exitOf(e) != 4 || out != "" {
+			if exitCodeFor(e) != 4 || out != "" {
 				t.Fatalf("%q %v", out, e)
 			}
 			if refusal != "" && e.Error() != refusal {
@@ -178,12 +183,11 @@ func TestTeamGrant1832UnboundAndInvalid(t *testing.T) {
 			f, _ := testFactory(t)
 			r := NewRootCmd(f)
 			r.SetArgs(append([]string{"team", "grant"}, args...))
-			if e := r.Execute(); exitOf(e) != 2 {
+			if e := r.Execute(); exitCodeFor(e) != 2 {
 				t.Fatalf("want usage, got %v", e)
 			}
 		})
 	}
-	_ = team.GitDirEnv
 }
 func TestTeamGrant1832HelpAndLegacy(t *testing.T) {
 	for _, args := range [][]string{{"team", "grant", "list", "--help"}, {"team", "grant", "get", "--help"}} {
@@ -201,7 +205,7 @@ func TestTeamGrant1832HelpAndLegacy(t *testing.T) {
 	}
 	for _, verb := range []string{"list", "get"} {
 		responses := map[string]string{"PrincipalGrants": `{"data":{"principalGrants":{"items":[],"total":0}}}`, "PrincipalGrant": `{"data":{"principalGrant":` + grantJSON + `}}`}
-		srv, got := captureGraphQL(t, responses)
+		srv, got := attnServer(t, responses)
 		f, _ := testFactory(t)
 		r := NewRootCmd(f)
 		args := []string{"grant", verb, "--server", srv.URL}
@@ -212,8 +216,95 @@ func TestTeamGrant1832HelpAndLegacy(t *testing.T) {
 		if e := r.Execute(); e != nil {
 			t.Fatal(e)
 		}
-		if len(got) != 1 {
+		if len(*got) != 1 {
 			t.Fatal(got)
 		}
+		doc, err := parser.ParseQuery(&ast.Source{Input: (*got)[0].Query})
+		if err != nil {
+			t.Fatal(err)
+		}
+		field := doc.Operations[0].SelectionSet[0].(*ast.Field).Name
+		want := map[string]string{"list": "principalGrants", "get": "principalGrant"}[verb]
+		if field != want {
+			t.Fatalf("legacy field %s", field)
+		}
+	}
+}
+
+func TestTeamGrant1832EmptyJSONAndBounds(t *testing.T) {
+	_, out, e := runTeamTask(t, map[string]string{"TeamGrants": `{"data":{"grants":{"items":[],"total":0}}}`}, "team", "grant", "list", "--json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var got map[string]json.RawMessage
+	if e = json.Unmarshal([]byte(out), &got); e != nil || string(got["items"]) != "[]" {
+		t.Fatal(out, e)
+	}
+	for _, args := range [][]string{{"--limit", "201"}, {"--limit", "-1"}, {"--offset", "-1"}, {"--offset", "2147483648"}} {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			calls, _, e := runTeamTask(t, map[string]string{}, append([]string{"team", "grant", "list"}, args...)...)
+			if exitCodeFor(e) != 2 || len(*calls) != 0 {
+				t.Fatal(e, calls)
+			}
+		})
+	}
+}
+func TestTeamGrant1832GetTextAndFalse(t *testing.T) {
+	_, out, e := runTeamTask(t, map[string]string{"TeamGrant": `{"data":{"grant":` + strings.Replace(workerGrant1832, `"allows":true`, `"allows":false`, 1) + `}}`}, "team", "grant", "get", "g1")
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range grantFields1832 {
+		if !strings.Contains(out, name+":") {
+			t.Fatal(name, out)
+		}
+	}
+	if !strings.Contains(out, "allows: no") || strings.Contains(out, "\x1b") {
+		t.Fatal(out)
+	}
+}
+
+func TestTeamGrant1832BindingBoundary(t *testing.T) {
+	for _, kind := range []string{"server", "incomplete", "app"} {
+		t.Run(kind, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := attnServer(t, map[string]string{"TeamAppIdentity": strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp999999999999999999999")})
+			setTeamBindingServer(t, srv.URL)
+			f, _ := testFactory(t)
+			r := NewRootCmd(f)
+			args := []string{"team", "grant", "list", "--server", srv.URL}
+			if kind == "server" {
+				args = []string{"team", "grant", "list", "--server", "http://127.0.0.1:1"}
+			}
+			if kind == "incomplete" {
+				dir := teamGitDir(t)
+				if e := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(`{"sessionId":"s"}`), 0600); e != nil {
+					t.Fatal(e)
+				}
+			}
+			if kind == "app" {
+				args = append(args, "--app", "some-other-app")
+			}
+			r.SetArgs(args)
+			if e := r.Execute(); exitCodeFor(e) != 2 {
+				t.Fatalf("%v", e)
+			}
+			for _, c := range *calls {
+				if c.Op == "TeamGrants" {
+					t.Fatal("read across binding boundary")
+				}
+			}
+		})
+	}
+}
+
+func TestTeamGrant1832OutsideWorktree(t *testing.T) {
+	t.Setenv(team.GitDirEnv, "")
+	t.Chdir(t.TempDir())
+	f, _ := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"team", "grant", "list"})
+	if e := r.Execute(); exitCodeFor(e) != 2 {
+		t.Fatal(e)
 	}
 }
