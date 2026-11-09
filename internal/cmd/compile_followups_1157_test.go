@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -208,7 +209,8 @@ func TestCompileHelpSynopsisLayout1157(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs(append(c.args[:len(c.args)-1-btoi(c.name == "app")], "--help"))
+			// Clone: appending to the sub-slice would overwrite the shared c1Commands args in place.
+			root.SetArgs(append(slices.Clone(c.args[:len(c.args)-1-btoi(c.name == "app")]), "--help"))
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}

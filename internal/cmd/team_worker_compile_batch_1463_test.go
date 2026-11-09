@@ -159,6 +159,8 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 			case wk.compile == "502":
 				w.WriteHeader(http.StatusBadGateway)
 				_, _ = w.Write([]byte("bad gateway"))
+			case strings.HasPrefix(wk.compile, "rev:"): // cli#1827: a malformed success carrying this revNo
+				fmt.Fprintf(w, `{"data":{"compileWorkerBootPrompt":{"node":{"urn":%q},"revNo":%s,"contentHash":"h-%s","pointerSet":true,"approvalIssued":false}}}`, cptr(wk.id), strings.TrimPrefix(wk.compile, "rev:"), wk.id)
 			case wk.compile == "ok" || wk.compile == "":
 				ref := wk.pointer
 				if ref == "" {
