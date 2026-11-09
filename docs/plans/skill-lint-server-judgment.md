@@ -14,8 +14,8 @@ the server is unreachable, refuses the plan, or returns an incomplete plan.
 ## Query boundary
 
 A dedicated `SkillLintPlan` operation selects only the fields lint consumes:
-entry identity/class/findings, host-free `unrecognized` findings, and plan
-counts. It never selects a rendered body. The existing `SkillPlan` operation is
+entry identity/class/findings, host-free `unrecognized` findings, and the
+`judged` count used for completeness validation. It never selects a rendered body. The existing `SkillPlan` operation is
 unchanged for `skill status`, so status does not acquire a dependency on the
 newer `unrecognized` schema field.
 

@@ -81342,11 +81342,6 @@ func (v *SkillLintPlanResponse) GetSkillPlan() *SkillLintPlanSkillPlan { return 
 
 // SkillLintPlanSkillPlan includes the requested fields of the GraphQL type SkillPlan.
 type SkillLintPlanSkillPlan struct {
-	// How many nodes carrying ANY declaration key were in scope. A plan over an
-	// empty corpus and a plan the caller cannot see are otherwise the same empty
-	// list, and a client that cannot tell them apart reports nothing-to-do for a
-	// corpus it was denied.
-	Scanned int `json:"scanned"`
 	// How many of those were judged for THIS host — the number of entries. A node
 	// declaring only another host is scanned and not judged, so the two differ by
 	// design; the gap is a fact about the corpus, not a discrepancy.
@@ -81361,9 +81356,6 @@ type SkillLintPlanSkillPlan struct {
 	// unknown keys has none, and is part of the scanned-minus-judged gap.
 	Unrecognized []*SkillLintPlanSkillPlanUnrecognized `json:"unrecognized"`
 }
-
-// GetScanned returns SkillLintPlanSkillPlan.Scanned, and is useful for accessing the field via an interface.
-func (v *SkillLintPlanSkillPlan) GetScanned() int { return v.Scanned }
 
 // GetJudged returns SkillLintPlanSkillPlan.Judged, and is useful for accessing the field via an interface.
 func (v *SkillLintPlanSkillPlan) GetJudged() int { return v.Judged }
@@ -144259,7 +144251,6 @@ func SkillExportPlan(
 const SkillLintPlan_Operation = `
 query SkillLintPlan ($input: SkillPlanInput!) {
 	skillPlan(input: $input) {
-		scanned
 		judged
 		entries {
 			urn

@@ -86,7 +86,6 @@ query SkillLintPlan(
   $input: SkillPlanInput!
 ) {
   skillPlan(input: $input) {
-    scanned
     judged
     entries {
       urn
