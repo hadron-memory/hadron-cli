@@ -234,6 +234,9 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 			if result == nil || result.Node == nil || result.Node.Urn == "" {
 				return exitcode.Newf(exitcode.Error, "server returned no compiled boot prompt; check with node get before compiling again")
 			}
+			if result.RevNo < 1 {
+				return exitcode.Newf(exitcode.Error, "server returned an invalid revision number %d for the compiled boot prompt; check with node get before compiling again", result.RevNo)
+			}
 			dto := compileDTO{result.Node.Urn, result.RevNo, result.ContentHash, result.PointerSet, result.ApprovalIssued}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				pointer := "unchanged"

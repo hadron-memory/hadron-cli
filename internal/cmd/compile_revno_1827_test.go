@@ -30,8 +30,10 @@ func TestCompileRevNoBelowOneIsUnexpectedResponse1827(t *testing.T) {
 						t.Fatalf("json=%v: err = %v (exit %d), want %q exit 1", jsonFlag, err, exitCodeFor(err), want)
 					}
 					c2Mutation(t, calls, c.op)
-					if out != "" {
-						t.Fatalf("json=%v: a malformed revision printed output: %q", jsonFlag, out)
+					// The worker command may print its resolution line before
+					// compiling; what it must never print is a built revision.
+					if strings.Contains(out, "compiled") || strings.Contains(out, "revision") || (jsonFlag && out != "") {
+						t.Fatalf("json=%v: a malformed revision printed a result: %q", jsonFlag, out)
 					}
 				}
 			})
