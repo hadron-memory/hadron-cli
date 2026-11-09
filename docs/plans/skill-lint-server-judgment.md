@@ -48,11 +48,18 @@ The CLI rejects, without printing a partial or clean result:
 - a `judged` count that disagrees with the entry count;
 - malformed entries anywhere in the memory-wide plan, including unselected
   nodes;
-- a selected declaration omitted from the relevant host's plan;
-- a selected unknown-host declaration omitted from the host-free plan, or
-  returned with no findings;
 - host-free findings that differ between host plans, whose contract requires
   identical rows.
+
+A selected declaration the local parsers expect but the server's plan does not
+judge (omitted from the host's plan, or an unknown-host key with no host-free
+row or no findings) is **not** an abort: the CLI's skilldoc view (host registry,
+alias and shape rules) can legitimately differ from the server's plan scoping
+under registry or version skew, and failing the whole lint would make it
+unusable for a corpus until the CLI is upgraded. Such a node gets one host-free
+`skill-node-not-judged` warning (selection order, after the judged rows), so it
+is never reported clean, and `--strict` still fails on it. The server remains
+the only judge; the local view only decides whether to *warn* about a gap.
 
 ## Validation
 

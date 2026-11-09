@@ -23,7 +23,7 @@ import (
 // the order the server returned them, then each entry's findings in server
 // order. A finding repeated under a later host merges into its first row
 // (Hosts grows) rather than adding one. Host-free unknown-key findings follow
-// the hosted rows, then `skill lint` appends unavailable-node rows.
+// the hosted rows, then not-judged rows (selection order), then `skill lint` appends unavailable-node rows.
 func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*batchNode) ([]lintFindingDTO, error) {
 	out := []lintFindingDTO{}
 	if len(nodes) == 0 {
@@ -55,6 +55,7 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 	index := map[key]int{}
 	unavailableSelected := map[string]bool{}
 	unrecognizedSelected := map[string]bool{}
+	notJudged := map[string]bool{}
 	var unrecognized []*gen.SkillLintPlanSkillPlanUnrecognized
 	for hostIndex, h := range skilldoc.Hosts {
 		host := h.Key
@@ -133,9 +134,13 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 				out = append(out, lintFindingDTO{Node: finding.Urn, Memory: finding.Memory, Rule: finding.Rule, Severity: finding.Severity, Message: finding.Message, Hosts: []string{host}})
 			}
 		}
+		// The CLI's local view of "declares this host" is only a hint about what
+		// to expect. The server owns plan scoping, so a disagreement (registry or
+		// version skew) must not abort the whole lint: the node is reported as
+		// not judged, never clean, and the other findings still print.
 		for id := range expected {
 			if !judgedSelected[id] {
-				return nil, exitcode.Newf(exitcode.Error, "server omitted a selected declaration from its skill lint plan; no clean result can be reported")
+				notJudged[id] = true
 			}
 		}
 	}
@@ -145,17 +150,29 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 		if !selected[entry.NodeId] {
 			continue
 		}
-		unrecognizedSelected[entry.NodeId] = true
 		if len(entry.Findings) == 0 {
-			return nil, exitcode.Newf(exitcode.Error, "server returned no findings for a selected unknown-host declaration; no clean result can be reported")
+			// Listed but empty is no judgment: leave it unrecognized so the
+			// not-judged row below fires instead of a clean pass.
+			continue
 		}
+		unrecognizedSelected[entry.NodeId] = true
 		for _, finding := range entry.Findings {
 			out = append(out, lintFindingDTO{Node: finding.Urn, Memory: finding.Memory, Rule: finding.Rule, Severity: finding.Severity, Message: finding.Message, Hosts: []string{}})
 		}
 	}
 	for id := range expectedUnrecognized {
 		if !unrecognizedSelected[id] {
-			return nil, exitcode.Newf(exitcode.Error, "server omitted a selected unknown-host declaration from its skill lint plan; no clean result can be reported")
+			notJudged[id] = true
+		}
+	}
+	// One host-free row per node, in selection order, after every judged row.
+	for _, n := range nodes {
+		if notJudged[n.Id] {
+			ref := n.Id
+			if n.Urn != "" {
+				ref = n.Urn
+			}
+			out = append(out, lintFindingDTO{Node: ref, Memory: "-", Rule: "skill-node-not-judged", Severity: skilldoc.SevWarning, Message: describeNotJudged(ref), Hosts: []string{}})
 		}
 	}
 	return out, nil

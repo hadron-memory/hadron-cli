@@ -212,7 +212,7 @@ func TestProviderLintRejectsInconsistentLaterHostUnrecognized(t *testing.T) {
 	}
 }
 
-func TestProviderLintRejectsSelectedDeclarationOmission(t *testing.T) {
+func TestProviderLintReportsSelectedDeclarationOmissionAsNotJudged(t *testing.T) {
 	props := json.RawMessage(`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -220,8 +220,10 @@ func TestProviderLintRejectsSelectedDeclarationOmission(t *testing.T) {
 	}))
 	defer srv.Close()
 	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1", Properties: &props}})
-	if err == nil || len(rows) != 0 {
-		t.Fatalf("selected declaration omission became clean: %#v %v", rows, err)
+	// Registry/version skew must not brick the lint (Caspian P2): the node is
+	// reported once, host-free, as a warning — never clean, never an abort.
+	if err != nil || len(rows) != 1 || rows[0].Rule != "skill-node-not-judged" || rows[0].Severity != "warning" || len(rows[0].Hosts) != 0 {
+		t.Fatalf("selected declaration omission must be one not-judged warning: %#v %v", rows, err)
 	}
 }
 
@@ -248,7 +250,7 @@ func TestProviderLintReportsUnavailableFromEitherHost(t *testing.T) {
 	}
 }
 
-func TestProviderLintRejectsMissingOrEmptyUnknownHostJudgment(t *testing.T) {
+func TestProviderLintReportsMissingOrEmptyUnknownHostJudgmentAsNotJudged(t *testing.T) {
 	props := json.RawMessage(`{"exports":{"futureHost":{"name":"hadron-a","description":"Use when a."}}}`)
 	for name, unrecognized := range map[string]string{
 		"missing entry":  `[]`,
@@ -261,8 +263,8 @@ func TestProviderLintRejectsMissingOrEmptyUnknownHostJudgment(t *testing.T) {
 			}))
 			defer srv.Close()
 			rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1", Properties: &props}})
-			if err == nil || len(rows) != 0 {
-				t.Fatalf("incomplete unknown-host judgment became clean: %#v %v", rows, err)
+			if err != nil || len(rows) != 1 || rows[0].Rule != "skill-node-not-judged" {
+				t.Fatalf("incomplete unknown-host judgment must be one not-judged warning: %#v %v", rows, err)
 			}
 		})
 	}
