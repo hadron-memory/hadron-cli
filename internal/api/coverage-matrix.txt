@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 211: 171 command, 16 gap, 24 excluded
+[Query] 213: 173 command, 16 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -117,6 +117,8 @@ exchangeMessages  gap #198
 findNodes  command search
 findObjects  command object find
 globalSearch  command find
+grant  command team grant get
+grants  command team grant list
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
@@ -577,7 +579,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 77: 41 gap, 36 excluded
+[Arguments] 80: 44 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -653,8 +655,11 @@ Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
+Query.channelMessages(teamHeadRefs)  gap #1833
 Query.dueWakes(instruction)  gap #1617
+Query.dueWakes(preview)  gap #1833
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
+Query.teamChatMessages(teamHeadRefs)  gap #1833
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
