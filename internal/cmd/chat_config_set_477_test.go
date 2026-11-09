@@ -183,21 +183,23 @@ func TestChatConfigSetRefusesWithoutWriting(t *testing.T) {
 		cfg  string
 		args []string
 	}{
-		"malformed JSON":       {`{"appKey":"k",`, []string{"--node", setNode}},
-		"top level an array":   {`[1,2]`, []string{"--node", setNode}},
-		"chat not an object":   {`{"chat":"oops","appKey":"k"}`, []string{"--node", setNode}},
-		"chat null":            {`{"chat":null}`, []string{"--node", setNode}},
-		"duplicate key":        {`{"appKey":"a","appKey":"b"}`, []string{"--node", setNode}},
-		"duplicate chat key":   {`{"chat":{"node":"x","node":"y"}}`, []string{"--node", setNode}},
-		"trailing content":     {`{"a":1} {"b":2}`, []string{"--node", setNode}},
-		"empty file":           {``, []string{"--node", setNode}},
-		"whitespace file":      {" \n\t ", []string{"--node", setNode}},
-		"blank node":           {`{"appKey":"k"}`, []string{"--node", "  "}},
-		"blank messages-loc":   {`{"appKey":"k"}`, []string{"--messages-loc", ""}},
-		"bad node urn":         {`{"appKey":"k"}`, []string{"--node", "not-a-urn"}},
-		"no flags":             {`{"appKey":"k"}`, nil},
-		"node with memory":     {`{"appKey":"k"}`, []string{"--node", setNode, "-m", "hrn:mem:a:b"}},
-		"node with messagesLc": {`{"appKey":"k"}`, []string{"--node", setNode, "--messages-loc", "x"}},
+		"malformed JSON":        {`{"appKey":"k",`, []string{"--node", setNode}},
+		"top level an array":    {`[1,2]`, []string{"--node", setNode}},
+		"chat not an object":    {`{"chat":"oops","appKey":"k"}`, []string{"--node", setNode}},
+		"chat null":             {`{"chat":null}`, []string{"--node", setNode}},
+		"duplicate key":         {`{"appKey":"a","appKey":"b"}`, []string{"--node", setNode}},
+		"duplicate chat key":    {`{"chat":{"node":"x","node":"y"}}`, []string{"--node", setNode}},
+		"trailing content":      {`{"a":1} {"b":2}`, []string{"--node", setNode}},
+		"case-variant top key":  {`{"chat":{"node":"x"},"Chat":{"node":"y"}}`, []string{"--node", setNode}},
+		"case-variant chat key": {`{"chat":{"node":"x","Node":"y"}}`, []string{"--node", setNode}},
+		"empty file":            {``, []string{"--node", setNode}},
+		"whitespace file":       {" \n\t ", []string{"--node", setNode}},
+		"blank node":            {`{"appKey":"k"}`, []string{"--node", "  "}},
+		"blank messages-loc":    {`{"appKey":"k"}`, []string{"--messages-loc", ""}},
+		"bad node urn":          {`{"appKey":"k"}`, []string{"--node", "not-a-urn"}},
+		"no flags":              {`{"appKey":"k"}`, nil},
+		"node with memory":      {`{"appKey":"k"}`, []string{"--node", setNode, "-m", "hrn:mem:a:b"}},
+		"node with messagesLc":  {`{"appKey":"k"}`, []string{"--node", setNode, "--messages-loc", "x"}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -250,6 +252,10 @@ func TestChatConfigSetRefusesSymlinkedConfig(t *testing.T) {
 	if readFile(t, real) != `{"appKey":"k"}` {
 		t.Error("wrote through the symlink")
 	}
+	// Refused before the backup: the target's bytes must not land in a .bak.
+	if _, err := os.Lstat(cfgPath(dir) + ".bak"); err == nil {
+		t.Error("a .bak was written for a symlinked config")
+	}
 }
 
 func TestChatConfigSetOffersNoIdentityFlags(t *testing.T) {
@@ -293,5 +299,43 @@ func TestChatConfigSetKeepsEscapedKeysAndNestedRawValues(t *testing.T) {
 	var v any
 	if err := json.Unmarshal([]byte(got), &v); err != nil {
 		t.Fatalf("invalid JSON after set: %v", err)
+	}
+}
+
+// A lone case-variant key is what the readers match: set edits that member in
+// place instead of appending a second one the readers would shadow it with.
+func TestChatConfigSetEditsCaseVariantKeyInPlace(t *testing.T) {
+	dir := chatConfigDir(t, `{"Chat":{"Node":"hrn:node:old.com:m:x:y","appKey":"k"}}`)
+	if _, err := runChat(t, "chat", "config", "set", "--node", setNode); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, cfgPath(dir))
+	if strings.Count(strings.ToLower(got), `"chat"`) != 1 || strings.Count(strings.ToLower(got), `"node"`) != 1 || !strings.Contains(got, setNode) {
+		t.Errorf("want one chat and one node member holding the new value:\n%s", got)
+	}
+	sh, err := runChat(t, "chat", "config", "show", "--json")
+	if err != nil || !strings.Contains(sh, "chats:api:messages") {
+		t.Errorf("readers do not see the written node: %v\n%s", err, sh)
+	}
+}
+
+// An existing config the readers cannot open is not "absent": refuse, no .bak.
+func TestChatConfigSetRefusesUnreadableExistingConfig(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads everything")
+	}
+	dir := chatConfigDir(t, `{"appKey":"`+chatConfigSecret+`"}`)
+	if err := os.Chmod(cfgPath(dir), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(cfgPath(dir), 0o600) })
+	_, err := runChat(t, "chat", "config", "set", "--node", setNode)
+	wantUsage(t, err)
+	_ = os.Chmod(cfgPath(dir), 0o600)
+	if readFile(t, cfgPath(dir)) != `{"appKey":"`+chatConfigSecret+`"}` {
+		t.Error("an unreadable config was overwritten")
+	}
+	if _, err := os.Stat(cfgPath(dir) + ".bak"); err == nil {
+		t.Error("a backup of an unreadable config")
 	}
 }

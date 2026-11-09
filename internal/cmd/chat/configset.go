@@ -135,6 +135,15 @@ func applyConfigSet(sets []configSetItem) (configSetDTO, error) {
 			return dto, exitcode.Newf(exitcode.Usage, "cannot resolve the working directory: %v", err)
 		}
 		path = filepath.Join(wd, ".hadron", "config.json")
+		// A config the readers skipped (unreadable) leaves Path empty, but it is
+		// there: creating a file beside or over it would hide or destroy what we
+		// could not read.
+		if len(cf.Skipped) > 0 {
+			return dto, exitcode.Newf(exitcode.Usage, "%s exists but cannot be read (%s) — nothing written; fix its permissions or remove it", cf.Skipped[0].Path, cf.Skipped[0].Reason)
+		}
+		if _, err := os.Lstat(path); err == nil {
+			return dto, exitcode.Newf(exitcode.Usage, "%s exists but cannot be read — nothing written", path)
+		}
 		dto.Created = true
 	} else {
 		var err error
@@ -210,9 +219,23 @@ type orderedObject struct {
 	vals map[string]json.RawMessage
 }
 
+// find returns the stored key that encoding/json would match k to — the readers
+// decode case-insensitively — or "" when there is none. parseObject refuses
+// files with two keys that fold equal, so there is at most one.
+func (o *orderedObject) find(k string) string {
+	for _, have := range o.keys {
+		if strings.EqualFold(have, k) {
+			return have
+		}
+	}
+	return ""
+}
+
 func (o *orderedObject) get(k string) (json.RawMessage, bool) {
-	v, ok := o.vals[k]
-	return v, ok
+	if have := o.find(k); have != "" {
+		return o.vals[have], true
+	}
+	return nil, false
 }
 
 // set replaces k's value, keeping an existing member's raw key; a new member
@@ -220,6 +243,9 @@ func (o *orderedObject) get(k string) (json.RawMessage, bool) {
 func (o *orderedObject) set(k string, v json.RawMessage) {
 	if o.vals == nil {
 		o.vals, o.raws = map[string]json.RawMessage{}, map[string][]byte{}
+	}
+	if have := o.find(k); have != "" {
+		k = have // edit the member the readers would match, in place
 	}
 	if _, ok := o.vals[k]; !ok {
 		o.keys = append(o.keys, k)
@@ -245,8 +271,8 @@ func parseObject(raw []byte) (*orderedObject, error) {
 			return nil, err
 		}
 		k, _ := kt.(string)
-		if _, dup := o.vals[k]; dup {
-			return nil, fmt.Errorf("duplicate key %q", k)
+		if have := o.find(k); have != "" {
+			return nil, fmt.Errorf("duplicate key %q (also %q: the readers match keys case-insensitively)", k, have)
 		}
 		// The key token's bytes: from the first non-separator after the previous
 		// token to the decoder's offset.
