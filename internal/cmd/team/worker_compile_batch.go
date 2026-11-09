@@ -224,6 +224,14 @@ func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO
 			Reason: "the server returned no compiled prompt; check with node get before compiling again", Outcome: lostUnknown, RevisionBefore: item.baseline})
 		return exitcode.Error
 	}
+	if err == nil && r.CompileWorkerBootPrompt.RevNo < 1 {
+		// A malformed success: no revision to report and no approve command to
+		// suggest. The compile may have landed, so it files as unknown like the
+		// empty-result case above.
+		dto.Unknown = append(dto.Unknown, compileBatchUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef,
+			Reason: fmt.Sprintf("the server returned an invalid revision number %d for the compiled prompt; check with node get before compiling again", r.CompileWorkerBootPrompt.RevNo), Outcome: lostUnknown, RevisionBefore: item.baseline})
+		return exitcode.Error
+	}
 	if err == nil {
 		res := r.CompileWorkerBootPrompt
 		dto.Compiled = append(dto.Compiled, compileBatchCompiledDTO{Name: t.Name, ID: t.ID, URN: t.URN,

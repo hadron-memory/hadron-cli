@@ -15125,6 +15125,10 @@ type AppAgentEffectiveRosterApp struct {
 	// import of a physically installed Agent (#2168). Derived installations do not
 	// write an AppAgent row. One App credential
 	// routes to all of them via the URN supplied in the request.
+	//
+	// null means WITHHELD from this caller (#2089): a user-owned App's
+	// owner-role member does not see its installation roster. Never read null as
+	// no installed Agents.
 	AppAgents []*AppAgentEffectiveRosterAppAppAgentsAppAgent `json:"appAgents"`
 }
 
@@ -15313,6 +15317,10 @@ type AppAgentInstallationRosterApp struct {
 	// import of a physically installed Agent (#2168). Derived installations do not
 	// write an AppAgent row. One App credential
 	// routes to all of them via the URN supplied in the request.
+	//
+	// null means WITHHELD from this caller (#2089): a user-owned App's
+	// owner-role member does not see its installation roster. Never read null as
+	// no installed Agents.
 	AppAgents []*AppAgentInstallationRosterAppAppAgentsAppAgent `json:"appAgents"`
 }
 
@@ -15584,11 +15592,17 @@ type AppAgentRosterData struct {
 	// one entry per install). Order matches the readable non-null entries of
 	// `appAgents`: served installation creation time, then Agent id. When any
 	// installed Agent is withheld, every entry shares the App date, so order is by id.
+	//
+	// null means WITHHELD from this caller (#2089), never no Agents.
 	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
 	// Agents installed in this App, by a physical row or derived from a direct
 	// import of a physically installed Agent (#2168). Derived installations do not
 	// write an AppAgent row. One App credential
 	// routes to all of them via the URN supplied in the request.
+	//
+	// null means WITHHELD from this caller (#2089): a user-owned App's
+	// owner-role member does not see its installation roster. Never read null as
+	// no installed Agents.
 	AppAgents []*AppAgentRosterDataAppAgentsAppAgent `json:"appAgents"`
 }
 
@@ -16298,8 +16312,9 @@ func (v *AppMemberRolesResponse) GetApp() *AppMemberRolesApp { return v.App }
 // The singular agentId / agent fields below are soft-deprecated convenience
 // reads of the first install, not a direct foreign key.
 type AppMembersApp struct {
-	Id      string                           `json:"id"`
-	Urn     string                           `json:"urn"`
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// The App's members. null means WITHHELD from this caller (#2089): a user-owned App's owner-role member reaches the App record but not its roster. Never read null as an empty roster. The App's owning user, and callers of an org-owned App, get the real list (a real empty list included).
 	Members []*AppMembersAppMembersAppMember `json:"members"`
 }
 
@@ -18606,9 +18621,13 @@ type AppsAppsAppsPageItemsApp struct {
 	// when a later install is readable. Null is not proof that nothing is
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
-	AgentId     *string `json:"agentId"`
-	MemberCount *int    `json:"memberCount"`
-	CreatedAt   string  `json:"createdAt"`
+	//
+	// A caller who reaches a user-owned App only as an owner-role member gets null on
+	// both for a different reason: WITHHELD (#2089). Render it as unknown.
+	AgentId *string `json:"agentId"`
+	// Member count. null means WITHHELD from this caller (#2089), never zero; the real count (a real 0 included) for callers who may see the roster.
+	MemberCount *int   `json:"memberCount"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 // GetId returns AppsAppsAppsPageItemsApp.Id, and is useful for accessing the field via an interface.
@@ -33180,9 +33199,13 @@ type CreateAppCreateApp struct {
 	// when a later install is readable. Null is not proof that nothing is
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
-	AgentId     *string `json:"agentId"`
-	MemberCount *int    `json:"memberCount"`
-	CreatedAt   string  `json:"createdAt"`
+	//
+	// A caller who reaches a user-owned App only as an owner-role member gets null on
+	// both for a different reason: WITHHELD (#2089). Render it as unknown.
+	AgentId *string `json:"agentId"`
+	// Member count. null means WITHHELD from this caller (#2089), never zero; the real count (a real 0 included) for callers who may see the roster.
+	MemberCount *int   `json:"memberCount"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 // GetId returns CreateAppCreateApp.Id, and is useful for accessing the field via an interface.
@@ -33389,9 +33412,13 @@ type CreateAppSettingsCreateApp struct {
 	// when a later install is readable. Null is not proof that nothing is
 	// installed; `appAgents` lists every install, an entry whose `agent` is null
 	// being an installed Agent withheld from this caller.
-	AgentId     *string `json:"agentId"`
-	MemberCount *int    `json:"memberCount"`
-	CreatedAt   string  `json:"createdAt"`
+	//
+	// A caller who reaches a user-owned App only as an owner-role member gets null on
+	// both for a different reason: WITHHELD (#2089). Render it as unknown.
+	AgentId *string `json:"agentId"`
+	// Member count. null means WITHHELD from this caller (#2089), never zero; the real count (a real 0 included) for callers who may see the roster.
+	MemberCount *int   `json:"memberCount"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 // GetId returns CreateAppSettingsCreateApp.Id, and is useful for accessing the field via an interface.
@@ -43439,6 +43466,7 @@ type DueTickWakesResponse struct {
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
 	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
 	DueWakes *DueTickWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -43809,6 +43837,7 @@ type DueWakesResponse struct {
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
 	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
 	DueWakes *DueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -51404,6 +51433,23 @@ type GrantCreditsResponse struct {
 // GetGrantCredits returns GrantCreditsResponse.GrantCredits, and is useful for accessing the field via an interface.
 func (v *GrantCreditsResponse) GetGrantCredits() *GrantCreditsGrantCreditsCreditLedgerEntry {
 	return v.GrantCredits
+}
+
+// Which kind of party holds a grant (#3789): exactly one of the four, as stored.
+type GrantHolderKind string
+
+const (
+	GrantHolderKindAgent  GrantHolderKind = "AGENT"
+	GrantHolderKindApp    GrantHolderKind = "APP"
+	GrantHolderKindUser   GrantHolderKind = "USER"
+	GrantHolderKindWorker GrantHolderKind = "WORKER"
+)
+
+var AllGrantHolderKind = []GrantHolderKind{
+	GrantHolderKindAgent,
+	GrantHolderKindApp,
+	GrantHolderKindUser,
+	GrantHolderKindWorker,
 }
 
 // HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
@@ -87123,11 +87169,183 @@ type TeamDueWakesResponse struct {
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
 	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
 	DueWakes *TeamDueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
 // GetDueWakes returns TeamDueWakesResponse.DueWakes, and is useful for accessing the field via an interface.
 func (v *TeamDueWakesResponse) GetDueWakes() *TeamDueWakesDueWakesDueWakePage { return v.DueWakes }
+
+// TeamGrantGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
+// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+type TeamGrantGrant struct {
+	Id string `json:"id"`
+	// The registered action this grant allows.
+	Action string `json:"action"`
+	// The values it allows (a single value, a list or a wildcard); never a secret.
+	Values     *json.RawMessage `json:"values"`
+	HolderKind GrantHolderKind  `json:"holderKind"`
+	HolderId   string           `json:"holderId"`
+	StartsAt   *string          `json:"startsAt"`
+	ExpiresAt  *string          `json:"expiresAt"`
+	MaxUses    *int             `json:"maxUses"`
+	UseCount   int              `json:"useCount"`
+	Reason     string           `json:"reason"`
+	CreatedAt  string           `json:"createdAt"`
+	// Null while the grant is pending (a pending grant allows nothing).
+	ActivatedAt *string `json:"activatedAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows bool `json:"allows"`
+}
+
+// GetId returns TeamGrantGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetId() string { return v.Id }
+
+// GetAction returns TeamGrantGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetAction() string { return v.Action }
+
+// GetValues returns TeamGrantGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetValues() *json.RawMessage { return v.Values }
+
+// GetHolderKind returns TeamGrantGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderId returns TeamGrantGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetHolderId() string { return v.HolderId }
+
+// GetStartsAt returns TeamGrantGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetStartsAt() *string { return v.StartsAt }
+
+// GetExpiresAt returns TeamGrantGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetMaxUses returns TeamGrantGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetMaxUses() *int { return v.MaxUses }
+
+// GetUseCount returns TeamGrantGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetUseCount() int { return v.UseCount }
+
+// GetReason returns TeamGrantGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetReason() string { return v.Reason }
+
+// GetCreatedAt returns TeamGrantGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns TeamGrantGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetRevokedAt returns TeamGrantGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns TeamGrantGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetAllows() bool { return v.Allows }
+
+// TeamGrantResponse is returned by TeamGrant on success.
+type TeamGrantResponse struct {
+	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly or a pending one it requested itself.
+	// Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
+	Grant *TeamGrantGrant `json:"grant"`
+}
+
+// GetGrant returns TeamGrantResponse.Grant, and is useful for accessing the field via an interface.
+func (v *TeamGrantResponse) GetGrant() *TeamGrantGrant { return v.Grant }
+
+// TeamGrantsGrantsGrantsPage includes the requested fields of the GraphQL type GrantsPage.
+type TeamGrantsGrantsGrantsPage struct {
+	Total int                                     `json:"total"`
+	Items []*TeamGrantsGrantsGrantsPageItemsGrant `json:"items"`
+}
+
+// GetTotal returns TeamGrantsGrantsGrantsPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamGrantsGrantsGrantsPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPage) GetItems() []*TeamGrantsGrantsGrantsPageItemsGrant {
+	return v.Items
+}
+
+// TeamGrantsGrantsGrantsPageItemsGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
+// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+type TeamGrantsGrantsGrantsPageItemsGrant struct {
+	Id string `json:"id"`
+	// The registered action this grant allows.
+	Action string `json:"action"`
+	// The values it allows (a single value, a list or a wildcard); never a secret.
+	Values     *json.RawMessage `json:"values"`
+	HolderKind GrantHolderKind  `json:"holderKind"`
+	HolderId   string           `json:"holderId"`
+	StartsAt   *string          `json:"startsAt"`
+	ExpiresAt  *string          `json:"expiresAt"`
+	MaxUses    *int             `json:"maxUses"`
+	UseCount   int              `json:"useCount"`
+	Reason     string           `json:"reason"`
+	CreatedAt  string           `json:"createdAt"`
+	// Null while the grant is pending (a pending grant allows nothing).
+	ActivatedAt *string `json:"activatedAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows bool `json:"allows"`
+}
+
+// GetId returns TeamGrantsGrantsGrantsPageItemsGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetId() string { return v.Id }
+
+// GetAction returns TeamGrantsGrantsGrantsPageItemsGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetAction() string { return v.Action }
+
+// GetValues returns TeamGrantsGrantsGrantsPageItemsGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetValues() *json.RawMessage { return v.Values }
+
+// GetHolderKind returns TeamGrantsGrantsGrantsPageItemsGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderId returns TeamGrantsGrantsGrantsPageItemsGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetHolderId() string { return v.HolderId }
+
+// GetStartsAt returns TeamGrantsGrantsGrantsPageItemsGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetStartsAt() *string { return v.StartsAt }
+
+// GetExpiresAt returns TeamGrantsGrantsGrantsPageItemsGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetMaxUses returns TeamGrantsGrantsGrantsPageItemsGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetMaxUses() *int { return v.MaxUses }
+
+// GetUseCount returns TeamGrantsGrantsGrantsPageItemsGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetUseCount() int { return v.UseCount }
+
+// GetReason returns TeamGrantsGrantsGrantsPageItemsGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetReason() string { return v.Reason }
+
+// GetCreatedAt returns TeamGrantsGrantsGrantsPageItemsGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns TeamGrantsGrantsGrantsPageItemsGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetRevokedAt returns TeamGrantsGrantsGrantsPageItemsGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns TeamGrantsGrantsGrantsPageItemsGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetAllows() bool { return v.Allows }
+
+// TeamGrantsResponse is returned by TeamGrants on success.
+type TeamGrantsResponse struct {
+	// The bound worker's own grants (#3789): the rows naming it directly as holder, plus the pending ones it requested. Any other caller gets an empty page, never an error. limit 0 returns the count only.
+	Grants *TeamGrantsGrantsGrantsPage `json:"grants"`
+}
+
+// GetGrants returns TeamGrantsResponse.Grants, and is useful for accessing the field via an interface.
+func (v *TeamGrantsResponse) GetGrants() *TeamGrantsGrantsGrantsPage { return v.Grants }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -111780,6 +111998,26 @@ func (v *__TeamDueWakesInput) GetAfter() *string { return v.After }
 
 // GetAccepts returns __TeamDueWakesInput.Accepts, and is useful for accessing the field via an interface.
 func (v *__TeamDueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
+
+// __TeamGrantInput is used internally by genqlient
+type __TeamGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TeamGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamGrantInput) GetRef() string { return v.Ref }
+
+// __TeamGrantsInput is used internally by genqlient
+type __TeamGrantsInput struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// GetLimit returns __TeamGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamGrantsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __TeamGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamGrantsInput) GetOffset() int { return v.Offset }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -146368,6 +146606,107 @@ func TeamDueWakes(
 	}
 
 	data_ = &TeamDueWakesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamGrant.
+const TeamGrant_Operation = `
+query TeamGrant ($ref: ID!) {
+	grant(ref: $ref) {
+		id
+		action
+		values
+		holderKind
+		holderId
+		startsAt
+		expiresAt
+		maxUses
+		useCount
+		reason
+		createdAt
+		activatedAt
+		revokedAt
+		allows
+	}
+}
+`
+
+// Worker-own grant read, scoped by the bound person-driven session.
+func TeamGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TeamGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamGrant",
+		Query:  TeamGrant_Operation,
+		Variables: &__TeamGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TeamGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamGrants.
+const TeamGrants_Operation = `
+query TeamGrants ($limit: Int!, $offset: Int!) {
+	grants(limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			action
+			values
+			holderKind
+			holderId
+			startsAt
+			expiresAt
+			maxUses
+			useCount
+			reason
+			createdAt
+			activatedAt
+			revokedAt
+			allows
+		}
+	}
+}
+`
+
+// One explicit page of the bound worker's grants; zero limit counts only.
+func TeamGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit int,
+	offset int,
+) (data_ *TeamGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamGrants",
+		Query:  TeamGrants_Operation,
+		Variables: &__TeamGrantsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TeamGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
