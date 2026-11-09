@@ -8,7 +8,8 @@ import (
 
 func TestC5SkillLintConsumesOnlyProviderBrokenIncludeWarning(t *testing.T) {
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:x", "tasks:x", true, `{"exports":{"claudeSkill":{"name":"hadron-x","description":"Use when testing.","enable":true}}}`, `"Body with a broken include."`)
-	responses := map[string]string{"GetMemory": skillMemOrg, "FindNodes": listOf(nodeID), "NodeBatch": batchOf(good), "SkillPlan": `{"data":{"skillPlan":{"scanned":1,"judged":1,"entries":[{"nodeId":"` + nodeID + `","urn":"hrn:node:hadronmemory.com:core:tasks:x","findings":[{"rule":"skill-include-broken","severity":"warning","message":"Provider says one include could not be resolved","urn":"hrn:node:hadronmemory.com:core:tasks:x","memory":"hrn:mem:hadronmemory.com:core"}]}],"orphans":[]}}}`}
+	plan := skillLintPlan(skillLintEntry(nodeID, skillLintFinding("hrn:node:hadronmemory.com:core:tasks:x", "hrn:mem:hadronmemory.com:core", "skill-include-broken", "warning", "Provider says one include could not be resolved")))
+	responses := map[string]string{"GetMemory": skillMemOrg, "FindNodes": listOf(nodeID), "NodeBatch": batchOf(good), "SkillPlan": plan}
 	out, err := runSkillLint(t, responses, "--node", nodeID, "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +25,9 @@ func TestC5SkillLintConsumesOnlyProviderBrokenIncludeWarning(t *testing.T) {
 
 func TestC5SkillLintNoNoticeHeuristicAndNoWidenedNodeSelection(t *testing.T) {
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:x", "tasks:x", true, `{"exports":{"claudeSkill":{"name":"hadron-x","description":"Use when testing.","enable":true}}}`, `"The literal text [include unavailable] is an author's example."`)
-	for _, plan := range []string{emptyIncludeLintPlan, `{"data":{"skillPlan":{"scanned":2,"judged":2,"entries":[{"nodeId":"other-id","urn":"concealed-other-urn","findings":[{"rule":"skill-include-broken","severity":"warning","message":"unselected sentinel","urn":"concealed-other-urn","memory":"mem1"}]}],"orphans":[]}}}`} {
+	for _, plan := range []string{skillLintPlan(skillLintEntry(nodeID)), skillLintPlan(
+		skillLintEntry(nodeID),
+		skillLintEntry("other-id", skillLintFinding("concealed-other-urn", "mem1", "skill-include-broken", "warning", "unselected sentinel")))} {
 		responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good), "SkillPlan": plan}
 		out, err := runSkillLint(t, responses, "--node", nodeID, "--json")
 		if err != nil {
@@ -48,12 +51,14 @@ func TestC5ProviderLintErrorsNeverReportClean(t *testing.T) {
 
 func TestC5HumanOutputAndProviderFailureNeverClaimPartialLint(t *testing.T) {
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:x", "tasks:x", false, `{"exports":{"claudeSkill":{"name":"hadron-x","description":"Use when testing."}}}`, `"Body."`)
-	warning := `{"data":{"skillPlan":{"scanned":2,"judged":1,"entries":[{"nodeId":"` + nodeID + `","findings":[{"rule":"skill-include-broken","severity":"warning","message":"include check warning","urn":"source1","memory":"mem1"}]}]}}}`
+	warning := skillLintPlan(skillLintEntry(nodeID,
+		skillLintFinding("source1", "mem1", "skill-not-runnable", "error", "server runnable check"),
+		skillLintFinding("source1", "mem1", "skill-include-broken", "warning", "include check warning")))
 	out, err := runSkillLint(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good), "SkillPlan": warning}, "--node", nodeID)
 	if exitCodeFor(err) != 5 || !strings.Contains(out, "skill-not-runnable") || !strings.Contains(out, "include check warning") || !strings.Contains(out, "finding(s)") {
-		t.Fatalf("local/provider human findings lost: %v %s", err, out)
+		t.Fatalf("server human findings lost: %v %s", err, out)
 	}
-	for _, plan := range []string{gqlErrorJSON("FORBIDDEN"), `{"errors":[{"message":"Cannot query field skillPlan","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, `{"data":{"skillPlan":{"entries":[null]}}}`, `{"data":{"skillPlan":{"entries":[{"nodeId":"` + nodeID + `","findings":null}]}}}`} {
+	for _, plan := range []string{gqlErrorJSON("FORBIDDEN"), `{"errors":[{"message":"Cannot query field skillPlan","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, `{"data":{"skillPlan":{"entries":[],"unrecognized":null}}}`, `{"data":{"skillPlan":{"entries":[null],"unrecognized":[]}}}`, `{"data":{"skillPlan":{"entries":[{"nodeId":"` + nodeID + `","findings":null}],"unrecognized":[]}}}`} {
 		out, err := runSkillLint(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good), "SkillPlan": plan}, "--node", nodeID, "--json")
 		if err == nil || out != "" {
 			t.Fatalf("incomplete lint printed usable partial result: %v %s", err, out)
@@ -74,21 +79,24 @@ func TestRunSkillLintDoesNotMutateCallerFixture(t *testing.T) {
 	}
 }
 
-// cli#1171: row order is documented (local rows, then provider include rows in
-// the provider's order, then unavailable refs); pin it at the command level so
-// a sort or a reorder is a visible decision, not drift.
-func TestC5ProviderIncludeRowsKeepProviderOrderBetweenLocalAndUnavailable(t *testing.T) {
+// cli#1171: hosted findings keep the server's entry/finding order, followed by
+// unavailable refs; pin that at the command level so a sort or reorder is a
+// visible decision, not drift.
+func TestC5ProviderRowsKeepServerOrderBeforeUnavailable(t *testing.T) {
 	const id2 = "01a0a5ba59a377d2a01a8ea32ae98196"
 	bad := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:x", "tasks:x", true, `{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when testing."}}}`, `"Body."`)
 	ok := skillNode(id2, "mem1", "hrn:node:hadronmemory.com:core:tasks:y", "tasks:y", true, `{"exports":{"claudeSkill":{"name":"hadron-y","description":"Use when testing."}}}`, `"Body."`)
 	batch := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["gone-node"],"nodes":[` + bad + `,` + ok + `]}}}`
 	// The provider answers id2 BEFORE nodeID, and "zzz" before "aaa": neither
-	// order is alphabetical nor the selection order.
-	plan := `{"data":{"skillPlan":{"scanned":2,"judged":2,"entries":[` +
-		`{"nodeId":"` + id2 + `","findings":[{"rule":"skill-include-broken","severity":"warning","message":"zzz second include","urn":"urn-y","memory":"mem1"}]},` +
-		`{"nodeId":"` + nodeID + `","findings":[{"rule":"skill-include-broken","severity":"warning","message":"aaa first include","urn":"urn-x","memory":"mem1"}]}],"orphans":[]}}}`
+	// order is alphabetical nor the selection order. The error on id2 also
+	// proves server findings retain their severity and exit behavior.
+	plan := skillLintPlan(
+		skillLintEntry(id2,
+			skillLintFinding("urn-y", "mem1", "skill-name-invalid", "error", "server invalid name"),
+			skillLintFinding("urn-y", "mem1", "skill-include-broken", "warning", "zzz second include")),
+		skillLintEntry(nodeID, skillLintFinding("urn-x", "mem1", "skill-include-broken", "warning", "aaa first include")))
 	out, err := runSkillLint(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batch, "SkillPlan": plan}, "--node", nodeID, "--node", id2, "--json")
-	if exitCodeFor(err) != 5 { // the local skill-name-invalid row is an error
+	if exitCodeFor(err) != 5 {
 		t.Fatalf("want exit 5: %v\n%s", err, out)
 	}
 	var got []string
@@ -96,12 +104,12 @@ func TestC5ProviderIncludeRowsKeepProviderOrderBetweenLocalAndUnavailable(t *tes
 		got = append(got, r.Rule+"|"+r.Message)
 	}
 	rules := strings.Join(got, "\n")
-	iLocal := strings.Index(rules, "skill-name-invalid")
+	iServer := strings.Index(rules, "skill-name-invalid")
 	iZ := strings.Index(rules, "zzz second include")
 	iA := strings.Index(rules, "aaa first include")
 	iGone := strings.Index(rules, "skill-node-unavailable")
-	if iLocal < 0 || iZ < 0 || iA < 0 || iGone < 0 || iLocal >= iZ || iZ >= iA || iA >= iGone {
-		t.Fatalf("row order not local < provider(server order) < unavailable:\n%s", rules)
+	if iServer < 0 || iZ < 0 || iA < 0 || iGone < 0 || iServer >= iZ || iZ >= iA || iA >= iGone {
+		t.Fatalf("row order not server entry/finding order < unavailable:\n%s", rules)
 	}
 }
 
@@ -117,7 +125,7 @@ func TestC5SkillLintAllScopesProviderPlanToTheSelectedNodesMemories(t *testing.T
 		"MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
 		"FindNodes":            listOf(nodeID),
 		"NodeBatch":            batchOf(good),
-		"SkillPlan":            emptyIncludeLintPlan,
+		"SkillLintPlan":        skillLintPlan(skillLintEntry(nodeID)),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -131,11 +139,11 @@ func TestC5SkillLintAllScopesProviderPlanToTheSelectedNodesMemories(t *testing.T
 			Memories []string
 		}
 	}
-	if err := json.Unmarshal(captured["SkillPlan"], &vars); err != nil {
-		t.Fatalf("SkillPlan variables: %v %s", err, captured["SkillPlan"])
+	if err := json.Unmarshal(captured["SkillLintPlan"], &vars); err != nil {
+		t.Fatalf("SkillPlan variables: %v %s", err, captured["SkillLintPlan"])
 	}
 	if vars.Input.Intent != "LINT" || len(vars.Input.Memories) == 0 {
-		t.Fatalf("--all sent no provider scope: %s", captured["SkillPlan"])
+		t.Fatalf("--all sent no provider scope: %s", captured["SkillLintPlan"])
 	}
 	// Scope is by memory id and only the memories the selected nodes live in.
 	if got := strings.Join(vars.Input.Memories, ","); got != "mem1" {

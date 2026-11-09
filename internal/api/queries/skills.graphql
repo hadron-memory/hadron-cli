@@ -79,6 +79,42 @@ query SkillPlan(
   }
 }
 
+# SkillLintPlan selects the lint-only host-free judgment without making status
+# require the newer `unrecognized` field. Like SkillPlan, it never selects a
+# rendered body: lint is a read-only consumer of the server's judgment.
+query SkillLintPlan(
+  $input: SkillPlanInput!
+) {
+  skillPlan(input: $input) {
+    scanned
+    judged
+    entries {
+      urn
+      nodeId
+      class
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+    # Nodes carrying an `exports` key that names no host (P16). HOST-FREE and
+    # identical in every host's plan, so lint reports each node once.
+    unrecognized {
+      nodeId
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+  }
+}
+
 # SkillExportPlan is `skill export`'s own operation (#621): the one that selects
 # `renderedBody` and the server's per-entry `exportPlan`. It is a separate
 # operation, not extra fields on SkillPlan, so `status` and `lint` still CANNOT

@@ -81317,6 +81317,180 @@ func (v *SkillFileFactsInput) GetRevision() *int { return v.Revision }
 // GetSourceUrn returns SkillFileFactsInput.SourceUrn, and is useful for accessing the field via an interface.
 func (v *SkillFileFactsInput) GetSourceUrn() *string { return v.SourceUrn }
 
+// SkillLintPlanResponse is returned by SkillLintPlan on success.
+type SkillLintPlanResponse struct {
+	// #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
+	//
+	// One surface serving skill lint, skill status and skill export. The client
+	// sends what it can see of each file on disk; the server returns a drift
+	// CLASS and the lint findings per declared node, plus the rendered body for
+	// anything the client is to write.
+	//
+	// A QUERY, not a mutation, and that is the contract. Nothing here writes to a
+	// node — publishing is one-way, and the only writer in the feature is the
+	// client's own filesystem. So status and lint cannot write by construction
+	// rather than by promise.
+	//
+	// The client cannot name a drift class: the vocabulary is the server's, so it
+	// cannot drift between clients. A node failing lint is never given a rendered
+	// body, so a client cannot write a file the server judged broken.
+	SkillPlan *SkillLintPlanSkillPlan `json:"skillPlan"`
+}
+
+// GetSkillPlan returns SkillLintPlanResponse.SkillPlan, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanResponse) GetSkillPlan() *SkillLintPlanSkillPlan { return v.SkillPlan }
+
+// SkillLintPlanSkillPlan includes the requested fields of the GraphQL type SkillPlan.
+type SkillLintPlanSkillPlan struct {
+	// How many nodes carrying ANY declaration key were in scope. A plan over an
+	// empty corpus and a plan the caller cannot see are otherwise the same empty
+	// list, and a client that cannot tell them apart reports nothing-to-do for a
+	// corpus it was denied.
+	Scanned int `json:"scanned"`
+	// How many of those were judged for THIS host — the number of entries. A node
+	// declaring only another host is scanned and not judged, so the two differ by
+	// design; the gap is a fact about the corpus, not a discrepancy.
+	Judged  int                                            `json:"judged"`
+	Entries []*SkillLintPlanSkillPlanEntriesSkillPlanEntry `json:"entries"`
+	// Nodes in scope carrying a key under properties.exports that names no host
+	// (#1292, cor:agt:030:06): an unrecognised key is reported, never read as an
+	// alias, and never blocks anything. HOST-INDEPENDENT: the list is identical
+	// in every host's plan, because the key belongs to none of them, so a client
+	// reports each node once rather than once per host. A node here may also
+	// have an entry, when it declares a known host too; one declaring only
+	// unknown keys has none, and is part of the scanned-minus-judged gap.
+	Unrecognized []*SkillLintPlanSkillPlanUnrecognized `json:"unrecognized"`
+}
+
+// GetScanned returns SkillLintPlanSkillPlan.Scanned, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlan) GetScanned() int { return v.Scanned }
+
+// GetJudged returns SkillLintPlanSkillPlan.Judged, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlan) GetJudged() int { return v.Judged }
+
+// GetEntries returns SkillLintPlanSkillPlan.Entries, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlan) GetEntries() []*SkillLintPlanSkillPlanEntriesSkillPlanEntry {
+	return v.Entries
+}
+
+// GetUnrecognized returns SkillLintPlanSkillPlan.Unrecognized, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlan) GetUnrecognized() []*SkillLintPlanSkillPlanUnrecognized {
+	return v.Unrecognized
+}
+
+// SkillLintPlanSkillPlanEntriesSkillPlanEntry includes the requested fields of the GraphQL type SkillPlanEntry.
+type SkillLintPlanSkillPlanEntriesSkillPlanEntry struct {
+	Urn    string `json:"urn"`
+	NodeId string `json:"nodeId"`
+	// One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+	// unhashed, collision, unavailable, disabled. Null when the file could not be
+	// parsed — a parse failure is reported as a FAILURE, not as a class.
+	Class    *string                                                            `json:"class"`
+	Findings []*SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding `json:"findings"`
+}
+
+// GetUrn returns SkillLintPlanSkillPlanEntriesSkillPlanEntry.Urn, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntry) GetUrn() string { return v.Urn }
+
+// GetNodeId returns SkillLintPlanSkillPlanEntriesSkillPlanEntry.NodeId, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntry) GetNodeId() string { return v.NodeId }
+
+// GetClass returns SkillLintPlanSkillPlanEntriesSkillPlanEntry.Class, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntry) GetClass() *string { return v.Class }
+
+// GetFindings returns SkillLintPlanSkillPlanEntriesSkillPlanEntry.Findings, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntry) GetFindings() []*SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding {
+	return v.Findings
+}
+
+// SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding includes the requested fields of the GraphQL type SkillFinding.
+// The GraphQL type's documentation follows.
+//
+// One lint result, carrying the node and memory so a renderer never looks them back up.
+type SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding struct {
+	Rule string `json:"rule"`
+	// Either error or warning — the same vocabulary spec lint renders.
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Urn      string `json:"urn"`
+	Memory   string `json:"memory"`
+}
+
+// GetRule returns SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetRule() string {
+	return v.Rule
+}
+
+// GetSeverity returns SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetSeverity() string {
+	return v.Severity
+}
+
+// GetMessage returns SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Message, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetUrn returns SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Urn, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetUrn() string {
+	return v.Urn
+}
+
+// GetMemory returns SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Memory, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMemory() string {
+	return v.Memory
+}
+
+// SkillLintPlanSkillPlanUnrecognized includes the requested fields of the GraphQL type SkillPlanUnrecognized.
+// The GraphQL type's documentation follows.
+//
+// A node carrying one or more exports keys that name no host (#1292).
+type SkillLintPlanSkillPlanUnrecognized struct {
+	NodeId string `json:"nodeId"`
+	// One warning per listed key, plus one for any not listed. Attributed to no host; never blocks.
+	Findings []*SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding `json:"findings"`
+}
+
+// GetNodeId returns SkillLintPlanSkillPlanUnrecognized.NodeId, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognized) GetNodeId() string { return v.NodeId }
+
+// GetFindings returns SkillLintPlanSkillPlanUnrecognized.Findings, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognized) GetFindings() []*SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding {
+	return v.Findings
+}
+
+// SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding includes the requested fields of the GraphQL type SkillFinding.
+// The GraphQL type's documentation follows.
+//
+// One lint result, carrying the node and memory so a renderer never looks them back up.
+type SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding struct {
+	Rule string `json:"rule"`
+	// Either error or warning — the same vocabulary spec lint renders.
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Urn      string `json:"urn"`
+	Memory   string `json:"memory"`
+}
+
+// GetRule returns SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding) GetRule() string { return v.Rule }
+
+// GetSeverity returns SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding) GetSeverity() string {
+	return v.Severity
+}
+
+// GetMessage returns SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding.Message, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetUrn returns SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding.Urn, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding) GetUrn() string { return v.Urn }
+
+// GetMemory returns SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding.Memory, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding) GetMemory() string { return v.Memory }
+
 type SkillPlanInput struct {
 	// What the client found on disk. Empty for lint, which touches no disk.
 	Files []*SkillFileFactsInput `json:"files,omitempty"`
@@ -110994,6 +111168,14 @@ type __SkillExportPlanInput struct {
 
 // GetInput returns __SkillExportPlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SkillExportPlanInput) GetInput() *SkillPlanInput { return v.Input }
+
+// __SkillLintPlanInput is used internally by genqlient
+type __SkillLintPlanInput struct {
+	Input *SkillPlanInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SkillLintPlanInput.Input, and is useful for accessing the field via an interface.
+func (v *__SkillLintPlanInput) GetInput() *SkillPlanInput { return v.Input }
 
 // __SkillPlanInput is used internally by genqlient
 type __SkillPlanInput struct {
@@ -144062,6 +144244,66 @@ func SkillExportPlan(
 	}
 
 	data_ = &SkillExportPlanResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SkillLintPlan.
+const SkillLintPlan_Operation = `
+query SkillLintPlan ($input: SkillPlanInput!) {
+	skillPlan(input: $input) {
+		scanned
+		judged
+		entries {
+			urn
+			nodeId
+			class
+			findings {
+				rule
+				severity
+				message
+				urn
+				memory
+			}
+		}
+		unrecognized {
+			nodeId
+			findings {
+				rule
+				severity
+				message
+				urn
+				memory
+			}
+		}
+	}
+}
+`
+
+// SkillLintPlan selects the lint-only host-free judgment without making status
+// require the newer `unrecognized` field. Like SkillPlan, it never selects a
+// rendered body: lint is a read-only consumer of the server's judgment.
+func SkillLintPlan(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SkillPlanInput,
+) (data_ *SkillLintPlanResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SkillLintPlan",
+		Query:  SkillLintPlan_Operation,
+		Variables: &__SkillLintPlanInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SkillLintPlanResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -710,6 +710,26 @@ func TestSkillPlanQueryNeverSelectsRenderedBody(t *testing.T) {
 	}
 }
 
+// The host-free lint judgment is selected only by lint. Keeping it out of the
+// shared status operation preserves status compatibility with servers whose
+// schema predates SkillPlan.unrecognized.
+func TestSkillPlanQueryDoesNotSelectLintOnlyUnrecognized(t *testing.T) {
+	for _, line := range strings.Split(gen.SkillPlan_Operation, "\n") {
+		if strings.TrimSpace(line) == "unrecognized {" {
+			t.Fatalf("status selects lint-only unrecognized rows:\n%s", gen.SkillPlan_Operation)
+		}
+	}
+	var sawLintControl bool
+	for _, line := range strings.Split(gen.SkillLintPlan_Operation, "\n") {
+		if strings.TrimSpace(line) == "unrecognized {" {
+			sawLintControl = true
+		}
+	}
+	if !sawLintControl {
+		t.Fatal("control failed: lint does not select unrecognized rows")
+	}
+}
+
 // @codex on #652: `SkillPlanInput.Memories` carries `omitempty`, so an EMPTY
 // slice is omitted from the wire — and the schema defines an omitted
 // `memories` as EVERY memory the caller can read. So the one case where this

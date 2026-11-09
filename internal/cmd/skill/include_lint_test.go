@@ -28,7 +28,7 @@ func TestProviderIncludesScopeIdentityAndHostMerging(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
-		if body.OperationName != "SkillPlan" || body.Variables.Input.Intent != "LINT" || !reflect.DeepEqual(body.Variables.Input.Memories, []string{"m1", "m2"}) {
+		if body.OperationName != "SkillLintPlan" || body.Variables.Input.Intent != "LINT" || !reflect.DeepEqual(body.Variables.Input.Memories, []string{"m1", "m2"}) {
 			t.Errorf("wrong plan scope: %#v", body)
 		}
 		if strings.Contains(body.Query, "renderedBody") || strings.Contains(body.Query, "content(") {
@@ -36,15 +36,15 @@ func TestProviderIncludesScopeIdentityAndHostMerging(t *testing.T) {
 		}
 		hosts = append(hosts, body.Variables.Input.Host)
 		w.Header().Set("Content-Type", "application/json")
-		// Distinct ids can emit the same legacy URN. They must remain distinct
-		// findings, while each node's identical finding merges across the hosts.
-		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"entries":[
-   {"nodeId":"n1","findings":[{"urn":"same-urn","memory":"m1","rule":"skill-include-broken","severity":"warning","message":"neutral warning"}]},
+		// A repeated identical finding within one host is deduplicated without
+		// duplicating that host; distinct node ids never merge, even on URN reuse.
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":3,"entries":[
+   {"nodeId":"n1","findings":[{"urn":"same-urn","memory":"m1","rule":"skill-include-broken","severity":"warning","message":"neutral warning"},{"urn":"same-urn","memory":"m1","rule":"skill-include-broken","severity":"warning","message":"neutral warning"}]},
    {"nodeId":"n2","findings":[{"urn":"same-urn","memory":"m2","rule":"skill-include-broken","severity":"warning","message":"neutral warning"}]},
-   {"nodeId":"outside","findings":[{"urn":"outside","memory":"m1","rule":"skill-include-broken","severity":"warning","message":"must not appear"}]}],"orphans":[]}}}`)
+   {"nodeId":"outside","findings":[{"urn":"outside","memory":"m1","rule":"skill-include-broken","severity":"warning","message":"must not appear"}]}],"unrecognized":[]}}}`)
 	}))
 	defer srv.Close()
-	rows, err := providerIncludeFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n2", MemoryId: "m2"}, {Id: "n1", MemoryId: "m1"}, {Id: "n1", MemoryId: "m1"}})
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n2", MemoryId: "m2"}, {Id: "n1", MemoryId: "m1"}, {Id: "n1", MemoryId: "m1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,19 +63,20 @@ func TestProviderIncludesScopeIdentityAndHostMerging(t *testing.T) {
 
 func TestProviderIncludesMalformedResultsNeverBecomeClean(t *testing.T) {
 	for name, entries := range map[string]string{
-		"null entry":    `[null]`,
-		"null findings": `[{"nodeId":"n1","findings":null}]`,
-		"null finding":  `[{"nodeId":"n1","findings":[null]}]`,
+		"null entry":               `[null]`,
+		"null findings":            `[{"nodeId":"n1","findings":null}]`,
+		"null finding":             `[{"nodeId":"n1","findings":[null]}]`,
+		"unselected null findings": `[{"nodeId":"other","findings":null}]`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			calls := 0
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
 				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, `{"data":{"skillPlan":{"entries":%s}}}`, entries)
+				fmt.Fprintf(w, `{"data":{"skillPlan":{"judged":1,"entries":%s,"unrecognized":[]}}}`, entries)
 			}))
 			defer srv.Close()
-			rows, err := providerIncludeFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
+			rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
 			if err == nil || len(rows) != 0 || calls != 1 {
 				t.Fatalf("malformed plan accepted: rows=%#v err=%v calls=%d", rows, err, calls)
 			}
@@ -88,11 +89,11 @@ func TestProviderIncludesEmptyAndMissingScopeMakeNoRequests(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; t.Error("unexpected plan request") }))
 	defer srv.Close()
 	client := graphql.NewClient(srv.URL, srv.Client())
-	rows, err := providerIncludeFindings(context.Background(), client, nil)
+	rows, err := providerLintFindings(context.Background(), client, nil)
 	if err != nil || rows == nil || len(rows) != 0 {
 		t.Fatalf("empty result changed: %#v %v", rows, err)
 	}
-	if _, err := providerIncludeFindings(context.Background(), client, []*batchNode{{Id: "n1"}}); err == nil {
+	if _, err := providerLintFindings(context.Background(), client, []*batchNode{{Id: "n1"}}); err == nil {
 		t.Fatal("missing memory accepted")
 	}
 	if calls != 0 {
@@ -121,16 +122,105 @@ func TestProviderIncludesHostGapFilterSeverityAndDistinctMessages(t *testing.T) 
 		}
 		calls++
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"data":{"skillPlan":{"scanned":4,"judged":1,"entries":[{"nodeId":"n1","findings":[{"urn":"urn1","memory":"m1","rule":"skill-include-broken","severity":"error","message":"%s"},{"urn":"urn1","memory":"m1","rule":"skill-name-invalid","severity":"error","message":"excluded"}]}]}}}`, body.Variables.Input.Host)
+		fmt.Fprintf(w, `{"data":{"skillPlan":{"scanned":4,"judged":1,"entries":[{"nodeId":"n1","findings":[{"urn":"urn1","memory":"m1","rule":"skill-include-broken","severity":"error","message":"%s"},{"urn":"urn1","memory":"m1","rule":"skill-name-invalid","severity":"error","message":"excluded"}]}],"unrecognized":[]}}}`, body.Variables.Input.Host)
 	}))
 	defer srv.Close()
-	rows, err := providerIncludeFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n3", MemoryId: "m3"}, {Id: "n1", MemoryId: "m1"}, {Id: "n2", MemoryId: "m2"}, {Id: "n4", MemoryId: "m1"}})
-	if err != nil || calls != 2 || len(rows) != 2 {
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n3", MemoryId: "m3"}, {Id: "n1", MemoryId: "m1"}, {Id: "n2", MemoryId: "m2"}, {Id: "n4", MemoryId: "m1"}})
+	if err != nil || calls != 2 || len(rows) != 3 {
 		t.Fatalf("host gap mistaken for truncation: %v %#v", err, rows)
 	}
+	includeRows := 0
 	for _, row := range rows {
-		if row.Rule != "skill-include-broken" || row.Severity != "error" || len(row.Hosts) != 1 || row.Message != row.Hosts[0] {
-			t.Fatalf("filter/severity/message grouping changed: %#v", row)
+		if row.Rule == "skill-include-broken" {
+			includeRows++
+			if row.Severity != "error" || len(row.Hosts) != 1 || row.Message != row.Hosts[0] {
+				t.Fatalf("severity/message grouping changed: %#v", row)
+			}
 		}
+		if row.Rule == "skill-name-invalid" && !reflect.DeepEqual(row.Hosts, []string{"claudeSkill", "codexSkill"}) {
+			t.Fatalf("non-include server finding was not preserved and merged: %#v", row)
+		}
+	}
+	if includeRows != 2 {
+		t.Fatalf("include findings changed: %#v", rows)
+	}
+}
+
+func TestProviderLintUnavailableIsNotClean(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":1,"entries":[{"urn":"urn1","nodeId":"n1","class":"unavailable","findings":[]}],"unrecognized":[]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("locked entry became a false clean: %#v %v", rows, err)
+	}
+	row := rows[0]
+	if row.Node != "urn1" || row.Rule != "skill-node-unavailable" || row.Severity != "warning" || len(row.Hosts) != 0 {
+		t.Fatalf("wrong unavailable row: %#v", row)
+	}
+}
+
+func TestProviderLintRejectsJudgedMismatch(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":1,"entries":[],"unrecognized":[]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
+	if err == nil || len(rows) != 0 || calls != 1 {
+		t.Fatalf("inconsistent plan became a false clean: %#v %v calls=%d", rows, err, calls)
+	}
+}
+
+func TestProviderLintValidatesLaterHostUnrecognized(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[]}}}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[null]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
+	if err == nil || len(rows) != 0 || calls != 2 {
+		t.Fatalf("later malformed host-free plan accepted: %#v %v calls=%d", rows, err, calls)
+	}
+}
+
+func TestProviderLintRejectsInconsistentLaterHostUnrecognized(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[]}}}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[{"nodeId":"n1","findings":[{"urn":"urn1","memory":"m1","rule":"skill-unknown-host-key","severity":"warning","message":"later host only"}]}]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1"}})
+	if err == nil || len(rows) != 0 || calls != 2 {
+		t.Fatalf("inconsistent host-free plan accepted: %#v %v calls=%d", rows, err, calls)
+	}
+}
+
+func TestProviderLintRejectsSelectedDeclarationOmission(t *testing.T) {
+	props := json.RawMessage(`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"scanned":1,"judged":0,"entries":[],"unrecognized":[]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1", Properties: &props}})
+	if err == nil || len(rows) != 0 {
+		t.Fatalf("selected declaration omission became clean: %#v %v", rows, err)
 	}
 }

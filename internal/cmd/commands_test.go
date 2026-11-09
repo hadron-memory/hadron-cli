@@ -43,6 +43,17 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		captured[body.OperationName] = body.Variables
 		capturedMu.Unlock()
 		resp, ok := responses[body.OperationName]
+		if body.OperationName == "SkillPlan" || body.OperationName == "SkillLintPlan" {
+			var v struct {
+				Input struct {
+					Host string `json:"host"`
+				} `json:"input"`
+			}
+			_ = json.Unmarshal(body.Variables, &v)
+			if hostResp, exists := responses[body.OperationName+":"+v.Input.Host]; exists {
+				resp, ok = hostResp, true
+			}
+		}
 		if !ok && body.OperationName == "NodeBatchContent" {
 			resp, ok = responses["NodeBatch"]
 		}

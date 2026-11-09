@@ -1450,8 +1450,9 @@ Conventions:
   the host(s) whose judgment produced it. A finding every host reports
   identically is one row naming them all, and an unreadable node's row has
   `hosts: []`. A key under `exports` that names NO host (e.g. `codex`) is a
-  `skill-unknown-host-key` WARNING, one row per key with `hosts: []` — it
-  belongs to no host — never read as an alias, and never blocking a known host
+  `skill-unknown-host-key` WARNING, with up to ten key-specific rows and one
+  aggregate row for any remainder, all with `hosts: []` — the keys
+  belong to no host — never read as aliases, and never blocking a known host
   beside it, however malformed (cor:agt:030:06). Note
   what cannot be checked: with no prefix source, a name's PREFIX is
   unverifiable — `hadon-foo` lints clean. `--all` walks what the server lists for you — own-org,
@@ -4795,9 +4796,9 @@ highest of 7 (lost response), 1 (undecided worker) and each failure's code.
 
 `node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. An unavailable advisory read also prints exactly one fixed stderr class per command: `lint warnings: unavailable (advisory read did not complete)`. No underlying error or concealment reason is exposed. A failed warning read never retries or changes a successful mutation, stdout/JSON or exit; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Advisory reads share a five-second budget across the command, including every batch-get node; timeout leaves the main receipt successful with warning state unavailable. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.
 
-## Skill include lint (#916 C5)
+## Skill lint server judgment (#1393)
 
-`skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit 0 (`--strict` promotes to 5). Row order is documented, not sorted: local corpus rules, then provider include rows in the provider's order (hosts in declaration order, a finding repeated under another host is one row with more hosts), then unavailable-node rows. Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
+`skill lint` reports the server's LINT-plan findings, including `skill-include-broken` warnings, using the explicit selected memories and filtering exact selected node IDs. The server judges the memory-wide corpus, so a selected node can carry a collision finding caused by an unselected node. Warnings preserve the server message and remain exit 0 (`--strict` promotes them to 5); error findings exit 5. Row order is documented, not sorted: hosted findings in host declaration order and then server entry/finding order (an identical finding under another host is one row with more hosts), host-free unknown-key rows, then unavailable-node rows. Literal notice text alone is never interpreted as a broken include. A failed, unavailable, or incomplete plan returns an error, never a clean or partial lint and never a local fallback; there is no offline mode. No rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
 hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
 hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]

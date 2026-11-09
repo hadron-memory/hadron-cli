@@ -44,7 +44,7 @@ A declaration is an object at properties.exports.<host>, carrying
 properties.claudeSkill are read as aliases for the claudeSkill host, so nothing
 has to be migrated to keep working.
 
-Every host is checked — claudeSkill and codexSkill — each declaration against
+Every host is checked by the server — claudeSkill and codexSkill — each declaration against
 its OWN host's caps, and each finding names the host(s) it came from. The
 retired keys alias to claudeSkill only.
 
@@ -58,7 +58,7 @@ TRUNCATES it in the skill listing, so trigger phrases past the cut silently
 never fire — and, for claudeSkill, holds nothing its upload validator
 refuses as an XML tag (a "<" followed later by a ">" with at least one
 character between, such as <memory>); isRunnable is true; the body is non-empty and carries no
-frontmatter of its own; no two selected nodes ENABLE the same name for the same
+frontmatter of its own; no two nodes in the server's corpus ENABLE the same name for the same
 host (a declaration that is not enabled claims no name, cor:agt:030:06). Warnings: the declaration still uses a retired key; the description never
 says when to use the skill; the stored body contains a {{…}} placeholder that ships
 as literal text (an include tag {{> part}} is resolved on export, so it is not flagged); a key under exports names no host (reported once, with no
@@ -67,11 +67,11 @@ host — it is never read as an alias and never blocks a known host beside it).
 Note what cannot be checked: with no prefix source, a name's PREFIX is
 unverifiable — "hadon-foo" lints clean. Shape is checkable, correctness is not.
 
-The server also checks include resolution using your access and reports
+The same server judgment checks include resolution using your access and reports
 skill-include-broken warnings. Missing/deleted/unreadable include targets share
 a neutral warning; this client never diagnoses them by searching body text.
-This requires the S11d provider. It does not fetch rendered skill bodies or
-write files; provider failure does not become a clean lint result.
+The client does not fetch rendered skill bodies or write files; provider failure
+does not become a clean lint result or fall back to a local verdict.
 
 Errors exit 5; warnings alone exit 0 unless --strict promotes them to errors.
 
@@ -96,47 +96,20 @@ listing by the server; lint it by naming it with -m.`,
 				return err
 			}
 
-			var acc findingSet
-			nodes := make([]skilldoc.Node, 0, len(s.nodes))
 			declared := 0
 			for _, n := range s.nodes {
 				memURN := ""
 				if m := s.memories[n.MemoryId]; m != nil {
 					memURN = m.URN
 				}
-				sn := toSkillNode(n, memURN)
-				nodes = append(nodes, sn)
-				if declaresAnyHost(sn.Properties) {
+				if declaresAnyHost(toSkillNode(n, memURN).Properties) {
 					declared++
 				}
-				// #665: every host, not only Claude. A Codex declaration over
-				// its cap was an all-clear before, because nothing judged it.
-				for _, h := range skilldoc.Hosts {
-					for _, fnd := range skilldoc.LintFor(sn, h) {
-						acc.add(fnd, h.Key)
-					}
-				}
 			}
-			for _, h := range skilldoc.Hosts {
-				for _, fnd := range skilldoc.LintCollisionsFor(nodes, h) {
-					acc.add(fnd, h.Key)
-				}
-			}
-			// An exports key no host owns is judged ONCE, host-free
-			// (cor:agt:030:06): its row carries no host, because it belongs to
-			// none — not every host's, which is what merging it would claim.
-			for _, sn := range nodes {
-				for _, fnd := range skilldoc.LintUnknownHostKeys(sn) {
-					acc.addUnhosted(fnd)
-				}
-			}
-			includeFindings, err := providerIncludeFindings(cmd.Context(), client, s.nodes)
+			findings, err := providerLintFindings(cmd.Context(), client, s.nodes)
 			if err != nil {
 				return err
 			}
-			// Initialized, never nil: a clean corpus is `[]` on --json, not `null`.
-			findings := append([]lintFindingDTO{}, acc.rows...)
-			findings = append(findings, includeFindings...)
 			for _, ref := range s.unavailable {
 				findings = append(findings, lintFindingDTO{Node: ref, Memory: "-", Rule: "skill-node-unavailable", Severity: skilldoc.SevWarning, Message: describeUnavailable(ref), Hosts: []string{}})
 			}
@@ -185,35 +158,6 @@ listing by the server; lint it by naming it with -m.`,
 	sel.register(cmd)
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
-}
-
-// findingSet accumulates lint findings across hosts, in first-seen order. A
-// finding identical under several hosts (same node, rule, severity and
-// message) is one row carrying every host that reported it: node-level rules
-// and a malformed `exports` entry are judged under each host, and printing
-// them once per host would double every such report.
-type findingSet struct {
-	rows  []lintFindingDTO
-	index map[[4]string]int
-}
-
-func (s *findingSet) add(f skilldoc.Finding, host string) {
-	if s.index == nil {
-		s.index = map[[4]string]int{}
-	}
-	k := [4]string{f.URN, f.Rule, f.Severity, f.Message}
-	if i, ok := s.index[k]; ok {
-		s.rows[i].Hosts = append(s.rows[i].Hosts, host)
-		return
-	}
-	s.index[k] = len(s.rows)
-	s.rows = append(s.rows, lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message, Hosts: []string{host}})
-}
-
-// addUnhosted records a finding about no host (an unknown exports key). It
-// is never merged into a host's row, and its Hosts is empty, not nil.
-func (s *findingSet) addUnhosted(f skilldoc.Finding) {
-	s.rows = append(s.rows, lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message, Hosts: []string{}})
 }
 
 // declaresAnyHost reports whether a node carries a declaration for at least
