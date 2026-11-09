@@ -343,3 +343,29 @@ func TestChatConfigSetRefusesUnreadableExistingConfig(t *testing.T) {
 		t.Error("a backup of an unreadable config")
 	}
 }
+
+// QA3: an unreadable NEARER config beside a readable ancestor. The readers walk
+// past the nearer one to the ancestor, but set must not write the ancestor (or
+// leave a .bak) while a config it cannot read sits closer.
+func TestChatConfigSetRefusesUnreadableNearerConfigWithReadableAncestor(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads everything")
+	}
+	dir := chatConfigDir(t, `{"appKey":"k"}`) // ancestor config at dir/.hadron; cwd is dir/a/b
+	near := filepath.Join(dir, "a", "b", ".hadron", "config.json")
+	if err := os.MkdirAll(filepath.Dir(near), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(near, []byte(`{"appKey":"near"}`), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(near, 0o600) })
+	_, err := runChat(t, "chat", "config", "set", "--node", setNode)
+	wantUsage(t, err)
+	if got := readFile(t, cfgPath(dir)); got != `{"appKey":"k"}` {
+		t.Errorf("the ancestor config was written while a nearer one is unreadable:\n%s", got)
+	}
+	if _, err := os.Stat(cfgPath(dir) + ".bak"); err == nil {
+		t.Error("a backup was written")
+	}
+}

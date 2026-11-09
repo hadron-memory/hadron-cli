@@ -128,6 +128,13 @@ func configSetUpdates(cmd *cobra.Command, node, memory, messagesLoc string) ([]c
 func applyConfigSet(sets []configSetItem) (configSetDTO, error) {
 	dto := configSetDTO{Set: sets}
 	_, cf := findProjectChat()
+	// A nearer config the readers had to skip (unreadable) is still THERE: if it
+	// becomes readable it shadows whatever we write further up, and if none is
+	// found we would create beside or over it. Either way we cannot know what we
+	// would be hiding or destroying, so refuse before anything else.
+	if len(cf.Skipped) > 0 {
+		return dto, exitcode.Newf(exitcode.Usage, "%s exists but cannot be read (%s) — nothing written; fix its permissions or remove it", cf.Skipped[0].Path, cf.Skipped[0].Reason)
+	}
 	path := cf.Path
 	var raw []byte
 	if path == "" {
@@ -136,12 +143,6 @@ func applyConfigSet(sets []configSetItem) (configSetDTO, error) {
 			return dto, exitcode.Newf(exitcode.Usage, "cannot resolve the working directory: %v", err)
 		}
 		path = filepath.Join(wd, ".hadron", "config.json")
-		// A config the readers skipped (unreadable) leaves Path empty, but it is
-		// there: creating a file beside or over it would hide or destroy what we
-		// could not read.
-		if len(cf.Skipped) > 0 {
-			return dto, exitcode.Newf(exitcode.Usage, "%s exists but cannot be read (%s) — nothing written; fix its permissions or remove it", cf.Skipped[0].Path, cf.Skipped[0].Reason)
-		}
 		if _, err := os.Lstat(path); err == nil {
 			return dto, exitcode.Newf(exitcode.Usage, "%s exists but cannot be read — nothing written", path)
 		}

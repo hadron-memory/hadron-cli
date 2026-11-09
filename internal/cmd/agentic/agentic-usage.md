@@ -1660,7 +1660,7 @@ Conventions:
   included, keeps its raw bytes and order and is never printed. An existing file
   is copied to `config.json.bak` first and replaced atomically with its mode
   kept. Exit 2, nothing written, on invalid JSON, an empty or non-object file, a non-object `chat`,
-  a duplicate key (case-insensitive, as the readers match), a symlinked file, an unreadable existing config, a blank value, an unparseable node URN, or
+  a duplicate key (case-insensitive, as the readers match), a symlinked file, an unreadable config anywhere on the search path (even beside a readable ancestor), a blank value, an unparseable node URN, or
   no flag. It takes no handle/identity/role/session flag, never posts and never
   contacts the server. `--json`: `{path,created,backup,set:[{key,value}]}`.
   A message body read from `-` (`chat post --body -`, `team chat post -`,
