@@ -724,6 +724,32 @@ func TestSkillLintReportsAnUnknownHostKeyOnceWithNoHost(t *testing.T) {
 	}
 }
 
+func TestSkillLintHumanSummaryCountsMalformedAndUnknownDeclarations(t *testing.T) {
+	for name, fixture := range map[string]struct {
+		properties string
+		plan       string
+	}{
+		"malformed known host": {
+			`{"skill":"yes"}`,
+			skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem1", "skill-declaration-malformed", "error", "server malformed declaration"))),
+		},
+		"unknown host only": {
+			`{"exports":{"futureHost":{"name":"hadron-a","description":"Use when a."}}}`,
+			skillLintUnknownPlan("n1", skillLintFinding("urn:n1", "mem1", "skill-unknown-host-key", "warning", "server unknown host")),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true, fixture.properties, `"# A"`)
+			out, _ := runSkillLint(t, map[string]string{
+				"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n), "SkillPlan": fixture.plan,
+			}, "-m", "hrn:mem:hadronmemory.com:core")
+			if !strings.Contains(out, "1 finding(s) across 1 skill-declaring node(s)") {
+				t.Fatalf("summary undercounted the declaration subject:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestSkillLintReportsServerVerdictInsteadOfLocal(t *testing.T) {
 	// The local judge rejects Bad_Name. The server is the one judge and returns
 	// a different finding; the local verdict must not survive beside it.

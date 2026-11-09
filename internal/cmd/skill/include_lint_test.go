@@ -224,3 +224,46 @@ func TestProviderLintRejectsSelectedDeclarationOmission(t *testing.T) {
 		t.Fatalf("selected declaration omission became clean: %#v %v", rows, err)
 	}
 }
+
+func TestProviderLintReportsUnavailableFromEitherHost(t *testing.T) {
+	props := json.RawMessage(`{"exports":{"codexSkill":{"name":"hadron-a","description":"Use when a."}}}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables struct {
+				Input struct{ Host string }
+			}
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.Variables.Input.Host == "claudeSkill" {
+			_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[]}}}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":1,"entries":[{"urn":"urn1","nodeId":"n1","class":"unavailable","findings":[]}],"unrecognized":[]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1", Properties: &props}})
+	if err != nil || len(rows) != 1 || rows[0].Rule != "skill-node-unavailable" {
+		t.Fatalf("Codex-only locked entry became a false clean: %#v %v", rows, err)
+	}
+}
+
+func TestProviderLintRejectsMissingOrEmptyUnknownHostJudgment(t *testing.T) {
+	props := json.RawMessage(`{"exports":{"futureHost":{"name":"hadron-a","description":"Use when a."}}}`)
+	for name, unrecognized := range map[string]string{
+		"missing entry":  `[]`,
+		"empty findings": `[{"nodeId":"n1","findings":[]}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":%s}}}`, unrecognized)
+			}))
+			defer srv.Close()
+			rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", MemoryId: "m1", Properties: &props}})
+			if err == nil || len(rows) != 0 {
+				t.Fatalf("incomplete unknown-host judgment became clean: %#v %v", rows, err)
+			}
+		})
+	}
+}

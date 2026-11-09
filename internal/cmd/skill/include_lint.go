@@ -32,9 +32,13 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 	selected := map[string]bool{}
 	properties := map[string]map[string]any{}
 	memorySet := map[string]bool{}
+	expectedUnrecognized := map[string]bool{}
 	for _, n := range nodes {
 		selected[n.Id] = true
 		properties[n.Id] = toSkillNode(n, "").Properties
+		if len(skilldoc.UnknownHostKeys(properties[n.Id])) > 0 {
+			expectedUnrecognized[n.Id] = true
+		}
 		if n.MemoryId == "" {
 			return nil, exitcode.Newf(exitcode.Error, "cannot lint skills: selected node has no memory id")
 		}
@@ -49,6 +53,8 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 	// two nodes whose URNs coincide under legacy/compound memory spellings.
 	type key struct{ node, rule, severity, message string }
 	index := map[key]int{}
+	unavailableSelected := map[string]bool{}
+	unrecognizedSelected := map[string]bool{}
 	var unrecognized []*gen.SkillLintPlanSkillPlanUnrecognized
 	for hostIndex, h := range skilldoc.Hosts {
 		host := h.Key
@@ -106,9 +112,11 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 				continue
 			}
 			judgedSelected[entry.NodeId] = true
-			if hostIndex == 0 && entry.Class != nil && *entry.Class == "unavailable" {
+			if entry.Class != nil && *entry.Class == "unavailable" && !unavailableSelected[entry.NodeId] {
 				// A locked encrypted entry has no findings by design: judging its
-				// ciphertext would invent a verdict. It is still not a clean node.
+				// ciphertext would invent a verdict. Report it once when EITHER host
+				// returns it; a Codex-only declaration has no Claude entry.
+				unavailableSelected[entry.NodeId] = true
 				out = append(out, lintFindingDTO{Node: entry.Urn, Memory: "-", Rule: "skill-node-unavailable", Severity: skilldoc.SevWarning, Message: describeUnavailable(entry.Urn), Hosts: []string{}})
 			}
 			for _, finding := range entry.Findings {
@@ -137,8 +145,17 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 		if !selected[entry.NodeId] {
 			continue
 		}
+		unrecognizedSelected[entry.NodeId] = true
+		if len(entry.Findings) == 0 {
+			return nil, exitcode.Newf(exitcode.Error, "server returned no findings for a selected unknown-host declaration; no clean result can be reported")
+		}
 		for _, finding := range entry.Findings {
 			out = append(out, lintFindingDTO{Node: finding.Urn, Memory: finding.Memory, Rule: finding.Rule, Severity: finding.Severity, Message: finding.Message, Hosts: []string{}})
+		}
+	}
+	for id := range expectedUnrecognized {
+		if !unrecognizedSelected[id] {
+			return nil, exitcode.Newf(exitcode.Error, "server omitted a selected unknown-host declaration from its skill lint plan; no clean result can be reported")
 		}
 	}
 	return out, nil

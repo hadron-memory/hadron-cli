@@ -102,7 +102,7 @@ listing by the server; lint it by naming it with -m.`,
 				if m := s.memories[n.MemoryId]; m != nil {
 					memURN = m.URN
 				}
-				if declaresAnyHost(toSkillNode(n, memURN).Properties) {
+				if hasSkillLintSubject(toSkillNode(n, memURN).Properties) {
 					declared++
 				}
 			}
@@ -160,11 +160,15 @@ listing by the server; lint it by naming it with -m.`,
 	return cmd
 }
 
-// declaresAnyHost reports whether a node carries a declaration for at least
-// one host, which is what "skill-declaring node" counts.
-func declaresAnyHost(props map[string]any) bool {
+// hasSkillLintSubject reports whether a node carries a valid, malformed, or
+// unknown-host declaration shape. These nodes belong in the human summary even
+// when no known host can read a valid declaration from them.
+func hasSkillLintSubject(props map[string]any) bool {
+	if len(skilldoc.UnknownHostKeys(props)) > 0 {
+		return true
+	}
 	for _, h := range skilldoc.Hosts {
-		if _, ok := skilldoc.DeclaredFor(props, h); ok {
+		if _, ok := skilldoc.DeclaredFor(props, h); ok || len(skilldoc.MalformedFor(props, h)) > 0 {
 			return true
 		}
 	}

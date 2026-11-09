@@ -32,11 +32,14 @@ Hosted findings retain host declaration order and server entry/finding order.
 Identical findings merge across hosts without duplicating a host after repeated
 findings within one host. Host-free unknown-key findings follow hosted rows,
 and batch-unavailable refs remain last. JSON keeps the existing DTO shape and
-non-null arrays. Errors exit 5; warnings exit 0 unless `--strict` promotes them.
+non-null arrays. Valid, malformed, and unknown-host declaration shapes all count
+as skill-declaring nodes in the human summary. Errors exit 5; warnings exit 0
+unless `--strict` promotes them.
 
-A locked encrypted entry has `class: unavailable` and no findings by design. It
-produces one host-free `skill-node-unavailable` warning rather than a false
-clean result or a verdict about ciphertext.
+A locked encrypted entry has `class: unavailable` and no findings by design. If
+either host returns that entry, it produces one host-free
+`skill-node-unavailable` warning rather than a false clean result or a verdict
+about ciphertext.
 
 The CLI rejects, without printing a partial or clean result:
 
@@ -46,6 +49,8 @@ The CLI rejects, without printing a partial or clean result:
 - malformed entries anywhere in the memory-wide plan, including unselected
   nodes;
 - a selected declaration omitted from the relevant host's plan;
+- a selected unknown-host declaration omitted from the host-free plan, or
+  returned with no findings;
 - host-free findings that differ between host plans, whose contract requires
   identical rows.
 
