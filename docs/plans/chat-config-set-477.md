@@ -13,9 +13,12 @@ gated writer.
 ## Decisions
 - **Raw-preserving edit.** The file is parsed into an ordered object whose
   member values stay `json.RawMessage`; only the named `chat.*` keys are
-  replaced. Unrelated keys (appKey and any other secret included) keep their
-  bytes and order. Output is re-indented, which changes whitespace only.
-- **Refuse, never repair.** Invalid JSON, non-object file, non-object `chat`
+  replaced. Unrelated members (appKey and any other secret included) keep
+  their raw key bytes (escapes as written), raw value bytes (inner whitespace
+  included) and order; only the whitespace between members is regenerated.
+  QA found the first cut re-indented nested values and re-encoded escaped
+  keys; fixed by capturing each key's source bytes and not re-indenting values.
+- **Refuse, never repair.** Invalid JSON, non-object file, an empty or whitespace-only existing file, non-object `chat`
   (including `null`), duplicate keys (a decoder would silently keep the last),
   trailing content, a symlinked file, blank values, an unparseable node URN, or
   no flag: exit 2 and nothing written (no backup either).

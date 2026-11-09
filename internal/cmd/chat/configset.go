@@ -144,7 +144,7 @@ func applyConfigSet(sets []configSetItem) (configSetDTO, error) {
 	}
 	dto.Path = path
 
-	out, err := editChatConfig(raw, sets)
+	out, err := editChatConfig(raw, !dto.Created, sets)
 	if err != nil {
 		return dto, exitcode.Newf(exitcode.Usage, "%s: %v — nothing written", path, err)
 	}
@@ -176,9 +176,11 @@ func applyConfigSet(sets []configSetItem) (configSetDTO, error) {
 // editChatConfig sets chat.<key> for each item in raw (nil/blank = a new
 // file), preserving every other key's raw bytes and the key order. It errors on
 // anything it cannot edit without guessing.
-func editChatConfig(raw []byte, sets []configSetItem) ([]byte, error) {
+func editChatConfig(raw []byte, exists bool, sets []configSetItem) ([]byte, error) {
 	top := &orderedObject{}
-	if len(bytes.TrimSpace(raw)) > 0 {
+	if exists {
+		// An existing file that is empty or whitespace is not an object: refuse
+		// rather than overwrite what we cannot read.
 		var err error
 		if top, err = parseObject(raw); err != nil {
 			return nil, fmt.Errorf("not an editable JSON object (%v)", err)
@@ -194,22 +196,25 @@ func editChatConfig(raw []byte, sets []configSetItem) ([]byte, error) {
 	for _, s := range sets {
 		chat.set(s.Key, jsonString(s.Value))
 	}
-	cb, err := chat.marshal()
+	cb, err := chat.marshal("  ")
 	if err != nil {
 		return nil, err
 	}
 	top.set("chat", cb)
-	tb, err := top.marshal()
+	tb, err := top.marshal("")
 	if err != nil {
 		return nil, err
 	}
 	return append(tb, '\n'), nil
 }
 
-// orderedObject is a JSON object whose member values stay raw, so editing one
-// key cannot reformat, reorder or re-encode another.
+// orderedObject is a JSON object whose members stay raw — key bytes as written
+// (escapes included) and value bytes as written — so editing one key cannot
+// re-encode, reformat or reorder another. Only the whitespace BETWEEN members
+// is regenerated.
 type orderedObject struct {
-	keys []string
+	keys []string // decoded keys, in order (identity for lookup/dup checks)
+	raws map[string][]byte
 	vals map[string]json.RawMessage
 }
 
@@ -218,12 +223,15 @@ func (o *orderedObject) get(k string) (json.RawMessage, bool) {
 	return v, ok
 }
 
+// set replaces k's value, keeping an existing member's raw key; a new member
+// gets a freshly encoded key.
 func (o *orderedObject) set(k string, v json.RawMessage) {
 	if o.vals == nil {
-		o.vals = map[string]json.RawMessage{}
+		o.vals, o.raws = map[string]json.RawMessage{}, map[string][]byte{}
 	}
 	if _, ok := o.vals[k]; !ok {
 		o.keys = append(o.keys, k)
+		o.raws[k] = jsonString(k)
 	}
 	o.vals[k] = v
 }
@@ -239,6 +247,7 @@ func parseObject(raw []byte) (*orderedObject, error) {
 	}
 	o := &orderedObject{}
 	for dec.More() {
+		prev := dec.InputOffset()
 		kt, err := dec.Token()
 		if err != nil {
 			return nil, err
@@ -247,11 +256,15 @@ func parseObject(raw []byte) (*orderedObject, error) {
 		if _, dup := o.vals[k]; dup {
 			return nil, fmt.Errorf("duplicate key %q", k)
 		}
+		// The key token's bytes: from the first non-separator after the previous
+		// token to the decoder's offset.
+		rawKey := bytes.TrimLeft(raw[prev:dec.InputOffset()], " \t\r\n,:")
 		var v json.RawMessage
 		if err := dec.Decode(&v); err != nil {
 			return nil, err
 		}
 		o.set(k, v)
+		o.raws[k] = append([]byte(nil), rawKey...)
 	}
 	if _, err := dec.Token(); err != nil { // closing }
 		return nil, err
@@ -262,23 +275,20 @@ func parseObject(raw []byte) (*orderedObject, error) {
 	return o, nil
 }
 
-func (o *orderedObject) marshal() ([]byte, error) {
+func (o *orderedObject) marshal(indent string) ([]byte, error) {
 	var b bytes.Buffer
-	b.WriteByte('{')
+	b.WriteString("{")
 	for i, k := range o.keys {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		b.Write(jsonString(k))
-		b.WriteByte(':')
+		b.WriteString("\n" + indent + "  ")
+		b.Write(o.raws[k])
+		b.WriteString(": ")
 		b.Write(o.vals[k])
 	}
-	b.WriteByte('}')
-	var ind bytes.Buffer
-	if err := json.Indent(&ind, b.Bytes(), "", "  "); err != nil {
-		return nil, err
-	}
-	return ind.Bytes(), nil
+	b.WriteString("\n" + indent + "}")
+	return b.Bytes(), nil
 }
 
 // jsonString encodes s without HTML escaping, so a value or key round-trips as

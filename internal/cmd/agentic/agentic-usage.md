@@ -1659,7 +1659,7 @@ Conventions:
   none exists). It edits only the named keys: every other key, `appKey`
   included, keeps its raw bytes and order and is never printed. An existing file
   is copied to `config.json.bak` first and replaced atomically with its mode
-  kept. Exit 2, nothing written, on invalid JSON, a non-object file or `chat`,
+  kept. Exit 2, nothing written, on invalid JSON, an empty or non-object file, a non-object `chat`,
   a duplicate key, a symlinked file, a blank value, an unparseable node URN, or
   no flag. It takes no handle/identity/role/session flag, never posts and never
   contacts the server. `--json`: `{path,created,backup,set:[{key,value}]}`.

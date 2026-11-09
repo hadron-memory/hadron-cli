@@ -190,6 +190,8 @@ func TestChatConfigSetRefusesWithoutWriting(t *testing.T) {
 		"duplicate key":        {`{"appKey":"a","appKey":"b"}`, []string{"--node", setNode}},
 		"duplicate chat key":   {`{"chat":{"node":"x","node":"y"}}`, []string{"--node", setNode}},
 		"trailing content":     {`{"a":1} {"b":2}`, []string{"--node", setNode}},
+		"empty file":           {``, []string{"--node", setNode}},
+		"whitespace file":      {" \n\t ", []string{"--node", setNode}},
 		"blank node":           {`{"appKey":"k"}`, []string{"--node", "  "}},
 		"blank messages-loc":   {`{"appKey":"k"}`, []string{"--messages-loc", ""}},
 		"bad node urn":         {`{"appKey":"k"}`, []string{"--node", "not-a-urn"}},
@@ -200,6 +202,14 @@ func TestChatConfigSetRefusesWithoutWriting(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			dir := chatConfigDir(t, tc.cfg)
+			if tc.cfg == "" { // chatConfigDir writes nothing for ""; make it an existing empty file
+				if err := os.MkdirAll(filepath.Dir(cfgPath(dir)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(cfgPath(dir), nil, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			_, err := runChat(t, append([]string{"chat", "config", "set"}, tc.args...)...)
 			if err == nil {
 				t.Fatal("expected a refusal")
@@ -262,5 +272,26 @@ func TestChatConfigShowStillWritesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(cfgPath(dir) + ".bak"); err == nil {
 		t.Error("show left a backup")
+	}
+}
+
+// Raw preservation is of the bytes as written: an escaped key and a multi-line
+// nested value (odd spacing, escapes, exponent) survive character for character.
+func TestChatConfigSetKeepsEscapedKeysAndNestedRawValues(t *testing.T) {
+	const nested = "{\n      \"a\" :  [ 1 ,\t2.50E+1 ],\n      \"s\":\"\\u00e9\\/x\"\n    }"
+	const rawKey = `"caf\u00e9\/k"`
+	dir := chatConfigDir(t, "{\n  "+rawKey+": "+nested+",\n  \"chat\": {\"\\u0069dentity\": "+nested+"}\n}")
+	if _, err := runChat(t, "chat", "config", "set", "--node", setNode); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, cfgPath(dir))
+	for _, frag := range []string{rawKey + ": " + nested, `"\u0069dentity": ` + nested} {
+		if !strings.Contains(got, frag) {
+			t.Errorf("not preserved verbatim: %q in\n%s", frag, got)
+		}
+	}
+	var v any
+	if err := json.Unmarshal([]byte(got), &v); err != nil {
+		t.Fatalf("invalid JSON after set: %v", err)
 	}
 }
