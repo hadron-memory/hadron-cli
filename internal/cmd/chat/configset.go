@@ -103,6 +103,10 @@ func configSetUpdates(cmd *cobra.Command, node, memory, messagesLoc string) ([]c
 			continue
 		}
 		v := strings.TrimSpace(f.val)
+		if f.key == "messagesLoc" {
+			// Normalize BEFORE the blank check: ":" trims to "" and must not be stored.
+			v = strings.TrimSpace(strings.TrimSuffix(v, ":"))
+		}
 		if v == "" {
 			return nil, exitcode.Newf(exitcode.Usage, "--%s is blank: pass a value (this command sets coordinates; it does not clear them)", f.flag)
 		}
@@ -110,9 +114,6 @@ func configSetUpdates(cmd *cobra.Command, node, memory, messagesLoc string) ([]c
 			if _, _, err := splitNodeURN(v); err != nil {
 				return nil, err
 			}
-		}
-		if f.key == "messagesLoc" {
-			v = strings.TrimSuffix(v, ":")
 		}
 		out = append(out, configSetItem{Key: f.key, Value: v})
 	}

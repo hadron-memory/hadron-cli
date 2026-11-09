@@ -216,6 +216,10 @@ func TestChatConfigSetRefusesWithoutWriting(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected a refusal")
 			}
+			// The user-visible code (what renderError runs): every refusal is usage, exit 2.
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Errorf("exit code = %d, want %d (usage); err = %v", code, exitcode.Usage, err)
+			}
 			if got := readFile(t, cfgPath(dir)); got != tc.cfg {
 				t.Errorf("file changed on refusal:\n%s", got)
 			}
