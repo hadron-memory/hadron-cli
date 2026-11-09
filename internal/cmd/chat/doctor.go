@@ -105,14 +105,15 @@ const lifecycleNotProvided = "not-provided"
 func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config <command>",
-		Short: "Inspect the chat coordinates from flags, env and .hadron/config.json",
+		Short: "Inspect or set the chat coordinates in flags, env and .hadron/config.json",
 		Long: `Inspect which chat "chat read" and "chat post" would use from here. This
-group only inspects: it never edits configuration. The coordinates are the
+group inspects ("show") and writes only the chat coordinates ("set"). The coordinates are the
 address of the chat room (a node URN, or a memory plus a message location); set
 them with --node, the HADRON_CHAT_NODE env var, or "chat": {"node": …} in
 .hadron/config.json. See "chat config show".`,
 	}
 	cmd.AddCommand(newCmdConfigShow(f))
+	cmd.AddCommand(newCmdConfigSet(f))
 	return cmd
 }
 
