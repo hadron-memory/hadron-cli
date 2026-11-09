@@ -196,16 +196,8 @@ func editChatConfig(raw []byte, exists bool, sets []configSetItem) ([]byte, erro
 	for _, s := range sets {
 		chat.set(s.Key, jsonString(s.Value))
 	}
-	cb, err := chat.marshal("  ")
-	if err != nil {
-		return nil, err
-	}
-	top.set("chat", cb)
-	tb, err := top.marshal("")
-	if err != nil {
-		return nil, err
-	}
-	return append(tb, '\n'), nil
+	top.set("chat", chat.marshal("  "))
+	return append(top.marshal(""), '\n'), nil
 }
 
 // orderedObject is a JSON object whose members stay raw — key bytes as written
@@ -275,7 +267,7 @@ func parseObject(raw []byte) (*orderedObject, error) {
 	return o, nil
 }
 
-func (o *orderedObject) marshal(indent string) ([]byte, error) {
+func (o *orderedObject) marshal(indent string) []byte {
 	var b bytes.Buffer
 	b.WriteString("{")
 	for i, k := range o.keys {
@@ -288,7 +280,7 @@ func (o *orderedObject) marshal(indent string) ([]byte, error) {
 		b.Write(o.vals[k])
 	}
 	b.WriteString("\n" + indent + "}")
-	return b.Bytes(), nil
+	return b.Bytes()
 }
 
 // jsonString encodes s without HTML escaping, so a value or key round-trips as
