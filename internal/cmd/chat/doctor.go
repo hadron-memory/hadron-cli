@@ -259,17 +259,17 @@ exits with its own code (e.g. 3, 8, 7) when it is the first failure.
 REPAIRING A FAILURE
   config file malformed/unreadable (exit 2)  fix or remove the file the report names
   no coordinates resolved (exit 2)           pass --node, or set HADRON_CHAT_NODE / "chat": {"node"}
-  channel "unavailable" (exit 4)             check the node URN, and that you can read its memory
+  channel "unavailable" (exit 4)             check the node URN and your access to the Channel
   not signed in (exit 3)                     "hadron auth login", or set HADRON_TOKEN
   refused, not permitted (exit 8)            you are signed in but may not read it: check
-                                             --app, and your access to the memory
+                                             --app, and your access to the Channel
   no worker session                          "hadron team session whoami", then
                                              "hadron team session start" (no --as)
   transport failure (exit 7)                 retry; check --server
 
-"unavailable" covers a Channel that does not exist, a ref naming nothing, and
-one whose host memory you may not read — the server answers all three
-identically, so this does not say which. ` + "`lifecycle`" + ` is always "not-provided":
+"unavailable" covers a missing or unreadable Channel without distinguishing
+the two. A readable Channel can have an unavailable memory record; that alone
+is not a failed channel check. ` + "`lifecycle`" + ` is always "not-provided":
 a Channel carries no archived/live/superseded fact, and this command does not
 guess one from its last-message time.`,
 		Example: `  hadron chat doctor
@@ -307,12 +307,16 @@ guess one from its last-message time.`,
 				ref := *dto.Channel.Ref
 				if resp == nil || resp.Channel == nil {
 					dto.Channel.Status = "unavailable"
-					problem("channel", fmt.Sprintf("no Channel is readable at %s — it does not exist, the ref names nothing, or you may not read its host memory (the server does not say which)", ref), exitcode.NotFound)
+					problem("channel", fmt.Sprintf("no Channel is readable at %s — it is missing or unreadable (the server does not say which)", ref), exitcode.NotFound)
 				} else {
 					ch := resp.Channel
-					id, name, mem := ch.Id, ch.Name, ch.Memory.Urn
+					id, name := ch.Id, ch.Name
 					dto.Channel.Status = "readable"
-					dto.Channel.ID, dto.Channel.Name, dto.Channel.ChatRootUrn, dto.Channel.Memory = &id, &name, ch.ChatRootUrn, &mem
+					dto.Channel.ID, dto.Channel.Name, dto.Channel.ChatRootUrn = &id, &name, ch.ChatRootUrn
+					if ch.Memory != nil {
+						mem := ch.Memory.Urn
+						dto.Channel.Memory = &mem
+					}
 				}
 			}
 			dto.OK = fail == exitcode.OK
@@ -361,6 +365,9 @@ func writeChannelCheck(w io.Writer, dto doctorDTO) {
 			fmt.Fprintf(w, " at %s", *dto.Channel.ChatRootUrn)
 		}
 		fmt.Fprintln(w)
+		if dto.Channel.Memory == nil {
+			fmt.Fprintln(w, "memory: unavailable")
+		}
 	case "unavailable":
 		fmt.Fprintf(w, "channel: unavailable at %s\n", *dto.Channel.Ref)
 	case "error":
