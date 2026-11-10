@@ -402,6 +402,30 @@ func TestProviderLintUnknownHostWarningDoesNotCoverKnownDeclaration(t *testing.T
 	}
 }
 
+// The documented contract is ONE host-free skill-node-not-judged warning per
+// node, not one per absent key (Gloria's BLIND P2 at adc77f20).
+func TestProviderLintEmitsOneNotJudgedWarningPerNodeForManyAbsentKeys(t *testing.T) {
+	props := json.RawMessage(`{"exports":{"futureA":{"name":"a","description":"Use when a."},"futureB":{"name":"b","description":"Use when b."}}}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":{"skillPlan":{"judged":0,"entries":[],"unrecognized":[{"nodeId":"n1","keyCount":0,"keys":[],"findings":[{"urn":"urn1","memory":"m1","rule":"skill-unknown-host-key","severity":"warning","message":"other key"}]}]}}}`)
+	}))
+	defer srv.Close()
+	rows, err := providerLintFindings(context.Background(), graphql.NewClient(srv.URL, srv.Client()), []*batchNode{{Id: "n1", Urn: "urn1", MemoryId: "m1", Properties: &props}}, nil)
+	notJudged := 0
+	for _, r := range rows {
+		if r.Rule == "skill-node-not-judged" {
+			notJudged++
+			if len(r.Hosts) != 0 {
+				t.Fatalf("unknown-key warning must be host-free: %#v", r)
+			}
+		}
+	}
+	if err != nil || notJudged != 1 {
+		t.Fatalf("two absent keys must yield exactly one per-node warning, got %d: %#v %v", notJudged, rows, err)
+	}
+}
+
 func TestProviderLintKnownCoverageKeepsServerOnlyHostAsWarning(t *testing.T) {
 	props := json.RawMessage(`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."},"futureHost":{"name":"hadron-b","description":"Use when b."}}}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

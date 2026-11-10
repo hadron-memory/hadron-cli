@@ -70,8 +70,9 @@ blocking error.
 
 Unknown exports keys use the structured `keys` and `keyCount` fields, not
 finding prose. When the list is untruncated (`keyCount == len(keys)`), each
-locally-unknown key absent from that list receives a non-blocking
-`skill-node-not-judged` warning. A missing entry or one with no findings is no
+node with one or more locally-unknown keys absent from that list receives ONE
+non-blocking, host-free `skill-node-not-judged` warning (per node, not per key;
+the message names the node, not a key). A missing entry or one with no findings is no
 judgment and produces the same warning. Truncated lists retain their own
 aggregate warning and are not over-interpreted. All such findings remain
 warnings under `cor:agt:030:06`; the result is not falsely clean, but ordinary
@@ -86,7 +87,7 @@ memory-wide even for `--node`, and the count includes intentional no-finding
 rows such as `exports: {}`. Treating the aggregate gap as proof that an
 arbitrary selected property is a server-only declaration would false-fail
 ordinary nodes and unselected declarations. The server must expose
-`SkillPlan.unrecognized`; older servers fail through the normal GraphQL mapping.
+`SkillPlan.unrecognized` with its `keys` and `keyCount` fields (a server that has `unrecognized` without them fails every `skill lint` through GraphQL validation); older servers fail through the normal GraphQL mapping.
 
 ## Validation
 

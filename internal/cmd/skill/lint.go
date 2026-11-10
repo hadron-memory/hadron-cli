@@ -76,9 +76,9 @@ does not become a clean lint result or fall back to a local verdict.
 A skill-node-not-judged warning names a selected declaration the server did not
 judge. The result is not clean, but the warning exits 0 unless --strict promotes
 it. Retry once in case the corpus changed between host plans; if a known-host
-omission persists, report a server skillPlan defect with the node and host. An
-unknown exports key with no host-free judgment produces the same warning without
-blocking the corpus.
+omission persists, report a server skillPlan defect with the node and host. A
+node whose unknown exports key has no host-free judgment gets ONE such warning
+(per node, not per key) without blocking the corpus.
 
 Errors exit 5; warnings alone exit 0 unless --strict promotes them to errors.
 
