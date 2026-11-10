@@ -2,12 +2,16 @@ package auth
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -61,9 +65,14 @@ first and never stored. Read it from a file or a secret store rather than
 typing it on the command line.
 
 Login applies to the current server; add --server to sign in to another one.
-On success it prints "✓ Signed in to <server>" and where the token is stored;
-hadron auth whoami then shows which account it is; auth status checks only
-whether the credential authenticates.`,
+On success it prints "✓ Signed in to <server>" and where the token is stored,
+then a line naming the account the token belongs to (--json adds "account", or
+null when it could not be read; login still succeeds, with a note on stderr).
+That line is read with the token just stored, not HADRON_TOKEN. The browser
+flow reuses the Hadron session already open in your browser, so if it names
+the wrong account, sign out of Hadron there (or use a private window) and run
+login again. hadron auth whoami shows the account any time; auth status checks
+only whether the credential authenticates.`,
 		Example: `  hadron auth login
   hadron auth login --provider google
   hadron --server https://hadron.example.com auth login
@@ -113,9 +122,24 @@ whether the credential authenticates.`,
 			}
 
 			dto := loginResult{Server: server, TokenStorage: st.Name()}
+			// Name the account the token just stored belongs to, read with
+			// THAT token: f.GraphQLClient() would send HADRON_TOKEN or an
+			// impersonation token instead and name the wrong principal.
+			var accountLine string
+			if acct, line, err := readLoginAccount(cmd.Context(), f, server, token); err != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: signed in, but the account could not be read (%s); run `hadron auth whoami`\n", err)
+			} else {
+				dto.Account, accountLine = acct, line
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name())
-				return err
+				if _, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name()); err != nil {
+					return err
+				}
+				if accountLine != "" {
+					_, err := fmt.Fprintf(w, "  account: %s\n", accountLine)
+					return err
+				}
+				return nil
 			})
 		},
 	}
@@ -128,6 +152,96 @@ whether the credential authenticates.`,
 type loginResult struct {
 	Server       string `json:"server"`
 	TokenStorage string `json:"tokenStorage"`
+	// Account is who the stored token belongs to; null when it could not be
+	// read (the login itself still succeeded).
+	Account *loginAccount `json:"account"`
+}
+
+// loginAccount is the whoami subset login reports.
+type loginAccount struct {
+	ID            string `json:"id,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Email         string `json:"email,omitempty"`
+	Handle        string `json:"handle,omitempty"`
+	PrincipalType string `json:"principalType"`
+	AppID         string `json:"appId,omitempty"`
+	AgentID       string `json:"agentId,omitempty"`
+}
+
+// readLoginAccount asks the server who `token` is. The error text is safe to
+// print: it never carries the token or a raw response body.
+func readLoginAccount(ctx context.Context, f *cmdutil.Factory, server, token string) (*loginAccount, string, error) {
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialExplicit))
+	if err != nil {
+		return nil, "", errors.New("could not build a client")
+	}
+	resp, err := gen.AuthContext(ctx, client)
+	if err != nil {
+		if exitcode.FromError(api.MapError(err)) == exitcode.AuthRequired {
+			return nil, "", errors.New("the server did not accept this token")
+		}
+		return nil, "", errors.New("the server could not be reached or returned an error")
+	}
+	ac := resp.AuthContext
+	if ac == nil {
+		return nil, "", errors.New("the server did not accept this token")
+	}
+	acct := &loginAccount{PrincipalType: string(ac.PrincipalType)}
+	if ac.AppId != nil {
+		acct.AppID = *ac.AppId
+	}
+	if ac.AgentId != nil {
+		acct.AgentID = *ac.AgentId
+	}
+	if ac.User == nil {
+		return acct, nonUserLabel(acct.AppID, acct.AgentID, acct.PrincipalType), nil
+	}
+	u := ac.User
+	acct.ID = u.Id
+	if u.Name != nil {
+		acct.Name = *u.Name
+	}
+	if u.Email != nil {
+		acct.Email = *u.Email
+	}
+	if u.Handle != nil {
+		acct.Handle = *u.Handle
+	}
+	var line string
+	switch {
+	case acct.Name != "" && acct.Handle != "":
+		line = fmt.Sprintf("%s (@%s)", acct.Name, acct.Handle)
+	case acct.Handle != "":
+		line = "@" + acct.Handle
+	default:
+		line = userLine(acct.Name, "", acct.ID, "")
+	}
+	line += emailSuffix(acct.Email)
+	return acct, line, nil
+}
+
+// emailSuffix renders " <email>" for the login line, or nothing.
+func emailSuffix(email string) string {
+	if email == "" {
+		return ""
+	}
+	return " <" + email + ">"
+}
+
+// userLine is whoami's human label: name, else handle, else id, plus the email
+// in parentheses.
+func userLine(name, handle, id, email string) string {
+	label := name
+	if label == "" {
+		label = handle
+	}
+	if label == "" {
+		label = id
+	}
+	if email != "" {
+		return fmt.Sprintf("%s (%s)", label, email)
+	}
+	return label
 }
 
 // warnIfPlaintext surfaces a downgrade to the plaintext file store: landing

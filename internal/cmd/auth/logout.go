@@ -25,6 +25,10 @@ you also copied elsewhere keeps working until you run hadron auth token revoke.
 It cannot remove HADRON_TOKEN either: while that variable is set, commands
 keep using it, so unset it as well (unset HADRON_TOKEN).
 
+The browser's Hadron session is not signed out: the next hadron auth login
+reuses it and lands on the same account. To log in as another account, sign
+out of Hadron in the browser first, or use a private window.
+
 Prints "✓ Logged out of <server>", or "no stored credential for <server>" when
 there was nothing to remove (both exit 0). Check with hadron auth status.`,
 		Example: `  hadron auth logout
