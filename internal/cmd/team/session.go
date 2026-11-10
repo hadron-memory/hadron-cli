@@ -3058,6 +3058,14 @@ from a later milestone's REPORTED MODEL.`,
 			if ref != "" {
 				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
 			}
+			// cli#1653: sessionsPage has no App argument, so an explicit --app
+			// cannot narrow this listing. Say so on stderr rather than let a
+			// table of other Apps' sessions read as that App's. stdout and
+			// --json are untouched; an ambient App (config, binding) is not an
+			// explicit flag and prints nothing.
+			if f.AppFlag != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — not applied: this listing shows every session you can see; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
+			}
 			var asWorkerRef *string
 			if as != "" {
 				// The App scope for a worker NAME comes from --app / the App

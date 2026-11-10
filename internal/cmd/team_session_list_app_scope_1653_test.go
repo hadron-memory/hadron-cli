@@ -64,7 +64,7 @@ func TestSessionListExplicitAppLeavesStdoutAndJSONByteIdentical(t *testing.T) {
 // An ambient App (config, binding) is not an explicit --app: no line.
 func TestSessionListAmbientAppPrintsNoScopeLine(t *testing.T) {
 	teamGitDir(t)
-	configuredApp(t, "acme.com:eng-team")
+	configuredApp(t, "acme.com:ambient-team")
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	}))
