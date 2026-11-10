@@ -1122,11 +1122,11 @@ name stays bound to it — PR trailers and chat history reference the name,
 so retiring never frees it for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
-This is the normal end of a worker. The one way to free a name is
-` + "`worker rm`" + `, the hard-delete escape for a casting that NEVER did anything
-(a typo'd cast), retired or not. On a worker with any history, rm is REFUSED
-(exit 5) and writes nothing — it does not retire it for you; run this command
-instead.
+This is the normal end of a worker. A casting that NEVER did anything (a
+typo'd cast) can instead be removed with ` + "`worker rm`" + `, the hard-delete escape,
+which frees its name for a new casting. On a worker with any history, rm is
+REFUSED (exit 5) and writes nothing — it does not retire it for you; run this
+command instead.
 
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
@@ -1185,7 +1185,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it (only `worker rm` on a casting that never did anything frees it)\n", dto.Name)
+				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it (`worker rm` removes a casting that never did anything and frees its name)\n", dto.Name)
 				return err
 			})
 		},
@@ -2404,5 +2404,5 @@ func placementText(placement *string, reportsToID *string) string {
 
 // RetireConfirmPrompt is the question `worker retire` asks before it acts.
 func RetireConfirmPrompt(name, id string) string {
-	return fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it unless it never did anything and you remove it with `worker rm`.", name, id)
+	return fmt.Sprintf("Retire worker %s (%s)? It stops working; it keeps its name. A never-used casting can be removed with `worker rm` instead.", name, id)
 }
