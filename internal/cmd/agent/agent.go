@@ -342,10 +342,33 @@ the AppAgent join; for its workers, use ` + "`hadron team worker list --app <ref
 	return cmd
 }
 
+// OfferSubjectDTO is one blocking subject the server named (AgentOfferSubject); only the name is reachable.
+type OfferSubjectDTO struct {
+	Name string `json:"name"`
+}
+
+// OfferReasonDTO is one reason an Agent is not ready to be offered (AgentOfferReason, cor:dmo:050:19). Count is every
+// blocked subject; Subjects are the ones the server named; OmittedByCap and HiddenByAccess are counts, never names.
+type OfferReasonDTO struct {
+	Code           string            `json:"code"`
+	Count          int               `json:"count"`
+	Subjects       []OfferSubjectDTO `json:"subjects"`
+	OmittedByCap   int               `json:"omittedByCap"`
+	HiddenByAccess int               `json:"hiddenByAccess"`
+}
+
+// OfferReadinessDTO is the server's AgentOfferReadiness. Reasons is empty exactly when Ready, and never null.
+type OfferReadinessDTO struct {
+	Ready   bool             `json:"ready"`
+	Reasons []OfferReasonDTO `json:"reasons"`
+}
+
 // Origin is get-only; null deliberately does not identify a concealment reason.
 type agentGetDTO struct {
 	agentDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
+	OfferReadiness *OfferReadinessDTO `json:"offerReadiness"`
 	// Get-only best-effort enrichment; omit on every unavailable answer.
 	SystemMemoryURN *string `json:"systemMemoryUrn,omitempty"`
 }
