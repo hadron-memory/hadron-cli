@@ -4834,8 +4834,9 @@ every list an array. Target rows `{name,id,urn,compiledNodeRef,revision,state,re
 `approved` `{name,id,urn,compiledNodeRef,revision,serve}`; `failed`
 `{name,id,urn,compiledNodeRef,revision,code,exitCode,message}`; `unknown`
 `{name,id,urn,compiledNodeRef,revision,outcome,reason}`. Exit: the maximum of
-0, 1 (undecided row), 4, 5 (`REVISION_MISMATCH`, placeholder, encrypted,
-tampered), 7 (lost) and 8 (`BOOT_PROMPT_APPROVAL_FORBIDDEN`,
+0, 1 (undecided row or an empty approval success, which gets the same one
+status read), 4, 5 (server `REVISION_MISMATCH` / `NODE_IS_PLACEHOLDER`; an
+encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8 (`BOOT_PROMPT_APPROVAL_FORBIDDEN`,
 `BOOT_PROMPT_WORKER_SESSION_REFUSED`, which `node approve` also maps to 8).
 
 ## Memory merge, verify and settings (cli#1340)

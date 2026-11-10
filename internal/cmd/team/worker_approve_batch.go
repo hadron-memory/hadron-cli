@@ -110,7 +110,7 @@ SUPERSEDED. Install- and Agent-level compiled prompts are not included.
 
 Without --apply this is a read-only preview: each worker is listed as to
 approve, already approved, tampered, skipped (no compiled prompt, deleted
-target, unreadable) or unknown, with its compiled node and revision. With
+target, unavailable to you, encrypted memory) or unknown, with its compiled node and revision. With
 --apply, each to-approve worker is sent one approval, in roster order, pinned
 to the revision the preview read. A worker whose prompt changed since then is
 refused REVISION_MISMATCH (exit 5): run the preview again.
@@ -140,8 +140,9 @@ never sent again: the worker is reported as unknown with outcome landed,
 not-landed or unknown (exit 7).
 
 Exit codes: the maximum over the workers. 0 when every selected worker is
-approved or nothing is pending; 5 for REVISION_MISMATCH, a placeholder, an
-encrypted memory or a tampered row; 8 when the server refuses the approval
+approved or nothing is pending; 5 for the server refusals REVISION_MISMATCH
+and NODE_IS_PLACEHOLDER, for a prompt in an encrypted memory (approval does
+not apply, so it is never sent) and for a tampered row; 8 when the server refuses the approval
 (BOOT_PROMPT_APPROVAL_FORBIDDEN, BOOT_PROMPT_WORKER_SESSION_REFUSED); 7 for
 a lost response; 4 for an --only worker that is not live in the App (nothing
 is sent); 1 for a row whose state the command could not decide.
@@ -257,8 +258,11 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 			dto.AlreadyApproved = append(dto.AlreadyApproved, t)
 			continue
 		case gen.NodeApprovalStateNotApplicable:
-			t.Reason = "approval does not apply (encrypted memory)"
+			// Never sent, but not a success: an unapprovable selected prompt
+			// must not let a script read the batch as done (exit 5).
+			t.Reason = "approval does not apply (encrypted memory); not sent"
 			dto.Skipped = append(dto.Skipped, t)
+			exit = max(exit, exitcode.Conflict)
 			continue
 		case gen.NodeApprovalStateNotApproved:
 			t.Reason = "not approved"
@@ -333,8 +337,11 @@ func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO
 	r, err := gen.ApproveNode(ctx, client, item.ref, &rev)
 	if err == nil {
 		if r.ApproveNode == nil || r.ApproveNode.Approval == nil {
-			dto.Unknown = append(dto.Unknown, approveUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef, Revision: &rev,
-				Outcome: lostUnknown, Reason: "the server returned no approval; check with node get before approving again"})
+			// An empty success may have landed: the same one status read as a
+			// lost response decides, and nothing is sent again.
+			u := checkLostApproval(ctx, client, item)
+			u.Reason = strings.Replace(u.Reason, "the approval response was lost", "the server returned no approval", 1)
+			dto.Unknown = append(dto.Unknown, u)
 			return exitcode.Error
 		}
 		approved := r.ApproveNode.Approval.Revision
@@ -383,7 +390,7 @@ func checkLostApproval(ctx context.Context, client graphql.Client, item approveP
 		u.Reason += fmt.Sprintf("; revision %d is approved", rev)
 	default:
 		u.Outcome = lostNotLanded
-		u.Reason += fmt.Sprintf("; revision %d is not approved (state %s): run the preview again", rev, node.ApprovalStatus.State)
+		u.Reason += fmt.Sprintf("; no approval on record at revision %d (approval state %s): run the preview again", rev, node.ApprovalStatus.State)
 	}
 	return u
 }

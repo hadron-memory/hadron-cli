@@ -51,6 +51,10 @@ type approveFake struct {
 	mu      sync.Mutex
 	calls   []approveCall
 	workers []approveWorker
+	// mode shapes the PREVIEW's approval-state reads: "" (whole pages),
+	// "truncate-half" (the first page returns half its refs and omits the
+	// rest), "truncate-empty" (truncated with no node), "fail" (502).
+	mode string
 }
 
 func (a *approveFake) ops(op string) []approveCall {
@@ -130,8 +134,37 @@ func newApproveFake(t *testing.T, workers []approveWorker) (*httptest.Server, *a
 			fmt.Fprintf(w, `{"data":{"workers":{"total":%d,"items":[%s]}}}`, len(items), strings.Join(items, ","))
 		case "BootPromptApprovalBatch":
 			refs, _ := body.Variables["refs"].([]any)
-			// The read after a lost response asks for ONE ref.
+			// The read after a lost response asks for ONE ref, after an approveNode.
 			lostRead := len(refs) == 1 && len(fake.ops("ApproveNode")) > 0
+			if !lostRead {
+				previewReads := len(fake.ops("BootPromptApprovalBatch"))
+				switch {
+				case fake.mode == "fail":
+					w.WriteHeader(http.StatusBadGateway)
+					_, _ = w.Write([]byte("bad gateway"))
+					return
+				case fake.mode == "truncate-empty":
+					quoted := []string{}
+					for _, ref := range refs {
+						quoted = append(quoted, fmt.Sprintf("%q", ref))
+					}
+					fmt.Fprintf(w, `{"data":{"nodeBatch":{"truncated":true,"omitted":[%s],"unavailable":[],"nodes":[]}}}`, strings.Join(quoted, ","))
+					return
+				case fake.mode == "truncate-half" && previewReads == 1 && len(refs) > 1:
+					half := len(refs) / 2
+					nodes, omitted := []string{}, []string{}
+					for k, ref := range refs {
+						if k >= half {
+							omitted = append(omitted, fmt.Sprintf("%q", ref))
+							continue
+						}
+						wk := fake.byPointer(fmt.Sprint(ref))
+						nodes = append(nodes, fmt.Sprintf(`{"id":"n-%s","urn":%q,"revision":%d,"approvalStatus":%s}`, wk.id, wk.pointer, wk.revision, approvalStatusJSON(wk.state, wk.revision)))
+					}
+					fmt.Fprintf(w, `{"data":{"nodeBatch":{"truncated":true,"omitted":[%s],"unavailable":[],"nodes":[%s]}}}`, strings.Join(omitted, ","), strings.Join(nodes, ","))
+					return
+				}
+			}
 			nodes, unavailable := []string{}, []string{}
 			for _, ref := range refs {
 				wk := fake.byPointer(fmt.Sprint(ref))
@@ -139,7 +172,7 @@ func newApproveFake(t *testing.T, workers []approveWorker) (*httptest.Server, *a
 					unavailable = append(unavailable, fmt.Sprintf("%q", ref))
 					continue
 				}
-				state, rev := wk.state, wk.revision
+				status := approvalStatusJSON(wk.state, wk.revision)
 				if lostRead {
 					switch wk.after {
 					case "error":
@@ -147,10 +180,13 @@ func newApproveFake(t *testing.T, workers []approveWorker) (*httptest.Server, *a
 						_, _ = w.Write([]byte("bad gateway"))
 						return
 					case "landed":
-						state = "APPROVED"
+						status = approvalStatusJSON("APPROVED", wk.revision)
+					case "landed-other":
+						// An approval is on record, but at another revision.
+						status = approvalStatusJSON("APPROVED", wk.revision+1)
 					}
 				}
-				nodes = append(nodes, fmt.Sprintf(`{"id":"n-%s","urn":%q,"revision":%d,"approvalStatus":%s}`, wk.id, wk.pointer, wk.revision, approvalStatusJSON(state, rev)))
+				nodes = append(nodes, fmt.Sprintf(`{"id":"n-%s","urn":%q,"revision":%d,"approvalStatus":%s}`, wk.id, wk.pointer, wk.revision, status))
 			}
 			fmt.Fprintf(w, `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[%s],"nodes":[%s]}}}`, strings.Join(unavailable, ","), strings.Join(nodes, ","))
 		case "VerifyNode":
@@ -235,7 +271,13 @@ type approveOut struct {
 
 func runApprove(t *testing.T, workers []approveWorker, args ...string) (*approveFake, string, error) {
 	t.Helper()
+	return runApproveMode(t, workers, "", args...)
+}
+
+func runApproveMode(t *testing.T, workers []approveWorker, mode string, args ...string) (*approveFake, string, error) {
+	t.Helper()
 	srv, fake := newApproveFake(t, workers)
+	fake.mode = mode
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL, "--app", batchApp, "team", "worker", "approve"}, args...))
@@ -418,7 +460,7 @@ func TestTeamWorkerApproveUniformRefusalStillReportsEveryWorker(t *testing.T) {
 
 // Pin 5: a lost response gets one status read and is never resent.
 func TestTeamWorkerApproveLostResponseReadsOnceNeverResends(t *testing.T) {
-	for after, outcome := range map[string]string{"landed": "landed", "same": "not-landed", "error": "unknown"} {
+	for after, outcome := range map[string]string{"landed": "landed", "landed-other": "not-landed", "same": "not-landed", "error": "unknown"} {
 		t.Run(after, func(t *testing.T) {
 			team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "502", after: after}}
 			fake, out, err := runApprove(t, team, "--apply", "--json")
@@ -478,8 +520,8 @@ func TestTeamWorkerApproveUnclearVerifyIsNotEligible(t *testing.T) {
 		t.Run(v, func(t *testing.T) {
 			team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "SUPERSEDED", verify: v, approve: "ok"}}
 			fake, out, err := runApprove(t, team, "--apply", "--json")
-			if err == nil {
-				t.Fatal("an unclear verify result must not exit 0")
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("an unclear verify result: want exit %d, got %d (%v)", exitcode.Error, got, err)
 			}
 			if n := len(fake.ops("ApproveNode")); n != 0 {
 				t.Fatalf("verify %s: the row was sent to approveNode", v)
@@ -576,5 +618,129 @@ func TestTeamWorkerApproveAuthorityIsTheServers(t *testing.T) {
 		if strings.Contains(l, "signature") || strings.Contains(l, "sign") || strings.Contains(l, "grant") || strings.Contains(l, "register") || c.Op == "ApproveMemoryNodes" {
 			t.Errorf("the command sent %s", c.Op)
 		}
+	}
+}
+
+// LOCAL F1 / BLIND P2-1: a prompt in an encrypted memory is never sent, but
+// the batch is not a success: exit 5 in the preview and under --apply, even
+// beside a successful row.
+func TestTeamWorkerApproveEncryptedRowExits5WithoutAWrite(t *testing.T) {
+	team := []approveWorker{
+		{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "ok", serve: "same"},
+		{id: "w-bob", name: "Bob", pointer: cptr("w-bob"), revision: 5, state: "NOT_APPLICABLE", approve: "ok"},
+	}
+	for _, args := range [][]string{{"--json"}, {"--apply", "--json"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			fake, out, err := runApprove(t, team, args...)
+			if got := exitCodeFor(err); got != exitcode.Conflict {
+				t.Fatalf("want exit %d, got %d (%v)", exitcode.Conflict, got, err)
+			}
+			for _, c := range fake.ops("ApproveNode") {
+				if c.Vars["nodeRef"] == cptr("w-bob") {
+					t.Fatal("the encrypted-memory prompt was sent to approveNode")
+				}
+			}
+			d := decodeApprove(t, out)
+			if batchNames(d.Skipped) != "Bob" {
+				t.Errorf("skipped = %s, want Bob", batchNames(d.Skipped))
+			}
+			if len(args) == 2 && batchNames(d.Approved) != "Ann" {
+				t.Errorf("approved = %s, want Ann beside the encrypted row", batchNames(d.Approved))
+			}
+		})
+	}
+}
+
+// Rook P3-1: a compiled prompt absent from nodeBatch (unavailable to the
+// caller) is skipped and never written.
+func TestTeamWorkerApproveUnavailablePromptIsSkippedNotSent(t *testing.T) {
+	team := []approveWorker{
+		{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "ok", serve: "same"},
+		{id: "w-bob", name: "Bob", pointer: cptr("w-bob"), revision: 5, state: "absent", approve: "ok"},
+	}
+	fake, out, err := runApprove(t, team, "--apply", "--json")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got := approveRefs(fake.ops("ApproveNode")); len(got) != 1 || !strings.HasPrefix(got[0], cptr("w-ann")) {
+		t.Fatalf("only Ann may be sent: %v", got)
+	}
+	if got := batchNames(decodeApprove(t, out).Skipped); got != "Bob" {
+		t.Errorf("skipped = %s, want Bob", got)
+	}
+}
+
+// BLIND P2-2: the approval-state read pages at the nodeBatch cap, re-queues a
+// truncated page's omitted refs until every ref is read, refuses a truncated
+// page that returns no node, and a failed read aborts before any approval.
+func TestTeamWorkerApproveApprovalStateReadPaging(t *testing.T) {
+	big := []approveWorker{}
+	for i := 0; i < 201; i++ {
+		id := fmt.Sprintf("w-%03d", i)
+		big = append(big, approveWorker{id: id, name: fmt.Sprintf("W%03d", i), pointer: cptr(id), revision: 2, state: "APPROVED"})
+	}
+	t.Run("chunks at the cap", func(t *testing.T) {
+		fake, out, err := runApprove(t, big, "--json")
+		if err != nil {
+			t.Fatalf("preview: %v", err)
+		}
+		sizes := []int{}
+		for _, c := range fake.ops("BootPromptApprovalBatch") {
+			refs, _ := c.Vars["refs"].([]any)
+			sizes = append(sizes, len(refs))
+		}
+		if fmt.Sprint(sizes) != "[200 1]" {
+			t.Errorf("read sizes = %v, want [200 1]", sizes)
+		}
+		if n := len(decodeApprove(t, out).AlreadyApproved); n != 201 {
+			t.Errorf("alreadyApproved = %d, want 201", n)
+		}
+	})
+	t.Run("truncated page re-queued", func(t *testing.T) {
+		fake, out, err := runApproveMode(t, big, "truncate-half", "--json")
+		if err != nil {
+			t.Fatalf("preview: %v", err)
+		}
+		sizes := []int{}
+		for _, c := range fake.ops("BootPromptApprovalBatch") {
+			refs, _ := c.Vars["refs"].([]any)
+			sizes = append(sizes, len(refs))
+		}
+		// 200 asked, 100 read, 100 omitted re-queued ahead of the last 1.
+		if fmt.Sprint(sizes) != "[200 101]" {
+			t.Errorf("read sizes = %v, want [200 101]", sizes)
+		}
+		if n := len(decodeApprove(t, out).AlreadyApproved); n != 201 {
+			t.Errorf("alreadyApproved = %d, want every one of 201 read", n)
+		}
+	})
+	for mode, want := range map[string]int{"truncate-empty": exitcode.Error, "fail": exitcode.Unavailable} {
+		t.Run(mode, func(t *testing.T) {
+			team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "ok"}}
+			fake, _, err := runApproveMode(t, team, mode, "--apply")
+			if got := exitCodeFor(err); got != want {
+				t.Fatalf("want exit %d, got %d (%v)", want, got, err)
+			}
+			if n := len(fake.ops("ApproveNode")); n != 0 {
+				t.Errorf("a failed preview read must abort before any approval: %d sent", n)
+			}
+		})
+	}
+}
+
+// BLIND P3: an empty approval success gets the same one status read as a
+// lost response, and is never resent.
+func TestTeamWorkerApproveEmptySuccessReadsOnce(t *testing.T) {
+	team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "null", after: "landed"}}
+	fake, out, err := runApprove(t, team, "--apply", "--json")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+	}
+	if n := len(fake.ops("ApproveNode")); n != 1 {
+		t.Fatalf("approveNode sent %d times", n)
+	}
+	d := decodeApprove(t, out)
+	if len(d.Unknown) != 1 || d.Unknown[0]["outcome"] != "landed" {
+		t.Errorf("unknown = %v, want one row with outcome landed", d.Unknown)
 	}
 }
