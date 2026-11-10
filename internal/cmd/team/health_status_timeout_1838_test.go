@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -201,5 +202,71 @@ func TestHealth1838OverflowRacingTheDeadlineIsNotATimeout(t *testing.T) {
 	_, _ = b.Write([]byte("x"))
 	if !b.overflowed {
 		t.Error("overflow must be recorded")
+	}
+}
+
+// Gate pin (Gene P2): N registered workers and a status read past the OLD fixed
+// 2 minutes (but within the sized deadline) succeed and store N reports.
+func TestHealth1838SweepWithNWorkersPastTheOldDeadlineStoresNReports(t *testing.T) {
+	const n = 40 // sized: 200s, beyond the old fixed 2m
+	dir := t.TempDir()
+	stored, writes := 0, 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var q struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Input struct {
+					Reports []struct {
+						Worker string `json:"worker"`
+					} `json:"reports"`
+				} `json:"input"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&q)
+		w.Header().Set("Content-Type", "application/json")
+		if q.OperationName == "HostRegistrations" {
+			_, _ = io.WriteString(w, health1838Registrations(n))
+			return
+		}
+		writes++
+		var ids []string
+		for _, rep := range q.Variables.Input.Reports {
+			ids = append(ids, fmt.Sprintf(`{"id":%q,"urn":"hrn:worker:test:team:x"}`, rep.Worker))
+		}
+		stored = len(ids)
+		_, _ = io.WriteString(w, `{"data":{"setHostWorkerTerminals":{"stored":[`+strings.Join(ids, ",")+`],"refused":[]}}}`)
+	}))
+	defer srv.Close()
+	for name, body := range map[string]string{"key": "SYNTHETIC_HOST_KEY_1838", "state.json": `{"hostId":"own"}`} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [x]\n", srv.URL, dir)
+	path := filepath.Join(dir, "host.yaml")
+	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var rows []string
+	for i := 1; i <= n; i++ {
+		rows = append(rows, fmt.Sprintf(`{"contract":"terminal-status@1","worker":"W%d","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-10T09:00:00Z"}`, i))
+	}
+	f := cmdutil.NewFactory()
+	streams, _, _ := output.Test()
+	f.IOStreams = streams
+	var deadline time.Duration
+	c := newCmdTeamHealthWithReader(f, func(ctx context.Context, _ string, _ *hostpoller.Config) ([]byte, int, error) {
+		deadline = healthStatusTimeout(ctx)
+		return []byte("[" + strings.Join(rows, ",") + "]"), 0, nil
+	})
+	c.SetArgs([]string{"sweep", "--config", path})
+	if err := c.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if deadline <= 2*time.Minute {
+		t.Errorf("the read must be allowed longer than the old 2m for %d workers: %v", n, deadline)
+	}
+	if writes != 1 || stored != n {
+		t.Errorf("writes=%d stored=%d, want 1 write storing %d", writes, stored, n)
 	}
 }
