@@ -87,7 +87,7 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	if err := cmd.Run(); err != nil {
 		// Only our own deadline (not the caller's cancellation, not an output
 		// overflow) is the timeout class.
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) && parent.Err() == nil {
+		if isHealthStatusTimeout(ctx.Err(), parent.Err(), out.overflowed) {
 			return nil, 1, errHealthStatusTimeout{limit}
 		}
 		var status *exec.ExitError
@@ -99,14 +99,24 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	return out.Bytes(), 0, nil
 }
 
+// isHealthStatusTimeout reports whether a failed status read ran out of OUR
+// deadline: the sized one expired, the caller had not cancelled or hit its own
+// deadline, and the read was not already killed for oversized output (an
+// overflow that races the deadline stays an ordinary failure).
+func isHealthStatusTimeout(childErr, parentErr error, overflowed bool) bool {
+	return errors.Is(childErr, context.DeadlineExceeded) && parentErr == nil && !overflowed
+}
+
 // Bound even a broken status command's stdout before decoding it.
 type healthStatusBuffer struct {
 	bytes.Buffer
 	onOverflow func()
+	overflowed bool
 }
 
 func (b *healthStatusBuffer) Write(p []byte) (int, error) {
 	if b.Len()+len(p) > 8<<20 {
+		b.overflowed = true
 		if b.onOverflow != nil {
 			b.onOverflow()
 		}

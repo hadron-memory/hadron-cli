@@ -122,7 +122,10 @@ func sweep1838(t *testing.T, n int, extra []string, readErr error) (time.Duratio
 		return nil, 1, readErr
 	})
 	c.SetArgs(append([]string{"sweep", "--config", path}, extra...))
-	return got, c.Execute()
+	// Execute first: the reader sets got during the call, and Go does not order
+	// a variable operand against a call in the same return statement.
+	err := c.Execute()
+	return got, err
 }
 
 func TestHealth1838SweepSizesTheReadFromRegisteredWorkersAndFlagOverrides(t *testing.T) {
@@ -166,5 +169,37 @@ func TestHealth1838CallerDeadlineIsNotNamedAsTheSizedLimit(t *testing.T) {
 	var to errHealthStatusTimeout
 	if err == nil || errors.As(err, &to) {
 		t.Fatalf("the caller's deadline must not read as the sized limit: %v", err)
+	}
+}
+
+// An output overflow that races the deadline is an ordinary failure, never the
+// timeout class (BLIND P3): the sized limit did not cause it.
+func TestHealth1838OverflowRacingTheDeadlineIsNotATimeout(t *testing.T) {
+	d := context.DeadlineExceeded
+	cases := []struct {
+		name       string
+		child, par error
+		overflowed bool
+		want       bool
+	}{
+		{"deadline only", d, nil, false, true},
+		{"deadline plus overflow", d, nil, true, false},
+		{"caller deadline", d, d, false, false},
+		{"caller cancel", context.Canceled, context.Canceled, false, false},
+		{"overflow cancel", context.Canceled, nil, true, false},
+	}
+	for _, c := range cases {
+		if got := isHealthStatusTimeout(c.child, c.par, c.overflowed); got != c.want {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+	b := healthStatusBuffer{}
+	_, _ = b.Write(make([]byte, 8<<20))
+	if b.overflowed {
+		t.Error("a full buffer is not an overflow")
+	}
+	_, _ = b.Write([]byte("x"))
+	if !b.overflowed {
+		t.Error("overflow must be recorded")
 	}
 }
