@@ -15,6 +15,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// browserLogin is the browser OAuth flow, a variable only so a command-level
+// test can answer it without a real browser (#1860).
+var browserLogin = auth.BrowserStrategy{}.Login
+
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
 	var provider string
@@ -81,7 +85,7 @@ whether the credential authenticates.`,
 					return err
 				}
 			} else {
-				result, err := auth.BrowserStrategy{}.Login(cmd.Context(), auth.LoginOptions{
+				result, err := browserLogin(cmd.Context(), auth.LoginOptions{
 					ServerURL:     server,
 					LoginProvider: provider,
 					IO:            f.IOStreams,
