@@ -97,10 +97,15 @@ func TestSessionListProvenanceWithAppPrintsNoNotAppliedLine(t *testing.T) {
 // filter, never that the flag is ignored outright.
 func TestSessionListExplicitAppWithAsAndRepoKeepsTheLineTrue(t *testing.T) {
 	_, errOut := runSessionList1653(t, "--app", appScopeFlagRef, "--repo", "hadron-memory/hadron-cli")
-	for _, want := range []string{"does not filter", "worker-name", "--repo"} {
+	for _, want := range []string{"does not filter", "worker-name", "--repo", "without --as/--repo"} {
 		if !strings.Contains(errOut, want) {
 			t.Errorf("lacks %q: %q", want, errOut)
 		}
+	}
+	// With --as/--repo the listing IS narrowed, so the "every session" claim
+	// must be conditional, never a bare statement (BLIND delta P2).
+	if strings.Contains(errOut, "every session you can see is shown") {
+		t.Errorf("unconditional 'every session' claim under --repo: %q", errOut)
 	}
 	if strings.Contains(errOut, "not applied") || strings.Contains(errOut, "ignored") {
 		t.Errorf("must not claim --app is ignored (it scopes --as worker-name lookup): %q", errOut)
@@ -124,5 +129,31 @@ func TestSessionListBindingAppPrintsNoScopeLine(t *testing.T) {
 	}
 	if strings.Contains(errOut.String(), "does not filter") {
 		t.Fatalf("a binding is not an explicit --app: %q", errOut.String())
+	}
+}
+
+// The same, with a real --as: --app scopes the worker-name lookup there, and
+// the line must neither call --app ignored nor claim the listing is unfiltered.
+func TestSessionListExplicitAppWithAsKeepsTheLineTrue(t *testing.T) {
+	teamGitDir(t)
+	srv := newSlim1459Server(t, map[string]string{
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
+	})
+	f, _ := testFactory(t)
+	var errOut strings.Builder
+	f.IOStreams.ErrOut = &errOut
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--as", "iris", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := errOut.String()
+	for _, want := range []string{"does not filter", "worker-name", "without --as/--repo"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("lacks %q: %q", want, got)
+		}
+	}
+	if strings.Contains(got, "every session you can see is shown") || strings.Contains(got, "not applied") || strings.Contains(got, "ignored") {
+		t.Errorf("claim not true under --as: %q", got)
 	}
 }
