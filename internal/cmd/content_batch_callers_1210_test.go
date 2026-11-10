@@ -16,7 +16,7 @@ func TestContentBatchCallers1210(t *testing.T) {
 		args  []string
 		stubs map[string]string
 	}{
-		{"skill", []string{"skill", "lint", "-m", "hrn:mem:hadronmemory.com:core"}, map[string]string{"SkillPlan": emptyIncludeLintPlan, "GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatchContent": batchOf(good)}},
+		{"skill", []string{"skill", "lint", "-m", "hrn:mem:hadronmemory.com:core"}, map[string]string{"SkillLintPlan": skillLintPlan(skillLintEntry("n1")), "GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatchContent": batchOf(good)}},
 		{"coding", []string{"coding", "review", "lint", "-m", codingMem}, map[string]string{"GetNode": codingRootJSON("review", inEdge("e1", "Applies when a resolver changes", "review:ok"), ""), "FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `]}}`, "NodeBatchContent": codingBatch([]string{codingBatchNode("review:ok", `"review"`, "Applies when a resolver changes.")}, "")}},
 	}
 	for _, tc := range cases {
