@@ -94,12 +94,15 @@ then the served text raw. --json prints exactly {decision, text}.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			// R7: the decision proves the serve. A null or malformed one is refused,
+			// never shown as an "unknown" header over served text; a valid decision
+			// with empty text is a success.
 			r := resp.AgentServedBootPrompt
+			if r == nil || r.Decision == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned a malformed boot-prompt decision; nothing to print")
+			}
 			d := r.Decision
-			// R7: the decision proves the serve. A malformed one is refused, never
-			// shown as an "unknown" header over served text; a valid decision with
-			// empty text is a success.
-			if strings.TrimSpace(string(d.PointerLevel)) == "" || strings.TrimSpace(d.CompiledNodeId) == "" || d.ServedRevSeq < 0 {
+			if !validPointerLevel(d.PointerLevel) || strings.TrimSpace(d.CompiledNodeId) == "" || d.ServedRevSeq < 1 {
 				return exitcode.Newf(exitcode.Error, "the server returned a malformed boot-prompt decision; nothing to print")
 			}
 			dto := agentBootPromptDTO{
@@ -132,4 +135,13 @@ then the served text raw. --json prints exactly {decision, text}.`,
 	}
 	cmd.Flags().StringVar(&model, "model", "", "the model name filled into session.llmModel (omitted: empty)")
 	return cmd
+}
+
+// validPointerLevel accepts only the levels the server's ServedPromptPointerLevel names.
+func validPointerLevel(l gen.ServedPromptPointerLevel) bool {
+	switch l {
+	case gen.ServedPromptPointerLevelAgent, gen.ServedPromptPointerLevelAppAgent, gen.ServedPromptPointerLevelWorker:
+		return true
+	}
+	return false
 }

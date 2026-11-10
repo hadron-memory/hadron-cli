@@ -116,11 +116,19 @@ func TestAgentBootPromptEmptyTextWithValidDecisionIsSuccess(t *testing.T) {
 }
 
 func TestAgentBootPromptMalformedDecisionRefusesExit1(t *testing.T) {
-	bad := strings.Replace(servedJSON, `"compiledNodeId":"n1"`, `"compiledNodeId":""`, 1)
-	for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
-		_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": bad}, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
-			t.Fatalf("%v: err=%v out=%q", args, err, out)
+	bads := []string{
+		strings.Replace(servedJSON, `"compiledNodeId":"n1"`, `"compiledNodeId":""`, 1),
+		strings.Replace(servedJSON, `"servedRevSeq":3`, `"servedRevSeq":0`, 1),
+		strings.Replace(servedJSON, `"pointerLevel":"AGENT"`, `"pointerLevel":"BOGUS"`, 1),
+		`{"data":{"agentServedBootPrompt":{"decision":null,"text":"x"}}}`,
+		`{"data":{"agentServedBootPrompt":null}}`,
+	}
+	for i, bad := range bads {
+		for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
+			_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": bad}, args...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
+				t.Fatalf("case %d %v: err=%v out=%q", i, args, err, out)
+			}
 		}
 	}
 }
