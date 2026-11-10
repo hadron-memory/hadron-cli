@@ -247,7 +247,7 @@ func providerLintFindings(ctx context.Context, client graphql.Client, nodes []*b
 			reportedNotJudged[n.Id+"\x00unknown"] = true
 			out = append(out, lintFindingDTO{
 				Node: ref, Memory: memory, Rule: "skill-node-not-judged", Severity: skilldoc.SevWarning,
-				Message: "The server returned no host-free judgment for this node's unknown exports key(s); retry once, and upgrade the CLI if a newer host should be linted.",
+				Message: describeNotJudged(ref),
 				Hosts:   []string{},
 			})
 		}
