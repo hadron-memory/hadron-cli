@@ -1517,12 +1517,14 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 	if err != nil || resp.User == nil {
 		return userID
 	}
+	// Server-authored display strings: single-lined before they reach a prompt
+	// or a refusal, so a control byte cannot forge a line or an escape (#1862).
 	name, handle := "", ""
 	if resp.User.Name != nil {
-		name = *resp.User.Name
+		name = output.SafeCell(*resp.User.Name)
 	}
 	if resp.User.Handle != nil {
-		handle = *resp.User.Handle
+		handle = output.SafeCell(*resp.User.Handle)
 	}
 	switch {
 	case name != "" && handle != "":
