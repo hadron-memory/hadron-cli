@@ -82,7 +82,7 @@ func leaves1831(v any, out *[]string) {
 func sent1831(calls *[]call1831) []string {
 	var out []string
 	for _, c := range *calls {
-		leaves1831(map[string]any(c.Vars), &out)
+		leaves1831(c.Vars, &out)
 	}
 	return out
 }

@@ -116,7 +116,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
   hadron team task update AT1.2 --start-by 2026-11-02T09:00:00Z --close-session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
