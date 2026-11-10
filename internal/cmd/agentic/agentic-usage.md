@@ -2877,7 +2877,12 @@ Conventions:
   happened (`notified`), so the receipt states the outcome instead of hedging
   about it — including the case where the notice was owed and FAILED, which the
   caller must be told because they are then the only person who knows the team
-  was not informed.
+  was not informed. A force-release that is refused names the holder and who
+  can lift the hold — "only the holder, or an App or org admin, can release
+  it" (in a user-owned App the owner is that admin) — both for the non-TTY
+  refusal without `--yes` (still exit 2, costs one user read) and for the
+  server's not-authorized refusal (still exit 8, the server's sentence kept);
+  a self-release is never decorated, and `--json` keeps its error envelope.
   The CLI reads the hold only to say which act it is, never to decide who may
   perform it. Idempotent, and it never claims the name was free: `heldByUserId`
   is masked to null on deny, so a nil hold read ON ITS OWN means "unheld OR held
@@ -3192,7 +3197,11 @@ server error fails the command).
   remedy is to **cast your own worker** for the role, or to ask the holder
   (or an App/org admin) to release it — never to retry with the flag. `start`
   refuses this before it reaches the server when the hold is visibly
-  another's AND the name is live; otherwise the server refuses it and the CLI
+  another's AND the name is live — under `--force` too (#1859): a live worker
+  is classified before any `taking over worker …` line, which prints only when
+  the hold is yours or none is visible; if your own identity cannot be read it
+  prints a hedged line instead ("the server decides") and still binds, and a
+  name that is not live pays no extra read. Otherwise the server refuses it and the CLI
   renders that — same sentence, one round trip later. The server is the
   authority on a hold either way, which is also what closes the race the
   pre-flight cannot: the hold can be claimed between the worker read and

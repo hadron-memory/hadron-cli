@@ -1101,7 +1101,32 @@ ends the recovered session: run start again to pick it up.`,
 						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
 						w.Name, drivenBy(narr, live, describe))
 				}
+				// Under --force a LIVE worker is classified too (#1859): the takeover
+				// line below is a claim that --force is about to take the name from
+				// its driver, and when the name is HELD by somebody else that claim
+				// is false — a HELD name is not forceable (cor:agt:020:09), and the
+				// server refuses WORKER_HELD before it weighs liveness. Gated on
+				// live == liveYes, NOT on --force alone: --force also means "replace
+				// a local binding", and a name that is not live never reaches the
+				// takeover line, so it must not pay the two extra reads (holder +
+				// identity). The server stays the gate; this only keeps the CLI from
+				// narrating a takeover it cannot make.
+				forceHeldBy := ""
+				if live == liveYes && force {
+					switch holder, verdict := classifyHold(ctx, client, w); verdict {
+					case holdByOther:
+						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+					case holdUnknownWhose:
+						// Could not tell whether the hold is the caller's: refusing
+						// would block a legitimate self-takeover whenever the
+						// identity read blips, so say what is known and let the
+						// server decide (plan ruling R2).
+						forceHeldBy = holder
+					}
+				}
 				switch {
+				case live == liveYes && forceHeldBy != "":
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is live — being driven by %s — and the name is held by %s; this CLI could not read your own identity to tell whether that is you, so the server decides: it takes over if the hold is yours and refuses if it is not (a held name is not forceable, cor:agt:020:09)\n", w.Name, drivenBy(narr, live, describe), forceHeldBy)
 				case live == liveYes:
 					// Reached only under --force: the gate above refuses otherwise.
 					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live, describe))
