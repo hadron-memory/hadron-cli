@@ -346,6 +346,11 @@ func scanBootPointers(ctx context.Context, client graphql.Client, appRef string)
 // filterOnly keeps the --only workers, refusing before any write when one is
 // not a live worker in the App.
 func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWorkerRow, error) {
+	return filterOnlyFor(rows, only, appRef, "nothing was compiled")
+}
+
+// filterOnlyFor is filterOnly with the batch's own "nothing was <done>" note.
+func filterOnlyFor(rows []batchWorkerRow, only []string, appRef, nothingDone string) ([]batchWorkerRow, error) {
 	if len(only) == 0 {
 		return rows, nil
 	}
@@ -367,7 +372,7 @@ func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWor
 		}
 	}
 	if len(missing) > 0 {
-		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in %s: %s (nothing was compiled)", appRef, strings.Join(missing, ", "))
+		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in %s: %s (%s)", appRef, strings.Join(missing, ", "), nothingDone)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return strings.ToLower(kept[i].Name) < strings.ToLower(kept[j].Name) })
 	return kept, nil

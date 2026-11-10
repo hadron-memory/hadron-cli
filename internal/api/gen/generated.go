@@ -20648,6 +20648,137 @@ type BootCompileResultNode struct {
 // GetUrn returns BootCompileResultNode.Urn, and is useful for accessing the field via an interface.
 func (v *BootCompileResultNode) GetUrn() string { return v.Urn }
 
+// BootPromptApprovalBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type BootPromptApprovalBatchNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                        `json:"truncated"`
+	Omitted     []string                                                    `json:"omitted"`
+	Unavailable []string                                                    `json:"unavailable"`
+	Nodes       []*BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns BootPromptApprovalBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns BootPromptApprovalBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns BootPromptApprovalBatchNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResult) GetUnavailable() []string {
+	return v.Unavailable
+}
+
+// GetNodes returns BootPromptApprovalBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResult) GetNodes() []*BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1591 — whether the current revision is approved, and the latest approval on record.
+	ApprovalStatus *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus `json:"approvalStatus"`
+}
+
+// GetId returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetRevision returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode) GetRevision() int {
+	return v.Revision
+}
+
+// GetApprovalStatus returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode.ApprovalStatus, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNode) GetApprovalStatus() *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus {
+	return v.ApprovalStatus
+}
+
+// BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus includes the requested fields of the GraphQL type NodeApprovalStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus struct {
+	State NodeApprovalState `json:"state"`
+	// The latest approval on record; null when NOT_APPROVED or NOT_APPLICABLE.
+	Approval *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval `json:"approval"`
+}
+
+// GetState returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus.State, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetState() NodeApprovalState {
+	return v.State
+}
+
+// GetApproval returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus.Approval, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetApproval() *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval {
+	return v.Approval
+}
+
+// BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval includes the requested fields of the GraphQL type NodeApproval.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one recorded approval of a node revision.
+type BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval struct {
+	// The approved revision number (Node.revision at approval time).
+	Revision int `json:"revision"`
+}
+
+// GetRevision returns BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval.Revision, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchNodeBatchNodeBatchResultNodesNodeApprovalStatusApprovalNodeApproval) GetRevision() int {
+	return v.Revision
+}
+
+// BootPromptApprovalBatchResponse is returned by BootPromptApprovalBatch on success.
+type BootPromptApprovalBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *BootPromptApprovalBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns BootPromptApprovalBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *BootPromptApprovalBatchResponse) GetNodeBatch() *BootPromptApprovalBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
 // BootPromptPreviewFields includes the requested fields of the GraphQL type BootPromptServeOutcome.
 // The GraphQL type's documentation follows.
 //
@@ -105344,6 +105475,14 @@ func (v *__BeginAssetUploadInput) GetDescription() *string { return v.Descriptio
 // GetUploadRequestId returns __BeginAssetUploadInput.UploadRequestId, and is useful for accessing the field via an interface.
 func (v *__BeginAssetUploadInput) GetUploadRequestId() *string { return v.UploadRequestId }
 
+// __BootPromptApprovalBatchInput is used internally by genqlient
+type __BootPromptApprovalBatchInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __BootPromptApprovalBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__BootPromptApprovalBatchInput) GetRefs() []string { return v.Refs }
+
 // __CalendarCreateEventInput is used internally by genqlient
 type __CalendarCreateEventInput struct {
 	ConnectionRef   string                  `json:"connectionRef"`
@@ -121876,6 +122015,57 @@ func BeginAssetUpload(
 	}
 
 	data_ = &BeginAssetUploadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by BootPromptApprovalBatch.
+const BootPromptApprovalBatch_Operation = `
+query BootPromptApprovalBatch ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			urn
+			revision
+			approvalStatus {
+				state
+				approval {
+					revision
+				}
+			}
+		}
+	}
+}
+`
+
+// cli#1466: `team worker approve` reads each compiled worker prompt's current
+// revision and approval state in nodeBatch pages. The same operation, with one
+// ref, is the ONE status read after a lost approveNode response: did the
+// approval land at the pinned revision? It is never followed by a resend.
+func BootPromptApprovalBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *BootPromptApprovalBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "BootPromptApprovalBatch",
+		Query:  BootPromptApprovalBatch_Operation,
+		Variables: &__BootPromptApprovalBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &BootPromptApprovalBatchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

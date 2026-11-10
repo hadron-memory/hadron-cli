@@ -1,0 +1,22 @@
+# cli#1466: `team worker approve` reads each compiled worker prompt's current
+# revision and approval state in nodeBatch pages. The same operation, with one
+# ref, is the ONE status read after a lost approveNode response: did the
+# approval land at the pinned revision? It is never followed by a resend.
+query BootPromptApprovalBatch($refs: [ID!]!) {
+  nodeBatch(refs: $refs) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      urn
+      revision
+      approvalStatus {
+        state
+        approval {
+          revision
+        }
+      }
+    }
+  }
+}
