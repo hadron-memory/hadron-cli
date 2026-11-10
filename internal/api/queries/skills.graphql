@@ -103,6 +103,8 @@ query SkillLintPlan(
     # identical in every host's plan, so lint reports each node once.
     unrecognized {
       nodeId
+      keyCount
+      keys
       findings {
         rule
         severity

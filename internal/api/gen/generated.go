@@ -81439,12 +81439,25 @@ func (v *SkillLintPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMem
 // A node carrying one or more exports keys that name no host (#1292).
 type SkillLintPlanSkillPlanUnrecognized struct {
 	NodeId string `json:"nodeId"`
+	// How many unrecognised keys the node carries — the true total, whether or not each is listed.
+	KeyCount int `json:"keyCount"`
+	// The unrecognised keys LISTED, in UTF-8 byte order — e.g. codex for
+	// properties.exports.codex. At most 10, and none over 128 bytes: the report
+	// is bounded because properties is writer-controlled. keyCount is the total;
+	// anything not listed is counted in one extra warning, never dropped silently.
+	Keys []string `json:"keys"`
 	// One warning per listed key, plus one for any not listed. Attributed to no host; never blocks.
 	Findings []*SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding `json:"findings"`
 }
 
 // GetNodeId returns SkillLintPlanSkillPlanUnrecognized.NodeId, and is useful for accessing the field via an interface.
 func (v *SkillLintPlanSkillPlanUnrecognized) GetNodeId() string { return v.NodeId }
+
+// GetKeyCount returns SkillLintPlanSkillPlanUnrecognized.KeyCount, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognized) GetKeyCount() int { return v.KeyCount }
+
+// GetKeys returns SkillLintPlanSkillPlanUnrecognized.Keys, and is useful for accessing the field via an interface.
+func (v *SkillLintPlanSkillPlanUnrecognized) GetKeys() []string { return v.Keys }
 
 // GetFindings returns SkillLintPlanSkillPlanUnrecognized.Findings, and is useful for accessing the field via an interface.
 func (v *SkillLintPlanSkillPlanUnrecognized) GetFindings() []*SkillLintPlanSkillPlanUnrecognizedFindingsSkillFinding {
@@ -144266,6 +144279,8 @@ query SkillLintPlan ($input: SkillPlanInput!) {
 		}
 		unrecognized {
 			nodeId
+			keyCount
+			keys
 			findings {
 				rule
 				severity

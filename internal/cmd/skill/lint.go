@@ -73,6 +73,13 @@ a neutral warning; this client never diagnoses them by searching body text.
 The client does not fetch rendered skill bodies or write files; provider failure
 does not become a clean lint result or fall back to a local verdict.
 
+A skill-node-not-judged warning names a selected declaration the server did not
+judge. The result is not clean, but the warning exits 0 unless --strict promotes
+it. Retry once in case the corpus changed between host plans; if a known-host
+omission persists, report a server skillPlan defect with the node and host. An
+unknown exports key with no host-free judgment produces the same warning without
+blocking the corpus.
+
 Errors exit 5; warnings alone exit 0 unless --strict promotes them to errors.
 
 --all covers what the server LISTS for you — your orgs' memories, memories
@@ -106,7 +113,7 @@ listing by the server; lint it by naming it with -m.`,
 					declared++
 				}
 			}
-			findings, err := providerLintFindings(cmd.Context(), client, s.nodes)
+			findings, err := providerLintFindings(cmd.Context(), client, s.nodes, s.memories)
 			if err != nil {
 				return err
 			}
@@ -168,7 +175,7 @@ func hasSkillLintSubject(props map[string]any) bool {
 		return true
 	}
 	for _, h := range skilldoc.Hosts {
-		if _, ok := skilldoc.DeclaredFor(props, h); ok || len(skilldoc.MalformedFor(props, h)) > 0 {
+		if skilldoc.HasDeclarationFor(props, h) {
 			return true
 		}
 	}
