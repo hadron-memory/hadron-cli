@@ -4795,6 +4795,50 @@ use `--all`. Exit: 0 when all are compiled/unchanged/skipped; otherwise the
 highest of 7 (lost response), 1 (undecided worker) and each failure's code.
 `--all/--only/--apply` with a worker argument exit 2.
 
+### Batch approve: every unapproved compiled worker prompt (cli#1466)
+
+hadron team worker approve [--only <names>] [--apply] [--app <ref>]
+
+Approval only (hadron-server#2973 ruling (a)): no signing request, no step-up,
+no register grant read. A read-only preview unless `--apply`. Selection: live
+workers with their own compiled prompt (`bootPromptRef`), target not deleted,
+approval state `NOT_APPROVED` or `SUPERSEDED`; install- and Agent-level prompts
+are out. Reads: one roster read per 200 workers, one `nodeBatch` approval-state
+read per 200 compiled prompts (a failed read aborts before anything is sent),
+and `verifyNode` on each `SUPERSEDED` row. `--only a,b` (names, ids or URNs,
+duplicates collapse) narrows; a name that is not a live worker exits 4 and an
+empty `--only` exits 2, before anything is sent; a worker argument exits 2.
+
+Apply sends ONE `approveNode(ref, revision)` per selected worker, in roster
+order, pinned to the preview's revision (`REVISION_MISMATCH` exit 5: preview
+again). Never `approveMemoryNodes`. The server decides authority per item;
+the CLI checks none, and a refusal does not stop the others. Each approval is
+its own transaction, no rollback.
+
+Tamper is only the server's `verifyNode` verdict: `SUPERSEDED` there means a
+legitimate edit (`toApprove`); `TAMPERED` goes to `tampered`, is never sent and
+makes the run exit 5 (route: investigate, then `node approve <ref> --revision N`).
+Any other verify answer (refused, empty, `INTACT`, `NOT_APPROVED`) leaves the
+row in `unknown`, never sent (exit 1). Residual: a tamper between preview and
+apply is not caught.
+
+After each approval, ONE `Worker.bootPromptServe` read reports what a serve
+would give now, as a snapshot, never "now live": `serve{servedRevSeq,refusal,unread}`
+(human: "a serve now would give rev N" / "would still give rev M" / "would be
+refused: CODE" / "serving state unread"). It never changes the exit code. A
+lost approval response gets ONE approval-state read, outcome `landed` /
+`not-landed` / `unknown`, exit 7, never resent and no serve read.
+
+JSON: `{app,applied,authority,limits,toApprove,approved,alreadyApproved,tampered,skipped,failed,unknown}`,
+every list an array. Target rows `{name,id,urn,compiledNodeRef,revision,state,reason}`;
+`approved` `{name,id,urn,compiledNodeRef,revision,serve}`; `failed`
+`{name,id,urn,compiledNodeRef,revision,code,exitCode,message}`; `unknown`
+`{name,id,urn,compiledNodeRef,revision,outcome,reason}`. Exit: the maximum of
+0, 1 (undecided row or an empty approval success, which gets the same one
+status read), 4, 5 (server `REVISION_MISMATCH` / `NODE_IS_PLACEHOLDER`; an
+encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8 (`BOOT_PROMPT_APPROVAL_FORBIDDEN`,
+`BOOT_PROMPT_WORKER_SESSION_REFUSED`, which `node approve` also maps to 8).
+
 ## Memory merge, verify and settings (cli#1340)
 
 `memory merge <source> --into <target>` sends mergeMemories once: every source node moves to the target, or folds into the target node at the same loc (the node merge strategy; `--field` repeatable, default all). Edges follow; the source is left empty and `--delete-source` deletes it. Confirms on a terminal, `--yes` required otherwise (exit 2, nothing sent). The server's refusals (encrypted, system/app class, write access, `MERGE_TARGET_LOC_TOMBSTONED`) map through the exit-code table. A refusal after some batches committed keeps those batches and never deletes the source; re-run the same merge to finish it. `--json`: the target memory `{id,urn,name,shortDescription,class,visibility,organizationId,isEncrypted,maxRevCount,updatedAt}`.
