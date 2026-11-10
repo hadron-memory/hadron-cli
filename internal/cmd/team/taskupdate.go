@@ -90,8 +90,7 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   (PROPERTIES_NOT_AN_OBJECT), at most 16 KiB (PROPERTIES_TOO_LARGE) and valid
   against the team's task-properties schema (PROPERTIES_SCHEMA_VIOLATION, or
   PROPERTIES_SCHEMA_UNUSABLE when that schema itself cannot be used). The
-  assignee may edit properties alone: combined with any other field the whole
-  edit is refused (TASK_NOT_OWNER).
+  assignee may edit properties and references alone (see Who may edit).
 - --close-session asks the assignee's worker session to end when the task
   finishes or is cancelled; --no-close-session says it should not. Neither flag
   leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
@@ -102,9 +101,13 @@ Not editable here: --source (fixed once the task exists), the owner and assignee
 the parent, the priority and the blockers (task set-priority, add-blocker).
 
 Who may edit: the task's owner, a worker the owner reports to, or a person who
-manages the App; an assignee alone may edit --properties and nothing else, any
-other field is refused (TASK_NOT_OWNER). A finished or
-cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
+manages the App. An assignee alone may set, change or remove only the task's
+properties (--properties, --clear-properties) and references (--ref,
+--clear-refs), alone or together in one call; if the call names any other field,
+even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
+changes. The assignee's reference edit needs a server at or after
+hadron-server#3718 (f4db15e0); an older server refuses it with TASK_NOT_OWNER.
+A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.`,
 		Example: `  # fix a title and clear the description
   hadron team task update AT1.2 --title "Fix the login redirect" --clear-description
