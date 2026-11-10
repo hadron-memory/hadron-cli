@@ -1015,13 +1015,11 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "EDGE_LOC_CONFLICT":
 		return exitcode.Conflict
-	// Served boot-prompt read (cli#1853, hadron-server#3846): nothing is set to
-	// serve (4), or the pointer is set but cannot be served until someone
-	// approves, signs or repoints it (5). AGENT_NOT_FOUND rides the suffix rule.
-	case code == "BOOT_PROMPT_NOT_SET":
-		return exitcode.NotFound
-	case code == "BOOT_PROMPT_TARGET_DELETED" || code == "BOOT_PROMPT_NOT_APPROVED" || code == "BOOT_PROMPT_NOT_SIGNED":
-		return exitcode.Conflict
+	// Served boot-prompt read (cli#1853 R5, hadron-server#3846): the four serve
+	// refusals are configuration state and keep exit 1 (cli#1776); serverCode is
+	// the branchable signal. AGENT_NOT_FOUND rides the suffix rule (4).
+	case code == "BOOT_PROMPT_NOT_SET" || code == "BOOT_PROMPT_TARGET_DELETED" || code == "BOOT_PROMPT_NOT_APPROVED" || code == "BOOT_PROMPT_NOT_SIGNED":
+		return exitcode.Error
 	// Boot compile: explicit classifications precede generic suffix handling
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
 	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":

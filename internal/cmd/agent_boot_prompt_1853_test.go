@@ -32,8 +32,8 @@ func TestAgentBootPromptSendsOnlyWhatWasAsked(t *testing.T) {
 	if v["llmModel"] != nil {
 		t.Fatalf("llmModel must be unset without --model: %v", v)
 	}
-	if out != "  You are Bot.\n\ttrailing  \n" {
-		t.Fatalf("text must be byte for byte: %q", out)
+	if out != "served boot prompt: AGENT n1 revision 3\n  You are Bot.\n\ttrailing  \n" {
+		t.Fatalf("header line then text raw: %q", out)
 	}
 }
 
@@ -85,10 +85,10 @@ func TestAgentBootPromptJSONShapeIsPinned(t *testing.T) {
 func TestAgentBootPromptRefusalsMapAndPrintNoPrompt(t *testing.T) {
 	for code, want := range map[string]int{
 		"AGENT_NOT_FOUND":            exitcode.NotFound,
-		"BOOT_PROMPT_NOT_SET":        exitcode.NotFound,
-		"BOOT_PROMPT_TARGET_DELETED": exitcode.Conflict,
-		"BOOT_PROMPT_NOT_APPROVED":   exitcode.Conflict,
-		"BOOT_PROMPT_NOT_SIGNED":     exitcode.Conflict,
+		"BOOT_PROMPT_NOT_SET":        exitcode.Error,
+		"BOOT_PROMPT_TARGET_DELETED": exitcode.Error,
+		"BOOT_PROMPT_NOT_APPROVED":   exitcode.Error,
+		"BOOT_PROMPT_NOT_SIGNED":     exitcode.Error,
 	} {
 		t.Run(code, func(t *testing.T) {
 			calls, out, err := runAgentSub(t, map[string]string{
@@ -107,10 +107,20 @@ func TestAgentBootPromptRefusalsMapAndPrintNoPrompt(t *testing.T) {
 	}
 }
 
-func TestAgentBootPromptNeverPrintsEmptyPromptAsSuccess(t *testing.T) {
+func TestAgentBootPromptEmptyTextWithValidDecisionIsSuccess(t *testing.T) {
 	empty := strings.Replace(servedJSON, `"text":"  You are Bot.\n\ttrailing  \n"`, `"text":""`, 1)
 	_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": empty}, "boot-prompt", "agt1")
-	if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
+	if err != nil || out != "served boot prompt: AGENT n1 revision 3\n" {
 		t.Fatalf("err=%v out=%q", err, out)
+	}
+}
+
+func TestAgentBootPromptMalformedDecisionRefusesExit1(t *testing.T) {
+	bad := strings.Replace(servedJSON, `"compiledNodeId":"n1"`, `"compiledNodeId":""`, 1)
+	for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
+		_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": bad}, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
+			t.Fatalf("%v: err=%v out=%q", args, err, out)
+		}
 	}
 }

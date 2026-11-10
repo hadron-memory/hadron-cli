@@ -52,9 +52,13 @@ never an identity claim. Worker-only variables (name, reports-to, signature) are
 filled as a chat fills them; the worker briefing's derived blocks are not added.
 
 The server refuses with a typed code and nothing is printed as the prompt:
-AGENT_NOT_FOUND (missing, unreadable and not-installed read the same; exit 4),
-BOOT_PROMPT_NOT_SET (exit 4), BOOT_PROMPT_TARGET_DELETED, BOOT_PROMPT_NOT_APPROVED
-and BOOT_PROMPT_NOT_SIGNED (exit 5).`,
+AGENT_NOT_FOUND (missing, unreadable and not-installed read the same; exit 4);
+BOOT_PROMPT_NOT_SET, BOOT_PROMPT_TARGET_DELETED, BOOT_PROMPT_NOT_APPROVED and
+BOOT_PROMPT_NOT_SIGNED exit 1 (configuration state; the code in the message is
+the signal to branch on).
+
+Output: a first line "served boot prompt: <LEVEL> <compiledNodeId> revision <N>",
+then the served text raw. --json prints exactly {decision, text}.`,
 		Example: `  hadron agent boot-prompt hrn:agent:acme.com:bot
   hadron agent boot-prompt hrn:agent:acme.com:bot --app hrn:app:acme.com:team --model claude-opus-5-5
   hadron agent boot-prompt hrn:agent:acme.com:bot --json`,
@@ -91,11 +95,13 @@ and BOOT_PROMPT_NOT_SIGNED (exit 5).`,
 				return api.MapError(err)
 			}
 			r := resp.AgentServedBootPrompt
-			// Never present an empty prompt as success.
-			if r.Text == "" {
-				return exitcode.Newf(exitcode.Error, "the server returned an empty boot prompt; nothing to print")
-			}
 			d := r.Decision
+			// R7: the decision proves the serve. A malformed one is refused, never
+			// shown as an "unknown" header over served text; a valid decision with
+			// empty text is a success.
+			if strings.TrimSpace(string(d.PointerLevel)) == "" || strings.TrimSpace(d.CompiledNodeId) == "" || d.ServedRevSeq < 0 {
+				return exitcode.Newf(exitcode.Error, "the server returned a malformed boot-prompt decision; nothing to print")
+			}
 			dto := agentBootPromptDTO{
 				Decision: bootPromptDecisionDTO{
 					PointerLevel:        string(d.PointerLevel),
@@ -107,11 +113,20 @@ and BOOT_PROMPT_NOT_SIGNED (exit 5).`,
 				Text: r.Text,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				// The served revision goes to stderr so stdout is the prompt, byte for byte.
-				fmt.Fprintf(f.IOStreams.ErrOut, "served: %s %s revision %d\n",
-					output.SafeCell(dto.Decision.PointerLevel), output.SafeCell(dto.Decision.CompiledNodeID), dto.Decision.ServedRevSeq)
-				_, err := io.WriteString(w, dto.Text)
-				return err
+				// R6: header line, then the served text raw; a final newline is added
+				// on a terminal only, so a pipe receives the text byte for byte.
+				if _, err := fmt.Fprintf(w, "served boot prompt: %s %s revision %d\n",
+					output.SafeCell(dto.Decision.PointerLevel), output.SafeCell(dto.Decision.CompiledNodeID), dto.Decision.ServedRevSeq); err != nil {
+					return err
+				}
+				if _, err := io.WriteString(w, dto.Text); err != nil {
+					return err
+				}
+				if f.IOStreams.IsTerminal() && !strings.HasSuffix(dto.Text, "\n") {
+					_, err := io.WriteString(w, "\n")
+					return err
+				}
+				return nil
 			})
 		},
 	}
