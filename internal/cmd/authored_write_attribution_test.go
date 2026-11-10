@@ -364,3 +364,62 @@ func TestAuthoredWriteBoundWorktreePrintsNoNote(t *testing.T) {
 		}
 	}
 }
+
+// cli#1855 acceptance, end to end: `team task finish` from a cwd with no
+// worktree prints the note once on stderr (stdout untouched), still sends the
+// finish with no session, and the server's answer is what the caller gets.
+func TestTeamTaskFinishNoWorktreePrintsNoteAndSendsHeaderless(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, taskResponses())
+	f, out := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "finish", "task1", "--outcome", "succeeded", "--summary", "s", "--evidence", "https://ci.acme.com/1"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	sent := false
+	for _, c := range *calls {
+		if c.Op == "AgentTaskFinish" {
+			sent = true
+			if c.Session != "" {
+				t.Fatalf("attributed: %q", c.Session)
+			}
+		}
+	}
+	if !sent {
+		t.Fatal("finish was not sent: the note must never refuse")
+	}
+	if n := strings.Count(stderr.String(), "worker attribution unavailable"); n != 1 {
+		t.Fatalf("want one note, got %d: %q", n, stderr.String())
+	}
+	if strings.Contains(out.String(), "attribution") {
+		t.Fatalf("note leaked to stdout: %q", out.String())
+	}
+}
+
+// The FIT boundary (cor:agt:020:03): a chat post from a cwd with no worktree
+// keeps its typed refusal, sends nothing, and the new note does not replace it.
+func TestTeamChatPostNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
+	noWorktreeCwd(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatHumanMsgJSON + `}}`,
+		"TeamAppIdentity":       teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "hi", "--server", gql.URL, "--app", "acme.com:eng-team"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--as-me") {
+		t.Fatalf("post must keep its refusal naming --as-me: %v", err)
+	}
+	if _, posted := captured["CreateTeamChatMessage"]; posted {
+		t.Fatal("an unbound post reached the server")
+	}
+	if strings.Contains(stderr.String(), "worker attribution unavailable") {
+		t.Fatalf("the note replaced/accompanied the refusal: %q", stderr.String())
+	}
+}
