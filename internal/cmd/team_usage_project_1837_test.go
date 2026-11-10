@@ -321,3 +321,22 @@ func TestUsageProjectQualifierWithoutAccountNamesTheFlag(t *testing.T) {
 		}
 	}
 }
+
+// LOCAL delta F3 (#1849): server-sent strings are rendered through SafeCell, so
+// a hostile host, family, status reason or run-out time cannot forge a row or
+// carry terminal escapes. --json keeps the original value.
+func TestUsageProjectTableNeutralizesServerStrings(t *testing.T) {
+	hostile := `{"window":"FIVE_HOUR","lengthMinutes":300,"status":"UNKNOWN","reason":"STALE\nFORGED  reason  row","shape":null,"confidence":null,"usedPct":null,"lowPctAtReset":null,"highPctAtReset":null,"ceilingPct":85,"resetsAt":null,"runsOutAt":"2026-01-01\nFORGED  row\u001b[31m","observedAt":null,"burn":null,"perWorkerBurn":null}`
+	resp := map[string]string{"AccountUsageProjection": `{"data":{"accountUsageProjection":{"account":"a","asOf":"2026-11-10T13:01:00Z","family":"cl\u001b[31maude","host":"orca1\nFORGED  host  row","newestSnapshotAt":null,"workers":[],"workersConfigured":false,"windows":[` + hostile + `],"whatIf":null}}}`}
+	_, out, err := runProject(t, resp, "--account", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "\x1b") || strings.Count(strings.TrimSpace(out), "\n") != 1 {
+		t.Fatalf("a server string forged a row or carried an escape:\n%q", out)
+	}
+	_, js, err := runProject(t, resp, "--account", "a", "--json")
+	if err != nil || !strings.Contains(js, `FORGED  host  row`) {
+		t.Fatalf("--json must carry the original value: %v\n%s", err, js)
+	}
+}

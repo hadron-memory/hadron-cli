@@ -382,7 +382,7 @@ func writeProjection(w io.Writer, dto projectDTO) error {
 			if x.Confidence != nil {
 				conf = *x.Confidence
 			}
-			t.Row(output.SafeCell(account), output.Dash(host), output.Dash(family), windowLabel(x), statusCell(x), usedCell(x.UsedPct), pctRange(x), conf, output.Dash(x.RunsOutAt), view)
+			t.Row(output.SafeCell(account), output.SafeCell(output.Dash(host)), output.SafeCell(output.Dash(family)), output.SafeCell(windowLabel(x)), output.SafeCell(statusCell(x)), usedCell(x.UsedPct), pctRange(x), output.SafeCell(conf), output.SafeCell(output.Dash(x.RunsOutAt)), view)
 		}
 	}
 	for _, a := range dto.Accounts {
