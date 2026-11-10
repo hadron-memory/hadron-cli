@@ -3064,7 +3064,7 @@ from a later milestone's REPORTED MODEL.`,
 			// --json are untouched; an ambient App (config, binding) is not an
 			// explicit flag and prints nothing.
 			if f.AppFlag != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — not applied: this listing shows every session you can see; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
+				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — does not filter this listing by App (it only scopes --as worker-name lookup): every session you can see is shown; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
 			}
 			var asWorkerRef *string
 			if as != "" {
