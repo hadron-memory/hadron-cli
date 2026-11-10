@@ -2479,6 +2479,10 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 		// answer with a command's authority. #791 lets a plain start replace
 		// an ended binding, so its remedy must not require --force.
 		wantRemedy string
+		// wantCode is the process exit (#1835): 0 while the session is open,
+		// exitcode.SessionEnded once the server reports it ended — however it
+		// ended — so a script or boot prompt can branch without parsing text.
+		wantCode int
 	}{
 		{
 			name: "still open", session: whoamiCheckSession("", ""),
@@ -2490,7 +2494,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			name: "ended by someone", session: whoamiCheckSession("2026-09-19T11:00:00Z", ""),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: "null",
 			wantInLine: "ENDED", wantMissing: "auto-expired",
-			wantRemedy: "session start --as Iris",
+			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
 		},
 		{
 			// The SERVER reaped it. Same endedAt, different cause, and the
@@ -2500,15 +2504,15 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			session:    whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: `"2026-09-19T11:00:00Z"`,
 			wantInLine: "auto-expired", wantMissing: "",
-			wantRemedy: "session start --as Iris",
+			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			root, out := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
 				"team", "session", "whoami", "--check")
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
+			if err := root.Execute(); exitCodeFor(err) != c.wantCode {
+				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
 			}
 			got := out.String()
 			if !strings.Contains(got, c.wantInLine) {
@@ -2529,8 +2533,8 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			// variable, so nothing caught it but a reviewer.
 			jroot, jout := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
 				"team", "session", "whoami", "--check", "--json")
-			if err := jroot.Execute(); err != nil {
-				t.Fatalf("execute --json: %v", err)
+			if err := jroot.Execute(); exitCodeFor(err) != c.wantCode {
+				t.Fatalf("execute --json: exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
 			}
 			var raw map[string]json.RawMessage
 			if err := json.Unmarshal([]byte(jout.String()), &raw); err != nil {
@@ -2550,6 +2554,34 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+// #1835: the exit code is an answer of its own, so the two non-answers must keep
+// theirs. An open session that has been quiet for days is still open (silence is
+// not ended, #1114), and a check the server could not answer is neither "open"
+// nor "ended" — it keeps the existing non-zero code instead of borrowing the
+// new one.
+func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
+	t.Run("open and quiet exits 0", func(t *testing.T) {
+		quiet := whoamiCheckSession("", "")
+		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": quiet}, "team", "session", "whoami", "--check")
+		if err := root.Execute(); err != nil {
+			t.Fatalf("an open session must exit 0: %v", err)
+		}
+	})
+	t.Run("unreachable server keeps its own code", func(t *testing.T) {
+		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`},
+			"team", "session", "whoami", "--check")
+		code := exitCodeFor(root.Execute())
+		if code == exitcode.OK || code == exitcode.SessionEnded {
+			t.Errorf("a failed check must be neither success nor 'ended': exit %d", code)
+		}
+	})
+	t.Run("the ended code is not auth's", func(t *testing.T) {
+		if exitcode.SessionEnded == exitcode.AuthRequired || exitcode.SessionEnded == exitcode.NotFound {
+			t.Errorf("SessionEnded = %d collides with an existing meaning", exitcode.SessionEnded)
+		}
+	})
 }
 
 // --check must not be silently downgraded when whoami answers from the server
