@@ -164,6 +164,10 @@ func TestMapError(t *testing.T) {
 		{"boot prompt pointer wrong role", gqlErr("BOOT_PROMPT_POINTER_WRONG_ROLE"), exitcode.Usage},
 		{"boot prompt pointer wrong memory", gqlErr("BOOT_PROMPT_POINTER_WRONG_MEMORY"), exitcode.Usage},
 		{"boot prompt pointer session refused", gqlErr("BOOT_PROMPT_POINTER_SESSION_REFUSED"), exitcode.Forbidden},
+		// cli#1466 pin 1: the approval gate's two refusals are a credential not
+		// permitted for this write, like the pointer's, so 8 (was 1 by default).
+		{"boot prompt approval forbidden", gqlErr("BOOT_PROMPT_APPROVAL_FORBIDDEN"), exitcode.Forbidden},
+		{"boot prompt worker session refused", gqlErr("BOOT_PROMPT_WORKER_SESSION_REFUSED"), exitcode.Forbidden},
 		// Include write refusals (cli#916 C5a, hadron-server#2226 / #2165).
 		{"include target unavailable", gqlErr("INCLUDE_TARGET_UNAVAILABLE"), exitcode.NotFound},
 		{"include cycle", gqlErr("INCLUDE_CYCLE"), exitcode.Usage},
