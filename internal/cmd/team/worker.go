@@ -1116,16 +1116,17 @@ func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 	var instructionRaw string
 	cmd := &cobra.Command{
 		Use:   "retire <name-or-id> [--instruction <kind>:<ref>]",
-		Short: "Retire a worker — it stops working; its name stays reserved forever",
+		Short: "Retire a worker — it stops working; its name stays reserved",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
-name stays bound to it forever — PR trailers and chat history reference the
-name, so it is never freed for a new casting (cor:agt:020:02). Retiring is
+name stays bound to it — PR trailers and chat history reference the name,
+so retiring never frees it for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
-This is the normal end of a worker. The only removal is ` + "`worker rm`" + `, the
-hard-delete escape for a casting that NEVER did anything (a typo'd cast). On
-a worker with any history, rm is REFUSED (exit 5) and writes nothing — it does
-not retire it for you; run this command instead.
+This is the normal end of a worker. A casting that NEVER did anything (a
+typo'd cast) can instead be removed with ` + "`worker rm`" + `, the hard-delete escape,
+which frees its name for a new casting. On a worker with any history, rm is
+REFUSED (exit 5) and writes nothing — it does not retire it for you; run this
+command instead.
 
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
@@ -1171,7 +1172,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			advisory := readRetireAdvisory(cmd.Context(), client, &w)
 			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
+				RetireConfirmPrompt(w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -1184,7 +1185,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
+				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it (`worker rm` removes a casting that never did anything and frees its name)\n", dto.Name)
 				return err
 			})
 		},
@@ -2399,4 +2400,9 @@ func placementText(placement *string, reportsToID *string) string {
 		return "no reporting choice recorded (UNSET)"
 	}
 	return "reporting choice: " + *placement
+}
+
+// RetireConfirmPrompt is the question `worker retire` asks before it acts.
+func RetireConfirmPrompt(name, id string) string {
+	return fmt.Sprintf("Retire worker %s (%s)? It stops working; it keeps its name. A never-used casting can be removed with `worker rm` instead.", name, id)
 }

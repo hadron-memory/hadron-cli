@@ -833,8 +833,54 @@ func TestTeamWorkerRetire(t *testing.T) {
 	if vars["workerRef"] != "wkr1" {
 		t.Errorf("retire must address the RESOLVED worker id: %v", vars)
 	}
-	if !strings.Contains(out.String(), "never re-cast") {
-		t.Errorf("retire output should state the name stays bound: %s", out.String())
+	// #1654: retiring keeps the name bound, but cor:agt:020:02 / cor:dmo:050:11
+	// leave one release, `worker rm` on a casting that never did anything. The
+	// output must not promise "never" or "forever", and must name that escape.
+	got := out.String()
+	if !strings.Contains(got, "stays bound") || !strings.Contains(got, "worker rm") {
+		t.Errorf("retire output should state the name stays bound and name the rm escape: %s", got)
+	}
+	for _, bad := range retireOverpromises {
+		if strings.Contains(got, bad) {
+			t.Errorf("retire output must not promise %q: %s", bad, got)
+		}
+	}
+}
+
+// retireOverpromises are the claims the retire surfaces must not make: the
+// name can be freed by `worker rm` for a casting that never did anything. Only
+// the long help is rendered by --help, so the short line is not asserted.
+var retireOverpromises = []string{"forever", "never re-cast", "the one way to free"}
+
+// #1654: the retire help and the confirm prompt name the rm escape and do not
+// overpromise ("forever" / "never re-cast").
+func TestTeamWorkerRetireWordingNamesRmEscape(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "retire", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	help := out.String()
+	for _, bad := range retireOverpromises {
+		if strings.Contains(help, bad) {
+			t.Errorf("retire help must not promise %q: %s", bad, help)
+		}
+	}
+	if !strings.Contains(help, "worker rm") {
+		t.Errorf("retire help should name the rm escape: %s", help)
+	}
+
+	// The confirm prompt (not reachable non-interactively, so asserted on the
+	// text the command builds).
+	prompt := team.RetireConfirmPrompt("Iris", "wkr1")
+	for _, bad := range retireOverpromises {
+		if strings.Contains(prompt, bad) {
+			t.Errorf("retire prompt must not promise %q: %s", bad, prompt)
+		}
+	}
+	if !strings.Contains(prompt, "worker rm") {
+		t.Errorf("retire prompt should name the rm escape: %s", prompt)
 	}
 }
 
