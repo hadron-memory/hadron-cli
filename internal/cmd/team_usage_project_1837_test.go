@@ -11,7 +11,7 @@ import (
 // hadron-cli#1837 over hadron-server#3820 (c18816bb): `team usage project` is a
 // view of accountUsageProjection. Through the real command with a stub server.
 
-const projWinProjected = `{"window":"SEVEN_DAY","lengthMinutes":10080,"status":"PROJECTED","reason":null,"shape":"WEEKLY","confidence":"HIGH","usedPct":42.5,"lowPctAtReset":88.2,"highPctAtReset":131.0,"ceilingPct":85,"resetsAt":"2026-11-14T00:00:00Z","runsOutAt":"2026-11-13T06:00:00Z","observedAt":"2026-11-10T13:00:00Z","burn":{"lowPctPerHour":0.4,"highPctPerHour":0.7},"perWorkerBurn":{"lowPctPerHour":0.1,"highPctPerHour":0.2}}`
+const projWinProjected = `{"window":"SEVEN_DAY","lengthMinutes":10080,"status":"PROJECTED","reason":null,"shape":"WEEKLY","confidence":"HIGH","usedPct":42.5,"lowPctAtReset":88.2,"highPctAtReset":97.4,"ceilingPct":85,"resetsAt":"2026-11-14T00:00:00Z","runsOutAt":"2026-11-13T06:00:00Z","observedAt":"2026-11-10T13:00:00Z","burn":{"lowPctPerHour":0.4,"highPctPerHour":0.7},"perWorkerBurn":{"lowPctPerHour":0.1,"highPctPerHour":0.2}}`
 const projWinNoRunOut = `{"window":"FIVE_HOUR","lengthMinutes":300,"status":"PROJECTED","reason":null,"shape":"FLAT","confidence":"LOW","usedPct":10,"lowPctAtReset":20.5,"highPctAtReset":33.3,"ceilingPct":85,"resetsAt":"2026-11-10T18:00:00Z","runsOutAt":null,"observedAt":"2026-11-10T13:00:00Z","burn":{"lowPctPerHour":1,"highPctPerHour":2},"perWorkerBurn":null}`
 const projWinInsufficient = `{"window":"FIVE_HOUR","lengthMinutes":300,"status":"INSUFFICIENT_DATA","reason":"LOW_USE","shape":null,"confidence":null,"usedPct":3,"lowPctAtReset":null,"highPctAtReset":null,"ceilingPct":85,"resetsAt":"2026-11-10T18:00:00Z","runsOutAt":null,"observedAt":"2026-11-10T13:00:00Z","burn":null,"perWorkerBurn":null}`
 const projWinUnknown = `{"window":"SEVEN_DAY","lengthMinutes":10080,"status":"UNKNOWN","reason":"STALE","shape":null,"confidence":null,"usedPct":null,"lowPctAtReset":null,"highPctAtReset":null,"ceilingPct":85,"resetsAt":null,"runsOutAt":null,"observedAt":null,"burn":null,"perWorkerBurn":null}`
@@ -32,7 +32,7 @@ func runProject(t *testing.T, resp map[string]string, argv ...string) (*[]attnCa
 func projRow(t *testing.T, out, account, window string) string {
 	t.Helper()
 	for _, l := range strings.Split(out, "\n") {
-		if f := strings.Fields(l); len(f) > 2 && f[0] == account && f[1] == window {
+		if f := strings.Fields(l); len(f) > 3 && f[0] == account && f[3] == window {
 			return l
 		}
 	}
@@ -59,7 +59,7 @@ func TestUsageProjectRangeAndRunsOutOnlyWhenReturned(t *testing.T) {
 		t.Fatal(err)
 	}
 	seven, five := projRow(t, out, "team-rupali", "7d"), projRow(t, out, "team-rupali", "5h")
-	if !strings.Contains(seven, "88.2%–131%") || !strings.Contains(seven, "HIGH") || !strings.Contains(seven, "2026-11-13T06:00:00Z") {
+	if !strings.Contains(seven, "88.2%–97.4%") || !strings.Contains(seven, "HIGH") || !strings.Contains(seven, "2026-11-13T06:00:00Z") {
 		t.Fatalf("7d row %q", seven)
 	}
 	if !strings.Contains(five, "20.5%–33.3%") || strings.Contains(five, "2026-") || !strings.Contains(five, "—") {
@@ -115,7 +115,7 @@ func TestUsageProjectWhatIfAddWorkersSentAndPrintedUnmodified(t *testing.T) {
 	if wi["addWorkers"] != float64(1) || wi["moveWorker"] != nil {
 		t.Fatalf("whatIf %v", wi)
 	}
-	if l := projRow(t, out, "team-rupali", "7d"); !strings.Contains(l, "88.2%–131%") || !strings.Contains(l, "what-if") {
+	if l := projRow(t, out, "team-rupali", "7d"); !strings.Contains(l, "88.2%–97.4%") || !strings.Contains(l, "what-if") {
 		t.Fatalf("what-if row %q", l)
 	}
 }
@@ -145,14 +145,20 @@ func TestUsageProjectMoveSendsBothHalvesAndPrintsTarget(t *testing.T) {
 
 func TestUsageProjectUsageErrorsExitTwoAndCallNothing(t *testing.T) {
 	cases := map[string][]string{
-		"add-workers 0":         {"--account", "a", "--add-workers", "0"},
-		"add-workers negative":  {"--account", "a", "--add-workers", "-2"},
-		"move without to":       {"--account", "a", "--move-worker", "Ruth"},
-		"to without move":       {"--account", "a", "--to-account", "b"},
-		"both what-ifs":         {"--account", "a", "--add-workers", "1", "--move-worker", "Ruth", "--to-account", "b"},
-		"to-host alone":         {"--account", "a", "--to-host", "h"},
-		"what-if needs account": {"--add-workers", "1"},
-		"unknown flag":          {"--bogus"},
+		"add-workers 0":          {"--account", "a", "--add-workers", "0"},
+		"empty move-worker":      {"--account", "a", "--move-worker", "", "--to-account", "b"},
+		"empty to-account":       {"--account", "a", "--move-worker", "Ruth", "--to-account", ""},
+		"both empty":             {"--account", "a", "--move-worker", "", "--to-account", ""},
+		"add-workers 51":         {"--account", "a", "--add-workers", "51"},
+		"host without account":   {"--host", "orca1"},
+		"family without account": {"--family", "claude"},
+		"add-workers negative":   {"--account", "a", "--add-workers", "-2"},
+		"move without to":        {"--account", "a", "--move-worker", "Ruth"},
+		"to without move":        {"--account", "a", "--to-account", "b"},
+		"both what-ifs":          {"--account", "a", "--add-workers", "1", "--move-worker", "Ruth", "--to-account", "b"},
+		"to-host alone":          {"--account", "a", "--to-host", "h"},
+		"what-if needs account":  {"--add-workers", "1"},
+		"unknown flag":           {"--bogus"},
 	}
 	for name, argv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -243,5 +249,75 @@ func TestUsageProjectWhatIfWithoutAccountNamesTheFlag(t *testing.T) {
 	_, _, err := runProject(t, map[string]string{}, "--add-workers", "1")
 	if err == nil || exitOf(err) != exitcode.Usage || !strings.Contains(err.Error(), "--account") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// F1 (BLIND, #1849): discovery pages the collection to exhaustion. 201 records,
+// the 201st (a second account) only on page two.
+func TestUsageProjectDiscoveryPagesPastTheFirst200(t *testing.T) {
+	rec := func(label string) string {
+		return `{"label":"` + label + `","family":"claude","host":"orca1","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
+	}
+	page1 := make([]string, 200)
+	for i := range page1 {
+		page1[i] = rec("alpha")
+	}
+	responses := map[string]string{"AccountUsageProjection": projResponse("x", projWinNoRunOut, ""), "FindObjects": ""}
+	finds := 0
+	onOp := func(op string) {
+		if op != "FindObjects" {
+			return
+		}
+		finds++
+		if finds == 1 {
+			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+strings.Join(page1, ",")+`],"total":201}}}`)
+		} else {
+			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+rec("zeta")+`],"total":201}}}`)
+		}
+	}
+	writeTeamBinding(t)
+	srv, calls := attnServerHook(t, responses, onOp)
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "usage", "project", "-m", "hrn:mem:example.com:team", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := projCalls(calls)
+	if len(got) != 2 || got[0].Vars["account"] != "alpha" || got[1].Vars["account"] != "zeta" {
+		t.Fatalf("an account only on page two was dropped: %+v", got)
+	}
+	if finds != 2 {
+		t.Fatalf("want 2 pages, read %d", finds)
+	}
+}
+
+// F2 (BLIND, #1849): two identities sharing a label are told apart in the table.
+func TestUsageProjectTableShowsHostAndFamilyForSameLabel(t *testing.T) {
+	rec := func(host string) string {
+		return `{"label":"shared","family":"claude","host":"` + host + `","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
+	}
+	resp := map[string]string{
+		"FindObjects":            `{"data":{"findObjects":{"objects":[` + rec("orca1") + `,` + rec("orca2") + `],"total":2}}}`,
+		"AccountUsageProjection": `{"data":{"accountUsageProjection":{"account":"shared","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"HOSTX","newestSnapshotAt":null,"workers":[],"workersConfigured":false,"windows":[` + projWinNoRunOut + `],"whatIf":null}}}`,
+	}
+	_, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "HOST") || !strings.Contains(out, "FAMILY") || !strings.Contains(out, "HOSTX") || !strings.Contains(out, "claude") {
+		t.Fatalf("host and family not shown:\n%s", out)
+	}
+}
+
+// F4 (BLIND, #1849): a qualifier without --account is refused by name, not
+// silently ignored (nor refused only for a missing memory).
+func TestUsageProjectQualifierWithoutAccountNamesTheFlag(t *testing.T) {
+	for _, fl := range []string{"--host", "--family"} {
+		_, _, err := runProject(t, map[string]string{}, fl, "x", "-m", "hrn:mem:example.com:team")
+		if err == nil || exitOf(err) != exitcode.Usage || !strings.Contains(err.Error(), "--account") {
+			t.Fatalf("%s: got %v", fl, err)
+		}
 	}
 }

@@ -6,6 +6,7 @@ package team
 // unmodified; nothing here extrapolates. `team usage show` is untouched.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/accountusage"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -128,16 +130,18 @@ The team App is --app, the App context, or the worktree binding.`,
 			ctx := cmd.Context()
 			flags := cmd.Flags()
 			wantAdd := flags.Changed("add-workers")
-			wantMove := moveWorker != "" || toAccount != ""
+			wantMove := flags.Changed("move-worker") || flags.Changed("to-account")
 			switch {
-			case wantAdd && addWorkers < 1:
-				return exitcode.Newf(exitcode.Usage, "--add-workers must be 1 or more")
+			case wantAdd && (addWorkers < 1 || addWorkers > 50):
+				return exitcode.Newf(exitcode.Usage, "--add-workers must be 1 to 50")
 			case wantAdd && wantMove:
 				return exitcode.Newf(exitcode.Usage, "give one what-if, --add-workers or --move-worker with --to-account, not both")
 			case wantMove && (strings.TrimSpace(moveWorker) == "" || strings.TrimSpace(toAccount) == ""):
 				return exitcode.Newf(exitcode.Usage, "--move-worker and --to-account go together: give both or neither")
-			case !wantMove && (toHost != "" || toFamily != ""):
+			case !wantMove && (flags.Changed("to-host") || flags.Changed("to-family")):
 				return exitcode.Newf(exitcode.Usage, "--to-host and --to-family qualify --to-account; give --move-worker and --to-account")
+			case account == "" && (host != "" || family != ""):
+				return exitcode.Newf(exitcode.Usage, "--host and --family qualify one account: give --account")
 			case (wantAdd || wantMove) && strings.TrimSpace(account) == "":
 				return exitcode.Newf(exitcode.Usage, "a what-if applies to one account: give --account")
 			}
@@ -188,14 +192,12 @@ The team App is --app, the App context, or the worktree binding.`,
 				if merr != nil {
 					return merr
 				}
-				sb := marshalSort()
-				limit := 200
-				resp, ferr := gen.FindObjects(ctx, client, mem, accountusage.Collection, nil, nil, &sb, &limit, nil)
+				objs, ferr := readAllUsageObjects(ctx, client, mem)
 				if ferr != nil {
-					return api.MapError(ferr)
+					return ferr
 				}
 				seen := map[target]bool{}
-				for _, a := range accountusage.View(resp.FindObjects.Objects, usageNow().UTC()) {
+				for _, a := range accountusage.View(objs, usageNow().UTC()) {
 					t := target{a.Label, a.Host, a.Family}
 					if !seen[t] {
 						seen[t] = true
@@ -262,6 +264,31 @@ func projWindowFrom(w gen.ProjectionWindow) projWindowDTO {
 		d.PerWorkerBurn = burnFrom(w.PerWorkerBurn.LowPctPerHour, w.PerWorkerBurn.HighPctPerHour)
 	}
 	return d
+}
+
+// usagePageSize is the page the account-usage records are read in.
+const usagePageSize = 200
+
+// readAllUsageObjects pages the account-usage collection to exhaustion: a
+// frequently sampled account must not push another off the first page, since
+// "every recorded account" is this command's contract (the server caps one
+// page and drops the rest silently).
+func readAllUsageObjects(ctx context.Context, client graphql.Client, mem string) ([]json.RawMessage, error) {
+	sb := marshalSort()
+	var all []json.RawMessage
+	for offset := 0; ; {
+		limit, off := usagePageSize, offset
+		resp, err := gen.FindObjects(ctx, client, mem, accountusage.Collection, nil, nil, &sb, &limit, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		page := resp.FindObjects.Objects
+		all = append(all, page...)
+		offset += len(page)
+		if len(page) == 0 || (resp.FindObjects.Total != nil && offset >= *resp.FindObjects.Total) || (resp.FindObjects.Total == nil && len(page) < limit) {
+			return all, nil
+		}
+	}
 }
 
 func marshalSort() json.RawMessage {
@@ -348,23 +375,23 @@ func statusCell(w projWindowDTO) string {
 }
 
 func writeProjection(w io.Writer, dto projectDTO) error {
-	t := output.NewTable(w, "ACCOUNT", "WINDOW", "STATUS", "USED", "AT RESET", "CONFIDENCE", "RUNS OUT", "VIEW")
-	row := func(account, view string, ws []projWindowDTO) {
+	t := output.NewTable(w, "ACCOUNT", "HOST", "FAMILY", "WINDOW", "STATUS", "USED", "AT RESET", "CONFIDENCE", "RUNS OUT", "VIEW")
+	row := func(account string, host, family *string, view string, ws []projWindowDTO) {
 		for _, x := range ws {
 			conf := "—"
 			if x.Confidence != nil {
 				conf = *x.Confidence
 			}
-			t.Row(output.SafeCell(account), windowLabel(x), statusCell(x), usedCell(x.UsedPct), pctRange(x), conf, output.Dash(x.RunsOutAt), view)
+			t.Row(output.SafeCell(account), output.Dash(host), output.Dash(family), windowLabel(x), statusCell(x), usedCell(x.UsedPct), pctRange(x), conf, output.Dash(x.RunsOutAt), view)
 		}
 	}
 	for _, a := range dto.Accounts {
-		row(a.Account, "projected", a.Windows)
+		row(a.Account, a.Host, a.Family, "projected", a.Windows)
 		if a.WhatIf != nil {
-			row(a.Account, "what-if", a.WhatIf.Adjusted)
+			row(a.Account, a.Host, a.Family, "what-if", a.WhatIf.Adjusted)
 			if a.WhatIf.Target != nil {
-				row(a.WhatIf.Target.Account, "target now", a.WhatIf.Target.Baseline)
-				row(a.WhatIf.Target.Account, "target what-if", a.WhatIf.Target.Adjusted)
+				row(a.WhatIf.Target.Account, nil, nil, "target now", a.WhatIf.Target.Baseline)
+				row(a.WhatIf.Target.Account, nil, nil, "target what-if", a.WhatIf.Target.Adjusted)
 			}
 		}
 	}
