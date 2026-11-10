@@ -125,11 +125,16 @@ fragment AgentTaskFields on AgentTask {
 # Keep legacy role:null for ordinary requirements, but omit role entirely
 # when a role set is supplied: the two selector keys never coexist.
 # @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
+# cli#1848 (hadron-server#3816, V21-V23): matchSkipped is selected on the
+# create answer ONLY. It is returned, never stored: the server answers it on a
+# createAgentTask(match: true) that failed, and null everywhere else, so no
+# read document selects it. Needs provider be731afd (0.0.1879) or later.
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
   createAgentTask(input: $input) {
     ...AgentTaskFields
+    matchSkipped { workerId name reasons }
   }
 }
 

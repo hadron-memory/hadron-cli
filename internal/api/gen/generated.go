@@ -4221,6 +4221,15 @@ func (v *AgentTaskCreateBatchResponse) GetCreateAgentTasks() []*AgentTaskCreateB
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCreateCreateAgentTask struct {
 	AgentTaskFields `json:"-"`
+	// #3816 (V21-V23, hrn:node:hadronmemory.com:specs:cor:agt:050:01): the candidates a failed match skipped, each with EVERY reason it
+	// was skipped, in the enum's declared order. Returned only in the createAgentTask(match: true) answer; never stored, so any
+	// later read is null (as is a match that assigned, and a create without match: true).
+	MatchSkipped []*AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate `json:"matchSkipped"`
+}
+
+// GetMatchSkipped returns AgentTaskCreateCreateAgentTask.MatchSkipped, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetMatchSkipped() []*AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate {
+	return v.MatchSkipped
 }
 
 // GetPriority returns AgentTaskCreateCreateAgentTask.Priority, and is useful for accessing the field via an interface.
@@ -4388,6 +4397,8 @@ func (v *AgentTaskCreateCreateAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskCreateCreateAgentTask struct {
+	MatchSkipped []*AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate `json:"matchSkipped"`
+
 	Priority int `json:"priority"`
 
 	Blocked bool `json:"blocked"`
@@ -4470,6 +4481,7 @@ func (v *AgentTaskCreateCreateAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentTaskCreateCreateAgentTask, error) {
 	var retval __premarshalAgentTaskCreateCreateAgentTask
 
+	retval.MatchSkipped = v.MatchSkipped
 	retval.Priority = v.AgentTaskFields.Priority
 	retval.Blocked = v.AgentTaskFields.Blocked
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
@@ -4506,6 +4518,31 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
+}
+
+// AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate includes the requested fields of the GraphQL type AgentTaskSkippedCandidate.
+// The GraphQL type's documentation follows.
+//
+// One candidate a failed match skipped (#3816): the worker and every reason, in AgentTaskMatchSkipReason order.
+type AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate struct {
+	WorkerId string                     `json:"workerId"`
+	Name     string                     `json:"name"`
+	Reasons  []AgentTaskMatchSkipReason `json:"reasons"`
+}
+
+// GetWorkerId returns AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate.WorkerId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetName returns AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate.Name, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate) GetName() string {
+	return v.Name
+}
+
+// GetReasons returns AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate) GetReasons() []AgentTaskMatchSkipReason {
+	return v.Reasons
 }
 
 // AgentTaskCreateResponse is returned by AgentTaskCreate on success.
@@ -9062,6 +9099,46 @@ type AgentTaskListUnresolvedResponse struct {
 // GetAgentTasks returns AgentTaskListUnresolvedResponse.AgentTasks, and is useful for accessing the field via an interface.
 func (v *AgentTaskListUnresolvedResponse) GetAgentTasks() []*AgentTaskListUnresolvedAgentTasksAgentTask {
 	return v.AgentTasks
+}
+
+// Why a failed match skipped a candidate (#3816, V21). Closed and additive: values are added, never renamed.
+// STOP_SIGNAL names a matcher condition V21 lacked. There is no value for a bound, quiet worker: hadron-server#3815 removes that exclusion.
+type AgentTaskMatchSkipReason string
+
+const (
+	AgentTaskMatchSkipReasonEndingSession      AgentTaskMatchSkipReason = "ENDING_SESSION"
+	AgentTaskMatchSkipReasonFamilyExcluded     AgentTaskMatchSkipReason = "FAMILY_EXCLUDED"
+	AgentTaskMatchSkipReasonFamilyUnavailable  AgentTaskMatchSkipReason = "FAMILY_UNAVAILABLE"
+	AgentTaskMatchSkipReasonHoldsTask          AgentTaskMatchSkipReason = "HOLDS_TASK"
+	AgentTaskMatchSkipReasonModelGroupMismatch AgentTaskMatchSkipReason = "MODEL_GROUP_MISMATCH"
+	AgentTaskMatchSkipReasonNameExcluded       AgentTaskMatchSkipReason = "NAME_EXCLUDED"
+	AgentTaskMatchSkipReasonNotHeld            AgentTaskMatchSkipReason = "NOT_HELD"
+	AgentTaskMatchSkipReasonNoFamily           AgentTaskMatchSkipReason = "NO_FAMILY"
+	AgentTaskMatchSkipReasonRetired            AgentTaskMatchSkipReason = "RETIRED"
+	AgentTaskMatchSkipReasonStalled            AgentTaskMatchSkipReason = "STALLED"
+	AgentTaskMatchSkipReasonStopSignal         AgentTaskMatchSkipReason = "STOP_SIGNAL"
+	AgentTaskMatchSkipReasonTierBelowMinimum   AgentTaskMatchSkipReason = "TIER_BELOW_MINIMUM"
+	AgentTaskMatchSkipReasonTierUnknown        AgentTaskMatchSkipReason = "TIER_UNKNOWN"
+	AgentTaskMatchSkipReasonUnavailable        AgentTaskMatchSkipReason = "UNAVAILABLE"
+	AgentTaskMatchSkipReasonUsesNoTasks        AgentTaskMatchSkipReason = "USES_NO_TASKS"
+)
+
+var AllAgentTaskMatchSkipReason = []AgentTaskMatchSkipReason{
+	AgentTaskMatchSkipReasonEndingSession,
+	AgentTaskMatchSkipReasonFamilyExcluded,
+	AgentTaskMatchSkipReasonFamilyUnavailable,
+	AgentTaskMatchSkipReasonHoldsTask,
+	AgentTaskMatchSkipReasonModelGroupMismatch,
+	AgentTaskMatchSkipReasonNameExcluded,
+	AgentTaskMatchSkipReasonNotHeld,
+	AgentTaskMatchSkipReasonNoFamily,
+	AgentTaskMatchSkipReasonRetired,
+	AgentTaskMatchSkipReasonStalled,
+	AgentTaskMatchSkipReasonStopSignal,
+	AgentTaskMatchSkipReasonTierBelowMinimum,
+	AgentTaskMatchSkipReasonTierUnknown,
+	AgentTaskMatchSkipReasonUnavailable,
+	AgentTaskMatchSkipReasonUsesNoTasks,
 }
 
 // #2421 experimental symptom search: membership in the hybrid ranking inputs.
@@ -116989,6 +117066,11 @@ const AgentTaskCreate_Operation = `
 mutation AgentTaskCreate ($input: CreateAgentTaskInput!) {
 	createAgentTask(input: $input) {
 		... AgentTaskFields
+		matchSkipped {
+			workerId
+			name
+			reasons
+		}
 	}
 }
 fragment AgentTaskFields on AgentTask {
@@ -117110,6 +117192,10 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // every AgentTaskFields document needs provider #3029 for its output selection.
 // Keep legacy role:null for ordinary requirements, but omit role entirely
 // when a role set is supplied: the two selector keys never coexist.
+// cli#1848 (hadron-server#3816, V21-V23): matchSkipped is selected on the
+// create answer ONLY. It is returned, never stored: the server answers it on a
+// createAgentTask(match: true) that failed, and null everywhere else, so no
+// read document selects it. Needs provider be731afd (0.0.1879) or later.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
