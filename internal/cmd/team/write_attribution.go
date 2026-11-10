@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -22,7 +23,15 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 	var initialErr error
 	note := func(err error) {
 		diagnostic.Do(func() {
-			fmt.Fprintf(f.IOStreams.ErrOut, "note: worker attribution unavailable (%v); this write carries no worktree session and goes out as the signed-in person\n", err)
+			fmt.Fprintf(f.IOStreams.ErrOut, "note: worker attribution unavailable (%v); this write carries no worktree session\n", err)
+		})
+	}
+	// The no-worktree case has its own line (cli#1855): the cwd is not a git
+	// worktree at all, so the write is sent as the signed-in person. A note,
+	// never a refusal; it does not say the write failed.
+	noWorktreeNote := func(err error) {
+		diagnostic.Do(func() {
+			fmt.Fprintf(f.IOStreams.ErrOut, "note: no worktree session bound; this team write is being sent as you (%v)\n", err)
 		})
 	}
 	return func(ctx context.Context, req *graphql.Request) context.Context {
@@ -31,10 +40,14 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 			return ctx
 		}
 		if initialErr != nil {
-			// errNoWorktree is the commonest miss and the one that used to be
-			// silent (cli#1855): a refusal downstream names the wrong cause.
-			// A note only, never a refusal: person-mode writes are legitimate.
-			note(initialErr)
+			// errNoWorktree used to be silent (cli#1855), so a refusal
+			// downstream named the wrong cause. Note only: person-mode writes
+			// from any cwd are legitimate.
+			if errors.Is(initialErr, errNoWorktree) {
+				noWorktreeNote(initialErr)
+			} else {
+				note(initialErr)
+			}
 			return ctx
 		}
 		if initial == nil || initial.SessionID == "" || initial.WorkerID == "" || initial.AppID == "" || initial.Server == "" {

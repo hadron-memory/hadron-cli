@@ -301,8 +301,29 @@ func noWorktreeCwd(t *testing.T) {
 	t.Helper()
 	t.Setenv(team.GitDirEnv, "")
 	t.Setenv("GIT_DIR", "")
-	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(t.TempDir()))
-	t.Chdir(t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+	t.Chdir(dir)
+}
+
+// wantOneNoWorktreeNote asserts the gate's exact line (cli#1855): once, the
+// two pinned substrings, the underlying errNoWorktree cause, no failure
+// wording, and never the generic note of the other failure paths.
+func wantOneNoWorktreeNote(t *testing.T, stderr string) {
+	t.Helper()
+	if n := strings.Count(stderr, "no worktree session bound"); n != 1 {
+		t.Fatalf("want exactly one note, got %d: %q", n, stderr)
+	}
+	for _, want := range []string{"sent as you", "not inside a git worktree"} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("note lacks %q: %q", want, stderr)
+		}
+	}
+	for _, bad := range []string{"worker attribution unavailable", "failed", "refused"} {
+		if strings.Contains(stderr, bad) {
+			t.Fatalf("note must not say %q: %q", bad, stderr)
+		}
+	}
 }
 
 func twoAuthoredCreates(t *testing.T, f interface {
@@ -339,10 +360,7 @@ func TestAuthoredWriteNoWorktreePrintsOneNoteAndStillWrites(t *testing.T) {
 			t.Fatalf("no-worktree write attributed: %+v", c)
 		}
 	}
-	out := diagnostic.String()
-	if strings.Count(out, "worker attribution unavailable") != 1 || !strings.Contains(out, "not inside a git worktree") || !strings.Contains(out, "signed-in person") {
-		t.Fatalf("want one note naming the no-worktree cause and the person fallback, stderr=%q", out)
-	}
+	wantOneNoWorktreeNote(t, diagnostic.String())
 }
 
 // The bound-worktree path stays silent and attributed.
@@ -392,9 +410,7 @@ func TestTeamTaskFinishNoWorktreePrintsNoteAndSendsHeaderless(t *testing.T) {
 	if !sent {
 		t.Fatal("finish was not sent: the note must never refuse")
 	}
-	if n := strings.Count(stderr.String(), "worker attribution unavailable"); n != 1 {
-		t.Fatalf("want one note, got %d: %q", n, stderr.String())
-	}
+	wantOneNoWorktreeNote(t, stderr.String())
 	if strings.Contains(out.String(), "attribution") {
 		t.Fatalf("note leaked to stdout: %q", out.String())
 	}
@@ -420,7 +436,7 @@ func TestTeamChatPostNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
 	if _, posted := captured["CreateTeamChatMessage"]; posted {
 		t.Fatal("an unbound post reached the server")
 	}
-	if strings.Contains(stderr.String(), "worker attribution unavailable") {
+	if strings.Contains(stderr.String(), "worker attribution unavailable") || strings.Contains(stderr.String(), "no worktree session bound") {
 		t.Fatalf("the note replaced/accompanied the refusal: %q", stderr.String())
 	}
 }
@@ -439,9 +455,7 @@ func TestNodeCreateNoWorktreePrintsNoteOnStderrOnly(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if n := strings.Count(stderr.String(), "worker attribution unavailable"); n != 1 || !strings.Contains(stderr.String(), "signed-in person") {
-		t.Fatalf("want one note, stderr=%q", stderr.String())
-	}
+	wantOneNoWorktreeNote(t, stderr.String())
 	if strings.Contains(out.String(), "attribution") {
 		t.Fatalf("note on stdout: %q", out.String())
 	}
@@ -469,7 +483,7 @@ func TestAsPersonNoWorktreePrintsNoNote(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(stderr.String(), "worker attribution unavailable") {
+	if strings.Contains(stderr.String(), "worker attribution unavailable") || strings.Contains(stderr.String(), "no worktree session bound") {
 		t.Fatalf("--as-person printed the note: %q", stderr.String())
 	}
 	if c := findCall(t, calls, "IssueHostOperation"); c.Session != "" {
@@ -498,7 +512,7 @@ func TestSessionLogNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
 	if called["RecordTeamWork"] || called["UpdateTeamSession"] {
 		t.Fatalf("a write was sent: %v", called)
 	}
-	if strings.Contains(eo.String(), "worker attribution unavailable") {
+	if strings.Contains(eo.String(), "worker attribution unavailable") || strings.Contains(eo.String(), "no worktree session bound") {
 		t.Fatalf("note accompanied the refusal: %q", eo.String())
 	}
 }
