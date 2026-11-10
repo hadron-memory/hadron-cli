@@ -22,7 +22,7 @@ const ceremony1868 = "https://hadronmemory.com/grant-signing/sr1?a=b&c=%2Fd/é" 
 
 func signingRequest1868(url string) string {
 	u, _ := json.Marshal(url)
-	return `{"id":"sr1","grantId":"g1","version":2,"termsHash":"h1","payloadVersion":1,"state":"OPEN",` +
+	return `{"id":"sr1","grantId":"g1","version":2,"termsHash":"h1","payloadVersion":"hadron-grant-signature-v1","state":"OPEN",` +
 		`"requestedBy":{"userId":"u1","appId":"capp100000000000000000000","workerId":"wkr1","sessionId":"s-new"},` +
 		`"createdAt":"c","expiresAt":"e","endedAt":null,"ceremonyUrl":` + string(u) + `,"futureServerField":"x"}`
 }
@@ -317,6 +317,11 @@ func TestGrantRequest1868NoDerivedGrantState(t *testing.T) {
 		if err != nil || !strings.Contains(out, "OPEN") {
 			t.Fatalf("%s: %v %q", v.name, err, out)
 		}
+		for _, w := range []string{"status", "pending", "active", "revoked", "expired"} {
+			if strings.Contains(strings.ToLower(out), w) {
+				t.Fatalf("%s: derived state word %q in %q", v.name, w, out)
+			}
+		}
 	}
 }
 
@@ -338,7 +343,7 @@ func TestGrantRequest1868RefusalExits(t *testing.T) {
 		v := grantVerbs1868()[tc.verb]
 		t.Run(v.name+"/"+tc.code, func(t *testing.T) {
 			_, _, err := runTeamTask(t, map[string]string{v.op: gqlErrorJSON(tc.code)}, v.args...)
-			if exitCodeFor(err) != tc.want || err == nil || !strings.Contains(err.Error(), "refused: "+tc.code) {
+			if exitCodeFor(err) != tc.want || err == nil || !strings.Contains(err.Error(), "refused: "+tc.code) || serverCode1669(err) != tc.code {
 				t.Fatalf("exit %d err %v, want %d", exitCodeFor(err), err, tc.want)
 			}
 			_, out, err := runTeamTask(t, map[string]string{v.op: gqlErrorJSON(tc.code)}, append(append([]string{}, v.args...), "--json")...)
@@ -371,7 +376,7 @@ func TestGrantRequest1868SigningOffServer(t *testing.T) {
 				resp = missingFieldJSON(names[v.op])
 			}
 			_, _, err := runTeamTask(t, map[string]string{v.op: resp}, v.args...)
-			if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "does not offer") || strings.Contains(err.Error(), "upgrade") {
+			if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "does not offer") || strings.Contains(err.Error(), "upgrade") || serverCode1669(err) != "GRAPHQL_VALIDATION_FAILED" {
 				t.Fatalf("exit %d err %v", exitCodeFor(err), err)
 			}
 		})
@@ -386,18 +391,16 @@ func TestGrantRequest1868SigningOffServer(t *testing.T) {
 	})
 }
 
-func unboundRun1868(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, string, error) {
+func unboundRun1868(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, error) {
 	t.Helper()
 	dir := teamGitDir(t)
 	_ = os.Remove(filepath.Join(dir, "hadron-team-session.json"))
 	srv, calls := attnServer(t, responses)
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	var errOut strings.Builder
-	root.SetErr(&errOut)
 	root.SetArgs(append([]string{"--server", srv.URL}, argv...))
 	err := root.Execute()
-	return calls, out.String(), errOut.String(), err
+	return calls, f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
 
 // P11: no binding is not a local refusal: one call, no session, a stderr note,
@@ -415,7 +418,7 @@ func TestGrantRequest1868UnboundPassesThrough(t *testing.T) {
 			if v.op == "TeamCreateGrant" {
 				args = append(args, "--holder-id", "wkr1")
 			}
-			calls, _, stderr, err := unboundRun1868(t, map[string]string{v.op: gqlErrorJSON(a.code)}, args...)
+			calls, stderr, err := unboundRun1868(t, map[string]string{v.op: gqlErrorJSON(a.code)}, args...)
 			if exitCodeFor(err) != a.want || len(*calls) != 1 || (*calls)[0].Op != v.op || (*calls)[0].Session != "" {
 				t.Fatalf("exit %d calls %+v err %v", exitCodeFor(err), *calls, err)
 			}
@@ -426,7 +429,7 @@ func TestGrantRequest1868UnboundPassesThrough(t *testing.T) {
 	}
 	t.Run("request unbound without a holder id is an input refusal", func(t *testing.T) {
 		v := grantVerbs1868()[0]
-		calls, _, _, err := unboundRun1868(t, map[string]string{v.op: v.resp("")}, v.args...)
+		calls, _, err := unboundRun1868(t, map[string]string{v.op: v.resp("")}, v.args...)
 		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
 			t.Fatalf("exit %d calls %v", exitCodeFor(err), *calls)
 		}

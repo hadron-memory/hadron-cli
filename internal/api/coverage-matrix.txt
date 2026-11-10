@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 217: 174 command, 19 gap, 24 excluded
+[Query] 218: 175 command, 19 gap, 24 excluded
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
 actionTickets  command ticket list
@@ -33,6 +33,7 @@ agentAssets  excluded deprecated: its description says "Deprecated; use memoryAs
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
+agentServedBootPrompt  gap #1865: agent boot-prompt serve preview, open PR (arrived with the cli#1868 snapshot refresh)
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
 agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions
@@ -119,7 +120,7 @@ findNodes  command search
 findObjects  command object find
 globalSearch  command find
 grant  command team grant get
-grantSigningRequest  gap #1846: team grant commands not yet implemented
+grantSigningRequest  command team grant signing-request get
 grants  command team grant list
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
@@ -242,7 +243,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 342: 282 command, 46 gap, 14 excluded
+[Mutation] 342: 285 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -314,7 +315,7 @@ createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 createDecisionLog  command decision log create
 createEdge  command edge create
-createGrant  gap #1846: team grant commands not yet implemented
+createGrant  command team grant request
 createHomeAssistantInstance  command ha create
 createMcpServer  command mcp-server create
 createMemory  command memory set
@@ -459,7 +460,7 @@ reportContextResetAgentStopped  command team host run
 reportContextResetRelaunchFailed  command team host run
 reportContextResetRelaunched  command team host run
 reportHostOperation  command team host run
-requestGrantSignature  gap #1846: team grant commands not yet implemented
+requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
 resolveCommentThread  command comment resolve
@@ -583,7 +584,7 @@ updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawDecision  command decision withdraw
-withdrawGrantSigningRequest  gap #1846: team grant commands not yet implemented
+withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
 [Arguments] 80: 44 gap, 36 excluded

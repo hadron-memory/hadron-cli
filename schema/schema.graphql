@@ -56,30 +56,6 @@ enum AccessSource {
   PUBLIC_VISIBILITY
 }
 
-"""
-#3853 — one usage account an App has history for (hrn:node:hadronmemory.com:specs:cor:agt:140:05): the label, host and family
-that together are an account (hrn:node:hadronmemory.com:specs:cor:agt:140:01). Passed back to accountUsageProjection as account,
-host and family, every entry is accepted. workers and workersConfigured are the newest snapshot's.
-"""
-type AccountUsageAccount {
-  account: String!
-  family: String!
-  host: String!
-  newestSnapshotAt: DateTime!
-  workers: [String!]!
-  workersConfigured: Boolean!
-}
-
-"""
-#3853 — the accounts an App has usage history for. complete is false when more exist than the bound
-(hrn:node:hadronmemory.com:specs:cor:agt:140:05); a cut list is not a refusal.
-"""
-type AccountUsageAccounts {
-  accounts: [AccountUsageAccount!]!
-  asOf: DateTime!
-  complete: Boolean!
-}
-
 """#3820 — percentage points of a window used per hour."""
 type AccountUsageBurnRange {
   highPctPerHour: Float!
@@ -9120,8 +9096,6 @@ type Mutation {
   token, an expired or unverifiable one; checked before the App is resolved,
   so it answers identically whether or not the App exists).
   
-  #3818: an acting superseded sessionRef refuses SESSION_SUPERSEDED; current open sessionId/startedAt
-  are included only under hrn:node:hadronmemory.com:specs:cor:agt:020:03 session read access.
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   createTeamChatMessage(appRef: ID!, body: String!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
@@ -9951,7 +9925,6 @@ type Mutation {
   makeAgentTaskReady(instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
-  #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
   #1353: explicitly advance the cursor owned by one exact,
   caller-owned live Worker session on one readable registered Channel.
   Shares the MCP mark-read helper; unlike advanceChannelReadState this door
@@ -13485,18 +13458,6 @@ type PullRequestReadiness {
 }
 
 type Query {
-  """
-  #3853 — the usage accounts an App has history for: one entry per label, host and family
-  (hrn:node:hadronmemory.com:specs:cor:agt:140:01) with a valid account-usage snapshot in the App's own team-space memory in
-  the last 14 days, the same history and horizon accountUsageProjection reads
-  (hrn:node:hadronmemory.com:specs:cor:agt:140:05). Readers: as accountUsageProjection
-  (hrn:node:hadronmemory.com:specs:cor:agt:140:03, resting on hrn:node:hadronmemory.com:specs:cor:agt:050:21 and
-  hrn:node:hadronmemory.com:specs:cor:agt:050:23); anyone else is refused APP_NOT_FOUND. At most 50 accounts, the most
-  recently written kept, ordered by label, host and family; complete is false when more exist, or when the bounded search for
-  accounts with valid history stopped short. An App with no history gets an empty list.
-  """
-  accountUsageAccounts(appRef: ID!): AccountUsageAccounts!
-
   """
   #3820 — the token-burn projection of one subscription account in an App: the 5-hour and 7-day windows' use at their
   reset as a range, from the burn over the last 1h, 6h and 24h of history, with an optional what-if (add workers, or move
@@ -17364,11 +17325,6 @@ type Session {
   """
   state: SessionState!
   summary: String
-
-  """
-  #3818 V25 — hrn:node:hadronmemory.com:specs:cor:dmo:070:05: immediate superseding session id; null unless that successor is currently readable under hrn:node:hadronmemory.com:specs:cor:agt:020:03. No historical backfill.
-  """
-  supersededBySessionId: String
 
   """#928: the tool driving the session ('claude-code', 'codex', ...)."""
   tool: String
