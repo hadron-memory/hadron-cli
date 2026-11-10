@@ -2007,7 +2007,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 				result.AutoExpiredAt = live.autoExpiredAt
 			}
 			loadReporting(cmd.Context(), f, b, &result)
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
 					// still good (and `session end` is the recovery), but the
@@ -2030,10 +2030,21 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// The ended answer is printed (text or --json, end time included)
+			// and then exits SessionEnded, so a script or boot prompt can branch
+			// without parsing it (#1835). Only the server's `active == false`
+			// counts: an open session — quiet or dormant — and an unanswered
+			// check never reach here as "ended".
+			if result.Checked && result.Active != nil && !*result.Active {
+				return exitcode.Silent(exitcode.SessionEnded)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open; exits 14 if it has ended")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
@@ -3057,6 +3068,14 @@ from a later milestone's REPORTED MODEL.`,
 			}
 			if ref != "" {
 				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
+			}
+			// cli#1653: sessionsPage has no App argument, so an explicit --app
+			// cannot narrow this listing. Say so on stderr rather than let a
+			// table of other Apps' sessions read as that App's. stdout and
+			// --json are untouched; an ambient App (config, binding) is not an
+			// explicit flag and prints nothing.
+			if f.AppFlag != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — does not filter this listing by App (it only scopes --as worker-name lookup); without --as/--repo it lists every session you can see; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
 			}
 			var asWorkerRef *string
 			if as != "" {
