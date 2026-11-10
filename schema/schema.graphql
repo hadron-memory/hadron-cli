@@ -56,6 +56,161 @@ enum AccessSource {
   PUBLIC_VISIBILITY
 }
 
+"""#3820 — percentage points of a window used per hour."""
+type AccountUsageBurnRange {
+  highPctPerHour: Float!
+  lowPctPerHour: Float!
+}
+
+"""
+#3820 — how many of the 1h, 6h and 24h lookbacks had data: one is LOW, two MEDIUM, three HIGH.
+"""
+enum AccountUsageConfidence {
+  HIGH
+  LOW
+  MEDIUM
+}
+
+"""#3820 — the other account of a moved worker, before and after."""
+type AccountUsageMoveTarget {
+  account: String!
+  adjusted: [AccountUsageWindowProjection!]!
+  baseline: [AccountUsageWindowProjection!]!
+}
+
+input AccountUsageMoveWorkerInput {
+  toAccount: String!
+  toFamily: String
+
+  """
+  Needed only when the target label has history from more than one host or family.
+  """
+  toHost: String
+  worker: String!
+}
+
+"""
+#3820 — one account's projection. workers are the names the collector configured on the account.
+"""
+type AccountUsageProjection {
+  account: String!
+  asOf: DateTime!
+  family: String
+  host: String
+  newestSnapshotAt: DateTime
+  whatIf: AccountUsageWhatIf
+  windows: [AccountUsageWindowProjection!]!
+  workers: [String!]!
+  workersConfigured: Boolean!
+}
+
+"""
+#3820 — why a window is not PROJECTED. UNKNOWN: NO_HISTORY, NO_WINDOW (no snapshot reports this window), STALE (newest
+snapshot over 60 minutes old), NO_RESET, RESET_PASSED, NO_WORKERS_CONFIGURED (a what-if needs the account's workers),
+WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known). INSUFFICIENT_DATA: LOW_USE (under 5% used),
+TOO_FEW_SNAPSHOTS (fewer than 3, or spanning under an hour).
+"""
+enum AccountUsageReason {
+  LOW_USE
+  NO_HISTORY
+  NO_RESET
+  NO_WINDOW
+  NO_WORKERS_CONFIGURED
+  RESET_PASSED
+  STALE
+  TOO_FEW_SNAPSHOTS
+  WHATIF_SOURCE_UNKNOWN
+}
+
+"""
+#3820 — FLAT is a constant burn rate; WEEKLY follows the hour-of-week shape of at least a week of history.
+"""
+enum AccountUsageShape {
+  FLAT
+  WEEKLY
+}
+
+"""
+#3820 — PROJECTED has a range; INSUFFICIENT_DATA has none (never a run-out time); UNKNOWN has no trustworthy data.
+"""
+enum AccountUsageStatus {
+  INSUFFICIENT_DATA
+  PROJECTED
+  UNKNOWN
+}
+
+"""
+#3820 — the what-if: the asked account's windows after the change, and, for a move, the target account's.
+"""
+type AccountUsageWhatIf {
+  adjusted: [AccountUsageWindowProjection!]!
+  target: AccountUsageMoveTarget
+}
+
+"""#3820 — exactly one of the two."""
+input AccountUsageWhatIfInput {
+  """
+  Add this many workers (1 to 50) to the account, each burning the account's per-worker estimate.
+  """
+  addWorkers: Int
+
+  """
+  Move one worker from the projected account to another; it takes the source's per-worker estimate with it.
+  """
+  moveWorker: AccountUsageMoveWorkerInput
+}
+
+"""
+#3820 — a subscription account's rate-limit windows: the 5-hour and 7-day ones, or OTHER for a family's window of another length (see lengthMinutes).
+"""
+enum AccountUsageWindow {
+  FIVE_HOUR
+  OTHER
+  SEVEN_DAY
+}
+
+"""#3820 — one window of one account."""
+type AccountUsageWindowProjection {
+  """The account's burn range over the lookbacks."""
+  burn: AccountUsageBurnRange
+
+  """
+  The token ceiling (85) that canAddWorker's token constraint compares the projected use to.
+  """
+  ceilingPct: Float!
+  confidence: AccountUsageConfidence
+  highPctAtReset: Float
+
+  """The window's length in minutes."""
+  lengthMinutes: Int!
+
+  """
+  Projected use at the reset, lower and upper end of the range, each capped at 100.
+  """
+  lowPctAtReset: Float
+
+  """When the newest snapshot of this window was observed."""
+  observedAt: DateTime
+
+  """
+  The account's burn divided by the workers configured on it; null when none are.
+  """
+  perWorkerBurn: AccountUsageBurnRange
+  reason: AccountUsageReason
+  resetsAt: DateTime
+
+  """
+  Only when even the lower end of the range reaches 100% before the reset.
+  """
+  runsOutAt: DateTime
+  shape: AccountUsageShape
+  status: AccountUsageStatus!
+
+  """Used share at the newest snapshot, 0 to 100."""
+  usedPct: Float
+  window: AccountUsageWindow!
+}
+
 type AcknowledgeWakesResult {
   """Wakes that moved the delivery record."""
   acknowledged: Int!
@@ -4241,6 +4396,41 @@ input CreateChannelInput {
 }
 
 """
+#3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05): what a bound worker asks for. There is deliberately no field for activation, a verifier, a signature, a use count, a version or an issuer: a grant is born pending and only signing (#3649) can make it live.
+"""
+input CreateGrantInput {
+  """A registered action's dotted name, such as schedule.create."""
+  action: String!
+
+  """Not usable after this time; must follow startsAt when both are given."""
+  expiresAt: DateTime
+
+  """
+  WORKER (the calling worker itself) or AGENT (its role agent, installed in this App). Any other holder is refused.
+  """
+  holderKind: GrantHolderKind!
+
+  """The holder's id (not a URN)."""
+  holderRef: String!
+
+  """At most this many uses once signed; a positive integer."""
+  maxUses: Int
+
+  """
+  Why the grant is asked for: shown to the signer as the requester's words, labelled as theirs.
+  """
+  reason: String!
+
+  """The grant is not usable before this time once it is signed."""
+  startsAt: DateTime
+
+  """
+  Exactly the action's declared parameters, each a string or a list of distinct strings (an id, never a URN); any other key or shape is refused. Never put a secret here.
+  """
+  values: JSON!
+}
+
+"""
 #1325 part (c) — a new template. `rules` are validated as a whole before anything is written.
 """
 input CreateMemoryConfigTemplateInput {
@@ -5576,7 +5766,7 @@ type Grant {
   activatedAt: DateTime
 
   """
-  Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+  Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
   """
   allows: Boolean!
   appId: ID!
@@ -5585,6 +5775,10 @@ type Grant {
   holderId: ID!
   holderKind: GrantHolderKind!
   id: ID!
+
+  """
+  The person who issued it: its signer (hrn:node:hadronmemory.com:specs:cor:acl:140:04). Null while it is pending. Null on an activated grant means the issuer's account was erased: it reads as issued by a deleted user, and stays as it was (hrn:node:hadronmemory.com:specs:cor:acl:140:08).
+  """
   issuerUserId: ID
   maxUses: Int
   reason: String!
@@ -5593,6 +5787,11 @@ type Grant {
   requestedByWorkerId: ID
   revokedAt: DateTime
   signatureId: ID
+
+  """
+  #3649 slice D (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — its signatures, each re-verified on this read from the stored assertion. Readable by exactly those who may read the grant; it adds no reach.
+  """
+  signatureStatus: GrantSignatureStatus!
   startsAt: DateTime
   useCount: Int!
 
@@ -5603,6 +5802,10 @@ type Grant {
 
   """How the activation was verified, as stored; null while pending."""
   verificationKind: String
+
+  """
+  The person whose signature activated it; null while pending, and null once their account is erased (a deleted user, hrn:node:hadronmemory.com:specs:cor:acl:140:08).
+  """
   verifiedBy: ID
 }
 
@@ -5639,6 +5842,142 @@ enum GrantHolderKind {
   APP
   USER
   WORKER
+}
+
+"""
+#3649 slice D — one signature on a grant. Only the passkey's label is ever shown.
+"""
+type GrantSignature {
+  id: ID!
+
+  """The passkey's label; an erased person's reads 'Erased passkey'."""
+  passkeyLabel: String!
+
+  """
+  When the signer's passkey was revoked, if it was; the signature keeps its state.
+  """
+  passkeyRevokedAt: DateTime
+  payloadVersion: String!
+
+  """
+  The person who signed, as handle and URN only. Null when their account was erased: a deleted user (hrn:node:hadronmemory.com:specs:cor:acl:140:08); the stored id is never echoed.
+  """
+  signer: NodeRevisionEditor
+  signingRequestId: ID!
+  state: GrantSignatureState!
+
+  """
+  The terms hash it was made over (64 lowercase hex, hrn:node:hadronmemory.com:specs:cor:acl:140:09).
+  """
+  termsHash: String!
+  verifiedAt: DateTime!
+
+  """The grant record version it was made on."""
+  version: Int!
+}
+
+"""
+#3649 slice D (hrn:node:hadronmemory.com:specs:cor:acl:140:07; hrn:node:hadronmemory.com:specs:cor:dmo:130:04 mirrored) — a grant signature's state, derived on every read and never stored. A record that does not verify is never a signature: it is counted in GrantSignatureStatus.integrityProblems instead. This is the signature's state, not the grant's: whether the grant allows anything is Grant.allows.
+"""
+enum GrantSignatureState {
+  """Made by a first passkey revoked inside its window; never counts."""
+  CANCELLED
+
+  """
+  Verifies, and was made over the grant's present record version and terms.
+  """
+  CURRENT
+
+  """
+  Verifies, but the grant's record version or terms no longer match what was signed.
+  """
+  EARLIER
+
+  """
+  Made by a first passkey still in its cooling-off window (hrn:node:hadronmemory.com:specs:cor:aut:040:07); never counts until the window ends normally.
+  """
+  PENDING
+}
+
+"""
+#3649 slice D — a grant's signatures. No grant state label is derived here.
+"""
+type GrantSignatureStatus {
+  """
+  Records that fail re-verification or are inconsistent with the grant: reported, never listed as signatures.
+  """
+  integrityProblems: Int!
+
+  """Current signers first, then newest first."""
+  signatures: [GrantSignature!]!
+
+  """
+  CURRENT if any signature is current, else the best of PENDING, EARLIER, CANCELLED; null with no signatures.
+  """
+  state: GrantSignatureState
+}
+
+"""
+#3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07, hrn:node:hadronmemory.com:specs:cor:acl:140:09) — a request for a person to sign ONE grant,
+pinned at creation: the grant, its record version and its terms hash. No signer is named: whoever signs must be able to issue
+the grant (hrn:node:hadronmemory.com:specs:cor:acl:140:04), judged when they sign.
+"""
+type GrantSigningRequest {
+  """
+  The server-hosted ceremony page where someone who may issue the grant signs it (hrn:node:hadronmemory.com:specs:cor:acl:140:07): the server origin plus /grant-signing/<id>, with no token. Copy it verbatim; never compose it. Signing there with a passkey activates the grant; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
+  """
+  ceremonyUrl: String!
+  createdAt: DateTime!
+
+  """
+  Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
+  """
+  endedAt: DateTime
+  expiresAt: DateTime!
+  grantId: ID!
+
+  """128 bits of randomness."""
+  id: ID!
+
+  """The payload version the signer signs: hadron-grant-signature-v1."""
+  payloadVersion: String!
+  requestedBy: SigningRequester!
+
+  """The effective state."""
+  state: GrantSigningRequestState!
+
+  """
+  The terms hash pinned at creation (64 lowercase hex, hrn:node:hadronmemory.com:specs:cor:acl:140:09).
+  """
+  termsHash: String!
+
+  """The grant record's version pinned at creation."""
+  version: Int!
+}
+
+"""
+#3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — a grant signing request: open, then ends exactly once.
+"""
+enum GrantSigningRequestState {
+  """A signature was verified and recorded."""
+  COMPLETED
+
+  """The signer turned it down."""
+  DECLINED
+
+  """
+  Its lifetime passed (SIGNING_REQUEST_TTL_SECONDS, default 24h); endedAt is the deadline.
+  """
+  EXPIRED
+  OPEN
+
+  """
+  The grant was revoked, its holder went, or its version or terms moved (a user merge moving the holder among them).
+  """
+  STALE
+
+  """The requester account withdrew it."""
+  WITHDRAWN
 }
 
 type GrantsPage {
@@ -8272,6 +8611,11 @@ type Mutation {
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
+  #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. Only a bound worker session may call it, in its own App, for itself or its role agent (installed in the App); the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it. Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key), GRANT_TERMS_INVALID. No MCP tool. Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
+  """
+  createGrant(input: CreateGrantInput!): Grant!
+
+  """
   Register a Home Assistant instance (org ADMIN/OWNER). orgRef accepts
   ID or URN (cor:api:140). accessToken is an HA long-lived access token
   — encrypted at rest, write-only, never returned. Registration grants
@@ -10111,6 +10455,11 @@ type Mutation {
   reportHostOperation(input: ReportHostOperationInput!): HostOperation!
 
   """
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Whoever may read the grant may ask (as grant(ref:) reads it), a bound worker included; workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
+  """
+  requestGrantSignature(grantRef: ID!): GrantSigningRequest!
+
+  """
   #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND, and (Holger #11094, #1904) SIGNER_NOT_A_WRITER when the named signer may not write the node's memory (checked again when they sign or decline). No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
   """
   requestNodeSignature(expectedRevision: Int, nodeRef: ID!, signerRef: ID): SigningRequest!
@@ -11387,6 +11736,11 @@ type Mutation {
   #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
   """
   withdrawDecision(expectedRevision: Int!, reason: String!, ref: ID!): Decision!
+
+  """
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+  """
+  withdrawGrantSigningRequest(id: ID!): GrantSigningRequest!
 
   """
   #1632 — withdraw an open signing request. Only the requester account, from any of its sessions (#10397). Refusals (hrn:node:hadronmemory.com:specs:cor:dmo:130:03, Holger #10430): SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -13046,6 +13400,18 @@ type PullRequestReadiness {
 
 type Query {
   """
+  #3820 — the token-burn projection of one subscription account in an App: the 5-hour and 7-day windows' use at their
+  reset as a range, from the burn over the last 1h, 6h and 24h of history, with an optional what-if (add workers, or move
+  one to another account). The history is the account-usage objects in the App's own team-space memory. Readers: as the
+  team's tasks and events are read (hrn:node:hadronmemory.com:specs:cor:agt:140:03, which rests on
+  hrn:node:hadronmemory.com:specs:cor:agt:050:21 and hrn:node:hadronmemory.com:specs:cor:agt:050:23): the App's
+  participants and its own key; anyone else is refused APP_NOT_FOUND. ADVISORY ONLY: the answer
+  never authorizes, refuses or moves anything. An account with no history, or only history older than 60 minutes, is
+  UNKNOWN; under 5% used, or fewer than 3 snapshots spanning an hour, is INSUFFICIENT_DATA and gives no run-out time.
+  """
+  accountUsageProjection(account: String!, appRef: ID!, family: String, host: String, whatIf: AccountUsageWhatIfInput): AccountUsageProjection!
+
+  """
   #3287 — an App's action-register index, computed at read: every code the App's Team Agent's
   chain maps, one row per code in code order, with its task loc resolved through the asking
   Agent's chain (hrn:node:hadronmemory.com:specs:cor:agt:110:03,
@@ -14174,6 +14540,11 @@ type Query {
   grant(ref: ID!): Grant
 
   """
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller (as grant(ref:) reads it).
+  """
+  grantSigningRequest(id: ID!): GrantSigningRequest
+
+  """
   The bound worker's own grants (#3789): the rows naming it directly as holder, plus the pending ones it requested. Any other caller gets an empty page, never an error. limit 0 returns the count only.
   """
   grants(limit: Int, offset: Int): GrantsPage!
@@ -14465,6 +14836,13 @@ type Query {
   Accepts the Agent's ID or URN.
   """
   myChatsPage(agentRef: ID!, limit: Int, offset: Int): ChatPage!
+
+  """
+  The caller's own grants across every App (#3800, hrn:node:hadronmemory.com:specs:cor:acl:140:05, ruling 0255 item 8): the rows naming the signed-in person directly as holder, in every state, newest first.
+  Never another holder's, and never a row the person only issued or requested for someone else. Leaving an Org does not hide a grant. A soft-deleted App conceals its grants. There is no state label; allows is the one live function.
+  An App key, a run, an impersonated session and a worker session get an empty page, never an error. limit 0 returns the count only.
+  """
+  myGrants(limit: Int, offset: Int): GrantsPage!
 
   """
   #1631 PR3: the caller's own passkey records, revoked ones included, newest first. Only the
@@ -15265,6 +15643,11 @@ type Query {
   host key sees its own host's. includeEnded adds ended ones (not for a worker's session). first: default 20, max 200.
   """
   teamStopSignals(after: String, appRef: String!, first: Int, includeEnded: Boolean, worker: String): StopSignalPage!
+
+  """
+  #3819 slice 1: advisory utilization in the roster audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Window defaults to 24h, range 1–168; tier is high/mid/low. Failed-match saturation and alarms await their historical provider.
+  """
+  teamUtilization(appRef: ID!, family: String, role: String, tier: String, windowHours: Int = 24): TeamUtilization!
 
   """
   Read a team App's worklog (#947) — the provenance query: which sessions
@@ -18666,6 +19049,16 @@ type TeamTagSnapshot {
 }
 
 """
+Advisory current eligible workers and task-held utilization, grouped and ranked; no matching or authority effect.
+"""
+type TeamUtilization {
+  appId: ID!
+  combinations: [WorkerUtilization!]!
+  computedAt: DateTime!
+  windowHours: Int!
+}
+
+"""
 One team-worklog record (#947) — an externally visible work milestone (a PR
 opened, a branch pushed, an issue closed), append-only. The worklog is the
 AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
@@ -20243,6 +20636,23 @@ enum WorkerTerminalState {
   dark
   idle
   locked
+}
+
+"""
+One current family/tier/role combination. Unknown tier has its own null row; retired workers are excluded.
+"""
+type WorkerUtilization {
+  busyWorkers: Int!
+  eligibleWorkers: Int!
+  family: String!
+  role: String
+
+  """
+  Slice 1: true only for zero eligible workers (then utilization=1). Failure-only saturation reads false until the deferred match-outcome integration; no alarm is emitted by this read.
+  """
+  saturated: Boolean!
+  tier: String
+  utilization: Float!
 }
 
 """

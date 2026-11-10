@@ -65,6 +65,917 @@ var AllAccessSource = []AccessSource{
 	AccessSourcePublicVisibility,
 }
 
+// #3820 — how many of the 1h, 6h and 24h lookbacks had data: one is LOW, two MEDIUM, three HIGH.
+type AccountUsageConfidence string
+
+const (
+	AccountUsageConfidenceHigh   AccountUsageConfidence = "HIGH"
+	AccountUsageConfidenceLow    AccountUsageConfidence = "LOW"
+	AccountUsageConfidenceMedium AccountUsageConfidence = "MEDIUM"
+)
+
+var AllAccountUsageConfidence = []AccountUsageConfidence{
+	AccountUsageConfidenceHigh,
+	AccountUsageConfidenceLow,
+	AccountUsageConfidenceMedium,
+}
+
+type AccountUsageMoveWorkerInput struct {
+	ToAccount string  `json:"toAccount"`
+	ToFamily  *string `json:"toFamily,omitempty"`
+	// Needed only when the target label has history from more than one host or family.
+	ToHost *string `json:"toHost,omitempty"`
+	Worker string  `json:"worker"`
+}
+
+// GetToAccount returns AccountUsageMoveWorkerInput.ToAccount, and is useful for accessing the field via an interface.
+func (v *AccountUsageMoveWorkerInput) GetToAccount() string { return v.ToAccount }
+
+// GetToFamily returns AccountUsageMoveWorkerInput.ToFamily, and is useful for accessing the field via an interface.
+func (v *AccountUsageMoveWorkerInput) GetToFamily() *string { return v.ToFamily }
+
+// GetToHost returns AccountUsageMoveWorkerInput.ToHost, and is useful for accessing the field via an interface.
+func (v *AccountUsageMoveWorkerInput) GetToHost() *string { return v.ToHost }
+
+// GetWorker returns AccountUsageMoveWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *AccountUsageMoveWorkerInput) GetWorker() string { return v.Worker }
+
+// AccountUsageProjectionAccountUsageProjection includes the requested fields of the GraphQL type AccountUsageProjection.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one account's projection. workers are the names the collector configured on the account.
+type AccountUsageProjectionAccountUsageProjection struct {
+	Account           string                                                                             `json:"account"`
+	AsOf              string                                                                             `json:"asOf"`
+	Family            *string                                                                            `json:"family"`
+	Host              *string                                                                            `json:"host"`
+	NewestSnapshotAt  *string                                                                            `json:"newestSnapshotAt"`
+	Workers           []string                                                                           `json:"workers"`
+	WorkersConfigured bool                                                                               `json:"workersConfigured"`
+	Windows           []*AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection `json:"windows"`
+	WhatIf            *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf              `json:"whatIf"`
+}
+
+// GetAccount returns AccountUsageProjectionAccountUsageProjection.Account, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetAccount() string { return v.Account }
+
+// GetAsOf returns AccountUsageProjectionAccountUsageProjection.AsOf, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetAsOf() string { return v.AsOf }
+
+// GetFamily returns AccountUsageProjectionAccountUsageProjection.Family, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetFamily() *string { return v.Family }
+
+// GetHost returns AccountUsageProjectionAccountUsageProjection.Host, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetHost() *string { return v.Host }
+
+// GetNewestSnapshotAt returns AccountUsageProjectionAccountUsageProjection.NewestSnapshotAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetNewestSnapshotAt() *string {
+	return v.NewestSnapshotAt
+}
+
+// GetWorkers returns AccountUsageProjectionAccountUsageProjection.Workers, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetWorkers() []string { return v.Workers }
+
+// GetWorkersConfigured returns AccountUsageProjectionAccountUsageProjection.WorkersConfigured, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetWorkersConfigured() bool {
+	return v.WorkersConfigured
+}
+
+// GetWindows returns AccountUsageProjectionAccountUsageProjection.Windows, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetWindows() []*AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection {
+	return v.Windows
+}
+
+// GetWhatIf returns AccountUsageProjectionAccountUsageProjection.WhatIf, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjection) GetWhatIf() *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf {
+	return v.WhatIf
+}
+
+// AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf includes the requested fields of the GraphQL type AccountUsageWhatIf.
+// The GraphQL type's documentation follows.
+//
+// #3820 — the what-if: the asked account's windows after the change, and, for a move, the target account's.
+type AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf struct {
+	Adjusted []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection `json:"adjusted"`
+	Target   *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget           `json:"target"`
+}
+
+// GetAdjusted returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf.Adjusted, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf) GetAdjusted() []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection {
+	return v.Adjusted
+}
+
+// GetTarget returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf.Target, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIf) GetTarget() *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget {
+	return v.Target
+}
+
+// AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection includes the requested fields of the GraphQL type AccountUsageWindowProjection.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one window of one account.
+type AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection struct {
+	ProjectionWindow `json:"-"`
+}
+
+// GetWindow returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Window, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetWindow() AccountUsageWindow {
+	return v.ProjectionWindow.Window
+}
+
+// GetLengthMinutes returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.LengthMinutes, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetLengthMinutes() int {
+	return v.ProjectionWindow.LengthMinutes
+}
+
+// GetStatus returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Status, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetStatus() AccountUsageStatus {
+	return v.ProjectionWindow.Status
+}
+
+// GetReason returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Reason, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetReason() *AccountUsageReason {
+	return v.ProjectionWindow.Reason
+}
+
+// GetShape returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Shape, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetShape() *AccountUsageShape {
+	return v.ProjectionWindow.Shape
+}
+
+// GetConfidence returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Confidence, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetConfidence() *AccountUsageConfidence {
+	return v.ProjectionWindow.Confidence
+}
+
+// GetUsedPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.UsedPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetUsedPct() *float64 {
+	return v.ProjectionWindow.UsedPct
+}
+
+// GetLowPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.LowPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetLowPctAtReset() *float64 {
+	return v.ProjectionWindow.LowPctAtReset
+}
+
+// GetHighPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.HighPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetHighPctAtReset() *float64 {
+	return v.ProjectionWindow.HighPctAtReset
+}
+
+// GetCeilingPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.CeilingPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetCeilingPct() float64 {
+	return v.ProjectionWindow.CeilingPct
+}
+
+// GetResetsAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.ResetsAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetResetsAt() *string {
+	return v.ProjectionWindow.ResetsAt
+}
+
+// GetRunsOutAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.RunsOutAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetRunsOutAt() *string {
+	return v.ProjectionWindow.RunsOutAt
+}
+
+// GetObservedAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.ObservedAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetObservedAt() *string {
+	return v.ProjectionWindow.ObservedAt
+}
+
+// GetBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.Burn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetBurn() *ProjectionWindowBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.Burn
+}
+
+// GetPerWorkerBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection.PerWorkerBurn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) GetPerWorkerBurn() *ProjectionWindowPerWorkerBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.PerWorkerBurn
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ProjectionWindow)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection struct {
+	Window AccountUsageWindow `json:"window"`
+
+	LengthMinutes int `json:"lengthMinutes"`
+
+	Status AccountUsageStatus `json:"status"`
+
+	Reason *AccountUsageReason `json:"reason"`
+
+	Shape *AccountUsageShape `json:"shape"`
+
+	Confidence *AccountUsageConfidence `json:"confidence"`
+
+	UsedPct *float64 `json:"usedPct"`
+
+	LowPctAtReset *float64 `json:"lowPctAtReset"`
+
+	HighPctAtReset *float64 `json:"highPctAtReset"`
+
+	CeilingPct float64 `json:"ceilingPct"`
+
+	ResetsAt *string `json:"resetsAt"`
+
+	RunsOutAt *string `json:"runsOutAt"`
+
+	ObservedAt *string `json:"observedAt"`
+
+	Burn *ProjectionWindowBurnAccountUsageBurnRange `json:"burn"`
+
+	PerWorkerBurn *ProjectionWindowPerWorkerBurnAccountUsageBurnRange `json:"perWorkerBurn"`
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection) __premarshalJSON() (*__premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection, error) {
+	var retval __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfAdjustedAccountUsageWindowProjection
+
+	retval.Window = v.ProjectionWindow.Window
+	retval.LengthMinutes = v.ProjectionWindow.LengthMinutes
+	retval.Status = v.ProjectionWindow.Status
+	retval.Reason = v.ProjectionWindow.Reason
+	retval.Shape = v.ProjectionWindow.Shape
+	retval.Confidence = v.ProjectionWindow.Confidence
+	retval.UsedPct = v.ProjectionWindow.UsedPct
+	retval.LowPctAtReset = v.ProjectionWindow.LowPctAtReset
+	retval.HighPctAtReset = v.ProjectionWindow.HighPctAtReset
+	retval.CeilingPct = v.ProjectionWindow.CeilingPct
+	retval.ResetsAt = v.ProjectionWindow.ResetsAt
+	retval.RunsOutAt = v.ProjectionWindow.RunsOutAt
+	retval.ObservedAt = v.ProjectionWindow.ObservedAt
+	retval.Burn = v.ProjectionWindow.Burn
+	retval.PerWorkerBurn = v.ProjectionWindow.PerWorkerBurn
+	return &retval, nil
+}
+
+// AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget includes the requested fields of the GraphQL type AccountUsageMoveTarget.
+// The GraphQL type's documentation follows.
+//
+// #3820 — the other account of a moved worker, before and after.
+type AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget struct {
+	Account  string                                                                                                                                  `json:"account"`
+	Baseline []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection `json:"baseline"`
+	Adjusted []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection `json:"adjusted"`
+}
+
+// GetAccount returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget.Account, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget) GetAccount() string {
+	return v.Account
+}
+
+// GetBaseline returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget.Baseline, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget) GetBaseline() []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection {
+	return v.Baseline
+}
+
+// GetAdjusted returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget.Adjusted, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTarget) GetAdjusted() []*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection {
+	return v.Adjusted
+}
+
+// AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection includes the requested fields of the GraphQL type AccountUsageWindowProjection.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one window of one account.
+type AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection struct {
+	ProjectionWindow `json:"-"`
+}
+
+// GetWindow returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Window, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetWindow() AccountUsageWindow {
+	return v.ProjectionWindow.Window
+}
+
+// GetLengthMinutes returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.LengthMinutes, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetLengthMinutes() int {
+	return v.ProjectionWindow.LengthMinutes
+}
+
+// GetStatus returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Status, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetStatus() AccountUsageStatus {
+	return v.ProjectionWindow.Status
+}
+
+// GetReason returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Reason, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetReason() *AccountUsageReason {
+	return v.ProjectionWindow.Reason
+}
+
+// GetShape returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Shape, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetShape() *AccountUsageShape {
+	return v.ProjectionWindow.Shape
+}
+
+// GetConfidence returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Confidence, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetConfidence() *AccountUsageConfidence {
+	return v.ProjectionWindow.Confidence
+}
+
+// GetUsedPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.UsedPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetUsedPct() *float64 {
+	return v.ProjectionWindow.UsedPct
+}
+
+// GetLowPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.LowPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetLowPctAtReset() *float64 {
+	return v.ProjectionWindow.LowPctAtReset
+}
+
+// GetHighPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.HighPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetHighPctAtReset() *float64 {
+	return v.ProjectionWindow.HighPctAtReset
+}
+
+// GetCeilingPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.CeilingPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetCeilingPct() float64 {
+	return v.ProjectionWindow.CeilingPct
+}
+
+// GetResetsAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.ResetsAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetResetsAt() *string {
+	return v.ProjectionWindow.ResetsAt
+}
+
+// GetRunsOutAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.RunsOutAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetRunsOutAt() *string {
+	return v.ProjectionWindow.RunsOutAt
+}
+
+// GetObservedAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.ObservedAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetObservedAt() *string {
+	return v.ProjectionWindow.ObservedAt
+}
+
+// GetBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.Burn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetBurn() *ProjectionWindowBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.Burn
+}
+
+// GetPerWorkerBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection.PerWorkerBurn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) GetPerWorkerBurn() *ProjectionWindowPerWorkerBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.PerWorkerBurn
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ProjectionWindow)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection struct {
+	Window AccountUsageWindow `json:"window"`
+
+	LengthMinutes int `json:"lengthMinutes"`
+
+	Status AccountUsageStatus `json:"status"`
+
+	Reason *AccountUsageReason `json:"reason"`
+
+	Shape *AccountUsageShape `json:"shape"`
+
+	Confidence *AccountUsageConfidence `json:"confidence"`
+
+	UsedPct *float64 `json:"usedPct"`
+
+	LowPctAtReset *float64 `json:"lowPctAtReset"`
+
+	HighPctAtReset *float64 `json:"highPctAtReset"`
+
+	CeilingPct float64 `json:"ceilingPct"`
+
+	ResetsAt *string `json:"resetsAt"`
+
+	RunsOutAt *string `json:"runsOutAt"`
+
+	ObservedAt *string `json:"observedAt"`
+
+	Burn *ProjectionWindowBurnAccountUsageBurnRange `json:"burn"`
+
+	PerWorkerBurn *ProjectionWindowPerWorkerBurnAccountUsageBurnRange `json:"perWorkerBurn"`
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection) __premarshalJSON() (*__premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection, error) {
+	var retval __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetAdjustedAccountUsageWindowProjection
+
+	retval.Window = v.ProjectionWindow.Window
+	retval.LengthMinutes = v.ProjectionWindow.LengthMinutes
+	retval.Status = v.ProjectionWindow.Status
+	retval.Reason = v.ProjectionWindow.Reason
+	retval.Shape = v.ProjectionWindow.Shape
+	retval.Confidence = v.ProjectionWindow.Confidence
+	retval.UsedPct = v.ProjectionWindow.UsedPct
+	retval.LowPctAtReset = v.ProjectionWindow.LowPctAtReset
+	retval.HighPctAtReset = v.ProjectionWindow.HighPctAtReset
+	retval.CeilingPct = v.ProjectionWindow.CeilingPct
+	retval.ResetsAt = v.ProjectionWindow.ResetsAt
+	retval.RunsOutAt = v.ProjectionWindow.RunsOutAt
+	retval.ObservedAt = v.ProjectionWindow.ObservedAt
+	retval.Burn = v.ProjectionWindow.Burn
+	retval.PerWorkerBurn = v.ProjectionWindow.PerWorkerBurn
+	return &retval, nil
+}
+
+// AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection includes the requested fields of the GraphQL type AccountUsageWindowProjection.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one window of one account.
+type AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection struct {
+	ProjectionWindow `json:"-"`
+}
+
+// GetWindow returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Window, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetWindow() AccountUsageWindow {
+	return v.ProjectionWindow.Window
+}
+
+// GetLengthMinutes returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.LengthMinutes, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetLengthMinutes() int {
+	return v.ProjectionWindow.LengthMinutes
+}
+
+// GetStatus returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Status, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetStatus() AccountUsageStatus {
+	return v.ProjectionWindow.Status
+}
+
+// GetReason returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Reason, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetReason() *AccountUsageReason {
+	return v.ProjectionWindow.Reason
+}
+
+// GetShape returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Shape, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetShape() *AccountUsageShape {
+	return v.ProjectionWindow.Shape
+}
+
+// GetConfidence returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Confidence, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetConfidence() *AccountUsageConfidence {
+	return v.ProjectionWindow.Confidence
+}
+
+// GetUsedPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.UsedPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetUsedPct() *float64 {
+	return v.ProjectionWindow.UsedPct
+}
+
+// GetLowPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.LowPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetLowPctAtReset() *float64 {
+	return v.ProjectionWindow.LowPctAtReset
+}
+
+// GetHighPctAtReset returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.HighPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetHighPctAtReset() *float64 {
+	return v.ProjectionWindow.HighPctAtReset
+}
+
+// GetCeilingPct returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.CeilingPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetCeilingPct() float64 {
+	return v.ProjectionWindow.CeilingPct
+}
+
+// GetResetsAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.ResetsAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetResetsAt() *string {
+	return v.ProjectionWindow.ResetsAt
+}
+
+// GetRunsOutAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.RunsOutAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetRunsOutAt() *string {
+	return v.ProjectionWindow.RunsOutAt
+}
+
+// GetObservedAt returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.ObservedAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetObservedAt() *string {
+	return v.ProjectionWindow.ObservedAt
+}
+
+// GetBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.Burn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetBurn() *ProjectionWindowBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.Burn
+}
+
+// GetPerWorkerBurn returns AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection.PerWorkerBurn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) GetPerWorkerBurn() *ProjectionWindowPerWorkerBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.PerWorkerBurn
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ProjectionWindow)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection struct {
+	Window AccountUsageWindow `json:"window"`
+
+	LengthMinutes int `json:"lengthMinutes"`
+
+	Status AccountUsageStatus `json:"status"`
+
+	Reason *AccountUsageReason `json:"reason"`
+
+	Shape *AccountUsageShape `json:"shape"`
+
+	Confidence *AccountUsageConfidence `json:"confidence"`
+
+	UsedPct *float64 `json:"usedPct"`
+
+	LowPctAtReset *float64 `json:"lowPctAtReset"`
+
+	HighPctAtReset *float64 `json:"highPctAtReset"`
+
+	CeilingPct float64 `json:"ceilingPct"`
+
+	ResetsAt *string `json:"resetsAt"`
+
+	RunsOutAt *string `json:"runsOutAt"`
+
+	ObservedAt *string `json:"observedAt"`
+
+	Burn *ProjectionWindowBurnAccountUsageBurnRange `json:"burn"`
+
+	PerWorkerBurn *ProjectionWindowPerWorkerBurnAccountUsageBurnRange `json:"perWorkerBurn"`
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection) __premarshalJSON() (*__premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection, error) {
+	var retval __premarshalAccountUsageProjectionAccountUsageProjectionWhatIfAccountUsageWhatIfTargetAccountUsageMoveTargetBaselineAccountUsageWindowProjection
+
+	retval.Window = v.ProjectionWindow.Window
+	retval.LengthMinutes = v.ProjectionWindow.LengthMinutes
+	retval.Status = v.ProjectionWindow.Status
+	retval.Reason = v.ProjectionWindow.Reason
+	retval.Shape = v.ProjectionWindow.Shape
+	retval.Confidence = v.ProjectionWindow.Confidence
+	retval.UsedPct = v.ProjectionWindow.UsedPct
+	retval.LowPctAtReset = v.ProjectionWindow.LowPctAtReset
+	retval.HighPctAtReset = v.ProjectionWindow.HighPctAtReset
+	retval.CeilingPct = v.ProjectionWindow.CeilingPct
+	retval.ResetsAt = v.ProjectionWindow.ResetsAt
+	retval.RunsOutAt = v.ProjectionWindow.RunsOutAt
+	retval.ObservedAt = v.ProjectionWindow.ObservedAt
+	retval.Burn = v.ProjectionWindow.Burn
+	retval.PerWorkerBurn = v.ProjectionWindow.PerWorkerBurn
+	return &retval, nil
+}
+
+// AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection includes the requested fields of the GraphQL type AccountUsageWindowProjection.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one window of one account.
+type AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection struct {
+	ProjectionWindow `json:"-"`
+}
+
+// GetWindow returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Window, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetWindow() AccountUsageWindow {
+	return v.ProjectionWindow.Window
+}
+
+// GetLengthMinutes returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.LengthMinutes, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetLengthMinutes() int {
+	return v.ProjectionWindow.LengthMinutes
+}
+
+// GetStatus returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Status, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetStatus() AccountUsageStatus {
+	return v.ProjectionWindow.Status
+}
+
+// GetReason returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Reason, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetReason() *AccountUsageReason {
+	return v.ProjectionWindow.Reason
+}
+
+// GetShape returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Shape, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetShape() *AccountUsageShape {
+	return v.ProjectionWindow.Shape
+}
+
+// GetConfidence returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Confidence, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetConfidence() *AccountUsageConfidence {
+	return v.ProjectionWindow.Confidence
+}
+
+// GetUsedPct returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.UsedPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetUsedPct() *float64 {
+	return v.ProjectionWindow.UsedPct
+}
+
+// GetLowPctAtReset returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.LowPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetLowPctAtReset() *float64 {
+	return v.ProjectionWindow.LowPctAtReset
+}
+
+// GetHighPctAtReset returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.HighPctAtReset, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetHighPctAtReset() *float64 {
+	return v.ProjectionWindow.HighPctAtReset
+}
+
+// GetCeilingPct returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.CeilingPct, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetCeilingPct() float64 {
+	return v.ProjectionWindow.CeilingPct
+}
+
+// GetResetsAt returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.ResetsAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetResetsAt() *string {
+	return v.ProjectionWindow.ResetsAt
+}
+
+// GetRunsOutAt returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.RunsOutAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetRunsOutAt() *string {
+	return v.ProjectionWindow.RunsOutAt
+}
+
+// GetObservedAt returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.ObservedAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetObservedAt() *string {
+	return v.ProjectionWindow.ObservedAt
+}
+
+// GetBurn returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.Burn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetBurn() *ProjectionWindowBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.Burn
+}
+
+// GetPerWorkerBurn returns AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection.PerWorkerBurn, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) GetPerWorkerBurn() *ProjectionWindowPerWorkerBurnAccountUsageBurnRange {
+	return v.ProjectionWindow.PerWorkerBurn
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ProjectionWindow)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection struct {
+	Window AccountUsageWindow `json:"window"`
+
+	LengthMinutes int `json:"lengthMinutes"`
+
+	Status AccountUsageStatus `json:"status"`
+
+	Reason *AccountUsageReason `json:"reason"`
+
+	Shape *AccountUsageShape `json:"shape"`
+
+	Confidence *AccountUsageConfidence `json:"confidence"`
+
+	UsedPct *float64 `json:"usedPct"`
+
+	LowPctAtReset *float64 `json:"lowPctAtReset"`
+
+	HighPctAtReset *float64 `json:"highPctAtReset"`
+
+	CeilingPct float64 `json:"ceilingPct"`
+
+	ResetsAt *string `json:"resetsAt"`
+
+	RunsOutAt *string `json:"runsOutAt"`
+
+	ObservedAt *string `json:"observedAt"`
+
+	Burn *ProjectionWindowBurnAccountUsageBurnRange `json:"burn"`
+
+	PerWorkerBurn *ProjectionWindowPerWorkerBurnAccountUsageBurnRange `json:"perWorkerBurn"`
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection) __premarshalJSON() (*__premarshalAccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection, error) {
+	var retval __premarshalAccountUsageProjectionAccountUsageProjectionWindowsAccountUsageWindowProjection
+
+	retval.Window = v.ProjectionWindow.Window
+	retval.LengthMinutes = v.ProjectionWindow.LengthMinutes
+	retval.Status = v.ProjectionWindow.Status
+	retval.Reason = v.ProjectionWindow.Reason
+	retval.Shape = v.ProjectionWindow.Shape
+	retval.Confidence = v.ProjectionWindow.Confidence
+	retval.UsedPct = v.ProjectionWindow.UsedPct
+	retval.LowPctAtReset = v.ProjectionWindow.LowPctAtReset
+	retval.HighPctAtReset = v.ProjectionWindow.HighPctAtReset
+	retval.CeilingPct = v.ProjectionWindow.CeilingPct
+	retval.ResetsAt = v.ProjectionWindow.ResetsAt
+	retval.RunsOutAt = v.ProjectionWindow.RunsOutAt
+	retval.ObservedAt = v.ProjectionWindow.ObservedAt
+	retval.Burn = v.ProjectionWindow.Burn
+	retval.PerWorkerBurn = v.ProjectionWindow.PerWorkerBurn
+	return &retval, nil
+}
+
+// AccountUsageProjectionResponse is returned by AccountUsageProjection on success.
+type AccountUsageProjectionResponse struct {
+	// #3820 — the token-burn projection of one subscription account in an App: the 5-hour and 7-day windows' use at their
+	// reset as a range, from the burn over the last 1h, 6h and 24h of history, with an optional what-if (add workers, or move
+	// one to another account). The history is the account-usage objects in the App's own team-space memory. Readers: as the
+	// team's tasks and events are read (hrn:node:hadronmemory.com:specs:cor:agt:140:03, which rests on
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:21 and hrn:node:hadronmemory.com:specs:cor:agt:050:23): the App's
+	// participants and its own key; anyone else is refused APP_NOT_FOUND. ADVISORY ONLY: the answer
+	// never authorizes, refuses or moves anything. An account with no history, or only history older than 60 minutes, is
+	// UNKNOWN; under 5% used, or fewer than 3 snapshots spanning an hour, is INSUFFICIENT_DATA and gives no run-out time.
+	AccountUsageProjection *AccountUsageProjectionAccountUsageProjection `json:"accountUsageProjection"`
+}
+
+// GetAccountUsageProjection returns AccountUsageProjectionResponse.AccountUsageProjection, and is useful for accessing the field via an interface.
+func (v *AccountUsageProjectionResponse) GetAccountUsageProjection() *AccountUsageProjectionAccountUsageProjection {
+	return v.AccountUsageProjection
+}
+
+// #3820 — why a window is not PROJECTED. UNKNOWN: NO_HISTORY, NO_WINDOW (no snapshot reports this window), STALE (newest
+// snapshot over 60 minutes old), NO_RESET, RESET_PASSED, NO_WORKERS_CONFIGURED (a what-if needs the account's workers),
+// WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known). INSUFFICIENT_DATA: LOW_USE (under 5% used),
+// TOO_FEW_SNAPSHOTS (fewer than 3, or spanning under an hour).
+type AccountUsageReason string
+
+const (
+	AccountUsageReasonLowUse              AccountUsageReason = "LOW_USE"
+	AccountUsageReasonNoHistory           AccountUsageReason = "NO_HISTORY"
+	AccountUsageReasonNoReset             AccountUsageReason = "NO_RESET"
+	AccountUsageReasonNoWindow            AccountUsageReason = "NO_WINDOW"
+	AccountUsageReasonNoWorkersConfigured AccountUsageReason = "NO_WORKERS_CONFIGURED"
+	AccountUsageReasonResetPassed         AccountUsageReason = "RESET_PASSED"
+	AccountUsageReasonStale               AccountUsageReason = "STALE"
+	AccountUsageReasonTooFewSnapshots     AccountUsageReason = "TOO_FEW_SNAPSHOTS"
+	AccountUsageReasonWhatifSourceUnknown AccountUsageReason = "WHATIF_SOURCE_UNKNOWN"
+)
+
+var AllAccountUsageReason = []AccountUsageReason{
+	AccountUsageReasonLowUse,
+	AccountUsageReasonNoHistory,
+	AccountUsageReasonNoReset,
+	AccountUsageReasonNoWindow,
+	AccountUsageReasonNoWorkersConfigured,
+	AccountUsageReasonResetPassed,
+	AccountUsageReasonStale,
+	AccountUsageReasonTooFewSnapshots,
+	AccountUsageReasonWhatifSourceUnknown,
+}
+
+// #3820 — FLAT is a constant burn rate; WEEKLY follows the hour-of-week shape of at least a week of history.
+type AccountUsageShape string
+
+const (
+	AccountUsageShapeFlat   AccountUsageShape = "FLAT"
+	AccountUsageShapeWeekly AccountUsageShape = "WEEKLY"
+)
+
+var AllAccountUsageShape = []AccountUsageShape{
+	AccountUsageShapeFlat,
+	AccountUsageShapeWeekly,
+}
+
+// #3820 — PROJECTED has a range; INSUFFICIENT_DATA has none (never a run-out time); UNKNOWN has no trustworthy data.
+type AccountUsageStatus string
+
+const (
+	AccountUsageStatusInsufficientData AccountUsageStatus = "INSUFFICIENT_DATA"
+	AccountUsageStatusProjected        AccountUsageStatus = "PROJECTED"
+	AccountUsageStatusUnknown          AccountUsageStatus = "UNKNOWN"
+)
+
+var AllAccountUsageStatus = []AccountUsageStatus{
+	AccountUsageStatusInsufficientData,
+	AccountUsageStatusProjected,
+	AccountUsageStatusUnknown,
+}
+
+// #3820 — exactly one of the two.
+type AccountUsageWhatIfInput struct {
+	// Add this many workers (1 to 50) to the account, each burning the account's per-worker estimate.
+	AddWorkers *int `json:"addWorkers,omitempty"`
+	// Move one worker from the projected account to another; it takes the source's per-worker estimate with it.
+	MoveWorker *AccountUsageMoveWorkerInput `json:"moveWorker,omitempty"`
+}
+
+// GetAddWorkers returns AccountUsageWhatIfInput.AddWorkers, and is useful for accessing the field via an interface.
+func (v *AccountUsageWhatIfInput) GetAddWorkers() *int { return v.AddWorkers }
+
+// GetMoveWorker returns AccountUsageWhatIfInput.MoveWorker, and is useful for accessing the field via an interface.
+func (v *AccountUsageWhatIfInput) GetMoveWorker() *AccountUsageMoveWorkerInput { return v.MoveWorker }
+
+// #3820 — a subscription account's rate-limit windows: the 5-hour and 7-day ones, or OTHER for a family's window of another length (see lengthMinutes).
+type AccountUsageWindow string
+
+const (
+	AccountUsageWindowFiveHour AccountUsageWindow = "FIVE_HOUR"
+	AccountUsageWindowOther    AccountUsageWindow = "OTHER"
+	AccountUsageWindowSevenDay AccountUsageWindow = "SEVEN_DAY"
+)
+
+var AllAccountUsageWindow = []AccountUsageWindow{
+	AccountUsageWindowFiveHour,
+	AccountUsageWindowOther,
+	AccountUsageWindowSevenDay,
+}
+
 // AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult includes the requested fields of the GraphQL type AcknowledgeWakesResult.
 type AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult struct {
 	// Wakes that moved the delivery record.
@@ -67233,6 +68144,121 @@ var AllPrincipalType = []PrincipalType{
 	PrincipalTypeUser,
 }
 
+// ProjectionWindow includes the GraphQL fields of AccountUsageWindowProjection requested by the fragment ProjectionWindow.
+// The GraphQL type's documentation follows.
+//
+// #3820 — one window of one account.
+type ProjectionWindow struct {
+	Window AccountUsageWindow `json:"window"`
+	// The window's length in minutes.
+	LengthMinutes int                     `json:"lengthMinutes"`
+	Status        AccountUsageStatus      `json:"status"`
+	Reason        *AccountUsageReason     `json:"reason"`
+	Shape         *AccountUsageShape      `json:"shape"`
+	Confidence    *AccountUsageConfidence `json:"confidence"`
+	// Used share at the newest snapshot, 0 to 100.
+	UsedPct *float64 `json:"usedPct"`
+	// Projected use at the reset, lower and upper end of the range, each capped at 100.
+	LowPctAtReset  *float64 `json:"lowPctAtReset"`
+	HighPctAtReset *float64 `json:"highPctAtReset"`
+	// The token ceiling (85) that canAddWorker's token constraint compares the projected use to.
+	CeilingPct float64 `json:"ceilingPct"`
+	ResetsAt   *string `json:"resetsAt"`
+	// Only when even the lower end of the range reaches 100% before the reset.
+	RunsOutAt *string `json:"runsOutAt"`
+	// When the newest snapshot of this window was observed.
+	ObservedAt *string `json:"observedAt"`
+	// The account's burn range over the lookbacks.
+	Burn *ProjectionWindowBurnAccountUsageBurnRange `json:"burn"`
+	// The account's burn divided by the workers configured on it; null when none are.
+	PerWorkerBurn *ProjectionWindowPerWorkerBurnAccountUsageBurnRange `json:"perWorkerBurn"`
+}
+
+// GetWindow returns ProjectionWindow.Window, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetWindow() AccountUsageWindow { return v.Window }
+
+// GetLengthMinutes returns ProjectionWindow.LengthMinutes, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetLengthMinutes() int { return v.LengthMinutes }
+
+// GetStatus returns ProjectionWindow.Status, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetStatus() AccountUsageStatus { return v.Status }
+
+// GetReason returns ProjectionWindow.Reason, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetReason() *AccountUsageReason { return v.Reason }
+
+// GetShape returns ProjectionWindow.Shape, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetShape() *AccountUsageShape { return v.Shape }
+
+// GetConfidence returns ProjectionWindow.Confidence, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetConfidence() *AccountUsageConfidence { return v.Confidence }
+
+// GetUsedPct returns ProjectionWindow.UsedPct, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetUsedPct() *float64 { return v.UsedPct }
+
+// GetLowPctAtReset returns ProjectionWindow.LowPctAtReset, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetLowPctAtReset() *float64 { return v.LowPctAtReset }
+
+// GetHighPctAtReset returns ProjectionWindow.HighPctAtReset, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetHighPctAtReset() *float64 { return v.HighPctAtReset }
+
+// GetCeilingPct returns ProjectionWindow.CeilingPct, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetCeilingPct() float64 { return v.CeilingPct }
+
+// GetResetsAt returns ProjectionWindow.ResetsAt, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetResetsAt() *string { return v.ResetsAt }
+
+// GetRunsOutAt returns ProjectionWindow.RunsOutAt, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetRunsOutAt() *string { return v.RunsOutAt }
+
+// GetObservedAt returns ProjectionWindow.ObservedAt, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetObservedAt() *string { return v.ObservedAt }
+
+// GetBurn returns ProjectionWindow.Burn, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetBurn() *ProjectionWindowBurnAccountUsageBurnRange { return v.Burn }
+
+// GetPerWorkerBurn returns ProjectionWindow.PerWorkerBurn, and is useful for accessing the field via an interface.
+func (v *ProjectionWindow) GetPerWorkerBurn() *ProjectionWindowPerWorkerBurnAccountUsageBurnRange {
+	return v.PerWorkerBurn
+}
+
+// ProjectionWindowBurnAccountUsageBurnRange includes the requested fields of the GraphQL type AccountUsageBurnRange.
+// The GraphQL type's documentation follows.
+//
+// #3820 — percentage points of a window used per hour.
+type ProjectionWindowBurnAccountUsageBurnRange struct {
+	LowPctPerHour  float64 `json:"lowPctPerHour"`
+	HighPctPerHour float64 `json:"highPctPerHour"`
+}
+
+// GetLowPctPerHour returns ProjectionWindowBurnAccountUsageBurnRange.LowPctPerHour, and is useful for accessing the field via an interface.
+func (v *ProjectionWindowBurnAccountUsageBurnRange) GetLowPctPerHour() float64 {
+	return v.LowPctPerHour
+}
+
+// GetHighPctPerHour returns ProjectionWindowBurnAccountUsageBurnRange.HighPctPerHour, and is useful for accessing the field via an interface.
+func (v *ProjectionWindowBurnAccountUsageBurnRange) GetHighPctPerHour() float64 {
+	return v.HighPctPerHour
+}
+
+// ProjectionWindowPerWorkerBurnAccountUsageBurnRange includes the requested fields of the GraphQL type AccountUsageBurnRange.
+// The GraphQL type's documentation follows.
+//
+// #3820 — percentage points of a window used per hour.
+type ProjectionWindowPerWorkerBurnAccountUsageBurnRange struct {
+	LowPctPerHour  float64 `json:"lowPctPerHour"`
+	HighPctPerHour float64 `json:"highPctPerHour"`
+}
+
+// GetLowPctPerHour returns ProjectionWindowPerWorkerBurnAccountUsageBurnRange.LowPctPerHour, and is useful for accessing the field via an interface.
+func (v *ProjectionWindowPerWorkerBurnAccountUsageBurnRange) GetLowPctPerHour() float64 {
+	return v.LowPctPerHour
+}
+
+// GetHighPctPerHour returns ProjectionWindowPerWorkerBurnAccountUsageBurnRange.HighPctPerHour, and is useful for accessing the field via an interface.
+func (v *ProjectionWindowPerWorkerBurnAccountUsageBurnRange) GetHighPctPerHour() float64 {
+	return v.HighPctPerHour
+}
+
 // Filter for the publicAgents() marketplace slice (#551). ONLY 'type' narrows.
 // Deliberately a SEPARATE, narrower input from AgentFilter: the slice is PUBLIC
 // by definition (so 'visibility' is meaningless) and a PUBLIC agent is never
@@ -87343,7 +88369,7 @@ type TeamGrantGrant struct {
 	// Null while the grant is pending (a pending grant allows nothing).
 	ActivatedAt *string `json:"activatedAt"`
 	RevokedAt   *string `json:"revokedAt"`
-	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
 	Allows bool `json:"allows"`
 }
 
@@ -87436,7 +88462,7 @@ type TeamGrantsGrantsGrantsPageItemsGrant struct {
 	// Null while the grant is pending (a pending grant allows nothing).
 	ActivatedAt *string `json:"activatedAt"`
 	RevokedAt   *string `json:"revokedAt"`
-	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
 	Allows bool `json:"allows"`
 }
 
@@ -103917,6 +104943,30 @@ type __AcceptInvitationInput struct {
 // GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
 func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
 
+// __AccountUsageProjectionInput is used internally by genqlient
+type __AccountUsageProjectionInput struct {
+	AppRef  string                   `json:"appRef"`
+	Account string                   `json:"account"`
+	Host    *string                  `json:"host,omitempty"`
+	Family  *string                  `json:"family,omitempty"`
+	WhatIf  *AccountUsageWhatIfInput `json:"whatIf,omitempty"`
+}
+
+// GetAppRef returns __AccountUsageProjectionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AccountUsageProjectionInput) GetAppRef() string { return v.AppRef }
+
+// GetAccount returns __AccountUsageProjectionInput.Account, and is useful for accessing the field via an interface.
+func (v *__AccountUsageProjectionInput) GetAccount() string { return v.Account }
+
+// GetHost returns __AccountUsageProjectionInput.Host, and is useful for accessing the field via an interface.
+func (v *__AccountUsageProjectionInput) GetHost() *string { return v.Host }
+
+// GetFamily returns __AccountUsageProjectionInput.Family, and is useful for accessing the field via an interface.
+func (v *__AccountUsageProjectionInput) GetFamily() *string { return v.Family }
+
+// GetWhatIf returns __AccountUsageProjectionInput.WhatIf, and is useful for accessing the field via an interface.
+func (v *__AccountUsageProjectionInput) GetWhatIf() *AccountUsageWhatIfInput { return v.WhatIf }
+
 // __AcknowledgeDeliveryBatchesInput is used internally by genqlient
 type __AcknowledgeDeliveryBatchesInput struct {
 	BatchIds []string        `json:"batchIds"`
@@ -114730,6 +115780,99 @@ func AcceptInvitation(
 	}
 
 	data_ = &AcceptInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AccountUsageProjection.
+const AccountUsageProjection_Operation = `
+query AccountUsageProjection ($appRef: ID!, $account: String!, $host: String, $family: String, $whatIf: AccountUsageWhatIfInput) {
+	accountUsageProjection(appRef: $appRef, account: $account, host: $host, family: $family, whatIf: $whatIf) {
+		account
+		asOf
+		family
+		host
+		newestSnapshotAt
+		workers
+		workersConfigured
+		windows {
+			... ProjectionWindow
+		}
+		whatIf {
+			adjusted {
+				... ProjectionWindow
+			}
+			target {
+				account
+				baseline {
+					... ProjectionWindow
+				}
+				adjusted {
+					... ProjectionWindow
+				}
+			}
+		}
+	}
+}
+fragment ProjectionWindow on AccountUsageWindowProjection {
+	window
+	lengthMinutes
+	status
+	reason
+	shape
+	confidence
+	usedPct
+	lowPctAtReset
+	highPctAtReset
+	ceilingPct
+	resetsAt
+	runsOutAt
+	observedAt
+	burn {
+		lowPctPerHour
+		highPctPerHour
+	}
+	perWorkerBurn {
+		lowPctPerHour
+		highPctPerHour
+	}
+}
+`
+
+// cli#1837: the server's token-burn projection (hadron-server#3820), one account.
+// A SEPARATE document from usage_reads.graphql on purpose: a server that predates
+// the field fails validation of this static document only, so `team usage show`
+// is never affected, and the failure maps to "server too old".
+// Optional variables are omitted when unset (the server reads omitted as "none").
+func AccountUsageProjection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	account string,
+	host *string,
+	family *string,
+	whatIf *AccountUsageWhatIfInput,
+) (data_ *AccountUsageProjectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AccountUsageProjection",
+		Query:  AccountUsageProjection_Operation,
+		Variables: &__AccountUsageProjectionInput{
+			AppRef:  appRef,
+			Account: account,
+			Host:    host,
+			Family:  family,
+			WhatIf:  whatIf,
+		},
+	}
+
+	data_ = &AccountUsageProjectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
