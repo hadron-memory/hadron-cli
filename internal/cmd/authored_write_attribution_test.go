@@ -304,7 +304,9 @@ func noWorktreeCwd(t *testing.T) {
 	t.Chdir(t.TempDir())
 }
 
-func twoAuthoredCreates(t *testing.T, f interface{ GraphQLClient() (graphql.Client, error) }) {
+func twoAuthoredCreates(t *testing.T, f interface {
+	GraphQLClient() (graphql.Client, error)
+}) {
 	t.Helper()
 	client, err := f.GraphQLClient()
 	if err != nil {
