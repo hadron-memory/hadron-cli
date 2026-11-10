@@ -2007,7 +2007,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 				result.AutoExpiredAt = live.autoExpiredAt
 			}
 			loadReporting(cmd.Context(), f, b, &result)
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
 					// still good (and `session end` is the recovery), but the
@@ -2030,10 +2030,21 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// The ended answer is printed (text or --json, end time included)
+			// and then exits SessionEnded, so a script or boot prompt can branch
+			// without parsing it (#1835). Only the server's `active == false`
+			// counts: an open session — quiet or dormant — and an unanswered
+			// check never reach here as "ended".
+			if result.Checked && result.Active != nil && !*result.Active {
+				return exitcode.Silent(exitcode.SessionEnded)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open; exits 14 if it has ended")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
