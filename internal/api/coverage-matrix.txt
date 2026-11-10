@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 217: 174 command, 19 gap, 24 excluded
+[Query] 218: 175 command, 19 gap, 24 excluded
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
 actionTickets  command ticket list
@@ -33,6 +33,7 @@ agentAssets  excluded deprecated: its description says "Deprecated; use memoryAs
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
+agentServedBootPrompt  command agent boot-prompt
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
 agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions
