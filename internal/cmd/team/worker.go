@@ -1517,12 +1517,14 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 	if err != nil || resp.User == nil {
 		return userID
 	}
+	// Server-authored display strings: single-lined before they reach a prompt
+	// or a refusal, so a control byte cannot forge a line or an escape (#1862).
 	name, handle := "", ""
 	if resp.User.Name != nil {
-		name = *resp.User.Name
+		name = output.SafeCell(*resp.User.Name)
 	}
 	if resp.User.Handle != nil {
-		handle = *resp.User.Handle
+		handle = output.SafeCell(*resp.User.Handle)
 	}
 	switch {
 	case name != "" && handle != "":
@@ -1718,7 +1720,7 @@ func offerInformedRelease(
 					"the current state",
 				w.Name, holderPhrase(ctx, client, staleHolderPtr(again)))
 		}
-		return zero, api.MapError(err)
+		return zero, nameHolderOnForbidden(ctx, client, w.Name, stale.HolderID, err)
 	}
 	// No classification carried back. This used to compute `forced` — true when
 	// the identity read worked, honestly nil when it did not — and that nil was
@@ -1727,6 +1729,26 @@ func offerInformedRelease(
 	// path where this client could never answer is the one where the server
 	// always can.
 	return resp, nil
+}
+
+// releaseRemedy is the sentence a refused force-release ends on: whose hold it
+// is and who can lift it. Wording matches heldRefusal's ("the holder — or an
+// App/org admin"); in a user-owned App the App's owner is that admin.
+func releaseRemedy(name, holder string) string {
+	return fmt.Sprintf("%s is held by %s; only the holder, or an App or org admin, can release it", name, holder)
+}
+
+// nameHolderOnForbidden maps a release error through api.MapError and, when it
+// is the server's not-authorized refusal (exit Forbidden), adds the holder and
+// the remedy BEFORE the server's own sentence, which stays in the message and
+// keeps its exit code. Any other error maps exactly as it did.
+func nameHolderOnForbidden(ctx context.Context, client graphql.Client, name, holderID string, err error) error {
+	mapped := api.MapError(err)
+	code := exitcode.FromError(mapped)
+	if code != exitcode.Forbidden {
+		return mapped
+	}
+	return exitcode.New(code, fmt.Errorf("%s: %w", releaseRemedy(name, describeHolder(ctx, client, holderID)), mapped))
 }
 
 // staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
@@ -1879,7 +1901,16 @@ then to their id.`,
 				// the prompt is built only when it can be shown; this makes it
 				// true (PR #504 review).
 				if !f.IOStreams.IsInputTerminal() {
-					return cmdutil.Confirm(f.IOStreams, false, "")
+					// The refusal NAMES the holder and says who can release it
+					// (#1859). This is the one place the read is spent without a
+					// reader of a prompt: the refusal is what an agent pastes
+					// into an issue, and "refusing to proceed without --yes"
+					// alone left it asking "held by whom?" (plan ruling R3,
+					// reversing #504's no-GetUser pin on this path). Same exit
+					// code (Usage) and the same leading phrase as before.
+					holder := describeHolder(ctx, client, *priorHolder)
+					return exitcode.Newf(exitcode.Usage, "%v: %s",
+						cmdutil.Confirm(f.IOStreams, false, ""), releaseRemedy(w.Name, holder))
 				}
 				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
 					w.RetiredAt, forced != nil)
@@ -1930,6 +1961,12 @@ then to their id.`,
 			if err != nil {
 				stale, isStale := api.WorkerHoldStaleDetail(err)
 				if !isStale {
+					// A force-release the server refuses as not-authorized names
+					// the holder and who can release it; a self-release is never
+					// decorated (#1859).
+					if priorHolder != nil && (forced == nil || *forced) {
+						return nameHolderOnForbidden(ctx, client, w.Name, *priorHolder, err)
+					}
 					return api.MapError(err)
 				}
 				// The assertion was wrong. The server refused rather than
