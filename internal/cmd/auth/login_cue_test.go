@@ -124,8 +124,14 @@ func TestLoginWithTokenInputCue(t *testing.T) {
 							t.Fatalf("credential stored after input failure: %v", err)
 						}
 					}
-					if errOut.String() != wantCue {
-						t.Errorf("final stderr = %q, want %q", errOut.String(), wantCue)
+					// #1860: a successful login against this unreachable host also
+					// notes that the account could not be read (exit 0, token kept).
+					wantFinal := wantCue
+					if input.wantErr == "" {
+						wantFinal += "note: signed in, but the account could not be read (the server could not be reached or returned an error); run `hadron auth whoami`\n"
+					}
+					if errOut.String() != wantFinal {
+						t.Errorf("final stderr = %q, want %q", errOut.String(), wantFinal)
 					}
 					for _, secret := range []string{token, "synthetic-888"} {
 						if strings.Contains(out.String()+errOut.String(), secret) {

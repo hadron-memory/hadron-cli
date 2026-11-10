@@ -25,6 +25,17 @@ short-TTL token that every later command prefers until `--stop` or expiry.
 `hadron auth whoami` announces the acting-as state. `auth status` reports only
 whether the request credential authenticates; it does not identify the actor.
 
+`hadron auth login` (either path) names the account it signed in as: a second
+stdout line `  account: <name> (@<handle>) <email>` (or `App <id>` / `Agent <id>` for
+a non-user key) after the unchanged `✓ Signed in to …` line, and `--json` adds
+`account: {id,name,email,handle,principalType,appId,agentId} | null`. It is read
+with the token just stored, never `HADRON_TOKEN` or an impersonation token. If
+the read fails, login still exits 0 and keeps the token, `account` is `null`,
+and stderr says `note: signed in, but the account could not be read (…); run
+hadron auth whoami`. The browser login reuses the Hadron session already open
+in the browser, and `auth logout` does not sign that out: to log in as another
+account, sign out of Hadron in the browser or use a private window.
+
 Browser `auth login` opens the server's sign-in page, which offers the
 methods that server supports (GitHub, Google or email). If the server
 requires a passkey for email sign-in, its page asks for one before the CLI
