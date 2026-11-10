@@ -4919,8 +4919,10 @@ and print a `properties:` row in text when set. The server owns the rest, each
 printed with its code: PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE (16 KiB of
 JSON) and PROPERTIES_SCHEMA_VIOLATION exit 2; PROPERTIES_SCHEMA_UNUSABLE (the
 team's task-properties schema cannot be used) and TASK_ENDED exit 5; an
-assignee may edit properties alone, and combined with any other field the whole
-edit is refused TASK_NOT_OWNER (8). Needs a server at or after hadron-server
+assignee alone may edit properties and references (--properties/--clear-properties,
+--ref/--clear-refs; references need a server at or after hadron-server#3718
+f4db15e0), and naming any other field, even beside those, refuses the whole
+edit TASK_NOT_OWNER (8). Needs a server at or after hadron-server
 e09a1653 (the #2420 contract).
 
 # Task priority and dependencies (cli#1135)
