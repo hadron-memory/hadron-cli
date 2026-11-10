@@ -1712,3 +1712,49 @@ func TestWorkerGroupHelpSummaryDoesNotPromiseANextHolder(t *testing.T) {
 		}
 	}
 }
+
+// #1862 LOCAL F1: the holder's display name is server-authored and reaches the
+// terminal in both new release refusals; a control byte in it must not forge a
+// line or an escape. Name and handle are both hostile.
+var hostileUser1859 = map[string]string{
+	"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara\nFORGED\u001b[31m","email":null,"handle":"da\nra\u001b[0m",
+		"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+		"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+}
+
+func assertNoControlBytes1859(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	for _, r := range err.Error() {
+		if r < 0x20 || r == 0x7f {
+			t.Errorf("refusal carries control byte %q: %q", r, err.Error())
+			return
+		}
+	}
+	if !strings.Contains(err.Error(), "FORGED") {
+		t.Errorf("the sanitized name should still be shown: %v", err)
+	}
+}
+
+func TestWorkerReleaseRefusalsSanitizeHolderName(t *testing.T) {
+	t.Run("non-TTY without --yes", func(t *testing.T) {
+		err := runRelease1859(t, releaseStubs(heldBy("u-dara"), hostileUser1859))
+		if code := exitCodeFor(err); code != exitcode.Usage {
+			t.Fatalf("exit = %d, want Usage", code)
+		}
+		assertNoControlBytes1859(t, err)
+	})
+	t.Run("forced FORBIDDEN", func(t *testing.T) {
+		stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": releaseForbidden1859})
+		for k, v := range hostileUser1859 {
+			stubs[k] = v
+		}
+		err := runRelease1859(t, stubs, "--yes")
+		if code := exitCodeFor(err); code != exitcode.Forbidden {
+			t.Fatalf("exit = %d, want Forbidden", code)
+		}
+		assertNoControlBytes1859(t, err)
+	})
+}
