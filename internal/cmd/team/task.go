@@ -233,8 +233,11 @@ explicit assignee, or a task that is blocked. False or omission keeps ordinary c
 Success prints the selected worker. If no worker matches, the task is STILL
 CREATED unassigned: stdout includes its id plus matchFailure reason and time;
 exit 5 follows only after the receipt is written (writer failure takes
-precedence). Do not retry creation: use that task id. Automatic matchers skip
-a marked task; assignment, cancellation, or park then ready clears its mark.
+precedence). Below that line it lists every skipped candidate with every
+reason, in the server's order (matchSkipped; --json carries it as an array,
+[] when nothing was skipped). Do not retry creation: use that task id.
+Automatic matchers skip a marked task; assignment, cancellation, or park then
+ready clears its mark.
 Ready resumes regular matching, not a second match-now attempt. A server refusal
 (BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
 outcome unknown; inspect task list before retrying.
@@ -554,6 +557,9 @@ warnings list.`,
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
+			if match {
+				task.MatchSkipped = matchSkippedDTO(resp.CreateAgentTask.MatchSkipped)
+			}
 			err = writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err
@@ -570,6 +576,9 @@ warnings list.`,
 						}
 					} else if task.MatchFailure != nil {
 						if err := writeTaskMatchFailure(w, task.MatchFailure); err != nil {
+							return err
+						}
+						if err := writeTaskMatchSkipped(w, *task.MatchSkipped); err != nil {
 							return err
 						}
 					}

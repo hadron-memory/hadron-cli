@@ -5651,6 +5651,21 @@ are retained. JSON is the existing bare task object, with optional
 for a created task. Transport failure can leave creation uncertain; inspect
 existing tasks before retrying.
 
+Skip reasons (cli#1848, hadron-server#3816 V21–V23): the `--match` create
+answer also carries `matchSkipped:[{workerId,name,reasons:[...]}]`, every
+candidate the failed match skipped with every reason in the server's order
+(RETIRED, USES_NO_TASKS, ENDING_SESSION, HOLDS_TASK, UNAVAILABLE,
+FAMILY_UNAVAILABLE, STALLED, NO_FAMILY, NOT_HELD, FAMILY_EXCLUDED,
+NAME_EXCLUDED, TIER_BELOW_MINIMUM, TIER_UNKNOWN, MODEL_GROUP_MISMATCH,
+STOP_SIGNAL; the set is additive, so an unknown value is kept and printed as
+itself). On the `--match` answer it is always an array, `[]` when nothing was
+skipped or the match assigned; it is absent from a create without `--match`
+and from every read (`get`, `list`, `tree`): the server returns it once and
+never stores it. Text adds one `  skipped: <name> (<workerId>): <reason>, ...`
+line per candidate under the match-failed line, or `  skipped: no candidates`.
+Needs a provider at hadron-server be731afd (0.0.1879) or later: every create
+selects the field.
+
 Create `--require-role qa,cli --require-role server` accepts any listed role.
 One role sends `requirements.role`; several send `requirements.roles`, never
 both selector keys. The server checks 1–32 nonblank roles of at most 128

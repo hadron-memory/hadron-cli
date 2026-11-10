@@ -52,6 +52,16 @@ type taskMatchFailureDTO struct {
 	FailedAt string `json:"failedAt"`
 }
 
+// taskSkippedCandidateDTO is one candidate a failed match skipped (cli#1848,
+// hadron-server#3816 V21): Reasons keep the server's order and carry any
+// value verbatim, including one this build's enum does not know (V21 is
+// closed-additive).
+type taskSkippedCandidateDTO struct {
+	WorkerID string   `json:"workerId"`
+	Name     string   `json:"name"`
+	Reasons  []string `json:"reasons"`
+}
+
 type taskDTO struct {
 	MatchFailure      *taskMatchFailureDTO   `json:"matchFailure,omitempty"`
 	Priority          int                    `json:"priority"`
@@ -93,6 +103,11 @@ type taskDTO struct {
 	// inherited, so a child shows its own value, and null when unset.
 	Properties json.RawMessage `json:"properties"`
 	OpenAlarms *int            `json:"openAlarms,omitempty"`
+
+	// MatchSkipped is set only on the `task create --match` answer, where it
+	// is always an array ([] for a server null). It is returned, never stored
+	// (V22), so every other command leaves it nil and the key is absent.
+	MatchSkipped *[]taskSkippedCandidateDTO `json:"matchSkipped,omitempty"`
 }
 
 // taskRef is how a human-readable line names a task: the server's short handle
