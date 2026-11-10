@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -421,5 +422,83 @@ func TestTeamChatPostNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "worker attribution unavailable") {
 		t.Fatalf("the note replaced/accompanied the refusal: %q", stderr.String())
+	}
+}
+
+// cli#1855 mutant (e): the note on an authored NODE create through the real
+// command from a no-worktree cwd (scope A covers the whole AuthoredWriteContext
+// surface, not only task writes). stdout/--json stay clean.
+func TestNodeCreateNoWorktreePrintsNoteOnStderrOnly(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`})
+	f, out := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "create", "-m", "acme.com:kb", "--loc", "test:authored", "--name", "Authored", "--server", srv.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(stderr.String(), "worker attribution unavailable"); n != 1 || !strings.Contains(stderr.String(), "signed-in person") {
+		t.Fatalf("want one note, stderr=%q", stderr.String())
+	}
+	if strings.Contains(out.String(), "attribution") {
+		t.Fatalf("note on stdout: %q", out.String())
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &obj); err != nil {
+		t.Fatalf("--json stdout not clean JSON: %v %q", err, out.String())
+	}
+	for _, c := range *calls {
+		if c.Op == "CreateNode" && c.Session != "" {
+			t.Fatalf("attributed: %+v", c)
+		}
+	}
+}
+
+// Mutant (c): --as-person from a no-worktree cwd prints no note and writes
+// with no session.
+func TestAsPersonNoWorktreePrintsNoNote(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, hostResponses())
+	f, _ := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "host", "issue", "worktree.remove", "--host", "orca1", "--worker", "Jonas", "--arg", "worktree=jonas-3", "--as-person", "--app", "acme.com:team"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stderr.String(), "worker attribution unavailable") {
+		t.Fatalf("--as-person printed the note: %q", stderr.String())
+	}
+	if c := findCall(t, calls, "IssueHostOperation"); c.Session != "" {
+		t.Fatalf("session %q", c.Session)
+	}
+}
+
+// Mutant (d), second half: a session-log write from a no-worktree cwd keeps
+// its typed refusal, sends nothing and never prints the note.
+func TestSessionLogNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
+	noWorktreeCwd(t)
+	called := map[string]bool{}
+	var mu sync.Mutex
+	srv := statusServer1495(t, map[string]resp1495{"RecordTeamWork": {200, `{"data":{}}`}}, func(op string) {
+		mu.Lock()
+		called[op] = true
+		mu.Unlock()
+	})
+	f, _, eo := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "a team session binds to one") {
+		t.Fatalf("want the no-binding refusal, got %v", err)
+	}
+	if called["RecordTeamWork"] || called["UpdateTeamSession"] {
+		t.Fatalf("a write was sent: %v", called)
+	}
+	if strings.Contains(eo.String(), "worker attribution unavailable") {
+		t.Fatalf("note accompanied the refusal: %q", eo.String())
 	}
 }
