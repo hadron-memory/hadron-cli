@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -289,15 +290,17 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 	}
 }
 
-// --force skips the client pre-flight by design, so this is the path an agent
-// reaching for the flag actually takes. The server refuses anyway, and what
-// comes back must be the held refusal — not a takeover narration.
-func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
+// #1859 (rows 20-21 of #1656): --force against a LIVE worker whose name is held
+// by somebody else must not narrate a takeover: a HELD name is not forceable
+// (cor:agt:020:09). The pre-flight classifies the hold under --force too and ends
+// in the same held refusal the non-force path gives, without calling the server.
+func forceStartHeld(t *testing.T, workerJSON, identity string) (stderr string, captured map[string]json.RawMessage, err error) {
+	t.Helper()
 	teamGitDir(t)
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+	gql, cap := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + workerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
-		"AuthContext":      authContextHolgerJSON,
+		"AuthContext":      identity,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`,
@@ -305,15 +308,83 @@ func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
-	err := root.Execute()
+	err = root.Execute()
+	return f.IOStreams.ErrOut.(*strings.Builder).String(), cap, err
+}
 
-	if _, called := captured["StartTeamSession"]; !called {
-		t.Fatal("--force must still reach the server, which is the authority on a hold")
+func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
+	stderr, captured, err := forceStartHeld(t, withLiveness(heldBy("u-dara"), "true"), authContextHolgerJSON)
+	if strings.Contains(stderr, "taking over worker") {
+		t.Errorf("a held name is not forceable, yet stderr claims a takeover:\n%s", stderr)
+	}
+	if _, called := captured["StartTeamSession"]; called {
+		t.Error("the pre-flight refuses a visible hold by another; the bind must not be attempted")
 	}
 	if code := exitCodeFor(err); code != exitcode.Conflict {
-		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+		t.Fatalf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"@dara", "--force does NOT apply", "Cast your own worker", "worker release"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("held refusal lacks %q: %v", want, err)
+		}
+	}
+}
+
+// The race the pre-flight cannot see: the hold is invisible on the row, the
+// server refuses WORKER_HELD at bind, and the refusal is the same held refusal.
+func TestTeamSessionStartForceServerRefusesAnInvisibleHold(t *testing.T) {
+	stderr, captured, err := forceStartHeld(t, withLiveness(irisWorkerJSON, "true"), authContextHolgerJSON)
+	if _, called := captured["StartTeamSession"]; !called {
+		t.Fatal("with no visible hold --force must reach the server, which is the authority")
+	}
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d: %v (stderr %s)", code, exitcode.Conflict, err, stderr)
 	}
 	if err == nil || !strings.Contains(err.Error(), "Cast your own worker") {
 		t.Errorf("forcing a hold must land on the cast-your-own remedy: %v", err)
+	}
+}
+
+// Controls: held by the caller, or unheld, --force still takes over as before.
+func TestTeamSessionStartForceOwnHoldAndUnheldStillTakeOver(t *testing.T) {
+	for name, worker := range map[string]string{
+		"held by the caller": withLiveness(heldBy("u-holger"), "true"),
+		"unheld":             withLiveness(irisWorkerJSON, "true"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			stderr, captured, _ := forceStartHeld(t, worker, authContextHolgerJSON)
+			if !strings.Contains(stderr, "taking over worker") {
+				t.Errorf("--force on a live worker the caller may take over must say so:\n%s", stderr)
+			}
+			if _, called := captured["StartTeamSession"]; !called {
+				t.Error("the bind must proceed")
+			}
+		})
+	}
+}
+
+// Ruling R2: when the caller's identity cannot be read, the hold may be theirs.
+// Say what is known, claim no takeover, and let the server decide.
+func TestTeamSessionStartForceUnknownWhoseHedgesAndBinds(t *testing.T) {
+	stderr, captured, _ := forceStartHeld(t, withLiveness(heldBy("u-dara"), "true"), `{"errors":[{"message":"boom"}]}`)
+	if strings.Contains(stderr, "taking over worker") {
+		t.Errorf("an unreadable identity must not narrate a takeover:\n%s", stderr)
+	}
+	if !strings.Contains(stderr, "the server decides") || !strings.Contains(stderr, "held by") {
+		t.Errorf("want the hedged line naming the hold:\n%s", stderr)
+	}
+	if _, called := captured["StartTeamSession"]; !called {
+		t.Error("the server decides: the bind must be attempted")
+	}
+}
+
+// The classification is gated on liveness, not on --force alone: a name that is
+// not live pays no extra read (no AuthContext read).
+func TestTeamSessionStartForceNotLiveMakesNoHoldReads(t *testing.T) {
+	_, captured, _ := forceStartHeld(t, withLiveness(heldBy("u-dara"), "false"), authContextHolgerJSON)
+	// AuthContext is the classification's own read (GetUser is also used to
+	// label session drivers, so it cannot witness the gate).
+	if _, read := captured["AuthContext"]; read {
+		t.Error("--force on a name that is not live must not classify the hold (AuthContext read)")
 	}
 }
