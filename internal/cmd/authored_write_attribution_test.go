@@ -292,3 +292,73 @@ func TestAuthoredWriteCorruptBindingIsUnattributedWithOneDiagnostic(t *testing.T
 		}
 	}
 }
+
+// noWorktreeCwd puts the process in a directory that is not a git worktree and
+// clears the git-dir override, so the binding read fails with errNoWorktree
+// (cli#1855).
+func noWorktreeCwd(t *testing.T) {
+	t.Helper()
+	t.Setenv(team.GitDirEnv, "")
+	t.Setenv("GIT_DIR", "")
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(t.TempDir()))
+	t.Chdir(t.TempDir())
+}
+
+func twoAuthoredCreates(t *testing.T, f interface{ GraphQLClient() (graphql.Client, error) }) {
+	t.Helper()
+	client, err := f.GraphQLClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryId: "m1", Loc: "x", Name: "X"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// cli#1855: an authored write from a cwd with no worktree at all goes out as
+// the signed-in person; say so once on stderr, never refuse, never attribute.
+func TestAuthoredWriteNoWorktreePrintsOneNoteAndStillWrites(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`})
+	f, _ := testFactory(t)
+	var diagnostic strings.Builder
+	f.IOStreams.ErrOut = &diagnostic
+	_ = NewRootCmd(f)
+	f.ServerFlag = srv.URL
+	twoAuthoredCreates(t, f)
+	if len(*calls) != 2 {
+		t.Fatalf("write was blocked or repeated: %+v", *calls)
+	}
+	for _, c := range *calls {
+		if c.Session != "" {
+			t.Fatalf("no-worktree write attributed: %+v", c)
+		}
+	}
+	out := diagnostic.String()
+	if strings.Count(out, "worker attribution unavailable") != 1 || !strings.Contains(out, "not inside a git worktree") || !strings.Contains(out, "signed-in person") {
+		t.Fatalf("want one note naming the no-worktree cause and the person fallback, stderr=%q", out)
+	}
+}
+
+// The bound-worktree path stays silent and attributed.
+func TestAuthoredWriteBoundWorktreePrintsNoNote(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`, "TeamAppIdentity": teamAppIdentityJSON})
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	var diagnostic strings.Builder
+	f.IOStreams.ErrOut = &diagnostic
+	_ = NewRootCmd(f)
+	f.ServerFlag = srv.URL
+	twoAuthoredCreates(t, f)
+	if diagnostic.Len() != 0 {
+		t.Fatalf("bound worktree printed a note: %q", diagnostic.String())
+	}
+	for _, c := range *calls {
+		if c.Op == "CreateNode" && c.Session != "s-new" {
+			t.Fatalf("bound write lost its session: %+v", c)
+		}
+	}
+}
