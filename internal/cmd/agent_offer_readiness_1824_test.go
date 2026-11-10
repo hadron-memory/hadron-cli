@@ -19,20 +19,20 @@ func agentWithReadiness(readiness string) string {
 	return strings.Replace(agentJSON, `"usesTasks":true`, `"usesTasks":true,"offerReadiness":`+readiness, 1)
 }
 
-func runAgentGet1824(t *testing.T, readiness string, args ...string) (string, map[string]json.RawMessage) {
+func runAgentGet1824(t *testing.T, readiness string, args ...string) string {
 	t.Helper()
-	gql, captured := captureGraphQL(t, map[string]string{"GetAgent": `{"data":{"agent":` + agentWithReadiness(readiness) + `}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"GetAgent": `{"data":{"agent":` + agentWithReadiness(readiness) + `}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"agent", "get", "acme.com::support-bot", "--server", gql.URL}, args...))
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	return out.String(), captured
+	return out.String()
 }
 
 func TestAgentGet1824ReadyShowsReadyWithNoReasons(t *testing.T) {
-	out, _ := runAgentGet1824(t, `{"ready":true,"reasons":[]}`)
+	out := runAgentGet1824(t, `{"ready":true,"reasons":[]}`)
 	if !strings.Contains(out, "offer readiness: ready") {
 		t.Fatalf("output: %s", out)
 	}
@@ -42,7 +42,7 @@ func TestAgentGet1824ReadyShowsReadyWithNoReasons(t *testing.T) {
 }
 
 func TestAgentGet1824NotReadyListsEveryReasonInServerOrderWithCounts(t *testing.T) {
-	out, _ := runAgentGet1824(t, `{"ready":false,"reasons":[
+	out := runAgentGet1824(t, `{"ready":false,"reasons":[
 		{"code":"CLONE_LINKED_MEMORY_UNREADABLE","count":25,"subjects":[{"name":"alpha-kb"},{"name":"beta-kb"}],"omittedByCap":20,"hiddenByAccess":3},
 		{"code":"AGENT_NOT_PUBLIC","count":1,"subjects":[],"omittedByCap":0,"hiddenByAccess":1}]}`)
 	for _, want := range []string{"offer readiness: not ready", "CLONE_LINKED_MEMORY_UNREADABLE", "AGENT_NOT_PUBLIC", "alpha-kb", "beta-kb"} {
@@ -62,14 +62,14 @@ func TestAgentGet1824NotReadyListsEveryReasonInServerOrderWithCounts(t *testing.
 }
 
 func TestAgentGet1824NullReadinessIsNotAvailableNeverReady(t *testing.T) {
-	out, _ := runAgentGet1824(t, `null`)
+	out := runAgentGet1824(t, `null`)
 	if !strings.Contains(out, "offer readiness: not available to you") {
 		t.Fatalf("output: %s", out)
 	}
 	if strings.Contains(out, "offer readiness: ready") || strings.Contains(strings.ToUpper(out), "FORBIDDEN") {
 		t.Fatalf("a null answer must neither say ready nor invent an error code: %s", out)
 	}
-	js, _ := runAgentGet1824(t, `null`, "--json")
+	js := runAgentGet1824(t, `null`, "--json")
 	var dto map[string]any
 	if err := json.Unmarshal([]byte(js), &dto); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestAgentGet1824NullReadinessIsNotAvailableNeverReady(t *testing.T) {
 
 func TestAgentGet1824JSONCarriesServerShapeWithEmptyArraysNeverNull(t *testing.T) {
 	// a hostile or older server may send null lists inside a non-null object
-	js, _ := runAgentGet1824(t, `{"ready":false,"reasons":[{"code":"AGENT_RETIRED","count":2,"subjects":null,"omittedByCap":0,"hiddenByAccess":2}]}`, "--json")
+	js := runAgentGet1824(t, `{"ready":false,"reasons":[{"code":"AGENT_RETIRED","count":2,"subjects":null,"omittedByCap":0,"hiddenByAccess":2}]}`, "--json")
 	var dto struct {
 		OfferReadiness *struct {
 			Ready   bool `json:"ready"`
@@ -97,11 +97,16 @@ func TestAgentGet1824JSONCarriesServerShapeWithEmptyArraysNeverNull(t *testing.T
 	if err := json.Unmarshal([]byte(js), &dto); err != nil || dto.OfferReadiness == nil {
 		t.Fatalf("err %v json %s", err, js)
 	}
-	if dto.OfferReadiness.Reasons[0].Subjects == nil || !strings.Contains(js, `"subjects":[]`) {
+	if dto.OfferReadiness.Reasons[0].Subjects == nil {
 		t.Fatalf("subjects must be [] not null: %s", js)
 	}
-	rj, _ := runAgentGet1824(t, `{"ready":true,"reasons":null}`, "--json")
-	if !strings.Contains(rj, `"reasons":[]`) {
+	rj := runAgentGet1824(t, `{"ready":true,"reasons":null}`, "--json")
+	var raw struct {
+		OfferReadiness struct {
+			Reasons *[]any `json:"reasons"`
+		} `json:"offerReadiness"`
+	}
+	if err := json.Unmarshal([]byte(rj), &raw); err != nil || raw.OfferReadiness.Reasons == nil || len(*raw.OfferReadiness.Reasons) != 0 {
 		t.Fatalf("reasons must be [] not null: %s", rj)
 	}
 }

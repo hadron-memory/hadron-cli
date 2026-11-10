@@ -2080,6 +2080,27 @@ func (v *AgentModelGroupsResponse) GetAgentModelGroups() []*AgentModelGroupsAgen
 	return v.AgentModelGroups
 }
 
+// #2246 - why an Agent is not ready to be offered; the values are the clone refusal's codes (hrn:node:hadronmemory.com:specs:cor:dmo:050:19).
+type AgentOfferReasonCode string
+
+const (
+	AgentOfferReasonCodeAgentNotPublic              AgentOfferReasonCode = "AGENT_NOT_PUBLIC"
+	AgentOfferReasonCodeAgentRetired                AgentOfferReasonCode = "AGENT_RETIRED"
+	AgentOfferReasonCodeCloneBaseUnusable           AgentOfferReasonCode = "CLONE_BASE_UNUSABLE"
+	AgentOfferReasonCodeCloneImportUnusable         AgentOfferReasonCode = "CLONE_IMPORT_UNUSABLE"
+	AgentOfferReasonCodeCloneLinkedMemoryEncrypted  AgentOfferReasonCode = "CLONE_LINKED_MEMORY_ENCRYPTED"
+	AgentOfferReasonCodeCloneLinkedMemoryUnreadable AgentOfferReasonCode = "CLONE_LINKED_MEMORY_UNREADABLE"
+)
+
+var AllAgentOfferReasonCode = []AgentOfferReasonCode{
+	AgentOfferReasonCodeAgentNotPublic,
+	AgentOfferReasonCodeAgentRetired,
+	AgentOfferReasonCodeCloneBaseUnusable,
+	AgentOfferReasonCodeCloneImportUnusable,
+	AgentOfferReasonCodeCloneLinkedMemoryEncrypted,
+	AgentOfferReasonCodeCloneLinkedMemoryUnreadable,
+}
+
 // AgentProcessIndexListAgentProcessListAgentListedProcess includes the requested fields of the GraphQL type AgentListedProcess.
 // The GraphQL type's documentation follows.
 //
@@ -47392,10 +47413,20 @@ type GetAgentAgent struct {
 	// #2281 - the URN of the Agent this one was cloned from (cloneAgent), as that Agent's current URN. Null when
 	// this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+	// #2246 (hrn:node:hadronmemory.com:specs:cor:dmo:050:19) - is this Agent ready to be offered to other
+	// organisations: could an organisation with no relation to it subscribe to, install and clone it as it
+	// stands, and if not, why. Readable only by whoever manages the Agent (hrn:node:hadronmemory.com:specs:cor:dmo:050:13); null for everyone
+	// else, readers of a PUBLIC Agent included, and when the Agent is gone. A reason names a memory or Agent only
+	// if you may read it; otherwise only the count shows. Answers for an outsider, so a non-PUBLIC Agent is not
+	// ready even though its own manager can still clone it. Read-only; grants nothing.
+	OfferReadiness *GetAgentAgentOfferReadiness `json:"offerReadiness"`
 }
 
 // GetClonedFromAgentRef returns GetAgentAgent.ClonedFromAgentRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetClonedFromAgentRef() *string { return v.ClonedFromAgentRef }
+
+// GetOfferReadiness returns GetAgentAgent.OfferReadiness, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetOfferReadiness() *GetAgentAgentOfferReadiness { return v.OfferReadiness }
 
 // GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
@@ -47503,6 +47534,8 @@ func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
 type __premarshalGetAgentAgent struct {
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 
+	OfferReadiness *GetAgentAgentOfferReadiness `json:"offerReadiness"`
+
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -47564,6 +47597,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	var retval __premarshalGetAgentAgent
 
 	retval.ClonedFromAgentRef = v.ClonedFromAgentRef
+	retval.OfferReadiness = v.OfferReadiness
 	retval.Id = v.AgentFields.Id
 	retval.Urn = v.AgentFields.Urn
 	retval.Name = v.AgentFields.Name
@@ -47589,6 +47623,74 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
+}
+
+// GetAgentAgentOfferReadiness includes the requested fields of the GraphQL type AgentOfferReadiness.
+// The GraphQL type's documentation follows.
+//
+// #2246 - whether another organisation could subscribe to, install and clone the Agent as it stands.
+type GetAgentAgentOfferReadiness struct {
+	Ready bool `json:"ready"`
+	// Every reason that holds, in the clone refusal's order. Empty exactly when ready.
+	Reasons []*GetAgentAgentOfferReadinessReasonsAgentOfferReason `json:"reasons"`
+}
+
+// GetReady returns GetAgentAgentOfferReadiness.Ready, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadiness) GetReady() bool { return v.Ready }
+
+// GetReasons returns GetAgentAgentOfferReadiness.Reasons, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadiness) GetReasons() []*GetAgentAgentOfferReadinessReasonsAgentOfferReason {
+	return v.Reasons
+}
+
+// GetAgentAgentOfferReadinessReasonsAgentOfferReason includes the requested fields of the GraphQL type AgentOfferReason.
+// The GraphQL type's documentation follows.
+//
+// #2246 - one reason an Agent is not ready to be offered. count is every blocked subject; subjects are at
+// most 20 of the ones you may read; omittedByCap are readable ones past the cap; hiddenByAccess are ones
+// you may not read, never named. subjects + omittedByCap + hiddenByAccess = count.
+type GetAgentAgentOfferReadinessReasonsAgentOfferReason struct {
+	Code           AgentOfferReasonCode                                                           `json:"code"`
+	Count          int                                                                            `json:"count"`
+	Subjects       []*GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject `json:"subjects"`
+	OmittedByCap   int                                                                            `json:"omittedByCap"`
+	HiddenByAccess int                                                                            `json:"hiddenByAccess"`
+}
+
+// GetCode returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Code, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetCode() AgentOfferReasonCode {
+	return v.Code
+}
+
+// GetCount returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Count, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetCount() int { return v.Count }
+
+// GetSubjects returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Subjects, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetSubjects() []*GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject {
+	return v.Subjects
+}
+
+// GetOmittedByCap returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.OmittedByCap, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetOmittedByCap() int {
+	return v.OmittedByCap
+}
+
+// GetHiddenByAccess returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.HiddenByAccess, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetHiddenByAccess() int {
+	return v.HiddenByAccess
+}
+
+// GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject includes the requested fields of the GraphQL type AgentOfferSubject.
+// The GraphQL type's documentation follows.
+//
+// #2246 - the name of one blocking subject, shown only because you may read it. Nothing else about it is reachable.
+type GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject struct {
+	Name string `json:"name"`
+}
+
+// GetName returns GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject.Name, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject) GetName() string {
+	return v.Name
 }
 
 // GetAgentResponse is returned by GetAgent on success.
@@ -133002,6 +133104,18 @@ query GetAgent ($ref: ID!) {
 	agent(ref: $ref) {
 		... AgentFields
 		clonedFromAgentRef
+		offerReadiness {
+			ready
+			reasons {
+				code
+				count
+				subjects {
+					name
+				}
+				omittedByCap
+				hiddenByAccess
+			}
+		}
 	}
 }
 fragment AgentFields on Agent {

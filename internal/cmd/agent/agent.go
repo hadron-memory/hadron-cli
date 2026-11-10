@@ -363,6 +363,61 @@ type OfferReadinessDTO struct {
 	Reasons []OfferReasonDTO `json:"reasons"`
 }
 
+// offerReadinessDTOFrom copies the server's answer, keeping null as null and every list non-null (a hostile or older
+// server's null list becomes [] so --json never carries one).
+func offerReadinessDTOFrom(r *gen.GetAgentAgentOfferReadiness) *OfferReadinessDTO {
+	if r == nil {
+		return nil
+	}
+	out := &OfferReadinessDTO{Ready: r.Ready, Reasons: []OfferReasonDTO{}}
+	for _, reason := range r.Reasons {
+		d := OfferReasonDTO{Code: string(reason.Code), Count: reason.Count, Subjects: []OfferSubjectDTO{}, OmittedByCap: reason.OmittedByCap, HiddenByAccess: reason.HiddenByAccess}
+		for _, s := range reason.Subjects {
+			d.Subjects = append(d.Subjects, OfferSubjectDTO{Name: s.Name})
+		}
+		out.Reasons = append(out.Reasons, d)
+	}
+	return out
+}
+
+// writeOfferReadiness prints the readiness block. A null answer says only that readiness is not available to the caller:
+// it never says "ready" and names no error code (cor:dmo:050:19). Names appear only where the server named them;
+// omittedByCap and hiddenByAccess are counts.
+func writeOfferReadiness(w io.Writer, r *OfferReadinessDTO) {
+	switch {
+	case r == nil:
+		fmt.Fprintf(w, "  offer readiness: not available to you\n")
+	case r.Ready:
+		fmt.Fprintf(w, "  offer readiness: ready\n")
+	default:
+		fmt.Fprintf(w, "  offer readiness: not ready\n")
+	}
+	if r == nil {
+		return
+	}
+	for _, reason := range r.Reasons {
+		fmt.Fprintf(w, "    %s: %d blocked", output.SafeCell(reason.Code), reason.Count)
+		var parts []string
+		if len(reason.Subjects) > 0 {
+			names := make([]string, 0, len(reason.Subjects))
+			for _, s := range reason.Subjects {
+				names = append(names, output.SafeCell(s.Name))
+			}
+			parts = append(parts, strings.Join(names, ", "))
+		}
+		if reason.OmittedByCap > 0 {
+			parts = append(parts, fmt.Sprintf("%d more not listed", reason.OmittedByCap))
+		}
+		if reason.HiddenByAccess > 0 {
+			parts = append(parts, fmt.Sprintf("%d hidden", reason.HiddenByAccess))
+		}
+		if len(parts) > 0 {
+			fmt.Fprintf(w, " (%s)", strings.Join(parts, "; "))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // Origin is get-only; null deliberately does not identify a concealment reason.
 type agentGetDTO struct {
 	agentDTO
@@ -400,7 +455,7 @@ setting recorded by agent update --reset-context-after-task.`,
 			if resp.Agent == nil {
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
-			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
+			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
 			// Read through the normal memory gate using the same client/credential.
 			// Never compose a URN from Agent metadata: unreadable and nonexistent
 			// must have the same id-only output. Even partial data with an error
@@ -423,6 +478,7 @@ setting recorded by agent update --reset-context-after-task.`,
 				if dto.ClonedFromAgentRef != nil {
 					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
+				writeOfferReadiness(w, dto.OfferReadiness)
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
 				fmt.Fprintf(w, "  listed on marketplace: %t\n", dto.ListedOnMarketplace)
