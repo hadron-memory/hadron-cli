@@ -516,6 +516,10 @@ func TestTeamWorkerApproveServingSnapshot(t *testing.T) {
 	if reads["w-eve"] != 0 {
 		t.Error("a failed approval gets no serving read")
 	}
+	// A failed serving read leaves the approval standing: never resent.
+	if n := len(fake.ops("ApproveNode")); n != len(team) {
+		t.Errorf("approveNode sent %d times for %d workers", n, len(team))
+	}
 	for _, want := range []string{
 		"approved rev 3; a serve now would give rev 3",
 		"approved rev 5; a serve now would still give rev 3",

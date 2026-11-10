@@ -1104,6 +1104,13 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
 		return exitcode.Forbidden
+	// The approval gate's two refusals (cli#1466; hadron-server
+	// bootPromptApproval.ts): approving through a worker session, or as a
+	// principal that does not manage the App. Whoever manages the App approves,
+	// as themselves (cor:dmo:120:02, cor:agt:040:18): a credential not
+	// permitted for this write, like the pointer's, so 8.
+	case code == "BOOT_PROMPT_APPROVAL_FORBIDDEN" || code == "BOOT_PROMPT_WORKER_SESSION_REFUSED":
+		return exitcode.Forbidden
 	// An include tag the write adds or changes whose target is missing,
 	// deleted or unreadable by the writer (hadron-server#2226, cor:dmo:150:04).
 	// The server gives the three one answer naming only the authored tag, so
