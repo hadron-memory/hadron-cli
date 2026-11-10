@@ -9103,6 +9103,7 @@ func (v *AgentTaskListUnresolvedResponse) GetAgentTasks() []*AgentTaskListUnreso
 
 // Why a failed match skipped a candidate (#3816, V21). Closed and additive: values are added, never renamed.
 // STOP_SIGNAL names a matcher condition V21 lacked. There is no value for a bound, quiet worker: hadron-server#3815 removes that exclusion.
+// NO_LONGER_FREE (#3855, V59) is a candidate the snapshot found free that the final assignment check refused; it carries no other value.
 type AgentTaskMatchSkipReason string
 
 const (
@@ -9114,6 +9115,7 @@ const (
 	AgentTaskMatchSkipReasonNameExcluded       AgentTaskMatchSkipReason = "NAME_EXCLUDED"
 	AgentTaskMatchSkipReasonNotHeld            AgentTaskMatchSkipReason = "NOT_HELD"
 	AgentTaskMatchSkipReasonNoFamily           AgentTaskMatchSkipReason = "NO_FAMILY"
+	AgentTaskMatchSkipReasonNoLongerFree       AgentTaskMatchSkipReason = "NO_LONGER_FREE"
 	AgentTaskMatchSkipReasonRetired            AgentTaskMatchSkipReason = "RETIRED"
 	AgentTaskMatchSkipReasonStalled            AgentTaskMatchSkipReason = "STALLED"
 	AgentTaskMatchSkipReasonStopSignal         AgentTaskMatchSkipReason = "STOP_SIGNAL"
@@ -9132,6 +9134,7 @@ var AllAgentTaskMatchSkipReason = []AgentTaskMatchSkipReason{
 	AgentTaskMatchSkipReasonNameExcluded,
 	AgentTaskMatchSkipReasonNotHeld,
 	AgentTaskMatchSkipReasonNoFamily,
+	AgentTaskMatchSkipReasonNoLongerFree,
 	AgentTaskMatchSkipReasonRetired,
 	AgentTaskMatchSkipReasonStalled,
 	AgentTaskMatchSkipReasonStopSignal,
@@ -26315,6 +26318,7 @@ func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeenSeq() 
 
 // CheckChatMarkResponse is returned by CheckChatMark on success.
 type CheckChatMarkResponse struct {
+	// #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
 	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
 	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
@@ -38771,6 +38775,8 @@ type CreateTeamChatMessageResponse struct {
 	// token, an expired or unverifiable one; checked before the App is resolved,
 	// so it answers identically whether or not the App exists).
 	//
+	// #3818: an acting superseded sessionRef refuses SESSION_SUPERSEDED; current open sessionId/startedAt
+	// are included only under hrn:node:hadronmemory.com:specs:cor:agt:020:03 session read access.
 	// appRef accepts the entity's ID or URN; sessionRef is the session id.
 	CreateTeamChatMessage *CreateTeamChatMessageCreateTeamChatMessage `json:"createTeamChatMessage"`
 }
@@ -56498,6 +56504,7 @@ func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeen
 
 // MarkOwnTeamChatReadResponse is returned by MarkOwnTeamChatRead on success.
 type MarkOwnTeamChatReadResponse struct {
+	// #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
 	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
 	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
