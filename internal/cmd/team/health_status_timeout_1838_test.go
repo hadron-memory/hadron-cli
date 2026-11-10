@@ -205,10 +205,54 @@ func TestHealth1838OverflowRacingTheDeadlineIsNotATimeout(t *testing.T) {
 	}
 }
 
-// Gate pin (Gene P2): N registered workers and a status read past the OLD fixed
-// 2 minutes (but within the sized deadline) succeed and store N reports.
-func TestHealth1838SweepWithNWorkersPastTheOldDeadlineStoresNReports(t *testing.T) {
+// Gate pin (Gene P2): N registered workers get a BUDGET past the OLD fixed
+// 2 minutes and a sweep over them stores N reports (budget and storage only;
+// the elapsed-time pin through the real child is the next test).
+func TestHealth1838SweepWithNWorkersIsGivenABudgetPastTheOldDeadlineAndStoresNReports(t *testing.T) {
 	const n = 40 // sized: 200s, beyond the old fixed 2m
+	deadline, stored, writes := sweepStoresN(t, n, func(rows, _ string) healthStatusReader {
+		return func(ctx context.Context, _ string, _ *hostpoller.Config) ([]byte, int, error) {
+			return []byte(rows), 0, nil
+		}
+	})
+	if deadline <= 2*time.Minute {
+		t.Errorf("the read must be allowed longer than the old 2m for %d workers: %v", n, deadline)
+	}
+	if writes != 1 || stored != n {
+		t.Errorf("writes=%d stored=%d, want 1 write storing %d", writes, stored, n)
+	}
+}
+
+// Gene F1: the same through the REAL subprocess boundary. The floor and
+// per-worker allowance are shrunk so the child outlives the floor but not the
+// sized deadline; a ceiling that reinstated the floor would kill it.
+func TestHealth1838ChildPastTheFloorButInsideTheSizedDeadlineIsStored(t *testing.T) {
+	oldFloor, oldPer := healthStatusFloor, healthStatusPerWorker
+	healthStatusFloor, healthStatusPerWorker = 300*time.Millisecond, 700*time.Millisecond
+	t.Cleanup(func() { healthStatusFloor, healthStatusPerWorker = oldFloor, oldPer })
+	const n = 3 // sized 2.1s; the child below takes ~1s, well past the 0.3s floor
+	deadline, stored, writes := sweepStoresN(t, n, func(rows, dir string) healthStatusReader {
+		bin := filepath.Join(dir, "fake-status")
+		script := "#!/bin/sh\nsleep 1\ncat <<'EOF'\n[" + rows[1:len(rows)-1] + "]\nEOF\n"
+		if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return func(ctx context.Context, path string, _ *hostpoller.Config) ([]byte, int, error) {
+			return runHealthStatusCommandEnv(ctx, bin, path, hostpoller.ScrubbedEnv(os.Environ(), "K"))
+		}
+	})
+	if deadline != 2100*time.Millisecond {
+		t.Errorf("sized deadline %v, want 2.1s", deadline)
+	}
+	if writes != 1 || stored != n {
+		t.Errorf("writes=%d stored=%d, want 1 write storing %d", writes, stored, n)
+	}
+}
+
+// sweepStoresN runs the sweep against n registered workers with a reader built
+// by mk, and returns the deadline the reader saw, reports stored, and writes.
+func sweepStoresN(t *testing.T, n int, mk func(rows, dir string) healthStatusReader) (time.Duration, int, int) {
+	t.Helper()
 	dir := t.TempDir()
 	stored, writes := 0, 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -255,18 +299,14 @@ func TestHealth1838SweepWithNWorkersPastTheOldDeadlineStoresNReports(t *testing.
 	streams, _, _ := output.Test()
 	f.IOStreams = streams
 	var deadline time.Duration
-	c := newCmdTeamHealthWithReader(f, func(ctx context.Context, _ string, _ *hostpoller.Config) ([]byte, int, error) {
+	inner := mk("["+strings.Join(rows, ",")+"]", dir)
+	c := newCmdTeamHealthWithReader(f, func(ctx context.Context, p string, cfg *hostpoller.Config) ([]byte, int, error) {
 		deadline = healthStatusTimeout(ctx)
-		return []byte("[" + strings.Join(rows, ",") + "]"), 0, nil
+		return inner(ctx, p, cfg)
 	})
 	c.SetArgs([]string{"sweep", "--config", path})
 	if err := c.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if deadline <= 2*time.Minute {
-		t.Errorf("the read must be allowed longer than the old 2m for %d workers: %v", n, deadline)
-	}
-	if writes != 1 || stored != n {
-		t.Errorf("writes=%d stored=%d, want 1 write storing %d", writes, stored, n)
-	}
+	return deadline, stored, writes
 }

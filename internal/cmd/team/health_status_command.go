@@ -12,7 +12,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
-const (
+var (
 	// healthStatusFloor is the least time the status read is given: the
 	// pre-#1838 fixed deadline, so a small host is judged exactly as before.
 	healthStatusFloor = 2 * time.Minute
@@ -21,6 +21,9 @@ const (
 	// grows with the roster (#1838: a full roster outran the fixed 2 minutes).
 	healthStatusPerWorker = 5 * time.Second
 )
+
+// (vars, not consts, so a test can shrink them and drive the real subprocess
+// boundary in milliseconds; production never assigns them.)
 
 type healthStatusTimeoutKey struct{}
 
