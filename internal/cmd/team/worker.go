@@ -1171,7 +1171,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			advisory := readRetireAdvisory(cmd.Context(), client, &w)
 			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
+				RetireConfirmPrompt(w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -2399,4 +2399,9 @@ func placementText(placement *string, reportsToID *string) string {
 		return "no reporting choice recorded (UNSET)"
 	}
 	return "reporting choice: " + *placement
+}
+
+// RetireConfirmPrompt is the question `worker retire` asks before it acts.
+func RetireConfirmPrompt(name, id string) string {
+	return fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", name, id)
 }
