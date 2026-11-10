@@ -4999,6 +4999,11 @@ malformed status exits 1; rejected key 3, server unreachable 7, forbidden 8, Orc
 unreachable 10. No new exit 9. CLI input errors retain usage 2. Scheduling and
 recovery are separate commands/slices, not installed by a sweep.
 
+The status read is allowed 5 seconds per registered worker (never under 2 minutes);
+`--status-timeout <duration>` overrides it. A read that runs out of time exits 1 with
+`terminal status timed out after <duration>; nothing written` (cli#1838), distinct from
+the generic `terminal status command failed` class kept for every other failure.
+
 A missing/non-live host registration is exit 8. Unresolved or ambiguous registered
 workers, or a missing status row for any registered worker, refuse the whole
 batch before writing (exit 1). Other hosts' status rows are ignored. JSON reports

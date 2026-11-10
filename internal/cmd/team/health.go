@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -116,6 +117,7 @@ func newCmdTeamHealth(f *cmdutil.Factory) *cobra.Command {
 func newCmdTeamHealthWithReader(f *cmdutil.Factory, read healthStatusReader) *cobra.Command {
 	group := &cobra.Command{Use: "health", Short: "Report this host's workers' terminal health"}
 	var configPath string
+	var statusTimeout time.Duration
 	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Read terminal status and store code-only reports for this host", Args: cobra.NoArgs,
 		Long: `Read terminal-status@1 JSON from "hadron orca terminal status --all --json"
 and store the status of this host's registered workers in one batch. The status
@@ -133,10 +135,16 @@ Status rows for workers not registered on this host are ignored.
 Exit 0 after a successful write, including per-worker refusals (printed, not
 retried); 1 for a failed write or malformed status contract, 3 for a missing or
 rejected key, 7 when the server is unreachable, 8 for forbidden and 10 when the
-status command cannot reach Orca. No scheduling or recovery is installed.
+status command cannot reach Orca. The status read is allowed 5 seconds per
+registered worker (at least 2 minutes); --status-timeout overrides that, and a
+read that runs out of time says "terminal status timed out after <duration>"
+(exit 1, nothing written). No scheduling or recovery is installed.
 --json contains the sent reports (including refused items) and per-worker
 refusals; never screen text. A report in this list is not a storage receipt.`,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if statusTimeout < 0 {
+				return exitcode.Newf(exitcode.Usage, "--status-timeout must not be negative; nothing written")
+			}
 			cfg, _, server, err := loadHostPoller(f, configPath)
 			if err != nil {
 				if exitcode.FromError(err) == exitcode.Usage {
@@ -175,11 +183,19 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 			if !live {
 				return exitcode.Newf(exitcode.Forbidden, "host registration is not live; nothing written")
 			}
-			raw, code, err := read(c.Context(), configPath, cfg)
+			limit := statusTimeout
+			if limit <= 0 {
+				limit = healthStatusDeadline(len(names))
+			}
+			raw, code, err := read(withHealthStatusTimeout(c.Context(), limit), configPath, cfg)
 			if code == 10 {
 				return exitcode.Newf(exitcode.OrcaUnreachable, "Orca is not reachable on this host; nothing written")
 			}
 			if err != nil || code != 0 {
+				var timedOut errHealthStatusTimeout
+				if errors.As(err, &timedOut) {
+					return exitcode.Newf(exitcode.Error, "%s; nothing written", timedOut.Error())
+				}
 				if code == 3 || code == 7 || code == 8 {
 					return exitcode.Newf(code, "terminal status command failed; nothing written")
 				}
@@ -264,6 +280,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 		}}
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
+	c.Flags().DurationVar(&statusTimeout, "status-timeout", 0, "time allowed for the terminal status read (default: 5s per registered worker, at least 2m)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
 	return group
