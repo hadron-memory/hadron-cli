@@ -65332,6 +65332,65 @@ type NodePortalResponse struct {
 // GetNode returns NodePortalResponse.Node, and is useful for accessing the field via an interface.
 func (v *NodePortalResponse) GetNode() *NodePortalNode { return v.Node }
 
+// NodeRawTextNode includes the requested fields of the GraphQL type Node.
+type NodeRawTextNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int    `json:"revision"`
+	Name     string `json:"name"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
+	Content *string `json:"content"`
+}
+
+// GetId returns NodeRawTextNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeRawTextNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetRevision() int { return v.Revision }
+
+// GetName returns NodeRawTextNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetName() string { return v.Name }
+
+// GetAbstract returns NodeRawTextNode.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetAbstract() *string { return v.Abstract }
+
+// GetContent returns NodeRawTextNode.Content, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetContent() *string { return v.Content }
+
+// NodeRawTextResponse is returned by NodeRawText on success.
+type NodeRawTextResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *NodeRawTextNode `json:"node"`
+}
+
+// GetNode returns NodeRawTextResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeRawTextResponse) GetNode() *NodeRawTextNode { return v.Node }
+
 // NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionNodeRevision struct {
 	RevisionFields `json:"-"`
@@ -65792,6 +65851,66 @@ type NodeRevisionStampedResponse struct {
 // GetNodeRevision returns NodeRevisionStampedResponse.NodeRevision, and is useful for accessing the field via an interface.
 func (v *NodeRevisionStampedResponse) GetNodeRevision() *NodeRevisionStampedNodeRevision {
 	return v.NodeRevision
+}
+
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of a node's revision snapshots, counted over the snapshots the caller may read.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPage struct {
+	HasMore bool                                                                   `json:"hasMore"`
+	Items   []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision `json:"items"`
+}
+
+// GetHasMore returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetItems() []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision {
+	return v.Items
+}
+
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
+	// Per-node monotonic revision number (#696). Null on legacy rows predating the counter (backfilled by the migration).
+	RevNo *int   `json:"revNo"`
+	Name  string `json:"name"`
+	// Paragraph summary at capture (spec 031).
+	Abstract *string `json:"abstract"`
+	Content  *string `json:"content"`
+}
+
+// GetRevNo returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.RevNo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetRevNo() *int {
+	return v.RevNo
+}
+
+// GetName returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetName() string {
+	return v.Name
+}
+
+// GetAbstract returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetAbstract() *string {
+	return v.Abstract
+}
+
+// GetContent returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Content, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetContent() *string {
+	return v.Content
+}
+
+// NodeRevisionTextsResponse is returned by NodeRevisionTexts on success.
+type NodeRevisionTextsResponse struct {
+	// #2212 - `nodeRevisions` as a page: the same access gate (a miss or an unreadable node is an empty page),
+	// with the snapshot-memory gate applied before counting, so `total` and the pages hold only snapshots you
+	// may read and never fall short near the limit. Newest first with an id tiebreak. Sizes as `tickersPage`.
+	NodeRevisionsPage *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage `json:"nodeRevisionsPage"`
+}
+
+// GetNodeRevisionsPage returns NodeRevisionTextsResponse.NodeRevisionsPage, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsResponse) GetNodeRevisionsPage() *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage {
+	return v.NodeRevisionsPage
 }
 
 // NodeRevisionsPageNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
@@ -112050,6 +112169,14 @@ type __NodePortalInput struct {
 // GetRef returns __NodePortalInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodePortalInput) GetRef() string { return v.Ref }
 
+// __NodeRawTextInput is used internally by genqlient
+type __NodeRawTextInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodeRawTextInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeRawTextInput) GetRef() string { return v.Ref }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -112065,6 +112192,22 @@ type __NodeRevisionStampedInput struct {
 
 // GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
+
+// __NodeRevisionTextsInput is used internally by genqlient
+type __NodeRevisionTextsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit,omitempty"`
+	Offset  *int   `json:"offset,omitempty"`
+}
+
+// GetNodeRef returns __NodeRevisionTextsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeRevisionTextsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __NodeRevisionTextsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetOffset() *int { return v.Offset }
 
 // __NodeRevisionsPageInput is used internally by genqlient
 type __NodeRevisionsPageInput struct {
@@ -140518,6 +140661,48 @@ func NodePortal(
 	return data_, err_
 }
 
+// The query executed by NodeRawText.
+const NodeRawText_Operation = `
+query NodeRawText ($ref: ID!) {
+	node(ref: $ref, raw: true) {
+		id
+		revision
+		name
+		abstract
+		content(raw: true)
+	}
+}
+`
+
+// cli#879: the node's current revision beside its raw stored text, read in ONE
+// call so `node signatures --check` can tell whether the text is the revision a
+// signature names (a node edited between two reads must not be hashed against
+// an older signature). Only what the approval hash covers.
+func NodeRawText(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodeRawTextResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRawText",
+		Query:  NodeRawText_Operation,
+		Variables: &__NodeRawTextInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodeRawTextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
 query NodeRevision ($revisionId: ID!) {
@@ -140639,6 +140824,53 @@ func NodeRevisionStamped(
 	}
 
 	data_ = &NodeRevisionStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeRevisionTexts.
+const NodeRevisionTexts_Operation = `
+query NodeRevisionTexts ($nodeRef: ID!, $limit: Int, $offset: Int) {
+	nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			revNo
+			name
+			abstract
+			content
+		}
+	}
+}
+`
+
+// cli#879: the stored text of earlier revisions, for `node signatures --check`
+// to rebuild a signed revision's approval hash. revNo is the per-node revision
+// number a signature names; abstract and content are the stored (raw) text.
+func NodeRevisionTexts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+	offset *int,
+) (data_ *NodeRevisionTextsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRevisionTexts",
+		Query:  NodeRevisionTexts_Operation,
+		Variables: &__NodeRevisionTextsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &NodeRevisionTextsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

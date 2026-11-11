@@ -138,3 +138,24 @@ fragment RevisionFields on NodeRevision {
   revLabel
   changes
 }
+
+# cli#879: the stored text of earlier revisions, for `node signatures --check`
+# to rebuild a signed revision's approval hash. revNo is the per-node revision
+# number a signature names; abstract and content are the stored (raw) text.
+query NodeRevisionTexts(
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+    hasMore
+    items {
+      revNo
+      name
+      abstract
+      content
+    }
+  }
+}

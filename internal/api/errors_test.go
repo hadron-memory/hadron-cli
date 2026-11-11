@@ -1129,3 +1129,32 @@ func TestBulkTemplateRefusalRoot1701(t *testing.T) {
 		})
 	}
 }
+
+func TestOnlyErrorCodes(t *testing.T) {
+	list := func(codes ...string) error {
+		var l gqlerror.List
+		for _, c := range codes {
+			l = append(l, &gqlerror.Error{Message: c, Extensions: map[string]any{"code": c}})
+		}
+		return l
+	}
+	known := []string{"NODE_NOT_FOUND", "FORBIDDEN"}
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"one known", list("FORBIDDEN"), true},
+		{"all known", list("FORBIDDEN", "NODE_NOT_FOUND"), true},
+		{"mixed", list("FORBIDDEN", "INTERNAL_SERVER_ERROR"), false},
+		{"unknown only", list("INTERNAL_SERVER_ERROR"), false},
+		{"no code", gqlerror.List{{Message: "x"}}, false},
+		{"not graphql", errors.New("boom"), false},
+		{"nil", nil, false},
+	}
+	for _, tc := range cases {
+		if got := OnlyErrorCodes(tc.err, known...); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

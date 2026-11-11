@@ -514,6 +514,30 @@ func HasErrorCode(err error, code string) bool {
 	return false
 }
 
+// OnlyErrorCodes reports whether err carries at least one GraphQL error and
+// EVERY one has an extensions.code in codes. A list that mixes a known
+// refusal with any other failure is false: callers that downgrade a refusal
+// to a soft result must not swallow an internal error riding beside it.
+func OnlyErrorCodes(err error, codes ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 || FromNon200Envelope(err) {
+		return false
+	}
+	for _, e := range list {
+		known := false
+		for _, c := range codes {
+			if extensionCode(e) == c {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return false
+		}
+	}
+	return true
+}
+
 // FromNon200Envelope reports whether err is a GraphQL error envelope that
 // arrived inside a non-200 HTTP response of status 5xx. graphQLErrors reads
 // that envelope exactly as it reads a 200 one, but a 5xx is not proof the
