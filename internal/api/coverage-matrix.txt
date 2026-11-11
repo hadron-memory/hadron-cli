@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 225: 178 command, 23 gap, 24 excluded
+[Query] 225: 179 command, 22 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -245,12 +245,12 @@ validateMemory  command memory validate
 verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
-webPolls  gap #1915
+webPolls  command web-poll list
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 350: 286 command, 50 gap, 14 excluded
+[Mutation] 350: 287 command, 49 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -285,7 +285,7 @@ calendarRespondToEvent  command calendar event respond
 calendarUpdateEvent  command calendar event update
 cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
-cancelWebPoll  gap #1915
+cancelWebPoll  command web-poll cancel
 castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
 claimContextReset  command team host run

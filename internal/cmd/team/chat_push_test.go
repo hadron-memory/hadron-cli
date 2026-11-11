@@ -90,8 +90,12 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 	}
 	streams, out, stderr := output.Test()
 	ms, _ := json.Marshal(mentions)
+	// Each batch covers one seq of channel "ch" (a1=1, b1=2, a2=3, b2=4,
+	// c1=5, f1=6) on every read, so its span ch#1:<n>-<n> names it.
+	seq := 0
 	batch := func(id, w string) string {
-		return fmt.Sprintf(`{"id":%q,"worker":{"id":%q},"text":"t","deliverAfter":"2026-10-19T00:00:00Z","busyDeadline":"2026-10-19T00:01:00Z","ranges":[]}`, id, w)
+		seq++
+		return fmt.Sprintf(`{"id":%q,"worker":{"id":%q},"text":"t","deliverAfter":"2026-10-19T00:00:00Z","busyDeadline":"2026-10-19T00:01:00Z","ranges":[{"channel":{"id":"ch"},"incarnation":1,"fromSeq":%d,"throughSeq":%d,"seqs":[%d]}]}`, id, w, seq, seq, seq)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
@@ -110,6 +114,7 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 				return
 			}
 			bs := []string{}
+			seq = 0 // the same batches on every read
 			if !noBatches {
 				bs = []string{batch("a1", "wkr1"), batch("b1", "wkr2"), batch("a2", "wkr1"), batch("b2", "wkr2"), batch("c1", "wkr3"), batch("f1", "foreign")}
 			}
@@ -184,6 +189,27 @@ func pushAcked(t *testing.T, r pushRun, who string) float64 {
 	return -1
 }
 
+// pushBatch is one recipient's --json "batch", as text ("<absent>" if missing).
+func pushBatch(t *testing.T, r pushRun, who string) string {
+	t.Helper()
+	list, ok := r.body["push"].([]any)
+	if !ok {
+		t.Fatalf("no push array in %s", r.out)
+	}
+	for _, e := range list {
+		m := e.(map[string]any)
+		if m["recipient"] == who {
+			v, ok := m["batch"]
+			if !ok {
+				return "<absent>"
+			}
+			return fmt.Sprint(v)
+		}
+	}
+	t.Fatalf("no %s in %s", who, r.out)
+	return ""
+}
+
 func pushStates(t *testing.T, r pushRun) map[string]string {
 	t.Helper()
 	list, ok := r.body["push"].([]any)
@@ -241,18 +267,85 @@ func TestPushMultiwordSlugAndHeldBlocksLaterBatches(t *testing.T) {
 	}
 }
 
-func TestPushNotPushedIsTheOneStateForNoBatch(t *testing.T) {
-	// An unregistered token and a registered worker with nothing due look the same.
+// cli#1900: "nothing pushed" names which of the two causes the CLI can
+// establish. A token matching no worker registered (with a configured
+// worktree) on this host is not-on-host; a matched worker the host offered
+// no due batch is no-due-batch. Neither has a batch: "none".
+func TestPushNamesNotOnHostApartFromNoDueBatch(t *testing.T) {
 	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"ghost", "one"}, nil, false, true)
 	if r.err != nil || len(r.seen) != 0 {
 		t.Fatalf("%v %v", r.err, r.seen)
 	}
 	st := pushStates(t, r)
-	if st["ghost"] != "not-pushed:no-batch" || st["one"] != "not-pushed:no-batch" {
+	if st["ghost"] != "not-pushed:not-on-host" || st["one"] != "not-pushed:no-due-batch" {
 		t.Fatalf("report %v", st)
 	}
-	if strings.Contains(r.out, "not-on-host") {
-		t.Fatal("claimed a reason the server does not give")
+	if b := pushBatch(t, r, "ghost"); b != "none" {
+		t.Fatalf("ghost batch %q, want none", b)
+	}
+	if b := pushBatch(t, r, "one"); b != "none" {
+		t.Fatalf("one batch %q, want none", b)
+	}
+}
+
+// The reason is per recipient, not per post (Victor's FIT): one mention on
+// this host is pushed while the other, off it, is not-on-host.
+func TestPushReasonIsPerRecipient(t *testing.T) {
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"ghost", "one"}, nil, false, false)
+	if r.err != nil || strings.Join(r.seen, ",") != "a1,a2" {
+		t.Fatalf("%v %v", r.err, r.seen)
+	}
+	st := pushStates(t, r)
+	if st["ghost"] != "not-pushed:not-on-host" || st["one"] != "pushed:<nil>" {
+		t.Fatalf("report %v", st)
+	}
+	if b := pushBatch(t, r, "ghost"); b != "none" {
+		t.Fatalf("ghost batch %q, want none", b)
+	}
+	if b := pushBatch(t, r, "one"); b != "ch#1:1-1" {
+		t.Fatalf("one batch %q, want its first batch's span ch#1:1-1", b)
+	}
+}
+
+// An offered batch keeps its held/draft reason and names the batch that
+// held, never the signed proof id.
+func TestPushHeldNamesItsBatchSpanNotItsProof(t *testing.T) {
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane"}, map[string]delivery.Kind{"wkr2": delivery.Held}, false, false)
+	if st := pushStates(t, r); st["mary-jane"] != "held:draft" {
+		t.Fatalf("report %v", st)
+	}
+	if b := pushBatch(t, r, "mary-jane"); b != "ch#1:2-2" {
+		t.Fatalf("held batch %q, want ch#1:2-2", b)
+	}
+	if strings.Contains(r.out, `"b1"`) {
+		t.Fatalf("receipt carries the batch proof id: %s", r.out)
+	}
+}
+
+func TestPushTextNamesReasonAndBatch(t *testing.T) {
+	pushText = true
+	defer func() { pushText = false }()
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"ghost", "one"}, nil, false, true)
+	for _, want := range []string{"push ghost: not-pushed (not-on-host) batch none\n", "push one: not-pushed (no-due-batch) batch none\n"} {
+		if r.err != nil || !strings.Contains(r.out, want) {
+			t.Fatalf("text receipt missing %q: %v %q", want, r.err, r.out)
+		}
+	}
+	r = runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, nil, false, false)
+	if !strings.Contains(r.out, "push one: pushed batch ch#1:1-1\n") {
+		t.Fatalf("text receipt: %q", r.out)
+	}
+}
+
+func TestPushHelpListsTheReasons(t *testing.T) {
+	long := newCmdTeamChatPostWithHostDelivery(cmdutil.NewFactory(), nil).Long
+	for _, want := range []string{"not-on-host", "no-due-batch", "push-failed", "ack-pending", "batch"} {
+		if !strings.Contains(long, want) {
+			t.Errorf("--help does not list %q", want)
+		}
+	}
+	if strings.Contains(long, "no-batch") {
+		t.Error("--help still names the retired no-batch reason")
 	}
 }
 
@@ -264,15 +357,22 @@ func TestPushRequiresHostConfigBeforePosting(t *testing.T) {
 }
 
 func TestPushFailureAfterPostKeepsPostAndExit(t *testing.T) {
-	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, nil, true, false)
+	// ghost matches no worker here: a failed pass still never claims
+	// not-on-host for it, since nothing was established.
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one", "ghost"}, nil, true, false)
 	if r.err != nil || r.posts != 1 {
 		t.Fatalf("push failure changed the post: %v %d", r.err, r.posts)
 	}
 	if !strings.Contains(r.stderr, "do not repost") || strings.Contains(r.stderr+r.out, "PRIVATE") {
 		t.Fatalf("unsafe recovery text: %q", r.stderr)
 	}
-	if st := pushStates(t, r); st["one"] != "unconfirmed:push-failed" {
+	if st := pushStates(t, r); st["one"] != "unconfirmed:push-failed" || st["ghost"] != "unconfirmed:push-failed" {
 		t.Fatalf("report %v", st)
+	}
+	for _, who := range []string{"one", "ghost"} {
+		if b := pushBatch(t, r, who); b != "none" {
+			t.Fatalf("unconfirmed %s batch %q, want none", who, b)
+		}
 	}
 }
 
