@@ -189,8 +189,8 @@ func pushAcked(t *testing.T, r pushRun, who string) float64 {
 	return -1
 }
 
-// pushField is one recipient's --json field, as text ("<absent>" if missing).
-func pushField(t *testing.T, r pushRun, who, field string) string {
+// pushBatch is one recipient's --json "batch", as text ("<absent>" if missing).
+func pushBatch(t *testing.T, r pushRun, who string) string {
 	t.Helper()
 	list, ok := r.body["push"].([]any)
 	if !ok {
@@ -199,7 +199,7 @@ func pushField(t *testing.T, r pushRun, who, field string) string {
 	for _, e := range list {
 		m := e.(map[string]any)
 		if m["recipient"] == who {
-			v, ok := m[field]
+			v, ok := m["batch"]
 			if !ok {
 				return "<absent>"
 			}
@@ -280,10 +280,10 @@ func TestPushNamesNotOnHostApartFromNoDueBatch(t *testing.T) {
 	if st["ghost"] != "not-pushed:not-on-host" || st["one"] != "not-pushed:no-due-batch" {
 		t.Fatalf("report %v", st)
 	}
-	if b := pushField(t, r, "ghost", "batch"); b != "none" {
+	if b := pushBatch(t, r, "ghost"); b != "none" {
 		t.Fatalf("ghost batch %q, want none", b)
 	}
-	if b := pushField(t, r, "one", "batch"); b != "none" {
+	if b := pushBatch(t, r, "one"); b != "none" {
 		t.Fatalf("one batch %q, want none", b)
 	}
 }
@@ -299,10 +299,10 @@ func TestPushReasonIsPerRecipient(t *testing.T) {
 	if st["ghost"] != "not-pushed:not-on-host" || st["one"] != "pushed:<nil>" {
 		t.Fatalf("report %v", st)
 	}
-	if b := pushField(t, r, "ghost", "batch"); b != "none" {
+	if b := pushBatch(t, r, "ghost"); b != "none" {
 		t.Fatalf("ghost batch %q, want none", b)
 	}
-	if b := pushField(t, r, "one", "batch"); b != "ch#1:1-1" {
+	if b := pushBatch(t, r, "one"); b != "ch#1:1-1" {
 		t.Fatalf("one batch %q, want its first batch's span ch#1:1-1", b)
 	}
 }
@@ -314,7 +314,7 @@ func TestPushHeldNamesItsBatchSpanNotItsProof(t *testing.T) {
 	if st := pushStates(t, r); st["mary-jane"] != "held:draft" {
 		t.Fatalf("report %v", st)
 	}
-	if b := pushField(t, r, "mary-jane", "batch"); b != "ch#1:2-2" {
+	if b := pushBatch(t, r, "mary-jane"); b != "ch#1:2-2" {
 		t.Fatalf("held batch %q, want ch#1:2-2", b)
 	}
 	if strings.Contains(r.out, `"b1"`) {
@@ -357,18 +357,22 @@ func TestPushRequiresHostConfigBeforePosting(t *testing.T) {
 }
 
 func TestPushFailureAfterPostKeepsPostAndExit(t *testing.T) {
-	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, nil, true, false)
+	// ghost matches no worker here: a failed pass still never claims
+	// not-on-host for it, since nothing was established.
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one", "ghost"}, nil, true, false)
 	if r.err != nil || r.posts != 1 {
 		t.Fatalf("push failure changed the post: %v %d", r.err, r.posts)
 	}
 	if !strings.Contains(r.stderr, "do not repost") || strings.Contains(r.stderr+r.out, "PRIVATE") {
 		t.Fatalf("unsafe recovery text: %q", r.stderr)
 	}
-	if st := pushStates(t, r); st["one"] != "unconfirmed:push-failed" {
+	if st := pushStates(t, r); st["one"] != "unconfirmed:push-failed" || st["ghost"] != "unconfirmed:push-failed" {
 		t.Fatalf("report %v", st)
 	}
-	if b := pushField(t, r, "one", "batch"); b != "none" {
-		t.Fatalf("unconfirmed batch %q, want none", b)
+	for _, who := range []string{"one", "ghost"} {
+		if b := pushBatch(t, r, who); b != "none" {
+			t.Fatalf("unconfirmed %s batch %q, want none", who, b)
+		}
 	}
 }
 
