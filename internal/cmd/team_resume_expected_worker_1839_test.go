@@ -308,3 +308,81 @@ func TestResumeBlankBindingWorkerSendsNothing(t *testing.T) {
 		t.Error("a blank worker id must not be sent (the server refuses a blank as BAD_USER_INPUT)")
 	}
 }
+
+// Delta (BLIND P2-1/P2-2 on 79e0cf58). A server without #3822 rejects the
+// unknown input field: the refusal says so and names the way forward, instead
+// of the generic schema-skew line, and never retries without the guard.
+func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
+	for _, tc := range []struct{ name, errs string }{
+		{"validation code", `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"expectedWorkerId\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`},
+		{"bad user input", `{"errors":[{"message":"Field \"expectedWorkerId\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"BAD_USER_INPUT"}}]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := teamGitDir(t)
+			t.Setenv("HADRON_LAUNCH_GRANT", "")
+			path := writeBinding(t, dir)
+			stubs := mismatchStubs("CLAIM")
+			stubs["ResumeTeamSession"] = tc.errs
+			gql, captured := captureGraphQL(t, stubs)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "start", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("want a refusal")
+			}
+			for _, w := range []string{"hadron-server#3822", "--as", "no claim"} {
+				if !strings.Contains(err.Error(), w) {
+					t.Errorf("must say %q: %v", w, err)
+				}
+			}
+			if strings.Contains(err.Error(), "out of sync") {
+				t.Errorf("the generic skew line must not stand in for the specific one: %v", err)
+			}
+			if n := strings.Count(string(captured["ResumeTeamSession"]), "expectedWorkerId"); n == 0 {
+				t.Error("the field was sent")
+			}
+			if data, _ := os.ReadFile(path); string(data) != bindingFixture {
+				t.Error("binding must stay unchanged")
+			}
+		})
+	}
+}
+
+// Other RESUME_REFUSED reasons (and none) keep the ordinary refusal: exit 5,
+// the server's message, and no mismatch rendering or envelope extensions.
+func TestResumeOtherRefusalsAreNotMismatch(t *testing.T) {
+	for _, ext := range []string{`"code":"RESUME_REFUSED","reason":"WORKER_HELD"`, `"code":"RESUME_REFUSED"`} {
+		dir := teamGitDir(t)
+		t.Setenv("HADRON_LAUNCH_GRANT", "")
+		path := writeBinding(t, dir)
+		stubs := mismatchStubs("CLAIM")
+		stubs["ResumeTeamSession"] = `{"errors":[{"message":"the worker is dormant","extensions":{` + ext + `}}],"data":null}`
+		gql, _ := captureGraphQL(t, stubs)
+		f, out := testFactory(t)
+		f.JSON = true
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "start", "--json", "--server", gql.URL})
+		err := root.Execute()
+		if exitCodeFor(err) != exitcode.Conflict || strings.Contains(err.Error(), "untouched") {
+			t.Errorf("%s: ordinary refusal expected: %v", ext, err)
+		}
+		renderError(f, err)
+		if strings.Contains(out.String(), "expectedWorkerId") || strings.Contains(out.String(), `"reason":"WORKER_MISMATCH"`) {
+			t.Errorf("%s: no mismatch extensions: %s", ext, out.String())
+		}
+		if data, _ := os.ReadFile(path); string(data) != bindingFixture {
+			t.Error("binding must stay unchanged")
+		}
+	}
+}
+
+// C1 controls (CSI as U+009B) are controls too: no bytes a terminal acts on.
+func TestResumeMismatchSanitizesC1(t *testing.T) {
+	_, err := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":"Ir\u009b31mis","foundWorkerId":"wkr9","foundWorkerName":"Gre\u0085er","foundSource":"CLAIM"`, false)
+	for _, r := range err.Error() {
+		if r >= 0x80 && r <= 0x9f {
+			t.Fatalf("C1 control %U in the refusal", r)
+		}
+	}
+}
