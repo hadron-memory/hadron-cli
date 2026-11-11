@@ -751,3 +751,91 @@ func TestTeamWorkerApproveEmptySuccessReadsOnce(t *testing.T) {
 		t.Errorf("unknown = %v, want one row with outcome landed", d.Unknown)
 	}
 }
+
+// cli#1844 pin 1: an empty approveNode success says so in its reason, for every
+// status-read outcome, and still carries the "not sent again" tail. The cause
+// is passed into the one status read, so rewording the lost-response base
+// message cannot silently drop it.
+func TestTeamWorkerApproveEmptySuccessReasonNamesTheCause(t *testing.T) {
+	for _, after := range []string{"landed", "same", "error"} {
+		t.Run(after, func(t *testing.T) {
+			team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "null", after: after}}
+			_, out, err := runApprove(t, team, "--apply", "--json")
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+			}
+			d := decodeApprove(t, out)
+			if len(d.Unknown) != 1 {
+				t.Fatalf("unknown = %v, want one row", d.Unknown)
+			}
+			reason, _ := d.Unknown[0]["reason"].(string)
+			if !strings.HasPrefix(reason, "the server returned no approval; it was not sent again") {
+				t.Errorf("reason = %q, want it to open with the empty-success cause", reason)
+			}
+			if strings.Contains(reason, "response was lost") {
+				t.Errorf("reason = %q, an empty success is not a lost response", reason)
+			}
+		})
+	}
+	// Control: a genuinely lost response keeps its own cause.
+	team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "NOT_APPROVED", approve: "502", after: "same"}}
+	_, out, _ := runApprove(t, team, "--apply", "--json")
+	d := decodeApprove(t, out)
+	if len(d.Unknown) != 1 || !strings.HasPrefix(d.Unknown[0]["reason"].(string), "the approval response was lost; it was not sent again") {
+		t.Errorf("lost-response reason = %v", d.Unknown)
+	}
+}
+
+// cli#1844 pin 2a: a compiled prompt with no approvalStatus is undecided
+// (unknown, exit 1) and is never sent.
+func TestTeamWorkerApproveNullApprovalStatusIsUnknown(t *testing.T) {
+	team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "null", approve: "ok"}}
+	fake, out, err := runApprove(t, team, "--apply", "--json")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+	}
+	if n := len(fake.ops("ApproveNode")); n != 0 {
+		t.Fatalf("a row with no approval state was sent %d times", n)
+	}
+	d := decodeApprove(t, out)
+	if batchNames(d.Unknown) != "Ann" {
+		t.Fatalf("unknown = %s, want Ann", batchNames(d.Unknown))
+	}
+	if r, _ := d.Unknown[0]["reason"].(string); !strings.Contains(r, "no approval state") {
+		t.Errorf("reason = %q, want it to say the server reported no approval state", r)
+	}
+}
+
+// cli#1844 pin 2b: an approval state the CLI does not know is undecided
+// (unknown, exit 1), named in the reason, and never sent.
+func TestTeamWorkerApproveUnrecognisedStateIsUnknown(t *testing.T) {
+	team := []approveWorker{{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, state: "SOMETHING_NEW", approve: "ok"}}
+	fake, out, err := runApprove(t, team, "--apply", "--json")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+	}
+	if n := len(fake.ops("ApproveNode")); n != 0 {
+		t.Fatalf("a row in an unknown state was sent %d times", n)
+	}
+	d := decodeApprove(t, out)
+	if batchNames(d.Unknown) != "Ann" {
+		t.Fatalf("unknown = %s, want Ann", batchNames(d.Unknown))
+	}
+	if r, _ := d.Unknown[0]["reason"].(string); !strings.Contains(r, "unrecognised approval state SOMETHING_NEW") {
+		t.Errorf("reason = %q, want it to name the unrecognised state", r)
+	}
+}
+
+// cli#1844 pin 2c: --only accepts a worker's URN, and only that worker is sent.
+func TestTeamWorkerApproveOnlyByURN(t *testing.T) {
+	fake, out, err := runApprove(t, approveTeam(), "--only", "hrn:worker:acme.com:eng-team:ann", "--apply", "--json")
+	if err != nil {
+		t.Fatalf("--only by URN: %v", err)
+	}
+	if got := batchNames(decodeApprove(t, out).Approved); got != "Ann" {
+		t.Errorf("approved = %s, want Ann", got)
+	}
+	if got := approveRefs(fake.ops("ApproveNode")); len(got) != 1 || !strings.HasPrefix(got[0], cptr("w-ann")) {
+		t.Errorf("only Ann is sent: %v", got)
+	}
+}

@@ -377,11 +377,11 @@ func scanBootPointers(ctx context.Context, client graphql.Client, appRef string)
 // filterOnly keeps the --only workers, refusing before any write when one is
 // not a live worker in the App.
 func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWorkerRow, error) {
-	return filterOnlyFor(rows, only, appRef, "nothing was compiled")
+	return filterOnlyNoting(rows, only, appRef, "nothing was compiled")
 }
 
-// filterOnlyFor is filterOnly with the batch's own "nothing was <done>" note.
-func filterOnlyFor(rows []batchWorkerRow, only []string, appRef, nothingDone string) ([]batchWorkerRow, error) {
+// filterOnlyNoting is filterOnly with the batch's own "nothing was <done>" note.
+func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone string) ([]batchWorkerRow, error) {
 	if len(only) == 0 {
 		return rows, nil
 	}
