@@ -37,6 +37,7 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdWhoami(f))
 	cmd.AddCommand(newCmdAssetUpload(f))
 	cmd.AddCommand(newCmdModelGroup(f))
+	cmd.AddCommand(newCmdChatbotAiConfig(f))
 	cmd.AddCommand(newCmdProperties(f))
 	cmd.AddCommand(newCmdAction(f))
 	return cmd
