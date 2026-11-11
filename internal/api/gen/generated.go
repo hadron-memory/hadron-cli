@@ -13422,9 +13422,11 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 // AgentTeamEventsPageResponse is returned by AgentTeamEventsPage on success.
 type AgentTeamEventsPageResponse struct {
 	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
-	// filters, order and paging, returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
+	// filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
 	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
-	// newestFirst, as before; null on the last page.
+	// newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
+	// limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
 	AgentTeamEventsPage *AgentTeamEventsPageAgentTeamEventsPage `json:"agentTeamEventsPage"`
 }
 
@@ -74128,7 +74130,7 @@ type ResumeSessionInput struct {
 	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
 	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
 	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT.
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read.
 	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
