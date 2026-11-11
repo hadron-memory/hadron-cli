@@ -66,6 +66,7 @@ import (
 	usercmd "github.com/hadron-memory/hadron-cli/internal/cmd/user"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
 	webhookcmd "github.com/hadron-memory/hadron-cli/internal/cmd/webhook"
+	webpollcmd "github.com/hadron-memory/hadron-cli/internal/cmd/webpoll"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -210,6 +211,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(drivecmd.NewCmdDrive(f))
 	root.AddCommand(calendarcmd.NewCmdCalendar(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
+	root.AddCommand(webpollcmd.NewCmdWebPoll(f))
 	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
 	root.AddCommand(apicmd.NewCmdAPI(f))
