@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -120,6 +121,8 @@ func TestAgentBootPromptMalformedDecisionRefusesExit1(t *testing.T) {
 		strings.Replace(servedJSON, `"compiledNodeId":"n1"`, `"compiledNodeId":""`, 1),
 		strings.Replace(servedJSON, `"servedRevSeq":3`, `"servedRevSeq":0`, 1),
 		strings.Replace(servedJSON, `"pointerLevel":"AGENT"`, `"pointerLevel":"BOGUS"`, 1),
+		// R7(a): a WORKER-scope decision does not prove the agent-read serve.
+		strings.Replace(servedJSON, `"pointerLevel":"AGENT"`, `"pointerLevel":"WORKER"`, 1),
 		`{"data":{"agentServedBootPrompt":{"decision":null,"text":"x"}}}`,
 		`{"data":{"agentServedBootPrompt":null}}`,
 	}
@@ -128,6 +131,22 @@ func TestAgentBootPromptMalformedDecisionRefusesExit1(t *testing.T) {
 			_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": bad}, args...)
 			if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
 				t.Fatalf("case %d %v: err=%v out=%q", i, args, err, out)
+			}
+		}
+	}
+}
+
+// R5(a): serverCode is the branchable signal on every serve refusal, so the
+// error must carry it for the --json envelope.
+func TestAgentBootPromptRefusalKeepsServerCode(t *testing.T) {
+	for _, code := range []string{"BOOT_PROMPT_NOT_SET", "BOOT_PROMPT_TARGET_DELETED", "BOOT_PROMPT_NOT_APPROVED", "BOOT_PROMPT_NOT_SIGNED"} {
+		for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
+			_, _, err := runAgentSub(t, map[string]string{
+				"AgentServedBootPrompt": `{"errors":[{"message":"` + code + `: nope","extensions":{"code":"` + code + `"}}]}`,
+			}, args...)
+			var coded interface{ ServerCode() string }
+			if !errors.As(err, &coded) || coded.ServerCode() != code {
+				t.Fatalf("%s %v: err=%v must carry serverCode", code, args, err)
 			}
 		}
 	}

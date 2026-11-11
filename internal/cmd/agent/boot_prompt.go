@@ -92,7 +92,7 @@ then the served text raw. --json prints exactly {decision, text}.`,
 			}
 			resp, err := gen.AgentServedBootPrompt(cmd.Context(), client, ref, appRef, llm)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			// R7: the decision proves the serve. A null or malformed one is refused,
 			// never shown as an "unknown" header over served text; a valid decision
@@ -102,6 +102,12 @@ then the served text raw. --json prints exactly {decision, text}.`,
 				return exitcode.Newf(exitcode.Error, "the server returned a malformed boot-prompt decision; nothing to print")
 			}
 			d := r.Decision
+			// R7(a): the decision proves the serve of THIS read (the agent-read). A
+			// WORKER-scope decision proves a worker serve, so showing its text as the
+			// Agent's prompt would be wrong data: refuse it, exit 1, nothing printed.
+			if d.PointerLevel == gen.ServedPromptPointerLevelWorker {
+				return exitcode.Newf(exitcode.Error, "the server returned a WORKER-scope decision for an Agent read; that is not the Agent's served prompt, nothing to print")
+			}
 			if !validPointerLevel(d.PointerLevel) || strings.TrimSpace(d.CompiledNodeId) == "" || d.ServedRevSeq < 1 {
 				return exitcode.Newf(exitcode.Error, "the server returned a malformed boot-prompt decision; nothing to print")
 			}
