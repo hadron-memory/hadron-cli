@@ -44,10 +44,13 @@ alarm, and the CLI does not calculate the status from local time or tasks.
 TERMINAL is the worker's latest terminal report from a host (hadron-server
 #2771): the status (busy, idle, locked or dark), the reason for locked or dark,
 and the AGE of the report on every row — idle (3m), dark (no_turn_for_due_ticker,
-12m) — so a stale report from a stopped sweep reads as stale. The age is from
+12m). A report checked more than 30 minutes ago reads stale (8h), not idle (8h):
+it is a stopped sweep's last word, not the worker's state, so its status is
+withheld and only the age shows. When every reported row is stale the table
+ends with a note that the whole host report is stale. The age is from
 checkedAt, for display only; a dash means never reported or not available to you.
 --json carries the whole object (host, status, prompt, reason, lastTurnAt,
-checkedAt, reportedAt). It is stored and advisory: it decides nothing.
+checkedAt, reportedAt, stale). It is stored and advisory: it decides nothing.
 
 MODEL is what the worker's newest open binding SELF-REPORTED and TIER is the
 server's coarse high/mid/low mapping of it (a dash: unbound, unreported or
@@ -210,6 +213,11 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				if err := t.Flush(); err != nil {
 					return err
 				}
+				if note := staleTerminalNote(dto.Workers, now); note != "" {
+					if _, err := fmt.Fprintln(w, note); err != nil {
+						return err
+					}
+				}
 				if _, err := fmt.Fprintln(w, capacityLine(dto.Workers)); err != nil {
 					return err
 				}
@@ -219,6 +227,34 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 		},
 	}
 	return cmd
+}
+
+// staleTerminalNote is the roster's one-line warning that the whole host
+// report is stale (cli#1856): when EVERY reported terminal is past the stale
+// threshold, the host sweep has stopped reporting, and the column says nothing
+// about any worker now. A single fresh row means the sweep is alive, so a lone
+// stale row (a worker that just rebound, say) is not escalated. No reported
+// terminal at all is "nothing reported", not "stale".
+func staleTerminalNote(workers []rosterEntryDTO, now time.Time) string {
+	var reported, stale int
+	var newest time.Time
+	for _, e := range workers {
+		if e.Terminal == nil {
+			continue
+		}
+		reported++
+		if terminalStale(e.Terminal.CheckedAt, now) {
+			stale++
+		}
+		if at, err := time.Parse(time.RFC3339, e.Terminal.CheckedAt); err == nil && at.After(newest) {
+			newest = at
+		}
+	}
+	if reported == 0 || stale != reported {
+		return ""
+	}
+	return fmt.Sprintf("terminal reports: all %d are stale (newest checked %s ago) — the host sweep has stopped reporting; read the TERMINAL column as unknown",
+		reported, terminalAge(newest.Format(time.RFC3339), now))
 }
 
 // capacityLine tallies the roster rows the SERVER marked freeForWork, grouped
