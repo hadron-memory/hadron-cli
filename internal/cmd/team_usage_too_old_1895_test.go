@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -142,5 +146,38 @@ func TestUsage1895ProjectNullEnvelope(t *testing.T) {
 	}
 	if out != "" || len(projCalls(calls)) != 0 {
 		t.Fatalf("printed %q, made %d projections", out, len(projCalls(calls)))
+	}
+}
+
+// #1901 LOCAL F1/F2: "too old" only when EVERY error in the envelope is the
+// exact unknown-field rejection for the command's own field; a mixed envelope
+// (that rejection beside APP_NOT_FOUND, or beside an unrelated error) and each
+// single control are exactly api.MapError's answer — same exit, same message.
+func TestUsage1895NonTooOldIsExactlyMapError(t *testing.T) {
+	for _, c := range usageCases1895() {
+		own := &gqlerror.Error{Message: `Cannot query field "` + c.field + `" on type "Query".`}
+		appNF := &gqlerror.Error{Message: "refused: APP_NOT_FOUND", Extensions: map[string]any{"code": "APP_NOT_FOUND"}}
+		controls := map[string]gqlerror.List{
+			"unknown argument":        {{Message: `Unknown argument "appRef" on field "Query.` + c.field + `".`}},
+			"different field":         {{Message: `Cannot query field "asOfX" on type "Query". Did you mean "` + c.field + `"?`}},
+			"unrelated":               {{Message: "database is on fire"}},
+			"APP_NOT_FOUND by code":   {appNF},
+			"mixed own+APP_NOT_FOUND": {own, appNF},
+			"mixed APP_NOT_FOUND+own": {appNF, own},
+			"mixed own+unrelated":     {own, {Message: "database is on fire"}},
+		}
+		for name, list := range controls {
+			t.Run(c.name+"/"+name, func(t *testing.T) {
+				body, err := json.Marshal(map[string]any{"errors": list})
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := c.run(t, map[string]string{c.op: string(body)})
+				want := api.MapError(list)
+				if got == nil || exitOf(got) != exitOf(want) || got.Error() != want.Error() {
+					t.Fatalf("not api.MapError:\n got %d %q\nwant %d %q", exitOf(got), got, exitOf(want), want)
+				}
+			})
+		}
 	}
 }
