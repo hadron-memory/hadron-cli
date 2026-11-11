@@ -103,12 +103,34 @@ type batchPlanItem struct {
 	deleted  bool // the pointer named a deleted node
 }
 
-func approveCommand(ref string, rev int) string {
+func approveCommand(ref string, rev int, asWorker bool) string {
+	if asWorker {
+		// cli#1872: a batch that compiled as the bound worker prints the approve
+		// line that goes out the same way.
+		return fmt.Sprintf("hadron node approve %s --revision %d --as-worker", ref, rev)
+	}
 	return fmt.Sprintf("hadron node approve %s --revision %d", ref, rev)
+}
+
+// workerSend carries --as-worker for one batch: send wraps each compile
+// mutation's context (re-verifying the binding), nil on the default path.
+type workerSend struct {
+	send     func(context.Context) (context.Context, error)
+	asWorker bool
 }
 
 func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcompile.BatchOptions) error {
 	ctx := cmd.Context()
+	// --as-worker resolves its session before ANY request (cli#1872), dry run
+	// included: a run that could not apply is refused up front.
+	var ws workerSend
+	if opts.AsWorker {
+		send, err := f.ResolveWorkerWrite(ctx)
+		if err != nil {
+			return err
+		}
+		ws = workerSend{send: send, asWorker: true}
+	}
 	scope, err := compileNameScope(cmd, f)
 	if err != nil {
 		return err
@@ -199,7 +221,7 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 
 	if opts.Apply {
 		for _, item := range plan {
-			exit = max(exit, compileOne(ctx, client, &dto, item, opts.SetPointer))
+			exit = max(exit, compileOne(ctx, client, &dto, item, opts.SetPointer, ws))
 		}
 	}
 
@@ -216,9 +238,18 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 
 // compileOne sends the compile once and files the worker in its bucket,
 // returning the exit code it contributes.
-func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO, item batchPlanItem, setPointer *bool) int {
+func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO, item batchPlanItem, setPointer *bool, ws workerSend) int {
 	t := item.target
-	r, err := gen.CompileWorkerBootPrompt(ctx, client, t.ID, setPointer)
+	sendCtx := ctx
+	if ws.send != nil {
+		c, serr := ws.send(ctx)
+		if serr != nil {
+			dto.Failed = append(dto.Failed, compileBatchRefusalDTO{Name: t.Name, ID: t.ID, URN: t.URN, ExitCode: exitcode.Usage, Message: serr.Error()})
+			return exitcode.Usage
+		}
+		sendCtx = c
+	}
+	r, err := gen.CompileWorkerBootPrompt(sendCtx, client, t.ID, setPointer)
 	if err == nil && (r.CompileWorkerBootPrompt == nil || r.CompileWorkerBootPrompt.Node == nil || r.CompileWorkerBootPrompt.Node.Urn == "") {
 		dto.Unknown = append(dto.Unknown, compileBatchUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef,
 			Reason: "the server returned no compiled prompt; check with node get before compiling again", Outcome: lostUnknown, RevisionBefore: item.baseline})
@@ -236,7 +267,7 @@ func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO
 		res := r.CompileWorkerBootPrompt
 		dto.Compiled = append(dto.Compiled, compileBatchCompiledDTO{Name: t.Name, ID: t.ID, URN: t.URN,
 			CompiledNodeRef: res.Node.Urn, Revision: res.RevNo, ContentHash: res.ContentHash,
-			PointerSet: res.PointerSet, ApprovalIssued: res.ApprovalIssued, ApproveCommand: approveCommand(res.Node.Urn, res.RevNo)})
+			PointerSet: res.PointerSet, ApprovalIssued: res.ApprovalIssued, ApproveCommand: approveCommand(res.Node.Urn, res.RevNo, ws.asWorker)})
 		return exitcode.OK
 	}
 	code := api.ServerCodeOf(err)
@@ -247,7 +278,7 @@ func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO
 		dto.Skipped = append(dto.Skipped, compileBatchRefusalDTO{Name: t.Name, ID: t.ID, URN: t.URN, Code: code, ExitCode: ec, Message: mapped.Error()})
 		return exitcode.OK
 	case code == "" && ec == exitcode.Unavailable:
-		dto.Unknown = append(dto.Unknown, checkLostCompile(ctx, client, item, setPointer))
+		dto.Unknown = append(dto.Unknown, checkLostCompile(ctx, client, item, setPointer, ws.asWorker))
 		return exitcode.Unavailable
 	default:
 		if ec == exitcode.OK {
@@ -260,7 +291,7 @@ func compileOne(ctx context.Context, client graphql.Client, dto *compileBatchDTO
 
 // checkLostCompile makes the ONE read that decides whether a lost compile
 // landed, against the baseline read before compiling. It never compiles again.
-func checkLostCompile(ctx context.Context, client graphql.Client, item batchPlanItem, setPointer *bool) compileBatchUnknownDTO {
+func checkLostCompile(ctx context.Context, client graphql.Client, item batchPlanItem, setPointer *bool, asWorker bool) compileBatchUnknownDTO {
 	t := item.target
 	u := compileBatchUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef,
 		Reason: "the compile response was lost; it was not sent again", Outcome: lostUnknown, RevisionBefore: item.baseline}
@@ -278,7 +309,7 @@ func checkLostCompile(ctx context.Context, client graphql.Client, item batchPlan
 			u.Reason += "; no baseline revision to compare: check with node get before compiling again"
 		case after > *item.baseline:
 			u.Outcome = lostLanded
-			cmd := approveCommand(*t.CompiledNodeRef, after)
+			cmd := approveCommand(*t.CompiledNodeRef, after, asWorker)
 			u.ApproveCommand = &cmd
 			u.Reason += fmt.Sprintf("; a new revision landed (%d, was %d): read it before approving", after, *item.baseline)
 		default:
