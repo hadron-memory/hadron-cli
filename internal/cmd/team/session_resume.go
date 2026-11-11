@@ -91,8 +91,8 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	// rather than consumed here. Only a binding that carries a WorkerID can say.
 	var expectedWorker *string
 	if existing != nil {
-		if existing.WorkerID != "" {
-			expectedWorker = &existing.WorkerID
+		if id := strings.TrimSpace(existing.WorkerID); id != "" {
+			expectedWorker = &id
 		}
 		if err := checkBindingServer(f, existing); err != nil {
 			return err

@@ -145,6 +145,7 @@ func TestResumeSameWorkerAndNoBinding(t *testing.T) {
 
 func TestResumeNeverSentWithAs(t *testing.T) {
 	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
 	writeBinding(t, dir)
 	successor := strings.Replace(startedSessionJSON, `"s-new"`, `"s-successor"`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -183,7 +184,7 @@ func TestSessionStartHelpScopesTheSpentClaim(t *testing.T) {
 
 func mismatchWith(ext string) map[string]string {
 	st := mismatchStubs("CLAIM")
-	st["ResumeTeamSession"] = `{"errors":[{"message":"refused","extensions":{"code":"RESUME_REFUSED","reason":"WORKER_MISMATCH",` + ext + `}}],"data":null}`
+	st["ResumeTeamSession"] = `{"errors":[{"message":"refused","extensions":{"code":"RESUME_REFUSED","reason":"WORKER_MISMATCH"` + strings.TrimSuffix(","+ext, ",") + `}}],"data":null}`
 	return st
 }
 
@@ -252,5 +253,58 @@ func TestResumeMismatchNamesAreSanitized(t *testing.T) {
 		if r < 0x20 || r == 0x7f {
 			t.Fatalf("control character %q in the refusal: %q", r, err.Error())
 		}
+	}
+}
+
+// Delta (BLIND P2 on 2823fac2): a server that omits fields. The envelope
+// carries only what was sent; the message falls back through the binding's own
+// name and generic wording rather than printing blanks.
+func TestResumeMismatchServerOmitsFields(t *testing.T) {
+	out, err := runMismatch(t, ``, true)
+	var env struct {
+		Error struct {
+			ServerCode string         `json:"serverCode"`
+			Extensions map[string]any `json:"extensions"`
+		} `json:"error"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &env); jerr != nil {
+		t.Fatal(jerr)
+	}
+	if env.Error.ServerCode != "RESUME_REFUSED" || len(env.Error.Extensions) != 2 ||
+		env.Error.Extensions["code"] != "RESUME_REFUSED" || env.Error.Extensions["reason"] != "WORKER_MISMATCH" {
+		t.Errorf("omitted fields must stay omitted: %+v", env.Error)
+	}
+	// The binding file's own name stands in for the unsent expected name, and
+	// the unsent found worker and source read generically.
+	msg := err.Error()
+	for _, want := range []string{"Iris", "another worker of yours", "claim or live session", "untouched"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("fallback wording must say %q: %s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "  ") || strings.Contains(msg, "''") {
+		t.Errorf("no blank labels: %s", msg)
+	}
+}
+
+// A whitespace-only WorkerID in the binding file is not a worker: send nothing.
+func TestResumeBlankBindingWorkerSendsNothing(t *testing.T) {
+	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	blank := strings.Replace(bindingFixture, `"workerId":"wkr1"`, `"workerId":"  "`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(blank), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubs := resumeStubs("RESUMED")
+	stubs["GetBoundSessionLiveness"] = `{"data":{"session":{"id":"s-new","startedAt":"2026-08-11T10:00:00Z","endedAt":null,"isLive":false}}}`
+	gql, captured := captureGraphQL(t, stubs)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, sent := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; sent {
+		t.Error("a blank worker id must not be sent (the server refuses a blank as BAD_USER_INPUT)")
 	}
 }
