@@ -133,7 +133,7 @@ own code.`
 	refsHelp := "Agent and App references are ids or fully-qualified URNs."
 	switch kind {
 	case "app":
-		pointerHelp = "An App-Agent compile always sets the pointer (no --no-set-pointer flag)."
+		pointerHelp = "An App-Agent compile sets the pointer by default (no --no-set-pointer\nflag); with --as-worker the server never sets it."
 	case "worker":
 		refsHelp = `A worker is an id or a fully-qualified worker URN, which ignores the ambient
 App and binding, or a name in the selected App (--app, the configured App

@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -65,10 +66,21 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context) (func(context.
 		// before each mutation, so a swap during the lookup is caught there.
 		noteEndedBinding(ctx, b)
 		snapshot := *b
+		// The first failed verification is latched for the rest of the run: a
+		// binding that changes and is then restored must not let a later write
+		// of the same batch resume (blind P2 on PR #1883).
+		var mu sync.Mutex
+		var latched error
 		return func(mctx context.Context) (context.Context, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			if latched != nil {
+				return mctx, latched
+			}
 			now, _, err := readBindingFile(mctx)
 			if err != nil || !sameWriteBinding(now, &snapshot) {
-				return mctx, exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
+				latched = exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
+				return mctx, latched
 			}
 			return api.WithSession(mctx, snapshot.SessionID), nil
 		}, nil

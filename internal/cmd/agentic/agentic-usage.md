@@ -4766,7 +4766,7 @@ No automatic retry or client-side memory creation is added.
 ## Compile a boot prompt
 
 - `hadron agent compile <agent> [--no-set-pointer] [--as-worker]`
-- `hadron app agent compile <app> <agent> [--as-worker]` (always sets its pointer)
+- `hadron app agent compile <app> <agent> [--as-worker]` (by default always sets its pointer; with `--as-worker` the server never does)
 - `hadron team worker compile <worker> [--no-set-pointer] [--as-worker]`
 
 GraphQL-only operations. By default they act as yourself (a manager): none
