@@ -487,3 +487,15 @@ func TestLocalCheckMixedErrorsAreNotUnavailable(t *testing.T) {
 		}
 	}
 }
+
+// Ruth (SEC delta P3-4): a history read that fails for any reason but
+// "unreadable" is an error, not UNAVAILABLE.
+func TestLocalCheckHistoryServerFailureIsAnError(t *testing.T) {
+	r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+	r["NodeRawText"] = l879RawText(5, "Edited", "newer")
+	r["NodeRevisionTexts"] = refusalJSON("INTERNAL_SERVER_ERROR")
+	exit, out, _ := l879Run(t, r, "--check", "--json")
+	if exit != exitcode.Error || strings.Contains(out, "UNAVAILABLE") {
+		t.Errorf("exit = %d, out = %q", exit, out)
+	}
+}
