@@ -42,6 +42,10 @@ GRANT_TERMS_UNREPRESENTABLE, SIGNING_REQUEST_ENDED); 8 not permitted
 (GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED,
 SIGNING_REQUEST_NOT_REQUESTER, FORBIDDEN). --json errors carry serverCode.`
 
+// errNoSigningRequest is a mutation that answered null where it must answer a
+// request: a malformed server answer, reported as one rather than dereferenced.
+var errNoSigningRequest = errors.New("server returned no signing request")
+
 const unboundNote = "no worker binding in this worktree; sent without a worker session"
 
 // grantWriteBinding resolves the binding for a grant request verb. It returns nil
@@ -98,6 +102,9 @@ var grantSigningFields = []string{
 // skew advice (upgrade) is wrong where signing is simply not offered. A mixed
 // envelope (a missing name beside a real refusal) is not swallowed.
 func mapGrantSigningError(err error) error {
+	if errors.Is(err, errNoSigningRequest) {
+		return exitcode.Newf(exitcode.Error, "server returned no signing request")
+	}
 	if api.IsGraphQLValidationOnlyFor(err, grantSigningFields...) {
 		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "this server does not offer grant requests and grant signing"), err)
 	}
@@ -206,7 +213,7 @@ Prints the pending grant in the same fourteen fields as team grant get. Hand the
 next step to a person: hadron team grant request-signature <id>.
 
 ` + grantRequestHelp,
-		Example: "  hadron team grant request --action bootprompt.source.edit --values '{\"node\":\"<id>\"}' --reason 'fix a typo in my prompt'",
+		Example: "  hadron team grant request --action bootprompt.source.edit --values '{\"sourceNode\":\"<node-id>\"}' --reason 'fix a typo in my prompt'",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -271,7 +278,7 @@ next step to a person: hadron team grant request-signature <id>.
 			}
 			dto := workerGrantFrom(resp.CreateGrant)
 			if !f.JSON {
-				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "pending until a person signs it; next: hadron team grant request-signature %s\n", dto.ID)
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "pending until a person signs it; next: hadron team grant request-signature %s\n", output.SafeCell(dto.ID))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				names := []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows"}
@@ -332,8 +339,11 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 		"  hadron team grant request-signature <grant-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamRequestGrantSignature(ctx, c, id)
-			if err != nil || resp == nil {
+			if err != nil {
 				return nil, err
+			}
+			if resp == nil || resp.RequestGrantSignature == nil {
+				return nil, errNoSigningRequest
 			}
 			return &resp.RequestGrantSignature.TeamGrantSigningRequestFields, nil
 		})
@@ -356,8 +366,11 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 		"  hadron team grant signing-request withdraw <request-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamWithdrawGrantSigningRequest(ctx, c, id)
-			if err != nil || resp == nil {
+			if err != nil {
 				return nil, err
+			}
+			if resp == nil || resp.WithdrawGrantSigningRequest == nil {
+				return nil, errNoSigningRequest
 			}
 			return &resp.WithdrawGrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
