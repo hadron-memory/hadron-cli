@@ -51,7 +51,7 @@ func TestSnapshotScanAdvancesByTheItemsReturned(t *testing.T) {
 		revs = append(revs, r)
 	}
 	f := &fakeHistory{revisions: revs, clamp: 30}
-	c := newLocalChecker(context.Background(), f, "n1", 251)
+	c := newLocalChecker(context.Background(), f, "n1", "nid")
 	for _, want := range []int{250, 121, 1} {
 		got, err := c.text(want)
 		if err != nil || got == nil || *got.title != fmt.Sprintf("t%d", want) {

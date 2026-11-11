@@ -302,7 +302,7 @@ or UNSUPPORTED_VERSION.`,
 			}
 			localFailed := false
 			if check && len(dto.Signatures) > 0 {
-				lc := newLocalChecker(cmd.Context(), client, id, n.Revision)
+				lc := newLocalChecker(cmd.Context(), client, id, n.Id)
 				for i := range dto.Signatures {
 					res, err := lc.check(dto.Signatures[i])
 					if err != nil {

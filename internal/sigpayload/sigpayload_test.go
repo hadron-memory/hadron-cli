@@ -1,10 +1,12 @@
 package sigpayload
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -23,14 +25,21 @@ type fixtureCase struct {
 	ChallengeBase64url string `json:"challengeBase64url"`
 }
 
-// The vectors come only from the approved hadron-server fixture (hadron-server
+// The vectors come only from the approved hadron-server fixture (its own description still says DRAFT; see testdata/PROVENANCE.md) (hadron-server
 // 0a6a226f, #3120). A missing file fails the test: no locally written
 // expected bytes may stand in for it.
+// fixtureSHA256 is the SHA-256 of the approved fixture file at hadron-server
+// 0a6a226f (see testdata/PROVENANCE.md): the copy must stay byte-identical.
+const fixtureSHA256 = "34f96fc8ffa4a69fe435d369c047b7001e3f0a33b4d778226b88824a1249f17e"
+
 func loadFixture(t *testing.T) (string, []fixtureCase) {
 	t.Helper()
 	raw, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatalf("the approved v3 fixture is required: %v", err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != fixtureSHA256 {
+		t.Fatalf("fixture bytes changed: sha256 %s, want %s", got, fixtureSHA256)
 	}
 	var fx struct {
 		Version string        `json:"version"`

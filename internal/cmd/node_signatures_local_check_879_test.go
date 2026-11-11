@@ -83,6 +83,8 @@ func l879Responses(state string, integrity int, sig, request string) map[string]
 		"GetSigningRequest":   request,
 		"NodeRawText":         l879RawText(4, l879Title, l879Content),
 		"GetNodeRaw":          l879RawNode(),
+		// No earlier snapshots unless a test stubs some.
+		"NodeRevisionTexts": `{"data":{"nodeRevisionsPage":{"hasMore":false,"items":[]}}}`,
 	}
 }
 
