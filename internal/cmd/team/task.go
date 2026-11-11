@@ -89,8 +89,11 @@ person. The App: create and list use --app, else the configured App context,
 else the worktree binding; commands that take a task id or handle work out the
 App from the task. A task is named by its id or its handle (AT0.7: AT0 holds
 tasks outside any project, AT1, AT2, … are projects, AT1.2 is a task under AT1);
-when a bare handle matches tasks in more than one of your Apps, qualify it as
-hrn:agenttask:acme.com:eng-team:AT1.2.
+if you belong to more than one App, a bare handle is refused: pass --app <app>,
+or qualify it as hrn:agenttask:acme.com:eng-team:AT1.2. --app qualifies bare
+handles only (in every task argument and in --parent/--blocked-by); it must be
+the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
+handle in that same App, is sent unchanged; one naming another App is refused.
 
 A party is named worker:<id, URN or name> or user:<id or handle> — the kind
 prefix is required: a worker's name and a person's handle are both bare
@@ -151,11 +154,15 @@ func parseTaskPartyFlag(flag, value string) (*gen.AgentTaskPartyInput, error) {
 // The TRIMMED form is both validated and returned (cycle 2, Xylon P3-1): a
 // pasted id with surrounding whitespace used to be sent verbatim and fail as
 // NOT_FOUND for a reason the caller never typed.
-func taskRefArg(args []string) (string, error) {
+//
+// With an explicit --app, a bare handle is qualified in that App
+// (qualifyTaskRef, cli#1831); taking the Factory makes every positional site
+// go through it.
+func taskRefArg(f *cmdutil.Factory, args []string) (string, error) {
 	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
 	}
-	return strings.TrimSpace(args[0]), nil
+	return qualifyTaskRef(f, strings.TrimSpace(args[0]))
 }
 
 // taskOutcomeRe is the one-word outcome contract (cor:agt:050:01): the
@@ -437,6 +444,14 @@ warnings list.`,
 				if blockedBy[i] == "" {
 					return exitcode.Newf(exitcode.Usage, "--blocked-by must name a task")
 				}
+				if blockedBy[i], err = qualifyTaskRef(f, blockedBy[i]); err != nil {
+					return err
+				}
+			}
+			if parent != "" {
+				if parent, err = qualifyTaskRef(f, parent); err != nil {
+					return err
+				}
 			}
 			// A supplied blank is a usage slip, refused here. Every other
 			// check on the value (length, characters, the duplicate) is the
@@ -650,7 +665,7 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -761,7 +776,7 @@ func newSimpleTaskMutation(
 		Example: example,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -978,7 +993,7 @@ with its result and a warnings list.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -1083,7 +1098,7 @@ shows the same line later; handBack is null for a task never handed back.`,
   hadron team task hand-back AT0.8 --code duplicate`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := taskRefArg(args)
+			ref, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}

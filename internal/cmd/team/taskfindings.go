@@ -91,7 +91,7 @@ immutable result findings themselves (the separate findings client slice).`,
 			if limit < 0 || limit > 200 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit takes 0 to 200 and --offset must be non-negative")
 			}
-			ref, err := taskRefArg(a)
+			ref, err := taskRefArg(f, a)
 			if err != nil {
 				return err
 			}
@@ -146,7 +146,7 @@ when absent. The immutable result is neither sent nor modified.`,
 		Example: "  hadron team task dispose-finding AT1.2 F1 --disposition deferred --ref 'issue=https://example.com/issues/7|Follow-up' --json",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
-			ref, err := taskRefArg(a[:1])
+			ref, err := taskRefArg(f, a[:1])
 			if err != nil {
 				return err
 			}

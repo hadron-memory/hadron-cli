@@ -88,7 +88,7 @@ original values.`,
 			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
 				return err
 			}
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -524,6 +524,15 @@ ageFrom; --tree changes text only.`,
 			if cmd.Flags().Changed("overdue") {
 				overdueIn = &overdue
 			}
+			// --parent names a task: an explicit --app qualifies a bare
+			// handle before any read (cli#1831).
+			if parent != "" {
+				q, err := qualifyTaskRef(f, parent)
+				if err != nil {
+					return err
+				}
+				parent = q
+			}
 			// Task listing needs App scope, not a worktree. Let the scope
 			// resolver name the remedies when neither is available; retain
 			// binding errors other than the absence of a worktree.
@@ -879,7 +888,7 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rootId, err := taskRefArg(args)
+			rootId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
