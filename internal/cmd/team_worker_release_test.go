@@ -307,6 +307,85 @@ func TestWorkerReleaseForbiddenJSONEnvelopeUnchanged(t *testing.T) {
 	if e := json.Unmarshal([]byte(raw), &env); e != nil || env.Error["code"] != float64(exitcode.Forbidden) || env.Error["message"] == nil || len(env.Error) != 2 {
 		t.Fatalf("error envelope changed: %v\n%s", e, raw)
 	}
+	// #1863 item 3: not merely "some message" — the exact text agents read: the
+	// holder and remedy first, the server's own sentence kept after them.
+	const want = "Iris is held by Dara (@dara); only the holder, or an App or org admin, can release it: " +
+		"You are not authorized to manage workers in this App."
+	if got := env.Error["message"]; got != want {
+		t.Errorf("--json message = %q, want %q", got, want)
+	}
+}
+
+// #1863 item 2: the stale-retry path. A caller who cannot read the hold asserts
+// "unheld", the server answers WORKER_HOLD_STALE naming the CALLER as the
+// holder, and the retry is then refused as FORBIDDEN. That is a self-release,
+// so it must stay undecorated exactly as on the initial path: the refusal must
+// never present the caller as a third-party holder (cor:agt:020:09, FIT on #1863).
+func TestWorkerReleaseRetrySelfReleaseForbiddenIsNotDecorated(t *testing.T) {
+	srv, _ := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-holger"), releaseForbidden1859}, nil)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected the server's refusal")
+	}
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Errorf("exit = %d, want %d: %v", code, exitcode.Forbidden, err)
+	}
+	for _, bad := range []string{"is held by", "only the holder", "App or org admin"} {
+		if strings.Contains(err.Error(), bad) {
+			t.Errorf("a self-release refused on retry must not be decorated (%q): %v", bad, err)
+		}
+	}
+	if !strings.Contains(err.Error(), "You are not authorized to manage workers in this App.") {
+		t.Errorf("the server's own sentence must survive: %v", err)
+	}
+}
+
+// #1863 item 4 (Ruth, §10): nameHolderOnForbidden decorates ONLY a Forbidden.
+// Any other server error maps exactly as api.MapError maps it — same exit code,
+// same message, no holder or remedy bolted on — on both the initial path and
+// the stale-retry path.
+func TestWorkerReleaseNonForbiddenErrorPassesThroughUnchanged(t *testing.T) {
+	const other = `{"errors":[{"message":"Worker not found.","extensions":{"code":"NOT_FOUND"}}]}`
+	const wantMsg = "Worker not found."
+	check := func(t *testing.T, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatal("expected the server's error")
+		}
+		if code := exitCodeFor(err); code == exitcode.Forbidden {
+			t.Errorf("a non-Forbidden error must not become Forbidden: %v", err)
+		}
+		if err.Error() != wantMsg {
+			t.Errorf("message = %q, want the server sentence alone, as api.MapError maps it: %q", err.Error(), wantMsg)
+		}
+		for _, bad := range []string{"is held by", "only the holder"} {
+			if strings.Contains(err.Error(), bad) {
+				t.Errorf("a non-Forbidden error must not be decorated (%q): %v", bad, err)
+			}
+		}
+	}
+	t.Run("initial path", func(t *testing.T) {
+		stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": other})
+		for k, v := range daraUser1859 {
+			stubs[k] = v
+		}
+		check(t, runRelease1859(t, stubs, "--yes"))
+	})
+	t.Run("stale-retry path", func(t *testing.T) {
+		gilUser := map[string]string{
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		}
+		srv, _ := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil"), other}, gilUser)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", srv.URL})
+		check(t, root.Execute())
+	})
 }
 
 // …and with --yes it proceeds, names the prior holder as a PERSON, and says the
