@@ -65,6 +65,91 @@ var AllAccessSource = []AccessSource{
 	AccessSourcePublicVisibility,
 }
 
+// AccountUsageAccountsAccountUsageAccounts includes the requested fields of the GraphQL type AccountUsageAccounts.
+// The GraphQL type's documentation follows.
+//
+// #3853 — the accounts an App has usage history for. complete is false when more exist than the bound
+// (hrn:node:hadronmemory.com:specs:cor:agt:140:05); a cut list is not a refusal.
+type AccountUsageAccountsAccountUsageAccounts struct {
+	AsOf     string                                                                 `json:"asOf"`
+	Accounts []*AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount `json:"accounts"`
+	Complete bool                                                                   `json:"complete"`
+}
+
+// GetAsOf returns AccountUsageAccountsAccountUsageAccounts.AsOf, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetAsOf() string { return v.AsOf }
+
+// GetAccounts returns AccountUsageAccountsAccountUsageAccounts.Accounts, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetAccounts() []*AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount {
+	return v.Accounts
+}
+
+// GetComplete returns AccountUsageAccountsAccountUsageAccounts.Complete, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetComplete() bool { return v.Complete }
+
+// AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount includes the requested fields of the GraphQL type AccountUsageAccount.
+// The GraphQL type's documentation follows.
+//
+// #3853 — one usage account an App has history for (hrn:node:hadronmemory.com:specs:cor:agt:140:05): the label, host and family
+// that together are an account (hrn:node:hadronmemory.com:specs:cor:agt:140:01). Passed back to accountUsageProjection as account,
+// host and family, every entry is accepted. workers and workersConfigured are the newest snapshot's.
+type AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount struct {
+	Account           string   `json:"account"`
+	Host              string   `json:"host"`
+	Family            string   `json:"family"`
+	NewestSnapshotAt  string   `json:"newestSnapshotAt"`
+	Workers           []string `json:"workers"`
+	WorkersConfigured bool     `json:"workersConfigured"`
+}
+
+// GetAccount returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Account, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetAccount() string {
+	return v.Account
+}
+
+// GetHost returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Host, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetHost() string {
+	return v.Host
+}
+
+// GetFamily returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Family, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetFamily() string {
+	return v.Family
+}
+
+// GetNewestSnapshotAt returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.NewestSnapshotAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetNewestSnapshotAt() string {
+	return v.NewestSnapshotAt
+}
+
+// GetWorkers returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Workers, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetWorkers() []string {
+	return v.Workers
+}
+
+// GetWorkersConfigured returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.WorkersConfigured, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetWorkersConfigured() bool {
+	return v.WorkersConfigured
+}
+
+// AccountUsageAccountsResponse is returned by AccountUsageAccounts on success.
+type AccountUsageAccountsResponse struct {
+	// #3853 — the usage accounts an App has history for: one entry per label, host and family
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:01) with a valid account-usage snapshot in the App's own team-space memory in
+	// the last 14 days, the same history and horizon accountUsageProjection reads
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:05). Readers: as accountUsageProjection
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:03, resting on hrn:node:hadronmemory.com:specs:cor:agt:050:21 and
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:23); anyone else is refused APP_NOT_FOUND. At most 50 accounts, the most
+	// recently written kept, ordered by label, host and family; complete is false when more exist, or when the bounded search for
+	// accounts with valid history stopped short. An App with no history gets an empty list.
+	AccountUsageAccounts *AccountUsageAccountsAccountUsageAccounts `json:"accountUsageAccounts"`
+}
+
+// GetAccountUsageAccounts returns AccountUsageAccountsResponse.AccountUsageAccounts, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsResponse) GetAccountUsageAccounts() *AccountUsageAccountsAccountUsageAccounts {
+	return v.AccountUsageAccounts
+}
+
 // #3820 — how many of the 1h, 6h and 24h lookbacks had data: one is LOW, two MEDIUM, three HIGH.
 type AccountUsageConfidence string
 
@@ -105927,6 +106012,14 @@ type __AcceptInvitationInput struct {
 // GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
 func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
 
+// __AccountUsageAccountsInput is used internally by genqlient
+type __AccountUsageAccountsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AccountUsageAccountsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AccountUsageAccountsInput) GetAppRef() string { return v.AppRef }
+
 // __AccountUsageProjectionInput is used internally by genqlient
 type __AccountUsageProjectionInput struct {
 	AppRef  string                   `json:"appRef"`
@@ -116812,6 +116905,54 @@ func AcceptInvitation(
 	}
 
 	data_ = &AcceptInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AccountUsageAccounts.
+const AccountUsageAccounts_Operation = `
+query AccountUsageAccounts ($appRef: ID!) {
+	accountUsageAccounts(appRef: $appRef) {
+		asOf
+		accounts {
+			account
+			host
+			family
+			newestSnapshotAt
+			workers
+			workersConfigured
+		}
+		complete
+	}
+}
+`
+
+// cli#1875: an App's usage accounts (hadron-server#3853, cor:agt:140:05).
+// A SEPARATE document on purpose, like usage_projection.graphql: a server that
+// predates the field fails validation of this document only, and the failure
+// maps to "server too old". It selects exactly the envelope and entry fields of
+// the contract (an AST pin asserts that).
+func AccountUsageAccounts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AccountUsageAccountsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AccountUsageAccounts",
+		Query:  AccountUsageAccounts_Operation,
+		Variables: &__AccountUsageAccountsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AccountUsageAccountsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
