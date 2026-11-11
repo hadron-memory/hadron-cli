@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -304,5 +305,44 @@ func TestUsageEventsAppKeyComposesWithLoc(t *testing.T) {
 	}
 	if vars["loc"] != "a:b:c" || vars["memoryId"] != "hrn:mem:acme.com:kb" || vars["appKey"] != "k1" {
 		t.Errorf("by-key variables = %v", vars)
+	}
+}
+
+// cli#1819 item 4 / review F1: the shared row mapper is pinned by WHOLE output, every field populated and then null,
+// on both operations. A swapped or dropped getter (or a changed JSON name) turns this red.
+const usage1819Full = `{"id":"e2","type":"read","createdAt":"2026-10-23T01:02:03Z","memoryId":"m2","nodeLoc":"a:b","provider":"prov","model":"mod","keyOwnerType":"APP","tokensIn":11,"tokensOut":22,"costMicroCents":"333"}`
+const usage1819Null = `{"id":"e3","type":"write","createdAt":"2026-10-23T04:05:06Z","memoryId":null,"nodeLoc":null,"provider":null,"model":null,"keyOwnerType":null,"tokensIn":null,"tokensOut":null,"costMicroCents":null}`
+
+func TestUsageEventsJSONWholeOutputPinnedOnBothOperations(t *testing.T) {
+	resp := `{"data":{"usageEventsPage":{"total":2,"hasMore":false,"items":[` + usage1819Full + `,` + usage1819Null + `]}}}`
+	var want []map[string]any
+	if err := json.Unmarshal([]byte(`[`+usage1819Full+`,`+usage1819Null+`]`), &want); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"usage", "events", "--json"},
+		{"usage", "events", "--json", "--app-key", "k1"},
+	} {
+		out, stderr, code, _ := usage65Run(t, resp, args...)
+		if code != 0 {
+			t.Fatalf("%v: exit %d %s", args, code, stderr)
+		}
+		var got []map[string]any
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%v: rows differ\n got %v\nwant %v", args, got, want)
+		}
+		if len(got) != 2 || len(got[1]) != 11 {
+			t.Errorf("%v: every field must be present, null included: %v", args, got)
+		}
+	}
+	// An empty page is the bare empty array on both operations.
+	for _, args := range [][]string{{"usage", "events", "--json"}, {"usage", "events", "--json", "--app-key", "k1"}} {
+		out, _, code, _ := usage65Run(t, usage1205Empty, args...)
+		if code != 0 || strings.TrimSpace(out) != "[]" {
+			t.Errorf("%v: empty page = %q (exit %d), want []", args, out, code)
+		}
 	}
 }
