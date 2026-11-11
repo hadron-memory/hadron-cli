@@ -18,14 +18,13 @@ no longer has the `rm` alias.
 - **`--json`** is `{"app": "<ref>", "status": "deleted" | "uninstalled" | "installed"}`.
   `status` is the resulting state. For `uninstall` and `reinstall` the server
   answers a repeat as it does a real change, so a repeat prints the same thing.
-  A repeat `app delete` is refused `APP_NOT_FOUND` (exit 4): a deleted App
-  reads as missing. The old
+  A repeat `app delete` is refused: `APP_DELETED` (exit 5) by id, and the
+  identical refusal (exit 8) by URN, which a deleted App no longer holds. The old
   `"status": "uninstalled"` for a deletion is now `"deleted"`.
 - **Refusals:**
-  - `APP_DELETED` (exit 5): a deleted App can't be uninstalled or reinstalled.
+  - `APP_DELETED` (exit 5): a deleted App can't be uninstalled, reinstalled or deleted again.
   - `APP_URN_IN_USE` (exit 5): another installed App holds the handle, so reinstall is refused.
-  - For `uninstall` and `reinstall`, a missing App and a caller without the right get one identical refusal (exit 8).
-  - For `delete`, a missing (or already deleted) App is `APP_NOT_FOUND` (exit 4), the server's answer.
+  - A missing App and a caller without the right get one identical refusal (exit 8), for all three commands.
   - The `--json` error envelope carries the server's code as `serverCode`.
 - **Refs:**
   - An id or URN is sent to the server unchanged.

@@ -49,3 +49,5 @@ The snapshot was refreshed at hadron-server `9478620f` (origin/main, contains `1
 hadron-docs `docs/reference/hadron-cli.md` follows through its own lane (linked at closeout).
 
 Unchanged neighbours, pinned: the `app agent remove` alias `uninstall`, `team health uninstall` and `team usage uninstall`.
+
+**As built after hadron-server#3978 (#3975, merged `b435dc38`):** `deleteApp` now answers a missing App and a refused caller with the one FORBIDDEN (exit 8), by id and by URN, and refuses a repeat by id `APP_DELETED` (exit 5); a URN reaches only the installed holder, so a repeat by URN is the same FORBIDDEN. The help, release notes, agentic-usage and the refusal pins follow that; the interim `APP_NOT_FOUND` (exit 4) wording above is superseded.

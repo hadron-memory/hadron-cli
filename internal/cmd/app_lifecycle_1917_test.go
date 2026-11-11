@@ -16,7 +16,7 @@ import (
 //	app uninstall (no alias) -> uninstallApp  state "uninstalled"
 //	app reinstall            -> reinstallApp  state "installed"
 //
-// The server answers true for a real move and for a repeat alike, so the
+// uninstall/reinstall answer true for a real move and for a repeat alike, so the
 // output states the resulting state, never a transition.
 
 const (
@@ -206,9 +206,10 @@ func TestAppLifecycle1917RefusalsAreTypedAndNeverPreflighted(t *testing.T) {
 		// renders it once and never reads first to tell them apart.
 		{[]string{"app", "uninstall"}, refusal("UninstallApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
 		{[]string{"app", "reinstall"}, refusal("ReinstallApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
-		// deleteApp resolves its ref without deleted Apps: a repeat delete, like
-		// a missing App, is the server's APP_NOT_FOUND (Celine's stack F3).
-		{[]string{"app", "delete"}, refusal("DeleteApp", "APP_NOT_FOUND", "App not found."), exitcode.NotFound, "not found", "APP_NOT_FOUND"},
+		// deleteApp after hadron-server#3975: a missing App and a refused caller
+		// get one FORBIDDEN; a repeat by id is APP_DELETED (Celine's stack F3).
+		{[]string{"app", "delete"}, refusal("DeleteApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
+		{[]string{"app", "delete"}, refusal("DeleteApp", "APP_DELETED", "This App is deleted."), exitcode.Conflict, "deleted", "APP_DELETED"},
 	}
 	for _, c := range cases {
 		_, captured, err := runLifecycle(t, c.resp, withYes(append(append([]string{}, c.args...), lifecycleURN)...)...)

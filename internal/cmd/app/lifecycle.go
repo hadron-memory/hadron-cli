@@ -16,8 +16,9 @@ import (
 
 // The App lifecycle (cli#1917, hadron-server#3774, cor:dmo:050:21; Holger's
 // option A, R4): each command calls exactly one mutation and reports the
-// RESULTING state in the spec's words. The server answers true for a real
-// move and for a repeat alike, so no output claims a transition.
+// RESULTING state in the spec's words. uninstallApp/reinstallApp answer true
+// for a real move and for a repeat alike, so no output claims a transition;
+// a repeat deleteApp is refused (APP_DELETED by id, hadron-server#3975).
 const (
 	appStateDeleted     = "deleted"
 	appStateUninstalled = "uninstalled"
@@ -79,13 +80,15 @@ install memories, as history; there is no undelete. A new App may later
 reclaim its handle. To keep an App read-only and reversible instead, use
 hadron app uninstall.
 
-<app-ref> is an App id or URN, sent to the server unchanged. Name an
-uninstalled App by its id: its former URN may now name a different,
-installed App.
+<app-ref> is an App id or URN, sent to the server unchanged. A URN names
+only the installed App holding it, so name an uninstalled App by its id:
+its former URN may now name a different, installed App.
 
 Prints the resulting state; --json is {"app": <ref>, "status": "deleted"}.
-A deleted App reads as missing: a repeat, like a ref naming no App, is
-refused APP_NOT_FOUND (exit 4). Asks for confirmation on a terminal; a
+A missing App and a caller without the right get one identical refusal
+(exit 8). A repeat by id is refused APP_DELETED (exit 5); by URN, the
+deleted App no longer holds it, so the repeat gets that same refusal (exit
+8). Asks for confirmation on a terminal; a
 non-interactive caller must pass --yes. Before cli#1917 this was
 "app uninstall"; rm still means delete.`,
 		Example: `  hadron app delete capp1a2b3c4d5e6f7g8h9i0j --yes
