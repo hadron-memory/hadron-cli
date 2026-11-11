@@ -37,9 +37,24 @@ func l879Sig(version string, revision int) string {
 }
 
 func l879Request1(pinned string) string {
-	return fmt.Sprintf(`{"data":{"signingRequest":{"id":%q,"nodeId":%q,"nodeUrn":"hrn:node:acme.com:kb:findings:flaky-ci","revision":4,`+
-		`"approvalHash":%q,"payloadVersion":"hadron-signature-v3","state":"SIGNED","createdAt":"2026-10-14T06:00:00Z",`+
-		`"expiresAt":"2026-10-15T06:00:00Z","endedAt":null,"namedSigner":null,"requestedBy":null,"signature":null}}}`, l879Request, l879NodeID, pinned)
+	return l879RequestFor(pinned, 4, l879NodeID, l879Request, "hadron-signature-v3")
+}
+
+func l879RequestFor(pinned string, revision int, nodeID, id, version string) string {
+	return fmt.Sprintf(`{"data":{"signingRequest":{"id":%q,"nodeId":%q,"nodeUrn":"hrn:node:acme.com:kb:findings:flaky-ci","revision":%d,`+
+		`"approvalHash":%q,"payloadVersion":%q,"state":"SIGNED","createdAt":"2026-10-14T06:00:00Z",`+
+		`"expiresAt":"2026-10-15T06:00:00Z","endedAt":null,"namedSigner":null,"requestedBy":null,"signature":null}}}`, id, nodeID, revision, pinned, version)
+}
+
+// l879Status is the status read for the node whose stable id the request names.
+func l879Status(state string, integrity int, sigs string) string {
+	return strings.Replace(signatureStatusJSON(state, integrity, sigs), `"id":"n1"`, `"id":"`+l879NodeID+`"`, 1)
+}
+
+// l879RawText is the narrow current-text read: the node's revision beside its text.
+func l879RawText(revision int, name, content string) string {
+	b, _ := json.Marshal(content)
+	return fmt.Sprintf(`{"data":{"node":{"id":%q,"revision":%d,"name":%q,"abstract":null,"content":%s}}}`, l879NodeID, revision, name, b)
 }
 
 const l879NullRequest = `{"data":{"signingRequest":null}}`
@@ -64,8 +79,9 @@ func l879Run(t *testing.T, responses map[string]string, args ...string) (int, st
 func l879Responses(state string, integrity int, sig, request string) map[string]string {
 	return map[string]string{
 		"ResolveUrn":          resolveNodeJSON,
-		"NodeSignatureStatus": signatureStatusJSON(state, integrity, sig),
+		"NodeSignatureStatus": l879Status(state, integrity, sig),
 		"GetSigningRequest":   request,
+		"NodeRawText":         l879RawText(4, l879Title, l879Content),
 		"GetNodeRaw":          l879RawNode(),
 	}
 }
@@ -122,12 +138,13 @@ func TestLocalCheckStatesPerRecord(t *testing.T) {
 func TestLocalCheckRevisionUnreadableIsUnavailable(t *testing.T) {
 	r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
 	r["GetNodeRaw"] = `{"data":{"node":null}}`
+	r["NodeRawText"] = `{"data":{"node":null}}`
 	_, out, _ := l879Run(t, r, "--check", "--json")
 	if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "UNAVAILABLE" {
 		t.Errorf("localCheck = %v", got)
 	}
 	// An earlier revision absent from the page is the same.
-	r = l879Responses("EARLIER", 0, l879Sig("hadron-signature-v3", 3), l879Request1(l879GoodHash()))
+	r = l879Responses("EARLIER", 0, l879Sig("hadron-signature-v3", 3), l879RequestFor(l879GoodHash(), 3, l879NodeID, l879Request, "hadron-signature-v3"))
 	r["NodeRevisionTexts"] = `{"data":{"nodeRevisionsPage":{"hasMore":false,"items":[{"revNo":2,"name":"x","abstract":null,"content":"y"}]}}}`
 	_, out, _ = l879Run(t, r, "--check", "--json")
 	if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "UNAVAILABLE" {
@@ -138,11 +155,12 @@ func TestLocalCheckRevisionUnreadableIsUnavailable(t *testing.T) {
 // A signature on an earlier revision is checked against that revision's own
 // stored text, not the node's current text.
 func TestLocalCheckUsesTheSignedRevisionsOwnText(t *testing.T) {
-	r := l879Responses("EARLIER", 0, l879Sig("hadron-signature-v3", 3), l879Request1(l879GoodHash()))
+	r := l879Responses("EARLIER", 0, l879Sig("hadron-signature-v3", 3), l879RequestFor(l879GoodHash(), 3, l879NodeID, l879Request, "hadron-signature-v3"))
 	r["NodeRevisionTexts"] = `{"data":{"nodeRevisionsPage":{"hasMore":false,"items":[` +
 		`{"revNo":4,"name":"Edited","abstract":null,"content":"newer"},` +
 		`{"revNo":3,"name":"Flaky CI","abstract":null,"content":"line one\r\nline two\n"}]}}}`
 	r["GetNodeRaw"] = `{"data":{"node":{"id":"n1","urn":"u","memoryId":"mem1","loc":"l","name":"Edited","abstract":null,"content":"newer","nodeType":"info"}}}`
+	r["NodeRawText"] = l879RawText(4, "Edited", "newer")
 	_, out, captured := l879Run(t, r, "--check", "--json")
 	if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "PAYLOAD_CONSISTENT" {
 		t.Errorf("localCheck = %v, want PAYLOAD_CONSISTENT", got)
@@ -237,7 +255,7 @@ func TestWithoutCheckOutputIsUnchanged(t *testing.T) {
 	if code != exitcode.OK {
 		t.Fatalf("exit = %d", code)
 	}
-	for _, op := range []string{"GetSigningRequest", "GetNodeRaw", "NodeRevisionTexts"} {
+	for _, op := range []string{"GetSigningRequest", "GetNodeRaw", "NodeRawText", "NodeRevisionTexts"} {
 		if _, sent := captured[op]; sent {
 			t.Errorf("%s sent without --check", op)
 		}
@@ -246,7 +264,7 @@ func TestWithoutCheckOutputIsUnchanged(t *testing.T) {
 		t.Errorf("localCheck present without --check: %s", out)
 	}
 	wantJSON := `{
-  "nodeId": "n1",
+  "nodeId": "01a10408afb6716c80d6944e8845467b",
   "urn": "hrn:node:acme.com:kb:findings:flaky-ci",
   "loc": "findings:flaky-ci",
   "revision": 4,
@@ -325,7 +343,7 @@ func TestCheckWordingClaimsNoLocalVerification(t *testing.T) {
 func TestCheckRequestsNoAssertionOrKeyMaterial(t *testing.T) {
 	resp := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
 	_, out, captured := l879Run(t, resp, "--check", "--json")
-	allowed := map[string]bool{"ResolveUrn": true, "NodeSignatureStatus": true, "GetSigningRequest": true, "GetNodeRaw": true, "NodeRevisionTexts": true}
+	allowed := map[string]bool{"ResolveUrn": true, "NodeSignatureStatus": true, "GetSigningRequest": true, "NodeRawText": true, "NodeRevisionTexts": true}
 	for op, vars := range captured {
 		if !allowed[op] {
 			t.Errorf("unexpected operation %s %s", op, vars)
@@ -343,9 +361,97 @@ func TestCheckRequestsNoAssertionOrKeyMaterial(t *testing.T) {
 func TestUnsupportedVersionReadsNothingElse(t *testing.T) {
 	resp := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v1", 4), l879Request1(l879GoodHash()))
 	_, _, captured := l879Run(t, resp, "--check", "--json")
-	for _, op := range []string{"GetSigningRequest", "GetNodeRaw", "NodeRevisionTexts"} {
+	for _, op := range []string{"GetSigningRequest", "GetNodeRaw", "NodeRawText", "NodeRevisionTexts"} {
 		if _, sent := captured[op]; sent {
 			t.Errorf("%s sent for a v1 record", op)
+		}
+	}
+}
+
+// F1 (BLIND P2, LOCAL): the request must be the one the signature names, for
+// this node, at the signed revision, at v3. Any other request agreeing on the
+// hash alone is not a consistent record.
+func TestLocalCheckBindsTheRequestToTheSignature(t *testing.T) {
+	good := l879GoodHash()
+	cases := []struct{ name, request string }{
+		{"other request id", l879RequestFor(good, 4, l879NodeID, "AAAAAAAAAAAAAAAAAAAAAQ", "hadron-signature-v3")},
+		{"other node", l879RequestFor(good, 4, "01a10408afb6716c80d6944e8845467c", l879Request, "hadron-signature-v3")},
+		{"other revision", l879RequestFor(good, 3, l879NodeID, l879Request, "hadron-signature-v3")},
+		{"request not v3", l879RequestFor(good, 4, l879NodeID, l879Request, "hadron-signature-v2")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, out, _ := l879Run(t, l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), tc.request), "--check", "--json")
+			if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "HASH_MISMATCH" {
+				t.Errorf("localCheck = %v, want HASH_MISMATCH", got)
+			}
+			if code != exitcode.Conflict {
+				t.Errorf("exit = %d, want 5", code)
+			}
+		})
+	}
+}
+
+// F1 (LOCAL P2, BLIND P2): the node advances between the status read and the
+// text read. The signed revision's own snapshot is used, never the newer text
+// against the older request.
+func TestLocalCheckSurvivesTheNodeAdvancingBetweenReads(t *testing.T) {
+	r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+	r["NodeRawText"] = l879RawText(5, "Edited", "newer text")
+	r["GetNodeRaw"] = `{"data":{"node":{"id":"n1","urn":"u","memoryId":"mem1","loc":"l","name":"Edited","abstract":null,"content":"newer text","nodeType":"info"}}}`
+	r["NodeRevisionTexts"] = `{"data":{"nodeRevisionsPage":{"hasMore":false,"items":[` +
+		`{"revNo":4,"name":"Flaky CI","abstract":null,"content":"line one\r\nline two\n"}]}}}`
+	code, out, captured := l879Run(t, r, "--check", "--json")
+	if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "PAYLOAD_CONSISTENT" {
+		t.Errorf("localCheck = %v, want PAYLOAD_CONSISTENT (a false mismatch exits 5 for an unchanged record)", got)
+	}
+	if code != exitcode.OK {
+		t.Errorf("exit = %d, want 0", code)
+	}
+	if _, ok := captured["NodeRevisionTexts"]; !ok {
+		t.Error("the signed revision's snapshot was not read")
+	}
+}
+
+// F2 (LOCAL P2): a follow-up read the caller may not make is reported as
+// UNAVAILABLE and the status still prints; it never aborts the command.
+func TestLocalCheckUnreadableFollowUpReadsAreUnavailableNotAborts(t *testing.T) {
+	for _, op := range []string{"GetSigningRequest", "NodeRawText", "NodeRevisionTexts"} {
+		for _, code := range []string{"NODE_NOT_FOUND", "SIGNING_REQUEST_NOT_FOUND", "FORBIDDEN"} {
+			t.Run(op+"/"+code, func(t *testing.T) {
+				r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+				if op == "NodeRevisionTexts" {
+					// Reached only when the node moved on past the signed revision.
+					r["NodeRawText"] = l879RawText(5, "Edited", "newer")
+				}
+				r[op] = refusalJSON(code)
+				exit, out, _ := l879Run(t, r, "--check", "--json")
+				if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "UNAVAILABLE" {
+					t.Errorf("localCheck = %v, want UNAVAILABLE; output %q", got, out)
+				}
+				if exit != exitcode.OK {
+					t.Errorf("exit = %d, want 0 (UNAVAILABLE under a CURRENT roll-up)", exit)
+				}
+			})
+		}
+	}
+	// ... and under a failing roll-up the server's exit 5 is kept after printing.
+	r := l879Responses("EARLIER", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+	r["GetSigningRequest"] = refusalJSON("NODE_NOT_FOUND")
+	if exit, out, _ := l879Run(t, r, "--check", "--json"); exit != exitcode.Conflict || !strings.Contains(out, `"integrityProblems"`) {
+		t.Errorf("exit = %d, out = %q", exit, out)
+	}
+}
+
+// A transport or internal failure is not "unreadable": it is an error, never
+// folded into UNAVAILABLE.
+func TestLocalCheckServerFailureIsAnErrorNotUnavailable(t *testing.T) {
+	for _, op := range []string{"GetSigningRequest", "NodeRawText"} {
+		r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+		r[op] = refusalJSON("INTERNAL_SERVER_ERROR")
+		exit, out, _ := l879Run(t, r, "--check", "--json")
+		if exit != exitcode.Error || strings.Contains(out, "UNAVAILABLE") {
+			t.Errorf("%s: exit = %d, out = %q", op, exit, out)
 		}
 	}
 }
