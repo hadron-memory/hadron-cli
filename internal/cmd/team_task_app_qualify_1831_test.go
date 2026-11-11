@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -180,45 +181,61 @@ func TestTaskAppQualify1831SameAppQualifiedUnchanged(t *testing.T) {
 // Acceptance 8: every task-ref site of `team task` goes through the helper.
 // A site that skips it sends the bare handle, and its row goes red.
 func TestTaskAppQualify1831EverySite(t *testing.T) {
+	const at5, at6, at9 = "hrn:agenttask:r:s:AT0.5", "hrn:agenttask:r:s:AT0.6", "hrn:agenttask:r:s:AT0.9"
+	// op is the GraphQL operation that must carry the ref(s); refs maps the exact
+	// variable path to the qualified value expected there (#1876). A leaf search
+	// would pass a ref in the wrong operation or variable, or the two refs of a
+	// two-ref command swapped.
 	for _, tc := range []struct {
 		name string
 		argv []string
-		want []string // qualified refs that must be sent
+		op   string
+		refs map[string]string
 	}{
-		{"get", []string{"get", "AT0.5"}, nil},
-		{"tree", []string{"tree", "AT0.5"}, nil},
-		{"update", []string{"update", "AT0.5", "--title", "x"}, nil},
-		{"start", []string{"start", "AT0.5"}, nil},
-		{"progress", []string{"progress", "AT0.5"}, nil},
-		{"finish", []string{"finish", "AT0.5", "--outcome", "ok"}, nil},
-		{"hand-back", []string{"hand-back", "AT0.5", "--code", "refused"}, nil},
-		{"cancel", []string{"cancel", "AT0.5"}, nil},
-		{"park", []string{"park", "AT0.5"}, nil},
-		{"ready", []string{"ready", "AT0.5"}, nil},
-		{"assign", []string{"assign", "AT0.5", "--assignee", "worker:Iris"}, nil},
-		{"reassign", []string{"reassign", "AT0.5", "--assignee", "worker:Iris"}, nil},
-		{"clone", []string{"clone", "AT0.5"}, nil},
-		{"findings", []string{"findings", "AT0.5"}, nil},
-		{"finding-dispositions", []string{"finding-dispositions", "AT0.5"}, nil},
-		{"dispose-finding", []string{"dispose-finding", "AT0.5", "F1", "--disposition", "fixed"}, nil},
-		{"dependencies", []string{"dependencies", "AT0.5"}, nil},
-		{"set-priority", []string{"set-priority", "AT0.5", "2"}, nil},
-		{"add-blocker", []string{"add-blocker", "AT0.5", "AT0.6"}, []string{"hrn:agenttask:r:s:AT0.6"}},
-		{"remove-blocker", []string{"remove-blocker", "AT0.5", "AT0.6"}, []string{"hrn:agenttask:r:s:AT0.6"}},
-		{"create --parent", []string{"create", "child", "--parent", "AT0.5"}, nil},
-		{"create --blocked-by", []string{"create", "blocked", "--blocked-by", "AT0.5", "--blocked-by", "AT0.6"}, []string{"hrn:agenttask:r:s:AT0.6"}},
-		{"clone --parent", []string{"clone", "AT0.9", "--parent", "AT0.5"}, []string{"hrn:agenttask:r:s:AT0.9"}},
-		{"list --parent", []string{"list", "--parent", "AT0.5"}, nil},
+		{"get", []string{"get", "AT0.5"}, "AgentTaskGet", map[string]string{"id": at5}},
+		{"tree", []string{"tree", "AT0.5"}, "AgentTaskTree", map[string]string{"root": at5}},
+		{"update", []string{"update", "AT0.5", "--title", "x"}, "AgentTaskUpdate", map[string]string{"taskId": at5}},
+		{"start", []string{"start", "AT0.5"}, "AgentTaskStart", map[string]string{"taskId": at5}},
+		{"progress", []string{"progress", "AT0.5"}, "AgentTaskProgress", map[string]string{"taskId": at5}},
+		{"finish", []string{"finish", "AT0.5", "--outcome", "ok"}, "AgentTaskFinish", map[string]string{"taskId": at5}},
+		{"hand-back", []string{"hand-back", "AT0.5", "--code", "refused"}, "AgentTaskHandBack", map[string]string{"taskRef": at5}},
+		{"cancel", []string{"cancel", "AT0.5"}, "AgentTaskCancel", map[string]string{"taskId": at5}},
+		{"park", []string{"park", "AT0.5"}, "AgentTaskPark", map[string]string{"taskId": at5}},
+		{"ready", []string{"ready", "AT0.5"}, "AgentTaskReady", map[string]string{"taskId": at5}},
+		{"assign", []string{"assign", "AT0.5", "--assignee", "worker:Iris"}, "AgentTaskAssign", map[string]string{"taskId": at5}},
+		{"reassign", []string{"reassign", "AT0.5", "--assignee", "worker:Iris"}, "AgentTaskReassign", map[string]string{"taskId": at5}},
+		{"clone", []string{"clone", "AT0.5"}, "AgentTaskClone", map[string]string{"taskId": at5}},
+		{"findings", []string{"findings", "AT0.5"}, "AgentTaskResultFindings", map[string]string{"id": at5}},
+		{"finding-dispositions", []string{"finding-dispositions", "AT0.5"}, "AgentTaskFindingDispositions", map[string]string{"taskRef": at5}},
+		{"dispose-finding", []string{"dispose-finding", "AT0.5", "F1", "--disposition", "fixed"}, "AgentTaskDisposeFinding", map[string]string{"taskRef": at5}},
+		{"dependencies", []string{"dependencies", "AT0.5"}, "AgentTaskDependencies", map[string]string{"taskRef": at5}},
+		{"set-priority", []string{"set-priority", "AT0.5", "2"}, "AgentTaskSetPriority", map[string]string{"taskRef": at5}},
+		{"add-blocker", []string{"add-blocker", "AT0.5", "AT0.6"}, "AgentTaskAddBlocker", map[string]string{"taskRef": at5, "blockerTaskRef": at6}},
+		{"remove-blocker", []string{"remove-blocker", "AT0.5", "AT0.6"}, "AgentTaskRemoveBlocker", map[string]string{"taskRef": at5, "blockerTaskRef": at6}},
+		{"create --parent", []string{"create", "child", "--parent", "AT0.5"}, "AgentTaskCreate", map[string]string{"input.parentTaskId": at5}},
+		{"create --blocked-by", []string{"create", "blocked", "--blocked-by", "AT0.5", "--blocked-by", "AT0.6"}, "AgentTaskCreate", map[string]string{"input.blockedBy.0": at5, "input.blockedBy.1": at6}},
+		{"clone --parent", []string{"clone", "AT0.9", "--parent", "AT0.5"}, "AgentTaskClone", map[string]string{"taskId": at9, "input.parentTaskId": at5}},
+		{"list --parent", []string{"list", "--parent", "AT0.5"}, "AgentTaskList", map[string]string{"parentTaskId": at5}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			argv := append(append([]string{"team", "task"}, tc.argv...), "--app", app1831)
 			calls, out, _ := run1831(t, nil, argv...)
-			vals := sent1831(calls)
-			for _, w := range append([]string{"hrn:agenttask:r:s:AT0.5"}, tc.want...) {
-				if !has1831(vals, w) {
-					t.Errorf("%s: %q not sent; sent %v\n%s", tc.name, w, vals, out)
+			var got *call1831
+			for i := range *calls {
+				if (*calls)[i].Op == tc.op {
+					got = &(*calls)[i]
+					break
 				}
 			}
+			if got == nil {
+				t.Fatalf("%s: operation %s never sent; sent %v\n%s", tc.name, tc.op, *calls, out)
+			}
+			for path, want := range tc.refs {
+				if v, ok := varAt1831(got.Vars, path); !ok || v != want {
+					t.Errorf("%s: %s %s = %q (present=%v), want %q\n%s", tc.name, tc.op, path, v, ok, want, out)
+				}
+			}
+			vals := sent1831(calls)
 			for _, bare := range []string{"AT0.5", "AT0.6", "AT0.9"} {
 				if has1831(vals, bare) {
 					t.Errorf("%s: bare handle %q sent despite --app", tc.name, bare)
@@ -226,6 +243,28 @@ func TestTaskAppQualify1831EverySite(t *testing.T) {
 			}
 		})
 	}
+}
+
+// varAt1831 reads the string at a dotted variable path ("input.blockedBy.1");
+// a numeric segment indexes an array.
+func varAt1831(vars map[string]any, path string) (string, bool) {
+	var cur any = vars
+	for _, seg := range strings.Split(path, ".") {
+		switch x := cur.(type) {
+		case map[string]any:
+			cur = x[seg]
+		case []any:
+			i, err := strconv.Atoi(seg)
+			if err != nil || i < 0 || i >= len(x) {
+				return "", false
+			}
+			cur = x[i]
+		default:
+			return "", false
+		}
+	}
+	s, ok := cur.(string)
+	return s, ok
 }
 
 // Acceptance 9: the help line no longer says the refusal depends on matches.
