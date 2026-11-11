@@ -1151,6 +1151,12 @@ func TestOnlyErrorCodes(t *testing.T) {
 		{"no code", gqlerror.List{{Message: "x"}}, false},
 		{"not graphql", errors.New("boom"), false},
 		{"nil", nil, false},
+		// cli#1907: a 5xx envelope is not proof of a refusal (a gateway can
+		// answer 502 with an errors body after the server acted), so a known
+		// code inside one is still false. A 4xx envelope reads as a refusal.
+		{"502 envelope carrying a known code", &graphql.HTTPError{StatusCode: 502, Response: graphql.Response{Errors: list("FORBIDDEN").(gqlerror.List)}}, false},
+		{"500 envelope carrying only known codes", &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: list("FORBIDDEN", "NODE_NOT_FOUND").(gqlerror.List)}}, false},
+		{"403 envelope carrying a known code", &graphql.HTTPError{StatusCode: 403, Response: graphql.Response{Errors: list("FORBIDDEN").(gqlerror.List)}}, true},
 	}
 	for _, tc := range cases {
 		if got := OnlyErrorCodes(tc.err, known...); got != tc.want {
