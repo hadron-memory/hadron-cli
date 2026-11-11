@@ -835,7 +835,8 @@ func TestTeamWorkerRetire(t *testing.T) {
 	}
 	// #1654: retiring keeps the name bound, but cor:agt:020:02 / cor:dmo:050:11
 	// leave one release, `worker rm` on a casting that never did anything. The
-	// output must not promise "never" or "forever", and must name that escape.
+	// output must name that escape and must not make any of the over-broad
+	// versions of it listed in retireOverpromises.
 	got := out.String()
 	if !strings.Contains(got, "stays bound") || !strings.Contains(got, "worker rm") {
 		t.Errorf("retire output should state the name stays bound and name the rm escape: %s", got)
@@ -847,9 +848,10 @@ func TestTeamWorkerRetire(t *testing.T) {
 	}
 }
 
-// retireOverpromises are the claims the retire surfaces must not make: the
-// name can be freed by `worker rm` for a casting that never did anything. Only
-// the long help is rendered by --help, so the short line is not asserted.
+// retireOverpromises are the over-broad versions of the one claim the retire
+// surfaces do make (a name is freed only by `worker rm` on a casting that never
+// did anything). Only the long help is rendered by --help, so the short line is
+// not asserted.
 var retireOverpromises = []string{"forever", "never re-cast", "the one way to free"}
 
 // #1654: the retire help and the confirm prompt name the rm escape and do not
