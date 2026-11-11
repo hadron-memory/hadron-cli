@@ -51,10 +51,10 @@ func TestCoordinatorCadenceAlarm1607(t *testing.T) {
 			t.Run(tc.name+map[bool]string{false: "_list", true: "_ack"}[ack], func(t *testing.T) {
 				raw := cadenceEvent1607(t, ack, tc.reason, tc.full, tc.subject)
 				r := taskResponses()
-				r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + raw + `]}}`
+				r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + raw + `],"hasMore":false,"nextCursor":null}}}`
 				r["AlarmAcknowledge"] = `{"data":{"acknowledgeAlarm":` + raw + `}}`
 				args := []string{"team", "events", "--alarms"}
-				op := "AgentTeamEvents"
+				op := "AgentTeamEventsPage"
 				if ack {
 					args = []string{"team", "alarm", "ack", "evt2"}
 					op = "AlarmAcknowledge"
@@ -110,11 +110,13 @@ func TestCoordinatorCadenceAlarm1607(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else {
-					var rows []map[string]any
-					if err = json.Unmarshal([]byte(out), &rows); err != nil || len(rows) != 1 {
-						t.Fatalf("rows=%v err=%v", rows, err)
+					var page struct {
+						Events []map[string]any `json:"events"`
 					}
-					got = rows[0]
+					if err = json.Unmarshal([]byte(out), &page); err != nil || len(page.Events) != 1 {
+						t.Fatalf("rows=%v err=%v", page.Events, err)
+					}
+					got = page.Events[0]
 				}
 				var want map[string]any
 				if err = json.Unmarshal([]byte(raw), &want); err != nil {

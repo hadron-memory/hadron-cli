@@ -13224,103 +13224,126 @@ var AllAgentTeamEventSeverity = []AgentTeamEventSeverity{
 	AgentTeamEventSeverityAlarm,
 }
 
-// AgentTeamEventsAgentTeamEventsAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
+// AgentTeamEventsPageAgentTeamEventsPage includes the requested fields of the GraphQL type AgentTeamEventsPage.
+// The GraphQL type's documentation follows.
+//
+// #3933: one page of an App's team events and whether more remain (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+type AgentTeamEventsPageAgentTeamEventsPage struct {
+	Events []*AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent `json:"events"`
+	// True when events beyond this page match the same read.
+	HasMore bool `json:"hasMore"`
+	// The id of the last event served when hasMore, to pass as after (or with newestFirst as before); null on the last page.
+	NextCursor *string `json:"nextCursor"`
+}
+
+// GetEvents returns AgentTeamEventsPageAgentTeamEventsPage.Events, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPage) GetEvents() []*AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent {
+	return v.Events
+}
+
+// GetHasMore returns AgentTeamEventsPageAgentTeamEventsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPage) GetHasMore() bool { return v.HasMore }
+
+// GetNextCursor returns AgentTeamEventsPageAgentTeamEventsPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPage) GetNextCursor() *string { return v.NextCursor }
+
+// AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
 // The GraphQL type's documentation follows.
 //
 // One append-only record of something that happened in a team App's task work
 // (hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
 // one thing added later. payload carries ids, counts and outcome words only,
 // never message or description text.
-type AgentTeamEventsAgentTeamEventsAgentTeamEvent struct {
+type AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent struct {
 	AgentTeamEventFields `json:"-"`
 }
 
-// GetId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Id, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetId() string {
+// GetId returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetId() string {
 	return v.AgentTeamEventFields.Id
 }
 
-// GetAppId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetAppId() string {
+// GetAppId returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetAppId() string {
 	return v.AgentTeamEventFields.AppId
 }
 
-// GetTaskId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetTaskId() *string {
+// GetTaskId returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetTaskId() *string {
 	return v.AgentTeamEventFields.TaskId
 }
 
-// GetType returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetType() string {
+// GetType returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetType() string {
 	return v.AgentTeamEventFields.Type
 }
 
-// GetSeverity returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
+// GetSeverity returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
 	return v.AgentTeamEventFields.Severity
 }
 
-// GetCreatedAt returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetCreatedAt() string {
+// GetCreatedAt returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetCreatedAt() string {
 	return v.AgentTeamEventFields.CreatedAt
 }
 
-// GetActor returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
+// GetActor returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
 	return v.AgentTeamEventFields.Actor
 }
 
-// GetActorRunId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
+// GetActorRunId returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetActorRunId() *string {
 	return v.AgentTeamEventFields.ActorRunId
 }
 
-// GetSubjectWorker returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
+// GetSubjectWorker returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
 	return v.AgentTeamEventFields.SubjectWorker
 }
 
-// GetPayload returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetPayload() json.RawMessage {
+// GetPayload returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetPayload() json.RawMessage {
 	return v.AgentTeamEventFields.Payload
 }
 
-// GetAcknowledgedAt returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetAcknowledgedAt() *string {
+// GetAcknowledgedAt returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetAcknowledgedAt() *string {
 	return v.AgentTeamEventFields.AcknowledgedAt
 }
 
-// GetAcknowledgedBy returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
+// GetAcknowledgedBy returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
 	return v.AgentTeamEventFields.AcknowledgedBy
 }
 
-// GetEpisodeStart returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetEpisodeStart() *string {
+// GetEpisodeStart returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetEpisodeStart() *string {
 	return v.AgentTeamEventFields.EpisodeStart
 }
 
-// GetChain returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetChain() *json.RawMessage {
+// GetChain returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetChain() *json.RawMessage {
 	return v.AgentTeamEventFields.Chain
 }
 
-// GetWakes returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
+// GetWakes returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
 	return v.AgentTeamEventFields.Wakes
 }
 
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) UnmarshalJSON(b []byte) error {
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AgentTeamEventsAgentTeamEventsAgentTeamEvent
+		*AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AgentTeamEventsAgentTeamEventsAgentTeamEvent = v
+	firstPass.AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -13335,7 +13358,7 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) UnmarshalJSON(b []byte) e
 	return nil
 }
 
-type __premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent struct {
+type __premarshalAgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent struct {
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -13367,7 +13390,7 @@ type __premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent struct {
 	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
 }
 
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) MarshalJSON() ([]byte, error) {
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -13375,8 +13398,8 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) MarshalJSON() ([]byte, er
 	return json.Marshal(premarshaled)
 }
 
-func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent, error) {
-	var retval __premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarshalJSON() (*__premarshalAgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent, error) {
+	var retval __premarshalAgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent
 
 	retval.Id = v.AgentTeamEventFields.Id
 	retval.AppId = v.AgentTeamEventFields.AppId
@@ -13396,212 +13419,18 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
-// AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
-// The GraphQL type's documentation follows.
-//
-// One append-only record of something that happened in a team App's task work
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
-// one thing added later. payload carries ids, counts and outcome words only,
-// never message or description text.
-type AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
-	AgentTeamEventFields `json:"-"`
+// AgentTeamEventsPageResponse is returned by AgentTeamEventsPage on success.
+type AgentTeamEventsPageResponse struct {
+	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
+	// filters, order and paging, returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
+	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+	// newestFirst, as before; null on the last page.
+	AgentTeamEventsPage *AgentTeamEventsPageAgentTeamEventsPage `json:"agentTeamEventsPage"`
 }
 
-// GetId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Id, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetId() string {
-	return v.AgentTeamEventFields.Id
-}
-
-// GetAppId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAppId() string {
-	return v.AgentTeamEventFields.AppId
-}
-
-// GetTaskId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetTaskId() *string {
-	return v.AgentTeamEventFields.TaskId
-}
-
-// GetType returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetType() string {
-	return v.AgentTeamEventFields.Type
-}
-
-// GetSeverity returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
-	return v.AgentTeamEventFields.Severity
-}
-
-// GetCreatedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetCreatedAt() string {
-	return v.AgentTeamEventFields.CreatedAt
-}
-
-// GetActor returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
-	return v.AgentTeamEventFields.Actor
-}
-
-// GetActorRunId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
-	return v.AgentTeamEventFields.ActorRunId
-}
-
-// GetSubjectWorker returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
-	return v.AgentTeamEventFields.SubjectWorker
-}
-
-// GetPayload returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetPayload() json.RawMessage {
-	return v.AgentTeamEventFields.Payload
-}
-
-// GetAcknowledgedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedAt() *string {
-	return v.AgentTeamEventFields.AcknowledgedAt
-}
-
-// GetAcknowledgedBy returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
-	return v.AgentTeamEventFields.AcknowledgedBy
-}
-
-// GetEpisodeStart returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetEpisodeStart() *string {
-	return v.AgentTeamEventFields.EpisodeStart
-}
-
-// GetChain returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetChain() *json.RawMessage {
-	return v.AgentTeamEventFields.Chain
-}
-
-// GetWakes returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
-	return v.AgentTeamEventFields.Wakes
-}
-
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.AgentTeamEventFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
-	Id string `json:"id"`
-
-	AppId string `json:"appId"`
-
-	TaskId *string `json:"taskId"`
-
-	Type string `json:"type"`
-
-	Severity *AgentTeamEventSeverity `json:"severity"`
-
-	CreatedAt string `json:"createdAt"`
-
-	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
-
-	ActorRunId *string `json:"actorRunId"`
-
-	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
-
-	Payload json.RawMessage `json:"payload"`
-
-	AcknowledgedAt *string `json:"acknowledgedAt"`
-
-	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
-
-	EpisodeStart *string `json:"episodeStart"`
-
-	Chain *json.RawMessage `json:"chain"`
-
-	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
-}
-
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent, error) {
-	var retval __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
-
-	retval.Id = v.AgentTeamEventFields.Id
-	retval.AppId = v.AgentTeamEventFields.AppId
-	retval.TaskId = v.AgentTeamEventFields.TaskId
-	retval.Type = v.AgentTeamEventFields.Type
-	retval.Severity = v.AgentTeamEventFields.Severity
-	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
-	retval.Actor = v.AgentTeamEventFields.Actor
-	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
-	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
-	retval.Payload = v.AgentTeamEventFields.Payload
-	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
-	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
-	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
-	retval.Chain = v.AgentTeamEventFields.Chain
-	retval.Wakes = v.AgentTeamEventFields.Wakes
-	return &retval, nil
-}
-
-// AgentTeamEventsByCodeResponse is returned by AgentTeamEventsByCode on success.
-type AgentTeamEventsByCodeResponse struct {
-	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
-	// order. To read the next page pass after: the id of the last event you
-	// read; the cursor is the (createdAt, id) pair, so events sharing a
-	// timestamp are never skipped. since is a coarse time filter (strictly
-	// after), not a continuation. limit defaults to 20 (cap 200).
-	// #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
-	// order with the same gate, filters and paging, continued with before (the id of the oldest event read).
-	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
-	AgentTeamEvents []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
-}
-
-// GetAgentTeamEvents returns AgentTeamEventsByCodeResponse.AgentTeamEvents, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsByCodeResponse) GetAgentTeamEvents() []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent {
-	return v.AgentTeamEvents
-}
-
-// AgentTeamEventsResponse is returned by AgentTeamEvents on success.
-type AgentTeamEventsResponse struct {
-	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
-	// order. To read the next page pass after: the id of the last event you
-	// read; the cursor is the (createdAt, id) pair, so events sharing a
-	// timestamp are never skipped. since is a coarse time filter (strictly
-	// after), not a continuation. limit defaults to 20 (cap 200).
-	// #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
-	// order with the same gate, filters and paging, continued with before (the id of the oldest event read).
-	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
-	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
-}
-
-// GetAgentTeamEvents returns AgentTeamEventsResponse.AgentTeamEvents, and is useful for accessing the field via an interface.
-func (v *AgentTeamEventsResponse) GetAgentTeamEvents() []*AgentTeamEventsAgentTeamEventsAgentTeamEvent {
-	return v.AgentTeamEvents
+// GetAgentTeamEventsPage returns AgentTeamEventsPageResponse.AgentTeamEventsPage, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageResponse) GetAgentTeamEventsPage() *AgentTeamEventsPageAgentTeamEventsPage {
+	return v.AgentTeamEventsPage
 }
 
 // cli#913: per-template CRUD, no runtime ticker writes or worker session.
@@ -107382,73 +107211,49 @@ func (v *__AgentTaskUpdateInput) GetTaskId() string { return v.TaskId }
 // GetInput returns __AgentTaskUpdateInput.Input, and is useful for accessing the field via an interface.
 func (v *__AgentTaskUpdateInput) GetInput() *UpdateAgentTaskInput { return v.Input }
 
-// __AgentTeamEventsByCodeInput is used internally by genqlient
-type __AgentTeamEventsByCodeInput struct {
-	AppRef     string   `json:"appRef"`
-	CodePrefix string   `json:"codePrefix"`
-	After      *string  `json:"after,omitempty"`
-	AlarmsOnly *bool    `json:"alarmsOnly,omitempty"`
-	Limit      *int     `json:"limit,omitempty"`
-	Since      *string  `json:"since,omitempty"`
-	TaskId     *string  `json:"taskId,omitempty"`
-	Types      []string `json:"types,omitempty"`
+// __AgentTeamEventsPageInput is used internally by genqlient
+type __AgentTeamEventsPageInput struct {
+	AppRef      string   `json:"appRef"`
+	After       *string  `json:"after,omitempty"`
+	Before      *string  `json:"before,omitempty"`
+	NewestFirst *bool    `json:"newestFirst,omitempty"`
+	CodePrefix  *string  `json:"codePrefix,omitempty"`
+	AlarmsOnly  *bool    `json:"alarmsOnly,omitempty"`
+	Limit       *int     `json:"limit,omitempty"`
+	Since       *string  `json:"since,omitempty"`
+	TaskId      *string  `json:"taskId,omitempty"`
+	Types       []string `json:"types,omitempty"`
 }
 
-// GetAppRef returns __AgentTeamEventsByCodeInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetAppRef() string { return v.AppRef }
+// GetAppRef returns __AgentTeamEventsPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetAppRef() string { return v.AppRef }
 
-// GetCodePrefix returns __AgentTeamEventsByCodeInput.CodePrefix, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetCodePrefix() string { return v.CodePrefix }
+// GetAfter returns __AgentTeamEventsPageInput.After, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetAfter() *string { return v.After }
 
-// GetAfter returns __AgentTeamEventsByCodeInput.After, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetAfter() *string { return v.After }
+// GetBefore returns __AgentTeamEventsPageInput.Before, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetBefore() *string { return v.Before }
 
-// GetAlarmsOnly returns __AgentTeamEventsByCodeInput.AlarmsOnly, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
+// GetNewestFirst returns __AgentTeamEventsPageInput.NewestFirst, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetNewestFirst() *bool { return v.NewestFirst }
 
-// GetLimit returns __AgentTeamEventsByCodeInput.Limit, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetLimit() *int { return v.Limit }
+// GetCodePrefix returns __AgentTeamEventsPageInput.CodePrefix, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetCodePrefix() *string { return v.CodePrefix }
 
-// GetSince returns __AgentTeamEventsByCodeInput.Since, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetSince() *string { return v.Since }
+// GetAlarmsOnly returns __AgentTeamEventsPageInput.AlarmsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
 
-// GetTaskId returns __AgentTeamEventsByCodeInput.TaskId, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetTaskId() *string { return v.TaskId }
+// GetLimit returns __AgentTeamEventsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetLimit() *int { return v.Limit }
 
-// GetTypes returns __AgentTeamEventsByCodeInput.Types, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsByCodeInput) GetTypes() []string { return v.Types }
+// GetSince returns __AgentTeamEventsPageInput.Since, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetSince() *string { return v.Since }
 
-// __AgentTeamEventsInput is used internally by genqlient
-type __AgentTeamEventsInput struct {
-	AppRef     string   `json:"appRef"`
-	After      *string  `json:"after,omitempty"`
-	AlarmsOnly *bool    `json:"alarmsOnly,omitempty"`
-	Limit      *int     `json:"limit,omitempty"`
-	Since      *string  `json:"since,omitempty"`
-	TaskId     *string  `json:"taskId,omitempty"`
-	Types      []string `json:"types,omitempty"`
-}
+// GetTaskId returns __AgentTeamEventsPageInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetTaskId() *string { return v.TaskId }
 
-// GetAppRef returns __AgentTeamEventsInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetAppRef() string { return v.AppRef }
-
-// GetAfter returns __AgentTeamEventsInput.After, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetAfter() *string { return v.After }
-
-// GetAlarmsOnly returns __AgentTeamEventsInput.AlarmsOnly, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
-
-// GetLimit returns __AgentTeamEventsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetLimit() *int { return v.Limit }
-
-// GetSince returns __AgentTeamEventsInput.Since, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetSince() *string { return v.Since }
-
-// GetTaskId returns __AgentTeamEventsInput.TaskId, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetTaskId() *string { return v.TaskId }
-
-// GetTypes returns __AgentTeamEventsInput.Types, and is useful for accessing the field via an interface.
-func (v *__AgentTeamEventsInput) GetTypes() []string { return v.Types }
+// GetTypes returns __AgentTeamEventsPageInput.Types, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetTypes() []string { return v.Types }
 
 // __AgentTickerTemplatesInput is used internally by genqlient
 type __AgentTickerTemplatesInput struct {
@@ -121838,11 +121643,15 @@ func AgentTaskUpdate(
 	return data_, err_
 }
 
-// The query executed by AgentTeamEvents.
-const AgentTeamEvents_Operation = `
-query AgentTeamEvents ($appRef: ID!, $after: ID, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
-	agentTeamEvents(appRef: $appRef, after: $after, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
-		... AgentTeamEventFields
+// The query executed by AgentTeamEventsPage.
+const AgentTeamEventsPage_Operation = `
+query AgentTeamEventsPage ($appRef: ID!, $after: ID, $before: ID, $newestFirst: Boolean, $codePrefix: String, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
+	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+		events {
+			... AgentTeamEventFields
+		}
+		hasMore
+		nextCursor
 	}
 }
 fragment AgentTeamEventFields on AgentTeamEvent {
@@ -121883,116 +121692,42 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
-func AgentTeamEvents(
+// Page-aware read of the team event stream (cor:api:120:04, server#3933): the
+// server says whether more rows exist (hasMore) and hands the continuation
+// (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
+// before and newestFirst are sent only when set.
+func AgentTeamEventsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	after *string,
+	before *string,
+	newestFirst *bool,
+	codePrefix *string,
 	alarmsOnly *bool,
 	limit *int,
 	since *string,
 	taskId *string,
 	types []string,
-) (data_ *AgentTeamEventsResponse, err_ error) {
+) (data_ *AgentTeamEventsPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "AgentTeamEvents",
-		Query:  AgentTeamEvents_Operation,
-		Variables: &__AgentTeamEventsInput{
-			AppRef:     appRef,
-			After:      after,
-			AlarmsOnly: alarmsOnly,
-			Limit:      limit,
-			Since:      since,
-			TaskId:     taskId,
-			Types:      types,
+		OpName: "AgentTeamEventsPage",
+		Query:  AgentTeamEventsPage_Operation,
+		Variables: &__AgentTeamEventsPageInput{
+			AppRef:      appRef,
+			After:       after,
+			Before:      before,
+			NewestFirst: newestFirst,
+			CodePrefix:  codePrefix,
+			AlarmsOnly:  alarmsOnly,
+			Limit:       limit,
+			Since:       since,
+			TaskId:      taskId,
+			Types:       types,
 		},
 	}
 
-	data_ = &AgentTeamEventsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by AgentTeamEventsByCode.
-const AgentTeamEventsByCode_Operation = `
-query AgentTeamEventsByCode ($appRef: ID!, $codePrefix: String!, $after: ID, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
-	agentTeamEvents(appRef: $appRef, codePrefix: $codePrefix, after: $after, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
-		... AgentTeamEventFields
-	}
-}
-fragment AgentTeamEventFields on AgentTeamEvent {
-	id
-	appId
-	taskId
-	type
-	severity
-	createdAt
-	actor {
-		... AgentTaskPartyFields
-	}
-	actorRunId
-	subjectWorker {
-		... AgentTaskPartyFields
-	}
-	payload
-	acknowledgedAt
-	acknowledgedBy {
-		... AgentTaskPartyFields
-	}
-	episodeStart
-	chain
-	wakes {
-		chainIndex
-		dueAt
-		owner {
-			... AgentTaskPartyFields
-		}
-		wokenAt
-	}
-}
-fragment AgentTaskPartyFields on AgentTaskParty {
-	id
-	kind
-	name
-	urn
-}
-`
-
-func AgentTeamEventsByCode(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-	codePrefix string,
-	after *string,
-	alarmsOnly *bool,
-	limit *int,
-	since *string,
-	taskId *string,
-	types []string,
-) (data_ *AgentTeamEventsByCodeResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AgentTeamEventsByCode",
-		Query:  AgentTeamEventsByCode_Operation,
-		Variables: &__AgentTeamEventsByCodeInput{
-			AppRef:     appRef,
-			CodePrefix: codePrefix,
-			After:      after,
-			AlarmsOnly: alarmsOnly,
-			Limit:      limit,
-			Since:      since,
-			TaskId:     taskId,
-			Types:      types,
-		},
-	}
-
-	data_ = &AgentTeamEventsByCodeResponse{}
+	data_ = &AgentTeamEventsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

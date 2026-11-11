@@ -410,6 +410,13 @@ Every other filter, and --limit/--offset, is refused with --team (exit 2);
 --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
+The open-alarm counts come from a complete oldest-first walk of the App's alarm
+events. If that walk stops early (the 100-page bound, or the server reports more
+events without advancing its cursor) the counts are lower bounds and say so:
+text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
+task in the table; --json marks every task openAlarmsIncomplete:true (a missing
+openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
+reason, lastEventId, pages}. Both markers are absent on a complete walk.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
     than that, where idle runs from the record's updatedAt, else startedAt,
     else createdAt. Records lag real progress (PR pushes, receipts); a stderr
@@ -883,7 +890,11 @@ onto the tree client-side — the join is presentation, the alarm facts are the
 server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
 acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
 or missing root exits 4. Text cells neutralise terminal controls and are bounded;
---json carries complete, original values.`,
+--json carries complete, original values.
+If the alarm walk stops early the counts are lower bounds: text prints one
+INCOMPLETE line and ≥N, and --json marks every task openAlarmsIncomplete:true
+(a missing openAlarms then means unknown, not none); both are absent when the
+walk is complete.`,
 		Example: "  hadron team task tree AT1",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -910,7 +921,7 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 					break
 				}
 			}
-			alarmsByTask, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, appID)
+			alarmsByTask, alarmStop, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, appID)
 			if err != nil {
 				return err
 			}
@@ -923,6 +934,10 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 				if n, ok := alarmsByTask[dto.ID]; ok {
 					open := n
 					dto.OpenAlarms = &open
+				}
+				if alarmStop != nil {
+					incomplete := true
+					dto.OpenAlarmsIncomplete = &incomplete
 				}
 				tasks = append(tasks, dto)
 			}
@@ -955,6 +970,11 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+				if alarmStop != nil && len(tasks) > 0 {
+					if _, err := fmt.Fprintln(w, alarmStop.explain()); err != nil {
+						return err
+					}
+				}
 				visited := map[string]bool{}
 				var draw func(*taskDTO, int) error
 				draw = func(task *taskDTO, depth int) error {
@@ -984,51 +1004,98 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 	return cmd
 }
 
+// alarmWalkStop says why an open-alarm walk ended before the server's page end
+// (cli#1919, cor:api:120:04). nil means the walk ended on hasMore:false, so
+// the counts are complete. Reason is "page-limit" or "cursor-stalled".
+type alarmWalkStop struct {
+	Reason      string
+	LastEventID string
+	Pages       int
+}
+
+const (
+	alarmStopPageLimit     = "page-limit"
+	alarmStopCursorStalled = "cursor-stalled"
+)
+
+// explain is the one stdout line both commands print when the counts are
+// lower bounds. The event id is server text, so it goes through SafeCell.
+func (s *alarmWalkStop) explain() string {
+	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s at %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
+		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
+}
+
 // openAlarmsByTask counts the App's alarm events not yet acknowledged, keyed
-// by task — `task tree`'s alarm join, shared with `task list --team`. Paged
-// to exhaustion with the after cursor: one bounded read stopped at the first
-// page and silently missed every later alarm, open ones included (cycle 1,
-// Diego P2-1; a team with 205 alarms rendered 49 open). An empty appID reads
+// by task — `task tree`'s alarm join, shared with `task list --team`. It walks
+// OLDEST-FIRST to the server's page end (hasMore:false): an open alarm can be
+// arbitrarily old, so a newest-end window can never prove "no open alarms",
+// and a full last page is the last page, never "more". A walk that cannot
+// finish — the page bound, or hasMore with a null or repeated cursor — returns
+// an alarmWalkStop so every reader can mark its counts incomplete, and writes
+// the stderr note as well; a read error stays fatal. An empty appID reads
 // nothing.
-func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writer, appID string) (map[string]int, error) {
+func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writer, appID string) (map[string]int, *alarmWalkStop, error) {
 	alarmsByTask := map[string]int{}
 	if appID == "" {
-		return alarmsByTask, nil
+		return alarmsByTask, nil, nil
 	}
 	var after *string
 	alarmPageSize := teamEventPageCap
-	// Non-advancement safeguard (cycle 2, Xylon P3-4): a server that repeats
-	// the same full page for every cursor would loop forever. A repeated last
-	// id, or an absurd page count, stops the walk with a stderr note — the
-	// counts render possibly incomplete rather than never arriving.
-	prevLast := ""
-	for page := 0; ; page++ {
-		events, err := gen.AgentTeamEvents(ctx, client, appID, after, boolPtr(true), &alarmPageSize, nil, nil, nil)
+	// Each event id counts once across the walk: a server repeating a page
+	// must not inflate a lower bound (BLIND F1).
+	seen := map[string]bool{}
+	stop := func(reason, last string, pages int) (map[string]int, *alarmWalkStop, error) {
+		fmt.Fprintf(errOut,
+			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, output.SafeCell(last))
+		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
+	}
+	for pages := 1; ; pages++ {
+		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
 		if err != nil {
-			return nil, mapTaskError(err)
+			return nil, nil, mapTaskError(err)
 		}
-		pageSize := len(events.AgentTeamEvents)
+		page := resp.AgentTeamEventsPage
 		last := ""
-		for _, e := range events.AgentTeamEvents {
+		for _, e := range page.Events {
 			if e == nil {
 				continue
 			}
 			last = e.Id
+			if seen[e.Id] {
+				continue
+			}
+			seen[e.Id] = true
 			if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
 				alarmsByTask[*e.TaskId]++
 			}
 		}
-		if pageSize < alarmPageSize || last == "" {
-			return alarmsByTask, nil
+		if !page.HasMore {
+			return alarmsByTask, nil, nil
 		}
-		if last == prevLast || page >= alarmPageLimit {
-			fmt.Fprintf(errOut,
-				"note: alarm paging stopped at %s without exhausting the stream; open-alarm counts may be incomplete\n", last)
-			return alarmsByTask, nil
+		next := ""
+		if page.NextCursor != nil {
+			next = *page.NextCursor
 		}
-		prevLast = last
-		after = &last
+		if next == "" {
+			return stop(alarmStopCursorStalled, last, pages)
+		}
+		if after != nil && next == *after {
+			return stop(alarmStopCursorStalled, next, pages)
+		}
+		if pages >= alarmPageLimit {
+			return stop(alarmStopPageLimit, next, pages)
+		}
+		after = &next
 	}
+}
+
+// alarmCount renders an open-alarm count: a lower bound (≥N) when the walk
+// that produced it stopped early.
+func alarmCount(n int, incomplete bool) string {
+	if incomplete {
+		return "≥" + strconv.Itoa(n)
+	}
+	return strconv.Itoa(n)
 }
 
 func findByID(tasks []taskDTO, id string) (*taskDTO, bool) {
@@ -1044,7 +1111,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	indent := strings.Repeat("  ", depth)
 	alarm := ""
 	if task.OpenAlarms != nil && *task.OpenAlarms > 0 {
-		alarm = fmt.Sprintf("  ⏰ %s open alarm%s", strconv.Itoa(*task.OpenAlarms), plural(*task.OpenAlarms))
+		alarm = fmt.Sprintf("  ⏰ %s open alarm%s", alarmCount(*task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete), plural(*task.OpenAlarms))
 	}
 	assignee := "—"
 	if task.Assignee != nil {

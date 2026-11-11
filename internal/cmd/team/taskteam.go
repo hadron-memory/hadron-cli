@@ -63,6 +63,16 @@ type teamTaskListDTO struct {
 	Members           []taskPartyDTO `json:"members"`
 	StaleOverSeconds  *int64         `json:"staleOverSeconds"`
 	Tasks             []teamTaskDTO  `json:"tasks"`
+	// AlarmCounts is present only when the open-alarm walk stopped early
+	// (cli#1919); each task then also carries openAlarmsIncomplete.
+	AlarmCounts *alarmCountsDTO `json:"alarmCounts,omitempty"`
+}
+
+type alarmCountsDTO struct {
+	Complete    bool   `json:"complete"`
+	Reason      string `json:"reason"`
+	LastEventID string `json:"lastEventId"`
+	Pages       int    `json:"pages"`
 }
 
 type teamTaskQuery struct {
@@ -252,7 +262,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	if err != nil {
 		return err
 	}
-	alarms, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
+	alarms, alarmStop, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
 	if err != nil {
 		return err
 	}
@@ -325,6 +335,9 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		s := int64(q.staleOver / time.Second)
 		dto.StaleOverSeconds = &s
 	}
+	if alarmStop != nil {
+		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, Pages: alarmStop.Pages}
+	}
 	for _, t := range all {
 		how, ok := match[t.ID]
 		if !ok || (textMatches != nil && !textMatches[t.ID]) {
@@ -344,6 +357,10 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		if n, ok := alarms[t.ID]; ok {
 			open := n
 			t.OpenAlarms = &open
+		}
+		if alarmStop != nil {
+			incomplete := true
+			t.OpenAlarmsIncomplete = &incomplete
 		}
 		dto.Tasks = append(dto.Tasks, teamTaskDTO{
 			taskDTO:      t,
@@ -372,6 +389,11 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 			_, err := fmt.Fprintln(w, "no tasks")
 			return err
 		}
+		if alarmStop != nil {
+			if _, err := fmt.Fprintln(w, alarmStop.explain()); err != nil {
+				return err
+			}
+		}
 		if q.tree {
 			return renderTeamTree(w, dto.Tasks)
 		}
@@ -382,7 +404,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
 		for _, task := range dto.Tasks {
 			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
-				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))...)
+				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete)))...)
 		}
 		return t.Flush()
 	})
@@ -404,11 +426,17 @@ func teamAssigneeCell(task teamTaskDTO) string {
 	return teamPartyCell(task.Assignee, task.AssigneeTeam)
 }
 
-func alarmCell(n *int) string {
+// alarmCell: a count, a lower bound (≥N) when the walk stopped early, and for
+// a task with no count "—" (none) on a complete walk but "?" (unknown) on an
+// incomplete one — the dash must never say "none" about a partial read.
+func alarmCell(n *int, incomplete bool) string {
 	if n == nil || *n == 0 {
+		if incomplete {
+			return "?"
+		}
 		return "—"
 	}
-	return fmt.Sprint(*n)
+	return alarmCount(*n, incomplete)
 }
 
 // idleCell renders an age in whole minutes, hours and days.
@@ -455,7 +483,7 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 		t := tasks[i]
 		alarm := ""
 		if t.OpenAlarms != nil && *t.OpenAlarms > 0 {
-			alarm = fmt.Sprintf("  ⏰ %d open alarm%s", *t.OpenAlarms, plural(*t.OpenAlarms))
+			alarm = fmt.Sprintf("  ⏰ %s open alarm%s", alarmCount(*t.OpenAlarms, t.OpenAlarmsIncomplete != nil && *t.OpenAlarmsIncomplete), plural(*t.OpenAlarms))
 		}
 		if _, err := fmt.Fprintf(w, "%s• %s [%s] idle %s  %s → %s  %s%s\n", strings.Repeat("  ", depth), taskRef(t.Handle, t.ID), t.Status,
 			idleCell(t.AgeSeconds), teamPartyCell(t.Owner, t.OwnerTeam), teamAssigneeCell(t), t.Title, alarm); err != nil {

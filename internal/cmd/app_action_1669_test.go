@@ -146,14 +146,14 @@ func TestAppAction1669MappedTextSafe(t *testing.T) {
 
 func TestEvents1669CodePrefix(t *testing.T) {
 	for _, filtered := range []bool{false, true} {
-		srv, count, vars := countingGraphQL(t, map[string]string{"AgentTeamEvents": `{"data":{"agentTeamEvents":[]}}`, "AgentTeamEventsByCode": `{"data":{"agentTeamEvents":[]}}`})
+		srv, count, vars := countingGraphQL(t, map[string]string{"AgentTeamEventsPage": `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		args := []string{"team", "events", "--app", "hrn:app:acme.com:x", "--server", srv.URL, "--json"}
-		op := "AgentTeamEvents"
+		op := "AgentTeamEventsPage"
 		if filtered {
 			args = append(args, "--code-prefix", "app.x.")
-			op = "AgentTeamEventsByCode"
+			op = "AgentTeamEventsPage"
 		}
 		root.SetArgs(args)
 		if err := root.Execute(); err != nil {

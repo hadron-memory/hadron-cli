@@ -145,7 +145,7 @@ func taskResponses() map[string]string {
 		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
 		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
 		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
-		"AgentTeamEvents":            `{"data":{"agentTeamEvents":[` + eventFieldsJSON + `]}}`,
+		"AgentTeamEventsPage":        `{"data":{"agentTeamEventsPage":{"events":[` + eventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`,
 		"AlarmAcknowledge":           `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,
 		"TeamRoster":                 `{"data":{"teamRoster":` + rosterJSON + `}}`,
 		"TeamAvailability":           `{"data":{"teamAvailability":` + availabilityJSON + `}}`,
@@ -754,14 +754,14 @@ func TestTeamTaskListNeedsAnApp(t *testing.T) {
 
 func TestTeamTaskTreeRendersOpenAlarms(t *testing.T) {
 	responses := taskResponses()
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + alarmEventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`
 	calls, out, err := runTeamTask(t, responses, "team", "task", "tree", "task1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var events *attnCall
 	for i := range *calls {
-		if (*calls)[i].Op == "AgentTeamEvents" {
+		if (*calls)[i].Op == "AgentTeamEventsPage" {
 			events = &(*calls)[i]
 		}
 	}
@@ -791,7 +791,7 @@ func TestTeamEventsSendsFilters(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range *calls {
-		if c.Op == "AgentTeamEvents" {
+		if c.Op == "AgentTeamEventsPage" {
 			if c.Vars["alarmsOnly"] != true || c.Vars["since"] != "2026-10-12T00:00:00Z" ||
 				c.Vars["after"] != "evt0" || c.Vars["taskId"] != "task1" {
 				t.Fatalf("filters %v", c.Vars)
@@ -819,10 +819,13 @@ func TestTeamEventsJSONContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var events []map[string]any
-	if err := json.Unmarshal([]byte(out), &events); err != nil {
-		t.Fatalf("not a JSON list: %v\n%s", err, out)
+	var page struct {
+		Events []map[string]any `json:"events"`
 	}
+	if err := json.Unmarshal([]byte(out), &page); err != nil {
+		t.Fatalf("not the {events,hasMore,nextCursor} envelope: %v\n%s", err, out)
+	}
+	events := page.Events
 	if len(events) != 1 || events[0]["type"] != "task.created" {
 		t.Fatalf("events %s", out)
 	}
@@ -1088,17 +1091,17 @@ func TestTeamTaskListLimitValidated(t *testing.T) {
 	}
 }
 
-func TestTeamEventsFullPageAtTheCapStillHints(t *testing.T) {
-	// The hint must compare against the EFFECTIVE page size, not the raw
-	// flag: exactly 200 events at the cap name the next cursor.
+func TestTeamEventsFullPageAtTheCapHintsOnlyWhenTheServerSaysMore(t *testing.T) {
+	// cli#1919: the hint follows the server's hasMore, never the row count —
+	// 200 events at the cap with hasMore:true name the server's cursor.
 	responses := taskResponses()
 	many := strings.Repeat(`{"id":"x","appId":"a","taskId":null,"type":"task.created","severity":null,"createdAt":"2026-10-12T00:00:00Z","actor":null,"subjectWorker":null,"payload":{},"acknowledgedAt":null,"acknowledgedBy":null,"episodeStart":null,"chain":null,"wakes":null},`, 200)
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + many[:len(many)-1] + `]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + many[:len(many)-1] + `],"hasMore":true,"nextCursor":"srv-next"}}}`
 	_, out, err := runTeamTask(t, responses, "team", "events", "--limit", "200")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "continue with --after") {
+	if !strings.Contains(out, "continue with --after srv-next") {
 		t.Fatalf("full-at-cap page carried no continuation hint: %q", out)
 	}
 }
@@ -1121,12 +1124,12 @@ func alarmPagingServer(t *testing.T) (*httptest.Server, *[]attnCall) {
 		switch body.OperationName {
 		case "AgentTaskTree":
 			_, _ = w.Write([]byte(`{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`))
-		case "AgentTeamEvents":
+		case "AgentTeamEventsPage":
 			if body.Variables["after"] == nil {
 				page := strings.TrimSuffix(strings.Repeat(ackedAlarmRow+",", 200), ",")
-				_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + page + `]}}`))
+				_, _ = w.Write([]byte(`{"data":{"agentTeamEventsPage":{"events":[` + page + `],"hasMore":true,"nextCursor":"acked-a"}}}`))
 			} else {
-				_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`))
+				_, _ = w.Write([]byte(`{"data":{"agentTeamEventsPage":{"events":[` + alarmEventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`))
 			}
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -1156,7 +1159,7 @@ func TestTeamTaskTreePaginatesAlarmPages(t *testing.T) {
 	pages := 0
 	var continuation any
 	for _, c := range *calls {
-		if c.Op == "AgentTeamEvents" {
+		if c.Op == "AgentTeamEventsPage" {
 			pages++
 			continuation = c.Vars["after"]
 		}
@@ -1237,7 +1240,7 @@ func TestTeamRosterNullWorkerEntryDoesNotPanic(t *testing.T) {
 func TestTeamEventsNullWakeEntryDoesNotPanic(t *testing.T) {
 	// P2-1's sibling: a null wakes[] entry hit the unguarded loop.
 	responses := taskResponses()
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + alarmEventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`
 	_, _, err := runTeamTask(t, responses, "team", "events", "--alarms", "--json")
 	if err != nil {
 		t.Fatalf("null wake entry: %v", err)
@@ -1405,10 +1408,10 @@ func TestTeamTaskTreeAlarmPagingStallsLoudly(t *testing.T) {
 		switch body.OperationName {
 		case "AgentTaskTree":
 			_, _ = w.Write([]byte(`{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`))
-		case "AgentTeamEvents":
+		case "AgentTeamEventsPage":
 			pages++
 			page := strings.TrimSuffix(strings.Repeat(ackedAlarmRow+",", 200), ",")
-			_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + page + `]}}`))
+			_, _ = w.Write([]byte(`{"data":{"agentTeamEventsPage":{"events":[` + page + `],"hasMore":true,"nextCursor":"acked-a"}}}`))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
@@ -1425,8 +1428,8 @@ func TestTeamTaskTreeAlarmPagingStallsLoudly(t *testing.T) {
 	if pages > 3 {
 		t.Fatalf("paging did not stop on a repeated cursor: %d pages", pages)
 	}
-	if !strings.Contains(out.String(), "task1") {
-		t.Fatalf("render lost to the stall: %q", out.String())
+	if !strings.Contains(out.String(), "task1") || !strings.Contains(out.String(), "INCOMPLETE") {
+		t.Fatalf("render lost to the stall or not marked incomplete: %q", out.String())
 	}
 }
 

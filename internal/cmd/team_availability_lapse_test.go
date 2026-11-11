@@ -36,7 +36,7 @@ const stallRuleEventJSON = `{"id":"evt10","appId":"capp100000000000000000000","t
 func lapseResponses() map[string]string {
 	r := taskResponses()
 	r["TeamAvailability"] = `{"data":{"teamAvailability":` + lapsedAvailabilityJSON + `}}`
-	r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + lapseEventJSON + `,` + stallRuleEventJSON + `]}}`
+	r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + lapseEventJSON + `,` + stallRuleEventJSON + `],"hasMore":false,"nextCursor":null}}}`
 	return r
 }
 
@@ -138,13 +138,16 @@ func TestTeamEventsLapseJSONKeepsPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var events []struct {
-		ID      string         `json:"id"`
-		Payload map[string]any `json:"payload"`
+	var page struct {
+		Events []struct {
+			ID      string         `json:"id"`
+			Payload map[string]any `json:"payload"`
+		} `json:"events"`
 	}
-	if err := json.Unmarshal([]byte(out), &events); err != nil {
+	if err := json.Unmarshal([]byte(out), &page); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, out)
 	}
+	events := page.Events
 	if len(events) != 2 || events[0].Payload["setBy"] != "lapse" || events[0].Payload["lapsedAt"] != "2026-10-13T18:00:00.000Z" {
 		t.Fatalf("lapse event JSON %s", out)
 	}
