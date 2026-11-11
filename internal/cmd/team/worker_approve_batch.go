@@ -29,6 +29,11 @@ type approvalBatchNode = gen.BootPromptApprovalBatchNodeBatchNodeBatchResultNode
 // the result sees the same caveats a human reads in help.
 const approveAuthority = "the server decides authority for each worker (whoever manages the App, acting as themselves); a register grant is not checked by the CLI or the server"
 
+// approveAuthorityAsWorker replaces the constant under --as-worker (cli#1872),
+// where the default sentence ("acting as themselves", "a register grant is not
+// checked") would be false. No JSON key is added.
+const approveAuthorityAsWorker = "approvals go out as the bound worker; the server admits each only under a live bootprompt.compile.approve grant naming that compiled node, and decides who may approve; the CLI checks no grant"
+
 var approveLimits = []string{
 	"each approval is its own server transaction: there is no rollback, and an earlier approval stands when a later one fails",
 	"a tamper that lands between the preview's verifyNode and the approval is not caught (a tamper changes no revision)",
@@ -99,7 +104,7 @@ type approveBatchDTO struct {
 
 func newCmdWorkerApprove(f *cmdutil.Factory) *cobra.Command {
 	var only []string
-	var apply bool
+	var apply, asWorker bool
 	cmd := &cobra.Command{
 		Use:   "approve",
 		Short: "Approve the App's compiled worker boot prompts in one run",
@@ -115,9 +120,18 @@ target, unavailable to you, encrypted memory) or unknown, with its compiled node
 to the revision the preview read. A worker whose prompt changed since then is
 refused REVISION_MISMATCH (exit 5): run the preview again.
 
-The server decides who may approve, for each worker: whoever manages the App,
-acting as themselves. The CLI checks no authority itself, and a register
-grant is not checked by the CLI or the server. A refusal for one worker does
+By default the server decides who may approve, for each worker: whoever manages
+the App, acting as themselves. The CLI checks no authority itself, and a
+register grant is not checked by the CLI or the server. With --as-worker the
+approvals go out through this worktree's bound worker session instead: the
+server admits each only for a compiled prompt that a signed
+bootprompt.compile.approve grant names (to any worker in the App), records the
+approver as the worker under the batch grant, and refuses the rest (exit 8,
+with its code). The CLI still checks no grant. --as-worker never falls back to
+you: without a usable binding for this server and App it refuses (exit 2) and
+sends nothing, even for a preview. The grant does not cover signing: where
+an organisation has switched on signing of compiled boot prompts (its own
+setting, not the passkey switch), a person still signs each compiled prompt. A refusal for one worker does
 not stop the others; every worker is reported. Each approval is its own server
 transaction, with no rollback: an earlier approval stands when a later one
 fails. Nothing is signed and no signing request is opened.
@@ -166,11 +180,12 @@ skipped, failed{code, exitCode, message} and unknown{outcome, reason}.`,
 			if cmd.Flags().Changed("only") && len(opts) == 0 {
 				return exitcode.Newf(exitcode.Usage, "--only needs at least one worker")
 			}
-			return runWorkerApproveBatch(cmd, f, opts, apply)
+			return runWorkerApproveBatch(cmd, f, opts, apply, asWorker)
 		},
 	}
 	cmd.Flags().StringSliceVar(&only, "only", nil, "approve only these workers (comma-separated names, ids or URNs)")
 	cmd.Flags().BoolVar(&apply, "apply", false, "send the approvals (without it the command only previews)")
+	cmd.Flags().BoolVar(&asWorker, "as-worker", false, cmdutil.AsWorkerFlagUsage)
 	return cmd
 }
 
@@ -181,8 +196,19 @@ type approvePlanItem struct {
 	revision int
 }
 
-func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string, apply bool) error {
+func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string, apply, asWorker bool) error {
 	ctx := cmd.Context()
+	// --as-worker resolves its session before ANY request (cli#1872).
+	var send func(context.Context) (context.Context, error)
+	authority := approveAuthority
+	if asWorker {
+		m, err := f.ResolveWorkerWrite(ctx)
+		if err != nil {
+			return err
+		}
+		send = m
+		authority = approveAuthorityAsWorker
+	}
 	scope, err := compileNameScope(cmd, f)
 	if err != nil {
 		return err
@@ -201,7 +227,7 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 	}
 
 	dto := approveBatchDTO{
-		App: scope.Ref, Applied: apply, Authority: approveAuthority, Limits: approveLimits,
+		App: scope.Ref, Applied: apply, Authority: authority, Limits: approveLimits,
 		ToApprove: []approveTargetDTO{}, Approved: []approveDoneDTO{}, AlreadyApproved: []approveTargetDTO{},
 		Tampered: []approveTargetDTO{}, Skipped: []approveTargetDTO{}, Failed: []approveRefusalDTO{},
 		Unknown: []approveUnknownDTO{},
@@ -294,7 +320,7 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 
 	if apply {
 		for _, item := range plan {
-			exit = max(exit, approveOne(ctx, client, &dto, item))
+			exit = max(exit, approveOne(ctx, client, &dto, item, send))
 		}
 	}
 
@@ -331,10 +357,19 @@ func verifySuperseded(ctx context.Context, client graphql.Client, ref string) (g
 
 // approveOne sends the pinned approval once and files the worker in its
 // bucket, returning the exit code it contributes.
-func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO, item approvePlanItem) int {
+func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO, item approvePlanItem, send func(context.Context) (context.Context, error)) int {
 	t := item.target
 	rev := item.revision
-	r, err := gen.ApproveNode(ctx, client, item.ref, &rev)
+	sendCtx := ctx
+	if send != nil {
+		c, serr := send(ctx)
+		if serr != nil {
+			dto.Failed = append(dto.Failed, approveRefusalDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: item.ref, Revision: item.revision, ExitCode: exitcode.Usage, Message: serr.Error()})
+			return exitcode.Usage
+		}
+		sendCtx = c
+	}
+	r, err := gen.ApproveNode(sendCtx, client, item.ref, &rev)
 	if err == nil {
 		if r.ApproveNode == nil || r.ApproveNode.Approval == nil {
 			// An empty success may have landed: the same one status read as a
