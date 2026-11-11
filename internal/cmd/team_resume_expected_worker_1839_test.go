@@ -187,7 +187,7 @@ func mismatchWith(ext string) map[string]string {
 	return st
 }
 
-func runMismatch(t *testing.T, ext string, jsonMode bool) (error, string) {
+func runMismatch(t *testing.T, ext string, jsonMode bool) (string, error) {
 	t.Helper()
 	dir := teamGitDir(t)
 	t.Setenv("HADRON_LAUNCH_GRANT", "")
@@ -208,13 +208,13 @@ func runMismatch(t *testing.T, ext string, jsonMode bool) (error, string) {
 	if jsonMode {
 		renderError(f, err)
 	}
-	return err, out.String()
+	return out.String(), err
 }
 
 // A key the server sent as null stays in the envelope as null: the envelope
 // renders what the server sent, not only its non-null parts.
 func TestResumeMismatchJSONKeepsNullNames(t *testing.T) {
-	_, out := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":null,"foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, true)
+	out, _ := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":null,"foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, true)
 	var env struct {
 		Error struct {
 			Extensions map[string]any `json:"extensions"`
@@ -232,7 +232,7 @@ func TestResumeMismatchJSONKeepsNullNames(t *testing.T) {
 // picked:true means --session chose the other worker's item: do not say
 // that only the other worker's item waits.
 func TestResumeMismatchPickedWording(t *testing.T) {
-	err, _ := runMismatch(t, `"picked":true,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris","foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, false)
+	_, err := runMismatch(t, `"picked":true,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris","foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, false)
 	msg := err.Error()
 	if strings.Contains(msg, "found only") {
 		t.Errorf("a picked mismatch must not claim only the other worker's item waits: %s", msg)
@@ -247,7 +247,7 @@ func TestResumeMismatchPickedWording(t *testing.T) {
 // Server-sent names reach a terminal: control characters cannot forge a line
 // or move the cursor.
 func TestResumeMismatchNamesAreSanitized(t *testing.T) {
-	err, _ := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris\u001b[31m","foundWorkerId":"wkr9","foundWorkerName":"Gre\ner\u001b]0;x\u0007","foundSource":"CLAIM"`, false)
+	_, err := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris\u001b[31m","foundWorkerId":"wkr9","foundWorkerName":"Gre\ner\u001b]0;x\u0007","foundSource":"CLAIM"`, false)
 	for _, r := range err.Error() {
 		if r < 0x20 || r == 0x7f {
 			t.Fatalf("control character %q in the refusal: %q", r, err.Error())
