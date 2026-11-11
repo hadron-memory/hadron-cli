@@ -2546,6 +2546,91 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 	return v.AgentSchedules
 }
 
+// AgentServedBootPromptAgentServedBootPrompt includes the requested fields of the GraphQL type AgentServedBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #3843 / hrn:node:hadronmemory.com:specs:cor:agt:040:05, hrn:node:hadronmemory.com:specs:cor:agt:040:10: the compiled
+// boot prompt a chat or run with an Agent (in an App) would be given now, rendered, for a caller that binds no worker.
+type AgentServedBootPromptAgentServedBootPrompt struct {
+	// The revision served: the same identity fields as bootPromptServe and a ServedPrompt record.
+	Decision *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision `json:"decision"`
+	// The served revision's text with its platform variables filled as a chat or run fills them
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:08): worker.name is the Agent's name, worker.role its persona role,
+	// reports-to, signature and trailer are empty, and session.llmModel is the client-reported model or empty. No
+	// derived blocks are appended: they belong to a worker's briefing (Worker.prompt).
+	Text string `json:"text"`
+}
+
+// GetDecision returns AgentServedBootPromptAgentServedBootPrompt.Decision, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPrompt) GetDecision() *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision {
+	return v.Decision
+}
+
+// GetText returns AgentServedBootPromptAgentServedBootPrompt.Text, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPrompt) GetText() string { return v.Text }
+
+// AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision includes the requested fields of the GraphQL type BootPromptServeDecision.
+// The GraphQL type's documentation follows.
+//
+// #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: the revision a serve would be given now. The identity fields a
+// ServedPrompt record carries after the serve, so the two can be compared; never the text.
+type AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision struct {
+	CompiledContentHash string                   `json:"compiledContentHash"`
+	CompiledNodeId      string                   `json:"compiledNodeId"`
+	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
+	// The compile revision that owns that revision's provenance.
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+	// Node.revSeq of the revision that would be served: the compiled node's newest approved revision.
+	ServedRevSeq int `json:"servedRevSeq"`
+}
+
+// GetCompiledContentHash returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetCompiledContentHash() string {
+	return v.CompiledContentHash
+}
+
+// GetCompiledNodeId returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetCompiledNodeId() string {
+	return v.CompiledNodeId
+}
+
+// GetPointerLevel returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.PointerLevel, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetPointerLevel() ServedPromptPointerLevel {
+	return v.PointerLevel
+}
+
+// GetProvenanceRevSeq returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetProvenanceRevSeq() int {
+	return v.ProvenanceRevSeq
+}
+
+// GetServedRevSeq returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetServedRevSeq() int {
+	return v.ServedRevSeq
+}
+
+// AgentServedBootPromptResponse is returned by AgentServedBootPrompt on success.
+type AgentServedBootPromptResponse struct {
+	// #3843 (hrn:node:hadronmemory.com:specs:cor:agt:040:05, hrn:node:hadronmemory.com:specs:cor:agt:040:10) - the
+	// boot prompt an Agent would be served now, rendered, for a caller that binds no worker (an MCP-only agent; the MCP
+	// tool hadron_agent_boot_prompt returns the same text). A pure read: it binds nothing, starts or ends no session and
+	// records no ServedPrompt; the answer is the current serve, never what a session was given, so an approval between
+	// two calls can change it. Without appRef it reads the Agent's own pointer, visible to a caller who may read the
+	// Agent's system memory. With appRef it reads what a chat in that App would be given (the install's pointer, then
+	// the Agent's), for a participant of that App (an App key only for its own App) where the Agent is installed and
+	// the caller may chat with it. Every caller who fails a gate, a missing or not-installed App and a lapsed App
+	// licence get the same AGENT_NOT_FOUND as a nonexistent Agent. Past the gate, a serve refusal is thrown as its typed
+	// BOOT_PROMPT_* error (NOT_SET, TARGET_DELETED, NOT_APPROVED, NOT_SIGNED) with surface 'chat'. llmModel is the
+	// model the client reports, filled into session.llmModel (empty when omitted); it is rendering text, never an
+	// identity or authority claim.
+	AgentServedBootPrompt *AgentServedBootPromptAgentServedBootPrompt `json:"agentServedBootPrompt"`
+}
+
+// GetAgentServedBootPrompt returns AgentServedBootPromptResponse.AgentServedBootPrompt, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedBootPromptAgentServedBootPrompt {
+	return v.AgentServedBootPrompt
+}
+
 // AgentSystemMemoryMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -105988,6 +106073,22 @@ func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
+// __AgentServedBootPromptInput is used internally by genqlient
+type __AgentServedBootPromptInput struct {
+	AgentRef string  `json:"agentRef"`
+	AppRef   *string `json:"appRef"`
+	LlmModel *string `json:"llmModel"`
+}
+
+// GetAgentRef returns __AgentServedBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetAppRef returns __AgentServedBootPromptInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
+
+// GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
+
 // __AgentSystemMemoryInput is used internally by genqlient
 type __AgentSystemMemoryInput struct {
 	Ref string `json:"ref"`
@@ -117314,6 +117415,53 @@ func AgentSchedules(
 	}
 
 	data_ = &AgentSchedulesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentServedBootPrompt.
+const AgentServedBootPrompt_Operation = `
+query AgentServedBootPrompt ($agentRef: String!, $appRef: String, $llmModel: String) {
+	agentServedBootPrompt(agentRef: $agentRef, appRef: $appRef, llmModel: $llmModel) {
+		decision {
+			compiledContentHash
+			compiledNodeId
+			pointerLevel
+			provenanceRevSeq
+			servedRevSeq
+		}
+		text
+	}
+}
+`
+
+// cli#1853: the boot prompt an Agent is served now, for a caller that binds no
+// worker (hadron-server#3846). A pure read: it binds nothing and records nothing.
+func AgentServedBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	appRef *string,
+	llmModel *string,
+) (data_ *AgentServedBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentServedBootPrompt",
+		Query:  AgentServedBootPrompt_Operation,
+		Variables: &__AgentServedBootPromptInput{
+			AgentRef: agentRef,
+			AppRef:   appRef,
+			LlmModel: llmModel,
+		},
+	}
+
+	data_ = &AgentServedBootPromptResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
