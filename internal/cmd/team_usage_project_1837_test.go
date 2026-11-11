@@ -260,8 +260,32 @@ func TestUsageProjectTableNeutralizesServerStrings(t *testing.T) {
 		t.Fatalf("a server string forged a row or carried an escape:\n%q", out)
 	}
 	_, js, err := runProject(t, resp, "--account", "a", "--json")
-	if err != nil || !strings.Contains(js, `FORGED  host  row`) {
-		t.Fatalf("--json must carry the original value: %v\n%s", err, js)
+	if err != nil {
+		t.Fatalf("--json: %v\n%s", err, js)
+	}
+	// cli#1910 (#1849 BLIND delta P3): decode the JSON and compare host and
+	// family EXACTLY against what the stub sent, so a partial, truncated or
+	// re-escaped value (a SafeCell leaking into --json) fails; a substring
+	// check passed all of those.
+	var got struct {
+		Accounts []struct {
+			Host   *string `json:"host"`
+			Family *string `json:"family"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(js), &got); err != nil {
+		t.Fatalf("--json is not valid JSON: %v\n%s", err, js)
+	}
+	if len(got.Accounts) != 1 {
+		t.Fatalf("--json accounts = %d, want 1:\n%s", len(got.Accounts), js)
+	}
+	const wantHost, wantFamily = "orca1\nFORGED  host  row", "cl\x1b[31maude"
+	acct := got.Accounts[0]
+	if acct.Host == nil || *acct.Host != wantHost {
+		t.Errorf("--json host = %v, want %q", acct.Host, wantHost)
+	}
+	if acct.Family == nil || *acct.Family != wantFamily {
+		t.Errorf("--json family = %v, want %q", acct.Family, wantFamily)
 	}
 }
 

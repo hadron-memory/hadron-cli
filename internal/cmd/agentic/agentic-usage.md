@@ -613,6 +613,7 @@ hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|
 hadron connection flow <flow-id> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | get <grant-id> | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
+hadron web-poll list --org <ref> | cancel <job-id> --org <ref> --yes   # org ADMIN page-monitor watches; the list is unpaged server-side (no total, not claimed complete); a cross-org or unknown job id is NOT_FOUND; a repeat cancel succeeds with alreadyCancelled
 hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted.
 hadron ha create --org <ref> --slug <s> --name <n> --url <u> [--token-file -|@path|path] [--allow-op <op>]... [--disabled]   # org ADMIN/OWNER (cli#231). The token is NEVER an argv flag: --token-file - reads stdin, @path/path a file; omitted, piped stdin is read (empty = exit 2, nothing sent); an explicitly empty --token-file= is exit 2, never a stdin fallback. No --allow-op = every catalog op; --disabled sends enabled:false. --json is the `ha get` shape (no token). Slug is permanent.
 hadron ha update <id> [--name] [--url] [--token-file ...] [--allow-op <op>]... | [--clear-allow-ops] [--enabled|--disabled]   # only the named fields are sent; omitted = kept. No flags = exit 2, nothing sent. Without --token-file stdin is never read and the token stays. --clear-allow-ops sends [] = EVERY catalog op (not none; use --disabled to stop use). --allow-op/--clear-allow-ops and --enabled/--disabled are mutually exclusive. No slug flag.
@@ -4348,18 +4349,23 @@ recipients are the mentions the server stored on the message (cor:agt:020:04;
 the CLI parses nothing, no quote exclusion; `@all`/`@team`/`@team.*` push to no
 one). Each gets its whole due batch through the same delivery transaction
 (cor:agt:080:16, :22), so nothing is typed over a draft and a held recipient's
-marks do not move. The receipt gains `push: [{recipient, state, reason?, acked}]` with
+marks do not move. The receipt gains `push: [{recipient, state, reason?, batch, acked}]` with
 state `pushed` (acknowledged, cor:agt:080:16) | `typed` (the text reached the terminal but
 the acknowledgement did not land, reason `ack-pending`: no mark moved, still due, never typed
 again by the CLI, cor:agt:080:12) | `held` | `not-pushed` | `unconfirmed`. `acked` = batches
-whose acknowledgement the server accepted. `not-pushed` means nothing typed: no batch came
-back, which the server does not tell apart as off-host, unknown or nothing due. `unconfirmed`
-means the pass failed before this recipient had an outcome, so typed-or-not is not
-established (reason `push-failed`); `not-pushed` may also carry `no-batch`. Every state exits
+whose acknowledgement the server accepted. `batch` = the span
+(`<channel>#<incarnation>:<from>-<through>`, the host log's handle; never the batch id, a
+signed proof) of the batch that decided the state, or `none`. `not-pushed` means nothing
+typed, with a closed cause (cli#1900): `not-on-host` (the mention matches no worker
+registered on this host with a configured worktree) or `no-due-batch` (it matches one, and
+the server offered no due batch for it; why none was due is not known to the CLI), both
+`batch: none`; a failed or pending offered batch keeps the delivery's own reason.
+`unconfirmed` means the pass failed before this recipient had an outcome, so typed-or-not is
+not established (reason `push-failed`, `batch: none`). Every state exits
 0, so test the state, not the exit. A mention token addresses every host worker with that
 server mention token (mentionTokenOf; two names may share one) and reports the worst outcome;
 a pass error keeps the confirmed `pushed`/`typed`/`held` results. Text prints
-`push <name>: <state>`. Known limit: an ack that never lands is handed out again and the host
+`push <name>: <state> (<reason>) batch <span|none>`. Known limit: an ack that never lands is handed out again and the host
 poller may retype it (platform gap, cor:agt:080:12 doubt; not this command's defect).
 A failed push never undoes the post or changes exit 0: do not repost. Without
 `--push` the receipt has no `push` key.
