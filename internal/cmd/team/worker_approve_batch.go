@@ -221,7 +221,7 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 	if err != nil {
 		return err
 	}
-	roster, err = filterOnlyFor(roster, only, scope.Ref, "nothing was approved")
+	roster, err = filterOnlyNoting(roster, only, scope.Ref, "nothing was approved")
 	if err != nil {
 		return err
 	}
@@ -374,9 +374,7 @@ func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO
 		if r.ApproveNode == nil || r.ApproveNode.Approval == nil {
 			// An empty success may have landed: the same one status read as a
 			// lost response decides, and nothing is sent again.
-			u := checkLostApproval(ctx, client, item)
-			u.Reason = strings.Replace(u.Reason, "the approval response was lost", "the server returned no approval", 1)
-			dto.Unknown = append(dto.Unknown, u)
+			dto.Unknown = append(dto.Unknown, checkLostApproval(ctx, client, item, causeEmptySuccess))
 			return exitcode.Error
 		}
 		approved := r.ApproveNode.Approval.Revision
@@ -388,7 +386,7 @@ func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO
 	mapped := api.MapError(err)
 	ec := exitcode.FromError(mapped)
 	if code == "" && ec == exitcode.Unavailable {
-		dto.Unknown = append(dto.Unknown, checkLostApproval(ctx, client, item))
+		dto.Unknown = append(dto.Unknown, checkLostApproval(ctx, client, item, causeLostResponse))
 		return exitcode.Unavailable
 	}
 	if ec == exitcode.OK {
@@ -399,13 +397,20 @@ func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO
 	return ec
 }
 
-// checkLostApproval makes the ONE read that decides whether a lost approval
-// landed at the pinned revision. It never approves again.
-func checkLostApproval(ctx context.Context, client graphql.Client, item approvePlanItem) approveUnknownDTO {
+// The two causes that leave an approval unconfirmed; the reason opens with one.
+const (
+	causeLostResponse = "the approval response was lost"
+	causeEmptySuccess = "the server returned no approval"
+)
+
+// checkLostApproval makes the ONE read that decides whether an unconfirmed
+// approval landed at the pinned revision. cause opens the reason. It never
+// approves again.
+func checkLostApproval(ctx context.Context, client graphql.Client, item approvePlanItem, cause string) approveUnknownDTO {
 	t := item.target
 	rev := item.revision
 	u := approveUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef, Revision: &rev,
-		Outcome: lostUnknown, Reason: "the approval response was lost; it was not sent again"}
+		Outcome: lostUnknown, Reason: cause + "; it was not sent again"}
 	r, err := gen.BootPromptApprovalBatch(ctx, client, []string{item.ref})
 	if err != nil || r.NodeBatch == nil {
 		u.Reason += "; the status check failed too: check with node get before approving again"
