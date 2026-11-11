@@ -74,13 +74,15 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context) (func(context.
 		return func(mctx context.Context) (context.Context, error) {
 			mu.Lock()
 			defer mu.Unlock()
+			// On every refusal the context is nil, never the person's: a caller
+			// that drops the error fails closed instead of sending as them.
 			if latched != nil {
-				return mctx, latched
+				return nil, latched
 			}
 			now, _, err := readBindingFile(mctx)
 			if err != nil || !sameWriteBinding(now, &snapshot) {
 				latched = exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
-				return mctx, latched
+				return nil, latched
 			}
 			return api.WithSession(mctx, snapshot.SessionID), nil
 		}, nil

@@ -503,3 +503,55 @@ func TestAsWorkerHelpIsTrue1872(t *testing.T) {
 		}
 	}
 }
+
+// §10 P3-1 on PR #1883: the re-check refusal of the other two mutation paths is
+// pinned too. A rebind after the command's last read and before its mutation
+// sends no write, and nothing goes out as the person.
+func TestAsWorkerRebindMidRunStopsCompileBatchAndNodeApprove1872(t *testing.T) {
+	t.Run("compile batch", func(t *testing.T) {
+		n := 0
+		fake, _, err := runBoundBatch(t, func(op string) {
+			if op == "CompileWorkerBootPrompt" {
+				n++
+				if n == 1 {
+					swapSession(t)
+				}
+			}
+		}, nil, []batchWorker{{id: "w-ann", name: "Ann", compile: "ok"}, {id: "w-dee", name: "Dee", compile: "ok"}}, "--as-worker", "--apply", "--json")
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Fatalf("want exit 2, got %d (%v)", got, err)
+		}
+		sent := 0
+		for _, c := range fromBatch(fake) {
+			if c.Op == "CompileWorkerBootPrompt" {
+				sent++
+				if c.Session != "s-new" {
+					t.Fatalf("compile sent under %q", c.Session)
+				}
+			}
+		}
+		if sent != 1 {
+			t.Fatalf("want exactly the first compile sent, got %d", sent)
+		}
+	})
+	t.Run("node approve", func(t *testing.T) {
+		writeTeamBinding(t)
+		srv, calls := attnServerHook(t, map[string]string{"ResolveUrn": resolveNodeJSON, "ApproveNode": asWorkerApproveNodeJSON}, func(op string) {
+			if op == "ResolveUrn" {
+				swapSession(t)
+			}
+		})
+		setTeamBindingServer(t, srv.URL)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "node", "approve", nodeURN, "--revision", "4", "--as-worker"})
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Fatalf("want exit 2, got %d", got)
+		}
+		for _, c := range *calls {
+			if c.Op == "ApproveNode" {
+				t.Fatalf("approve was sent after a rebind (session %q)", c.Session)
+			}
+		}
+	})
+}
