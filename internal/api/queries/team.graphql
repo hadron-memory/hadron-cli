@@ -1867,3 +1867,25 @@ query TeamChatTagsAttributed(
     items { ...TeamChatMessageFields }
   }
 }
+
+# cli#1911 / hadron-server#3865 slice 2 (#3953, cor:agt:060:02): the worker's
+# stored availability record, for `worker get`. Its own operation, like the
+# profile and terminal reads, so a server that predates the field still serves
+# `worker get`. NOT part of WorkerFields (shared by many commands whose wire
+# shape must not change). Null means withheld (the caller may not see worker
+# internals) OR no record; the CLI cannot tell which and renders nothing.
+query GetWorkerAvailability($ref: ID!) {
+  worker(ref: $ref) {
+    availability {
+      state
+      reason
+      until
+      setAt
+      setBy
+      setByParty {
+        ...AgentTaskPartyFields
+      }
+      inEffect
+    }
+  }
+}
