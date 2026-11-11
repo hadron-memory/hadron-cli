@@ -449,3 +449,38 @@ func TestTaskListTeam1919IncompleteCountedAndUnknownCells(t *testing.T) {
 		t.Fatalf("counted ≥N and unknown ? cells missing: %q", text)
 	}
 }
+
+// BLIND F1 (Dara): a server repeating a page of UNACKNOWLEDGED alarms must not
+// inflate the lower bound — each event id counts once across the walk.
+func TestAlarmWalk1919RepeatedPageCountsEachEventOnce(t *testing.T) {
+	page := page1919([]string{alarmRow1919("same-1", "task1", false)}, true, "same")
+	out, _, _, err := alarmWalk1919(t, static1919(page), "team", "task", "tree", "task1", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tasks []map[string]any
+	if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+		t.Fatal(err)
+	}
+	if tasks[0]["openAlarms"] != float64(1) || tasks[0]["openAlarmsIncomplete"] != true {
+		t.Fatalf("repeated page inflated the count: %s", out)
+	}
+}
+
+// BLIND F2 (Dara): the stderr note names server text (the cursor); it must be
+// neutralised like the stdout line.
+func TestAlarmWalk1919StderrNoteNeutralisesServerCursor(t *testing.T) {
+	hostile := "cur\\u001b[31msor"
+	page := page1919([]string{alarmRow1919("a1", "task9", true)}, true, hostile)
+	_, errOut, _, err := alarmWalk1919(t, func(int) string { return page }, "team", "task", "tree", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(errOut, 0x1b) {
+		t.Fatalf("raw control in stderr: %q", errOut)
+	}
+	// 1 page then the same cursor repeats: stalled, naming the cursor.
+	if !strings.Contains(errOut, "incomplete") {
+		t.Fatalf("no note: %q", errOut)
+	}
+}

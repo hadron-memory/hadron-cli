@@ -1041,9 +1041,12 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 	}
 	var after *string
 	alarmPageSize := teamEventPageCap
+	// Each event id counts once across the walk: a server repeating a page
+	// must not inflate a lower bound (BLIND F1).
+	seen := map[string]bool{}
 	stop := func(reason, last string, pages int) (map[string]int, *alarmWalkStop, error) {
 		fmt.Fprintf(errOut,
-			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, last)
+			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, output.SafeCell(last))
 		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
 	}
 	for pages := 1; ; pages++ {
@@ -1058,6 +1061,10 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 				continue
 			}
 			last = e.Id
+			if seen[e.Id] {
+				continue
+			}
+			seen[e.Id] = true
 			if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
 				alarmsByTask[*e.TaskId]++
 			}
