@@ -52,7 +52,7 @@ type Factory struct {
 	// The returned function runs immediately before each compile or approve
 	// mutation, re-verifies the binding and returns the context carrying the
 	// session. Reads keep the plain context.
-	WorkerWriteSession func(context.Context) (func(context.Context) (context.Context, error), error)
+	WorkerWriteSession func(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error)
 
 	// Persistent flag values, bound by the root command.
 	JSON       bool
@@ -283,10 +283,12 @@ func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Req
 const AsWorkerFlagUsage = "send this worktree's bound worker session with the compile/approve mutations, so the server judges a signed bootprompt.compile.approve grant (default: act as you, no session header)"
 
 // ResolveWorkerWrite resolves the --as-worker session before any request. The
-// returned function wraps one mutation's context.
-func (f *Factory) ResolveWorkerWrite(ctx context.Context) (func(context.Context) (context.Context, error), error) {
+// returned function wraps one mutation's context. targetApps are App refs the
+// command names beyond --app/context (a positional <app>, cli#1887): each must
+// be the binding's App or the resolve refuses.
+func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error) {
 	if f.WorkerWriteSession == nil {
 		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")
 	}
-	return f.WorkerWriteSession(ctx)
+	return f.WorkerWriteSession(ctx, targetApps...)
 }

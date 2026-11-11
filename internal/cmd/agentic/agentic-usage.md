@@ -4778,7 +4778,8 @@ compiled node that a signed `bootprompt.compile.approve` grant names (any worker
 in the App, not only the bound one), forces `pointerSet` false, and never
 creates a node; the CLI sends no `setPointer` it did not send before and
 checks no grant. `--as-worker` never falls back to you: no worktree, no
-binding, an incomplete binding, a binding for another server, another `--app`,
+binding, an incomplete binding, a binding for another server, another `--app`
+(or, for `app agent compile`, another positional `<app>`, cli#1887; compared by resolved App),
 or a binding that changes during the run refuses with exit 2 (before any
 request for single commands and batches; a mid-batch change files the
 remaining workers under `failed` with exit 2 and sends nothing more). Server

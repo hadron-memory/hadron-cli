@@ -276,6 +276,11 @@ func TestAsWorkerBindingFailureIsLatchedForTheRun1872(t *testing.T) {
 	}
 	sends := func() bool {
 		c, e := send(context.Background())
+		// cli#1887 (carried from #1883 §10): on EVERY refusal the context is
+		// nil, never the person's, so a caller that drops the error fails closed.
+		if e != nil && c != nil {
+			t.Fatalf("a refused re-check returned a non-nil context (%v): a dropped error would send as the person", e)
+		}
 		return e == nil && c != context.Background()
 	}
 	p := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
@@ -554,4 +559,61 @@ func TestAsWorkerRebindMidRunStopsCompileBatchAndNodeApprove1872(t *testing.T) {
 			}
 		}
 	})
+}
+
+// cli#1887: the positional <app> of `app agent compile --as-worker` is a target
+// App too. A binding for another App refuses with exit 2 and sends no write
+// (before this the compile went out under the wrong App's session and only the
+// server's grant check stopped it).
+func TestAsWorkerPositionalAppDifferentFromBindingRefuses1887(t *testing.T) {
+	resp := c1Responses()
+	resp["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp900000000000000000000")
+	calls, _, err := runBoundSingle(t, nil, resp, append(append([]string{}, c1Commands[1].args...), "--as-worker")...)
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Fatalf("want exit 2, got %d (%v)", got, err)
+	}
+	for _, c := range *calls {
+		if c.Op != "TeamAppIdentity" {
+			t.Fatalf("a refused --as-worker sent %s", c.Op)
+		}
+	}
+	// The refusal speaks about the binding, never the other App (Victor's FIT).
+	if err == nil || !strings.Contains(err.Error(), "different App") || strings.Contains(err.Error(), "hrn:app:acme.com:eng-team") {
+		t.Fatalf("the refusal must name the binding's mismatch and not the other App: %v", err)
+	}
+}
+
+// ...compared by RESOLVED App, so a spelling of the same App is not refused:
+// the positional URN resolves to the binding's App id, and the compile goes out
+// under the session.
+func TestAsWorkerPositionalAppSameAppAnySpellingSends1887(t *testing.T) {
+	calls, _, err := runBoundSingle(t, nil, c1Responses(), append(append([]string{}, c1Commands[1].args...), "--as-worker")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := false
+	for _, c := range *calls {
+		if c.Op == "CompileAppAgentBootPrompt" {
+			sent = c.Session == "s-new"
+		}
+	}
+	if !sent {
+		t.Fatalf("the same App must compile under the bound session: %+v", *calls)
+	}
+}
+
+// cli#1887 (carried from #1883): a compile-batch DRY RUN (no --apply) is refused
+// up front by --as-worker for every binding fault, like the applying run.
+func TestAsWorkerCompileBatchDryRunRefusesAndSendsNothing1887(t *testing.T) {
+	for _, r := range asWorkerRefusals {
+		t.Run(r.name, func(t *testing.T) {
+			fake, _, err := runBoundBatch(t, nil, r.prep, []batchWorker{{id: "w-iris", name: "Iris", compile: "ok"}}, "--as-worker")
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Fatalf("want exit %d, got %d (%v)", exitcode.Usage, got, err)
+			}
+			if calls := fromBatch(fake); len(calls) != 0 {
+				t.Fatalf("a refused dry run sent requests: %+v", calls)
+			}
+		})
+	}
 }
