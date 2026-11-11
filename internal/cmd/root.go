@@ -482,6 +482,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
 		}
+		if details == nil {
+			details = api.ResumeMismatchDetails(err)
+		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
 		}

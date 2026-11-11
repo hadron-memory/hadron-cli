@@ -875,6 +875,7 @@ mutation CreateResumeClaim($sessionId: ID!) {
 # @genqlient(for: "ResumeSessionInput.host", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.llmModel", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.family", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.expectedWorkerId", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.transcriptPath", omitempty: true)
 mutation ResumeTeamSession(
   $input: ResumeSessionInput!

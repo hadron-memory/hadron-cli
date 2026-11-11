@@ -21926,7 +21926,7 @@ func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetServedRevSeq()
 }
 
 // #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: why a serve would be refused now, the typed code the bind,
-// chat or run itself would get. BOOT_PROMPT_NOT_SIGNED cannot occur until an organisation can switch signing on (#1614).
+// chat or run itself would get. BOOT_PROMPT_NOT_SIGNED occurs only where the serving App's organisation has switched signing on (setOrgBootPromptSigning, #2973) AND the deployment ships signing.
 type BootPromptServeRefusal string
 
 const (
@@ -35753,6 +35753,8 @@ func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.Cr
 type CreateGrantInput struct {
 	// A registered action's dotted name, such as schedule.create.
 	Action string `json:"action"`
+	// #3711: the App a PERSON who manages it creates the grant in (id or URN). A bound worker session omits it: the worker's own App is used and a value naming another is refused. Whoever manages an App creates for a worker of it, or an agent installed in it; the row is still born pending.
+	AppRef *string `json:"appRef,omitempty"`
 	// Not usable after this time; must follow startsAt when both are given.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// WORKER (the calling worker itself) or AGENT (its role agent, installed in this App). Any other holder is refused.
@@ -35771,6 +35773,9 @@ type CreateGrantInput struct {
 
 // GetAction returns CreateGrantInput.Action, and is useful for accessing the field via an interface.
 func (v *CreateGrantInput) GetAction() string { return v.Action }
+
+// GetAppRef returns CreateGrantInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetAppRef() *string { return v.AppRef }
 
 // GetExpiresAt returns CreateGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *CreateGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
@@ -67606,12 +67611,14 @@ func (v *PRReadinessPullRequestReadiness) GetSlots() []*PRReadinessPullRequestRe
 //
 // #3448 — a required slot's current unsuperseded seat, from typed events only.
 type PRReadinessPullRequestReadinessSlotsReviewSlotReadiness struct {
-	Slot          string         `json:"slot"`
-	CurrentTaskId *string        `json:"currentTaskId"`
-	State         string         `json:"state"`
-	Verdict       *ReviewVerdict `json:"verdict"`
-	Head          *string        `json:"head"`
-	Counts        bool           `json:"counts"`
+	Slot          string  `json:"slot"`
+	CurrentTaskId *string `json:"currentTaskId"`
+	// The current unsuperseded seat task's AgentTask status, uppercased, or MISSING when no current seat task exists. This is task lifecycle state, not the review verdict.
+	State   string         `json:"state"`
+	Verdict *ReviewVerdict `json:"verdict"`
+	Head    *string        `json:"head"`
+	// True only when the current seat task is FINISHED, its assignment and verdict both name the frozen head, and its verdict names this slot and is APPROVE, PASS or CARRY. The verdict actor must be neither the build assignee nor a freezer of this head in the App, and no blocking negative verdict may exist at this head.
+	Counts bool `json:"counts"`
 }
 
 // GetSlot returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Slot, and is useful for accessing the field via an interface.
@@ -69409,7 +69416,7 @@ type RecordContentValidationRecordNodeContentValidationReportNodeContentValidati
 	NodeId string `json:"nodeId"`
 	// True when an earlier report with the same runId, from the same reporter, for the same node revision and task revision, was returned and nothing was written.
 	Replayed bool `json:"replayed"`
-	// The validation state of the node's current revision after this call. A report for an older revision leaves it UNVALIDATED or STALE.
+	// The validation state of the node's current revision after this call. A report for an older revision is stored as history without changing the current revision's state, including an existing PASS.
 	State  NodeContentValidationState                                                                                                   `json:"state"`
 	Report *RecordContentValidationRecordNodeContentValidationReportNodeContentValidationReportReceiptReportNodeContentValidationReport `json:"report"`
 }
@@ -73139,12 +73146,13 @@ type ResolveAiServiceConfigsResponse struct {
 	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
-	// material (hasApiKey + apiKeyPreview only).
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
 	// appRef, be a member of that App, and (when an agentRef is given) the Agent
-	// must be installed in that App. Because the result is masked (no key
-	// material), App membership — not org admin — is the bar, unlike
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
 	// ADMIN/OWNER are always allowed and may omit appRef.
 	//
@@ -73337,12 +73345,13 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
-	// material (hasApiKey + apiKeyPreview only).
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
 	// appRef, be a member of that App, and (when an agentRef is given) the Agent
-	// must be installed in that App. Because the result is masked (no key
-	// material), App membership — not org admin — is the bar, unlike
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
 	// ADMIN/OWNER are always allowed and may omit appRef.
 	//
@@ -73848,6 +73857,16 @@ var AllResumeOutcome = []ResumeOutcome{
 type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
+	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
+	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
+	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
+	// waits but a claim or live session of another worker of the caller's does, the call refuses RESUME_REFUSED
+	// with extensions reason WORKER_MISMATCH, picked (true when `session` chose that other worker's item),
+	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
+	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
+	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT.
+	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
 	// Recorded on a session the redemption starts only.
@@ -73864,6 +73883,9 @@ type ResumeSessionInput struct {
 
 // GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
 
 // GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
@@ -88098,7 +88120,7 @@ func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.Allows }
 
 // TeamCreateGrantResponse is returned by TeamCreateGrant on success.
 type TeamCreateGrantResponse struct {
-	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. Only a bound worker session may call it, in its own App, for itself or its role agent (installed in the App); the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it. Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, an undeclared key, or a list above 100 entries per parameter), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. No MCP tool. Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
+	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
 	CreateGrant *TeamCreateGrantCreateGrant `json:"createGrant"`
 }
 
@@ -88836,7 +88858,7 @@ func (v *TeamGrantGrant) GetAllows() bool { return v.Allows }
 
 // TeamGrantResponse is returned by TeamGrant on success.
 type TeamGrantResponse struct {
-	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly or a pending one it requested itself.
+	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
 	// Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
 	Grant *TeamGrantGrant `json:"grant"`
 }
@@ -89172,7 +89194,7 @@ func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetAllows() bool { return v.Allow
 
 // TeamGrantsResponse is returned by TeamGrants on success.
 type TeamGrantsResponse struct {
-	// The bound worker's own grants (#3789): the rows naming it directly as holder, plus the pending ones it requested. Any other caller gets an empty page, never an error. limit 0 returns the count only.
+	// The bound worker's own grants (#3789): the rows naming it directly as holder, the pending ones it requested, and (#3711) every row, in every state, held by its role agent in this App while that agent is installed and licensed here (never another App's, never a base agent's). Any other caller gets an empty page, never an error. limit 0 returns the count only.
 	Grants *TeamGrantsGrantsGrantsPage `json:"grants"`
 }
 
@@ -89784,7 +89806,7 @@ type TeamRosterState string
 const (
 	// The assignee of a pending task.
 	TeamRosterStateAssignedNotStarted TeamRosterState = "ASSIGNED_NOT_STARTED"
-	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is quiet, which the matcher leaves alone until its session is live again (see liveSession).
+	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is open but quiet, which the matcher also assigns to, reaching it through that session (see liveSession).
 	TeamRosterStateAvailable TeamRosterState = "AVAILABLE"
 	// Unbound, and no live host registration lists it.
 	TeamRosterStateNotLaunchable TeamRosterState = "NOT_LAUNCHABLE"
@@ -89842,7 +89864,7 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	Role   *string                                                         `json:"role"`
 	// Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
 	Bound bool `json:"bound"`
-	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). The matcher assigns to a BOUND worker only while it has one and has reported a family; an unbound worker is matched when a live host can launch it.
+	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). Matching does not need one: a BOUND worker with an open session (quiet or live) that has reported a family is matched, and a host start is issued only for a worker with no open session; an unbound worker is matched when a live host can launch it.
 	LiveSession bool `json:"liveSession"`
 	// The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
 	Family *string `json:"family"`

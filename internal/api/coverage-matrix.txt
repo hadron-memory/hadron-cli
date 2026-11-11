@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 219: 176 command, 19 gap, 24 excluded
+[Query] 222: 176 command, 22 gap, 24 excluded
 accountUsageAccounts  gap #1875: team usage accounts list command (companion to hadron-server#3853, #3884)
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -54,6 +54,7 @@ aiServiceConfigs  command ai-config list
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
+appGrants  gap #1880
 appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213)
 appKeysPage  command app key list
 appMemoryScope  command app memories
@@ -170,6 +171,8 @@ nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage tw
 nodeRevisionsPage  command node revision list
 nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — identical exact-match loc semantics and access scoping, plus PK/URN refs via nodeId, type filtering, memoryId scoping and paging (#802).
 object  command object get
+orgBootPromptSigning  gap #1879
+orgBootPromptSigningPreview  gap #1879
 organization  command org get
 organizations  command org list
 previewAgentSchedule  command schedule preview
@@ -244,7 +247,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 342: 285 command, 43 gap, 14 excluded
+[Mutation] 346: 285 command, 47 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -425,6 +428,7 @@ mintMemoryNodes  command node mint
 mintSpecCorpus  command spec mint
 moveNode  command node move
 parkAgentTask  command team task park
+planNodeMove  gap #741
 processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  gap #61
@@ -481,6 +485,7 @@ revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
+revokeGrant  gap #1880
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
 rotateAgentWebhook  command webhook rotate
@@ -513,6 +518,7 @@ setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
+setOrgBootPromptSigning  gap #1879
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
@@ -585,10 +591,11 @@ updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawDecision  command decision withdraw
+withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 80: 44 gap, 36 excluded
+[Arguments] 81: 45 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -604,6 +611,7 @@ Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(policy)  gap #1628
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
+Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
