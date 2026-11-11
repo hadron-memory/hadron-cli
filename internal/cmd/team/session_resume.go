@@ -136,6 +136,11 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		if m, ok := api.ResumeWorkerMismatch(err); ok {
 			return resumeMismatchRefusal(existing, m, err)
 		}
+		if expectedWorker != nil && rejectsExpectedWorker(err) {
+			return exitcode.New(exitcode.Usage, &causedRefusal{msg: "this server does not know the expected-worker field (it predates hadron-server#3822), so it cannot check that the claim waiting is this worktree's own, " +
+				"and the resume was not retried without that check. No claim was consumed and nothing was written. " +
+				"Name the worker you mean with `hadron team session start --as <worker>`, or upgrade the server", err: err})
+		}
 		return api.MapError(err)
 	}
 	r := resp.ResumeSession
@@ -405,4 +410,19 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// rejectsExpectedWorker reports a server refusing the expected-worker input
+// field as unknown: a validation or coercion error naming it. Matched on the
+// field name, so an unrelated failure never takes this path.
+func rejectsExpectedWorker(err error) bool {
+	if api.IsGraphQLValidationFor(err, "expectedWorkerId") {
+		return true
+	}
+	for _, m := range api.ServerMessages(err) {
+		if strings.Contains(m, `"expectedWorkerId"`) && (strings.Contains(m, "not defined") || strings.Contains(m, "Unknown")) {
+			return true
+		}
+	}
+	return false
 }

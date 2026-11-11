@@ -331,7 +331,7 @@ func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
 			if err == nil {
 				t.Fatal("want a refusal")
 			}
-			for _, w := range []string{"hadron-server#3822", "--as", "no claim"} {
+			for _, w := range []string{"hadron-server#3822", "--as", "No claim"} {
 				if !strings.Contains(err.Error(), w) {
 					t.Errorf("must say %q: %v", w, err)
 				}

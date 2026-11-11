@@ -3105,7 +3105,7 @@ server error fails the command).
   exit 5 and has spent the claim, except reason `WORKER_MISMATCH`, which
   spends nothing; `RESUME_AMBIGUOUS` is exit 2 (name the worker). A worktree
   with a binding file (lapsed or ended) sends that worker as `expectedWorkerId`
-  (needs hadron-server#3822; never with `--as`): if nothing of that worker's
+  (needs hadron-server#3822, never with `--as`; an older server rejects the field and the resume refuses, exit 2, consuming nothing and not retrying without it: use `start --as <worker>`): if nothing of that worker's
   waits but another worker's claim or live session does, the resume is refused
   `WORKER_MISMATCH` (exit 5), naming both workers, that worker's item is
   untouched and no binding is written (run `start` in that worker's own

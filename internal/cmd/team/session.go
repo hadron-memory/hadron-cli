@@ -868,7 +868,8 @@ printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A worktree with a binding file sends that worker as the expected
-worker (needs hadron-server#3822): if nothing of that worker's waits but
+worker (needs hadron-server#3822; an older server refuses the resume, exit 2,
+consuming nothing: use start --as <worker>): if nothing of that worker's waits but
 another worker's claim or live session does, the resume is refused (exit 5,
 RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
 is untouched, no binding is written; run start in that worker's own worktree,
