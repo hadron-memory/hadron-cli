@@ -296,14 +296,21 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 // in the same held refusal the non-force path gives, without calling the server.
 func forceStartHeld(t *testing.T, workerJSON, identity string) (stderr string, captured map[string]json.RawMessage, err error) {
 	t.Helper()
+	return forceStartWith(t, workerJSON, identity, `{"errors":[{"message":"That name is held.",
+			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`)
+}
+
+// forceStartWith is forceStartHeld with the server's StartTeamSession answer
+// chosen by the caller, so a control can see the bind SUCCEED (#1863).
+func forceStartWith(t *testing.T, workerJSON, identity, startAnswer string) (stderr string, captured map[string]json.RawMessage, err error) {
+	t.Helper()
 	teamGitDir(t)
 	gql, cap := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + workerJSON + `}}`,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      identity,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
-		"StartTeamSession": `{"errors":[{"message":"That name is held.",
-			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`,
+		"StartTeamSession": startAnswer,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -361,6 +368,44 @@ func TestTeamSessionStartForceOwnHoldAndUnheldStillTakeOver(t *testing.T) {
 			}
 		})
 	}
+}
+
+// #1863 item 1: the controls above stub StartTeamSession to ALWAYS refuse, so
+// they pin the attempt, never a bind that works. Here the server accepts: the
+// forceable TAKEN cases (the caller's own hold, or an unheld name) must end in a
+// real takeover. A name someone else holds is NOT one of them: HELD stays
+// unforceable (cor:agt:020:09), covered by TestTeamSessionStartForceDoesNotDefeatAHold.
+func TestTeamSessionStartForceTakeoverSucceedsOnlyForTakenCases(t *testing.T) {
+	ok := `{"data":{"startSession":` + startedSessionJSON + `}}`
+	for name, worker := range map[string]string{
+		"held by the caller": withLiveness(heldBy("u-holger"), "true"),
+		"unheld":             withLiveness(irisWorkerJSON, "true"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			stderr, captured, err := forceStartWith(t, worker, authContextHolgerJSON, ok)
+			if err != nil {
+				t.Fatalf("--force on a name the caller may take over must bind: %v\nstderr:\n%s", err, stderr)
+			}
+			if !strings.Contains(stderr, "taking over worker") {
+				t.Errorf("a real takeover must say so:\n%s", stderr)
+			}
+			if _, called := captured["StartTeamSession"]; !called {
+				t.Error("the bind must be attempted, and here it succeeds")
+			}
+		})
+	}
+	t.Run("held by someone else is refused even though the server would bind", func(t *testing.T) {
+		stderr, captured, err := forceStartWith(t, withLiveness(heldBy("u-dara"), "true"), authContextHolgerJSON, ok)
+		if err == nil {
+			t.Fatalf("a hold by another must not be forced, yet the command succeeded:\n%s", stderr)
+		}
+		if code := exitCodeFor(err); code != exitcode.Conflict {
+			t.Errorf("exit code = %d, want %d (Conflict): %v", code, exitcode.Conflict, err)
+		}
+		if _, called := captured["StartTeamSession"]; called {
+			t.Error("HELD is unforceable: the bind must not be attempted")
+		}
+	})
 }
 
 // Ruling R2: when the caller's identity cannot be read, the hold may be theirs.
