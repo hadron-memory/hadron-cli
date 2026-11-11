@@ -219,7 +219,7 @@ The team App is --app, the App context, or the worktree binding.`,
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return writeProjection(w, dto) })
 		},
 	}
-	c.Flags().StringVar(&account, "account", "", "one account, by its label exactly as 'usage show' prints it (default: every recorded account)")
+	c.Flags().StringVar(&account, "account", "", "one account, by its label exactly as 'usage show' prints it (default: every account the server lists, as 'usage accounts' prints them)")
 	c.Flags().StringVar(&host, "host", "", "with --account: the host, when the label has history from more than one")
 	c.Flags().StringVar(&family, "family", "", "with --account: the model family, when the label has history from more than one")
 	c.Flags().IntVar(&addWorkers, "add-workers", 0, "what-if: add N workers (1 to 50) to --account")
