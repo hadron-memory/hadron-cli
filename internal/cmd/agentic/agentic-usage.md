@@ -140,10 +140,11 @@ self-hosted backend.
 | 8    | forbidden — authenticated, but not permitted |
 | 10   | Orca not reachable — `hadron orca …` run off the Orca host (command-specific; see below) |
 | 13   | `team chat read --wait` timed out: every poll succeeded and no new message arrived (command-specific; not an error — wait again from the same `--since`) |
+| 14   | `team session whoami --check` found the bound session ENDED (command-specific; the answer is still printed, end time included, text or `--json`; not an auth failure — rebind with `session start`) |
 
 `hadron orca …` exits **10** when the Orca CLI/app does not answer (this is not the host that runs
 Orca). A worker with no terminal is NOT that: it is a `dark`/`no_terminal` status and exit 0. The other
-command-specific 9–12 below belong to `team push` / `team chat check` and are never emitted by `orca`; 13 belongs to `team chat read --wait`.
+command-specific 9–12 below belong to `team push` / `team chat check` and are never emitted by `orca`; 13 belongs to `team chat read --wait`; 14 to `team session whoami --check`.
 
 **Internal server faults exit 1, never 7** (cli#898, cor:api:260:01). The server
 answered, so it is not "unavailable". A response whose GraphQL `extensions.code` is
@@ -3136,6 +3137,9 @@ server error fails the command).
   when the binding may have outlived what it describes: `session end --session
   <id>` ends a session from ANYWHERE and clears only the binding of the worktree
   it ran in, so every other worktree keeps describing a session that is gone.
+  When the server reports the session ENDED (`endedAt` set, however it ended) the answer is printed
+  as usual and the command exits **14** (`SessionEnded`, #1835) — open, quiet or dormant stays 0 and a
+  check that could not be answered keeps its own non-zero code (not-found 4, unavailable 7). Never 3.
   `--json` gains `checked`, `active`, `endedAt` and `autoExpiredAt`; `active` is
   **null** unless `checked` is true, because "not asked" is not "dead". It is
   `active`, not "live": the predicate is `endedAt IS NULL` and nothing more — the
@@ -5655,6 +5659,23 @@ task waits for release). Clearing restores ordinary windows from that edit.
 The server owns all alarm timing and behavior; use team events --alarms to read
 stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable
 and stall.finish-by, and team alarm ack to acknowledge.
+
+## Task refs and --app (cli#1831)
+
+Every `team task` argument that names a task (the positional task of every
+verb, the second argument of `add-blocker`/`remove-blocker`, and
+`create --parent`/`--blocked-by`, `clone --parent`, `list --parent`) goes
+through one rule. With an explicit `--app`, a BARE handle (`^AT\d+(\.\d+)*$`,
+after trimming) is sent as `hrn:agenttask:<root>:<slug>:<handle>`. `--app` must
+then be `hrn:app:<root>:<slug>` or `<root>:<slug>`: an App id cannot be
+composed without a read and is refused (exit 2, nothing sent). A qualified ref
+(`hrn:agenttask:<root>:<slug>:…` or the server's
+`hrn:agenttask:hrn:app:<root>:<slug>:…`) naming another App than `--app` is
+refused (exit 2, nothing sent); naming the same App it is sent unchanged. A
+task id or any other non-handle is sent unchanged. Without `--app` nothing
+changes: the configured App context and the worktree binding never qualify a
+handle, so a member of more than one App still gets the server's
+`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check.
 
 ## Task single-shot matching (cli#1549)
 

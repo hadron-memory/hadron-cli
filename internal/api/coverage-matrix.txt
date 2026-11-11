@@ -23,7 +23,8 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 218: 175 command, 19 gap, 24 excluded
+[Query] 219: 175 command, 20 gap, 24 excluded
+accountUsageAccounts  gap #1875: team usage accounts list command (companion to hadron-server#3853, #3884)
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
 actionTickets  command ticket list
@@ -33,7 +34,7 @@ agentAssets  excluded deprecated: its description says "Deprecated; use memoryAs
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
-agentServedBootPrompt  gap #1865: agent boot-prompt serve preview, open PR (arrived with the cli#1868 snapshot refresh)
+agentServedBootPrompt  gap #1853: read the boot prompt an Agent is served (companion to hadron-server#3843)
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
 agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions

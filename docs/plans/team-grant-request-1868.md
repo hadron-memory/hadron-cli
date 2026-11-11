@@ -54,12 +54,10 @@ request's own `state` as the server sent them (R5, R6).
 
 ## Schema snapshot
 
-Refreshed to hadron-server `8a10d8580` (merge of #3870, the revision whose grant
-descriptions the CLI now carries; main was `ef38150ef` when read). The refresh
-brings `agentServedBootPrompt` into the snapshot, which the coverage matrix
-cannot leave unclassified: it is recorded as `gap #1865` (Beatrix's open PR
-covers it). Whichever of #1865 and this lands second resolves that one matrix
-line and regenerates `generated.go`.
+The snapshot on main already carries the grant fields and their current
+descriptions (refreshed since this work began), so after merging main this change
+adds no schema diff: only the operations in `team_grants.graphql` and the
+regenerated `generated.go`.
 
 ## Verification
 
