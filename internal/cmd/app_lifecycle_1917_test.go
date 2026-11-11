@@ -49,20 +49,29 @@ func allLifecycleResponses() map[string]string {
 	}
 }
 
-func runLifecycle(t *testing.T, responses map[string]string, args ...string) (string, error, map[string]json.RawMessage) {
+// withYes appends --yes where the command confirms (delete, rm, uninstall);
+// reinstall restores the same App and has no confirmation or --yes.
+func withYes(args ...string) []string {
+	if args[1] == "reinstall" {
+		return args
+	}
+	return append(args, "--yes")
+}
+
+func runLifecycle(t *testing.T, responses map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
 	gql, captured := captureGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append(args, "--server", gql.URL))
 	err := root.Execute()
-	return out.String(), err, captured
+	return out.String(), captured, err
 }
 
 func TestAppLifecycle1917EachCommandCallsExactlyItsMutationWithTheRefUnchanged(t *testing.T) {
 	for _, c := range lifecycleCases {
 		for _, ref := range []string{lifecycleID, lifecycleURN} {
-			_, err, captured := runLifecycle(t, allLifecycleResponses(), append(append([]string{}, c.args...), ref, "--yes")...)
+			_, captured, err := runLifecycle(t, allLifecycleResponses(), withYes(append(append([]string{}, c.args...), ref)...)...)
 			if err != nil {
 				t.Fatalf("%s %s: %v", c.name, ref, err)
 			}
@@ -84,8 +93,8 @@ func TestAppLifecycle1917EachCommandCallsExactlyItsMutationWithTheRefUnchanged(t
 
 func TestAppLifecycle1917JSONStatusIsTheResultingStateAndARepeatReadsTheSame(t *testing.T) {
 	for _, c := range lifecycleCases {
-		args := append(append([]string{}, c.args...), lifecycleID, "--yes", "--json")
-		first, err, _ := runLifecycle(t, map[string]string{c.op: c.result}, args...)
+		args := append(withYes(append(append([]string{}, c.args...), lifecycleID)...), "--json")
+		first, _, err := runLifecycle(t, map[string]string{c.op: c.result}, args...)
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
@@ -117,7 +126,7 @@ func TestAppLifecycle1917TextStatesTheStateInTheSpecsWords(t *testing.T) {
 			[]string{"is installed", "same App"}},
 	}
 	for _, c := range cases {
-		out, err, _ := runLifecycle(t, map[string]string{c.op: c.result}, append(append([]string{}, c.args...), lifecycleID, "--yes")...)
+		out, _, err := runLifecycle(t, map[string]string{c.op: c.result}, withYes(append(append([]string{}, c.args...), lifecycleID)...)...)
 		if err != nil {
 			t.Fatalf("%v: %v", c.args, err)
 		}
@@ -138,13 +147,13 @@ func TestAppLifecycle1917TextStatesTheStateInTheSpecsWords(t *testing.T) {
 
 func TestAppLifecycle1917ConfirmationGatesUninstallAndDeleteButNotReinstall(t *testing.T) {
 	for _, args := range [][]string{{"app", "uninstall", lifecycleID}, {"app", "delete", lifecycleID}, {"app", "rm", lifecycleID}} {
-		_, err, captured := runLifecycle(t, allLifecycleResponses(), args...)
-		if exitcode.FromError(err) != exitcode.Usage || len(captured) != 0 {
+		_, captured, err := runLifecycle(t, allLifecycleResponses(), args...)
+		if exitCodeFor(err) != exitcode.Usage || len(captured) != 0 {
 			t.Errorf("%v without --yes, non-interactive: err %v (exit %d), requests %v; want a usage refusal and no request",
-				args, err, exitcode.FromError(err), keys(captured))
+				args, err, exitCodeFor(err), keys(captured))
 		}
 	}
-	if _, err, captured := runLifecycle(t, allLifecycleResponses(), "app", "reinstall", lifecycleID); err != nil || len(captured) != 1 {
+	if _, captured, err := runLifecycle(t, allLifecycleResponses(), "app", "reinstall", lifecycleID); err != nil || len(captured) != 1 {
 		t.Errorf("reinstall restores the same App and needs no --yes: %v %v", err, keys(captured))
 	}
 }
@@ -164,7 +173,7 @@ func TestAppLifecycle1917DecliningThePromptSendsNothingAndUninstallIsNotCalledIr
 		root := NewRootCmd(f)
 		root.SetArgs(append(c.args, "--server", gql.URL))
 		err := root.Execute()
-		if exitcode.FromError(err) != exitcode.Cancelled || len(captured) != 0 {
+		if exitCodeFor(err) != exitcode.Cancelled || len(captured) != 0 {
 			t.Errorf("%v declined: err %v, requests %v; want Cancelled and no request", c.args, err, keys(captured))
 		}
 		for _, w := range c.prompt {
@@ -197,9 +206,9 @@ func TestAppLifecycle1917RefusalsAreTypedAndNeverPreflighted(t *testing.T) {
 		{[]string{"app", "reinstall"}, refusal("ReinstallApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden"},
 	}
 	for _, c := range cases {
-		_, err, captured := runLifecycle(t, c.resp, append(append([]string{}, c.args...), lifecycleURN, "--yes")...)
-		if err == nil || exitcode.FromError(err) != c.wantExit {
-			t.Errorf("%v %v: err %v exit %d, want exit %d", c.args, c.args, err, exitcode.FromError(err), c.wantExit)
+		_, captured, err := runLifecycle(t, c.resp, withYes(append(append([]string{}, c.args...), lifecycleURN)...)...)
+		if err == nil || exitCodeFor(err) != c.wantExit {
+			t.Errorf("%v %v: err %v exit %d, want exit %d", c.args, c.args, err, exitCodeFor(err), c.wantExit)
 			continue
 		}
 		if !strings.Contains(err.Error(), c.wantText) {

@@ -373,6 +373,8 @@ func TestMapError(t *testing.T) {
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
 		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
+		{"app deleted", gqlErr("APP_DELETED"), exitcode.Conflict},
+		{"app urn in use", gqlErr("APP_URN_IN_USE"), exitcode.Conflict},
 		{"properties not an object", gqlErr("PROPERTIES_NOT_AN_OBJECT"), exitcode.Usage},
 		{"properties too large", gqlErr("PROPERTIES_TOO_LARGE"), exitcode.Usage},
 		{"properties schema violation", gqlErr("PROPERTIES_SCHEMA_VIOLATION"), exitcode.Usage},
