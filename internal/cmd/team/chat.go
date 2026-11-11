@@ -276,11 +276,15 @@ its whole due batch through the poller's delivery transaction, so nothing is
 typed over a draft and a held recipient's marks do not move. The report says
 per recipient pushed (acknowledged), typed (the text reached the terminal but the
 acknowledgement did not land: no mark moved, still due, never typed again; reason
-ack-pending), held, or not-pushed (nothing typed: no batch came back,
-which the server does not distinguish as off-host, unknown or nothing due), or
+ack-pending), held (the delivery's reason, e.g. draft), not-pushed, or
 unconfirmed (the delivery pass failed before this recipient had an outcome, so
-whether it was typed is not established), in the text and in --json under "push",
-each with "acked" (batches whose acknowledgement was accepted). Every state exits
+whether it was typed is not established; reason push-failed), in the text and
+in --json under "push", each with "acked" (batches whose acknowledgement was
+accepted) and "batch" (the span of the batch that decided the state, or none).
+not-pushed names its cause: not-on-host (the mention matches no worker
+registered on this host with a configured worktree; push from that worker's
+host) or no-due-batch (the worker is on this host but the server offered no
+due batch for it; why none was due is not known to the CLI). Every state exits
 0: the post stands either way, so test the state, not the exit. A failed push never undoes the post or
 changes its exit code.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
@@ -450,7 +454,7 @@ changes its exit code.`,
 							reason = fmt.Sprintf(" (ack-pending; acked %d)", r.Acked)
 						}
 					}
-					if _, err := fmt.Fprintf(w, "  push %s: %s%s\n", r.Recipient, r.State, reason); err != nil {
+					if _, err := fmt.Fprintf(w, "  push %s: %s%s batch %s\n", r.Recipient, r.State, reason, r.Batch); err != nil {
 						return err
 					}
 				}
