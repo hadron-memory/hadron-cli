@@ -27,11 +27,13 @@ plus this worker's own requests that are neither activated nor revoked.
 Grants held by a role agent, another worker, a person or an App are not listed.
 
 Prints timestamps and allows (a yes/no fact about now), never a derived state label.
---json preserves the server values and nulls. This group only reads; the separate
-hadron grant group reads and manages organization action grants.`
+--json preserves the server values and nulls. list and get only read. request,
+request-signature and signing-request ask for a grant and for its signing; a
+person signs, and nothing here does. The separate hadron grant group reads and
+manages organization action grants.`
 
 func newCmdTeamGrant(f *cmdutil.Factory) *cobra.Command {
-	group := &cobra.Command{Use: "grant <command>", Short: "Read the bound worker's own grants", Long: workerGrantHelp}
+	group := &cobra.Command{Use: "grant <command>", Short: "Read the bound worker's own grants and ask for one", Long: workerGrantHelp}
 	var limit, offset int
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: workerGrantHelp + `
 
@@ -111,7 +113,7 @@ A missing or hidden row returns the same not-found line and exit 4.
 			return nil
 		})
 	}}
-	group.AddCommand(list, get)
+	group.AddCommand(list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f))
 	return group
 }
 

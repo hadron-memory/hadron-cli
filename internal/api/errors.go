@@ -1597,6 +1597,22 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "SIGNING_REQUEST_NOT_REQUESTER":
 		return exitcode.Forbidden
+	// A worker's grant request (hadron-server createGrant and
+	// requestGrantSignature, cor:acl:140:05/:07; cli#1868, ruled R7). The
+	// GRANT_NOT_FOUND / SIGNING_REQUEST_NOT_FOUND codes exit 4 through the
+	// suffix rule.
+	//   - GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED: this session
+	//     may not make this write, like BOOT_PROMPT_WORKER_SESSION_REFUSED: 8.
+	//   - GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID, GRANT_TERMS_INVALID: the
+	//     caller's own input, which it fixes: 2.
+	//   - GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE: the
+	//     grant's (or its stored terms') state, which no retry changes: 5.
+	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED":
+		return exitcode.Forbidden
+	case code == "GRANT_ACTION_UNKNOWN" || code == "GRANT_VALUES_INVALID" || code == "GRANT_TERMS_INVALID":
+		return exitcode.Usage
+	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
+		return exitcode.Conflict
 	// These are invalid inputs. The CLI validates or constructs them before
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
