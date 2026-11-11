@@ -105,6 +105,12 @@ func writeWorkerAvailability(out io.Writer, a *workerGetAvailabilityDTO) {
 	if a.Until != nil {
 		line += " until " + output.SafeCell(*a.Until)
 	}
+	// cor:agt:060:02 Until / cor:agt:060:11: an UNAVAILABLE record the server
+	// says is not in effect reads as available everywhere, so say so. Only the
+	// server's inEffect decides (no clock comparison, no inferred cause).
+	if a.State == string(gen.AvailabilityStateUnavailable) && !a.InEffect {
+		line += ", not in effect: reads as available"
+	}
 	line += "; set by " + availabilitySetterCell(a)
 	if a.SetBy != string(gen.AvailabilitySetterLapse) {
 		line += " at " + output.SafeCell(a.SetAt)
