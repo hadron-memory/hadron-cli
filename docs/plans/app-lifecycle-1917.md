@@ -32,6 +32,8 @@ Victor's four FIT conditions (6799896107), and where each is met:
 
 `APP_DELETED` and `APP_URN_IN_USE` map to Conflict (5), beside `APP_UNINSTALLED`.
 
+**As built after QA (Celine's stack evidence at `82941c27`, F3/F4):** the server's `deleteApp` resolves its ref without deleted Apps, so a repeat delete, like a missing App, is `APP_NOT_FOUND` (exit 4). Condition 4's "a repeat prints identically" therefore holds for `uninstall` and `reinstall` only, and condition 3's identical refusal is the server's for those two; `delete`'s missing-vs-denied split is server-side (QA intake). The help and release notes now say so, and the commands keep the server's `extensions.code` as the `--json` envelope's `serverCode` (`MapErrorKeepingCode`) instead of claiming the refusal's `appId`/`urn` reach the output.
+
 ## Schema
 The snapshot was refreshed at hadron-server `9478620f` (origin/main, contains `174fa15f`). #3957's `chatAiConfigChoices` / `setAppChatbotAiConfig` came in with it and are classified `gap #1913`, not implemented here.
 

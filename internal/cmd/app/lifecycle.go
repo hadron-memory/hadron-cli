@@ -32,7 +32,9 @@ type appStateDTO struct {
 
 // runAppLifecycle sends the ref to the server unchanged (an id, or a URN the
 // server resolves): no client lookup or preflight read, so a missing App and
-// a refused caller stay one identical refusal.
+// a refused caller get whatever the server answers: the CLI adds no
+// existence oracle of its own. The server's extensions.code is kept as the
+// --json envelope's serverCode.
 func runAppLifecycle(cmd *cobra.Command, f *cmdutil.Factory, raw string, confirm func(ref string) error,
 	call func(ctx context.Context, client graphql.Client, ref string) error, state string, text func(ref string) string) error {
 	appRef, err := cmdutil.CanonicalAppRef("<app-ref>", raw)
@@ -49,7 +51,7 @@ func runAppLifecycle(cmd *cobra.Command, f *cmdutil.Factory, raw string, confirm
 		}
 	}
 	if err := call(cmd.Context(), client, appRef); err != nil {
-		return api.MapError(err)
+		return api.MapErrorKeepingCode(err)
 	}
 	return output.Write(f.IOStreams, f.JSON, appStateDTO{App: appRef, Status: state}, func(w io.Writer) error {
 		_, err := fmt.Fprintln(w, text(appRef))
@@ -81,8 +83,9 @@ hadron app uninstall.
 uninstalled App by its id: its former URN may now name a different,
 installed App.
 
-Prints the resulting state; --json is {"app": <ref>, "status": "deleted"},
-the same for a repeat. Asks for confirmation on a terminal; a
+Prints the resulting state; --json is {"app": <ref>, "status": "deleted"}.
+A deleted App reads as missing: a repeat, like a ref naming no App, is
+refused APP_NOT_FOUND (exit 4). Asks for confirmation on a terminal; a
 non-interactive caller must pass --yes. Before cli#1917 this was
 "app uninstall"; rm still means delete.`,
 		Example: `  hadron app delete capp1a2b3c4d5e6f7g8h9i0j --yes
@@ -155,8 +158,8 @@ func newCmdReinstall(f *cmdutil.Factory) *cobra.Command {
 		Long: `Reinstall an uninstalled App (cor:dmo:050:21): the same App, with its id,
 keys, members and memories, is installed again. Nothing new is created.
 
-Refused APP_URN_IN_USE (exit 5) while another installed App holds the
-handle; the refusal carries the appId and urn. The handle must be free
+Refused APP_URN_IN_USE (exit 5; the --json error's serverCode) while
+another installed App holds the handle. The handle must be free
 first: the App holding it is uninstalled or deleted by whoever manages it.
 A deleted App is refused APP_DELETED (exit 5; there is no undelete).
 
