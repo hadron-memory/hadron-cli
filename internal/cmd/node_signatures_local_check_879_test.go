@@ -472,3 +472,18 @@ func TestLocalCheckUnbuildablePayloadIsNotConsistent(t *testing.T) {
 		t.Errorf("exit = %d, want 5", code)
 	}
 }
+
+// Gizelle (LOCAL delta P2): an error list is "unreadable" only when EVERY
+// error is a known unreadable refusal. A mixed list that carries an internal
+// failure is an error, never UNAVAILABLE under exit 0.
+func TestLocalCheckMixedErrorsAreNotUnavailable(t *testing.T) {
+	mixed := `{"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`
+	for _, op := range []string{"GetSigningRequest", "NodeRawText"} {
+		r := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+		r[op] = mixed
+		exit, out, _ := l879Run(t, r, "--check", "--json")
+		if exit != exitcode.Error || strings.Contains(out, "UNAVAILABLE") {
+			t.Errorf("%s: exit = %d, out = %q", op, exit, out)
+		}
+	}
+}
