@@ -326,3 +326,91 @@ func TestChatbotAiConfigOperationsSelectNoKeyMaterial1913(t *testing.T) {
 		t.Error("the shared GetAppMetadata selects chatbotAiConfigId: an older server would stop serving app get")
 	}
 }
+
+// Review fix head (BLIND F1/F2/F3, LOCAL F1/F2/F3, §10 F1): the explicit get
+// never reports an absent App or an unread capability as an unset pin.
+func TestChatbotAiConfigGetMissingAppAndOldServerAreNotUnset1913(t *testing.T) {
+	_, _, _, err := cb1913Run(t, map[string]string{"GetAppChatbotAiConfig": `{"data":{"app":null}}`},
+		"app", "chatbot-ai-config", "get", cb1913App, "--json")
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("a null App must be NotFound, got %v", err)
+	}
+	old := `{"errors":[{"message":"Cannot query field \"chatbotAiConfigId\" on type \"App\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	_, _, _, err = cb1913Run(t, map[string]string{"GetAppChatbotAiConfig": old},
+		"app", "chatbot-ai-config", "get", cb1913App, "--json")
+	if err == nil {
+		t.Fatal("the explicit get must fail on a server without the field, not report unset")
+	}
+}
+
+// A failed choices read leaves membership UNKNOWN: null, never false, and the
+// text never claims the config is not among the enabled choices.
+func TestChatbotChoicesReadFailureIsUnknownNotAbsent1913(t *testing.T) {
+	boom := `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	resp := map[string]string{
+		"GetAppMetadata": cb1913Meta, "GetAppChatbotAiConfig": cb1913Pinned(cb1913Pin),
+		"ChatAiConfigChoices": boom, "SetAppChatbotAiConfig": cb1913Set(cb1913Pin),
+	}
+	for _, args := range [][]string{
+		{"app", "get", cb1913App},
+		{"app", "chatbot-ai-config", "get", cb1913App},
+		{"app", "chatbot-ai-config", "set", cb1913App, cb1913Pin},
+	} {
+		out, _, _, err := cb1913Run(t, resp, args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if strings.Contains(out, "not among") || !strings.Contains(out, "unavailable") {
+			t.Fatalf("%v: text must say unavailable, not absent:\n%s", args, out)
+		}
+		jout, _, _, err := cb1913Run(t, resp, append(args, "--json")...)
+		if err != nil {
+			t.Fatalf("%v json: %v", args, err)
+		}
+		var got map[string]any
+		_ = json.Unmarshal([]byte(jout), &got)
+		if v, has := got["chatbotAiConfigListed"]; !has || v != nil || got["chatbotAiConfigName"] != nil {
+			t.Fatalf("%v: listed must be an explicit null: %v", args, got)
+		}
+	}
+}
+
+// Name matching: an exact id beats a name; duplicates are a usage error with
+// no mutation; the argument is sent as given (no trimming); a config that is
+// itself named default is reached by id only.
+func TestAppChatbotAiConfigSetMatchingEdges1913(t *testing.T) {
+	dupe := `{"value":"cfg-own-3","name":"Support bot","isDefault":false,"isAppChatbotConfig":false,"provider":null,"model":null}`
+	spaced := `{"value":"cfg-sp","name":" Padded ","isDefault":false,"isAppChatbotConfig":false,"provider":null,"model":null}`
+	named := `{"value":"cfg-named-default","name":"default","isDefault":false,"isAppChatbotConfig":false,"provider":null,"model":null}`
+	idIsName := `{"value":"cfg-x","name":"cfg-own-2","isDefault":false,"isAppChatbotConfig":false,"provider":null,"model":null}`
+	set := func(value, want string, choices ...string) {
+		t.Helper()
+		resp := map[string]string{"ChatAiConfigChoices": cb1913Choices(choices...), "SetAppChatbotAiConfig": cb1913Set(want)}
+		_, captured, count, err := cb1913Run(t, resp, "app", "chatbot-ai-config", "set", cb1913App, value)
+		if want == "" {
+			if err == nil || exitCodeFor(err) != exitcode.Usage || count("SetAppChatbotAiConfig") != 0 {
+				t.Fatalf("%q: want a usage error and no mutation, got %v", value, err)
+			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("%q: %v", value, err)
+		}
+		if got := string(mgVars(t, captured["SetAppChatbotAiConfig"])["configId"]); got != `"`+want+`"` {
+			t.Fatalf("%q sent %s, want %s", value, got, want)
+		}
+	}
+	set("Support bot", "", cb1913Choice, dupe, cb1913Dflt)                         // ambiguous name
+	set("cfg-own-2", "cfg-own-2", cb1913Choice, cb1913Other, idIsName, cb1913Dflt) // id beats name
+	set(" Padded ", "cfg-sp", spaced, cb1913Dflt)                                  // exact, untrimmed
+	set("default", "", named, cb1913Dflt)                                          // reserved word, even with a config so named
+	set("cfg-named-default", "cfg-named-default", named, cb1913Dflt)
+}
+
+func TestAppChatbotAiConfigClearJSONListedIsFalse1913(t *testing.T) {
+	out, _, _, err := cb1913Run(t, map[string]string{"SetAppChatbotAiConfig": cb1913Set("")}, "app", "chatbot-ai-config", "clear", cb1913App, "--json")
+	var got map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &got) != nil || got["chatbotAiConfigListed"] != false {
+		t.Fatalf("err %v out %s", err, out)
+	}
+}

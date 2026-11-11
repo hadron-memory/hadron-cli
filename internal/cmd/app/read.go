@@ -26,7 +26,7 @@ type appGetDTO struct {
 	// they did. A pin they do not carry is shown by id and is not called in use.
 	ChatbotAiConfigID     *string `json:"chatbotAiConfigId"`
 	ChatbotAiConfigName   *string `json:"chatbotAiConfigName"`
-	ChatbotAiConfigListed bool    `json:"chatbotAiConfigListed"`
+	ChatbotAiConfigListed *bool   `json:"chatbotAiConfigListed"`
 }
 
 type appKeyMetadataDTO struct {
@@ -80,7 +80,7 @@ whether the value is unset or withheld. The server decides access.`,
 			if a == nil {
 				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
 			}
-			pinID, err := readChatbotPin(cmd.Context(), client, ref)
+			pinID, err := readChatbotPin(cmd.Context(), client, ref, args[0], true)
 			if err != nil {
 				return err
 			}

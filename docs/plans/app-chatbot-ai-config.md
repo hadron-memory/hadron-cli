@@ -15,15 +15,19 @@ The snapshot was refreshed to exactly that revision.
   narrow `chatAiConfigChoices` list (the App's own enabled configs plus a `default`
   marker), never from the inherited `ai-config` walk. A pin the list does not carry
   (a stored disabled config is skipped until enabled) is shown by id, name null,
-  `chatbotAiConfigListed` false, and never called in use.
+  `chatbotAiConfigListed` false, and never called in use. If the choices read FAILS,
+  membership is unknown: `chatbotAiConfigListed` is null and the text says the name is
+  unavailable (never "not among the enabled choices"). A null App is NotFound, never an
+  unset pin; the explicit `get` also fails on a server without the field (only `app get`
+  tolerates that absence).
 - **Own operations.** The pin read, the choices read and the set/clear mutation are
   separate operations, so a server that predates #3957 still serves `app get`
-  (only a validation error on the field reads as capability absence).
+  (only a validation error on the field reads as capability absence, and only for `app get`).
 - **`set <name-or-id>`** matches an exact id, else an exact name, among the choices
   only (an ambiguous name is a usage error listing ids). An unmatched value is sent as
   given; the server answers a missing, foreign or deleted config alike, and an own
-  *disabled* config can be stored by id. `default` is a marker, not a config
-  (usage error, no mutation); an empty value is a usage error before any request.
+  *disabled* config can be stored by id. The argument is sent as given (no trimming). `default` is a marker, not a config: it
+  never matches by name, even an own config so named (that is set by its id) (usage error, no mutation); an empty value is a usage error before any request.
   If the choices read fails, set says so on stderr and sends the value as given.
 - **`clear`** sends an explicit `configId: null` (the operation is not omitempty) and
   removes only the selection. No confirmation: nothing is deleted.

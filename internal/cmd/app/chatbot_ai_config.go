@@ -39,26 +39,31 @@ type chatbotChoiceDTO struct {
 // Name is the server-returned name of the config, taken from the choices list
 // and null when the pin is not among the App's enabled choices (a stored
 // disabled pin is skipped until it is enabled again): the CLI then says so and
-// never claims the config is in use. Listed says whether it was found.
+// never claims the config is in use. Listed says whether it was found; it is
+// nil when the choices read failed, because then membership is UNKNOWN and an
+// outage must not read as a confirmed absence.
 type chatbotPinDTO struct {
 	ID     *string
 	Name   *string
-	Listed bool
+	Listed *bool
 }
 
 // readChatbotPin reads App.chatbotAiConfigId in its own operation so a server
-// that predates #3957 still serves `app get`: only that documented capability
-// absence (every error a validation error on the field) comes back as nil.
-func readChatbotPin(ctx context.Context, client graphql.Client, ref string) (*string, error) {
+// that predates #3957 still serves `app get`: with tolerateOldServer only that
+// documented capability absence (every error a validation error on the field)
+// comes back as nil. The explicit `chatbot-ai-config get` passes false: it must
+// not claim a selection is unset when the capability was never read. A null App
+// is NotFound for both, never an unset pin.
+func readChatbotPin(ctx context.Context, client graphql.Client, ref, shown string, tolerateOldServer bool) (*string, error) {
 	resp, err := gen.GetAppChatbotAiConfig(ctx, client, ref)
 	if err != nil {
-		if api.IsGraphQLValidationOnlyFor(err, "chatbotAiConfigId") {
+		if tolerateOldServer && api.IsGraphQLValidationOnlyFor(err, "chatbotAiConfigId") {
 			return nil, nil
 		}
 		return nil, api.MapErrorKeepingCode(err)
 	}
 	if resp.App == nil {
-		return nil, nil
+		return nil, exitcode.Newf(exitcode.NotFound, "no App found for %q", shown)
 	}
 	return resp.App.ChatbotAiConfigId, nil
 }
@@ -79,11 +84,13 @@ func readChatbotChoices(ctx context.Context, client graphql.Client, ref string) 
 }
 
 // resolveChatbotPin names a pin from the choices list. A failed choices read
-// leaves the name unknown (with a note on stderr) rather than failing a read
-// whose pin was already answered.
+// leaves the name and Listed unknown (nil, with a note on stderr) rather than
+// failing a read whose pin was already answered.
 func resolveChatbotPin(ctx context.Context, f *cmdutil.Factory, client graphql.Client, ref string, id *string) chatbotPinDTO {
 	pin := chatbotPinDTO{ID: id}
+	f0 := false
 	if id == nil {
+		pin.Listed = &f0
 		return pin
 	}
 	rows, err := readChatbotChoices(ctx, client, ref)
@@ -91,10 +98,11 @@ func resolveChatbotPin(ctx context.Context, f *cmdutil.Factory, client graphql.C
 		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read the App's chatbot choices, so the config's name is not shown: %v\n", err)
 		return pin
 	}
+	pin.Listed = &f0
 	for _, r := range rows {
 		if !r.IsDefault && r.Value == *id {
-			name := r.Name
-			pin.Name, pin.Listed = &name, true
+			name, t := r.Name, true
+			pin.Name, pin.Listed = &name, &t
 			break
 		}
 	}
@@ -106,7 +114,9 @@ func chatbotPinText(p chatbotPinDTO) string {
 	switch {
 	case p.ID == nil:
 		return "-"
-	case p.Listed && p.Name != nil:
+	case p.Listed == nil:
+		return fmt.Sprintf("%s (name unavailable: the App's chatbot choices could not be read)", output.SafeCell(*p.ID))
+	case *p.Listed && p.Name != nil:
 		return fmt.Sprintf("%s (%s)", output.SafeCell(*p.Name), output.SafeCell(*p.ID))
 	default:
 		return fmt.Sprintf("%s (not among the App's enabled choices; a disabled config is skipped until enabled)", output.SafeCell(*p.ID))
@@ -144,7 +154,7 @@ type chatbotAiConfigDTO struct {
 	App    string  `json:"app"`
 	ID     *string `json:"chatbotAiConfigId"`
 	Name   *string `json:"chatbotAiConfigName"`
-	Listed bool    `json:"chatbotAiConfigListed"`
+	Listed *bool   `json:"chatbotAiConfigListed"`
 }
 
 func newCmdChatbotAiConfigGet(f *cmdutil.Factory) *cobra.Command {
@@ -154,7 +164,8 @@ func newCmdChatbotAiConfigGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show the App's chatbot AI config: its id and the server-returned name. JSON is
 {app, chatbotAiConfigId, chatbotAiConfigName, chatbotAiConfigListed}; an unset
 pin is null, and the name is null (chatbotAiConfigListed false) when the config
-is not among the App's enabled choices.
+is not among the App's enabled choices; chatbotAiConfigListed is null when the
+choices could not be read, so membership is unknown.
 
 ` + chatbotAiConfigLong,
 		Example: `  hadron app chatbot-ai-config get acme.com:support
@@ -169,7 +180,7 @@ is not among the App's enabled choices.
 			if err != nil {
 				return err
 			}
-			id, err := readChatbotPin(cmd.Context(), client, ref)
+			id, err := readChatbotPin(cmd.Context(), client, ref, args[0], false)
 			if err != nil {
 				return err
 			}
@@ -242,7 +253,7 @@ an exact name (an ambiguous name is a usage error listing the ids). A name never
 matches an Agent, Org or Host config. A value the list does not carry is sent
 as given and the server answers: a missing config, another App's and a deleted
 one all get the same refusal. To store a config that is currently disabled, pass
-its id. The word default is not a config: use clear to follow the default.
+its id. The word default is not a config and never matches by name: use clear to follow the default (a config that is itself named default is set by its id).
 
 One mutation is sent and never retried. An empty value is a usage error with no
 request. JSON is {app, chatbotAiConfigId, chatbotAiConfigName,
@@ -257,8 +268,8 @@ chatbotAiConfigListed} as stored.
 			if err != nil {
 				return err
 			}
-			want := strings.TrimSpace(args[1])
-			if want == "" {
+			want := args[1]
+			if strings.TrimSpace(want) == "" {
 				return exitcode.Newf(exitcode.Usage, "a config name or id is required; use clear to remove the selection")
 			}
 			client, err := f.GraphQLClient()
@@ -266,6 +277,7 @@ chatbotAiConfigListed} as stored.
 				return err
 			}
 			rows, err := readChatbotChoices(cmd.Context(), client, ref)
+			choicesRead := err == nil
 			if err != nil {
 				// The mutation is the authority; a manager who cannot read the
 				// list can still set by id, so say so and carry on.
@@ -284,10 +296,14 @@ chatbotAiConfigListed} as stored.
 				return exitcode.Newf(exitcode.Error, "the server did not return the App; read it with app chatbot-ai-config get before retrying")
 			}
 			pin := chatbotPinDTO{ID: resp.SetAppChatbotAiConfig.ChatbotAiConfigId}
-			for _, r := range rows {
-				if !r.IsDefault && pin.ID != nil && r.Value == *pin.ID {
-					name := r.Name
-					pin.Name, pin.Listed = &name, true
+			if choicesRead {
+				f0 := false
+				pin.Listed = &f0
+				for _, r := range rows {
+					if !r.IsDefault && pin.ID != nil && r.Value == *pin.ID {
+						name, t := r.Name, true
+						pin.Name, pin.Listed = &name, &t
+					}
 				}
 			}
 			dto := chatbotAiConfigDTO{App: ref, ID: pin.ID, Name: pin.Name, Listed: pin.Listed}
@@ -309,6 +325,11 @@ func matchOwnChoice(rows []chatbotChoiceDTO, want string) (string, error) {
 			return r.Value, nil
 		}
 	}
+	// The word default is reserved: it never selects a config by NAME, even
+	// when an own config is called that. Such a config is set by its id.
+	if strings.EqualFold(want, "default") {
+		return "", exitcode.Newf(exitcode.Usage, "default is the resolution marker, not a config; use clear to follow the default (a config named default is set by its id)")
+	}
 	var ids []string
 	for _, r := range rows {
 		if !r.IsDefault && r.Name == want {
@@ -319,9 +340,6 @@ func matchOwnChoice(rows []chatbotChoiceDTO, want string) (string, error) {
 	case 1:
 		return ids[0], nil
 	case 0:
-		if strings.EqualFold(want, "default") {
-			return "", exitcode.Newf(exitcode.Usage, "default is the resolution marker, not a config; use clear to follow the default")
-		}
 		return want, nil
 	default:
 		return "", exitcode.Newf(exitcode.Usage, "%q names more than one of the App's configs; pass an id: %s", want, strings.Join(ids, ", "))
@@ -357,7 +375,8 @@ chatbotAiConfigId, chatbotAiConfigName, chatbotAiConfigListed} with a null id.
 			if resp.SetAppChatbotAiConfig == nil {
 				return exitcode.Newf(exitcode.Error, "the server did not return the App; read it with app chatbot-ai-config get before retrying")
 			}
-			dto := chatbotAiConfigDTO{App: ref, ID: resp.SetAppChatbotAiConfig.ChatbotAiConfigId}
+			notListed := false
+			dto := chatbotAiConfigDTO{App: ref, ID: resp.SetAppChatbotAiConfig.ChatbotAiConfigId, Listed: &notListed}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ cleared chatbot AI config of app %s\n", output.SafeCell(ref))
 				return err
