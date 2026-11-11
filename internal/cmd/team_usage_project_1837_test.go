@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -257,5 +261,101 @@ func TestUsageProjectTableNeutralizesServerStrings(t *testing.T) {
 	_, js, err := runProject(t, resp, "--account", "a", "--json")
 	if err != nil || !strings.Contains(js, `FORGED  host  row`) {
 		t.Fatalf("--json must carry the original value: %v\n%s", err, js)
+	}
+}
+
+// cli#1850 pin 2 (#1849 BLIND delta P3): one label listed from two hosts is
+// two separate rows, each carrying ITS host's projection. The stub echoes the
+// requested host and answers each host with a different range, so a CLI that
+// dropped or rewrote the host (or printed one answer twice) cannot pass.
+func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
+	writeTeamBinding(t)
+	inner, _ := attnServer(t, map[string]string{
+		"AccountUsageAccounts": acctsResponse(true, acctRupaliOrca1, acctRupaliOrca2),
+	})
+	low := map[string]string{"orca1": "11.5", "orca2": "62.5"}
+	var hosts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &body)
+		if body.OperationName != "AccountUsageProjection" {
+			req, _ := http.NewRequestWithContext(r.Context(), r.Method, inner.URL+r.URL.Path, bytes.NewReader(raw))
+			req.Header = r.Header.Clone()
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Errorf("proxy: %v", err)
+				return
+			}
+			defer resp.Body.Close()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.Copy(w, resp.Body)
+			return
+		}
+		host, _ := body.Variables["host"].(string)
+		hosts = append(hosts, host)
+		win := strings.Replace(projWinNoRunOut, `"lowPctAtReset":20.5`, `"lowPctAtReset":`+low[host], 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":{"accountUsageProjection":{"account":"team-rupali","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"`+host+`","newestSnapshotAt":null,"workers":[],"workersConfigured":true,"windows":[`+win+`],"whatIf":null}}}`)
+	}))
+	defer srv.Close()
+	setTeamBindingServer(t, srv.URL)
+
+	run := func(argv ...string) string {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"--server", srv.URL, "team", "usage", "project"}, argv...))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+
+	out := run()
+	if strings.Join(hosts, ",") != "orca1,orca2" {
+		t.Fatalf("requested hosts %v, want orca1 then orca2", hosts)
+	}
+	rows := map[string]string{}
+	for _, l := range strings.Split(out, "\n") {
+		if f := strings.Fields(l); len(f) > 3 && f[0] == "team-rupali" && f[3] == "5h" {
+			rows[f[1]] = l
+		}
+	}
+	if len(rows) != 2 || !strings.Contains(rows["orca1"], "11.5%") || !strings.Contains(rows["orca2"], "62.5%") {
+		t.Fatalf("want one orca1 row at 11.5%% and one orca2 row at 62.5%%:\n%s", out)
+	}
+
+	var dto struct {
+		Accounts []struct {
+			Host    string           `json:"host"`
+			Windows []map[string]any `json:"windows"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(run("--json")), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Accounts) != 2 || dto.Accounts[0].Host != "orca1" || dto.Accounts[0].Windows[0]["lowPctAtReset"] != 11.5 ||
+		dto.Accounts[1].Host != "orca2" || dto.Accounts[1].Windows[0]["lowPctAtReset"] != 62.5 {
+		t.Fatalf("--json accounts %+v", dto.Accounts)
+	}
+}
+
+// cli#1850 pin 3 (#1849 BLIND delta P3): 50 is the inclusive upper bound of
+// --add-workers; it succeeds and reaches the server unchanged.
+func TestUsageProject1850AddWorkersFiftyReachesServer(t *testing.T) {
+	resp := map[string]string{"AccountUsageProjection": projResponse("team-rupali", projWinNoRunOut, `{"adjusted":[`+projWinProjected+`],"target":null}`)}
+	calls, _, err := runProject(t, resp, "--account", "team-rupali", "--add-workers", "50")
+	if err != nil {
+		t.Fatalf("--add-workers 50 must succeed: %v", err)
+	}
+	pc := projCalls(calls)
+	if len(pc) != 1 {
+		t.Fatalf("want one projection call, got %d", len(pc))
+	}
+	if wi, _ := pc[0].Vars["whatIf"].(map[string]any); wi["addWorkers"] != float64(50) {
+		t.Fatalf("whatIf %v, want addWorkers 50", pc[0].Vars["whatIf"])
 	}
 }
