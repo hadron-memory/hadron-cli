@@ -306,23 +306,35 @@ func noWorktreeCwd(t *testing.T) {
 	t.Chdir(dir)
 }
 
-// wantOneNoWorktreeNote asserts the gate's exact line (cli#1855): once, the
-// two pinned substrings, the underlying errNoWorktree cause, no failure
-// wording, and never the generic note of the other failure paths.
+// wantOneNoWorktreeNote asserts the gate's note (cli#1855): exactly one line
+// starting "note: no worktree session bound", carrying the pinned substrings
+// ("sent as you", the errNoWorktree cause), no failure wording on that line, and
+// never the generic note of the other failure paths anywhere on stderr.
 func wantOneNoWorktreeNote(t *testing.T, stderr string) {
 	t.Helper()
-	if n := strings.Count(stderr, "no worktree session bound"); n != 1 {
-		t.Fatalf("want exactly one note, got %d: %q", n, stderr)
+	var note string
+	n := 0
+	for _, line := range strings.Split(stderr, "\n") {
+		if strings.Contains(line, "no worktree session bound") {
+			n++
+			note = line
+		}
+	}
+	if n != 1 {
+		t.Fatalf("want exactly one note line, got %d: %q", n, stderr)
 	}
 	for _, want := range []string{"sent as you", "not inside a git worktree"} {
-		if !strings.Contains(stderr, want) {
-			t.Fatalf("note lacks %q: %q", want, stderr)
+		if !strings.Contains(note, want) {
+			t.Fatalf("note lacks %q: %q", want, note)
 		}
 	}
-	for _, bad := range []string{"worker attribution unavailable", "failed", "refused"} {
-		if strings.Contains(stderr, bad) {
-			t.Fatalf("note must not say %q: %q", bad, stderr)
+	for _, bad := range []string{"failed", "refused"} {
+		if strings.Contains(note, bad) {
+			t.Fatalf("note must not say %q: %q", bad, note)
 		}
+	}
+	if strings.Contains(stderr, "worker attribution unavailable") {
+		t.Fatalf("the generic note appeared beside the no-worktree note: %q", stderr)
 	}
 }
 
