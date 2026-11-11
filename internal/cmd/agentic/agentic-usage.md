@@ -3101,8 +3101,16 @@ server error fails the command).
   workerName, description, source: CLAIM|LIVE_SESSION, expiresAt}]}`), **exit
   2**, and `start --session <id>` picks one. `NOTHING_TO_RESUME` is **exit 4**
   and nothing is posted or recorded; `RESUME_REFUSED` (the lifecycle gate) is
-  exit 5 and has spent the claim; `RESUME_AMBIGUOUS` is exit 2 (name the
-  worker). A resume refuses `--repo`, `--branch`, `--reports-to`, `-m` and
+  exit 5 and has spent the claim, except reason `WORKER_MISMATCH`, which
+  spends nothing; `RESUME_AMBIGUOUS` is exit 2 (name the worker). A worktree
+  with a binding file (lapsed or ended) sends that worker as `expectedWorkerId`
+  (needs hadron-server#3822; never with `--as`): if nothing of that worker's
+  waits but another worker's claim or live session does, the resume is refused
+  `WORKER_MISMATCH` (exit 5), naming both workers, that worker's item is
+  untouched and no binding is written (run `start` in that worker's own
+  worktree, or `start --as <worker>`); `--json`'s `error.extensions` carries
+  `code`, `reason`, `picked`, `expectedWorkerId/Name`, `foundWorkerId/Name`
+  and `foundSource` (CLAIM|LIVE_SESSION), exactly as the server sent them. A resume refuses `--repo`, `--branch`, `--reports-to`, `-m` and
   `--force` (exit 2), refuses over a worktree still bound to a live session
   (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
   spent. It never ends the session it recovered: on a later failure, run

@@ -86,7 +86,14 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		return err
 	}
 	var lapsedBinding bool
+	// The worker this worktree was last bound to (cli#1839, cor:agt:020:03):
+	// sent as the expected worker so another worker's waiting claim is refused
+	// rather than consumed here. Only a binding that carries a WorkerID can say.
+	var expectedWorker *string
 	if existing != nil {
+		if existing.WorkerID != "" {
+			expectedWorker = &existing.WorkerID
+		}
 		if err := checkBindingServer(f, existing); err != nil {
 			return err
 		}
@@ -119,12 +126,16 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	resp, err := gen.ResumeTeamSession(ctx, client, &gen.ResumeSessionInput{
 		Session:     pick,
 		Description: rf.description, Family: rf.family,
-		Tool:           optStr(rf.tool),
-		Host:           optStr(host),
-		LlmModel:       optStr(rf.model),
-		TranscriptPath: optStr(rf.transcript),
+		ExpectedWorkerId: expectedWorker,
+		Tool:             optStr(rf.tool),
+		Host:             optStr(host),
+		LlmModel:         optStr(rf.model),
+		TranscriptPath:   optStr(rf.transcript),
 	})
 	if err != nil {
+		if m, ok := api.ResumeWorkerMismatch(err); ok {
+			return resumeMismatchRefusal(existing, m, err)
+		}
 		return api.MapError(err)
 	}
 	r := resp.ResumeSession
@@ -340,4 +351,49 @@ SESSION_NOT_WORKER_BOUND.`,
 	}
 	cmd.Flags().StringVar(&sessionID, "session", "", "claim this session id instead of the worktree's bound one (recovery)")
 	return cmd
+}
+
+// causedRefusal carries a rendered message while keeping the server error in
+// its chain, so the --json envelope's serverCode and extensions still read it.
+type causedRefusal struct {
+	msg string
+	err error
+}
+
+func (e *causedRefusal) Error() string { return e.msg }
+func (e *causedRefusal) Unwrap() error { return e.err }
+
+// resumeMismatchRefusal renders the server's WORKER_MISMATCH refusal
+// (hadron-server#3822): nothing was consumed, started, ended or written, and
+// the other worker's item may be a waiting claim or a live session.
+func resumeMismatchRefusal(existing *binding, m api.ResumeMismatch, raw error) error {
+	expected := firstNonEmpty(m.ExpectedWorkerName, m.ExpectedWorkerID)
+	if expected == "" && existing != nil {
+		expected = firstNonEmpty(existing.WorkerName, existing.WorkerID)
+	}
+	if expected == "" {
+		expected = "the worker this worktree was bound to"
+	}
+	found := firstNonEmpty(m.FoundWorkerName, m.FoundWorkerID, "another worker of yours")
+	what := "claim or live session"
+	switch m.FoundSource {
+	case "CLAIM":
+		what = "claim"
+	case "LIVE_SESSION":
+		what = "live session"
+	}
+	msg := fmt.Sprintf("this worktree was last bound to worker %s, but the resume found only %s's %s waiting, so nothing was resumed: "+
+		"%s's %s is untouched (no claim consumed, no session started, ended or changed) and no binding was written. "+
+		"Run `hadron team session start` in %s's own worktree, or name this worktree's worker with `hadron team session start --as <worker>`",
+		expected, found, what, found, what, found)
+	return api.WithServerCode(exitcode.New(exitcode.Conflict, &causedRefusal{msg: msg, err: raw}), raw)
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

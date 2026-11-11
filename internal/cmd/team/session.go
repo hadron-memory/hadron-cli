@@ -867,7 +867,13 @@ RESUMED. Either way the worktree binding is written and the briefing
 printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
-behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
+behalf. A worktree with a binding file sends that worker as the expected
+worker (needs hadron-server#3822): if nothing of that worker's waits but
+another worker's claim or live session does, the resume is refused (exit 5,
+RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
+is untouched, no binding is written; run start in that worker's own worktree,
+or start --as <worker>. Any other refused resume (exit 5, RESUME_REFUSED) has
+spent its claim.
 --tool, --host, --model, --transcript, --description and --family ride along.
 --repo, --branch, --reports-to, -m, --force, --agent, --customer, --language,
 --parent-session, --previous-session, --plan, --pr-number and --type do not

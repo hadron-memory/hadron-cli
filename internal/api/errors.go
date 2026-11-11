@@ -795,6 +795,67 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 	return HeldDetail{}, false
 }
 
+// ResumeMismatch is the payload of a RESUME_REFUSED with reason
+// WORKER_MISMATCH (hadron-server#3822, cli#1839): the caller named the worker
+// it expected to recover, and nothing of that worker's waits while a claim or
+// live session of another worker of the caller's does. Every field is
+// best-effort: the expected worker's name is null unless the caller may read it.
+type ResumeMismatch struct {
+	Picked             bool
+	ExpectedWorkerID   string
+	ExpectedWorkerName string
+	FoundWorkerID      string
+	FoundWorkerName    string
+	// FoundSource is CLAIM or LIVE_SESSION.
+	FoundSource string
+}
+
+// ResumeWorkerMismatch extracts the WORKER_MISMATCH payload from err's
+// extensions; ok is false for any other error, including the other
+// RESUME_REFUSED reasons. Call it BEFORE MapError wraps the error.
+func ResumeWorkerMismatch(err error) (ResumeMismatch, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "RESUME_REFUSED" {
+			continue
+		}
+		if reason, _ := e.Extensions["reason"].(string); reason != "WORKER_MISMATCH" {
+			continue
+		}
+		d := ResumeMismatch{}
+		d.Picked, _ = e.Extensions["picked"].(bool)
+		d.ExpectedWorkerID, _ = e.Extensions["expectedWorkerId"].(string)
+		d.ExpectedWorkerName, _ = e.Extensions["expectedWorkerName"].(string)
+		d.FoundWorkerID, _ = e.Extensions["foundWorkerId"].(string)
+		d.FoundWorkerName, _ = e.Extensions["foundWorkerName"].(string)
+		d.FoundSource, _ = e.Extensions["foundSource"].(string)
+		return d, true
+	}
+	return ResumeMismatch{}, false
+}
+
+// ResumeMismatchDetails is the --json envelope's `extensions` for a
+// WORKER_MISMATCH refusal: the code, the reason and exactly the fields the
+// server sent, never invented ones. Nil for any other error.
+func ResumeMismatchDetails(err error) map[string]any {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "RESUME_REFUSED" {
+			continue
+		}
+		if reason, _ := e.Extensions["reason"].(string); reason != "WORKER_MISMATCH" {
+			continue
+		}
+		details := map[string]any{"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH"}
+		for _, key := range []string{"picked", "expectedWorkerId", "expectedWorkerName", "foundWorkerId", "foundWorkerName", "foundSource"} {
+			switch v := e.Extensions[key].(type) {
+			case string, bool:
+				details[key] = v
+			}
+		}
+		return details
+	}
+	return nil
+}
+
 // EndRefusedBeforeCommit reports whether an endSession failure PROVABLY changed
 // nothing — the only case in which a client may tell its caller that a handoff
 // was definitely not recorded.
@@ -1321,7 +1382,9 @@ func codeForExtension(code string) int {
 	// someone else's alike: there is nothing of yours to bind, which is
 	// NotFound, the code `session log` gives "no active session". A refused
 	// resume (the lifecycle gate: hold, dormancy, another live session) is the
-	// state's answer, and the claim is spent. RESUME_AMBIGUOUS needs no case:
+	// state's answer, and the claim is spent, EXCEPT reason WORKER_MISMATCH
+	// (#3822): that refusal comes before any write, so no claim is consumed and
+	// no session is touched. RESUME_AMBIGUOUS needs no case:
 	// the _AMBIGUOUS rule below already makes it Usage (name the worker).
 	case code == "NOTHING_TO_RESUME":
 		return exitcode.NotFound

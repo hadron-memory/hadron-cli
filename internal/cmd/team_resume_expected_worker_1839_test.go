@@ -84,7 +84,7 @@ func TestResumeMismatchJSONCarriesOnlyWhatTheServerSent(t *testing.T) {
 	t.Setenv("HADRON_LAUNCH_GRANT", "")
 	writeBinding(t, dir)
 	gql, _ := captureGraphQL(t, mismatchStubs("CLAIM"))
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	f.JSON = true
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--json", "--server", gql.URL})
@@ -99,7 +99,7 @@ func TestResumeMismatchJSONCarriesOnlyWhatTheServerSent(t *testing.T) {
 			Extensions map[string]any `json:"extensions"`
 		} `json:"error"`
 	}
-	if jerr := json.Unmarshal([]byte(f.IOStreams.Out.(interface{ String() string }).String()), &env); jerr != nil {
+	if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
 		t.Fatalf("envelope: %v", jerr)
 	}
 	ext := env.Error.Extensions
