@@ -65794,6 +65794,66 @@ func (v *NodeRevisionStampedResponse) GetNodeRevision() *NodeRevisionStampedNode
 	return v.NodeRevision
 }
 
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of a node's revision snapshots, counted over the snapshots the caller may read.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPage struct {
+	HasMore bool                                                                   `json:"hasMore"`
+	Items   []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision `json:"items"`
+}
+
+// GetHasMore returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetItems() []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision {
+	return v.Items
+}
+
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
+	// Per-node monotonic revision number (#696). Null on legacy rows predating the counter (backfilled by the migration).
+	RevNo *int   `json:"revNo"`
+	Name  string `json:"name"`
+	// Paragraph summary at capture (spec 031).
+	Abstract *string `json:"abstract"`
+	Content  *string `json:"content"`
+}
+
+// GetRevNo returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.RevNo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetRevNo() *int {
+	return v.RevNo
+}
+
+// GetName returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetName() string {
+	return v.Name
+}
+
+// GetAbstract returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetAbstract() *string {
+	return v.Abstract
+}
+
+// GetContent returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Content, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetContent() *string {
+	return v.Content
+}
+
+// NodeRevisionTextsResponse is returned by NodeRevisionTexts on success.
+type NodeRevisionTextsResponse struct {
+	// #2212 - `nodeRevisions` as a page: the same access gate (a miss or an unreadable node is an empty page),
+	// with the snapshot-memory gate applied before counting, so `total` and the pages hold only snapshots you
+	// may read and never fall short near the limit. Newest first with an id tiebreak. Sizes as `tickersPage`.
+	NodeRevisionsPage *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage `json:"nodeRevisionsPage"`
+}
+
+// GetNodeRevisionsPage returns NodeRevisionTextsResponse.NodeRevisionsPage, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsResponse) GetNodeRevisionsPage() *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage {
+	return v.NodeRevisionsPage
+}
+
 // NodeRevisionsPageNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
 // The GraphQL type's documentation follows.
 //
@@ -112066,6 +112126,22 @@ type __NodeRevisionStampedInput struct {
 // GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
 
+// __NodeRevisionTextsInput is used internally by genqlient
+type __NodeRevisionTextsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit,omitempty"`
+	Offset  *int   `json:"offset,omitempty"`
+}
+
+// GetNodeRef returns __NodeRevisionTextsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeRevisionTextsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __NodeRevisionTextsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetOffset() *int { return v.Offset }
+
 // __NodeRevisionsPageInput is used internally by genqlient
 type __NodeRevisionsPageInput struct {
 	NodeRef string `json:"nodeRef"`
@@ -140639,6 +140715,53 @@ func NodeRevisionStamped(
 	}
 
 	data_ = &NodeRevisionStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeRevisionTexts.
+const NodeRevisionTexts_Operation = `
+query NodeRevisionTexts ($nodeRef: ID!, $limit: Int, $offset: Int) {
+	nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			revNo
+			name
+			abstract
+			content
+		}
+	}
+}
+`
+
+// cli#879: the stored text of earlier revisions, for `node signatures --check`
+// to rebuild a signed revision's approval hash. revNo is the per-node revision
+// number a signature names; abstract and content are the stored (raw) text.
+func NodeRevisionTexts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+	offset *int,
+) (data_ *NodeRevisionTextsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRevisionTexts",
+		Query:  NodeRevisionTexts_Operation,
+		Variables: &__NodeRevisionTextsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &NodeRevisionTextsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

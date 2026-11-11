@@ -293,7 +293,7 @@ func TestCheckWordingClaimsNoLocalVerification(t *testing.T) {
 	if usage := sub.Flags().Lookup("check").Usage; !strings.Contains(usage, l879HelpSentence) {
 		t.Errorf("--check help = %q", usage)
 	}
-	if !strings.Contains(sub.Long, "exits 5 unless the roll-up state is\nCURRENT and there are no integrity problems") {
+	if !strings.Contains(sub.Long, "exits 5 after printing unless the roll-up state is\nCURRENT and there are no integrity problems") {
 		t.Errorf("the exit sentence was dropped from the help: %s", sub.Long)
 	}
 
@@ -309,7 +309,10 @@ func TestCheckWordingClaimsNoLocalVerification(t *testing.T) {
 				// Remove the echoed server states and the one fixed sentence.
 				scrubbed := strings.ReplaceAll(out, l879HumanSentence, "")
 				scrubbed = regexp.MustCompile(`(?m)^\s*("state": "[A-Z_]+",?|signatures: [A-Z_a-z]+|.*\bCURRENT\b.*)$`).ReplaceAllString(scrubbed, "")
-				scrubbed = strings.ReplaceAll(scrubbed, "re-verified", "")
+				// Today's server-echoed fields: the verifiedAt key and the
+				// "verified <time>" column of the existing record line.
+				scrubbed = strings.ReplaceAll(scrubbed, "verifiedAt", "")
+				scrubbed = regexp.MustCompile(`verified \d{4}-\S+`).ReplaceAllString(scrubbed, "")
 				if m := l879Forbidden.FindString(scrubbed); m != "" {
 					t.Errorf("output claims %q: %s", m, scrubbed)
 				}

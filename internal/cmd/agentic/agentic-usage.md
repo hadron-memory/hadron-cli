@@ -1311,8 +1311,17 @@ Conventions:
     `withdraw <id>` withdraws an open one you made. `node signatures <ref>`
     prints the server's re-verified status ({nodeId, urn, loc, revision,
     state, integrityProblems, signatures: []}); `state` is null with no
-    signatures, and a passkey is shown by its label only. `--check` exits 5
-    unless the state is CURRENT with no integrity problems. Refusals:
+    signatures, and a passkey is shown by its label only. `--check` also
+    rebuilds each record's v3 payload and challenge locally (cli#879) and adds
+    a per-record `localCheck` (only with `--check`): PAYLOAD_CONSISTENT,
+    HASH_MISMATCH, UNSUPPORTED_VERSION (any record that is not
+    hadron-signature-v3, v1 included, never locally valid) or UNAVAILABLE
+    (inputs unreadable to you; reported, never dropped). The server's `state`
+    stays authoritative and is printed unchanged. Rebuild only: the passkey
+    assertion is verified by the server, not by this CLI, and no assertion or
+    key material is read. `--check` exits 5 unless the state is CURRENT with
+    no integrity problems, or if any record is HASH_MISMATCH or
+    UNSUPPORTED_VERSION; UNAVAILABLE never lifts a server failure. Refusals:
     NODE_NOT_FOUND, SIGNER_NOT_FOUND and SIGNING_REQUEST_NOT_FOUND exit 4;
     REVISION_MISMATCH, NODE_IS_PLACEHOLDER, ENCRYPTED_MEMORY_NOT_APPLICABLE and
     SIGNING_REQUEST_ENDED exit 5; COMMENT_NOT_SIGNABLE exits 2;
