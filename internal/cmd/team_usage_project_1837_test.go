@@ -204,45 +204,6 @@ func TestUsageProjectJSONShapeEmptyListsAreNotNull(t *testing.T) {
 	}
 }
 
-// Without --account the labels come from the recorded account-usage objects:
-// one projection call per distinct (label, host, family), host and family
-// passed through so an ambiguous label is never guessed.
-func TestUsageProjectAllAccountsOneCallEach(t *testing.T) {
-	rec := func(label, host, at string) string {
-		return `{"label":"` + label + `","family":"claude","host":"` + host + `","observedAt":"` + at + `","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
-	objs := rec("beta", "orca1", "2026-11-10T12:00:00Z") + "," + rec("alpha", "orca1", "2026-11-10T12:00:00Z") + "," + rec("alpha", "orca1", "2026-11-10T11:00:00Z")
-	resp := map[string]string{
-		"FindObjects":            `{"data":{"findObjects":{"objects":[` + objs + `],"total":3}}}`,
-		"AccountUsageProjection": projResponse("x", projWinNoRunOut, ""),
-	}
-	calls, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := projCalls(calls)
-	if len(got) != 2 || got[0].Vars["account"] != "alpha" || got[1].Vars["account"] != "beta" {
-		t.Fatalf("want one call each for alpha then beta, got %+v", got)
-	}
-	if got[0].Vars["host"] != "orca1" || got[0].Vars["family"] != "claude" {
-		t.Fatalf("host/family not passed through: %v", got[0].Vars)
-	}
-	if strings.Count(out, `"account"`) != 2 {
-		t.Fatalf("two accounts expected in %s", out)
-	}
-}
-
-func TestUsageProjectNoAccountsIsEmptyListNotNull(t *testing.T) {
-	resp := map[string]string{"FindObjects": `{"data":{"findObjects":{"objects":[],"total":0}}}`}
-	_, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(squash1837(out), `"accounts":[]`) {
-		t.Fatalf("%s", out)
-	}
-}
-
 // A what-if applies to one account; with none named the refusal must say so
 // (not fall through to "no memory to record in").
 func TestUsageProjectWhatIfWithoutAccountNamesTheFlag(t *testing.T) {
@@ -252,57 +213,15 @@ func TestUsageProjectWhatIfWithoutAccountNamesTheFlag(t *testing.T) {
 	}
 }
 
-// F1 (BLIND, #1849): discovery pages the collection to exhaustion. 201 records,
-// the 201st (a second account) only on page two.
-func TestUsageProjectDiscoveryPagesPastTheFirst200(t *testing.T) {
-	rec := func(label string) string {
-		return `{"label":"` + label + `","family":"claude","host":"orca1","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
-	page1 := make([]string, 200)
-	for i := range page1 {
-		page1[i] = rec("alpha")
-	}
-	responses := map[string]string{"AccountUsageProjection": projResponse("x", projWinNoRunOut, ""), "FindObjects": ""}
-	finds := 0
-	onOp := func(op string) {
-		if op != "FindObjects" {
-			return
-		}
-		finds++
-		if finds == 1 {
-			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+strings.Join(page1, ",")+`],"total":201}}}`)
-		} else {
-			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+rec("zeta")+`],"total":201}}}`)
-		}
-	}
-	writeTeamBinding(t)
-	srv, calls := attnServerHook(t, responses, onOp)
-	setTeamBindingServer(t, srv.URL)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"--server", srv.URL, "team", "usage", "project", "-m", "hrn:mem:example.com:team", "--json"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	got := projCalls(calls)
-	if len(got) != 2 || got[0].Vars["account"] != "alpha" || got[1].Vars["account"] != "zeta" {
-		t.Fatalf("an account only on page two was dropped: %+v", got)
-	}
-	if finds != 2 {
-		t.Fatalf("want 2 pages, read %d", finds)
-	}
-}
-
 // F2 (BLIND, #1849): two identities sharing a label are told apart in the table.
+// (Discovery is the server's list since cli#1878; its order, paging and empty
+// cases are pinned in team_usage_project_1878_test.go.)
 func TestUsageProjectTableShowsHostAndFamilyForSameLabel(t *testing.T) {
-	rec := func(host string) string {
-		return `{"label":"shared","family":"claude","host":"` + host + `","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
 	resp := map[string]string{
-		"FindObjects":            `{"data":{"findObjects":{"objects":[` + rec("orca1") + `,` + rec("orca2") + `],"total":2}}}`,
+		"AccountUsageAccounts":   acctsResponse(true, acctRupaliOrca1, acctRupaliOrca2),
 		"AccountUsageProjection": `{"data":{"accountUsageProjection":{"account":"shared","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"HOSTX","newestSnapshotAt":null,"workers":[],"workersConfigured":false,"windows":[` + projWinNoRunOut + `],"whatIf":null}}}`,
 	}
-	_, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team")
+	_, out, err := runProject(t, resp)
 	if err != nil {
 		t.Fatal(err)
 	}
