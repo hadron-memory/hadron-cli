@@ -6,16 +6,11 @@ package team
 // unmodified; nothing here extrapolates. `team usage show` is untouched.
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
-	"github.com/hadron-memory/hadron-cli/internal/accountusage"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -85,11 +80,22 @@ type projRequestDTO struct {
 	MoveWorker *projMoveDTO `json:"moveWorker"`
 }
 
+// projectDTO: Complete is the server's accountUsageAccounts.complete, present
+// only when the account list came from the server (no --account, cli#1878).
 type projectDTO struct {
 	App      string           `json:"app"`
 	Accounts []projAccountDTO `json:"accounts"`
+	Complete *bool            `json:"complete,omitempty"`
 	WhatIf   *projRequestDTO  `json:"whatIf"`
 }
+
+// projectIncompleteWarning is the stderr line when the server's account list
+// is cut: the listed accounts are projected, others may be missing.
+const projectIncompleteWarning = "warning: the server's account list is incomplete; some accounts may be missing from this projection."
+
+// projectMemoryRefusal: with --account omitted the server lists the accounts
+// from the team App's team-space memory, so a memory choice cannot apply.
+const projectMemoryRefusal = "--memory and --config choose a memory to read account labels from; the server now lists the accounts from the team App's team-space memory, so they do not apply: drop the flag, or name one account with --account"
 
 func newUsageProject(f *cmdutil.Factory) *cobra.Command {
 	var (
@@ -110,11 +116,13 @@ INSUFFICIENT_DATA (under 5% used, or fewer than 3 snapshots over an hour) or
 UNKNOWN (no history, or the newest snapshot over 60 minutes old), with its
 reason. The projection is advisory; it never authorizes or moves anything.
 
-Without --account every account recorded in the memory is projected, one call
-each (the labels are read from the account-usage objects, as "usage show" reads
-them: -m/--memory or memory: in --config). --account names one account by its
-label exactly as "usage show" prints it; add --host/--family when that label
-has history from more than one host or family.
+Without --account the server lists the team App's usage accounts (as "usage
+accounts" prints them) and each is projected, one call each, in the server's
+order; when the server says its list is incomplete, a warning goes to stderr
+(and "complete": false in --json). -m/--memory and --config are refused then:
+the server reads only the team App's team-space memory. --account names one
+account by its label exactly as "usage show" prints it; add --host/--family
+when that label has history from more than one host or family.
 
 What-if (needs --account; exactly one kind): --add-workers N adds N workers
 (1 to 50) to the account, each burning its per-worker estimate; --move-worker
@@ -124,7 +132,7 @@ and the target account's windows are printed too (--to-host/--to-family when
 the target label is ambiguous).
 
 The team App is --app, the App context, or the worktree binding.`,
-		Example: "  hadron team usage project -m hrn:mem:acme.com:team\n  hadron team usage project --account team-rupali --add-workers 1 --json\n  hadron team usage project --account team-rupali --move-worker Ruth --to-account team-holger",
+		Example: "  hadron team usage project\n  hadron team usage project --account team-rupali --add-workers 1 --json\n  hadron team usage project --account team-rupali --move-worker Ruth --to-account team-holger",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
@@ -142,6 +150,8 @@ The team App is --app, the App context, or the worktree binding.`,
 				return exitcode.Newf(exitcode.Usage, "--to-host and --to-family qualify --to-account; give --move-worker and --to-account")
 			case account == "" && (host != "" || family != ""):
 				return exitcode.Newf(exitcode.Usage, "--host and --family qualify one account: give --account")
+			case account == "" && (flags.Changed("memory") || flags.Changed("config")):
+				return exitcode.Newf(exitcode.Usage, "%s", projectMemoryRefusal)
 			case (wantAdd || wantMove) && strings.TrimSpace(account) == "":
 				return exitcode.Newf(exitcode.Usage, "a what-if applies to one account: give --account")
 			}
@@ -177,43 +187,34 @@ The team App is --app, the App context, or the worktree binding.`,
 
 			type target struct{ label, host, family string }
 			var targets []target
+			var complete *bool
 			if account != "" {
 				targets = []target{{account, host, family}}
 			} else {
-				var cfgMemory string
-				if config != "" {
-					cfg, lerr := accountusage.LoadConfig(config)
-					if lerr != nil {
-						return mapUsageInput(lerr)
-					}
-					cfgMemory = cfg.Memory
+				resp, lerr := gen.AccountUsageAccounts(ctx, client, scope.Ref)
+				if lerr != nil {
+					return mapAccountsError(lerr)
 				}
-				mem, merr := usageMemory(memory, cfgMemory)
-				if merr != nil {
-					return merr
+				if resp.AccountUsageAccounts == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no account list")
 				}
-				objs, ferr := readAllUsageObjects(ctx, client, mem)
-				if ferr != nil {
-					return ferr
+				for _, a := range resp.AccountUsageAccounts.Accounts {
+					targets = append(targets, target{a.Account, a.Host, a.Family})
 				}
-				seen := map[target]bool{}
-				for _, a := range accountusage.View(objs, usageNow().UTC()) {
-					t := target{a.Label, a.Host, a.Family}
-					if !seen[t] {
-						seen[t] = true
-						targets = append(targets, t)
-					}
-				}
-				sort.Slice(targets, func(i, j int) bool { return targets[i].label < targets[j].label })
+				c := resp.AccountUsageAccounts.Complete
+				complete = &c
 			}
 
-			dto := projectDTO{App: scope.Ref, Accounts: []projAccountDTO{}, WhatIf: req}
+			dto := projectDTO{App: scope.Ref, Accounts: []projAccountDTO{}, Complete: complete, WhatIf: req}
 			for _, t := range targets {
 				resp, perr := gen.AccountUsageProjection(ctx, client, scope.Ref, t.label, optStr(t.host), optStr(t.family), in)
 				if perr != nil {
 					return mapProjectionError(perr)
 				}
 				dto.Accounts = append(dto.Accounts, projAccountFrom(*resp.AccountUsageProjection))
+			}
+			if !f.JSON && complete != nil && !*complete {
+				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, projectIncompleteWarning)
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return writeProjection(w, dto) })
 		},
@@ -226,8 +227,8 @@ The team App is --app, the App context, or the worktree binding.`,
 	c.Flags().StringVar(&toAccount, "to-account", "", "what-if: the account label the worker moves to; needs --move-worker")
 	c.Flags().StringVar(&toHost, "to-host", "", "with --to-account: the target's host, when its label is ambiguous")
 	c.Flags().StringVar(&toFamily, "to-family", "", "with --to-account: the target's model family, when its label is ambiguous")
-	c.Flags().StringVar(&config, "config", "", "host usage YAML (only to take its memory)")
-	c.Flags().StringVarP(&memory, "memory", "m", "", "memory the account records are in, to list accounts (default: memory: in --config)")
+	c.Flags().StringVar(&config, "config", "", "host usage YAML: rejected when --account is omitted; ignored with --account")
+	c.Flags().StringVarP(&memory, "memory", "m", "", "memory of the account records: rejected when --account is omitted; ignored with --account")
 	return c
 }
 
@@ -264,36 +265,6 @@ func projWindowFrom(w gen.ProjectionWindow) projWindowDTO {
 		d.PerWorkerBurn = burnFrom(w.PerWorkerBurn.LowPctPerHour, w.PerWorkerBurn.HighPctPerHour)
 	}
 	return d
-}
-
-// usagePageSize is the page the account-usage records are read in.
-const usagePageSize = 200
-
-// readAllUsageObjects pages the account-usage collection to exhaustion: a
-// frequently sampled account must not push another off the first page, since
-// "every recorded account" is this command's contract (the server caps one
-// page and drops the rest silently).
-func readAllUsageObjects(ctx context.Context, client graphql.Client, mem string) ([]json.RawMessage, error) {
-	sb := marshalSort()
-	var all []json.RawMessage
-	for offset := 0; ; {
-		limit, off := usagePageSize, offset
-		resp, err := gen.FindObjects(ctx, client, mem, accountusage.Collection, nil, nil, &sb, &limit, &off)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		page := resp.FindObjects.Objects
-		all = append(all, page...)
-		offset += len(page)
-		if len(page) == 0 || (resp.FindObjects.Total != nil && offset >= *resp.FindObjects.Total) || (resp.FindObjects.Total == nil && len(page) < limit) {
-			return all, nil
-		}
-	}
-}
-
-func marshalSort() json.RawMessage {
-	b, _ := json.Marshal(map[string]string{"observedAt": "desc"})
-	return b
 }
 
 type (
