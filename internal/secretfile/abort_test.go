@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -46,6 +47,13 @@ func TestAbortAfterExternalRemovalIsNil(t *testing.T) {
 	p, err := Open(filepath.Join(dir, "k"), false)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		// Windows cannot delete a file that is open without FILE_SHARE_DELETE,
+		// which Go's opens (and ours, #1325) do not set. Close it first; the
+		// property under test, Abort on an already-absent file, is unchanged.
+		_ = p.f.Close()
+		p.f = nil
 	}
 	if err := os.Remove(filepath.Join(dir, "k")); err != nil {
 		t.Fatal(err)

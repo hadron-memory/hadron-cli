@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// TestOpenRefusesSymlinkOnWindows pins that noFollow = 0 does not drop the
-// guard: CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT refuses a symlink at the
+// TestOpenRefusesSymlinkOnWindows pins that the no-follow guard holds on
+// windows: CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT refuses a symlink at the
 // destination, dangling or not, instead of writing through it (#1324).
 func TestOpenRefusesSymlinkOnWindows(t *testing.T) {
 	dir := t.TempDir()
