@@ -18,7 +18,7 @@ var c1Commands = []struct {
 }
 
 func c1Responses() map[string]string {
-	r := map[string]string{"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`}
+	r := map[string]string{"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`, "TeamAppIdentity": teamAppIdentityJSON}
 	for _, c := range c1Commands {
 		r[c.op] = `{"data":{"` + c.field + `":{"node":{"id":"n1","urn":"` + c2NodeURN + `"},"revNo":7,"contentHash":"abc123","pointerSet":true,"approvalIssued":false}}}`
 	}
