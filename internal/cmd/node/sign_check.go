@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -38,9 +39,23 @@ const (
 	localCheckHumanLine = "payload rebuilt locally; the passkey assertion is verified by the server, not by this CLI"
 
 	// revisionPageSize bounds each read of a node's history while looking for
-	// one signed revision; the loop pages to exhaustion.
+	// one signed revision.
 	revisionPageSize = 100
+
+	// maxRevisionPages bounds the whole scan (cli#1907): a server that keeps
+	// answering hasMore must not hold the CLI forever. 100 pages of 100 cover
+	// 10,000 revisions, far past any real node.
+	maxRevisionPages = 100
 )
+
+// errSnapshotHistoryCapped is returned when the history is longer than the
+// page cap. The snapshot could not be rebuilt, so the check has no outcome to
+// report for the signature: it is an error, never a signature state. In
+// particular it is not HASH_MISMATCH (invalid is reserved for an assertion
+// failing verification or an inconsistent record, cor:dmo:130:04), and it is
+// not UNAVAILABLE or PAYLOAD_CONSISTENT, since the verifier rebuilds the bytes
+// byte for byte or does not verify (cor:dmo:130:01).
+var errSnapshotHistoryCapped = errors.New("could not rebuild the signed snapshot: the node's revision history is longer than this check will read")
 
 // signedText is one revision's stored title, abstract and content.
 type signedText struct {
@@ -56,6 +71,7 @@ type localChecker struct {
 	texts    map[int]*signedText
 	history  map[int]*signedText
 	scanned  bool
+	scanErr  error // set when the history scan was capped
 
 	currentRead bool
 	currentRev  int
@@ -110,6 +126,15 @@ func (c *localChecker) check(sig signatureDTO) (string, error) {
 // unreadable reports a refusal that means "you cannot read this": reported as
 // UNAVAILABLE, never fatal. Every error in the list must be one of them: a
 // transport or internal failure, alone or beside a refusal, is not.
+//
+// Why exactly these three: they are the refusals a read of a signed node's
+// text or its signing request answers when the caller cannot see it (the node
+// is missing or hidden, the request is missing or hidden, or the caller has no
+// read right). All three say "not readable by you", so the local check has
+// nothing to rebuild from and reports UNAVAILABLE. Any other code, and any
+// 5xx envelope even when it carries one of these (api.OnlyErrorCodes excludes
+// it), may be a failure of the read rather than a refusal, so it stays fatal.
+// The list is signing-specific; do not reuse it as a generic "unreadable".
 func unreadable(err error) bool {
 	return api.OnlyErrorCodes(err, "NODE_NOT_FOUND", "SIGNING_REQUEST_NOT_FOUND", "FORBIDDEN")
 }
@@ -166,7 +191,8 @@ func (c *localChecker) snapshotText(revision int) (*signedText, error) {
 	if !c.scanned {
 		c.scanned = true
 		c.history = map[int]*signedText{}
-		for offset := 0; ; {
+		for offset, pages := 0, 0; ; {
+			pages++
 			limit, off := revisionPageSize, offset
 			resp, err := gen.NodeRevisionTexts(c.ctx, c.client, c.nodeRef, &limit, &off)
 			if err != nil {
@@ -186,7 +212,17 @@ func (c *localChecker) snapshotText(revision int) (*signedText, error) {
 			if !resp.NodeRevisionsPage.HasMore || len(resp.NodeRevisionsPage.Items) == 0 {
 				break
 			}
+			if pages >= maxRevisionPages {
+				// More history than the cap: whatever was read is partial, so
+				// no revision may be answered from it, now or for a later
+				// signature.
+				c.history, c.scanErr = nil, errSnapshotHistoryCapped
+				break
+			}
 		}
+	}
+	if c.scanErr != nil {
+		return nil, c.scanErr
 	}
 	return c.history[revision], nil
 }
