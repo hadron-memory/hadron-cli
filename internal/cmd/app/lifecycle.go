@@ -86,9 +86,11 @@ its former URN may now name a different, installed App.
 
 Prints the resulting state; --json is {"app": <ref>, "status": "deleted"}.
 A missing App and a caller without the right get one identical refusal
-(exit 8). A repeat by id is refused APP_DELETED (exit 5); by URN, the
-deleted App no longer holds it, so the repeat gets that same refusal (exit
-8). Asks for confirmation on a terminal; a
+(exit 8). A repeat by id is refused APP_DELETED (exit 5). A URN is
+resolved afresh on every call: while no installed App holds it, a repeat
+gets that same refusal (exit 8), but once another App reclaims the handle
+the URN names that App, and deleting it deletes that App. Delete and retry
+by id to keep the target fixed. Asks for confirmation on a terminal; a
 non-interactive caller must pass --yes. Before cli#1917 this was
 "app uninstall"; rm still means delete.`,
 		Example: `  hadron app delete capp1a2b3c4d5e6f7g8h9i0j --yes
