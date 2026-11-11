@@ -976,11 +976,15 @@ func (v *AccountUsageProjectionResponse) GetAccountUsageProjection() *AccountUsa
 
 // #3820 — why a window is not PROJECTED. UNKNOWN: NO_HISTORY, NO_WINDOW (no snapshot reports this window), STALE (newest
 // snapshot over 60 minutes old), NO_RESET, RESET_PASSED, NO_WORKERS_CONFIGURED (a what-if needs the account's workers),
-// WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known). INSUFFICIENT_DATA: LOW_USE (under 5% used),
+// WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known), HISTORY_INCOMPLETE (#3842: the account was named without both
+// host and family and the server could not finish checking whether another history shares the label; every window of it
+// carries this reason and no range; so do the what-if windows of such an account, and the adjusted target windows of a
+// move from one. hrn:node:hadronmemory.com:specs:cor:agt:140:03). INSUFFICIENT_DATA: LOW_USE (under 5% used),
 // TOO_FEW_SNAPSHOTS (fewer than 3, or spanning under an hour).
 type AccountUsageReason string
 
 const (
+	AccountUsageReasonHistoryIncomplete   AccountUsageReason = "HISTORY_INCOMPLETE"
 	AccountUsageReasonLowUse              AccountUsageReason = "LOW_USE"
 	AccountUsageReasonNoHistory           AccountUsageReason = "NO_HISTORY"
 	AccountUsageReasonNoReset             AccountUsageReason = "NO_RESET"
@@ -993,6 +997,7 @@ const (
 )
 
 var AllAccountUsageReason = []AccountUsageReason{
+	AccountUsageReasonHistoryIncomplete,
 	AccountUsageReasonLowUse,
 	AccountUsageReasonNoHistory,
 	AccountUsageReasonNoReset,
@@ -13570,6 +13575,8 @@ type AgentTeamEventsByCodeResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
+	// #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
+	// order with the same gate, filters and paging, continued with before (the id of the oldest event read).
 	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
 	AgentTeamEvents []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
@@ -13586,6 +13593,8 @@ type AgentTeamEventsResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
+	// #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
+	// order with the same gate, filters and paging, continued with before (the id of the oldest event read).
 	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
@@ -15582,7 +15591,12 @@ func (v *AiServiceConfigWithEndpointAiServiceConfig) __premarshalJSON() (*__prem
 
 // AiServiceConfigWithEndpointResponse is returned by AiServiceConfigWithEndpoint on success.
 type AiServiceConfigWithEndpointResponse struct {
-	// The uniform single-config read. 'ref' is the config's ID (not a URN).
+	// The uniform single-config read. 'ref' is the config's ID or its hrn:aiconf: URN
+	// (#3857, hrn:node:hadronmemory.com:specs:cor:urn:010:01; see AiServiceConfig.urn).
+	// On the URN path a config the caller may not read answers null, exactly as a
+	// missing one does, because names such as 'default' are guessable
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:01); the ID path keeps the
+	// posture below.
 	// Masked: never returns key material, only hasApiKey + apiKeyPreview
 	// (resolveAIConfig is the privileged decrypted read). Auth mirrors the list:
 	// platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
@@ -51013,6 +51027,185 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	return &retval, nil
 }
 
+// GetWorkerAvailabilityResponse is returned by GetWorkerAvailability on success.
+type GetWorkerAvailabilityResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerAvailabilityWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerAvailabilityResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityResponse) GetWorker() *GetWorkerAvailabilityWorker { return v.Worker }
+
+// GetWorkerAvailabilityWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerAvailabilityWorker struct {
+	// #3865 — the worker's stored availability record: reason, who set it (setBy, setByParty) and when (setAt), the
+	// same record `TeamRosterEntry.availability` and `teamAvailability` return (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	// Worker-internals field: null for a caller who may not see them, and null when the worker has no record.
+	Availability *GetWorkerAvailabilityWorkerAvailability `json:"availability"`
+}
+
+// GetAvailability returns GetWorkerAvailabilityWorker.Availability, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorker) GetAvailability() *GetWorkerAvailabilityWorkerAvailability {
+	return v.Availability
+}
+
+// GetWorkerAvailabilityWorkerAvailability includes the requested fields of the GraphQL type WorkerAvailability.
+// The GraphQL type's documentation follows.
+//
+// #1706 — one worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02). A worker with
+// no record is available.
+type GetWorkerAvailabilityWorkerAvailability struct {
+	State AvailabilityState `json:"state"`
+	// Set exactly when unavailable.
+	Reason *AvailabilityReason `json:"reason"`
+	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
+	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
+	SetByParty *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
+	// Whether this record makes the worker unavailable right now: unavailable,
+	// not lapsed, and (for STALLED) the worker has not acted since it was set
+	// (hrn:node:hadronmemory.com:specs:cor:agt:060:07).
+	InEffect bool `json:"inEffect"`
+}
+
+// GetState returns GetWorkerAvailabilityWorkerAvailability.State, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetState() AvailabilityState { return v.State }
+
+// GetReason returns GetWorkerAvailabilityWorkerAvailability.Reason, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetReason() *AvailabilityReason { return v.Reason }
+
+// GetUntil returns GetWorkerAvailabilityWorkerAvailability.Until, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetUntil() *string { return v.Until }
+
+// GetSetAt returns GetWorkerAvailabilityWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns GetWorkerAvailabilityWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetSetBy() AvailabilitySetter { return v.SetBy }
+
+// GetSetByParty returns GetWorkerAvailabilityWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetSetByParty() *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty {
+	return v.SetByParty
+}
+
+// GetInEffect returns GetWorkerAvailabilityWorkerAvailability.InEffect, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailability) GetInEffect() bool { return v.InEffect }
+
+// GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty) __premarshalJSON() (*__premarshalGetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty, error) {
+	var retval __premarshalGetWorkerAvailabilityWorkerAvailabilitySetByPartyAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
 // GetWorkerBootPromptServeResponse is returned by GetWorkerBootPromptServe on success.
 type GetWorkerBootPromptServeResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -69115,9 +69308,9 @@ type PublicOrganizationPublicOrganization struct {
 	Urn                 string `json:"urn"`
 	Name                string `json:"name"`
 	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
-	// The org's PUBLIC, non-app-scoped memories (sanitized refs).
+	// SUPERSEDED by publicMemoriesPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC, non-app-scoped memories (sanitized refs), now only the first page of 20 in (name, id) order. Use publicMemoriesPage to reach the rest.
 	PublicMemories []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef `json:"publicMemories"`
-	// The org's PUBLIC agents (sanitized refs).
+	// SUPERSEDED by publicAgentsPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC agents (sanitized refs), now only the first page of 20 in (name, id) order. Use publicAgentsPage to reach the rest.
 	PublicAgents []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef `json:"publicAgents"`
 }
 
@@ -73827,11 +74020,14 @@ func (v *ResolveCommentThreadResponse) GetResolveCommentThread() *ResolveComment
 // route (hadron-portal#262).
 //
 // `kind` is the URN's type segment: memory | node | agent | org | app | user |
-// apprun | worker | noderev.
+// apprun | worker | noderev | aiconf (#3857: an AI service config, behind the same
+// gate as aiServiceConfig(ref:); an unreadable config answers null, as a missing
+// one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01).
 // `id` is the resolved entity's primary id. `memoryId` is set only for
 // nodes (their owning memory), `organizationId` for apps, app runs, and
-// workers (their owning org) — both are the extra ids those resources'
-// canonical routes require.
+// workers (their owning org), and for an aiconf (#3857) the org that owns it or
+// its App or Agent (null for a server-owned config or a user-owned App or
+// Agent) — both are the extra ids those resources' canonical routes require.
 type ResolveUrnResolveUrnUrnResolution struct {
 	Id       string  `json:"id"`
 	Kind     string  `json:"kind"`
@@ -111095,6 +111291,14 @@ type __GetUserInput struct {
 // GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetUserInput) GetRef() string { return v.Ref }
 
+// __GetWorkerAvailabilityInput is used internally by genqlient
+type __GetWorkerAvailabilityInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerAvailabilityInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerAvailabilityInput) GetRef() string { return v.Ref }
+
 // __GetWorkerBootPromptServeInput is used internally by genqlient
 type __GetWorkerBootPromptServeInput struct {
 	Id string `json:"id"`
@@ -135891,6 +136095,62 @@ func GetWorker(
 	}
 
 	data_ = &GetWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerAvailability.
+const GetWorkerAvailability_Operation = `
+query GetWorkerAvailability ($ref: ID!) {
+	worker(ref: $ref) {
+		availability {
+			state
+			reason
+			until
+			setAt
+			setBy
+			setByParty {
+				... AgentTaskPartyFields
+			}
+			inEffect
+		}
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// cli#1911 / hadron-server#3865 slice 2 (#3953, cor:agt:060:02): the worker's
+// stored availability record, for `worker get`. Its own operation, like the
+// profile and terminal reads, so a server that predates the field still serves
+// `worker get`. NOT part of WorkerFields (shared by many commands whose wire
+// shape must not change). Null means withheld (the caller may not see worker
+// internals) OR no record; the CLI cannot tell which and renders nothing.
+func GetWorkerAvailability(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerAvailabilityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerAvailability",
+		Query:  GetWorkerAvailability_Operation,
+		Variables: &__GetWorkerAvailabilityInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerAvailabilityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

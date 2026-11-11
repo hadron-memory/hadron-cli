@@ -189,6 +189,11 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate terminal-report read (#1375). An older
 		// server does not know Worker.terminal; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerAvailability":
+		// `team worker get`'s separate availability-provenance read (cli#1911).
+		// An older server does not know Worker.availability; the ordinary lookup
+		// must work and shows no availability line.
+		return `{"errors":[{"message":"Cannot query field \"availability\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerRendered":
 		// `team worker get`'s separate rendered signature/trailer read
 		// (cli#1525). An older server does not know Worker.renderedSignature;

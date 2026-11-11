@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 222: 177 command, 21 gap, 24 excluded
+[Query] 224: 177 command, 23 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -43,6 +43,7 @@ agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
 agentTasks  command team task list
 agentTeamEvents  command team events
+agentTeamEventsPage  gap #1915
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
@@ -243,11 +244,12 @@ validateMemory  command memory validate
 verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
+webPolls  gap #1915
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 346: 285 command, 47 gap, 14 excluded
+[Mutation] 349: 285 command, 50 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -282,6 +284,7 @@ calendarRespondToEvent  command calendar event respond
 calendarUpdateEvent  command calendar event update
 cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
+cancelWebPoll  gap #1915
 castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
 claimContextReset  command team host run
@@ -447,6 +450,7 @@ recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  command team host run
 registerHost  command team host run
+reinstallApp  gap #1915
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
@@ -544,6 +548,7 @@ testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
 uninstallAgentFromApp  command app agent remove
+uninstallApp  gap #1915
 unlinkGithubApp  gap #60
 unlockNodeRoleRule  command memory config rule unlock
 unsubscribeWorker  command ticker unsubscribe
@@ -595,7 +600,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 81: 45 gap, 36 excluded
+[Arguments] 83: 47 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -668,6 +673,8 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
+Query.agentTeamEvents(before)  gap #1915
+Query.agentTeamEvents(newestFirst)  gap #1915
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617

@@ -131,10 +131,14 @@ type AccountUsageProjection {
 """
 #3820 — why a window is not PROJECTED. UNKNOWN: NO_HISTORY, NO_WINDOW (no snapshot reports this window), STALE (newest
 snapshot over 60 minutes old), NO_RESET, RESET_PASSED, NO_WORKERS_CONFIGURED (a what-if needs the account's workers),
-WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known). INSUFFICIENT_DATA: LOW_USE (under 5% used),
+WHATIF_SOURCE_UNKNOWN (the moved worker's burn is not known), HISTORY_INCOMPLETE (#3842: the account was named without both
+host and family and the server could not finish checking whether another history shares the label; every window of it
+carries this reason and no range; so do the what-if windows of such an account, and the adjusted target windows of a
+move from one. hrn:node:hadronmemory.com:specs:cor:agt:140:03). INSUFFICIENT_DATA: LOW_USE (under 5% used),
 TOO_FEW_SNAPSHOTS (fewer than 3, or spanning under an hour).
 """
 enum AccountUsageReason {
+  HISTORY_INCOMPLETE
   LOW_USE
   NO_HISTORY
   NO_RESET
@@ -1520,6 +1524,21 @@ enum AgentTeamEventSeverity {
 }
 
 """
+#3933: one page of an App's team events and whether more remain (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+"""
+type AgentTeamEventsPage {
+  events: [AgentTeamEvent!]!
+
+  """True when events beyond this page match the same read."""
+  hasMore: Boolean!
+
+  """
+  The id of the last event served when hasMore, to pass as after (or with newestFirst as before); null on the last page.
+  """
+  nextCursor: ID
+}
+
+"""
 #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
 templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
 existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
@@ -1803,6 +1822,17 @@ type AiServiceConfig {
   """
   provider: String!
   updatedAt: DateTime
+
+  """
+  The config's URN, computed from its owner's current URN plus its name
+  (hrn:node:hadronmemory.com:specs:cor:urn:010:01, V60-V63): hrn:aiconf:<org>:org:<name>,
+  hrn:aiconf:<root>:app:<app-slug>:<name>, hrn:aiconf:<author-root>:agent:<agent-slug>:<name>,
+  or hrn:aiconf:server:<name> for a HadronServer owner. Null for a name that cannot be a
+  URN atom (a trailing '-' or '_'), for a stored name that is not lower-case canonical, and for a
+  validly named config of a HadronServer that is not the current one (the oldest live row).
+  Renaming the config re-addresses it, with no alias.
+  """
+  urn: String
 }
 
 """
@@ -3485,6 +3515,15 @@ type CalendarInfo {
 type CalendarPerson {
   address: String
   name: String
+}
+
+"""
+Result of cancelWebPoll. alreadyCancelled is true when the watch had been stopped before this call.
+"""
+type CancelWebPollPayload {
+  alreadyCancelled: Boolean!
+  cancelled: Boolean!
+  jobId: ID!
 }
 
 """#2024 — one ticker a cast would create from an Agent ticker template."""
@@ -8118,6 +8157,13 @@ type Mutation {
   cancelAppRun(id: ID!): AppRun!
 
   """
+  Stop one of the organization's page-monitor watches (#1562; org ADMIN/OWNER,
+  tool.web_poll policy). A job id from another organization, or none, answers
+  NOT_FOUND. Cancelling a stopped watch succeeds with alreadyCancelled.
+  """
+  cancelWebPoll(jobId: ID!, orgRef: ID!): CancelWebPollPayload!
+
+  """
   #974 — cast a Worker (cor:dmo:050:11, cor:agt:020:01/:02): the named
   casting of an agent ALREADY INSTALLED in the App, superseding
   createTeamPersona's minting semantics (nothing is minted — the agent
@@ -10379,6 +10425,17 @@ type Mutation {
   registerHost(input: RegisterHostInput!): HostRegistration!
 
   """
+  #3774 — Reinstall an uninstalled App: the SAME App (id, keys, members, memories) is installed again; no row is created
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:21, R2). Same gate as uninstallApp.
+  
+  Refused APP_URN_IN_USE while another installed App holds the handle, and APP_DELETED for a deleted App (there is no
+  undelete). A repeat on an installed App changes nothing. Accepts the ID, or a URN: it names the installed App holding
+  it (so a repeat by URN is a no-op), else the one uninstalled App with it (two or more: name one by id). The refusal's
+  extensions carry appId and urn. A worker that is still dark opens a NEW episode on the next sweep.
+  """
+  reinstallApp(ref: ID!): Boolean!
+
+  """
   Release the editor lock for an Agent's system memory.
   
   Accepts the entity's ID or URN.
@@ -11308,6 +11365,17 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   uninstallAgentFromApp(agentRef: ID!, appRef: ID!): UninstallAgentFromAppPayload!
+
+  """
+  #3774 — Uninstall an App: it is kept, read-only (every write through it is refused, usually APP_UNINSTALLED), and its
+  handle is free for a new App. Ends every open dark-worker episode of the App's workers at the uninstall time, in the
+  same transaction (hrn:node:hadronmemory.com:specs:cor:dmo:050:21, Holger R1-R3, 2026-11-09).
+  
+  Whoever may deleteApp may call this (the same gate); anyone else, and an App that does not exist, gets one identical
+  refusal. A repeat on an uninstalled App changes nothing. A deleted App is refused (APP_DELETED). Accepts the ID, or a URN: it
+  names the installed App holding it, else the one uninstalled App with it.
+  """
+  uninstallApp(ref: ID!): Boolean!
 
   """
   Remove all GitHub App config from an organization.
@@ -13581,11 +13649,25 @@ type PublicOrganization {
   listedOnMarketplace: Boolean!
   name: String!
 
-  """The org's PUBLIC agents (sanitized refs)."""
+  """
+  SUPERSEDED by publicAgentsPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC agents (sanitized refs), now only the first page of 20 in (name, id) order. Use publicAgentsPage to reach the rest.
+  """
   publicAgents: [PublicResourceRef!]!
 
-  """The org's PUBLIC, non-app-scoped memories (sanitized refs)."""
+  """
+  The org's PUBLIC agents (sanitized refs), one page in (name, id) order; same paging rules as publicMemoriesPage.
+  """
+  publicAgentsPage(limit: Int, offset: Int): PublicResourceRefsPage!
+
+  """
+  SUPERSEDED by publicMemoriesPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC, non-app-scoped memories (sanitized refs), now only the first page of 20 in (name, id) order. Use publicMemoriesPage to reach the rest.
+  """
   publicMemories: [PublicResourceRef!]!
+
+  """
+  The org's PUBLIC, non-app-scoped memories (sanitized refs), one page in (name, id) order. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. total counts exactly the rows the public gate admits (hrn:node:hadronmemory.com:specs:cor:acl:080:02, hrn:node:hadronmemory.com:specs:cor:api:120:04).
+  """
+  publicMemoriesPage(limit: Int, offset: Int): PublicResourceRefsPage!
   urn: String!
 }
 
@@ -13603,6 +13685,15 @@ type PublicResourceRef {
 A paginated page of sanitized public resource refs (marketplace catalogue).
 """
 type PublicResourceRefPage {
+  items: [PublicResourceRef!]!
+  total: Int!
+}
+
+"""
+A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+"""
+type PublicResourceRefsPage {
+  hasMore: Boolean!
   items: [PublicResourceRef!]!
   total: Int!
 }
@@ -13891,6 +13982,8 @@ type Query {
   read; the cursor is the (createdAt, id) pair, so events sharing a
   timestamp are never skipped. since is a coarse time filter (strictly
   after), not a continuation. limit defaults to 20 (cap 200).
+  #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
+  order with the same gate, filters and paging, continued with before (the id of the oldest event read).
   task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
   """
   agentTeamEvents(
@@ -13902,14 +13995,32 @@ type Query {
     appRef: ID!
 
     """
+    #3933: with newestFirst, the id of the last (oldest) event read; the page continues strictly older than it, by the same (createdAt, id) pair. An id that is not an event of this App is refused BAD_USER_INPUT. Refused without newestFirst.
+    """
+    before: ID
+
+    """
     #3449: literal prefix, intersects nonempty types; app. includes legacy platform events. An empty prefix matches all types; omitted or empty types adds no type filter.
     """
     codePrefix: String
     limit: Int
+
+    """
+    #3933: true reads from the NEWEST end, the exact mirror of the default order, with the same gate, filters and paging (default 20, cap 200); continue with before, not after (refused with after). Omitted or false: the oldest-first read, unchanged.
+    """
+    newestFirst: Boolean
     since: DateTime
     taskId: ID
     types: [String!]
   ): [AgentTeamEvent!]!
+
+  """
+  #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
+  filters, order and paging, returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
+  another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+  newestFirst, as before; null on the last page.
+  """
+  agentTeamEventsPage(after: ID, alarmsOnly: Boolean, appRef: ID!, before: ID, codePrefix: String, limit: Int, newestFirst: Boolean, since: DateTime, taskId: ID, types: [String!]): AgentTeamEventsPage!
 
   """
   #2024 — the live ticker templates of an Agent, by name. Anyone who can read the Agent. An Agent the caller cannot read answers
@@ -13949,7 +14060,12 @@ type Query {
   aiProviderEndpoints(provider: String!): [AiProviderEndpoint!]!
 
   """
-  The uniform single-config read. 'ref' is the config's ID (not a URN).
+  The uniform single-config read. 'ref' is the config's ID or its hrn:aiconf: URN
+  (#3857, hrn:node:hadronmemory.com:specs:cor:urn:010:01; see AiServiceConfig.urn).
+  On the URN path a config the caller may not read answers null, exactly as a
+  missing one does, because names such as 'default' are guessable
+  (hrn:node:hadronmemory.com:specs:cor:api:120:01); the ID path keeps the
+  posture below.
   Masked: never returns key material, only hasApiKey + apiKeyPreview
   (resolveAIConfig is the privileged decrypted read). Auth mirrors the list:
   platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
@@ -16161,6 +16277,14 @@ type Query {
   #1591 — the tamper check: recompute the node's approval hash from its current title/abstract/content and compare it with the approval on record. A pure read; an encrypted memory needs its session key (SESSION_EXPIRED otherwise).
   """
   verifyNode(nodeRef: ID!): NodeIntegrityCheck!
+
+  """
+  The organization's active page-monitor watches (#1562): what web_poll_list
+  returns inside a run, for org ADMIN/OWNER outside one. Refused with
+  POLICY_DENIED when the org, user or App policy omits tool.web_poll. Jobs
+  with no routing binding in this org are not listed.
+  """
+  webPolls(orgRef: ID!): [WebPoll!]!
 
   """
   One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -19153,6 +19277,14 @@ type TeamRosterEntry {
   alarms: [ID!]!
 
   """
+  #3865 — the worker's stored availability record: its reason, who set it (setBy, setByParty) and when
+  (setAt), so a stale mark is told from a deliberate one without asking (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+  Present for any record, in effect or not (inEffect says which); null when the worker has none.
+  Reads nothing new: the record is the one setWorkerAvailability writes and teamAvailability returns.
+  """
+  availability: WorkerAvailability
+
+  """
   Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
   """
   bound: Boolean!
@@ -19932,11 +20064,14 @@ the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 route (hadron-portal#262).
 
 `kind` is the URN's type segment: memory | node | agent | org | app | user |
-apprun | worker | noderev.
+apprun | worker | noderev | aiconf (#3857: an AI service config, behind the same
+gate as aiServiceConfig(ref:); an unreadable config answers null, as a missing
+one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01).
 `id` is the resolved entity's primary id. `memoryId` is set only for
 nodes (their owning memory), `organizationId` for apps, app runs, and
-workers (their owning org) — both are the extra ids those resources'
-canonical routes require.
+workers (their owning org), and for an aiconf (#3857) the org that owns it or
+its App or Agent (null for a server-owned config or a user-owned App or
+Agent) — both are the extra ids those resources' canonical routes require.
 """
 type UrnResolution {
   """
@@ -20277,6 +20412,31 @@ type WakeReason {
 }
 
 """
+A page-monitor watch (#1562): the hadrontool-webfetch job behind a run's
+web_poll_start, as the org's admins see it outside a run. `url` is the
+query- and fragment-free ledger URL, never the one the sidecar fetches, and no
+credential material is returned.
+"""
+type WebPoll {
+  appId: ID!
+  consecutiveFailures: Int!
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  jobId: ID!
+  lastCheckedAt: DateTime
+  lastTriggeredAt: DateTime
+  nextRunAt: DateTime
+
+  """The run that started the watch."""
+  sourceRunId: ID!
+
+  """The sidecar's job state, such as active or cancelled."""
+  status: String!
+  triggerCount: Int!
+  url: String!
+}
+
+"""
 A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
 into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
 The Agent carries the reusable persona dressing; the Worker is the local
@@ -20318,6 +20478,13 @@ type Worker {
   members have a narrower read audience.
   """
   appUrn: String
+
+  """
+  #3865 — the worker's stored availability record: reason, who set it (setBy, setByParty) and when (setAt), the
+  same record `TeamRosterEntry.availability` and `teamAvailability` return (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+  Worker-internals field: null for a caller who may not see them, and null when the worker has no record.
+  """
+  availability: WorkerAvailability
 
   """
   #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now

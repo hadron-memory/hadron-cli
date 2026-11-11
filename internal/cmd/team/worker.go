@@ -586,6 +586,11 @@ type workerGetDTO struct {
 	// either way there is nothing to print, and the CLI never fills a template.
 	RenderedSignature *string `json:"renderedSignature"`
 	RenderedTrailer   *string `json:"renderedTrailer"`
+	// Availability is the stored availability record (cli#1911,
+	// hadron-server#3865). Always present; null means the server answered null:
+	// withheld from this caller OR no record, which the CLI cannot tell apart,
+	// so it never claims either.
+	Availability *workerGetAvailabilityDTO `json:"availability"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -686,6 +691,8 @@ type workerGetExtras struct {
 	renderedSig                *string
 	renderedTrailer            *string
 	renderedErr                error
+	availability               *workerGetAvailabilityDTO
+	availabilityErr            error
 	previewResp                *gen.GetWorkerBootPromptServeResponse
 	previewErr                 error
 	previewMissingField        bool
@@ -709,6 +716,7 @@ func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session
 	run(func() {
 		r.renderedSig, r.renderedTrailer, _, r.renderedErr = readWorkerRendered(ctx, client, id, session)
 	})
+	run(func() { r.availability, r.availabilityErr = readWorkerAvailability(ctx, client, id) })
 	run(func() {
 		guard := &bootpreview.ValidationRead{Client: client}
 		r.previewResp, r.previewErr = gen.GetWorkerBootPromptServe(ctx, guard, id)
@@ -792,6 +800,16 @@ THE FIELDS:
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
 
+availability   the worker's stored availability record (cor:agt:060:02): its
+                 state, the reason only when unavailable, an optional end, and
+                 who set it and when. A lapse reads "AVAILABLE (lapsed at
+                 <time>)", set by lapse; a setter whose identity the server
+                 withheld says so. Nothing is printed when the server answers
+                 null, which is BOTH "not visible to you" and "no record": the
+                 CLI cannot tell them apart, so it never says "available" or
+                 "no record" for it. --json carries availability (the record,
+                 or null). An older server without it reads as null.
+
 model groups   the model groups the worker's model is currently in, computed
                  live by the server (cor:agt:060:12): live matching information,
                  never authorization. Nothing is printed for a real empty
@@ -873,6 +891,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if reads.renderedErr != nil {
 				return reads.renderedErr
 			}
+			if reads.availabilityErr != nil {
+				return reads.availabilityErr
+			}
 			appName, ownerName, appURN := reads.appName, reads.ownerName, reads.appURN
 			terminal, modelGroups := reads.terminal, reads.modelGroups
 			renderedSig, renderedTrailer := reads.renderedSig, reads.renderedTrailer
@@ -899,7 +920,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 				preview = &p
 			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
-				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, Availability: reads.availability, appURN: appURN}
 			if preview != nil {
 				dto.Fields = preview.Fields
 			}
@@ -1015,6 +1036,10 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// Always printed: a dash is the documented answer for never
 				// reported, masked or an older server (cli#1375).
 				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
+				// Availability provenance (cli#1911): nothing for a null, which
+				// is withheld or no record — never "available", never filled
+				// from `team availability get`.
+				writeWorkerAvailability(out, dto.Availability)
 				// Model groups (cli#1485 S3): names when there are any, nothing for a
 				// real [] (no model, or no group matches), "unavailable" for null.
 				// Live matching information, never authorization.
