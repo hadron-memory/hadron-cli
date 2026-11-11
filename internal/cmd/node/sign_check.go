@@ -108,9 +108,10 @@ func (c *localChecker) check(sig signatureDTO) (string, error) {
 }
 
 // unreadable reports a refusal that means "you cannot read this": reported as
-// UNAVAILABLE, never fatal. A transport or internal failure is not one.
+// UNAVAILABLE, never fatal. Every error in the list must be one of them: a
+// transport or internal failure, alone or beside a refusal, is not.
 func unreadable(err error) bool {
-	return api.HasErrorCode(err, "NODE_NOT_FOUND") || api.HasErrorCode(err, "SIGNING_REQUEST_NOT_FOUND") || api.HasErrorCode(err, "FORBIDDEN")
+	return api.OnlyErrorCodes(err, "NODE_NOT_FOUND", "SIGNING_REQUEST_NOT_FOUND", "FORBIDDEN")
 }
 
 func (c *localChecker) request(id string) (*gen.GetSigningRequestSigningRequest, error) {
