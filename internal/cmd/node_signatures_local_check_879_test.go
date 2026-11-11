@@ -457,3 +457,18 @@ func TestLocalCheckServerFailureIsAnErrorNotUnavailable(t *testing.T) {
 		}
 	}
 }
+
+// Ruth P3-1: ids that agree with the record and hash but cannot form a v3
+// payload (a request id that is not 22 base64url characters) are not consistent.
+func TestLocalCheckUnbuildablePayloadIsNotConsistent(t *testing.T) {
+	badID := "short-id"
+	sig := strings.Replace(l879Sig("hadron-signature-v3", 4), l879Request, badID, 1)
+	req := l879RequestFor(l879GoodHash(), 4, l879NodeID, badID, "hadron-signature-v3")
+	code, out, _ := l879Run(t, l879Responses("CURRENT", 0, sig, req), "--check", "--json")
+	if got := l879LocalChecks(t, out); len(got) != 1 || got[0] != "HASH_MISMATCH" {
+		t.Errorf("localCheck = %v, want HASH_MISMATCH", got)
+	}
+	if code != exitcode.Conflict {
+		t.Errorf("exit = %d, want 5", code)
+	}
+}
