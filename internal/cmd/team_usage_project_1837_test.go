@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -274,7 +275,10 @@ func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
 		"AccountUsageAccounts": acctsResponse(true, acctRupaliOrca1, acctRupaliOrca2),
 	})
 	low := map[string]string{"orca1": "11.5", "orca2": "62.5"}
-	var hosts []string
+	var (
+		mu    sync.Mutex // the handler runs on the server's goroutines (#1909 BLIND F1)
+		hosts []string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		var body struct {
@@ -283,7 +287,11 @@ func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
 		}
 		_ = json.Unmarshal(raw, &body)
 		if body.OperationName != "AccountUsageProjection" {
-			req, _ := http.NewRequestWithContext(r.Context(), r.Method, inner.URL+r.URL.Path, bytes.NewReader(raw))
+			u := inner.URL + r.URL.Path
+			if r.URL.RawQuery != "" {
+				u += "?" + r.URL.RawQuery
+			}
+			req, _ := http.NewRequestWithContext(r.Context(), r.Method, u, bytes.NewReader(raw))
 			req.Header = r.Header.Clone()
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -292,11 +300,19 @@ func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
 			}
 			defer resp.Body.Close()
 			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(resp.StatusCode)
 			_, _ = io.Copy(w, resp.Body)
 			return
 		}
 		host, _ := body.Variables["host"].(string)
+		mu.Lock()
 		hosts = append(hosts, host)
+		mu.Unlock()
+		if _, ok := low[host]; !ok {
+			t.Errorf("projection requested for unexpected host %q", host)
+			http.Error(w, "unexpected host", http.StatusInternalServerError)
+			return
+		}
 		win := strings.Replace(projWinNoRunOut, `"lowPctAtReset":20.5`, `"lowPctAtReset":`+low[host], 1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"data":{"accountUsageProjection":{"account":"team-rupali","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"`+host+`","newestSnapshotAt":null,"workers":[],"workersConfigured":true,"windows":[`+win+`],"whatIf":null}}}`)
@@ -315,17 +331,26 @@ func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
 	}
 
 	out := run()
-	if strings.Join(hosts, ",") != "orca1,orca2" {
-		t.Fatalf("requested hosts %v, want orca1 then orca2", hosts)
+	// Server order is the documented contract ("one call each, in server
+	// order", agentic-usage `team usage project`; cli#1878), so the order is
+	// asserted, not just the set.
+	mu.Lock()
+	got := strings.Join(hosts, ",")
+	mu.Unlock()
+	if got != "orca1,orca2" {
+		t.Fatalf("requested hosts %s, want orca1 then orca2", got)
 	}
-	rows := map[string]string{}
+	// Every 5h row of the label, in table order: exactly two, one per host
+	// (a duplicated row is caught; #1909 LOCAL F1). Columns as in projRow.
+	var rows []string
 	for _, l := range strings.Split(out, "\n") {
 		if f := strings.Fields(l); len(f) > 3 && f[0] == "team-rupali" && f[3] == "5h" {
-			rows[f[1]] = l
+			rows = append(rows, l)
 		}
 	}
-	if len(rows) != 2 || !strings.Contains(rows["orca1"], "11.5%") || !strings.Contains(rows["orca2"], "62.5%") {
-		t.Fatalf("want one orca1 row at 11.5%% and one orca2 row at 62.5%%:\n%s", out)
+	if len(rows) != 2 || strings.Fields(rows[0])[1] != "orca1" || !strings.Contains(rows[0], "11.5%") ||
+		strings.Fields(rows[1])[1] != "orca2" || !strings.Contains(rows[1], "62.5%") {
+		t.Fatalf("want exactly one orca1 row at 11.5%% then one orca2 row at 62.5%%:\n%s", out)
 	}
 
 	var dto struct {
@@ -337,7 +362,8 @@ func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
 	if err := json.Unmarshal([]byte(run("--json")), &dto); err != nil {
 		t.Fatal(err)
 	}
-	if len(dto.Accounts) != 2 || dto.Accounts[0].Host != "orca1" || dto.Accounts[0].Windows[0]["lowPctAtReset"] != 11.5 ||
+	if len(dto.Accounts) != 2 || len(dto.Accounts[0].Windows) == 0 || len(dto.Accounts[1].Windows) == 0 ||
+		dto.Accounts[0].Host != "orca1" || dto.Accounts[0].Windows[0]["lowPctAtReset"] != 11.5 ||
 		dto.Accounts[1].Host != "orca2" || dto.Accounts[1].Windows[0]["lowPctAtReset"] != 62.5 {
 		t.Fatalf("--json accounts %+v", dto.Accounts)
 	}
