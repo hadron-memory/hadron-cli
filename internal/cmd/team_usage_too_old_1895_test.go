@@ -132,3 +132,15 @@ func TestUsage1895NoAppExitsTwoWithoutRequests(t *testing.T) {
 		})
 	}
 }
+
+// #1898 BLIND F1 (folded in per the change manager, #98023): project's
+// omitted-account path guards a null list the same way, exit 1, no projection.
+func TestUsage1895ProjectNullEnvelope(t *testing.T) {
+	calls, out, _, err := runProject1878(t, map[string]string{"AccountUsageAccounts": `{"data":{"accountUsageAccounts":null}}`})
+	if err == nil || exitOf(err) != exitcode.Error || err.Error() != "server returned no account list" {
+		t.Fatalf("got %v (%d)", err, exitOf(err))
+	}
+	if out != "" || len(projCalls(calls)) != 0 {
+		t.Fatalf("printed %q, made %d projections", out, len(projCalls(calls)))
+	}
+}
