@@ -2569,12 +2569,25 @@ func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
 			t.Fatalf("an open session must exit 0: %v", err)
 		}
 	})
-	t.Run("unreachable server keeps its own code", func(t *testing.T) {
+	// A responding server's fault: the one generic code, exactly 1 — neither
+	// success, "ended" (14), nor the transport class (7).
+	t.Run("an internal server fault exits exactly 1", func(t *testing.T) {
 		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`},
 			"team", "session", "whoami", "--check")
-		code := exitCodeFor(root.Execute())
-		if code == exitcode.OK || code == exitcode.SessionEnded {
-			t.Errorf("a failed check must be neither success nor 'ended': exit %d", code)
+		if code := exitCodeFor(root.Execute()); code != exitcode.Error {
+			t.Errorf("an internal fault must exit %d, got %d", exitcode.Error, code)
+		}
+	})
+	// A request that never gets an answer (nothing listening), through the
+	// real transport classifier: exactly 7, never 0 or 14.
+	t.Run("an unreachable server exits exactly 7", func(t *testing.T) {
+		root, _ := bindWhoami(t, map[string]string{}, "team", "session", "whoami", "--check")
+		dead := httptest.NewServer(http.NotFoundHandler())
+		url := dead.URL
+		dead.Close()
+		root.SetArgs([]string{"team", "session", "whoami", "--check", "--server", url})
+		if code := exitCodeFor(root.Execute()); code != exitcode.Unavailable {
+			t.Errorf("an unanswered check must exit %d, got %d", exitcode.Unavailable, code)
 		}
 	})
 	t.Run("the ended code is not auth's", func(t *testing.T) {
