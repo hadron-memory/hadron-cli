@@ -23522,6 +23522,40 @@ type CancelAppRunResponse struct {
 // GetCancelAppRun returns CancelAppRunResponse.CancelAppRun, and is useful for accessing the field via an interface.
 func (v *CancelAppRunResponse) GetCancelAppRun() *CancelAppRunCancelAppRun { return v.CancelAppRun }
 
+// CancelWebPollCancelWebPollCancelWebPollPayload includes the requested fields of the GraphQL type CancelWebPollPayload.
+// The GraphQL type's documentation follows.
+//
+// Result of cancelWebPoll. alreadyCancelled is true when the watch had been stopped before this call.
+type CancelWebPollCancelWebPollCancelWebPollPayload struct {
+	JobId            string `json:"jobId"`
+	Cancelled        bool   `json:"cancelled"`
+	AlreadyCancelled bool   `json:"alreadyCancelled"`
+}
+
+// GetJobId returns CancelWebPollCancelWebPollCancelWebPollPayload.JobId, and is useful for accessing the field via an interface.
+func (v *CancelWebPollCancelWebPollCancelWebPollPayload) GetJobId() string { return v.JobId }
+
+// GetCancelled returns CancelWebPollCancelWebPollCancelWebPollPayload.Cancelled, and is useful for accessing the field via an interface.
+func (v *CancelWebPollCancelWebPollCancelWebPollPayload) GetCancelled() bool { return v.Cancelled }
+
+// GetAlreadyCancelled returns CancelWebPollCancelWebPollCancelWebPollPayload.AlreadyCancelled, and is useful for accessing the field via an interface.
+func (v *CancelWebPollCancelWebPollCancelWebPollPayload) GetAlreadyCancelled() bool {
+	return v.AlreadyCancelled
+}
+
+// CancelWebPollResponse is returned by CancelWebPoll on success.
+type CancelWebPollResponse struct {
+	// Stop one of the organization's page-monitor watches (#1562; org ADMIN/OWNER,
+	// tool.web_poll policy). A job id from another organization, or none, answers
+	// NOT_FOUND. Cancelling a stopped watch succeeds with alreadyCancelled.
+	CancelWebPoll *CancelWebPollCancelWebPollCancelWebPollPayload `json:"cancelWebPoll"`
+}
+
+// GetCancelWebPoll returns CancelWebPollResponse.CancelWebPoll, and is useful for accessing the field via an interface.
+func (v *CancelWebPollResponse) GetCancelWebPoll() *CancelWebPollCancelWebPollCancelWebPollPayload {
+	return v.CancelWebPoll
+}
+
 // CastWorkerCastWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
 //
@@ -103551,6 +103585,78 @@ var AllWakeKind = []WakeKind{
 	WakeKindTick,
 }
 
+// WebPollsResponse is returned by WebPolls on success.
+type WebPollsResponse struct {
+	// The organization's active page-monitor watches (#1562): what web_poll_list
+	// returns inside a run, for org ADMIN/OWNER outside one. Refused with
+	// POLICY_DENIED when the org, user or App policy omits tool.web_poll. Jobs
+	// with no routing binding in this org are not listed.
+	WebPolls []*WebPollsWebPollsWebPoll `json:"webPolls"`
+}
+
+// GetWebPolls returns WebPollsResponse.WebPolls, and is useful for accessing the field via an interface.
+func (v *WebPollsResponse) GetWebPolls() []*WebPollsWebPollsWebPoll { return v.WebPolls }
+
+// WebPollsWebPollsWebPoll includes the requested fields of the GraphQL type WebPoll.
+// The GraphQL type's documentation follows.
+//
+// A page-monitor watch (#1562): the hadrontool-webfetch job behind a run's
+// web_poll_start, as the org's admins see it outside a run. `url` is the
+// query- and fragment-free ledger URL, never the one the sidecar fetches, and no
+// credential material is returned.
+type WebPollsWebPollsWebPoll struct {
+	JobId string `json:"jobId"`
+	AppId string `json:"appId"`
+	// The run that started the watch.
+	SourceRunId string `json:"sourceRunId"`
+	Url         string `json:"url"`
+	// The sidecar's job state, such as active or cancelled.
+	Status              string  `json:"status"`
+	ConsecutiveFailures int     `json:"consecutiveFailures"`
+	TriggerCount        int     `json:"triggerCount"`
+	CreatedAt           string  `json:"createdAt"`
+	ExpiresAt           string  `json:"expiresAt"`
+	LastCheckedAt       *string `json:"lastCheckedAt"`
+	LastTriggeredAt     *string `json:"lastTriggeredAt"`
+	NextRunAt           *string `json:"nextRunAt"`
+}
+
+// GetJobId returns WebPollsWebPollsWebPoll.JobId, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetJobId() string { return v.JobId }
+
+// GetAppId returns WebPollsWebPollsWebPoll.AppId, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetAppId() string { return v.AppId }
+
+// GetSourceRunId returns WebPollsWebPollsWebPoll.SourceRunId, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetSourceRunId() string { return v.SourceRunId }
+
+// GetUrl returns WebPollsWebPollsWebPoll.Url, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetUrl() string { return v.Url }
+
+// GetStatus returns WebPollsWebPollsWebPoll.Status, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetStatus() string { return v.Status }
+
+// GetConsecutiveFailures returns WebPollsWebPollsWebPoll.ConsecutiveFailures, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetConsecutiveFailures() int { return v.ConsecutiveFailures }
+
+// GetTriggerCount returns WebPollsWebPollsWebPoll.TriggerCount, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetTriggerCount() int { return v.TriggerCount }
+
+// GetCreatedAt returns WebPollsWebPollsWebPoll.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetCreatedAt() string { return v.CreatedAt }
+
+// GetExpiresAt returns WebPollsWebPollsWebPoll.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetExpiresAt() string { return v.ExpiresAt }
+
+// GetLastCheckedAt returns WebPollsWebPollsWebPoll.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetLastCheckedAt() *string { return v.LastCheckedAt }
+
+// GetLastTriggeredAt returns WebPollsWebPollsWebPoll.LastTriggeredAt, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetLastTriggeredAt() *string { return v.LastTriggeredAt }
+
+// GetNextRunAt returns WebPollsWebPollsWebPoll.NextRunAt, and is useful for accessing the field via an interface.
+func (v *WebPollsWebPollsWebPoll) GetNextRunAt() *string { return v.NextRunAt }
+
 // WithdrawDecisionResponse is returned by WithdrawDecision on success.
 type WithdrawDecisionResponse struct {
 	// #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
@@ -108156,6 +108262,18 @@ type __CancelAppRunInput struct {
 
 // GetId returns __CancelAppRunInput.Id, and is useful for accessing the field via an interface.
 func (v *__CancelAppRunInput) GetId() string { return v.Id }
+
+// __CancelWebPollInput is used internally by genqlient
+type __CancelWebPollInput struct {
+	OrgRef string `json:"orgRef"`
+	JobId  string `json:"jobId"`
+}
+
+// GetOrgRef returns __CancelWebPollInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CancelWebPollInput) GetOrgRef() string { return v.OrgRef }
+
+// GetJobId returns __CancelWebPollInput.JobId, and is useful for accessing the field via an interface.
+func (v *__CancelWebPollInput) GetJobId() string { return v.JobId }
 
 // __CastWorkerInput is used internally by genqlient
 type __CastWorkerInput struct {
@@ -117099,6 +117217,14 @@ type __VerifyNodeInput struct {
 // GetNodeRef returns __VerifyNodeInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__VerifyNodeInput) GetNodeRef() string { return v.NodeRef }
 
+// __WebPollsInput is used internally by genqlient
+type __WebPollsInput struct {
+	OrgRef string `json:"orgRef"`
+}
+
+// GetOrgRef returns __WebPollsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__WebPollsInput) GetOrgRef() string { return v.OrgRef }
+
 // __WithdrawDecisionInput is used internally by genqlient
 type __WithdrawDecisionInput struct {
 	Ref              string `json:"ref"`
@@ -125381,6 +125507,46 @@ func CancelAppRun(
 	}
 
 	data_ = &CancelAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CancelWebPoll.
+const CancelWebPoll_Operation = `
+mutation CancelWebPoll ($orgRef: ID!, $jobId: ID!) {
+	cancelWebPoll(orgRef: $orgRef, jobId: $jobId) {
+		jobId
+		cancelled
+		alreadyCancelled
+	}
+}
+`
+
+// A job id from another org and an unknown one both answer NOT_FOUND.
+// alreadyCancelled is true when the watch had been stopped before this call.
+func CancelWebPoll(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	jobId string,
+) (data_ *CancelWebPollResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CancelWebPoll",
+		Query:  CancelWebPoll_Operation,
+		Variables: &__CancelWebPollInput{
+			OrgRef: orgRef,
+			JobId:  jobId,
+		},
+	}
+
+	data_ = &CancelWebPollResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -155358,6 +155524,54 @@ func VerifyNode(
 	}
 
 	data_ = &VerifyNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WebPolls.
+const WebPolls_Operation = `
+query WebPolls ($orgRef: ID!) {
+	webPolls(orgRef: $orgRef) {
+		jobId
+		appId
+		sourceRunId
+		url
+		status
+		consecutiveFailures
+		triggerCount
+		createdAt
+		expiresAt
+		lastCheckedAt
+		lastTriggeredAt
+		nextRunAt
+	}
+}
+`
+
+// webPolls is UNPAGED server-side (a cor:api:120:04 gap, bounded only by the
+// per-org active-job cap), so a caller must not present its result as the whole
+// set.
+func WebPolls(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+) (data_ *WebPollsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WebPolls",
+		Query:  WebPolls_Operation,
+		Variables: &__WebPollsInput{
+			OrgRef: orgRef,
+		},
+	}
+
+	data_ = &WebPollsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
