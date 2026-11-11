@@ -119,7 +119,7 @@ func TestWebPollCancelRendersServerRefusalsAsReturned(t *testing.T) {
 	}
 }
 
-func TestWebPollCancelNotFoundIsIdenticalForCrossOrgAndUnknown(t *testing.T) {
+func TestWebPollCancelCLIRendersTheSameNotFoundForAnyJobID(t *testing.T) {
 	_, _, e1 := runWebPoll(t, map[string]string{"CancelWebPoll": batchGQLErr("NOT_FOUND")}, "cancel", "job_other_org", "--org", "acme.com", "--yes")
 	_, _, e2 := runWebPoll(t, map[string]string{"CancelWebPoll": batchGQLErr("NOT_FOUND")}, "cancel", "job_unknown", "--org", "acme.com", "--yes")
 	if e1 == nil || e2 == nil {
@@ -223,4 +223,13 @@ func serverCodeOn(err error) string {
 		return sc.ServerCode()
 	}
 	return ""
+}
+
+// A null cancelWebPoll payload with no GraphQL error is refused loudly, never a
+// nil dereference (BLIND P2 at c85e8a76).
+func TestWebPollCancelNullPayloadIsRefusedNotPanicked(t *testing.T) {
+	_, _, err := runWebPoll(t, map[string]string{"CancelWebPoll": `{"data":{"cancelWebPoll":null}}`}, "cancel", "job_x", "--org", "acme.com", "--yes")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+	}
 }

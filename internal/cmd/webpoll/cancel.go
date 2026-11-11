@@ -45,17 +45,19 @@ server makes every authorization decision; the CLI checks nothing ahead of it.`,
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
-			if resp == nil {
+			if resp == nil || resp.CancelWebPoll == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no answer for the stop; check with web-poll list before retrying")
 			}
 			p := resp.CancelWebPoll
 			dto := cancelDTO{JobID: p.JobId, Cancelled: p.Cancelled, AlreadyCancelled: p.AlreadyCancelled}
 			if !dto.Cancelled && !dto.AlreadyCancelled {
 				// Neither a stop nor an already-stopped watch: not a success.
-				_ = output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if werr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					_, err := fmt.Fprintf(w, "watch %s was not stopped\n", dto.JobID)
 					return err
-				})
+				}); werr != nil {
+					return werr
+				}
 				return exitcode.Silent(exitcode.Error)
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
