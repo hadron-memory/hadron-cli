@@ -277,7 +277,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		{"composition-headcount-family", []string{"composition"}, compositionHeadcount, "TeamComposition", []cellAttack{
 			{"headcount-family", "orca-family-mark"},
 		}},
-		{"events", []string{"events"}, fixed(base), "AgentTeamEvents", []cellAttack{
+		{"events", []string{"events"}, fixed(base), "AgentTeamEventsPage", []cellAttack{
 			{"actor", "holger"},
 			{"id", "evt1"},
 			{"at", "2026-10-12T00:00:00Z"},

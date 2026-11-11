@@ -103,6 +103,11 @@ type taskDTO struct {
 	// inherited, so a child shows its own value, and null when unset.
 	Properties json.RawMessage `json:"properties"`
 	OpenAlarms *int            `json:"openAlarms,omitempty"`
+	// OpenAlarmsIncomplete is true, on every task a command emits, only when
+	// the alarm walk stopped before the server's page end (cli#1919): then
+	// openAlarms is a lower bound and a missing openAlarms means UNKNOWN, not
+	// none. Absent on a complete walk, so complete output is unchanged.
+	OpenAlarmsIncomplete *bool `json:"openAlarmsIncomplete,omitempty"`
 
 	// MatchSkipped is set only on the `task create --match` answer, where it
 	// is always an array ([] for a server null). It is returned, never stored
