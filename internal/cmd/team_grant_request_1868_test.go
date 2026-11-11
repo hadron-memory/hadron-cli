@@ -543,3 +543,53 @@ func TestGrantRequest1868Help(t *testing.T) {
 		t.Errorf("group help still says it only reads:\n%s", out.String())
 	}
 }
+
+// Blind F1 (Dorian): a null mutation result is a malformed answer, not a panic.
+func TestGrantRequest1868NullMutationResult(t *testing.T) {
+	for _, tc := range []struct {
+		verb int
+		body string
+	}{
+		{1, `{"data":{"requestGrantSignature":null}}`},
+		{2, `{"data":{"withdrawGrantSigningRequest":null}}`},
+	} {
+		v := grantVerbs1868()[tc.verb]
+		t.Run(v.name, func(t *testing.T) {
+			_, out, err := runTeamTask(t, map[string]string{v.op: tc.body}, v.args...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "no signing request") || out != "" {
+				t.Fatalf("exit %d err %v out %q", exitCodeFor(err), err, out)
+			}
+		})
+	}
+}
+
+// Blind F2 (Dorian): the server's grant id is sanitized on stderr too.
+func TestGrantRequest1868StderrIDIsSanitized(t *testing.T) {
+	v := grantVerbs1868()[0]
+	body := strings.Replace(v.resp(""), `"id":"g1"`, `"id":"g1\u001b[31m"`, 1)
+	writeTeamBinding(t)
+	srv, _ := attnServer(t, map[string]string{v.op: body})
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL}, v.args...))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(e, "\x1b") || !strings.Contains(e, "request-signature") {
+		t.Fatalf("stderr %q", e)
+	}
+}
+
+// Local F1 (Anne): the shipped example must name the registered parameter.
+func TestGrantRequest1868ExampleNamesSourceNode(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "grant", "request", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `sourceNode`) || strings.Contains(out.String(), `"node":`) {
+		t.Fatalf("example does not use sourceNode:\n%s", out.String())
+	}
+}
