@@ -32,7 +32,7 @@ the command states no total and does not claim to show every watch.`,
 			}
 			resp, err := gen.WebPolls(cmd.Context(), client, org)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			polls := []webPollDTO{}
 			if resp != nil {

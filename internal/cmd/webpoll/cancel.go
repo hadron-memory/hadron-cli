@@ -43,7 +43,7 @@ server makes every authorization decision; the CLI checks nothing ahead of it.`,
 			}
 			resp, err := gen.CancelWebPoll(cmd.Context(), client, org, jobID)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no answer for the stop; check with web-poll list before retrying")

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -108,6 +109,9 @@ func TestWebPollCancelRendersServerRefusalsAsReturned(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), code) {
 				t.Errorf("%s: the server's refusal must be rendered as returned, got %v", code, err)
 			}
+			if got := serverCodeOn(err); got != code {
+				t.Errorf("%s: the --json envelope's serverCode must carry the server's code, got %q", code, got)
+			}
 			if len(captured) != 1 {
 				t.Errorf("the CLI must send only cancelWebPoll, no preflight; sent %d operations", len(captured))
 			}
@@ -193,4 +197,30 @@ func TestWebPollCancelNotCancelledIsAnError(t *testing.T) {
 	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("want exit %d, got %d (%v)", exitcode.Error, got, err)
 	}
+}
+
+// The list refusal keeps the server's code too (QA F1): the --json envelope's
+// serverCode is the code the server returned, never a message-baked one.
+func TestWebPollListKeepsServerCodeOnRefusal(t *testing.T) {
+	for code, want := range map[string]int{"NOT_FOUND": exitcode.NotFound, "FORBIDDEN": exitcode.Forbidden, "POLICY_DENIED": exitcode.Error} {
+		t.Run(code, func(t *testing.T) {
+			_, _, err := runWebPoll(t, map[string]string{"WebPolls": batchGQLErr(code)}, "list", "--org", "acme.com")
+			if got := exitCodeFor(err); got != want {
+				t.Fatalf("%s: want exit %d, got %d (%v)", code, want, got, err)
+			}
+			if got := serverCodeOn(err); got != code {
+				t.Errorf("%s: serverCode must be the server's code, got %q", code, got)
+			}
+		})
+	}
+}
+
+// serverCodeOn reads the code the --json envelope would print: the one the
+// mapped error carries (a raw-error read would pass without the fix).
+func serverCodeOn(err error) string {
+	var sc interface{ ServerCode() string }
+	if errors.As(err, &sc) {
+		return sc.ServerCode()
+	}
+	return ""
 }
