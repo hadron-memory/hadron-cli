@@ -53,6 +53,41 @@ var codexPlaceholders = map[string]bool{"Ask Codex to do anything": true}
 // Claude worker holds: fail closed.
 var claudeModeFooter = regexp.MustCompile(`^⏵⏵ [^·\s][^·]* on(?: \(shift\+tab to cycle\))?(?: · .+)?$`)
 
+// claudeBelowNotice is the transient one-line notices Claude Code draws under
+// an empty composer, next to or in place of the mode footer: the post-update
+// banner and the context-saving hint (cli#1856, seen live on alive agents).
+// They are exact closed shapes, so any other line below the box still fails
+// the composer read.
+var claudeBelowNotice = regexp.MustCompile(`^(?:✔ Update installed · Restart to update|new task\? /clear to save \d+k tokens)$`)
+
+// UnmatchedLine names, for a LOCAL detail, the screen line that kept an empty
+// Claude composer from reading idle: the first line under the box that is
+// neither the mode footer nor a known notice, else the last line above the box
+// that the idle read could not place. "" when nothing specific stands out. The
+// text is screen content: it must never be marshalled or logged off-host.
+func UnmatchedLine(lines []string, family string) string {
+	if family == "claude" {
+		if rules := ruleIndexes(lines); len(rules) >= 2 {
+			for _, l := range lines[rules[len(rules)-1]+1:] {
+				if s := squash(l); s != "" && !claudeModeFooter.MatchString(s) && !claudeBelowNotice.MatchString(s) {
+					return clip(s)
+				}
+			}
+		}
+	}
+	if _, reason, line := idleProof(lines, family); reason == "unrecognized-chrome" {
+		return clip(line)
+	}
+	return ""
+}
+
+func clip(s string) string {
+	if r := []rune(s); len(r) > 80 {
+		return string(r[:80]) + "…"
+	}
+	return s
+}
+
 func ruleIndexes(lines []string) []int {
 	var out []int
 	for i, l := range lines {
@@ -101,13 +136,24 @@ func PromptLineIsEmpty(lines []string, family string) bool {
 				return false
 			}
 		}
-		var below []string
+		// Every nonblank line under the box must be the mode footer (at most
+		// one: two mode rows stay unrecognized) or a known notice, and there
+		// must be one: a bare box proves nothing.
+		seen, footers := 0, 0
 		for _, l := range lines[closing+1:] {
-			if s := squash(l); s != "" {
-				below = append(below, s)
+			s := squash(l)
+			if s == "" {
+				continue
 			}
+			switch {
+			case claudeModeFooter.MatchString(s):
+				footers++
+			case !claudeBelowNotice.MatchString(s):
+				return false
+			}
+			seen++
 		}
-		return len(below) == 1 && claudeModeFooter.MatchString(below[0])
+		return seen > 0 && footers <= 1
 	case "codex":
 		at := lastPromptLine(lines)
 		if at < 0 {
@@ -315,7 +361,8 @@ var (
 // never substitutes for one. #1983 adds the collapsed-output indicators.
 func isWeakChrome(s string) bool {
 	return weakEcho.MatchString(s) || weakBanner.MatchString(s) || weakPerms.MatchString(s) || weakCollapsed.MatchString(s) ||
-		(weakLogo.MatchString(s) && !matchesAny(idleMarkers, s)) || weakUpdate.MatchString(s) || weakEffort.MatchString(s)
+		(weakLogo.MatchString(s) && !matchesAny(idleMarkers, s)) || weakUpdate.MatchString(s) || weakEffort.MatchString(s) ||
+		claudeModeFooter.MatchString(s)
 }
 
 var (
@@ -383,21 +430,29 @@ func matchesAny(res []*regexp.Regexp, s string) bool {
 // a completed turn's recap/notice tail is a strong idle marker), or Unknown.
 // The reason is a code: the line that decided is never returned.
 func IdleProof(lines []string, family string) (Liveness, string) {
+	live, reason, _ := idleProof(lines, family)
+	return live, reason
+}
+
+// idleProof is IdleProof plus the squashed line that was judged and not
+// matched, for a LOCAL detail only (cli#1856): callers that hand a reason to
+// another process or a log use IdleProof, which never returns screen text.
+func idleProof(lines []string, family string) (Liveness, string, string) {
 	var at int
 	switch family {
 	case "claude":
 		rules := ruleIndexes(lines)
 		if len(rules) < 2 {
-			return Unknown, "no-prompt-box"
+			return Unknown, "no-prompt-box", ""
 		}
 		at = rules[len(rules)-2]
 	case "codex":
 		at = lastPromptLine(lines)
 		if at < 0 {
-			return Unknown, "no-prompt-line"
+			return Unknown, "no-prompt-line", ""
 		}
 	default:
-		return Unknown, "unknown-family"
+		return Unknown, "unknown-family", ""
 	}
 	// Depth 16 (#1968): a completed turn's summary tail must not push its
 	// footer out of evidence. Busy detection does not trade for it: both
@@ -416,7 +471,7 @@ func IdleProof(lines []string, family string) (Liveness, string) {
 		if strings.Contains(l, "to interrupt") || strings.Contains(l, "run in background") ||
 			strings.Contains(l, "Working (") || callingTool.MatchString(l) || spinnerTimer(l) ||
 			(family == "claude" && claudeThinking.MatchString(l)) {
-			return Busy, "running-turn"
+			return Busy, "running-turn", ""
 		}
 	}
 	skip := recapBlockSkip(raw)
@@ -425,12 +480,12 @@ func IdleProof(lines []string, family string) (Liveness, string) {
 		i--
 	}
 	if i < 0 {
-		return Unknown, "no-evidence"
+		return Unknown, "no-evidence", ""
 	}
 	if matchesAny(idleMarkers, window[i]) {
-		return Idle, "completed-turn"
+		return Idle, "completed-turn", ""
 	}
-	return Unknown, "unrecognized-chrome"
+	return Unknown, "unrecognized-chrome", window[i]
 }
 
 // bannerChrome: banner/completion markers anchor to the START of a line,

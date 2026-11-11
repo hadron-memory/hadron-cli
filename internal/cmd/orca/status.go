@@ -459,6 +459,7 @@ func observe(ctx context.Context, client *orcaterm.Client, env Env, terms []orca
 	if pick.obs.Reason != "" {
 		res.Reason = reasonPtr(pick.obs.Reason)
 	}
+	res.Detail = pick.obs.Detail
 	return res
 }
 

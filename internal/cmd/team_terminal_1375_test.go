@@ -42,7 +42,9 @@ func terminalCases() []terminalCase {
 		{"null", "null", "—"},
 		{"busy", terminalJSON("busy", "not_empty", "", 30*time.Second), "busy (<1m)"},
 		{"idle", terminalJSON("idle", "empty", "", 3*time.Minute+10*time.Second), "idle (3m)"},
-		{"locked", terminalJSON("locked", "menu", "model_at_capacity", 2*time.Hour+time.Minute), "locked (model_at_capacity, 2h)"},
+		{"locked", terminalJSON("locked", "menu", "model_at_capacity", 20*time.Minute+time.Minute), "locked (model_at_capacity, 21m)"},
+		// cli#1856: an old checkedAt is a stopped sweep's last word.
+		{"stale", terminalJSON("idle", "empty", "", 8*time.Hour+time.Minute), "stale (8h)"},
 		{"dark", terminalJSON("dark", "unknown", "no_turn_for_due_ticker", 12*time.Minute+5*time.Second), "dark (no_turn_for_due_ticker, 12m)"},
 	}
 }
@@ -352,5 +354,57 @@ func TestTerminalOperationsStayWithinPart1(t *testing.T) {
 	}
 	if !strings.Contains(gen.TeamRoster_Operation, "terminal") || !strings.Contains(gen.GetWorkerTerminal_Operation, "terminal") {
 		t.Error("the part-1 operations must select terminal")
+	}
+}
+
+// cli#1856: --json carries `stale`, and the header says when the WHOLE host
+// report is stale (every row the same old age is the stopped-sweep signature).
+func TestTeamRosterStaleTerminal1856(t *testing.T) {
+	row := func(name, term string) string {
+		return withTerminal(rosterRow993(name, "AVAILABLE", true, "null", "null"), term)
+	}
+	staleT, freshT := terminalJSON("idle", "empty", "", 8*time.Hour), terminalJSON("idle", "empty", "", 3*time.Minute)
+
+	allStale := rosterResponses993(row("Ann", staleT), row("Bea", staleT))
+	_, out, err := runTeamTask(t, allStale, "team", "roster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "stale (8h)") || strings.Contains(out, "idle (8h)") {
+		t.Errorf("a stale row must read stale (8h), never idle (8h):\n%s", out)
+	}
+	if !strings.Contains(out, "terminal reports: all 2 are stale") {
+		t.Errorf("the header must say the whole host report is stale:\n%s", out)
+	}
+
+	mixed := rosterResponses993(row("Ann", staleT), row("Bea", freshT))
+	_, out, err = runTeamTask(t, mixed, "team", "roster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "terminal reports:") {
+		t.Errorf("one fresh row means the sweep is alive: no whole-report note:\n%s", out)
+	}
+	if !strings.Contains(out, "stale (8h)") || !strings.Contains(out, "idle (3m)") {
+		t.Errorf("want one stale and one idle cell:\n%s", out)
+	}
+
+	_, jout, err := runTeamTask(t, mixed, "team", "roster", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Workers []struct {
+			Terminal struct {
+				Stale *bool `json:"stale"`
+			} `json:"terminal"`
+		} `json:"workers"`
+	}
+	if err := json.Unmarshal([]byte(jout), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Workers) != 2 || got.Workers[0].Terminal.Stale == nil || !*got.Workers[0].Terminal.Stale ||
+		got.Workers[1].Terminal.Stale == nil || *got.Workers[1].Terminal.Stale {
+		t.Errorf("want stale true then false: %s", jout)
 	}
 }

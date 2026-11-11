@@ -179,3 +179,85 @@ func TestClassifyBareShellNeedsPositiveEvidence(t *testing.T) {
 		}
 	}
 }
+
+// cli#1856: alive Claude agents at an empty composer read locked/unrecognized
+// because the classifier failed closed on two screen shapes. Each fixture is
+// drawn in its RED position — the one that failed before the fix:
+//   - a line BELOW the composer box that is not the mode footer (PromptLineIsEmpty
+//     wants exactly one footer there): the update notice and the /clear hint;
+//   - a permission-mode statusline ABOVE the box (IdleProof judges the last
+//     non-weak line above it): the auto-mode·PR and bypass·agent footers.
+func TestClassifyAliveFooters1856(t *testing.T) {
+	const (
+		updateInstalled = "✔ Update installed · Restart to update"
+		newTask         = "new task? /clear to save 128k tokens"
+		autoModePR      = "⏵⏵ auto mode on (shift+tab to cycle) · PR #3701"
+		bypassAgent     = "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent"
+	)
+	box := func(above []string, below ...string) []string {
+		out := append(append([]string{}, above...), rule, "❯ ", rule)
+		return append(out, below...)
+	}
+	done := []string{"⏺ Done.", "✻ Cogitated for 1m 3s"}
+	for name, tail := range map[string][]string{
+		"update installed below the box, alone":            box(done, "  "+updateInstalled),
+		"update installed below the box, after the footer": box(done, claudeHint, "  "+updateInstalled),
+		"new task hint below the box, alone":               box(done, "  "+newTask),
+		"new task hint below the box, after the footer":    box(done, claudeHint, "  "+newTask),
+		"auto mode PR footer above the box":                box(append(append([]string{}, done...), "  "+autoModePR), claudeHint),
+		"bypass agent footer above the box":                box(append(append([]string{}, done...), "  "+bypassAgent), claudeHint),
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Classify(agent("claude"), fix(tail), now)
+			if got.Status != ts.Idle || got.Prompt != ts.PromptEmpty || got.Reason != "" {
+				t.Fatalf("got %s/%s/%q, want idle/empty", got.Status, got.Prompt, got.Reason)
+			}
+		})
+	}
+
+	// Green controls: the relaxed reads must never make a menu, a dialog, a
+	// typed draft or an unknown line below the box look idle or empty.
+	t.Run("controls stay held", func(t *testing.T) {
+		menu := []string{"Do you want to proceed?", "❯ 1. Yes", "  2. No, and tell Claude what to do differently (esc)"}
+		for name, c := range map[string]struct {
+			term   Terminal
+			tail   []string
+			status ts.Status
+			prompt ts.Prompt
+			reason ts.Reason
+		}{
+			"trust dialog":               {agent("claude"), menu, ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
+			"bare shell":                 {Terminal{Handle: "term_sh", Connected: true, Writable: true}, []string{"joshua@host:~/w$"}, ts.Dark, ts.PromptUnknown, ts.BareShell},
+			"unknown line below the box": {agent("claude"), box(done, claudeHint, "  something else entirely"), ts.Locked, ts.PromptUnknown, ts.Unrecognized},
+			"unknown line above the box": {agent("claude"), box(append(append([]string{}, done...), "  ⏵⏵ not a mode line"), claudeHint), ts.Locked, ts.PromptEmpty, ts.Unrecognized},
+			"notice with typed text":     {agent("claude"), []string{"⏺ Done.", rule, "❯ half typed", rule, "  " + updateInstalled}, ts.Locked, ts.PromptNotEmpty, ts.Unrecognized},
+			"statusline above a dialog":  {agent("claude"), append([]string{"  " + autoModePR}, menu...), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
+		} {
+			t.Run(name, func(t *testing.T) {
+				got := Classify(c.term, fix(c.tail), now)
+				if got.Status != c.status || got.Prompt != c.prompt || got.Reason != c.reason {
+					t.Fatalf("got %s/%s/%q, want %s/%s/%q", got.Status, got.Prompt, got.Reason, c.status, c.prompt, c.reason)
+				}
+			})
+		}
+	})
+}
+
+// cli#1856: an unrecognized read says which line it could not match, in the
+// local Detail only (never IdleProof's returned reason, which stays a code).
+func TestClassifyUnrecognizedDetailNamesTheLine1856(t *testing.T) {
+	below := Classify(agent("claude"), fix([]string{"⏺ Done.", rule, "❯ ", rule, claudeHint, "  odd line below"}), now)
+	if below.Reason != ts.Unrecognized || below.Detail != "could not match: odd line below" {
+		t.Errorf("below the box: %s %q", below.Reason, below.Detail)
+	}
+	above := Classify(agent("claude"), fix([]string{"⏺ Done.", "  odd line above", rule, "❯ ", rule, claudeHint}), now)
+	if above.Reason != ts.Unrecognized || above.Detail != "could not match: odd line above" {
+		t.Errorf("above the box: %s %q", above.Reason, above.Detail)
+	}
+	if idle := Classify(agent("claude"), fix(claudeIdle), now); idle.Detail != "" {
+		t.Errorf("an idle read carries no detail: %q", idle.Detail)
+	}
+	if _, reason := IdleProof([]string{"⏺ Done.", "  odd line above", rule, "❯ ", rule, claudeHint}, "claude"); reason != "unrecognized-chrome" {
+		t.Errorf("IdleProof must keep returning a code, got %q", reason)
+	}
+}
