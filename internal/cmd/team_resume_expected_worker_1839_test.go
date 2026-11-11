@@ -178,3 +178,79 @@ func TestSessionStartHelpScopesTheSpentClaim(t *testing.T) {
 		t.Errorf("help must say a WORKER_MISMATCH refusal spends nothing")
 	}
 }
+
+// Delta (LOCAL P2s on 2823fac2).
+
+func mismatchWith(ext string) map[string]string {
+	st := mismatchStubs("CLAIM")
+	st["ResumeTeamSession"] = `{"errors":[{"message":"refused","extensions":{"code":"RESUME_REFUSED","reason":"WORKER_MISMATCH",` + ext + `}}],"data":null}`
+	return st
+}
+
+func runMismatch(t *testing.T, ext string, jsonMode bool) (error, string) {
+	t.Helper()
+	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	writeBinding(t, dir)
+	gql, _ := captureGraphQL(t, mismatchWith(ext))
+	f, out := testFactory(t)
+	f.JSON = jsonMode
+	root := NewRootCmd(f)
+	args := []string{"team", "session", "start", "--server", gql.URL}
+	if jsonMode {
+		args = append(args, "--json")
+	}
+	root.SetArgs(args)
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("want a refusal")
+	}
+	if jsonMode {
+		renderError(f, err)
+	}
+	return err, out.String()
+}
+
+// A key the server sent as null stays in the envelope as null: the envelope
+// renders what the server sent, not only its non-null parts.
+func TestResumeMismatchJSONKeepsNullNames(t *testing.T) {
+	_, out := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":null,"foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, true)
+	var env struct {
+		Error struct {
+			Extensions map[string]any `json:"extensions"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatal(err)
+	}
+	v, present := env.Error.Extensions["expectedWorkerName"]
+	if !present || v != nil {
+		t.Errorf("expectedWorkerName must be present as null: %+v", env.Error.Extensions)
+	}
+}
+
+// picked:true means --session chose the other worker's item: do not say
+// that only the other worker's item waits.
+func TestResumeMismatchPickedWording(t *testing.T) {
+	err, _ := runMismatch(t, `"picked":true,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris","foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, false)
+	msg := err.Error()
+	if strings.Contains(msg, "found only") {
+		t.Errorf("a picked mismatch must not claim only the other worker's item waits: %s", msg)
+	}
+	for _, w := range []string{"picked", "Greer", "Iris", "untouched"} {
+		if !strings.Contains(msg, w) {
+			t.Errorf("must say %q: %s", w, msg)
+		}
+	}
+}
+
+// Server-sent names reach a terminal: control characters cannot forge a line
+// or move the cursor.
+func TestResumeMismatchNamesAreSanitized(t *testing.T) {
+	err, _ := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr1","expectedWorkerName":"Iris\u001b[31m","foundWorkerId":"wkr9","foundWorkerName":"Gre\ner\u001b]0;x\u0007","foundSource":"CLAIM"`, false)
+	for _, r := range err.Error() {
+		if r < 0x20 || r == 0x7f {
+			t.Fatalf("control character %q in the refusal: %q", r, err.Error())
+		}
+	}
+}
