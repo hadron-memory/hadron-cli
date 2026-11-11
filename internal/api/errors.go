@@ -846,9 +846,17 @@ func ResumeMismatchDetails(err error) map[string]any {
 		}
 		details := map[string]any{"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH"}
 		for _, key := range []string{"picked", "expectedWorkerId", "expectedWorkerName", "foundWorkerId", "foundWorkerName", "foundSource"} {
-			switch v := e.Extensions[key].(type) {
+			v, present := e.Extensions[key]
+			switch v.(type) {
 			case string, bool:
 				details[key] = v
+			case nil:
+				// Sent as null (expectedWorkerName is null unless the caller
+				// may read that worker): kept, so the envelope shows what the
+				// server sent rather than only its non-null part.
+				if present {
+					details[key] = nil
+				}
 			}
 		}
 		return details

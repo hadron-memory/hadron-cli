@@ -367,6 +367,9 @@ func (e *causedRefusal) Unwrap() error { return e.err }
 // (hadron-server#3822): nothing was consumed, started, ended or written, and
 // the other worker's item may be a waiting claim or a live session.
 func resumeMismatchRefusal(existing *binding, m api.ResumeMismatch, raw error) error {
+	// Names come from the server (and the local binding file) and reach a
+	// terminal: control characters cannot forge a line or move the cursor.
+	safe := func(s string) string { return output.SafeLine(s, 128) }
 	expected := firstNonEmpty(m.ExpectedWorkerName, m.ExpectedWorkerID)
 	if expected == "" && existing != nil {
 		expected = firstNonEmpty(existing.WorkerName, existing.WorkerID)
@@ -374,7 +377,8 @@ func resumeMismatchRefusal(existing *binding, m api.ResumeMismatch, raw error) e
 	if expected == "" {
 		expected = "the worker this worktree was bound to"
 	}
-	found := firstNonEmpty(m.FoundWorkerName, m.FoundWorkerID, "another worker of yours")
+	expected = safe(expected)
+	found := safe(firstNonEmpty(m.FoundWorkerName, m.FoundWorkerID, "another worker of yours"))
 	what := "claim or live session"
 	switch m.FoundSource {
 	case "CLAIM":
@@ -382,10 +386,15 @@ func resumeMismatchRefusal(existing *binding, m api.ResumeMismatch, raw error) e
 	case "LIVE_SESSION":
 		what = "live session"
 	}
-	msg := fmt.Sprintf("this worktree was last bound to worker %s, but the resume found only %s's %s waiting, so nothing was resumed: "+
-		"%s's %s is untouched (no claim consumed, no session started, ended or changed) and no binding was written. "+
+	lead := fmt.Sprintf("this worktree was last bound to worker %s, but the resume found only %s's %s waiting, so nothing was resumed", expected, found, what)
+	if m.Picked {
+		// --session chose another worker's item explicitly: other items of the
+		// caller's may also wait, so do not claim this is the only one.
+		lead = fmt.Sprintf("this worktree was last bound to worker %s, but the session you picked with --session is %s's %s, so nothing was resumed", expected, found, what)
+	}
+	msg := fmt.Sprintf("%s: %s's %s is untouched (no claim consumed, no session started, ended or changed) and no binding was written. "+
 		"Run `hadron team session start` in %s's own worktree, or name this worktree's worker with `hadron team session start --as <worker>`",
-		expected, found, what, found, what, found)
+		lead, found, what, found)
 	return api.WithServerCode(exitcode.New(exitcode.Conflict, &causedRefusal{msg: msg, err: raw}), raw)
 }
 
