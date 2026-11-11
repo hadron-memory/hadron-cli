@@ -206,8 +206,10 @@ func TestAppLifecycle1917RefusalsAreTypedAndNeverPreflighted(t *testing.T) {
 		// renders it once and never reads first to tell them apart.
 		{[]string{"app", "uninstall"}, refusal("UninstallApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
 		{[]string{"app", "reinstall"}, refusal("ReinstallApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
-		// deleteApp after hadron-server#3975: a missing App and a refused caller
-		// get one FORBIDDEN; a repeat by id is APP_DELETED (Celine's stack F3).
+		// deleteApp after hadron-server#3975: the canned refusal maps to its exit
+		// and serverCode. This pins the code-to-exit mapping only; the fake
+		// cannot express the server's id-vs-URN resolution (by id a repeat is
+		// APP_DELETED, by URN FORBIDDEN while no App holds the handle).
 		{[]string{"app", "delete"}, refusal("DeleteApp", "FORBIDDEN", "Forbidden"), exitcode.Forbidden, "Forbidden", "FORBIDDEN"},
 		{[]string{"app", "delete"}, refusal("DeleteApp", "APP_DELETED", "This App is deleted."), exitcode.Conflict, "deleted", "APP_DELETED"},
 	}
