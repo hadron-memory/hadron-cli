@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -47,6 +48,46 @@ func TestUsageProject1899EmptyAccountRefusedBeforeAnyRequest(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// hadron-cli#1904: under --json the refusal is the standard error envelope on
+// stdout (#334: nothing else was written, so stdout is the one JSON document),
+// exit code 2, never duplicated onto stderr, and no request was made.
+func TestUsageProject1904EmptyAccountJSONEnvelope(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, resp1899())
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "usage", "project", "--account", "", "--json"})
+	err := root.Execute()
+	if err == nil || exitOf(err) != exitcode.Usage {
+		t.Fatalf("want exit 2, got %v (%d)", err, exitOf(err))
+	}
+	if code := renderError(f, err); code != exitcode.Usage {
+		t.Fatalf("rendered exit code %d, want %d", code, exitcode.Usage)
+	}
+	var env struct {
+		Error struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	dec := json.NewDecoder(strings.NewReader(out.String()))
+	dec.DisallowUnknownFields()
+	if derr := dec.Decode(&env); derr != nil || dec.More() {
+		t.Fatalf("stdout must be exactly one envelope: %v\n%q", derr, out.String())
+	}
+	if env.Error.Code != exitcode.Usage || env.Error.Message != emptyAccount1899 {
+		t.Fatalf("envelope %+v", env.Error)
+	}
+	if got := errOut(); got != "" {
+		t.Fatalf("stderr must stay empty, got %q", got)
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("made %d requests", len(*calls))
 	}
 }
 

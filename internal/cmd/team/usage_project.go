@@ -92,9 +92,10 @@ type projectDTO struct {
 // is cut: the listed accounts are projected, others may be missing.
 const projectIncompleteWarning = "warning: the server's account list is incomplete; some accounts may be missing from this projection."
 
-// projectEmptyAccount: --account given with an empty or blank value, most
-// often an unset shell variable, is refused rather than read as "omitted".
-const projectEmptyAccount = "--account needs a label (it was given empty — an unset shell variable?): name one account, or omit --account to project every account the server lists"
+// projectEmptyAccountRefusal: --account given with an empty or blank value,
+// most often a quoted unset shell variable (--account "$X"), is refused rather
+// than read as "omitted".
+const projectEmptyAccountRefusal = "--account needs a label (it was given empty — an unset shell variable?): name one account, or omit --account to project every account the server lists"
 
 // projectMemoryRefusal: with --account omitted the server lists the accounts
 // from the team App's team-space memory, so a memory choice cannot apply.
@@ -146,7 +147,7 @@ The team App is --app, the App context, or the worktree binding.`,
 			// First, so an empty --account is the reason given, before any
 			// request (cli#1899): given-but-empty is not omitted.
 			case flags.Changed("account") && strings.TrimSpace(account) == "":
-				return exitcode.Newf(exitcode.Usage, "%s", projectEmptyAccount)
+				return exitcode.Newf(exitcode.Usage, "%s", projectEmptyAccountRefusal)
 			case wantAdd && (addWorkers < 1 || addWorkers > 50):
 				return exitcode.Newf(exitcode.Usage, "--add-workers must be 1 to 50")
 			case wantAdd && wantMove:
