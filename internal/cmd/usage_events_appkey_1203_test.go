@@ -80,7 +80,7 @@ query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeI
 }
 `
 
-func TestUsageEventsPlainDocumentCarriesNoAppKey(t *testing.T) {
+func TestUsageEventsDocumentsArePinnedWhole(t *testing.T) {
 	if gen.UsageEventsPage_Operation != usageEventsPageGolden1203 {
 		t.Errorf("UsageEventsPage must keep its exact pre-#2944 document:\n got %s\nwant %s",
 			gen.UsageEventsPage_Operation, usageEventsPageGolden1203)
@@ -123,7 +123,9 @@ func TestUsageEventsAppKeySentVerbatimAndComposes(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 	vars = nil
-	_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
 	if vars["appKey"] != "k1" {
 		t.Errorf("appKey = %v", vars["appKey"])
 	}
@@ -162,7 +164,9 @@ func TestUsageEventsAppKeyUnknownAndUnfilterableAreIdentical(t *testing.T) {
 			t.Errorf("only UsageEventsPageByAppKey may be called, got %v", appKey1203Ops(calls))
 		}
 		var vars map[string]any
-		_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
+		if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+			t.Fatal(err)
+		}
 		if vars["appKey"] != key {
 			t.Errorf("the ref must go straight to the server: %v", vars)
 		}
@@ -189,7 +193,7 @@ func TestUsageEventsAppKeyServerRefusalIsNeverEmpty(t *testing.T) {
 		if exit == 0 {
 			t.Errorf("%s: exit 0 would read as an empty result", code)
 		}
-		if strings.TrimSpace(out) == "[]" || out != "" {
+		if out != "" {
 			t.Errorf("%s: stdout must carry nothing, got %q", code, out)
 		}
 		if !strings.Contains(stderr, "declined") {
@@ -258,4 +262,47 @@ func appKey1203Ops(m map[string]json.RawMessage) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// cli#1819 item 1: the capture map keeps only the last body per operation, so a duplicated request would pass every
+// other pin here. Count by operation: one by-key request, and never the plain one.
+func TestUsageEventsAppKeyIssuesExactlyOneRequest(t *testing.T) {
+	_, stderr, code, _, counts := usage65RunCounting(t, usage1205Empty, "usage", "events", "--json", "--app-key", "k1")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	if counts["UsageEventsPageByAppKey"] != 1 || counts["UsageEventsPage"] != 0 || len(counts) != 1 {
+		t.Errorf("want exactly one UsageEventsPageByAppKey and nothing else, got %v", counts)
+	}
+}
+
+// cli#1819 item 7 (pass-through, as-is): the CLI trims and resolves nothing. Only a blank id is refused.
+func TestUsageEventsAppKeyUntrimmedSentVerbatim(t *testing.T) {
+	_, stderr, code, calls := usage65Run(t, usage1205Empty, "usage", "events", "--json", "--app-key", " k ")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars["appKey"] != " k " {
+		t.Errorf(`appKey = %q, want " k " verbatim`, vars["appKey"])
+	}
+}
+
+// cli#1819 item 9: --loc composes with --app-key like --memory and --type do.
+func TestUsageEventsAppKeyComposesWithLoc(t *testing.T) {
+	_, stderr, code, calls := usage65Run(t, usage1205Empty, "usage", "events", "--json",
+		"--app-key", "k1", "--loc", "a:b:c", "--memory", "acme.com:kb")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars["loc"] != "a:b:c" || vars["memoryId"] != "hrn:mem:acme.com:kb" || vars["appKey"] != "k1" {
+		t.Errorf("by-key variables = %v", vars)
+	}
 }
