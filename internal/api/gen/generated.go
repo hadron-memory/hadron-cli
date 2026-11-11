@@ -25898,6 +25898,61 @@ type ChannelsResponse struct {
 // GetChannels returns ChannelsResponse.Channels, and is useful for accessing the field via an interface.
 func (v *ChannelsResponse) GetChannels() *ChannelsChannelsChannelsPage { return v.Channels }
 
+// ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice includes the requested fields of the GraphQL type ChatAiConfigChoice.
+// The GraphQL type's documentation follows.
+//
+// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): one entry of the list a chat chooses its AI config from. No key material.
+type ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice struct {
+	// `default` for the walk entry, else the config id: the value to send back as aiConfigChoice.
+	Value     string `json:"value"`
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+	// True for the App's own chatbot config (App.chatbotAiConfigId).
+	IsAppChatbotConfig bool `json:"isAppChatbotConfig"`
+	// Null for the `default` entry, which names no single config.
+	Provider *string `json:"provider"`
+	Model    *string `json:"model"`
+}
+
+// GetValue returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.Value, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetValue() string { return v.Value }
+
+// GetName returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.Name, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetName() string { return v.Name }
+
+// GetIsDefault returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.IsDefault, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetIsDefault() bool {
+	return v.IsDefault
+}
+
+// GetIsAppChatbotConfig returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.IsAppChatbotConfig, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetIsAppChatbotConfig() bool {
+	return v.IsAppChatbotConfig
+}
+
+// GetProvider returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.Provider, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetProvider() *string {
+	return v.Provider
+}
+
+// GetModel returns ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice.Model, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetModel() *string { return v.Model }
+
+// ChatAiConfigChoicesResponse is returned by ChatAiConfigChoices on success.
+type ChatAiConfigChoicesResponse struct {
+	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
+	// `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time. Send an entry's
+	// `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member may
+	// call it (a platform admin too); anyone else, a missing App and a request that is not a signed-in person get
+	// the same APP_NOT_FOUND answer.
+	ChatAiConfigChoices []*ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice `json:"chatAiConfigChoices"`
+}
+
+// GetChatAiConfigChoices returns ChatAiConfigChoicesResponse.ChatAiConfigChoices, and is useful for accessing the field via an interface.
+func (v *ChatAiConfigChoicesResponse) GetChatAiConfigChoices() []*ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice {
+	return v.ChatAiConfigChoices
+}
+
 // ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -47802,6 +47857,39 @@ type GetAgentResponse struct {
 
 // GetAgent returns GetAgentResponse.Agent, and is useful for accessing the field via an interface.
 func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
+
+// GetAppChatbotAiConfigApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppChatbotAiConfigApp struct {
+	Id string `json:"id"`
+	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): one of this App's OWN AI configs, used for its chats unless a chat stored its own choice. An id, never a key. Readable by an App member and by whoever manages the App; null for anyone else, and null when unset. A deleted config clears it. Set and cleared with setAppChatbotAiConfig.
+	ChatbotAiConfigId *string `json:"chatbotAiConfigId"`
+}
+
+// GetId returns GetAppChatbotAiConfigApp.Id, and is useful for accessing the field via an interface.
+func (v *GetAppChatbotAiConfigApp) GetId() string { return v.Id }
+
+// GetChatbotAiConfigId returns GetAppChatbotAiConfigApp.ChatbotAiConfigId, and is useful for accessing the field via an interface.
+func (v *GetAppChatbotAiConfigApp) GetChatbotAiConfigId() *string { return v.ChatbotAiConfigId }
+
+// GetAppChatbotAiConfigResponse is returned by GetAppChatbotAiConfig on success.
+type GetAppChatbotAiConfigResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppChatbotAiConfigApp `json:"app"`
+}
+
+// GetApp returns GetAppChatbotAiConfigResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppChatbotAiConfigResponse) GetApp() *GetAppChatbotAiConfigApp { return v.App }
 
 // GetAppMetadataApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -80393,6 +80481,47 @@ func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetUrn() string 
 // GetName returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp.Name, and is useful for accessing the field via an interface.
 func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetName() string { return v.Name }
 
+// SetAppChatbotAiConfigResponse is returned by SetAppChatbotAiConfig on success.
+type SetAppChatbotAiConfigResponse struct {
+	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:dmo:050:12): set (configId) or clear (null) the App's chatbot
+	// AI config. Whoever manages the App, a platform admin included even on a user-owned App: choosing a config reads,
+	// sets and tests no key. A person acting as themselves. configId must be one of THIS App's own configs; another
+	// App's, a deleted one and an unknown id all get the same AiServiceConfigNotFoundError. A disabled own config is
+	// accepted and skipped at turn time until it is enabled again.
+	SetAppChatbotAiConfig *SetAppChatbotAiConfigSetAppChatbotAiConfigApp `json:"setAppChatbotAiConfig"`
+}
+
+// GetSetAppChatbotAiConfig returns SetAppChatbotAiConfigResponse.SetAppChatbotAiConfig, and is useful for accessing the field via an interface.
+func (v *SetAppChatbotAiConfigResponse) GetSetAppChatbotAiConfig() *SetAppChatbotAiConfigSetAppChatbotAiConfigApp {
+	return v.SetAppChatbotAiConfig
+}
+
+// SetAppChatbotAiConfigSetAppChatbotAiConfigApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type SetAppChatbotAiConfigSetAppChatbotAiConfigApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): one of this App's OWN AI configs, used for its chats unless a chat stored its own choice. An id, never a key. Readable by an App member and by whoever manages the App; null for anyone else, and null when unset. A deleted config clears it. Set and cleared with setAppChatbotAiConfig.
+	ChatbotAiConfigId *string `json:"chatbotAiConfigId"`
+}
+
+// GetId returns SetAppChatbotAiConfigSetAppChatbotAiConfigApp.Id, and is useful for accessing the field via an interface.
+func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetId() string { return v.Id }
+
+// GetUrn returns SetAppChatbotAiConfigSetAppChatbotAiConfigApp.Urn, and is useful for accessing the field via an interface.
+func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetUrn() string { return v.Urn }
+
+// GetChatbotAiConfigId returns SetAppChatbotAiConfigSetAppChatbotAiConfigApp.ChatbotAiConfigId, and is useful for accessing the field via an interface.
+func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetChatbotAiConfigId() *string {
+	return v.ChatbotAiConfigId
+}
+
 // SetAppMemoryWriteGrantResponse is returned by SetAppMemoryWriteGrant on success.
 type SetAppMemoryWriteGrantResponse struct {
 	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
@@ -108384,6 +108513,14 @@ func (v *__ChannelsInput) GetOffset() *int { return v.Offset }
 // GetOrgId returns __ChannelsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__ChannelsInput) GetOrgId() *string { return v.OrgId }
 
+// __ChatAiConfigChoicesInput is used internally by genqlient
+type __ChatAiConfigChoicesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __ChatAiConfigChoicesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ChatAiConfigChoicesInput) GetAppRef() string { return v.AppRef }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -111001,6 +111138,14 @@ type __GetAgentInput struct {
 
 // GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAgentInput) GetRef() string { return v.Ref }
+
+// __GetAppChatbotAiConfigInput is used internally by genqlient
+type __GetAppChatbotAiConfigInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAppChatbotAiConfigInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAppChatbotAiConfigInput) GetRef() string { return v.Ref }
 
 // __GetAppMetadataInput is used internally by genqlient
 type __GetAppMetadataInput struct {
@@ -113713,6 +113858,18 @@ func (v *__SetAppAgentBootPromptInput) GetAgentRef() string { return v.AgentRef 
 
 // GetNodeRef returns __SetAppAgentBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__SetAppAgentBootPromptInput) GetNodeRef() *string { return v.NodeRef }
+
+// __SetAppChatbotAiConfigInput is used internally by genqlient
+type __SetAppChatbotAiConfigInput struct {
+	AppRef   string  `json:"appRef"`
+	ConfigId *string `json:"configId"`
+}
+
+// GetAppRef returns __SetAppChatbotAiConfigInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppChatbotAiConfigInput) GetAppRef() string { return v.AppRef }
+
+// GetConfigId returns __SetAppChatbotAiConfigInput.ConfigId, and is useful for accessing the field via an interface.
+func (v *__SetAppChatbotAiConfigInput) GetConfigId() *string { return v.ConfigId }
 
 // __SetAppMemoryWriteGrantInput is used internally by genqlient
 type __SetAppMemoryWriteGrantInput struct {
@@ -126136,6 +126293,47 @@ func Channels(
 	return data_, err_
 }
 
+// The query executed by ChatAiConfigChoices.
+const ChatAiConfigChoices_Operation = `
+query ChatAiConfigChoices ($appRef: ID!) {
+	chatAiConfigChoices(appRef: $appRef) {
+		value
+		name
+		isDefault
+		isAppChatbotConfig
+		provider
+		model
+	}
+}
+`
+
+// The App's OWN enabled configs plus one `default` entry (a walk marker, not a
+// config). Never a key, key preview, params or endpoint. Any App member.
+func ChatAiConfigChoices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *ChatAiConfigChoicesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatAiConfigChoices",
+		Query:  ChatAiConfigChoices_Operation,
+		Variables: &__ChatAiConfigChoicesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &ChatAiConfigChoicesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatMessages.
 const ChatMessages_Operation = `
 query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
@@ -134446,6 +134644,44 @@ func GetAgent(
 	}
 
 	data_ = &GetAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppChatbotAiConfig.
+const GetAppChatbotAiConfig_Operation = `
+query GetAppChatbotAiConfig ($ref: ID!) {
+	app(ref: $ref) {
+		id
+		chatbotAiConfigId
+	}
+}
+`
+
+// cli#1913 (hadron-server#3957, cor:dmo:050:10 / cor:dmo:050:12): the App's
+// chatbot AI config selection. Own operation, so a server that predates #3957
+// still serves `app get`. App.chatbotAiConfigId is an id only, never a key.
+func GetAppChatbotAiConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAppChatbotAiConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppChatbotAiConfig",
+		Query:  GetAppChatbotAiConfig_Operation,
+		Variables: &__GetAppChatbotAiConfigInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAppChatbotAiConfigResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -146533,6 +146769,46 @@ func SetAppAgentBootPrompt(
 	}
 
 	data_ = &SetAppAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAppChatbotAiConfig.
+const SetAppChatbotAiConfig_Operation = `
+mutation SetAppChatbotAiConfig ($appRef: ID!, $configId: ID) {
+	setAppChatbotAiConfig(appRef: $appRef, configId: $configId) {
+		id
+		urn
+		chatbotAiConfigId
+	}
+}
+`
+
+// Set (configId) or clear (null) the pin. configId is NOT omitempty: a nil
+// pointer is sent as an explicit null, which is how `clear` asks.
+func SetAppChatbotAiConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	configId *string,
+) (data_ *SetAppChatbotAiConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppChatbotAiConfig",
+		Query:  SetAppChatbotAiConfig_Operation,
+		Variables: &__SetAppChatbotAiConfigInput{
+			AppRef:   appRef,
+			ConfigId: configId,
+		},
+	}
+
+	data_ = &SetAppChatbotAiConfigResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
