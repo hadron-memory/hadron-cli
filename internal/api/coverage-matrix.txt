@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 224: 178 command, 22 gap, 24 excluded
+[Query] 224: 178 command, 21 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -42,8 +42,8 @@ agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
 agentTasks  command team task list
-agentTeamEvents  command team events
-agentTeamEventsPage  gap #1915
+agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919)
+agentTeamEventsPage  command team events
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
@@ -600,7 +600,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 83: 47 gap, 36 excluded
+[Arguments] 81: 45 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -673,8 +673,6 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
-Query.agentTeamEvents(before)  gap #1915
-Query.agentTeamEvents(newestFirst)  gap #1915
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617

@@ -342,7 +342,7 @@ func TestWorkerGetTerminalHostLabelIsNeutralisedInText(t *testing.T) {
 func TestTerminalOperationsStayWithinPart1(t *testing.T) {
 	for name, op := range map[string]string{
 		"TeamRoster": gen.TeamRoster_Operation, "GetWorkerTerminal": gen.GetWorkerTerminal_Operation,
-		"AgentTeamEvents": gen.AgentTeamEvents_Operation, "AlarmAcknowledge": gen.AlarmAcknowledge_Operation,
+		"AgentTeamEventsPage": gen.AgentTeamEventsPage_Operation, "AlarmAcknowledge": gen.AlarmAcknowledge_Operation,
 		"GetWorker": gen.GetWorker_Operation,
 	} {
 		if strings.Contains(op, "actorHost") {

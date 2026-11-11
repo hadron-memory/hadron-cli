@@ -76,8 +76,9 @@ never `keyPreview`.
   registeredAt, refreshedAt, live, workers: [{workerId, workerName, family,
   worktrees}]}`.
 - `team host ops`: `{items: [op], hasNextPage, endCursor}`. The page object
-  is kept, unlike `team events`' bare array, because the server's cursor is
-  the only continuation.
+  is kept, as `team events --json` now keeps its `{events, hasMore,
+  nextCursor}` page (cli#1919), because the server's cursor is the only
+  continuation.
 - `team host issue`: one op: `{id, appId, hostId, type, args, workerId,
   workerName, status, issuedBy, issuedByUserId, issuedByWorkerId, issuedAt,
   collectedAt, finishedAt, result, failureReason}`; `args` and `result` are
