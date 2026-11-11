@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -80,7 +81,7 @@ query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeI
 }
 `
 
-func TestUsageEventsPlainDocumentCarriesNoAppKey(t *testing.T) {
+func TestUsageEventsDocumentsArePinnedWhole(t *testing.T) {
 	if gen.UsageEventsPage_Operation != usageEventsPageGolden1203 {
 		t.Errorf("UsageEventsPage must keep its exact pre-#2944 document:\n got %s\nwant %s",
 			gen.UsageEventsPage_Operation, usageEventsPageGolden1203)
@@ -123,7 +124,9 @@ func TestUsageEventsAppKeySentVerbatimAndComposes(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 	vars = nil
-	_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
 	if vars["appKey"] != "k1" {
 		t.Errorf("appKey = %v", vars["appKey"])
 	}
@@ -162,7 +165,9 @@ func TestUsageEventsAppKeyUnknownAndUnfilterableAreIdentical(t *testing.T) {
 			t.Errorf("only UsageEventsPageByAppKey may be called, got %v", appKey1203Ops(calls))
 		}
 		var vars map[string]any
-		_ = json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars)
+		if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+			t.Fatal(err)
+		}
 		if vars["appKey"] != key {
 			t.Errorf("the ref must go straight to the server: %v", vars)
 		}
@@ -189,7 +194,7 @@ func TestUsageEventsAppKeyServerRefusalIsNeverEmpty(t *testing.T) {
 		if exit == 0 {
 			t.Errorf("%s: exit 0 would read as an empty result", code)
 		}
-		if strings.TrimSpace(out) == "[]" || out != "" {
+		if out != "" {
 			t.Errorf("%s: stdout must carry nothing, got %q", code, out)
 		}
 		if !strings.Contains(stderr, "declined") {
@@ -258,4 +263,86 @@ func appKey1203Ops(m map[string]json.RawMessage) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// cli#1819 item 1: the capture map keeps only the last body per operation, so a duplicated request would pass every
+// other pin here. Count by operation: one by-key request, and never the plain one.
+func TestUsageEventsAppKeyIssuesExactlyOneRequest(t *testing.T) {
+	_, stderr, code, _, counts := usage65RunCounting(t, usage1205Empty, "usage", "events", "--json", "--app-key", "k1")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	if counts["UsageEventsPageByAppKey"] != 1 || counts["UsageEventsPage"] != 0 || len(counts) != 1 {
+		t.Errorf("want exactly one UsageEventsPageByAppKey and nothing else, got %v", counts)
+	}
+}
+
+// cli#1819 item 7 (pass-through, as-is): the CLI trims and resolves nothing. Only a blank id is refused.
+func TestUsageEventsAppKeyUntrimmedSentVerbatim(t *testing.T) {
+	_, stderr, code, calls := usage65Run(t, usage1205Empty, "usage", "events", "--json", "--app-key", " k ")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars["appKey"] != " k " {
+		t.Errorf(`appKey = %q, want " k " verbatim`, vars["appKey"])
+	}
+}
+
+// cli#1819 item 9: --loc composes with --app-key like --memory and --type do.
+func TestUsageEventsAppKeyComposesWithLoc(t *testing.T) {
+	_, stderr, code, calls := usage65Run(t, usage1205Empty, "usage", "events", "--json",
+		"--app-key", "k1", "--loc", "a:b:c", "--memory", "acme.com:kb")
+	if code != 0 {
+		t.Fatalf("exit %d %s", code, stderr)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEventsPageByAppKey"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars["loc"] != "a:b:c" || vars["memoryId"] != "hrn:mem:acme.com:kb" || vars["appKey"] != "k1" {
+		t.Errorf("by-key variables = %v", vars)
+	}
+}
+
+// cli#1819 item 4 / review F1: the shared row mapper is pinned by WHOLE output, every field populated and then null,
+// on both operations. A swapped or dropped getter (or a changed JSON name) turns this red.
+const usage1819Full = `{"id":"e2","type":"read","createdAt":"2026-10-23T01:02:03Z","memoryId":"m2","nodeLoc":"a:b","provider":"prov","model":"mod","keyOwnerType":"APP","tokensIn":11,"tokensOut":22,"costMicroCents":"333"}`
+const usage1819Null = `{"id":"e3","type":"write","createdAt":"2026-10-23T04:05:06Z","memoryId":null,"nodeLoc":null,"provider":null,"model":null,"keyOwnerType":null,"tokensIn":null,"tokensOut":null,"costMicroCents":null}`
+
+func TestUsageEventsJSONWholeOutputPinnedOnBothOperations(t *testing.T) {
+	resp := `{"data":{"usageEventsPage":{"total":2,"hasMore":false,"items":[` + usage1819Full + `,` + usage1819Null + `]}}}`
+	var want []map[string]any
+	if err := json.Unmarshal([]byte(`[`+usage1819Full+`,`+usage1819Null+`]`), &want); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"usage", "events", "--json"},
+		{"usage", "events", "--json", "--app-key", "k1"},
+	} {
+		out, stderr, code, _ := usage65Run(t, resp, args...)
+		if code != 0 {
+			t.Fatalf("%v: exit %d %s", args, code, stderr)
+		}
+		var got []map[string]any
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%v: rows differ\n got %v\nwant %v", args, got, want)
+		}
+		if len(got) != 2 || len(got[1]) != 11 {
+			t.Errorf("%v: every field must be present, null included: %v", args, got)
+		}
+	}
+	// An empty page is the bare empty array on both operations.
+	for _, args := range [][]string{{"usage", "events", "--json"}, {"usage", "events", "--json", "--app-key", "k1"}} {
+		out, _, code, _ := usage65Run(t, usage1205Empty, args...)
+		if code != 0 || strings.TrimSpace(out) != "[]" {
+			t.Errorf("%v: empty page = %q (exit %d), want []", args, out, code)
+		}
+	}
 }

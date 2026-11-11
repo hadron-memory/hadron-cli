@@ -61,6 +61,6 @@ merged at main `0c46aa6a`). The schema snapshot was exported from that revision.
   App manager or the key itself; a manager's read excludes the key's no-memory
   events, the key itself also reads its own no-memory events.
 
-Not built, not pinned: K's events in a memory K can no longer read (open for
-Holger); an executed key-self read before the server serves it (the QA seat runs
+Not built, not pinned: K's events in a memory K can no longer read (ruling 0254
+settles what a key filter shows, so this case is not pinned); an executed key-self read before the server serves it (the QA seat runs
 that against a real stack); period filtering (built in cli#1205).

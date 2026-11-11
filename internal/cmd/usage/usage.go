@@ -28,6 +28,38 @@ type eventDTO struct {
 	TokensOut      *int    `json:"tokensOut"`
 	CostMicroCents *string `json:"costMicroCents"`
 }
+
+// eventRow is the shape both usage-event operations' row types share (genqlient emits one type per operation).
+type eventRow interface {
+	GetId() string
+	GetType() string
+	GetCreatedAt() string
+	GetMemoryId() *string
+	GetNodeLoc() *string
+	GetProvider() *string
+	GetModel() *string
+	GetKeyOwnerType() *string
+	GetTokensIn() *int
+	GetTokensOut() *int
+	GetCostMicroCents() *string
+}
+
+// toEventDTOs maps a page's rows for either operation, refusing a null row (cli#1819: one mapping, not two copies).
+func toEventDTOs[T any, P interface {
+	*T
+	eventRow
+}](items []*T) ([]eventDTO, error) {
+	rows := []eventDTO{}
+	for _, e := range items {
+		if e == nil {
+			return nil, exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
+		}
+		r := P(e)
+		rows = append(rows, eventDTO{ID: r.GetId(), Type: r.GetType(), CreatedAt: r.GetCreatedAt(), MemoryID: r.GetMemoryId(), NodeLoc: r.GetNodeLoc(), Provider: r.GetProvider(), Model: r.GetModel(), KeyOwnerType: r.GetKeyOwnerType(), TokensIn: r.GetTokensIn(), TokensOut: r.GetTokensOut(), CostMicroCents: r.GetCostMicroCents()})
+	}
+	return rows, nil
+}
+
 type summaryDTO struct {
 	NodeLoc string `json:"nodeLoc"`
 	Type    string `json:"type"`
@@ -175,12 +207,8 @@ Details:
 					return api.MapError(err)
 				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
-				rows = []eventDTO{}
-				for _, e := range resp.UsageEventsPage.Items {
-					if e == nil {
-						return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
-					}
-					rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
+				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
+					return err
 				}
 			} else {
 				resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
@@ -188,12 +216,8 @@ Details:
 					return api.MapError(err)
 				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
-				rows = []eventDTO{}
-				for _, e := range resp.UsageEventsPage.Items {
-					if e == nil {
-						return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
-					}
-					rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
+				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
+					return err
 				}
 			}
 			// The twin's real total, windowed like the rows (cli#1339). stdout and
