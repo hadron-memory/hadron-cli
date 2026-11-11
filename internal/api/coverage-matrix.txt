@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 224: 177 command, 23 gap, 24 excluded
+[Query] 225: 178 command, 23 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -86,6 +86,7 @@ channelMessageSearch  command channel search
 channelMessages  command channel read
 channelReadState  command channel read-state
 channels  command channel list
+chatAiConfigChoices  command app chatbot-ai-config list
 chatHistory  gap #64
 chatServedPrompts  command chat served-prompts
 comment  command comment get
@@ -249,7 +250,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 349: 285 command, 50 gap, 14 excluded
+[Mutation] 350: 286 command, 50 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -508,6 +509,7 @@ setAgentTaskPriority  command team task add-blocker
 setAgentTaskStallSchedule  command team stall-schedule set
 setAiModelPrice  command billing prices set
 setAppAgentBootPrompt  command app agent set-boot-prompt
+setAppChatbotAiConfig  command app chatbot-ai-config set
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set

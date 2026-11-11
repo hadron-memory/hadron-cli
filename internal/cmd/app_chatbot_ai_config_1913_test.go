@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -223,7 +224,7 @@ func TestAppChatbotAiConfigSetResolvesAmongOwnChoices1913(t *testing.T) {
 // answers a missing, foreign or deleted config (one refusal, no oracle), and a
 // stored-disabled own config may still be set by id.
 func TestAppChatbotAiConfigSetUnmatchedIsTheServersToRefuse1913(t *testing.T) {
-	notFound := `{"errors":[{"message":"AI config not found","extensions":{"code":"AI_SERVICE_CONFIG_NOT_FOUND"}}]}`
+	notFound := `{"errors":[{"message":"AI config not found","extensions":{"code":"AiServiceConfigNotFoundError"}}]}`
 	resp := map[string]string{
 		"ChatAiConfigChoices":   cb1913Choices(cb1913Choice, cb1913Dflt),
 		"SetAppChatbotAiConfig": notFound,
@@ -232,8 +233,8 @@ func TestAppChatbotAiConfigSetUnmatchedIsTheServersToRefuse1913(t *testing.T) {
 	if err == nil {
 		t.Fatal("the server's refusal must surface")
 	}
-	if exitCodeFor(err) == exitcode.OK {
-		t.Fatalf("exit = %d", exitCodeFor(err))
+	if got := exitCodeFor(err); got != exitcode.NotFound {
+		t.Fatalf("exit = %d, want NotFound (%d): a missing, foreign and deleted config share one refusal", got, exitcode.NotFound)
 	}
 	if string(mgVars(t, captured["SetAppChatbotAiConfig"])["configId"]) != `"someone-elses"` || count("SetAppChatbotAiConfig") != 1 {
 		t.Fatalf("an unmatched ref goes to the server once, as given: %s", captured["SetAppChatbotAiConfig"])
@@ -296,5 +297,32 @@ func TestAppChatbotAiConfigClearShowsTheServersRefusal1913(t *testing.T) {
 	}
 	if count("SetAppChatbotAiConfig") != 1 {
 		t.Fatal("the mutation is sent once and never retried")
+	}
+}
+
+// The documents select what the commands render and nothing key-shaped
+// (review:assert-the-query-not-the-capture): no key, preview, params, endpoint,
+// and the pin read is its own operation (old-server compatibility).
+func TestChatbotAiConfigOperationsSelectNoKeyMaterial1913(t *testing.T) {
+	docs := map[string]string{
+		"GetAppChatbotAiConfig": gen.GetAppChatbotAiConfig_Operation,
+		"ChatAiConfigChoices":   gen.ChatAiConfigChoices_Operation,
+		"SetAppChatbotAiConfig": gen.SetAppChatbotAiConfig_Operation,
+	}
+	for name, doc := range docs {
+		lower := strings.ToLower(doc)
+		for _, bad := range []string{"key", "preview", "params", "endpoint", "secret", "baseurl"} {
+			if strings.Contains(lower, bad) {
+				t.Errorf("%s selects %q:\n%s", name, bad, doc)
+			}
+		}
+	}
+	for _, f := range []string{"value", "name", "isDefault", "isAppChatbotConfig", "provider", "model"} {
+		if !strings.Contains(gen.ChatAiConfigChoices_Operation, f) {
+			t.Errorf("ChatAiConfigChoices does not select %q", f)
+		}
+	}
+	if strings.Contains(gen.GetAppMetadata_Operation, "chatbotAiConfigId") {
+		t.Error("the shared GetAppMetadata selects chatbotAiConfigId: an older server would stop serving app get")
 	}
 }

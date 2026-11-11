@@ -21,6 +21,12 @@ type appGetDTO struct {
 	Name        string  `json:"name"`
 	AppType     string  `json:"appType"`
 	Description *string `json:"description"`
+	// cli#1913: the App's chatbot AI config pin (an id, never a key), the
+	// server-returned name when the App's enabled choices carry it, and whether
+	// they did. A pin they do not carry is shown by id and is not called in use.
+	ChatbotAiConfigID     *string `json:"chatbotAiConfigId"`
+	ChatbotAiConfigName   *string `json:"chatbotAiConfigName"`
+	ChatbotAiConfigListed bool    `json:"chatbotAiConfigListed"`
 }
 
 type appKeyMetadataDTO struct {
@@ -50,8 +56,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read one App's ID, URN, name, type and nullable description.
 
 Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.
-This read does not request settings, nested keys or AI configuration. A null
-description stays null in JSON and displays as - in text; it does not say
+This read does not request settings or nested keys. It shows the App's chatbot
+AI config (id, and the name when the App's enabled choices carry it; see
+app chatbot-ai-config) and never a key. A null description stays null in JSON and displays as - in text; it does not say
 whether the value is unset or withheld. The server decides access.`,
 		Example: `  hadron app get hrn:app:acme.com:support
   hadron app get acme.com:support --json`,
@@ -73,9 +80,15 @@ whether the value is unset or withheld. The server decides access.`,
 			if a == nil {
 				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
 			}
-			dto := appGetDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), Description: a.Description}
+			pinID, err := readChatbotPin(cmd.Context(), client, ref)
+			if err != nil {
+				return err
+			}
+			pin := resolveChatbotPin(cmd.Context(), f, client, ref, pinID)
+			dto := appGetDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), Description: a.Description,
+				ChatbotAiConfigID: pin.ID, ChatbotAiConfigName: pin.Name, ChatbotAiConfigListed: pin.Listed}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\n", output.SafeCell(dto.ID), output.SafeCell(dto.URN), output.SafeCell(dto.Name), output.SafeCell(dto.AppType), output.SafeCell(optionalReadText(dto.Description)))
+				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\nchatbot AI config: %s\n", output.SafeCell(dto.ID), output.SafeCell(dto.URN), output.SafeCell(dto.Name), output.SafeCell(dto.AppType), output.SafeCell(optionalReadText(dto.Description)), chatbotPinText(pin))
 				return err
 			})
 		},
