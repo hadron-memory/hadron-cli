@@ -22,8 +22,8 @@ import (
 // The returned function is called immediately before each mutation. It
 // re-reads the binding and refuses if it changed since the resolve (a rebind
 // mid-run), so a batch never sends under a session it did not verify.
-func WorkerWriteSession(f *cmdutil.Factory) func(context.Context) (func(context.Context) (context.Context, error), error) {
-	return func(ctx context.Context) (func(context.Context) (context.Context, error), error) {
+func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (func(context.Context) (context.Context, error), error) {
+	return func(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error) {
 		b, _, err := readBindingFile(ctx)
 		switch {
 		case errors.Is(err, errNoWorktree):
@@ -59,6 +59,18 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context) (func(context.
 			}
 			if !same {
 				return nil, refuse("it belongs to a different App than --app")
+			}
+		}
+		// A positional App the command names is a target App too (cli#1887):
+		// compared by RESOLVED id, so any spelling of the binding's own App
+		// passes. The text speaks of the binding, never the other App.
+		for _, target := range targetApps {
+			same, err := bindingsAppIdentity(ctx, f, target, b.AppID)
+			if err != nil {
+				return nil, exitcode.Newf(exitcode.FromError(err), "cannot confirm the binding's App (%v); nothing was sent", err)
+			}
+			if !same {
+				return nil, refuse("it belongs to a different App than the one this command names")
 			}
 		}
 		// The App lookup above is a round trip that may race a rebind. The

@@ -216,7 +216,17 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 			// sends nothing (cli#1872).
 			var mutCtx func(context.Context) (context.Context, error)
 			if asWorker {
-				m, err := f.ResolveWorkerWrite(cmd.Context())
+				// `app agent compile` names its App positionally: the binding
+				// must be for that App too (cli#1887).
+				var targetApps []string
+				if kind == "app" {
+					appRef, e := cmdutil.CanonicalAppRef("<app>", args[0])
+					if e != nil {
+						return e
+					}
+					targetApps = append(targetApps, appRef)
+				}
+				m, err := f.ResolveWorkerWrite(cmd.Context(), targetApps...)
 				if err != nil {
 					return err
 				}
