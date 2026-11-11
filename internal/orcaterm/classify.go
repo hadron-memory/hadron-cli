@@ -29,6 +29,10 @@ type Observation struct {
 	Reason     ts.Reason // "" when none
 	Family     string
 	LastTurnAt *time.Time
+	// Detail is LOCAL only: for locked/unrecognized it names the screen line
+	// that could not be matched (cli#1856). Screen text, so it must never
+	// reach a report or a log; terminalstatus.Result.Detail is never marshalled.
+	Detail string
 }
 
 func held(family string) Observation {
@@ -90,6 +94,11 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 		}
 	}
 	obs.LastTurnAt = LastTurnAt(sc, family, now)
+	if obs.Reason == ts.Unrecognized {
+		if line := UnmatchedLine(sc.Tail, family); line != "" {
+			obs.Detail = "could not match: " + line
+		}
+	}
 	return obs
 }
 

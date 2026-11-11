@@ -1,8 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -204,45 +209,6 @@ func TestUsageProjectJSONShapeEmptyListsAreNotNull(t *testing.T) {
 	}
 }
 
-// Without --account the labels come from the recorded account-usage objects:
-// one projection call per distinct (label, host, family), host and family
-// passed through so an ambiguous label is never guessed.
-func TestUsageProjectAllAccountsOneCallEach(t *testing.T) {
-	rec := func(label, host, at string) string {
-		return `{"label":"` + label + `","family":"claude","host":"` + host + `","observedAt":"` + at + `","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
-	objs := rec("beta", "orca1", "2026-11-10T12:00:00Z") + "," + rec("alpha", "orca1", "2026-11-10T12:00:00Z") + "," + rec("alpha", "orca1", "2026-11-10T11:00:00Z")
-	resp := map[string]string{
-		"FindObjects":            `{"data":{"findObjects":{"objects":[` + objs + `],"total":3}}}`,
-		"AccountUsageProjection": projResponse("x", projWinNoRunOut, ""),
-	}
-	calls, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := projCalls(calls)
-	if len(got) != 2 || got[0].Vars["account"] != "alpha" || got[1].Vars["account"] != "beta" {
-		t.Fatalf("want one call each for alpha then beta, got %+v", got)
-	}
-	if got[0].Vars["host"] != "orca1" || got[0].Vars["family"] != "claude" {
-		t.Fatalf("host/family not passed through: %v", got[0].Vars)
-	}
-	if strings.Count(out, `"account"`) != 2 {
-		t.Fatalf("two accounts expected in %s", out)
-	}
-}
-
-func TestUsageProjectNoAccountsIsEmptyListNotNull(t *testing.T) {
-	resp := map[string]string{"FindObjects": `{"data":{"findObjects":{"objects":[],"total":0}}}`}
-	_, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(squash1837(out), `"accounts":[]`) {
-		t.Fatalf("%s", out)
-	}
-}
-
 // A what-if applies to one account; with none named the refusal must say so
 // (not fall through to "no memory to record in").
 func TestUsageProjectWhatIfWithoutAccountNamesTheFlag(t *testing.T) {
@@ -252,57 +218,15 @@ func TestUsageProjectWhatIfWithoutAccountNamesTheFlag(t *testing.T) {
 	}
 }
 
-// F1 (BLIND, #1849): discovery pages the collection to exhaustion. 201 records,
-// the 201st (a second account) only on page two.
-func TestUsageProjectDiscoveryPagesPastTheFirst200(t *testing.T) {
-	rec := func(label string) string {
-		return `{"label":"` + label + `","family":"claude","host":"orca1","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
-	page1 := make([]string, 200)
-	for i := range page1 {
-		page1[i] = rec("alpha")
-	}
-	responses := map[string]string{"AccountUsageProjection": projResponse("x", projWinNoRunOut, ""), "FindObjects": ""}
-	finds := 0
-	onOp := func(op string) {
-		if op != "FindObjects" {
-			return
-		}
-		finds++
-		if finds == 1 {
-			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+strings.Join(page1, ",")+`],"total":201}}}`)
-		} else {
-			setAttnResponse(responses, "FindObjects", `{"data":{"findObjects":{"objects":[`+rec("zeta")+`],"total":201}}}`)
-		}
-	}
-	writeTeamBinding(t)
-	srv, calls := attnServerHook(t, responses, onOp)
-	setTeamBindingServer(t, srv.URL)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"--server", srv.URL, "team", "usage", "project", "-m", "hrn:mem:example.com:team", "--json"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	got := projCalls(calls)
-	if len(got) != 2 || got[0].Vars["account"] != "alpha" || got[1].Vars["account"] != "zeta" {
-		t.Fatalf("an account only on page two was dropped: %+v", got)
-	}
-	if finds != 2 {
-		t.Fatalf("want 2 pages, read %d", finds)
-	}
-}
-
 // F2 (BLIND, #1849): two identities sharing a label are told apart in the table.
+// (Discovery is the server's list since cli#1878; its order, paging and empty
+// cases are pinned in team_usage_project_1878_test.go.)
 func TestUsageProjectTableShowsHostAndFamilyForSameLabel(t *testing.T) {
-	rec := func(host string) string {
-		return `{"label":"shared","family":"claude","host":"` + host + `","observedAt":"2026-11-10T12:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2026-11-10T18:00:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`
-	}
 	resp := map[string]string{
-		"FindObjects":            `{"data":{"findObjects":{"objects":[` + rec("orca1") + `,` + rec("orca2") + `],"total":2}}}`,
+		"AccountUsageAccounts":   acctsResponse(true, acctRupaliOrca1, acctRupaliOrca2),
 		"AccountUsageProjection": `{"data":{"accountUsageProjection":{"account":"shared","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"HOSTX","newestSnapshotAt":null,"workers":[],"workersConfigured":false,"windows":[` + projWinNoRunOut + `],"whatIf":null}}}`,
 	}
-	_, out, err := runProject(t, resp, "-m", "hrn:mem:example.com:team")
+	_, out, err := runProject(t, resp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,5 +262,126 @@ func TestUsageProjectTableNeutralizesServerStrings(t *testing.T) {
 	_, js, err := runProject(t, resp, "--account", "a", "--json")
 	if err != nil || !strings.Contains(js, `FORGED  host  row`) {
 		t.Fatalf("--json must carry the original value: %v\n%s", err, js)
+	}
+}
+
+// cli#1850 pin 2 (#1849 BLIND delta P3): one label listed from two hosts is
+// two separate rows, each carrying ITS host's projection. The stub echoes the
+// requested host and answers each host with a different range, so a CLI that
+// dropped or rewrote the host (or printed one answer twice) cannot pass.
+func TestUsageProject1850DistinctHostsAreSeparateRows(t *testing.T) {
+	writeTeamBinding(t)
+	inner, _ := attnServer(t, map[string]string{
+		"AccountUsageAccounts": acctsResponse(true, acctRupaliOrca1, acctRupaliOrca2),
+	})
+	low := map[string]string{"orca1": "11.5", "orca2": "62.5"}
+	var (
+		mu    sync.Mutex // the handler runs on the server's goroutines (#1909 BLIND F1)
+		hosts []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &body)
+		if body.OperationName != "AccountUsageProjection" {
+			u := inner.URL + r.URL.Path
+			if r.URL.RawQuery != "" {
+				u += "?" + r.URL.RawQuery
+			}
+			req, _ := http.NewRequestWithContext(r.Context(), r.Method, u, bytes.NewReader(raw))
+			req.Header = r.Header.Clone()
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Errorf("proxy: %v", err)
+				return
+			}
+			defer resp.Body.Close()
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(resp.StatusCode)
+			_, _ = io.Copy(w, resp.Body)
+			return
+		}
+		host, _ := body.Variables["host"].(string)
+		mu.Lock()
+		hosts = append(hosts, host)
+		mu.Unlock()
+		if _, ok := low[host]; !ok {
+			t.Errorf("projection requested for unexpected host %q", host)
+			http.Error(w, "unexpected host", http.StatusInternalServerError)
+			return
+		}
+		win := strings.Replace(projWinNoRunOut, `"lowPctAtReset":20.5`, `"lowPctAtReset":`+low[host], 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":{"accountUsageProjection":{"account":"team-rupali","asOf":"2026-11-10T13:01:00Z","family":"claude","host":"`+host+`","newestSnapshotAt":null,"workers":[],"workersConfigured":true,"windows":[`+win+`],"whatIf":null}}}`)
+	}))
+	defer srv.Close()
+	setTeamBindingServer(t, srv.URL)
+
+	run := func(argv ...string) string {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"--server", srv.URL, "team", "usage", "project"}, argv...))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+
+	out := run()
+	// Server order is the documented contract ("one call each, in server
+	// order", agentic-usage `team usage project`; cli#1878), so the order is
+	// asserted, not just the set.
+	mu.Lock()
+	got := strings.Join(hosts, ",")
+	mu.Unlock()
+	if got != "orca1,orca2" {
+		t.Fatalf("requested hosts %s, want orca1 then orca2", got)
+	}
+	// Every 5h row of the label, in table order: exactly two, one per host
+	// (a duplicated row is caught; #1909 LOCAL F1). Columns as in projRow.
+	var rows []string
+	for _, l := range strings.Split(out, "\n") {
+		if f := strings.Fields(l); len(f) > 3 && f[0] == "team-rupali" && f[3] == "5h" {
+			rows = append(rows, l)
+		}
+	}
+	if len(rows) != 2 || strings.Fields(rows[0])[1] != "orca1" || !strings.Contains(rows[0], "11.5%") ||
+		strings.Fields(rows[1])[1] != "orca2" || !strings.Contains(rows[1], "62.5%") {
+		t.Fatalf("want exactly one orca1 row at 11.5%% then one orca2 row at 62.5%%:\n%s", out)
+	}
+
+	var dto struct {
+		Accounts []struct {
+			Host    string           `json:"host"`
+			Windows []map[string]any `json:"windows"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(run("--json")), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Accounts) != 2 || len(dto.Accounts[0].Windows) == 0 || len(dto.Accounts[1].Windows) == 0 ||
+		dto.Accounts[0].Host != "orca1" || dto.Accounts[0].Windows[0]["lowPctAtReset"] != 11.5 ||
+		dto.Accounts[1].Host != "orca2" || dto.Accounts[1].Windows[0]["lowPctAtReset"] != 62.5 {
+		t.Fatalf("--json accounts %+v", dto.Accounts)
+	}
+}
+
+// cli#1850 pin 3 (#1849 BLIND delta P3): 50 is the inclusive upper bound of
+// --add-workers; it succeeds and reaches the server unchanged.
+func TestUsageProject1850AddWorkersFiftyReachesServer(t *testing.T) {
+	resp := map[string]string{"AccountUsageProjection": projResponse("team-rupali", projWinNoRunOut, `{"adjusted":[`+projWinProjected+`],"target":null}`)}
+	calls, _, err := runProject(t, resp, "--account", "team-rupali", "--add-workers", "50")
+	if err != nil {
+		t.Fatalf("--add-workers 50 must succeed: %v", err)
+	}
+	pc := projCalls(calls)
+	if len(pc) != 1 {
+		t.Fatalf("want one projection call, got %d", len(pc))
+	}
+	if wi, _ := pc[0].Vars["whatIf"].(map[string]any); wi["addWorkers"] != float64(50) {
+		t.Fatalf("whatIf %v, want addWorkers 50", pc[0].Vars["whatIf"])
 	}
 }

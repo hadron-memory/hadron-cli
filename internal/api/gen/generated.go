@@ -65,6 +65,91 @@ var AllAccessSource = []AccessSource{
 	AccessSourcePublicVisibility,
 }
 
+// AccountUsageAccountsAccountUsageAccounts includes the requested fields of the GraphQL type AccountUsageAccounts.
+// The GraphQL type's documentation follows.
+//
+// #3853 — the accounts an App has usage history for. complete is false when more exist than the bound
+// (hrn:node:hadronmemory.com:specs:cor:agt:140:05); a cut list is not a refusal.
+type AccountUsageAccountsAccountUsageAccounts struct {
+	AsOf     string                                                                 `json:"asOf"`
+	Accounts []*AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount `json:"accounts"`
+	Complete bool                                                                   `json:"complete"`
+}
+
+// GetAsOf returns AccountUsageAccountsAccountUsageAccounts.AsOf, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetAsOf() string { return v.AsOf }
+
+// GetAccounts returns AccountUsageAccountsAccountUsageAccounts.Accounts, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetAccounts() []*AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount {
+	return v.Accounts
+}
+
+// GetComplete returns AccountUsageAccountsAccountUsageAccounts.Complete, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccounts) GetComplete() bool { return v.Complete }
+
+// AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount includes the requested fields of the GraphQL type AccountUsageAccount.
+// The GraphQL type's documentation follows.
+//
+// #3853 — one usage account an App has history for (hrn:node:hadronmemory.com:specs:cor:agt:140:05): the label, host and family
+// that together are an account (hrn:node:hadronmemory.com:specs:cor:agt:140:01). Passed back to accountUsageProjection as account,
+// host and family, every entry is accepted. workers and workersConfigured are the newest snapshot's.
+type AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount struct {
+	Account           string   `json:"account"`
+	Host              string   `json:"host"`
+	Family            string   `json:"family"`
+	NewestSnapshotAt  string   `json:"newestSnapshotAt"`
+	Workers           []string `json:"workers"`
+	WorkersConfigured bool     `json:"workersConfigured"`
+}
+
+// GetAccount returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Account, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetAccount() string {
+	return v.Account
+}
+
+// GetHost returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Host, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetHost() string {
+	return v.Host
+}
+
+// GetFamily returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Family, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetFamily() string {
+	return v.Family
+}
+
+// GetNewestSnapshotAt returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.NewestSnapshotAt, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetNewestSnapshotAt() string {
+	return v.NewestSnapshotAt
+}
+
+// GetWorkers returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.Workers, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetWorkers() []string {
+	return v.Workers
+}
+
+// GetWorkersConfigured returns AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount.WorkersConfigured, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsAccountUsageAccountsAccountsAccountUsageAccount) GetWorkersConfigured() bool {
+	return v.WorkersConfigured
+}
+
+// AccountUsageAccountsResponse is returned by AccountUsageAccounts on success.
+type AccountUsageAccountsResponse struct {
+	// #3853 — the usage accounts an App has history for: one entry per label, host and family
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:01) with a valid account-usage snapshot in the App's own team-space memory in
+	// the last 14 days, the same history and horizon accountUsageProjection reads
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:05). Readers: as accountUsageProjection
+	// (hrn:node:hadronmemory.com:specs:cor:agt:140:03, resting on hrn:node:hadronmemory.com:specs:cor:agt:050:21 and
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:23); anyone else is refused APP_NOT_FOUND. At most 50 accounts, the most
+	// recently written kept, ordered by label, host and family; complete is false when more exist, or when the bounded search for
+	// accounts with valid history stopped short. An App with no history gets an empty list.
+	AccountUsageAccounts *AccountUsageAccountsAccountUsageAccounts `json:"accountUsageAccounts"`
+}
+
+// GetAccountUsageAccounts returns AccountUsageAccountsResponse.AccountUsageAccounts, and is useful for accessing the field via an interface.
+func (v *AccountUsageAccountsResponse) GetAccountUsageAccounts() *AccountUsageAccountsAccountUsageAccounts {
+	return v.AccountUsageAccounts
+}
+
 // #3820 — how many of the 1h, 6h and 24h lookbacks had data: one is LOW, two MEDIUM, three HIGH.
 type AccountUsageConfidence string
 
@@ -2080,6 +2165,27 @@ func (v *AgentModelGroupsResponse) GetAgentModelGroups() []*AgentModelGroupsAgen
 	return v.AgentModelGroups
 }
 
+// #2246 - why an Agent is not ready to be offered; the values are the clone refusal's codes (hrn:node:hadronmemory.com:specs:cor:dmo:050:19).
+type AgentOfferReasonCode string
+
+const (
+	AgentOfferReasonCodeAgentNotPublic              AgentOfferReasonCode = "AGENT_NOT_PUBLIC"
+	AgentOfferReasonCodeAgentRetired                AgentOfferReasonCode = "AGENT_RETIRED"
+	AgentOfferReasonCodeCloneBaseUnusable           AgentOfferReasonCode = "CLONE_BASE_UNUSABLE"
+	AgentOfferReasonCodeCloneImportUnusable         AgentOfferReasonCode = "CLONE_IMPORT_UNUSABLE"
+	AgentOfferReasonCodeCloneLinkedMemoryEncrypted  AgentOfferReasonCode = "CLONE_LINKED_MEMORY_ENCRYPTED"
+	AgentOfferReasonCodeCloneLinkedMemoryUnreadable AgentOfferReasonCode = "CLONE_LINKED_MEMORY_UNREADABLE"
+)
+
+var AllAgentOfferReasonCode = []AgentOfferReasonCode{
+	AgentOfferReasonCodeAgentNotPublic,
+	AgentOfferReasonCodeAgentRetired,
+	AgentOfferReasonCodeCloneBaseUnusable,
+	AgentOfferReasonCodeCloneImportUnusable,
+	AgentOfferReasonCodeCloneLinkedMemoryEncrypted,
+	AgentOfferReasonCodeCloneLinkedMemoryUnreadable,
+}
+
 // AgentProcessIndexListAgentProcessListAgentListedProcess includes the requested fields of the GraphQL type AgentListedProcess.
 // The GraphQL type's documentation follows.
 //
@@ -2523,6 +2629,91 @@ type AgentSchedulesResponse struct {
 // GetAgentSchedules returns AgentSchedulesResponse.AgentSchedules, and is useful for accessing the field via an interface.
 func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedulesAgentSchedulesPage {
 	return v.AgentSchedules
+}
+
+// AgentServedBootPromptAgentServedBootPrompt includes the requested fields of the GraphQL type AgentServedBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #3843 / hrn:node:hadronmemory.com:specs:cor:agt:040:05, hrn:node:hadronmemory.com:specs:cor:agt:040:10: the compiled
+// boot prompt a chat or run with an Agent (in an App) would be given now, rendered, for a caller that binds no worker.
+type AgentServedBootPromptAgentServedBootPrompt struct {
+	// The revision served: the same identity fields as bootPromptServe and a ServedPrompt record.
+	Decision *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision `json:"decision"`
+	// The served revision's text with its platform variables filled as a chat or run fills them
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:08): worker.name is the Agent's name, worker.role its persona role,
+	// reports-to, signature and trailer are empty, and session.llmModel is the client-reported model or empty. No
+	// derived blocks are appended: they belong to a worker's briefing (Worker.prompt).
+	Text string `json:"text"`
+}
+
+// GetDecision returns AgentServedBootPromptAgentServedBootPrompt.Decision, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPrompt) GetDecision() *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision {
+	return v.Decision
+}
+
+// GetText returns AgentServedBootPromptAgentServedBootPrompt.Text, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPrompt) GetText() string { return v.Text }
+
+// AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision includes the requested fields of the GraphQL type BootPromptServeDecision.
+// The GraphQL type's documentation follows.
+//
+// #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: the revision a serve would be given now. The identity fields a
+// ServedPrompt record carries after the serve, so the two can be compared; never the text.
+type AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision struct {
+	CompiledContentHash string                   `json:"compiledContentHash"`
+	CompiledNodeId      string                   `json:"compiledNodeId"`
+	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
+	// The compile revision that owns that revision's provenance.
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+	// Node.revSeq of the revision that would be served: the compiled node's newest approved revision.
+	ServedRevSeq int `json:"servedRevSeq"`
+}
+
+// GetCompiledContentHash returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetCompiledContentHash() string {
+	return v.CompiledContentHash
+}
+
+// GetCompiledNodeId returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetCompiledNodeId() string {
+	return v.CompiledNodeId
+}
+
+// GetPointerLevel returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.PointerLevel, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetPointerLevel() ServedPromptPointerLevel {
+	return v.PointerLevel
+}
+
+// GetProvenanceRevSeq returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetProvenanceRevSeq() int {
+	return v.ProvenanceRevSeq
+}
+
+// GetServedRevSeq returns AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptAgentServedBootPromptDecisionBootPromptServeDecision) GetServedRevSeq() int {
+	return v.ServedRevSeq
+}
+
+// AgentServedBootPromptResponse is returned by AgentServedBootPrompt on success.
+type AgentServedBootPromptResponse struct {
+	// #3843 (hrn:node:hadronmemory.com:specs:cor:agt:040:05, hrn:node:hadronmemory.com:specs:cor:agt:040:10) - the
+	// boot prompt an Agent would be served now, rendered, for a caller that binds no worker (an MCP-only agent; the MCP
+	// tool hadron_agent_boot_prompt returns the same text). A pure read: it binds nothing, starts or ends no session and
+	// records no ServedPrompt; the answer is the current serve, never what a session was given, so an approval between
+	// two calls can change it. Without appRef it reads the Agent's own pointer, visible to a caller who may read the
+	// Agent's system memory. With appRef it reads what a chat in that App would be given (the install's pointer, then
+	// the Agent's), for a participant of that App (an App key only for its own App) where the Agent is installed and
+	// the caller may chat with it. Every caller who fails a gate, a missing or not-installed App and a lapsed App
+	// licence get the same AGENT_NOT_FOUND as a nonexistent Agent. Past the gate, a serve refusal is thrown as its typed
+	// BOOT_PROMPT_* error (NOT_SET, TARGET_DELETED, NOT_APPROVED, NOT_SIGNED) with surface 'chat'. llmModel is the
+	// model the client reports, filled into session.llmModel (empty when omitted); it is rendering text, never an
+	// identity or authority claim.
+	AgentServedBootPrompt *AgentServedBootPromptAgentServedBootPrompt `json:"agentServedBootPrompt"`
+}
+
+// GetAgentServedBootPrompt returns AgentServedBootPromptResponse.AgentServedBootPrompt, and is useful for accessing the field via an interface.
+func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedBootPromptAgentServedBootPrompt {
+	return v.AgentServedBootPrompt
 }
 
 // AgentSystemMemoryMemory includes the requested fields of the GraphQL type Memory.
@@ -9103,6 +9294,7 @@ func (v *AgentTaskListUnresolvedResponse) GetAgentTasks() []*AgentTaskListUnreso
 
 // Why a failed match skipped a candidate (#3816, V21). Closed and additive: values are added, never renamed.
 // STOP_SIGNAL names a matcher condition V21 lacked. There is no value for a bound, quiet worker: hadron-server#3815 removes that exclusion.
+// NO_LONGER_FREE (#3855, V59) is a candidate the snapshot found free that the final assignment check refused; it carries no other value.
 type AgentTaskMatchSkipReason string
 
 const (
@@ -9114,6 +9306,7 @@ const (
 	AgentTaskMatchSkipReasonNameExcluded       AgentTaskMatchSkipReason = "NAME_EXCLUDED"
 	AgentTaskMatchSkipReasonNotHeld            AgentTaskMatchSkipReason = "NOT_HELD"
 	AgentTaskMatchSkipReasonNoFamily           AgentTaskMatchSkipReason = "NO_FAMILY"
+	AgentTaskMatchSkipReasonNoLongerFree       AgentTaskMatchSkipReason = "NO_LONGER_FREE"
 	AgentTaskMatchSkipReasonRetired            AgentTaskMatchSkipReason = "RETIRED"
 	AgentTaskMatchSkipReasonStalled            AgentTaskMatchSkipReason = "STALLED"
 	AgentTaskMatchSkipReasonStopSignal         AgentTaskMatchSkipReason = "STOP_SIGNAL"
@@ -9132,6 +9325,7 @@ var AllAgentTaskMatchSkipReason = []AgentTaskMatchSkipReason{
 	AgentTaskMatchSkipReasonNameExcluded,
 	AgentTaskMatchSkipReasonNotHeld,
 	AgentTaskMatchSkipReasonNoFamily,
+	AgentTaskMatchSkipReasonNoLongerFree,
 	AgentTaskMatchSkipReasonRetired,
 	AgentTaskMatchSkipReasonStalled,
 	AgentTaskMatchSkipReasonStopSignal,
@@ -21817,7 +22011,7 @@ func (v *BootPromptPreviewFieldsServedBootPromptServeDecision) GetServedRevSeq()
 }
 
 // #2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: why a serve would be refused now, the typed code the bind,
-// chat or run itself would get. BOOT_PROMPT_NOT_SIGNED cannot occur until an organisation can switch signing on (#1614).
+// chat or run itself would get. BOOT_PROMPT_NOT_SIGNED occurs only where the serving App's organisation has switched signing on (setOrgBootPromptSigning, #2973) AND the deployment ships signing.
 type BootPromptServeRefusal string
 
 const (
@@ -26315,6 +26509,7 @@ func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeenSeq() 
 
 // CheckChatMarkResponse is returned by CheckChatMark on success.
 type CheckChatMarkResponse struct {
+	// #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
 	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
 	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
@@ -35639,6 +35834,55 @@ type CreateEdgeResponse struct {
 // GetCreateEdge returns CreateEdgeResponse.CreateEdge, and is useful for accessing the field via an interface.
 func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.CreateEdge }
 
+// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05): what a bound worker asks for. There is deliberately no field for activation, a verifier, a signature, a use count, a version or an issuer: a grant is born pending and only signing (#3649) can make it live.
+type CreateGrantInput struct {
+	// A registered action's dotted name, such as schedule.create.
+	Action string `json:"action"`
+	// #3711: the App a PERSON who manages it creates the grant in (id or URN). A bound worker session omits it: the worker's own App is used and a value naming another is refused. Whoever manages an App creates for a worker of it, or an agent installed in it; the row is still born pending.
+	AppRef *string `json:"appRef,omitempty"`
+	// Not usable after this time; must follow startsAt when both are given.
+	ExpiresAt *string `json:"expiresAt,omitempty"`
+	// WORKER (the calling worker itself) or AGENT (its role agent, installed in this App). Any other holder is refused.
+	HolderKind GrantHolderKind `json:"holderKind"`
+	// The holder's id (not a URN).
+	HolderRef string `json:"holderRef"`
+	// At most this many uses once signed; a positive integer.
+	MaxUses *int `json:"maxUses,omitempty"`
+	// Why the grant is asked for: at most 2,000 Unicode characters (code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). Shown to the signer as the requester's words, labelled as theirs.
+	Reason string `json:"reason"`
+	// The grant is not usable before this time once it is signed.
+	StartsAt *string `json:"startsAt,omitempty"`
+	// Exactly the action's declared parameters, each a string or a list of at most 100 distinct strings per parameter (an id, never a URN; hrn:node:hadronmemory.com:specs:cor:acl:140:01). Any other key or shape is refused. Never put a secret here.
+	Values json.RawMessage `json:"values"`
+}
+
+// GetAction returns CreateGrantInput.Action, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetAction() string { return v.Action }
+
+// GetAppRef returns CreateGrantInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetAppRef() *string { return v.AppRef }
+
+// GetExpiresAt returns CreateGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetHolderKind returns CreateGrantInput.HolderKind, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderRef returns CreateGrantInput.HolderRef, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetHolderRef() string { return v.HolderRef }
+
+// GetMaxUses returns CreateGrantInput.MaxUses, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetMaxUses() *int { return v.MaxUses }
+
+// GetReason returns CreateGrantInput.Reason, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetReason() string { return v.Reason }
+
+// GetStartsAt returns CreateGrantInput.StartsAt, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetStartsAt() *string { return v.StartsAt }
+
+// GetValues returns CreateGrantInput.Values, and is useful for accessing the field via an interface.
+func (v *CreateGrantInput) GetValues() json.RawMessage { return v.Values }
+
 // CreateHomeAssistantInstanceCreateHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
 // The GraphQL type's documentation follows.
 //
@@ -38771,6 +39015,8 @@ type CreateTeamChatMessageResponse struct {
 	// token, an expired or unverifiable one; checked before the App is resolved,
 	// so it answers identically whether or not the App exists).
 	//
+	// #3818: an acting superseded sessionRef refuses SESSION_SUPERSEDED; current open sessionId/startedAt
+	// are included only under hrn:node:hadronmemory.com:specs:cor:agt:020:03 session read access.
 	// appRef accepts the entity's ID or URN; sessionRef is the session id.
 	CreateTeamChatMessage *CreateTeamChatMessageCreateTeamChatMessage `json:"createTeamChatMessage"`
 }
@@ -47386,10 +47632,20 @@ type GetAgentAgent struct {
 	// #2281 - the URN of the Agent this one was cloned from (cloneAgent), as that Agent's current URN. Null when
 	// this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+	// #2246 (hrn:node:hadronmemory.com:specs:cor:dmo:050:19) - is this Agent ready to be offered to other
+	// organisations: could an organisation with no relation to it subscribe to, install and clone it as it
+	// stands, and if not, why. Readable only by whoever manages the Agent (hrn:node:hadronmemory.com:specs:cor:dmo:050:13); null for everyone
+	// else, readers of a PUBLIC Agent included, and when the Agent is gone. A reason names a memory or Agent only
+	// if you may read it; otherwise only the count shows. Answers for an outsider, so a non-PUBLIC Agent is not
+	// ready even though its own manager can still clone it. Read-only; grants nothing.
+	OfferReadiness *GetAgentAgentOfferReadiness `json:"offerReadiness"`
 }
 
 // GetClonedFromAgentRef returns GetAgentAgent.ClonedFromAgentRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetClonedFromAgentRef() *string { return v.ClonedFromAgentRef }
+
+// GetOfferReadiness returns GetAgentAgent.OfferReadiness, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetOfferReadiness() *GetAgentAgentOfferReadiness { return v.OfferReadiness }
 
 // GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
@@ -47497,6 +47753,8 @@ func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
 type __premarshalGetAgentAgent struct {
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 
+	OfferReadiness *GetAgentAgentOfferReadiness `json:"offerReadiness"`
+
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -47558,6 +47816,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	var retval __premarshalGetAgentAgent
 
 	retval.ClonedFromAgentRef = v.ClonedFromAgentRef
+	retval.OfferReadiness = v.OfferReadiness
 	retval.Id = v.AgentFields.Id
 	retval.Urn = v.AgentFields.Urn
 	retval.Name = v.AgentFields.Name
@@ -47583,6 +47842,74 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
+}
+
+// GetAgentAgentOfferReadiness includes the requested fields of the GraphQL type AgentOfferReadiness.
+// The GraphQL type's documentation follows.
+//
+// #2246 - whether another organisation could subscribe to, install and clone the Agent as it stands.
+type GetAgentAgentOfferReadiness struct {
+	Ready bool `json:"ready"`
+	// Every reason that holds, in the clone refusal's order. Empty exactly when ready.
+	Reasons []*GetAgentAgentOfferReadinessReasonsAgentOfferReason `json:"reasons"`
+}
+
+// GetReady returns GetAgentAgentOfferReadiness.Ready, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadiness) GetReady() bool { return v.Ready }
+
+// GetReasons returns GetAgentAgentOfferReadiness.Reasons, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadiness) GetReasons() []*GetAgentAgentOfferReadinessReasonsAgentOfferReason {
+	return v.Reasons
+}
+
+// GetAgentAgentOfferReadinessReasonsAgentOfferReason includes the requested fields of the GraphQL type AgentOfferReason.
+// The GraphQL type's documentation follows.
+//
+// #2246 - one reason an Agent is not ready to be offered. count is every blocked subject; subjects are at
+// most 20 of the ones you may read; omittedByCap are readable ones past the cap; hiddenByAccess are ones
+// you may not read, never named. subjects + omittedByCap + hiddenByAccess = count.
+type GetAgentAgentOfferReadinessReasonsAgentOfferReason struct {
+	Code           AgentOfferReasonCode                                                           `json:"code"`
+	Count          int                                                                            `json:"count"`
+	Subjects       []*GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject `json:"subjects"`
+	OmittedByCap   int                                                                            `json:"omittedByCap"`
+	HiddenByAccess int                                                                            `json:"hiddenByAccess"`
+}
+
+// GetCode returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Code, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetCode() AgentOfferReasonCode {
+	return v.Code
+}
+
+// GetCount returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Count, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetCount() int { return v.Count }
+
+// GetSubjects returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.Subjects, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetSubjects() []*GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject {
+	return v.Subjects
+}
+
+// GetOmittedByCap returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.OmittedByCap, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetOmittedByCap() int {
+	return v.OmittedByCap
+}
+
+// GetHiddenByAccess returns GetAgentAgentOfferReadinessReasonsAgentOfferReason.HiddenByAccess, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReason) GetHiddenByAccess() int {
+	return v.HiddenByAccess
+}
+
+// GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject includes the requested fields of the GraphQL type AgentOfferSubject.
+// The GraphQL type's documentation follows.
+//
+// #2246 - the name of one blocking subject, shown only because you may read it. Nothing else about it is reachable.
+type GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject struct {
+	Name string `json:"name"`
+}
+
+// GetName returns GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject.Name, and is useful for accessing the field via an interface.
+func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject) GetName() string {
+	return v.Name
 }
 
 // GetAgentResponse is returned by GetAgent on success.
@@ -52571,6 +52898,32 @@ var AllGrantHolderKind = []GrantHolderKind{
 	GrantHolderKindWorker,
 }
 
+// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — a grant signing request: open, then ends exactly once.
+type GrantSigningRequestState string
+
+const (
+	// A signature was verified and recorded.
+	GrantSigningRequestStateCompleted GrantSigningRequestState = "COMPLETED"
+	// The signer turned it down.
+	GrantSigningRequestStateDeclined GrantSigningRequestState = "DECLINED"
+	// Its lifetime passed (SIGNING_REQUEST_TTL_SECONDS, default 24h); endedAt is the deadline.
+	GrantSigningRequestStateExpired GrantSigningRequestState = "EXPIRED"
+	GrantSigningRequestStateOpen    GrantSigningRequestState = "OPEN"
+	// The grant was revoked, its holder went, or its version or terms moved (a user merge moving the holder among them).
+	GrantSigningRequestStateStale GrantSigningRequestState = "STALE"
+	// The requester account withdrew it.
+	GrantSigningRequestStateWithdrawn GrantSigningRequestState = "WITHDRAWN"
+)
+
+var AllGrantSigningRequestState = []GrantSigningRequestState{
+	GrantSigningRequestStateCompleted,
+	GrantSigningRequestStateDeclined,
+	GrantSigningRequestStateExpired,
+	GrantSigningRequestStateOpen,
+	GrantSigningRequestStateStale,
+	GrantSigningRequestStateWithdrawn,
+}
+
 // HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
 type HealthSweepSetTerminalsResponse struct {
 	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
@@ -56498,6 +56851,7 @@ func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeen
 
 // MarkOwnTeamChatReadResponse is returned by MarkOwnTeamChatRead on success.
 type MarkOwnTeamChatReadResponse struct {
+	// #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
 	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
 	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
@@ -64978,6 +65332,65 @@ type NodePortalResponse struct {
 // GetNode returns NodePortalResponse.Node, and is useful for accessing the field via an interface.
 func (v *NodePortalResponse) GetNode() *NodePortalNode { return v.Node }
 
+// NodeRawTextNode includes the requested fields of the GraphQL type Node.
+type NodeRawTextNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int    `json:"revision"`
+	Name     string `json:"name"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
+	Content *string `json:"content"`
+}
+
+// GetId returns NodeRawTextNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeRawTextNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetRevision() int { return v.Revision }
+
+// GetName returns NodeRawTextNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetName() string { return v.Name }
+
+// GetAbstract returns NodeRawTextNode.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetAbstract() *string { return v.Abstract }
+
+// GetContent returns NodeRawTextNode.Content, and is useful for accessing the field via an interface.
+func (v *NodeRawTextNode) GetContent() *string { return v.Content }
+
+// NodeRawTextResponse is returned by NodeRawText on success.
+type NodeRawTextResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *NodeRawTextNode `json:"node"`
+}
+
+// GetNode returns NodeRawTextResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeRawTextResponse) GetNode() *NodeRawTextNode { return v.Node }
+
 // NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionNodeRevision struct {
 	RevisionFields `json:"-"`
@@ -65438,6 +65851,66 @@ type NodeRevisionStampedResponse struct {
 // GetNodeRevision returns NodeRevisionStampedResponse.NodeRevision, and is useful for accessing the field via an interface.
 func (v *NodeRevisionStampedResponse) GetNodeRevision() *NodeRevisionStampedNodeRevision {
 	return v.NodeRevision
+}
+
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of a node's revision snapshots, counted over the snapshots the caller may read.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPage struct {
+	HasMore bool                                                                   `json:"hasMore"`
+	Items   []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision `json:"items"`
+}
+
+// GetHasMore returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage) GetItems() []*NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision {
+	return v.Items
+}
+
+// NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
+	// Per-node monotonic revision number (#696). Null on legacy rows predating the counter (backfilled by the migration).
+	RevNo *int   `json:"revNo"`
+	Name  string `json:"name"`
+	// Paragraph summary at capture (spec 031).
+	Abstract *string `json:"abstract"`
+	Content  *string `json:"content"`
+}
+
+// GetRevNo returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.RevNo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetRevNo() *int {
+	return v.RevNo
+}
+
+// GetName returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetName() string {
+	return v.Name
+}
+
+// GetAbstract returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetAbstract() *string {
+	return v.Abstract
+}
+
+// GetContent returns NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Content, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetContent() *string {
+	return v.Content
+}
+
+// NodeRevisionTextsResponse is returned by NodeRevisionTexts on success.
+type NodeRevisionTextsResponse struct {
+	// #2212 - `nodeRevisions` as a page: the same access gate (a miss or an unreadable node is an empty page),
+	// with the snapshot-memory gate applied before counting, so `total` and the pages hold only snapshots you
+	// may read and never fall short near the limit. Newest first with an id tiebreak. Sizes as `tickersPage`.
+	NodeRevisionsPage *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage `json:"nodeRevisionsPage"`
+}
+
+// GetNodeRevisionsPage returns NodeRevisionTextsResponse.NodeRevisionsPage, and is useful for accessing the field via an interface.
+func (v *NodeRevisionTextsResponse) GetNodeRevisionsPage() *NodeRevisionTextsNodeRevisionsPageNodeRevisionPage {
+	return v.NodeRevisionsPage
 }
 
 // NodeRevisionsPageNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
@@ -67342,12 +67815,14 @@ func (v *PRReadinessPullRequestReadiness) GetSlots() []*PRReadinessPullRequestRe
 //
 // #3448 — a required slot's current unsuperseded seat, from typed events only.
 type PRReadinessPullRequestReadinessSlotsReviewSlotReadiness struct {
-	Slot          string         `json:"slot"`
-	CurrentTaskId *string        `json:"currentTaskId"`
-	State         string         `json:"state"`
-	Verdict       *ReviewVerdict `json:"verdict"`
-	Head          *string        `json:"head"`
-	Counts        bool           `json:"counts"`
+	Slot          string  `json:"slot"`
+	CurrentTaskId *string `json:"currentTaskId"`
+	// The current unsuperseded seat task's AgentTask status, uppercased, or MISSING when no current seat task exists. This is task lifecycle state, not the review verdict.
+	State   string         `json:"state"`
+	Verdict *ReviewVerdict `json:"verdict"`
+	Head    *string        `json:"head"`
+	// True only when the current seat task is FINISHED, its assignment and verdict both name the frozen head, and its verdict names this slot and is APPROVE, PASS or CARRY. The verdict actor must be neither the build assignee nor a freezer of this head in the App, and no blocking negative verdict may exist at this head.
+	Counts bool `json:"counts"`
 }
 
 // GetSlot returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Slot, and is useful for accessing the field via an interface.
@@ -69145,7 +69620,7 @@ type RecordContentValidationRecordNodeContentValidationReportNodeContentValidati
 	NodeId string `json:"nodeId"`
 	// True when an earlier report with the same runId, from the same reporter, for the same node revision and task revision, was returned and nothing was written.
 	Replayed bool `json:"replayed"`
-	// The validation state of the node's current revision after this call. A report for an older revision leaves it UNVALIDATED or STALE.
+	// The validation state of the node's current revision after this call. A report for an older revision is stored as history without changing the current revision's state, including an existing PASS.
 	State  NodeContentValidationState                                                                                                   `json:"state"`
 	Report *RecordContentValidationRecordNodeContentValidationReportNodeContentValidationReportReceiptReportNodeContentValidationReport `json:"report"`
 }
@@ -72875,12 +73350,13 @@ type ResolveAiServiceConfigsResponse struct {
 	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
-	// material (hasApiKey + apiKeyPreview only).
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
 	// appRef, be a member of that App, and (when an agentRef is given) the Agent
-	// must be installed in that App. Because the result is masked (no key
-	// material), App membership — not org admin — is the bar, unlike
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
 	// ADMIN/OWNER are always allowed and may omit appRef.
 	//
@@ -73073,12 +73549,13 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
-	// material (hasApiKey + apiKeyPreview only).
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
 	// appRef, be a member of that App, and (when an agentRef is given) the Agent
-	// must be installed in that App. Because the result is masked (no key
-	// material), App membership — not org admin — is the bar, unlike
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
 	// ADMIN/OWNER are always allowed and may omit appRef.
 	//
@@ -73584,6 +74061,16 @@ var AllResumeOutcome = []ResumeOutcome{
 type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
+	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
+	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
+	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
+	// waits but a claim or live session of another worker of the caller's does, the call refuses RESUME_REFUSED
+	// with extensions reason WORKER_MISMATCH, picked (true when `session` chose that other worker's item),
+	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
+	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
+	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT.
+	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
 	// Recorded on a session the redemption starts only.
@@ -73600,6 +74087,9 @@ type ResumeSessionInput struct {
 
 // GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
 
 // GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
@@ -87763,6 +88253,84 @@ func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompos
 	return v.Urn
 }
 
+// TeamCreateGrantCreateGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
+// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+type TeamCreateGrantCreateGrant struct {
+	Id string `json:"id"`
+	// The registered action this grant allows.
+	Action string `json:"action"`
+	// The values it allows (a single value, a list or a wildcard); never a secret.
+	Values     *json.RawMessage `json:"values"`
+	HolderKind GrantHolderKind  `json:"holderKind"`
+	HolderId   string           `json:"holderId"`
+	StartsAt   *string          `json:"startsAt"`
+	ExpiresAt  *string          `json:"expiresAt"`
+	MaxUses    *int             `json:"maxUses"`
+	UseCount   int              `json:"useCount"`
+	Reason     string           `json:"reason"`
+	CreatedAt  string           `json:"createdAt"`
+	// Null while the grant is pending (a pending grant allows nothing).
+	ActivatedAt *string `json:"activatedAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows bool `json:"allows"`
+}
+
+// GetId returns TeamCreateGrantCreateGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetId() string { return v.Id }
+
+// GetAction returns TeamCreateGrantCreateGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetAction() string { return v.Action }
+
+// GetValues returns TeamCreateGrantCreateGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetValues() *json.RawMessage { return v.Values }
+
+// GetHolderKind returns TeamCreateGrantCreateGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderId returns TeamCreateGrantCreateGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetHolderId() string { return v.HolderId }
+
+// GetStartsAt returns TeamCreateGrantCreateGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetStartsAt() *string { return v.StartsAt }
+
+// GetExpiresAt returns TeamCreateGrantCreateGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetMaxUses returns TeamCreateGrantCreateGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetMaxUses() *int { return v.MaxUses }
+
+// GetUseCount returns TeamCreateGrantCreateGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetUseCount() int { return v.UseCount }
+
+// GetReason returns TeamCreateGrantCreateGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetReason() string { return v.Reason }
+
+// GetCreatedAt returns TeamCreateGrantCreateGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns TeamCreateGrantCreateGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetRevokedAt returns TeamCreateGrantCreateGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns TeamCreateGrantCreateGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.Allows }
+
+// TeamCreateGrantResponse is returned by TeamCreateGrant on success.
+type TeamCreateGrantResponse struct {
+	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
+	CreateGrant *TeamCreateGrantCreateGrant `json:"createGrant"`
+}
+
+// GetCreateGrant returns TeamCreateGrantResponse.CreateGrant, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantResponse) GetCreateGrant() *TeamCreateGrantCreateGrant { return v.CreateGrant }
+
 // TeamDefaultChannelApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -88494,13 +89062,256 @@ func (v *TeamGrantGrant) GetAllows() bool { return v.Allows }
 
 // TeamGrantResponse is returned by TeamGrant on success.
 type TeamGrantResponse struct {
-	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly or a pending one it requested itself.
+	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
 	// Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
 	Grant *TeamGrantGrant `json:"grant"`
 }
 
 // GetGrant returns TeamGrantResponse.Grant, and is useful for accessing the field via an interface.
 func (v *TeamGrantResponse) GetGrant() *TeamGrantGrant { return v.Grant }
+
+// TeamGrantSigningRequestFields includes the GraphQL fields of GrantSigningRequest requested by the fragment TeamGrantSigningRequestFields.
+// The GraphQL type's documentation follows.
+//
+// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07, hrn:node:hadronmemory.com:specs:cor:acl:140:09) — a request for a person to sign ONE grant,
+// pinned at creation: the grant, its record version and its terms hash. No signer is named: whoever signs must be able to issue
+// the grant (hrn:node:hadronmemory.com:specs:cor:acl:140:04), judged when they sign.
+type TeamGrantSigningRequestFields struct {
+	// 128 bits of randomness.
+	Id      string `json:"id"`
+	GrantId string `json:"grantId"`
+	// The grant record's version pinned at creation.
+	Version int `json:"version"`
+	// The terms hash pinned at creation (64 lowercase hex, hrn:node:hadronmemory.com:specs:cor:acl:140:09).
+	TermsHash string `json:"termsHash"`
+	// The payload version the signer signs: hadron-grant-signature-v1.
+	PayloadVersion string `json:"payloadVersion"`
+	// The effective state.
+	State       GrantSigningRequestState                                  `json:"state"`
+	RequestedBy *TeamGrantSigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+	CreatedAt   string                                                    `json:"createdAt"`
+	ExpiresAt   string                                                    `json:"expiresAt"`
+	// Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
+	EndedAt *string `json:"endedAt"`
+	// The server-hosted ceremony page where someone who may issue the grant signs it (hrn:node:hadronmemory.com:specs:cor:acl:140:07): the server origin plus /grant-signing/<id>, with no token. Copy it verbatim; never compose it. Signing there with a passkey activates the grant; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
+	CeremonyUrl string `json:"ceremonyUrl"`
+}
+
+// GetId returns TeamGrantSigningRequestFields.Id, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetId() string { return v.Id }
+
+// GetGrantId returns TeamGrantSigningRequestFields.GrantId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetGrantId() string { return v.GrantId }
+
+// GetVersion returns TeamGrantSigningRequestFields.Version, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetVersion() int { return v.Version }
+
+// GetTermsHash returns TeamGrantSigningRequestFields.TermsHash, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetTermsHash() string { return v.TermsHash }
+
+// GetPayloadVersion returns TeamGrantSigningRequestFields.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetPayloadVersion() string { return v.PayloadVersion }
+
+// GetState returns TeamGrantSigningRequestFields.State, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetState() GrantSigningRequestState { return v.State }
+
+// GetRequestedBy returns TeamGrantSigningRequestFields.RequestedBy, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetRequestedBy() *TeamGrantSigningRequestFieldsRequestedBySigningRequester {
+	return v.RequestedBy
+}
+
+// GetCreatedAt returns TeamGrantSigningRequestFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetExpiresAt returns TeamGrantSigningRequestFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetExpiresAt() string { return v.ExpiresAt }
+
+// GetEndedAt returns TeamGrantSigningRequestFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetCeremonyUrl returns TeamGrantSigningRequestFields.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetCeremonyUrl() string { return v.CeremonyUrl }
+
+// TeamGrantSigningRequestFieldsRequestedBySigningRequester includes the requested fields of the GraphQL type SigningRequester.
+// The GraphQL type's documentation follows.
+//
+// #1632 — who asked for a signature. The requester account is userId, else appId (#10397).
+type TeamGrantSigningRequestFieldsRequestedBySigningRequester struct {
+	UserId *string `json:"userId"`
+	// Set only when an App key itself asked.
+	AppId *string `json:"appId"`
+	// The Worker whose session made the request, when one did.
+	WorkerId  *string `json:"workerId"`
+	SessionId *string `json:"sessionId"`
+}
+
+// GetUserId returns TeamGrantSigningRequestFieldsRequestedBySigningRequester.UserId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFieldsRequestedBySigningRequester) GetUserId() *string {
+	return v.UserId
+}
+
+// GetAppId returns TeamGrantSigningRequestFieldsRequestedBySigningRequester.AppId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFieldsRequestedBySigningRequester) GetAppId() *string { return v.AppId }
+
+// GetWorkerId returns TeamGrantSigningRequestFieldsRequestedBySigningRequester.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFieldsRequestedBySigningRequester) GetWorkerId() *string {
+	return v.WorkerId
+}
+
+// GetSessionId returns TeamGrantSigningRequestFieldsRequestedBySigningRequester.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFieldsRequestedBySigningRequester) GetSessionId() *string {
+	return v.SessionId
+}
+
+// TeamGrantSigningRequestGrantSigningRequest includes the requested fields of the GraphQL type GrantSigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07, hrn:node:hadronmemory.com:specs:cor:acl:140:09) — a request for a person to sign ONE grant,
+// pinned at creation: the grant, its record version and its terms hash. No signer is named: whoever signs must be able to issue
+// the grant (hrn:node:hadronmemory.com:specs:cor:acl:140:04), judged when they sign.
+type TeamGrantSigningRequestGrantSigningRequest struct {
+	TeamGrantSigningRequestFields `json:"-"`
+}
+
+// GetId returns TeamGrantSigningRequestGrantSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetId() string {
+	return v.TeamGrantSigningRequestFields.Id
+}
+
+// GetGrantId returns TeamGrantSigningRequestGrantSigningRequest.GrantId, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetGrantId() string {
+	return v.TeamGrantSigningRequestFields.GrantId
+}
+
+// GetVersion returns TeamGrantSigningRequestGrantSigningRequest.Version, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetVersion() int {
+	return v.TeamGrantSigningRequestFields.Version
+}
+
+// GetTermsHash returns TeamGrantSigningRequestGrantSigningRequest.TermsHash, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetTermsHash() string {
+	return v.TeamGrantSigningRequestFields.TermsHash
+}
+
+// GetPayloadVersion returns TeamGrantSigningRequestGrantSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetPayloadVersion() string {
+	return v.TeamGrantSigningRequestFields.PayloadVersion
+}
+
+// GetState returns TeamGrantSigningRequestGrantSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetState() GrantSigningRequestState {
+	return v.TeamGrantSigningRequestFields.State
+}
+
+// GetRequestedBy returns TeamGrantSigningRequestGrantSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetRequestedBy() *TeamGrantSigningRequestFieldsRequestedBySigningRequester {
+	return v.TeamGrantSigningRequestFields.RequestedBy
+}
+
+// GetCreatedAt returns TeamGrantSigningRequestGrantSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetCreatedAt() string {
+	return v.TeamGrantSigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns TeamGrantSigningRequestGrantSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetExpiresAt() string {
+	return v.TeamGrantSigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns TeamGrantSigningRequestGrantSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetEndedAt() *string {
+	return v.TeamGrantSigningRequestFields.EndedAt
+}
+
+// GetCeremonyUrl returns TeamGrantSigningRequestGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetCeremonyUrl() string {
+	return v.TeamGrantSigningRequestFields.CeremonyUrl
+}
+
+func (v *TeamGrantSigningRequestGrantSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamGrantSigningRequestGrantSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamGrantSigningRequestGrantSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamGrantSigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamGrantSigningRequestGrantSigningRequest struct {
+	Id string `json:"id"`
+
+	GrantId string `json:"grantId"`
+
+	Version int `json:"version"`
+
+	TermsHash string `json:"termsHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State GrantSigningRequestState `json:"state"`
+
+	RequestedBy *TeamGrantSigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	CeremonyUrl string `json:"ceremonyUrl"`
+}
+
+func (v *TeamGrantSigningRequestGrantSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamGrantSigningRequestGrantSigningRequest) __premarshalJSON() (*__premarshalTeamGrantSigningRequestGrantSigningRequest, error) {
+	var retval __premarshalTeamGrantSigningRequestGrantSigningRequest
+
+	retval.Id = v.TeamGrantSigningRequestFields.Id
+	retval.GrantId = v.TeamGrantSigningRequestFields.GrantId
+	retval.Version = v.TeamGrantSigningRequestFields.Version
+	retval.TermsHash = v.TeamGrantSigningRequestFields.TermsHash
+	retval.PayloadVersion = v.TeamGrantSigningRequestFields.PayloadVersion
+	retval.State = v.TeamGrantSigningRequestFields.State
+	retval.RequestedBy = v.TeamGrantSigningRequestFields.RequestedBy
+	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
+	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
+	return &retval, nil
+}
+
+// TeamGrantSigningRequestResponse is returned by TeamGrantSigningRequest on success.
+type TeamGrantSigningRequestResponse struct {
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller (as grant(ref:) reads it).
+	GrantSigningRequest *TeamGrantSigningRequestGrantSigningRequest `json:"grantSigningRequest"`
+}
+
+// GetGrantSigningRequest returns TeamGrantSigningRequestResponse.GrantSigningRequest, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestResponse) GetGrantSigningRequest() *TeamGrantSigningRequestGrantSigningRequest {
+	return v.GrantSigningRequest
+}
 
 // TeamGrantsGrantsGrantsPage includes the requested fields of the GraphQL type GrantsPage.
 type TeamGrantsGrantsGrantsPage struct {
@@ -88587,7 +89398,7 @@ func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetAllows() bool { return v.Allow
 
 // TeamGrantsResponse is returned by TeamGrants on success.
 type TeamGrantsResponse struct {
-	// The bound worker's own grants (#3789): the rows naming it directly as holder, plus the pending ones it requested. Any other caller gets an empty page, never an error. limit 0 returns the count only.
+	// The bound worker's own grants (#3789): the rows naming it directly as holder, the pending ones it requested, and (#3711) every row, in every state, held by its role agent in this App while that agent is installed and licensed here (never another App's, never a base agent's). Any other caller gets an empty page, never an error. limit 0 returns the count only.
 	Grants *TeamGrantsGrantsGrantsPage `json:"grants"`
 }
 
@@ -88845,6 +89656,156 @@ func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty)
 	return &retval, nil
 }
 
+// TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest includes the requested fields of the GraphQL type GrantSigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07, hrn:node:hadronmemory.com:specs:cor:acl:140:09) — a request for a person to sign ONE grant,
+// pinned at creation: the grant, its record version and its terms hash. No signer is named: whoever signs must be able to issue
+// the grant (hrn:node:hadronmemory.com:specs:cor:acl:140:04), judged when they sign.
+type TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest struct {
+	TeamGrantSigningRequestFields `json:"-"`
+}
+
+// GetId returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetId() string {
+	return v.TeamGrantSigningRequestFields.Id
+}
+
+// GetGrantId returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.GrantId, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetGrantId() string {
+	return v.TeamGrantSigningRequestFields.GrantId
+}
+
+// GetVersion returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.Version, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetVersion() int {
+	return v.TeamGrantSigningRequestFields.Version
+}
+
+// GetTermsHash returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.TermsHash, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetTermsHash() string {
+	return v.TeamGrantSigningRequestFields.TermsHash
+}
+
+// GetPayloadVersion returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetPayloadVersion() string {
+	return v.TeamGrantSigningRequestFields.PayloadVersion
+}
+
+// GetState returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetState() GrantSigningRequestState {
+	return v.TeamGrantSigningRequestFields.State
+}
+
+// GetRequestedBy returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetRequestedBy() *TeamGrantSigningRequestFieldsRequestedBySigningRequester {
+	return v.TeamGrantSigningRequestFields.RequestedBy
+}
+
+// GetCreatedAt returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetCreatedAt() string {
+	return v.TeamGrantSigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetExpiresAt() string {
+	return v.TeamGrantSigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetEndedAt() *string {
+	return v.TeamGrantSigningRequestFields.EndedAt
+}
+
+// GetCeremonyUrl returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetCeremonyUrl() string {
+	return v.TeamGrantSigningRequestFields.CeremonyUrl
+}
+
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamGrantSigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest struct {
+	Id string `json:"id"`
+
+	GrantId string `json:"grantId"`
+
+	Version int `json:"version"`
+
+	TermsHash string `json:"termsHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State GrantSigningRequestState `json:"state"`
+
+	RequestedBy *TeamGrantSigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	CeremonyUrl string `json:"ceremonyUrl"`
+}
+
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) __premarshalJSON() (*__premarshalTeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest, error) {
+	var retval __premarshalTeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest
+
+	retval.Id = v.TeamGrantSigningRequestFields.Id
+	retval.GrantId = v.TeamGrantSigningRequestFields.GrantId
+	retval.Version = v.TeamGrantSigningRequestFields.Version
+	retval.TermsHash = v.TeamGrantSigningRequestFields.TermsHash
+	retval.PayloadVersion = v.TeamGrantSigningRequestFields.PayloadVersion
+	retval.State = v.TeamGrantSigningRequestFields.State
+	retval.RequestedBy = v.TeamGrantSigningRequestFields.RequestedBy
+	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
+	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
+	return &retval, nil
+}
+
+// TeamRequestGrantSignatureResponse is returned by TeamRequestGrantSignature on success.
+type TeamRequestGrantSignatureResponse struct {
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Whoever may read the grant may ask (as grant(ref:) reads it), a bound worker included; workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
+	RequestGrantSignature *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest `json:"requestGrantSignature"`
+}
+
+// GetRequestGrantSignature returns TeamRequestGrantSignatureResponse.RequestGrantSignature, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureResponse) GetRequestGrantSignature() *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest {
+	return v.RequestGrantSignature
+}
+
 // ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
 //
 // The register projection this fragment was built around (register / freeCount
@@ -89049,7 +90010,7 @@ type TeamRosterState string
 const (
 	// The assignee of a pending task.
 	TeamRosterStateAssignedNotStarted TeamRosterState = "ASSIGNED_NOT_STARTED"
-	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is quiet, which the matcher leaves alone until its session is live again (see liveSession).
+	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is open but quiet, which the matcher also assigns to, reaching it through that session (see liveSession).
 	TeamRosterStateAvailable TeamRosterState = "AVAILABLE"
 	// Unbound, and no live host registration lists it.
 	TeamRosterStateNotLaunchable TeamRosterState = "NOT_LAUNCHABLE"
@@ -89107,7 +90068,7 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	Role   *string                                                         `json:"role"`
 	// Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
 	Bound bool `json:"bound"`
-	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). The matcher assigns to a BOUND worker only while it has one and has reported a family; an unbound worker is matched when a live host can launch it.
+	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). Matching does not need one: a BOUND worker with an open session (quiet or live) that has reported a family is matched, and a host start is issued only for a worker with no open session; an unbound worker is matched when a live host can launch it.
 	LiveSession bool `json:"liveSession"`
 	// The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
 	Family *string `json:"family"`
@@ -91227,6 +92188,156 @@ func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) __premar
 	retval.EndKind = v.StopSignalFields.EndKind
 	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
 	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
+	return &retval, nil
+}
+
+// TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
+type TeamWithdrawGrantSigningRequestResponse struct {
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+	WithdrawGrantSigningRequest *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest `json:"withdrawGrantSigningRequest"`
+}
+
+// GetWithdrawGrantSigningRequest returns TeamWithdrawGrantSigningRequestResponse.WithdrawGrantSigningRequest, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestResponse) GetWithdrawGrantSigningRequest() *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest {
+	return v.WithdrawGrantSigningRequest
+}
+
+// TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest includes the requested fields of the GraphQL type GrantSigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07, hrn:node:hadronmemory.com:specs:cor:acl:140:09) — a request for a person to sign ONE grant,
+// pinned at creation: the grant, its record version and its terms hash. No signer is named: whoever signs must be able to issue
+// the grant (hrn:node:hadronmemory.com:specs:cor:acl:140:04), judged when they sign.
+type TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest struct {
+	TeamGrantSigningRequestFields `json:"-"`
+}
+
+// GetId returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetId() string {
+	return v.TeamGrantSigningRequestFields.Id
+}
+
+// GetGrantId returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.GrantId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetGrantId() string {
+	return v.TeamGrantSigningRequestFields.GrantId
+}
+
+// GetVersion returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.Version, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetVersion() int {
+	return v.TeamGrantSigningRequestFields.Version
+}
+
+// GetTermsHash returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.TermsHash, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetTermsHash() string {
+	return v.TeamGrantSigningRequestFields.TermsHash
+}
+
+// GetPayloadVersion returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetPayloadVersion() string {
+	return v.TeamGrantSigningRequestFields.PayloadVersion
+}
+
+// GetState returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetState() GrantSigningRequestState {
+	return v.TeamGrantSigningRequestFields.State
+}
+
+// GetRequestedBy returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetRequestedBy() *TeamGrantSigningRequestFieldsRequestedBySigningRequester {
+	return v.TeamGrantSigningRequestFields.RequestedBy
+}
+
+// GetCreatedAt returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetCreatedAt() string {
+	return v.TeamGrantSigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetExpiresAt() string {
+	return v.TeamGrantSigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetEndedAt() *string {
+	return v.TeamGrantSigningRequestFields.EndedAt
+}
+
+// GetCeremonyUrl returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetCeremonyUrl() string {
+	return v.TeamGrantSigningRequestFields.CeremonyUrl
+}
+
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamGrantSigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest struct {
+	Id string `json:"id"`
+
+	GrantId string `json:"grantId"`
+
+	Version int `json:"version"`
+
+	TermsHash string `json:"termsHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State GrantSigningRequestState `json:"state"`
+
+	RequestedBy *TeamGrantSigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	CeremonyUrl string `json:"ceremonyUrl"`
+}
+
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) __premarshalJSON() (*__premarshalTeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest, error) {
+	var retval __premarshalTeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest
+
+	retval.Id = v.TeamGrantSigningRequestFields.Id
+	retval.GrantId = v.TeamGrantSigningRequestFields.GrantId
+	retval.Version = v.TeamGrantSigningRequestFields.Version
+	retval.TermsHash = v.TeamGrantSigningRequestFields.TermsHash
+	retval.PayloadVersion = v.TeamGrantSigningRequestFields.PayloadVersion
+	retval.State = v.TeamGrantSigningRequestFields.State
+	retval.RequestedBy = v.TeamGrantSigningRequestFields.RequestedBy
+	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
+	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
 
@@ -105020,6 +106131,14 @@ type __AcceptInvitationInput struct {
 // GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
 func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
 
+// __AccountUsageAccountsInput is used internally by genqlient
+type __AccountUsageAccountsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AccountUsageAccountsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AccountUsageAccountsInput) GetAppRef() string { return v.AppRef }
+
 // __AccountUsageProjectionInput is used internally by genqlient
 type __AccountUsageProjectionInput struct {
 	AppRef  string                   `json:"appRef"`
@@ -105187,6 +106306,22 @@ func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
+
+// __AgentServedBootPromptInput is used internally by genqlient
+type __AgentServedBootPromptInput struct {
+	AgentRef string  `json:"agentRef"`
+	AppRef   *string `json:"appRef"`
+	LlmModel *string `json:"llmModel"`
+}
+
+// GetAgentRef returns __AgentServedBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetAppRef returns __AgentServedBootPromptInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
+
+// GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
 
 // __AgentSystemMemoryInput is used internally by genqlient
 type __AgentSystemMemoryInput struct {
@@ -111034,6 +112169,14 @@ type __NodePortalInput struct {
 // GetRef returns __NodePortalInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodePortalInput) GetRef() string { return v.Ref }
 
+// __NodeRawTextInput is used internally by genqlient
+type __NodeRawTextInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodeRawTextInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeRawTextInput) GetRef() string { return v.Ref }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -111049,6 +112192,22 @@ type __NodeRevisionStampedInput struct {
 
 // GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
+
+// __NodeRevisionTextsInput is used internally by genqlient
+type __NodeRevisionTextsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit,omitempty"`
+	Offset  *int   `json:"offset,omitempty"`
+}
+
+// GetNodeRef returns __NodeRevisionTextsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeRevisionTextsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __NodeRevisionTextsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionTextsInput) GetOffset() *int { return v.Offset }
 
 // __NodeRevisionsPageInput is used internally by genqlient
 type __NodeRevisionsPageInput struct {
@@ -113202,6 +114361,14 @@ type __TeamCompositionInput struct {
 // GetAppRef returns __TeamCompositionInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamCompositionInput) GetAppRef() string { return v.AppRef }
 
+// __TeamCreateGrantInput is used internally by genqlient
+type __TeamCreateGrantInput struct {
+	Input *CreateGrantInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamCreateGrantInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamCreateGrantInput) GetInput() *CreateGrantInput { return v.Input }
+
 // __TeamDefaultChannelInput is used internally by genqlient
 type __TeamDefaultChannelInput struct {
 	AppRef string `json:"appRef"`
@@ -113286,6 +114453,14 @@ type __TeamGrantInput struct {
 // GetRef returns __TeamGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamGrantInput) GetRef() string { return v.Ref }
 
+// __TeamGrantSigningRequestInput is used internally by genqlient
+type __TeamGrantSigningRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __TeamGrantSigningRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__TeamGrantSigningRequestInput) GetId() string { return v.Id }
+
 // __TeamGrantsInput is used internally by genqlient
 type __TeamGrantsInput struct {
 	Limit  int `json:"limit"`
@@ -113313,6 +114488,14 @@ type __TeamReportingLinesInput struct {
 
 // GetAppRef returns __TeamReportingLinesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamReportingLinesInput) GetAppRef() string { return v.AppRef }
+
+// __TeamRequestGrantSignatureInput is used internally by genqlient
+type __TeamRequestGrantSignatureInput struct {
+	GrantRef string `json:"grantRef"`
+}
+
+// GetGrantRef returns __TeamRequestGrantSignatureInput.GrantRef, and is useful for accessing the field via an interface.
+func (v *__TeamRequestGrantSignatureInput) GetGrantRef() string { return v.GrantRef }
 
 // __TeamRolesInput is used internally by genqlient
 type __TeamRolesInput struct {
@@ -113455,6 +114638,14 @@ func (v *__TeamStopSignalsInput) GetFirst() *int { return v.First }
 
 // GetAfter returns __TeamStopSignalsInput.After, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalsInput) GetAfter() *string { return v.After }
+
+// __TeamWithdrawGrantSigningRequestInput is used internally by genqlient
+type __TeamWithdrawGrantSigningRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __TeamWithdrawGrantSigningRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__TeamWithdrawGrantSigningRequestInput) GetId() string { return v.Id }
 
 // __TeamWorkItemsByWorkerInput is used internally by genqlient
 type __TeamWorkItemsByWorkerInput struct {
@@ -115868,6 +117059,54 @@ func AcceptInvitation(
 	return data_, err_
 }
 
+// The query executed by AccountUsageAccounts.
+const AccountUsageAccounts_Operation = `
+query AccountUsageAccounts ($appRef: ID!) {
+	accountUsageAccounts(appRef: $appRef) {
+		asOf
+		accounts {
+			account
+			host
+			family
+			newestSnapshotAt
+			workers
+			workersConfigured
+		}
+		complete
+	}
+}
+`
+
+// cli#1875: an App's usage accounts (hadron-server#3853, cor:agt:140:05).
+// A SEPARATE document on purpose, like usage_projection.graphql: a server that
+// predates the field fails validation of this document only, and the failure
+// maps to "server too old". It selects exactly the envelope and entry fields of
+// the contract (an AST pin asserts that).
+func AccountUsageAccounts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AccountUsageAccountsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AccountUsageAccounts",
+		Query:  AccountUsageAccounts_Operation,
+		Variables: &__AccountUsageAccountsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AccountUsageAccountsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AccountUsageProjection.
 const AccountUsageProjection_Operation = `
 query AccountUsageProjection ($appRef: ID!, $account: String!, $host: String, $family: String, $whatIf: AccountUsageWhatIfInput) {
@@ -116482,6 +117721,53 @@ func AgentSchedules(
 	}
 
 	data_ = &AgentSchedulesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentServedBootPrompt.
+const AgentServedBootPrompt_Operation = `
+query AgentServedBootPrompt ($agentRef: String!, $appRef: String, $llmModel: String) {
+	agentServedBootPrompt(agentRef: $agentRef, appRef: $appRef, llmModel: $llmModel) {
+		decision {
+			compiledContentHash
+			compiledNodeId
+			pointerLevel
+			provenanceRevSeq
+			servedRevSeq
+		}
+		text
+	}
+}
+`
+
+// cli#1853: the boot prompt an Agent is served now, for a caller that binds no
+// worker (hadron-server#3846). A pure read: it binds nothing and records nothing.
+func AgentServedBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	appRef *string,
+	llmModel *string,
+) (data_ *AgentServedBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentServedBootPrompt",
+		Query:  AgentServedBootPrompt_Operation,
+		Variables: &__AgentServedBootPromptInput{
+			AgentRef: agentRef,
+			AppRef:   appRef,
+			LlmModel: llmModel,
+		},
+	}
+
+	data_ = &AgentServedBootPromptResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -132995,6 +134281,18 @@ query GetAgent ($ref: ID!) {
 	agent(ref: $ref) {
 		... AgentFields
 		clonedFromAgentRef
+		offerReadiness {
+			ready
+			reasons {
+				code
+				count
+				subjects {
+					name
+				}
+				omittedByCap
+				hiddenByAccess
+			}
+		}
 	}
 }
 fragment AgentFields on Agent {
@@ -139363,6 +140661,48 @@ func NodePortal(
 	return data_, err_
 }
 
+// The query executed by NodeRawText.
+const NodeRawText_Operation = `
+query NodeRawText ($ref: ID!) {
+	node(ref: $ref, raw: true) {
+		id
+		revision
+		name
+		abstract
+		content(raw: true)
+	}
+}
+`
+
+// cli#879: the node's current revision beside its raw stored text, read in ONE
+// call so `node signatures --check` can tell whether the text is the revision a
+// signature names (a node edited between two reads must not be hashed against
+// an older signature). Only what the approval hash covers.
+func NodeRawText(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodeRawTextResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRawText",
+		Query:  NodeRawText_Operation,
+		Variables: &__NodeRawTextInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodeRawTextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
 query NodeRevision ($revisionId: ID!) {
@@ -139484,6 +140824,53 @@ func NodeRevisionStamped(
 	}
 
 	data_ = &NodeRevisionStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeRevisionTexts.
+const NodeRevisionTexts_Operation = `
+query NodeRevisionTexts ($nodeRef: ID!, $limit: Int, $offset: Int) {
+	nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			revNo
+			name
+			abstract
+			content
+		}
+	}
+}
+`
+
+// cli#879: the stored text of earlier revisions, for `node signatures --check`
+// to rebuild a signed revision's approval hash. revNo is the per-node revision
+// number a signature names; abstract and content are the stored (raw) text.
+func NodeRevisionTexts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+	offset *int,
+) (data_ *NodeRevisionTextsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRevisionTexts",
+		Query:  NodeRevisionTexts_Operation,
+		Variables: &__NodeRevisionTextsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &NodeRevisionTextsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -147811,6 +149198,56 @@ func TeamComposition(
 	return data_, err_
 }
 
+// The mutation executed by TeamCreateGrant.
+const TeamCreateGrant_Operation = `
+mutation TeamCreateGrant ($input: CreateGrantInput!) {
+	createGrant(input: $input) {
+		id
+		action
+		values
+		holderKind
+		holderId
+		startsAt
+		expiresAt
+		maxUses
+		useCount
+		reason
+		createdAt
+		activatedAt
+		revokedAt
+		allows
+	}
+}
+`
+
+// cli#1868: the bound worker asks for a grant (pending until a person signs it).
+// Optional input fields are omitted when unset: omitted preserves the server
+// default, an explicit null would be read as a value.
+func TeamCreateGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateGrantInput,
+) (data_ *TeamCreateGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamCreateGrant",
+		Query:  TeamCreateGrant_Operation,
+		Variables: &__TeamCreateGrantInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamCreateGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamDefaultChannel.
 const TeamDefaultChannel_Operation = `
 query TeamDefaultChannel ($appRef: ID!) {
@@ -148099,6 +149536,58 @@ func TeamGrant(
 	return data_, err_
 }
 
+// The query executed by TeamGrantSigningRequest.
+const TeamGrantSigningRequest_Operation = `
+query TeamGrantSigningRequest ($id: ID!) {
+	grantSigningRequest(id: $id) {
+		... TeamGrantSigningRequestFields
+	}
+}
+fragment TeamGrantSigningRequestFields on GrantSigningRequest {
+	id
+	grantId
+	version
+	termsHash
+	payloadVersion
+	state
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	createdAt
+	expiresAt
+	endedAt
+	ceremonyUrl
+}
+`
+
+func TeamGrantSigningRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *TeamGrantSigningRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamGrantSigningRequest",
+		Query:  TeamGrantSigningRequest_Operation,
+		Variables: &__TeamGrantSigningRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &TeamGrantSigningRequestResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamGrants.
 const TeamGrants_Operation = `
 query TeamGrants ($limit: Int!, $offset: Int!) {
@@ -148230,6 +149719,58 @@ func TeamReportingLines(
 	}
 
 	data_ = &TeamReportingLinesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRequestGrantSignature.
+const TeamRequestGrantSignature_Operation = `
+mutation TeamRequestGrantSignature ($grantRef: ID!) {
+	requestGrantSignature(grantRef: $grantRef) {
+		... TeamGrantSigningRequestFields
+	}
+}
+fragment TeamGrantSigningRequestFields on GrantSigningRequest {
+	id
+	grantId
+	version
+	termsHash
+	payloadVersion
+	state
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	createdAt
+	expiresAt
+	endedAt
+	ceremonyUrl
+}
+`
+
+func TeamRequestGrantSignature(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	grantRef string,
+) (data_ *TeamRequestGrantSignatureResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRequestGrantSignature",
+		Query:  TeamRequestGrantSignature_Operation,
+		Variables: &__TeamRequestGrantSignatureInput{
+			GrantRef: grantRef,
+		},
+	}
+
+	data_ = &TeamRequestGrantSignatureResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -148817,6 +150358,58 @@ func TeamStopSignals(
 	}
 
 	data_ = &TeamStopSignalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamWithdrawGrantSigningRequest.
+const TeamWithdrawGrantSigningRequest_Operation = `
+mutation TeamWithdrawGrantSigningRequest ($id: ID!) {
+	withdrawGrantSigningRequest(id: $id) {
+		... TeamGrantSigningRequestFields
+	}
+}
+fragment TeamGrantSigningRequestFields on GrantSigningRequest {
+	id
+	grantId
+	version
+	termsHash
+	payloadVersion
+	state
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	createdAt
+	expiresAt
+	endedAt
+	ceremonyUrl
+}
+`
+
+func TeamWithdrawGrantSigningRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *TeamWithdrawGrantSigningRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamWithdrawGrantSigningRequest",
+		Query:  TeamWithdrawGrantSigningRequest_Operation,
+		Variables: &__TeamWithdrawGrantSigningRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &TeamWithdrawGrantSigningRequestResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

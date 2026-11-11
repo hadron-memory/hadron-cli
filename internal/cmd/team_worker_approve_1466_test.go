@@ -43,11 +43,13 @@ type approveWorker struct {
 }
 
 type approveCall struct {
-	Op   string
-	Vars map[string]any
+	Op      string
+	Vars    map[string]any
+	Session string // X-Hadron-Session as sent (cli#1872)
 }
 
 type approveFake struct {
+	onOp    func(op string) // runs as each operation arrives (cli#1872)
 	mu      sync.Mutex
 	calls   []approveCall
 	workers []approveWorker
@@ -112,11 +114,16 @@ func newApproveFake(t *testing.T, workers []approveWorker) (*httptest.Server, *a
 		_ = json.Unmarshal(raw, &body)
 		op := body.OperationName
 		fake.mu.Lock()
-		fake.calls = append(fake.calls, approveCall{Op: op, Vars: body.Variables})
+		fake.calls = append(fake.calls, approveCall{Op: op, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
 		fake.mu.Unlock()
+		if fake.onOp != nil {
+			fake.onOp(op)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch op {
-		case "GetBoundSessionEnd", "ChannelReadState", "TeamAppIdentity":
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
+		case "GetBoundSessionEnd", "ChannelReadState":
 			_, _ = w.Write([]byte(`{"data":{}}`))
 		case "WorkersBootPointers":
 			items := []string{}

@@ -73,6 +73,7 @@ import (
 
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
+	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
 	begin := teamcmd.BeginInstructedWrite(f)
@@ -481,6 +482,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
+		}
+		if details == nil {
+			details = api.ResumeMismatchDetails(err)
 		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
