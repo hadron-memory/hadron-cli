@@ -1,0 +1,14 @@
+# cli#1853: the boot prompt an Agent is served now, for a caller that binds no
+# worker (hadron-server#3846). A pure read: it binds nothing and records nothing.
+query AgentServedBootPrompt($agentRef: String!, $appRef: String, $llmModel: String) {
+  agentServedBootPrompt(agentRef: $agentRef, appRef: $appRef, llmModel: $llmModel) {
+    decision {
+      compiledContentHash
+      compiledNodeId
+      pointerLevel
+      provenanceRevSeq
+      servedRevSeq
+    }
+    text
+  }
+}
