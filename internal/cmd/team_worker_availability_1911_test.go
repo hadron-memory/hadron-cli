@@ -119,8 +119,8 @@ func TestWorkerGetAvailabilityNoReasonWhenAvailable1911(t *testing.T) {
 	if strings.Contains(out, "HOST_DOWN") {
 		t.Fatalf("a reason printed for an available record:\n%s", out)
 	}
-	if !strings.Contains(out, "  availability: AVAILABLE; set by Holger (APP_MANAGER) at ") {
-		t.Fatalf("available line missing:\n%s", out)
+	if want := "  availability: AVAILABLE; set by Holger (APP_MANAGER) at 2026-11-11T10:00:00Z\n"; !strings.Contains(out, want) {
+		t.Fatalf("want %q in:\n%s", want, out)
 	}
 	jout, _ := workerGetAvail1911(t, resp, "--json")
 	var a map[string]any
@@ -201,5 +201,102 @@ func TestWorkerAvailabilityIsItsOwnOperation1911(t *testing.T) {
 		if !strings.Contains(gen.GetWorkerAvailability_Operation, field) {
 			t.Errorf("GetWorkerAvailability does not select %q:\n%s", field, gen.GetWorkerAvailability_Operation)
 		}
+	}
+}
+
+// cli#1918 item 1 (cor:agt:060:02 Until, cor:agt:060:11): an UNAVAILABLE record
+// the server says is not in effect reads as available everywhere, so the line
+// must say so: a bare "UNAVAILABLE" would present the worker as unavailable.
+// The server's inEffect is the only input (no clock comparison, no inferred
+// cause), a reason is kept on the UNAVAILABLE record, and an in-effect record
+// is unchanged.
+func TestWorkerGetAvailabilityNotInEffectReadsAsAvailable1918(t *testing.T) {
+	notInEffect := func(rec string) string {
+		return strings.Replace(rec, `"inEffect":true`, `"inEffect":false`, 1)
+	}
+	t.Run("with reason and until", func(t *testing.T) {
+		rec := notInEffect(availRec1911("UNAVAILABLE", `"OUT_OF_TOKENS"`, `"2026-11-12T00:00:00Z"`, "HOLDER", party1911))
+		out, err := workerGetAvail1911(t, `{"data":{"worker":{"availability":`+rec+`}}}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "  availability: UNAVAILABLE — OUT_OF_TOKENS until 2026-11-12T00:00:00Z, not in effect: reads as available; set by Holger (HOLDER) at 2026-11-11T10:00:00Z\n"
+		if !strings.Contains(out, want) {
+			t.Fatalf("want %q in:\n%s", want, out)
+		}
+	})
+	t.Run("stall rule without until", func(t *testing.T) {
+		rec := notInEffect(availRec1911("UNAVAILABLE", `"STALLED"`, `null`, "STALL_RULE", `null`))
+		out, err := workerGetAvail1911(t, `{"data":{"worker":{"availability":`+rec+`}}}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "  availability: UNAVAILABLE — STALLED, not in effect: reads as available; set by stall rule at 2026-11-11T10:00:00Z\n"
+		if !strings.Contains(out, want) {
+			t.Fatalf("want %q in:\n%s", want, out)
+		}
+	})
+	t.Run("in effect is unchanged", func(t *testing.T) {
+		rec := availRec1911("UNAVAILABLE", `"STALLED"`, `null`, "STALL_RULE", `null`)
+		out, err := workerGetAvail1911(t, `{"data":{"worker":{"availability":`+rec+`}}}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		l := availLine1911(out)
+		if strings.Contains(l, "not in effect") || strings.Contains(l, "reads as available") {
+			t.Fatalf("an in-effect record must not say it reads as available: %s", l)
+		}
+	})
+	t.Run("available record says nothing extra", func(t *testing.T) {
+		rec := availRec1911("AVAILABLE", `null`, `null`, "APP_MANAGER", party1911)
+		out, err := workerGetAvail1911(t, `{"data":{"worker":{"availability":`+rec+`}}}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := availLine1911(out); strings.Contains(l, "not in effect") || strings.Contains(l, "reads as available") {
+			t.Fatalf("an AVAILABLE record is not an unavailable one that lapsed: %s", l)
+		}
+	})
+}
+
+// cli#1918 item 2: a setter class the CLI does not know (a server newer than
+// the snapshot) is shown as the raw value, sanitized, never guessed.
+func TestWorkerGetAvailabilityUnknownSetterIsRawSanitized1918(t *testing.T) {
+	rec := availRec1911("UNAVAILABLE", `"OTHER"`, `null`, "NEW_SETTER", `null`)
+	out, err := workerGetAvail1911(t, `{"data":{"worker":{"availability":`+rec+`}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "  availability: UNAVAILABLE — OTHER; set by NEW_SETTER at 2026-11-11T10:00:00Z\n"
+	if !strings.Contains(out, want) {
+		t.Fatalf("want %q in:\n%s", want, out)
+	}
+	ctl := availRec1911("UNAVAILABLE", `"OTHER"`, `null`, "BAD\\u001b[31mSETTER", `null`)
+	out, err = workerGetAvail1911(t, `{"data":{"worker":{"availability":`+ctl+`}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "\x1b") {
+		t.Fatalf("an unknown setter must be sanitized, got %q", out)
+	}
+}
+
+// cli#1918 item 4: a null worker row answers null, like a null availability:
+// no line, an explicit null in --json.
+func TestWorkerGetAvailabilityNilWorkerRendersNothing1918(t *testing.T) {
+	resp := `{"data":{"worker":null}}`
+	out, err := workerGetAvail1911(t, resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := availLine1911(out); l != "" {
+		t.Fatalf("a null worker must print no availability line: %s", l)
+	}
+	jout, err := workerGetAvail1911(t, resp, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := availJSON1911(t, jout); string(a) != "null" {
+		t.Fatalf("availability = %s, want null", a)
 	}
 }
