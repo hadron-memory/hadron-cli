@@ -27,11 +27,11 @@ const (
 )
 
 func gqlMessage1895(msg string) string {
-	return `{"errors":[{"message":` + jsonString1895(msg) + `}]}`
-}
-
-func jsonString1895(s string) string {
-	return `"` + strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), `"`, `\"`) + `"`
+	b, err := json.Marshal(map[string]any{"errors": []map[string]string{{"message": msg}}})
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
 
 // usageCase1895 runs one command against one error on its own operation.
@@ -50,6 +50,12 @@ func usageCases1895() []usageCase1895 {
 			_, _, _, err := runProject1878(t, resp, "--account", "team-rupali")
 			return err
 		}},
+		// #1901 BLIND P3-7a: project without --account lists first; a server
+		// without the list field gets the accounts too-old text there too.
+		{"project (no --account) list", "AccountUsageAccounts", "accountUsageAccounts", accountsTooOld1895, func(t *testing.T, resp map[string]string) error {
+			_, _, _, err := runProject1878(t, resp)
+			return err
+		}},
 	}
 }
 
@@ -63,11 +69,11 @@ func TestUsage1895TooOldKeepsPrefixAndServerMessage(t *testing.T) {
 			if err == nil || exitOf(err) != exitcode.Error {
 				t.Fatalf("want exit 1, got %v (%d)", err, exitOf(err))
 			}
-			if !strings.HasPrefix(err.Error(), c.prefix) {
-				t.Fatalf("prefix changed:\n got %q\nwant prefix %q", err.Error(), c.prefix)
-			}
-			if !strings.Contains(err.Error(), server) {
-				t.Fatalf("the server's message was dropped: %q", err.Error())
+			// The documented join, exactly: prefix + " (server said: " + the
+			// server's error + ")" (#1901 BLIND P3-6).
+			want := c.prefix + " (server said: " + gqlerror.List{{Message: server}}.Error() + ")"
+			if err.Error() != want {
+				t.Fatalf("too-old text:\n got %q\nwant %q", err.Error(), want)
 			}
 		})
 	}
