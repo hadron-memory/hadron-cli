@@ -96,11 +96,20 @@ The team App is --app, the App context, or the worktree binding.`,
 	}
 }
 
-// mapAccountsError turns a server without the field into a plain "too old"
-// message and routes everything else through api.MapError.
+// mapAccountsError: a server without accountUsageAccounts is "too old"
+// (mapTooOld); everything else goes through api.MapError.
 func mapAccountsError(err error) error {
-	if strings.Contains(err.Error(), "accountUsageAccounts") && (strings.Contains(err.Error(), "Cannot query field") || strings.Contains(err.Error(), "Unknown argument")) {
-		return exitcode.Newf(exitcode.Error, "this hadron-server is too old to list usage accounts (no accountUsageAccounts field; needs hadron-server #3853) — upgrade the server")
+	return mapTooOld(err, "accountUsageAccounts", "this hadron-server is too old to list usage accounts (no accountUsageAccounts field; needs hadron-server #3853) — upgrade the server")
+}
+
+// mapTooOld (cli#1895) maps only the exact unknown-field shape for field —
+// `Cannot query field "<field>"` — to the command's own too-old prefix, with
+// the server's message appended so a wrong mapping can still be reported.
+// Every other error, including "Unknown argument" (a current server rejecting
+// an argument) and APP_NOT_FOUND, keeps api.MapError.
+func mapTooOld(err error, field, prefix string) error {
+	if strings.Contains(err.Error(), `Cannot query field "`+field+`"`) {
+		return exitcode.Newf(exitcode.Error, "%s (server said: %s)", prefix, err.Error())
 	}
 	return api.MapError(err)
 }
