@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 219: 175 command, 20 gap, 24 excluded
+[Query] 219: 176 command, 19 gap, 24 excluded
 accountUsageAccounts  gap #1875: team usage accounts list command (companion to hadron-server#3853, #3884)
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -121,7 +121,7 @@ findNodes  command search
 findObjects  command object find
 globalSearch  command find
 grant  command team grant get
-grantSigningRequest  gap #1846: team grant commands not yet implemented
+grantSigningRequest  command team grant signing-request get
 grants  command team grant list
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
@@ -244,7 +244,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 342: 282 command, 46 gap, 14 excluded
+[Mutation] 342: 285 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -316,7 +316,7 @@ createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 createDecisionLog  command decision log create
 createEdge  command edge create
-createGrant  gap #1846: team grant commands not yet implemented
+createGrant  command team grant request
 createHomeAssistantInstance  command ha create
 createMcpServer  command mcp-server create
 createMemory  command memory set
@@ -461,7 +461,7 @@ reportContextResetAgentStopped  command team host run
 reportContextResetRelaunchFailed  command team host run
 reportContextResetRelaunched  command team host run
 reportHostOperation  command team host run
-requestGrantSignature  gap #1846: team grant commands not yet implemented
+requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
 resolveCommentThread  command comment resolve
@@ -585,7 +585,7 @@ updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawDecision  command decision withdraw
-withdrawGrantSigningRequest  gap #1846: team grant commands not yet implemented
+withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
 [Arguments] 80: 44 gap, 36 excluded

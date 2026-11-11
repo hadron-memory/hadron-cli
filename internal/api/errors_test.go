@@ -74,6 +74,17 @@ func TestMapError(t *testing.T) {
 		// AGENT_SUBSCRIPTION_REQUIRED; exit 8 ruled at the gate, not the default 1.
 		{"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE", gqlErr("BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"), exitcode.Forbidden},
 
+		// cli#1868: the worker grant request refusals (hadron-server createGrant,
+		// requestGrantSignature). No GRANT_* case existed, so all exited 1.
+		{"GRANT_REQUESTER_NOT_WORKER", gqlErr("GRANT_REQUESTER_NOT_WORKER"), exitcode.Forbidden},
+		{"GRANT_HOLDER_NOT_ALLOWED", gqlErr("GRANT_HOLDER_NOT_ALLOWED"), exitcode.Forbidden},
+		{"GRANT_ACTION_UNKNOWN", gqlErr("GRANT_ACTION_UNKNOWN"), exitcode.Usage},
+		{"GRANT_VALUES_INVALID", gqlErr("GRANT_VALUES_INVALID"), exitcode.Usage},
+		{"GRANT_TERMS_INVALID", gqlErr("GRANT_TERMS_INVALID"), exitcode.Usage},
+		{"GRANT_NOT_PENDING", gqlErr("GRANT_NOT_PENDING"), exitcode.Conflict},
+		{"GRANT_EXPIRED", gqlErr("GRANT_EXPIRED"), exitcode.Conflict},
+		{"GRANT_TERMS_UNREPRESENTABLE", gqlErr("GRANT_TERMS_UNREPRESENTABLE"), exitcode.Conflict},
+
 		{"nil", nil, exitcode.OK},
 		// cli#1335: the decision group's refusals (hadron-server #1641).
 		{"DECISION_FORBIDDEN", gqlErr("DECISION_FORBIDDEN"), exitcode.Forbidden},

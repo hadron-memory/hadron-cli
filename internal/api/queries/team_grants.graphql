@@ -10,3 +10,33 @@ query TeamGrants($limit: Int!, $offset: Int!) {
     items { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
   }
 }
+
+# cli#1868: the bound worker asks for a grant (pending until a person signs it).
+# Optional input fields are omitted when unset: omitted preserves the server
+# default, an explicit null would be read as a value.
+# @genqlient(for: "CreateGrantInput.startsAt", omitempty: true)
+# @genqlient(for: "CreateGrantInput.expiresAt", omitempty: true)
+# @genqlient(for: "CreateGrantInput.maxUses", omitempty: true)
+mutation TeamCreateGrant(
+  $input: CreateGrantInput!
+) {
+  createGrant(input: $input) { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+}
+
+fragment TeamGrantSigningRequestFields on GrantSigningRequest {
+  id grantId version termsHash payloadVersion state
+  requestedBy { userId appId workerId sessionId }
+  createdAt expiresAt endedAt ceremonyUrl
+}
+
+mutation TeamRequestGrantSignature($grantRef: ID!) {
+  requestGrantSignature(grantRef: $grantRef) { ...TeamGrantSigningRequestFields }
+}
+
+mutation TeamWithdrawGrantSigningRequest($id: ID!) {
+  withdrawGrantSigningRequest(id: $id) { ...TeamGrantSigningRequestFields }
+}
+
+query TeamGrantSigningRequest($id: ID!) {
+  grantSigningRequest(id: $id) { ...TeamGrantSigningRequestFields }
+}
