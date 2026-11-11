@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -240,13 +239,10 @@ The team App is --app, the App context, or the worktree binding.`,
 	return c
 }
 
-// mapProjectionError turns a server without the field into a plain "too old"
-// message and routes everything else through api.MapError.
+// mapProjectionError: a server without accountUsageProjection is "too old"
+// (mapTooOld); everything else goes through api.MapError.
 func mapProjectionError(err error) error {
-	if strings.Contains(err.Error(), "accountUsageProjection") && (strings.Contains(err.Error(), "Cannot query field") || strings.Contains(err.Error(), "Unknown argument")) {
-		return exitcode.Newf(exitcode.Error, "this hadron-server is too old to project account usage (no accountUsageProjection field; needs hadron-server #3820) — upgrade the server")
-	}
-	return api.MapError(err)
+	return mapTooOld(err, "accountUsageProjection", "this hadron-server is too old to project account usage (no accountUsageProjection field; needs hadron-server #3820) — upgrade the server")
 }
 
 func burnFrom(lo, hi float64) *burnDTO { return &burnDTO{LowPctPerHour: lo, HighPctPerHour: hi} }

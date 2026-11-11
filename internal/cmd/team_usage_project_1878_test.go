@@ -87,7 +87,8 @@ func TestUsageProject1878JSONCarriesCompleteAfterAccounts(t *testing.T) {
 	}
 }
 
-// Acceptance 3: the four empty/incomplete combinations, text and --json, all exit 0.
+// Acceptance 3: three empty/incomplete combinations, text and --json, all exit 0
+// (non-empty + complete is covered by the order and shape tests above).
 func TestUsageProject1878EmptyAndIncomplete(t *testing.T) {
 	cases := map[string]struct {
 		resp     string
