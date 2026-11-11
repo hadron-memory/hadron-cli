@@ -35754,7 +35754,7 @@ type CreateGrantInput struct {
 	// A registered action's dotted name, such as schedule.create.
 	Action string `json:"action"`
 	// #3711: the App a PERSON who manages it creates the grant in (id or URN). A bound worker session omits it: the worker's own App is used and a value naming another is refused. Whoever manages an App creates for a worker of it, or an agent installed in it; the row is still born pending.
-	AppRef *string `json:"appRef"`
+	AppRef *string `json:"appRef,omitempty"`
 	// Not usable after this time; must follow startsAt when both are given.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// WORKER (the calling worker itself) or AGENT (its role agent, installed in this App). Any other holder is refused.

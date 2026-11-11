@@ -17,6 +17,7 @@ query TeamGrants($limit: Int!, $offset: Int!) {
 # @genqlient(for: "CreateGrantInput.startsAt", omitempty: true)
 # @genqlient(for: "CreateGrantInput.expiresAt", omitempty: true)
 # @genqlient(for: "CreateGrantInput.maxUses", omitempty: true)
+# @genqlient(for: "CreateGrantInput.appRef", omitempty: true)
 mutation TeamCreateGrant(
   $input: CreateGrantInput!
 ) {
