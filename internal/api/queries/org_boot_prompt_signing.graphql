@@ -11,6 +11,8 @@ query OrgBootPromptSigning($org: ID!) {
   }
 }
 
+# agentUrn/workerUrn (server >= cac6c05c6, cli#1949) are shared by `preview` and
+# `on`; an older server rejects this document loudly, with no fallback.
 # first/after are omitted (not sent as null) on a plain preview, so the server's
 # default page (20) applies.
 query OrgBootPromptSigningPreview(
@@ -39,6 +41,8 @@ query OrgBootPromptSigningPreview(
       servedRevSeq
       state
       changesToRevSeq
+      agentUrn
+      workerUrn
     }
   }
 }
