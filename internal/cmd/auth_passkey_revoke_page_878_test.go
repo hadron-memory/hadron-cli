@@ -160,6 +160,8 @@ func TestPasskeyRevokePageOffMakesNoGraphQLRequest(t *testing.T) {
 func TestPasskeyRevokePageSignedOut(t *testing.T) {
 	s := newRevokePageServer(t, 200, passkeysOn, 200, revokeURLBody(revokeURLFixture))
 	r := runRevokePage(t, s.url, false, nil, map[string]string{"HADRON_TOKEN": ""})
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if r.code != 0 {
 		t.Fatalf("exit %d: out %q err %q", r.code, r.out, r.errOut)
 	}
@@ -186,6 +188,8 @@ func TestPasskeyRevokePageSignedOut(t *testing.T) {
 func TestPasskeyRevokePageSignedInKeepsTransport(t *testing.T) {
 	s := newRevokePageServer(t, 200, passkeysOn, 200, revokeURLBody(revokeURLFixture))
 	r := runRevokePage(t, s.url, false, nil, nil)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if r.code != 0 || r.out != revokeURLFixture+"\n" {
 		t.Fatalf("exit %d out %q err %q", r.code, r.out, r.errOut)
 	}
@@ -259,7 +263,7 @@ func TestPasskeyRevokePageOpenMisuse(t *testing.T) {
 		want  string
 	}{
 		{"open with json", true, []string{"--open", "--json"}, "--open cannot be used with --json"},
-		{"open not a terminal", false, []string{"--open"}, "--open needs stdout to be a terminal"},
+		{"open not a terminal", false, []string{"--open"}, "--open needs output to go to a terminal"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -287,7 +291,7 @@ func TestPasskeyRevokePageFieldMissing(t *testing.T) {
 	if r.code != 2 || s.posts.Load() != 1 || len(r.opened) != 0 {
 		t.Fatalf("exit %d posts %d opened %v, want 2, 1, none", r.code, s.posts.Load(), r.opened)
 	}
-	want := "this server does not advertise its passkey revoke page (an older server, or passkeys were switched off since discovery); no URL was constructed"
+	want := "this server does not provide a passkey revoke page (it may be an older server, or passkey registration was switched off since the check)"
 	if !strings.Contains(all, want) || strings.Contains(all, "out of sync") {
 		t.Fatalf("got %q, want %q and no skew advice", all, want)
 	}
@@ -302,7 +306,7 @@ func TestPasskeyRevokePageFieldMissing(t *testing.T) {
 	mixed := `{"errors":[{"message":"Cannot query field \"passkeyRevokeUrl\" on type \"ServerInfo\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`
 	s3 := newRevokePageServer(t, 200, passkeysOn, 200, mixed)
 	r3 := runRevokePage(t, s3.url, false, nil, nil)
-	if strings.Contains(r3.out+r3.errOut, "does not advertise") {
+	if r3.code != 8 || !strings.Contains(r3.out+r3.errOut, "forbidden") || strings.Contains(r3.out+r3.errOut, "does not provide") {
 		t.Fatalf("a mixed envelope was read as the missing field: %q", r3.out+r3.errOut)
 	}
 }
@@ -342,7 +346,11 @@ func TestPasskeyRevokePageInvalidURL(t *testing.T) {
 				if r.code != 1 || len(r.opened) != 0 {
 					t.Fatalf("%v: exit %d opened %v, want 1 and none", extra, r.code, r.opened)
 				}
-				if !strings.Contains(r.out+r.errOut, "the server returned an invalid passkey revoke URL") {
+				want := "the server returned an address that is not a valid, secure web address, so it was not printed or opened; tell the server operator"
+				if bad == "" {
+					want = "the server did not return a passkey revoke page address"
+				}
+				if !strings.Contains(r.out+r.errOut, want) {
 					t.Fatalf("%v: %q", extra, r.out+r.errOut)
 				}
 				if bad != "" && strings.Contains(r.out, bad) {
