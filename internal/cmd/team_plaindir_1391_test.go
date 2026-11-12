@@ -313,3 +313,38 @@ func TestPlainDir1391SameWorkerForceRebindStillReplaces(t *testing.T) {
 		t.Errorf("the binding must name the new session, got %v", got)
 	}
 }
+
+// Gloria's BLIND F2 on #1968, resume side: a plain directory's cached binding
+// with no worker id cannot be sent as the expected worker, so a resume there
+// would consume whichever claim is waiting before the lock refused it. It
+// refuses before the claim is redeemed instead.
+func TestPlainDir1391ResumeOverABindingWithoutWorkerIDRefusesBeforeTheClaim(t *testing.T) {
+	dir := plainDir1391(t)
+	if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+	legacy := `{"sessionId":"s-old","workerName":"Iris","agentId":"agt1"}`
+	if err := os.WriteFile(cache, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubs := resumeStubs("RESUMED")
+	// The cached session is over, so nothing but the missing worker id stands
+	// between this resume and the claim.
+	stubs["GetTeamSession"] = `{"data":{"session":` + endedSessionJSON + `}}`
+	stubs["GetBoundSessionLiveness"] = `{"data":{"session":{"id":"s-old","isLive":false}}}`
+	gql, captured := captureGraphQL(t, stubs)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--tool", "claude-code", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("exit %d, want Conflict: %v", code, err)
+	}
+	if _, called := captured["ResumeTeamSession"]; called {
+		t.Fatal("the claim must not be redeemed over a binding that cannot name its worker")
+	}
+	if raw, _ := os.ReadFile(cache); string(raw) != legacy {
+		t.Fatal("the cached binding must be left byte-identical")
+	}
+}
