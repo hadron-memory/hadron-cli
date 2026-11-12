@@ -149,6 +149,12 @@ func unstubbedDefault(op string) (string, bool) {
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.
+	// cli#1912: a spec dry run asks who the caller is before it consults
+	// effectiveAccess. Answered as a credential that resolves to no user, for
+	// which the check is skipped, so existing dry-run tests are unchanged; the
+	// write-access tests stub both operations.
+	case "AuthContext":
+		return `{"data":{"authContext":null}}`, true
 	case "GetBoundSessionEnd":
 		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
