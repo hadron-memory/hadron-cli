@@ -360,9 +360,10 @@ func TestOrgSigningCollectorRefusesDrift(t *testing.T) {
 		},
 		"total changes on page 2": func(op string, n int, _ map[string]any) string {
 			if n == 0 {
-				return sigPage([]int{1, 2}, 5, true, "c1", "t")
+				return sigPage([]int{1, 2}, 3, true, "c1", "t")
 			}
-			return sigPage([]int{3}, 3, false, "", "t")
+			// Rows still sum to the FIRST total (2+1=3), so only the total-drift check can refuse this.
+			return sigPage([]int{3}, 4, false, "", "t")
 		},
 		"repeated row key": func(op string, n int, _ map[string]any) string {
 			if n == 0 {
