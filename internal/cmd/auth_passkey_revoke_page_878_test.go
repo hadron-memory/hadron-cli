@@ -402,6 +402,8 @@ func TestPasskeyRevokePageHelp(t *testing.T) {
 		"with another passkey or a linked identity provider",
 		"It names no passkey and grants nothing, and this CLI removes nothing itself.",
 		"Without --open, nothing is launched.",
+		"--open also asks your default browser to open it.",
+		"passkey registration was switched off since the check",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Fatalf("help lacks %q:\n%s", want, out.String())
