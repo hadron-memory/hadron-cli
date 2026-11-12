@@ -12,11 +12,15 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/auth"
@@ -208,11 +212,9 @@ func TestPasskeyListJSON(t *testing.T) {
 	// the one canonical list the operation-selection unit test also reads
 	// (cli#1950 item 3), so the two guards cannot drift apart.
 	forbidden := map[string]bool{}
-	for _, n := range auth.PasskeyKeyMaterialNames {
+	for _, n := range auth.PasskeyKeyMaterialNames() {
 		forbidden[strings.ToLower(n)] = true
 	}
-	var keys []map[string]any
-	_ = json.Unmarshal([]byte(out), &keys)
 	var walk func(any)
 	walk = func(v any) {
 		switch v := v.(type) {
@@ -229,7 +231,7 @@ func TestPasskeyListJSON(t *testing.T) {
 			}
 		}
 	}
-	for _, row := range keys {
+	for _, row := range got {
 		walk(row)
 	}
 }
@@ -295,6 +297,9 @@ func TestPasskeyListWindowlessRowShowsDash(t *testing.T) {
 	}
 }
 
+// tableGutter splits a text-table row on the padding tabwriter puts between
+// cells (two spaces or more). Only for fixtures whose cells hold no double
+// space: the label-escape test asserts on raw lines instead.
 var tableGutter = regexp.MustCompile(`\s{2,}`)
 
 func tableCells(line string) []string {
@@ -312,7 +317,7 @@ func TestPasskeyListDiscoveryErrorIsOneLine(t *testing.T) {
 	calls := 0
 	auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
 		calls++
-		return nil, errors.New("GET /capabilities: 502\n<html>\n<body>boom</body>\r\n</html>")
+		return nil, errors.New("GET /capabilities: 502\n<html>\n<body>boom</body>\r\n</html>\rspoof")
 	}
 	out, errOut, code := runPasskeyList(t, srv.URL, false, nil)
 	if code != 2 || posts.Load() != 0 || calls != 1 {
@@ -332,27 +337,39 @@ func TestPasskeyListDiscoveryErrorIsOneLine(t *testing.T) {
 		t.Fatalf("a raw CR reached the terminal: %q", all)
 	}
 
-	// An over-long cause is bounded with an ellipsis; the tail survives.
+	// An over-long cause is bounded with a leading ellipsis; the refusal's
+	// own tail survives and nothing is sent.
 	auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
 		return nil, errors.New(strings.Repeat("x", 5000))
 	}
 	_, errOut, code = runPasskeyList(t, srv.URL, false, nil)
 	line = strings.TrimSpace(errOut)
-	if code != 2 || !strings.Contains(line, "…") || !strings.HasSuffix(line, "no query was sent") || len([]rune(line)) > 1200 {
-		t.Fatalf("an over-long cause must be cut before the tail (exit %d, %d runes): %.120q", code, len([]rune(line)), line)
+	if code != 2 || posts.Load() != 0 || !strings.Contains(line, "(…x") || !strings.HasSuffix(line, "no query was sent") || len([]rune(line)) > 1200 {
+		t.Fatalf("an over-long cause must be cut before the tail (exit %d, posts %d, %d runes): %.120q", code, posts.Load(), len([]rune(line)), line)
 	}
 }
 
-// The real shape: a transport error behind a long --server URL. The client
-// composes it with the reason LAST, so the bound must keep the reason.
+// The real shape, past the bound: a transport error behind a --server URL
+// long enough that the cause exceeds 1024 runes. The client composes it with
+// the reason LAST, so the cut must keep the end. Injected through the seam as
+// the real *url.Error/*net.OpError chain, so no network is dialled.
 func TestPasskeyListDiscoveryTransportErrorKeepsReason(t *testing.T) {
-	srv := httptest.NewServer(http.NotFoundHandler())
-	url := srv.URL + "/" + strings.Repeat("long-path-segment/", 12)
-	srv.Close() // the port now refuses connections
-	out, errOut, code := runPasskeyList(t, url, false, nil)
+	srv, posts, _ := passkeyServer(t, 200, passkeysOn, 200, passkeyListJSON)
+	prev := auth.PasskeyCapabilities
+	t.Cleanup(func() { auth.PasskeyCapabilities = prev })
+	long := "https://hadron.example/" + strings.Repeat("long-path-segment/", 80) + "capabilities"
+	auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
+		return nil, &neturl.Error{Op: "Get", URL: long, Err: &net.OpError{Op: "dial", Net: "tcp",
+			Addr: &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1}, Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}}
+	}
+	if n := len([]rune(long)); n <= 1024 {
+		t.Fatalf("fixture URL is %d runes: it must push the cause past the bound", n)
+	}
+	out, errOut, code := runPasskeyList(t, srv.URL, false, nil)
 	line := strings.TrimSpace(out + errOut)
-	if code != 2 || !strings.Contains(line, "connection refused") || !strings.HasSuffix(line, "no query was sent") {
-		t.Fatalf("exit %d: the reason behind a long URL must survive: %q", code, line)
+	if code != 2 || posts.Load() != 0 || !strings.Contains(line, "(…") ||
+		!strings.HasSuffix(line, "connect: connection refused); no query was sent") {
+		t.Fatalf("exit %d posts %d: the reason behind a long URL must survive the cut: %q", code, posts.Load(), line)
 	}
 }
 
@@ -396,7 +413,7 @@ func TestPasskeyListLabelIsSafeCell(t *testing.T) {
 	// --json keeps the owner's original label.
 	jout, _, _ := runPasskeyList(t, srv.URL, true, nil)
 	var rows []map[string]any
-	if err := json.Unmarshal([]byte(jout), &rows); err != nil || rows[0]["label"] != "evil\x1b[31mred\nforged row" {
+	if err := json.Unmarshal([]byte(jout), &rows); err != nil || len(rows) != 1 || rows[0]["label"] != "evil\x1b[31mred\nforged row" {
 		t.Fatalf("--json must carry the original label: %v %s", err, jout)
 	}
 }
@@ -495,7 +512,7 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 			t.Fatalf("help lacks %q:\n%s", want, help)
 		}
 	}
-	if strings.Index(flat, "starts in a cooling-off window") > strings.Index(flat, "STATE is revoked") {
+	if i, j := strings.Index(flat, "starts in a cooling-off window"), strings.Index(flat, "STATE is revoked"); i < 0 || j < 0 || i > j {
 		t.Fatalf("the cooling-off window is used before it is explained:\n%s", help)
 	}
 	if strings.Contains(flat, "STATE is worked out") {

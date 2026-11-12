@@ -72,7 +72,7 @@ func TestMyPasskeysSelectsNoKeyMaterial(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := map[string]bool{}
-	for _, n := range PasskeyKeyMaterialNames {
+	for _, n := range PasskeyKeyMaterialNames() {
 		forbidden[strings.ToLower(n)] = true
 	}
 	var walk func(ast.SelectionSet)

@@ -37,17 +37,32 @@ const passkeyCapability = "passkey-registration"
 // the default is the cached, unauthenticated api.Capabilities.
 var PasskeyCapabilities = api.Capabilities
 
-// PasskeyKeyMaterialNames are the fields the server withholds over a bearer
-// (hadron-server resolvers.passkeys.ts, #1631 §10): this read never selects
-// or prints them. It is the ONE list both guards read, the operation-selection
-// unit test here and the command-level --json key walk, so they cannot drift.
-var PasskeyKeyMaterialNames = []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}
+// PasskeyKeyMaterialNames returns the fields the server withholds over a
+// bearer (hadron-server resolvers.passkeys.ts, #1631 §10): this read never
+// selects or prints them. It is the ONE list both guards read, the
+// operation-selection unit test here and the command-level --json key walk,
+// so they cannot drift. A fresh copy each call, so no caller can edit it.
+func PasskeyKeyMaterialNames() []string {
+	return []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}
+}
 
 // discoveryCauseMaxRunes bounds the discovery error quoted in the refusal.
-// Real causes are client-composed (the --server URL, then the reason last:
-// "connection refused", a timeout, an HTTP status), so the bound is wide
-// enough to keep the reason behind a long URL.
+// Real causes are client-composed with the reason LAST (`Get "<--server
+// URL>/capabilities": dial tcp …: connection refused`, a timeout, an HTTP
+// status), so an over-long cause keeps its END: see oneLineTail.
 const discoveryCauseMaxRunes = 1024
+
+// oneLineTail flattens s to one terminal-safe line (output.SafeLine's
+// control-character rule, no cut) and, if it is longer than maxRunes, keeps
+// the last maxRunes-1 runes behind a leading "…", because the end of a
+// discovery error is where its reason is.
+func oneLineTail(s string, maxRunes int) string {
+	r := []rune(output.SafeLine(s, len(s)+1))
+	if len(r) <= maxRunes {
+		return string(r)
+	}
+	return "…" + string(r[len(r)-(maxRunes-1):])
+}
 
 // passkeyNow is the clock the state derivation reads. Injected by tests.
 var passkeyNow = time.Now
@@ -227,7 +242,7 @@ func runPasskeyList(ctx context.Context, f *cmdutil.Factory) error {
 		// transport error), so this is defence in depth: whatever the cause
 		// text becomes, the refusal stays one line with its tail.
 		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%s); no query was sent",
-			output.SafeLine(err.Error(), discoveryCauseMaxRunes))
+			oneLineTail(err.Error(), discoveryCauseMaxRunes))
 	}
 	if !caps[passkeyCapability] {
 		return exitcode.Newf(exitcode.Usage, passkeysUnavailable)
