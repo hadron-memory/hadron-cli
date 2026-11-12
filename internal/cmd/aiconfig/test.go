@@ -49,10 +49,14 @@ type testConfigDTO struct {
 	Error     *testErrorDTO `json:"error"`
 	Used      testUsedDTO   `json:"used"`
 	Knobs     []testKnobDTO `json:"knobs"`
+	// Chat is the chat probe's closed status, verbatim (an unknown future
+	// value included), or null when no probe was requested (--chat-probe).
+	Chat *string `json:"chat"`
 }
 
 func newCmdTest(f *cmdutil.Factory) *cobra.Command {
 	var overrideFile string
+	var chatProbe bool
 	cmd := &cobra.Command{
 		Use: "test <id>", Short: "Test a saved AI config with one small provider call",
 		Long: `Test a saved AI config by id through the server's normal client, endpoint
@@ -72,8 +76,19 @@ Output includes ok, effective provider/model/endpoint/style, latencyMs, reply,
 the server's scrubbed error, value sources (used) and knob results. A completed
 test exits 0 even when ok is false: inspect ok/error.code in --json. A request
 refusal uses the normal CLI exit code. Re-enter a key on KEY_UNREADABLE; retry
-provider failures only when error.transient permits it.`,
-		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json",
+provider failures only when error.transient permits it.
+
+--chat-probe (off by default) also asks the server to run ONE chat probe: a
+second provider call, metered separately, that counts against the allowance
+when a platform key pays for it. It needs a server with the chatProbe argument;
+an older one refuses it (exit 2) and nothing is retried. Its closed status
+(PASS, FAIL_TEXT_ONLY, FAIL_OTHER_TOOL, FAIL_MULTIPLE_CALLS, FAIL_MALFORMED,
+FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER) prints on its own "chat:" line
+and is the "chat" key in --json (null when not requested). The run result and
+the chat status are two outcomes: neither stands for the other, and the exit
+status follows the run alone, so a run that passes with chat FAIL_TEXT_ONLY
+still exits 0.`,
+		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var override *gqltypes.AiServiceConfigTestOverride
@@ -97,16 +112,31 @@ provider failures only when error.transient permits it.`,
 			if err != nil {
 				return err
 			}
-			r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
-			if err != nil {
-				return redactTestError(api.MapError(err), submittedKey)
+			var v *testResult
+			if chatProbe {
+				r, err := gen.TestAiServiceConfigWithChatProbe(cmd.Context(), client, args[0], true, override)
+				if err != nil {
+					return redactTestError(api.MapError(err), submittedKey)
+				}
+				v = toTestResult(r.TestAiServiceConfig)
+			} else {
+				r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
+				if err != nil {
+					return redactTestError(api.MapError(err), submittedKey)
+				}
+				v = toTestResult(r.TestAiServiceConfig)
 			}
-			v := r.TestAiServiceConfig
 			if v == nil || v.Used == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no AI config test result or value sources")
 			}
-			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: styleString(v.ApiStyle), LatencyMS: v.LatencyMs, Reply: v.Reply,
-				Used: testUsedDTO{Provider: string(v.Used.Provider), Model: string(v.Used.Model), Endpoint: string(v.Used.Endpoint), APIStyle: string(v.Used.ApiStyle), Key: string(v.Used.Key), Params: string(v.Used.Params)}, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: v.APIStyle, LatencyMS: v.LatencyMs, Reply: v.Reply,
+				Used: testUsedDTO{Provider: v.Used.Provider, Model: v.Used.Model, Endpoint: v.Used.Endpoint, APIStyle: v.Used.APIStyle, Key: v.Used.Key, Params: v.Used.Params}, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+			if chatProbe {
+				if v.Chat == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no chat probe status though one was requested")
+				}
+				dto.Chat = &v.Chat.Status
+			}
 			if v.Error != nil {
 				dto.Error = &testErrorDTO{Code: redactSubmittedKey(v.Error.Code, submittedKey), Message: redactSubmittedKey(v.Error.Message, submittedKey), Transient: v.Error.Transient}
 			}
@@ -141,10 +171,18 @@ provider failures only when error.transient permits it.`,
 						return err
 					}
 				}
+				if dto.Chat != nil {
+					// Its own line, apart from the run state above: a chat status never
+					// folds into, or stands for, the run result.
+					if _, err := fmt.Fprintf(w, "chat: %s\n", output.SafeCell(*dto.Chat)); err != nil {
+						return err
+					}
+				}
 				return nil
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&chatProbe, "chat-probe", false, "also run one chat probe: a second, separately metered provider call; its status prints apart from the run result")
 	cmd.Flags().StringVar(&overrideFile, "override-file", "", "edited values as JSON; - reads a pipe; never saved or echoed")
 	return cmd
 }
@@ -226,4 +264,46 @@ func redactSubmittedKey(message, key string) string {
 		pairs = append(pairs, form, replacement)
 	}
 	return strings.NewReplacer(pairs...).Replace(message)
+}
+
+// testResult is what the command renders from either test document. The
+// default and chat-probe documents differ only by the chat selection, so one
+// JSON round trip of the generated result (same field tags) serves both.
+type testResult struct {
+	Ok        bool    `json:"ok"`
+	Provider  string  `json:"provider"`
+	Model     string  `json:"model"`
+	Endpoint  *string `json:"endpoint"`
+	APIStyle  *string `json:"apiStyle"`
+	LatencyMs int     `json:"latencyMs"`
+	Reply     *string `json:"reply"`
+	Error     *struct {
+		Code      string `json:"code"`
+		Message   string `json:"message"`
+		Transient bool   `json:"transient"`
+	} `json:"error"`
+	Used *struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		Endpoint string `json:"endpoint"`
+		APIStyle string `json:"apiStyle"`
+		Key      string `json:"key"`
+		Params   string `json:"params"`
+	} `json:"used"`
+	Knobs []*testKnobDTO `json:"knobs"`
+	Chat  *struct {
+		Status string `json:"status"`
+	} `json:"chat"`
+}
+
+func toTestResult(generated any) *testResult {
+	raw, err := json.Marshal(generated)
+	if err != nil {
+		return nil
+	}
+	var v *testResult
+	if json.Unmarshal(raw, &v) != nil {
+		return nil
+	}
+	return v
 }
