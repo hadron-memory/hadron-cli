@@ -69,6 +69,11 @@ type signingRowDTO struct {
 	ServedRevSeq    int     `json:"servedRevSeq"`
 	State           string  `json:"state"`
 	ChangesToRevSeq *int    `json:"changesToRevSeq"`
+	// AgentURN and WorkerURN are the server's display URNs, printed as served:
+	// this CLI builds and re-canonicalises none (cli#1949). Null (an explicit key)
+	// when the server could not derive one, and WorkerURN on an install-level row.
+	AgentURN  *string `json:"agentUrn"`
+	WorkerURN *string `json:"workerUrn"`
 }
 
 // signingPreviewDTO is the stable --json shape of preview. It deliberately has
@@ -178,7 +183,8 @@ func newCmdSigningPreview(f *cmdutil.Factory) *cobra.Command {
 App, Agent and worker each belongs to, the revision served today, and what
 would happen: SIGNATURE_PENDING (not served until the signature's cooling-off
 ends), REVISION_CHANGES (falls back to an older signed revision) or
-UNSIGNED_STOPS (would be refused).
+UNSIGNED_STOPS (would be refused). The Agent and Worker URNs are the server's,
+printed as served (empty when it could not derive one; --json shows null).
 
 A plain preview reads ONE server page (20 rows) and prints how to get more.
 --all reads every page; --first and --after choose a page by hand (--all
@@ -390,6 +396,7 @@ func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org str
 			WorkerID: r.WorkerId, WorkerName: r.WorkerName,
 			CompiledNodeID: r.CompiledNodeId, CompiledNodeURN: r.CompiledNodeUrn,
 			ServedRevSeq: r.ServedRevSeq, State: string(r.State), ChangesToRevSeq: r.ChangesToRevSeq,
+			AgentURN: r.AgentUrn, WorkerURN: r.WorkerUrn,
 		})
 	}
 	return previewPage{dto: dto, token: p.PreviewToken}, nil
@@ -479,7 +486,7 @@ func writeSigningPreview(w io.Writer, p signingPreviewDTO) error {
 	if len(p.Rows) == 0 {
 		return nil
 	}
-	t := output.NewTable(w, "APP", "AGENT", "WORKER", "COMPILED NODE", "SERVED", "STATE", "FALLS BACK TO")
+	t := output.NewTable(w, "APP", "AGENT", "WORKER", "COMPILED NODE", "SERVED", "STATE", "FALLS BACK TO", "AGENT URN", "WORKER URN")
 	for _, r := range p.Rows {
 		worker := "(install)"
 		if r.WorkerName != nil {
@@ -496,7 +503,17 @@ func writeSigningPreview(w io.Writer, p signingPreviewDTO) error {
 			falls = "rev " + strconv.Itoa(*r.ChangesToRevSeq)
 		}
 		t.Row(output.SafeCell(r.AppURN), output.SafeCell(r.AgentName), output.SafeCell(worker), output.SafeCell(node),
-			"rev "+strconv.Itoa(r.ServedRevSeq), r.State, falls)
+			"rev "+strconv.Itoa(r.ServedRevSeq), r.State, falls,
+			output.SafeCell(derefOrEmpty(r.AgentURN)), output.SafeCell(derefOrEmpty(r.WorkerURN)))
 	}
 	return t.Flush()
+}
+
+// derefOrEmpty renders an absent server URN as an empty cell: the text view
+// omits what the server did not send rather than printing a placeholder.
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

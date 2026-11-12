@@ -56350,7 +56350,7 @@ const (
 	LintKindRecompileAvailable LintKind = "RECOMPILE_AVAILABLE"
 	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
 	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
-	// The include says signed; signing is not checked yet.
+	// The include says signed; this deployment's signing policy is off, so signing is not checked.
 	LintKindSigningNotChecked LintKind = "SIGNING_NOT_CHECKED"
 	// A worker's signature or trailer does not carry the worker link (hrn:node:hadronmemory.com:specs:cor:agt:040:04 S3). workerField names which.
 	LintKindWorkerLinkMissing LintKind = "WORKER_LINK_MISSING"
@@ -67908,6 +67908,10 @@ type OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigning
 	ServedRevSeq    int                           `json:"servedRevSeq"`
 	State           BootPromptSigningPreviewState `json:"state"`
 	ChangesToRevSeq *int                          `json:"changesToRevSeq"`
+	// Canonical URN of this row's Agent, rooted at its author rather than the serving App; null when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:urn:010:01
+	AgentUrn *string `json:"agentUrn"`
+	// Canonical URN of this row's Worker, using its stored slug; null on an install-level row or when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+	WorkerUrn *string `json:"workerUrn"`
 }
 
 // GetAppId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AppId, and is useful for accessing the field via an interface.
@@ -67963,6 +67967,16 @@ func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSig
 // GetChangesToRevSeq returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.ChangesToRevSeq, and is useful for accessing the field via an interface.
 func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetChangesToRevSeq() *int {
 	return v.ChangesToRevSeq
+}
+
+// GetAgentUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AgentUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAgentUrn() *string {
+	return v.AgentUrn
+}
+
+// GetWorkerUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.WorkerUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetWorkerUrn() *string {
+	return v.WorkerUrn
 }
 
 // OrgBootPromptSigningPreviewResponse is returned by OrgBootPromptSigningPreview on success.
@@ -93879,6 +93893,14 @@ type TestAiServiceConfigResponse struct {
 	// reaches the provider is metered (usage type ai-config-test); NO_API_KEY
 	// and KEY_UNREADABLE make no call and record nothing. The call is bounded
 	// by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+	//
+	// #4005: chatProbe (default false) also runs ONE chat probe: the chat turn's
+	// own respond tool, sent with the chat turn's tool-choice decision
+	// (ChatAiConfigChoice.toolChoice), output capped at 64 tokens, 20s, no
+	// retries. Its outcome is the closed AiServiceConfigTestResult.chat status.
+	// It is a second, separately metered provider attempt (usage type
+	// ai-config-test-chat) under the same one rate-limit unit. Absent or false,
+	// the result and the call are exactly what they were.
 	TestAiServiceConfig *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult `json:"testAiServiceConfig"`
 }
 
@@ -142701,11 +142723,15 @@ query OrgBootPromptSigningPreview ($org: ID!, $first: Int, $after: String) {
 			servedRevSeq
 			state
 			changesToRevSeq
+			agentUrn
+			workerUrn
 		}
 	}
 }
 `
 
+// agentUrn/workerUrn (server >= cac6c05c6, cli#1949) are shared by `preview` and
+// `on`; an older server rejects this document loudly, with no fallback.
 // first/after are omitted (not sent as null) on a plain preview, so the server's
 // default page (20) applies.
 func OrgBootPromptSigningPreview(
