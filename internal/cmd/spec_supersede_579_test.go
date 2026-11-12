@@ -49,6 +49,8 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 		c.calls = append(c.calls, q.OperationName)
 		data := map[string]any{}
 		switch q.OperationName {
+		case "AuthContext":
+			data["authContext"] = nil
 		case "SpecCorpusState", "GetMemory":
 			data["memory"] = map[string]any{"id": "mem1", "urn": "hrn:mem:micromentor.org:platform-specs", "corpusState": "MINTED", "vectorIndexEnabled": true}
 		case "Memories":

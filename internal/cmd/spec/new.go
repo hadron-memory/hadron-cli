@@ -366,6 +366,9 @@ is one call instead of four.`, abstractSoftMax),
 			}
 
 			if dryRun {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				result.Content = body
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					return renderNewResult(w, result)
@@ -458,7 +461,7 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (legacy numbering default: the tier's contract; with a positional <loc>, only when given)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "when creating a root, do not also scaffold its general-provisions contract")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything (exit 8 if you cannot write to the memory, as the real run)")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd
 }
@@ -556,6 +559,9 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 		result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
 	}
 	if in.dryRun {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+			return err
+		}
 		result.Content = body
 		return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 			return renderNewResult(w, result)
@@ -984,6 +990,9 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		})
 	}
 	if dryRun {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+			return err
+		}
 		return render()
 	}
 

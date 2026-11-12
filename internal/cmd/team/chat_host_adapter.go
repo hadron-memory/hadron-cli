@@ -212,7 +212,7 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 			// A later batch left due behind an earlier typed one does not
 			// undo that delivery (its ack-pending qualifier stays).
 			if per[b.WorkerID].state != pushStatePushed && per[b.WorkerID].state != pushStateTyped {
-				per[b.WorkerID].note(pushStateNotPushed, "pending")
+				per[b.WorkerID].note(pushStateNotPushed, "pending", b.Span())
 			}
 			continue
 		}
@@ -227,9 +227,9 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 				// Typed and recorded, but the ack did not land: its own state,
 				// never pushed (which means acknowledged, cor:agt:080:16). The
 				// record reconciles it without retyping (cor:agt:080:12).
-				per[b.WorkerID].note(pushStateTyped, "ack-pending")
+				per[b.WorkerID].note(pushStateTyped, "ack-pending", b.Span())
 			} else {
-				per[b.WorkerID].note(pushStatePushed, "")
+				per[b.WorkerID].note(pushStatePushed, "", b.Span())
 				per[b.WorkerID].acked++
 			}
 			if o.AckPending {
@@ -239,15 +239,15 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 		case delivery.Held:
 			summary.Held++
 			blocked[b.WorkerID] = true
-			per[b.WorkerID].note(pushStateHeld, o.Reason)
+			per[b.WorkerID].note(pushStateHeld, o.Reason, b.Span())
 		case delivery.Failed:
 			summary.Failed++
 			blocked[b.WorkerID] = true
-			per[b.WorkerID].note(pushStateNotPushed, o.Reason)
+			per[b.WorkerID].note(pushStateNotPushed, o.Reason, b.Span())
 		default:
 			summary.Pending++
 			blocked[b.WorkerID] = true
-			per[b.WorkerID].note(pushStateNotPushed, o.Reason)
+			per[b.WorkerID].note(pushStateNotPushed, o.Reason, b.Span())
 		}
 	}
 	return summary, per, nil
@@ -255,9 +255,15 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 
 // pushOutcome folds a worker's batch outcomes: held beats unconfirmed beats
 // typed beats not-pushed beats pushed, because the worse state is the one the sender must act on.
+// state, reason and batch are one triple: batch is the span of the batch whose
+// note decided the displayed state and reason (cli#1900), "" when no batch
+// decided it. A worse state replaces all three. At the same state the first
+// batch stays, except for a reason upgrade (reason empty, the new one not),
+// which replaces state, reason and batch together: the batch shown is then
+// the upgrading batch's, never the first's.
 type pushOutcome struct {
-	state, reason string
-	acked         int
+	state, reason, batch string
+	acked                int
 }
 
 func pushRank(s string) int {
@@ -276,12 +282,12 @@ func pushRank(s string) int {
 	return 0
 }
 
-func (o *pushOutcome) note(state, reason string) {
+func (o *pushOutcome) note(state, reason, batch string) {
 	if o == nil {
 		return
 	}
 	if pushRank(state) > pushRank(o.state) || (state == o.state && o.reason == "" && reason != "") {
-		o.state, o.reason = state, reason
+		o.state, o.reason, o.batch = state, reason, batch
 	}
 }
 
@@ -326,8 +332,11 @@ func mentionTokenOf(name string) string {
 // server token (mentionTokenOf) equals it, as the server's own mention
 // matching does; two names may share one. The token's report folds those
 // workers' outcomes, worst state winning (held, unconfirmed, typed, not-pushed, pushed).
-// A token matching no worker here, or with no batch, is not-pushed: the one
-// state for "nothing came back". On a pass-level error the outcomes already
+// Nothing typed is not-pushed, with the one cause the CLI can establish
+// (cli#1900): not-on-host when the token matches no worker registered here
+// with a configured worktree, no-due-batch when it matches one but the host
+// was offered no batch for it. Why no batch was due is the server's to say,
+// never guessed here. On a pass-level error the outcomes already
 // confirmed are kept and every recipient without one is "unconfirmed"
 // (push-failed): whether it was typed is not established, so it is never
 // reported as not-pushed. The error is returned beside the results.
@@ -348,23 +357,30 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 	})
 	out := []postPushResult{}
 	for _, t := range tokens {
-		res := postPushResult{Recipient: t, State: pushStateNotPushed, Reason: "no-batch"}
+		res := postPushResult{Recipient: t, State: pushStateNotPushed, Reason: pushReasonNoDueBatch, Batch: pushBatchNone}
+		if len(ids[t]) == 0 {
+			res.Reason = pushReasonNotOnHost
+		}
 		if err != nil {
-			res = postPushResult{Recipient: t, State: pushStateUnconfirmed, Reason: "push-failed"}
+			res = postPushResult{Recipient: t, State: pushStateUnconfirmed, Reason: pushReasonPushFailed, Batch: pushBatchNone}
 		}
 		folded := &pushOutcome{}
 		for _, id := range ids[t] {
 			if o := per[id]; o != nil && o.state != "" {
-				folded.note(o.state, o.reason)
+				folded.note(o.state, o.reason, o.batch)
 				folded.acked += o.acked
 			} else if err != nil {
 				// A matched worker with no outcome when the pass failed is
 				// unresolved; another sharer's confirmed push must not mask it.
-				folded.note(pushStateUnconfirmed, "push-failed")
+				folded.note(pushStateUnconfirmed, pushReasonPushFailed, "")
 			}
 		}
 		if folded.state != "" {
-			res = postPushResult{Recipient: t, State: folded.state, Reason: folded.reason, Acked: folded.acked}
+			batch := folded.batch
+			if batch == "" {
+				batch = pushBatchNone
+			}
+			res = postPushResult{Recipient: t, State: folded.state, Reason: folded.reason, Batch: batch, Acked: folded.acked}
 		}
 		out = append(out, res)
 	}

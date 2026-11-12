@@ -74,6 +74,17 @@ func TestMapError(t *testing.T) {
 		// AGENT_SUBSCRIPTION_REQUIRED; exit 8 ruled at the gate, not the default 1.
 		{"BOOT_PROMPT_INSTALL_LICENSE_INACTIVE", gqlErr("BOOT_PROMPT_INSTALL_LICENSE_INACTIVE"), exitcode.Forbidden},
 
+		// cli#1868: the worker grant request refusals (hadron-server createGrant,
+		// requestGrantSignature). No GRANT_* case existed, so all exited 1.
+		{"GRANT_REQUESTER_NOT_WORKER", gqlErr("GRANT_REQUESTER_NOT_WORKER"), exitcode.Forbidden},
+		{"GRANT_HOLDER_NOT_ALLOWED", gqlErr("GRANT_HOLDER_NOT_ALLOWED"), exitcode.Forbidden},
+		{"GRANT_ACTION_UNKNOWN", gqlErr("GRANT_ACTION_UNKNOWN"), exitcode.Usage},
+		{"GRANT_VALUES_INVALID", gqlErr("GRANT_VALUES_INVALID"), exitcode.Usage},
+		{"GRANT_TERMS_INVALID", gqlErr("GRANT_TERMS_INVALID"), exitcode.Usage},
+		{"GRANT_NOT_PENDING", gqlErr("GRANT_NOT_PENDING"), exitcode.Conflict},
+		{"GRANT_EXPIRED", gqlErr("GRANT_EXPIRED"), exitcode.Conflict},
+		{"GRANT_TERMS_UNREPRESENTABLE", gqlErr("GRANT_TERMS_UNREPRESENTABLE"), exitcode.Conflict},
+
 		{"nil", nil, exitcode.OK},
 		// cli#1335: the decision group's refusals (hadron-server #1641).
 		{"DECISION_FORBIDDEN", gqlErr("DECISION_FORBIDDEN"), exitcode.Forbidden},
@@ -164,6 +175,10 @@ func TestMapError(t *testing.T) {
 		{"boot prompt pointer wrong role", gqlErr("BOOT_PROMPT_POINTER_WRONG_ROLE"), exitcode.Usage},
 		{"boot prompt pointer wrong memory", gqlErr("BOOT_PROMPT_POINTER_WRONG_MEMORY"), exitcode.Usage},
 		{"boot prompt pointer session refused", gqlErr("BOOT_PROMPT_POINTER_SESSION_REFUSED"), exitcode.Forbidden},
+		// cli#1466 pin 1: the approval gate's two refusals are a credential not
+		// permitted for this write, like the pointer's, so 8 (was 1 by default).
+		{"boot prompt approval forbidden", gqlErr("BOOT_PROMPT_APPROVAL_FORBIDDEN"), exitcode.Forbidden},
+		{"boot prompt worker session refused", gqlErr("BOOT_PROMPT_WORKER_SESSION_REFUSED"), exitcode.Forbidden},
 		// Include write refusals (cli#916 C5a, hadron-server#2226 / #2165).
 		{"include target unavailable", gqlErr("INCLUDE_TARGET_UNAVAILABLE"), exitcode.NotFound},
 		{"include cycle", gqlErr("INCLUDE_CYCLE"), exitcode.Usage},
@@ -271,6 +286,8 @@ func TestMapError(t *testing.T) {
 		{"attention token stale", gqlErr("ATTENTION_TOKEN_STALE"), exitcode.Conflict},
 		{"attention page stale", gqlErr("TEAM_ATTENTION_STALE_PAGE"), exitcode.Conflict},
 		{"switchover proof stale", gqlErr("SWITCHOVER_PROOF_STALE"), exitcode.Conflict},
+		{"signing preview stale", gqlErr("BOOT_PROMPT_SIGNING_PREVIEW_STALE"), exitcode.Conflict},
+		{"signing not configured stays an operator state", gqlErr("BOOT_PROMPT_SIGNING_NOT_CONFIGURED"), exitcode.Error},
 		// These two ride the existing _REQUIRED / _TOO_LARGE suffix rules.
 		{"attention scope too large", gqlErr("TEAM_ATTENTION_SCOPE_TOO_LARGE"), exitcode.Usage},
 		// NOT Forbidden, and each for its own reason, so a later reader does
@@ -358,6 +375,8 @@ func TestMapError(t *testing.T) {
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
 		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
+		{"app deleted", gqlErr("APP_DELETED"), exitcode.Conflict},
+		{"app urn in use", gqlErr("APP_URN_IN_USE"), exitcode.Conflict},
 		{"properties not an object", gqlErr("PROPERTIES_NOT_AN_OBJECT"), exitcode.Usage},
 		{"properties too large", gqlErr("PROPERTIES_TOO_LARGE"), exitcode.Usage},
 		{"properties schema violation", gqlErr("PROPERTIES_SCHEMA_VIOLATION"), exitcode.Usage},
@@ -1096,6 +1115,41 @@ func TestIsGraphQLValidationOnlyFor(t *testing.T) {
 	}
 }
 
+func TestIsFrameworkValidationOnlyFor(t *testing.T) {
+	coded := func(f string) *gqlerror.Error {
+		return &gqlerror.Error{Message: `Cannot query field "` + f + `" on type "Row".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}
+	}
+	// genqlient's shape for a non-JSON non-200 body: one code-less error whose
+	// message is the raw text.
+	rawText := &gqlerror.Error{Message: `Cannot query field "a" on type "Row".`}
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+		want bool
+	}{
+		{"coded, one field", gqlerror.List{coded("a")}, true},
+		{"coded, both fields", gqlerror.List{coded("a"), coded("b")}, true},
+		{"raw text body naming the field", gqlerror.List{rawText}, false},
+		{"coded plus raw text", gqlerror.List{coded("a"), rawText}, false},
+		{"coded plus another field", gqlerror.List{coded("a"), coded("c")}, false},
+		{"no errors", gqlerror.List{}, false},
+		// cli#1957 LOCAL P2: the rejected field is "c"; "a" only appears in the
+		// validator's suggestion, so the server has "a" and this is not our refusal.
+		{"target only in a did-you-mean suggestion", gqlerror.List{{Message: `Cannot query field "c" on type "Row". Did you mean "a"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"target only as the type name", gqlerror.List{{Message: `Cannot query field "c" on type "a".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"rejected field with a suggestion", gqlerror.List{{Message: `Cannot query field "a" on type "Row". Did you mean "b"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, true},
+		// An explicitly different code on a matching message is not the framework's.
+		{"other code on a matching message", gqlerror.List{{Message: `Cannot query field "a" on type "Row".`, Extensions: map[string]any{"code": "BAD_USER_INPUT"}}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
+			if got := IsFrameworkValidationOnlyFor(err, "a", "b"); got != tc.want {
+				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBulkTemplateRefusalRoot1701(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -1112,5 +1166,40 @@ func TestBulkTemplateRefusalRoot1701(t *testing.T) {
 				t.Fatalf("got%v want%v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestOnlyErrorCodes(t *testing.T) {
+	list := func(codes ...string) error {
+		var l gqlerror.List
+		for _, c := range codes {
+			l = append(l, &gqlerror.Error{Message: c, Extensions: map[string]any{"code": c}})
+		}
+		return l
+	}
+	known := []string{"NODE_NOT_FOUND", "FORBIDDEN"}
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"one known", list("FORBIDDEN"), true},
+		{"all known", list("FORBIDDEN", "NODE_NOT_FOUND"), true},
+		{"mixed", list("FORBIDDEN", "INTERNAL_SERVER_ERROR"), false},
+		{"unknown only", list("INTERNAL_SERVER_ERROR"), false},
+		{"no code", gqlerror.List{{Message: "x"}}, false},
+		{"not graphql", errors.New("boom"), false},
+		{"nil", nil, false},
+		// cli#1907: a 5xx envelope is not proof of a refusal (a gateway can
+		// answer 502 with an errors body after the server acted), so a known
+		// code inside one is still false. A 4xx envelope reads as a refusal.
+		{"502 envelope carrying a known code", &graphql.HTTPError{StatusCode: 502, Response: graphql.Response{Errors: list("FORBIDDEN").(gqlerror.List)}}, false},
+		{"500 envelope carrying only known codes", &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: list("FORBIDDEN", "NODE_NOT_FOUND").(gqlerror.List)}}, false},
+		{"403 envelope carrying a known code", &graphql.HTTPError{StatusCode: 403, Response: graphql.Response{Errors: list("FORBIDDEN").(gqlerror.List)}}, true},
+	}
+	for _, tc := range cases {
+		if got := OnlyErrorCodes(tc.err, known...); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }

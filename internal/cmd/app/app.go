@@ -26,6 +26,8 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdInstall(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdUninstall(f))
+	cmd.AddCommand(newCmdReinstall(f))
+	cmd.AddCommand(newCmdDelete(f))
 	cmd.AddCommand(newCmdKey(f))
 	cmd.AddCommand(newCmdMember(f))
 	cmd.AddCommand(newCmdJoin(f))
@@ -35,6 +37,7 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdWhoami(f))
 	cmd.AddCommand(newCmdAssetUpload(f))
 	cmd.AddCommand(newCmdModelGroup(f))
+	cmd.AddCommand(newCmdChatbotAiConfig(f))
 	cmd.AddCommand(newCmdProperties(f))
 	cmd.AddCommand(newCmdAction(f))
 	return cmd

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -514,6 +516,30 @@ func HasErrorCode(err error, code string) bool {
 	return false
 }
 
+// OnlyErrorCodes reports whether err carries at least one GraphQL error and
+// EVERY one has an extensions.code in codes. A list that mixes a known
+// refusal with any other failure is false: callers that downgrade a refusal
+// to a soft result must not swallow an internal error riding beside it.
+func OnlyErrorCodes(err error, codes ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 || FromNon200Envelope(err) {
+		return false
+	}
+	for _, e := range list {
+		known := false
+		for _, c := range codes {
+			if extensionCode(e) == c {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return false
+		}
+	}
+	return true
+}
+
 // FromNon200Envelope reports whether err is a GraphQL error envelope that
 // arrived inside a non-200 HTTP response of status 5xx. graphQLErrors reads
 // that envelope exactly as it reads a 200 one, but a 5xx is not proof the
@@ -637,6 +663,37 @@ func IsGraphQLValidationOnlyFor(err error, names ...string) bool {
 	}
 	return true
 }
+
+// IsFrameworkValidationOnlyFor reports whether every error in err's envelope is
+// the framework's own rejection of a selected field, and the rejected field is
+// one of names: extensions.code GRAPHQL_VALIDATION_FAILED and a message of the
+// form `Cannot query field "<name>" on type "…"`. The name is read from the
+// rejected-field position only, never from anywhere in the text: the validator's
+// own suggestion (`Did you mean "agentUrn"?`) or type name would otherwise
+// misread an unrelated rejection as this one (cli#1957 LOCAL P2). It also
+// requires the code, because genqlient turns a non-JSON non-200 body into one
+// code-less error whose message is the raw text (cli#1955). Use it where the
+// sentence printed claims the server itself rejected that field.
+func IsFrameworkValidationOnlyFor(err error, names ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || extensionCode(e) != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+		m := rejectedFieldRE.FindStringSubmatch(e.Message)
+		if m == nil || !slices.Contains(names, m[1]) {
+			return false
+		}
+	}
+	return true
+}
+
+// rejectedFieldRE reads the field a validation error rejects: the first quoted
+// token of `Cannot query field "<field>" on type "<type>"`.
+var rejectedFieldRE = regexp.MustCompile(`^Cannot query field "([^"]+)" on type "`)
 
 // isValidationErrorFor is one error's half of IsGraphQLValidationFor.
 func isValidationErrorFor(e *gqlerror.Error, name string) bool {
@@ -793,6 +850,75 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 		return d, true
 	}
 	return HeldDetail{}, false
+}
+
+// ResumeMismatch is the payload of a RESUME_REFUSED with reason
+// WORKER_MISMATCH (hadron-server#3822, cli#1839): the caller named the worker
+// it expected to recover, and nothing of that worker's waits while a claim or
+// live session of another worker of the caller's does. Every field is
+// best-effort: the expected worker's name is null unless the caller may read it.
+type ResumeMismatch struct {
+	Picked             bool
+	ExpectedWorkerID   string
+	ExpectedWorkerName string
+	FoundWorkerID      string
+	FoundWorkerName    string
+	// FoundSource is CLAIM or LIVE_SESSION.
+	FoundSource string
+}
+
+// ResumeWorkerMismatch extracts the WORKER_MISMATCH payload from err's
+// extensions; ok is false for any other error, including the other
+// RESUME_REFUSED reasons. Call it BEFORE MapError wraps the error.
+func ResumeWorkerMismatch(err error) (ResumeMismatch, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "RESUME_REFUSED" {
+			continue
+		}
+		if reason, _ := e.Extensions["reason"].(string); reason != "WORKER_MISMATCH" {
+			continue
+		}
+		d := ResumeMismatch{}
+		d.Picked, _ = e.Extensions["picked"].(bool)
+		d.ExpectedWorkerID, _ = e.Extensions["expectedWorkerId"].(string)
+		d.ExpectedWorkerName, _ = e.Extensions["expectedWorkerName"].(string)
+		d.FoundWorkerID, _ = e.Extensions["foundWorkerId"].(string)
+		d.FoundWorkerName, _ = e.Extensions["foundWorkerName"].(string)
+		d.FoundSource, _ = e.Extensions["foundSource"].(string)
+		return d, true
+	}
+	return ResumeMismatch{}, false
+}
+
+// ResumeMismatchDetails is the --json envelope's `extensions` for a
+// WORKER_MISMATCH refusal: the code, the reason and exactly the fields the
+// server sent, never invented ones. Nil for any other error.
+func ResumeMismatchDetails(err error) map[string]any {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "RESUME_REFUSED" {
+			continue
+		}
+		if reason, _ := e.Extensions["reason"].(string); reason != "WORKER_MISMATCH" {
+			continue
+		}
+		details := map[string]any{"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH"}
+		for _, key := range []string{"picked", "expectedWorkerId", "expectedWorkerName", "foundWorkerId", "foundWorkerName", "foundSource"} {
+			v, present := e.Extensions[key]
+			switch v.(type) {
+			case string, bool:
+				details[key] = v
+			case nil:
+				// Sent as null (expectedWorkerName is null unless the caller
+				// may read that worker): kept, so the envelope shows what the
+				// server sent rather than only its non-null part.
+				if present {
+					details[key] = nil
+				}
+			}
+		}
+		return details
+	}
+	return nil
 }
 
 // EndRefusedBeforeCommit reports whether an endSession failure PROVABLY changed
@@ -1015,6 +1141,11 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "EDGE_LOC_CONFLICT":
 		return exitcode.Conflict
+	// Served boot-prompt read (cli#1853 R5, hadron-server#3846): the four serve
+	// refusals are configuration state and keep exit 1 (cli#1776); serverCode is
+	// the branchable signal. AGENT_NOT_FOUND rides the suffix rule (4).
+	case code == "BOOT_PROMPT_NOT_SET" || code == "BOOT_PROMPT_TARGET_DELETED" || code == "BOOT_PROMPT_NOT_APPROVED" || code == "BOOT_PROMPT_NOT_SIGNED":
+		return exitcode.Error
 	// Boot compile: explicit classifications precede generic suffix handling
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
 	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
@@ -1103,6 +1234,13 @@ func codeForExtension(code string) int {
 		code == "BOOT_PROMPT_POINTER_WRONG_MEMORY":
 		return exitcode.Usage
 	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
+		return exitcode.Forbidden
+	// The approval gate's two refusals (cli#1466; hadron-server
+	// bootPromptApproval.ts): approving through a worker session, or as a
+	// principal that does not manage the App. Whoever manages the App approves,
+	// as themselves (cor:dmo:120:02, cor:agt:040:18): a credential not
+	// permitted for this write, like the pointer's, so 8.
+	case code == "BOOT_PROMPT_APPROVAL_FORBIDDEN" || code == "BOOT_PROMPT_WORKER_SESSION_REFUSED":
 		return exitcode.Forbidden
 	// An include tag the write adds or changes whose target is missing,
 	// deleted or unreadable by the writer (hadron-server#2226, cor:dmo:150:04).
@@ -1309,7 +1447,9 @@ func codeForExtension(code string) int {
 	// someone else's alike: there is nothing of yours to bind, which is
 	// NotFound, the code `session log` gives "no active session". A refused
 	// resume (the lifecycle gate: hold, dormancy, another live session) is the
-	// state's answer, and the claim is spent. RESUME_AMBIGUOUS needs no case:
+	// state's answer, and the claim is spent, EXCEPT reason WORKER_MISMATCH
+	// (#3822): that refusal comes before any write, so no claim is consumed and
+	// no session is touched. RESUME_AMBIGUOUS needs no case:
 	// the _AMBIGUOUS rule below already makes it Usage (name the worker).
 	case code == "NOTHING_TO_RESUME":
 		return exitcode.NotFound
@@ -1446,6 +1586,11 @@ func codeForExtension(code string) int {
 	// caller's argument — Conflict, like WORKER_RETIRED above.
 	case code == "APP_UNINSTALLED":
 		return exitcode.Conflict
+	// The App lifecycle refusals (cli#1917, hadron-server#3774): the App is
+	// deleted (no undelete), or another installed App holds the handle a
+	// reinstall needs. The App's state, not the argument.
+	case code == "APP_DELETED" || code == "APP_URN_IN_USE":
+		return exitcode.Conflict
 	// An operation that requires a bound worker session, called without one.
 	// The caller is AUTHENTICATED (a plain FORBIDDEN or 3 would misname it);
 	// the fix is their own next command — `team session start --as <worker>` —
@@ -1522,6 +1667,22 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "SIGNING_REQUEST_NOT_REQUESTER":
 		return exitcode.Forbidden
+	// A worker's grant request (hadron-server createGrant and
+	// requestGrantSignature, cor:acl:140:05/:07; cli#1868, ruled R7). The
+	// GRANT_NOT_FOUND / SIGNING_REQUEST_NOT_FOUND codes exit 4 through the
+	// suffix rule.
+	//   - GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED: this session
+	//     may not make this write, like BOOT_PROMPT_WORKER_SESSION_REFUSED: 8.
+	//   - GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID, GRANT_TERMS_INVALID: the
+	//     caller's own input, which it fixes: 2.
+	//   - GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE: the
+	//     grant's (or its stored terms') state, which no retry changes: 5.
+	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED":
+		return exitcode.Forbidden
+	case code == "GRANT_ACTION_UNKNOWN" || code == "GRANT_VALUES_INVALID" || code == "GRANT_TERMS_INVALID":
+		return exitcode.Usage
+	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
+		return exitcode.Conflict
 	// These are invalid inputs. The CLI validates or constructs them before
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
@@ -1591,6 +1752,14 @@ func codeForExtension(code string) int {
 	// State moved under a valid token or proof: poll again without --since,
 	// or preview the switchover again.
 	case code == "ATTENTION_TOKEN_STALE" || code == "TEAM_ATTENTION_STALE_PAGE" || code == "SWITCHOVER_PROOF_STALE":
+		return exitcode.Conflict
+	// hadron-cli#1879: the signing switch-on token was missing, forged, expired
+	// or for a preview that has since changed. A blind retry cannot help; the
+	// caller previews again. Not Usage: the CLI chose the token, not the caller.
+	// BOOT_PROMPT_SIGNING_NOT_CONFIGURED is deliberately NOT mapped (R11, exit 1):
+	// it fires only when the server has no JWT_SECRET for the token signer, an
+	// operator state the caller cannot fix (production refuses to boot that way).
+	case code == "BOOT_PROMPT_SIGNING_PREVIEW_STALE":
 		return exitcode.Conflict
 	default:
 		return exitcode.Error

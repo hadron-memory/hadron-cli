@@ -867,7 +867,14 @@ RESUMED. Either way the worktree binding is written and the briefing
 printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
-behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
+behalf. A worktree with a binding file sends that worker as the expected
+worker (needs hadron-server#3822; an older server refuses the resume, exit 2,
+consuming nothing: use start --as <worker>): if nothing of that worker's waits but
+another worker's claim or live session does, the resume is refused (exit 5,
+RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
+is untouched, no binding is written; run start in that worker's own worktree,
+or start --as <worker>. Any other refused resume (exit 5, RESUME_REFUSED) has
+spent its claim.
 --tool, --host, --model, --transcript, --description and --family ride along.
 --repo, --branch, --reports-to, -m, --force, --agent, --customer, --language,
 --parent-session, --previous-session, --plan, --pr-number and --type do not
@@ -1101,7 +1108,32 @@ ends the recovered session: run start again to pick it up.`,
 						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
 						w.Name, drivenBy(narr, live, describe))
 				}
+				// Under --force a LIVE worker is classified too (#1859): the takeover
+				// line below is a claim that --force is about to take the name from
+				// its driver, and when the name is HELD by somebody else that claim
+				// is false — a HELD name is not forceable (cor:agt:020:09), and the
+				// server refuses WORKER_HELD before it weighs liveness. Gated on
+				// live == liveYes, NOT on --force alone: --force also means "replace
+				// a local binding", and a name that is not live never reaches the
+				// takeover line, so it must not pay the two extra reads (holder +
+				// identity). The server stays the gate; this only keeps the CLI from
+				// narrating a takeover it cannot make.
+				forceHeldBy := ""
+				if live == liveYes && force {
+					switch holder, verdict := classifyHold(ctx, client, w); verdict {
+					case holdByOther:
+						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+					case holdUnknownWhose:
+						// Could not tell whether the hold is the caller's: refusing
+						// would block a legitimate self-takeover whenever the
+						// identity read blips, so say what is known and let the
+						// server decide (plan ruling R2).
+						forceHeldBy = holder
+					}
+				}
 				switch {
+				case live == liveYes && forceHeldBy != "":
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is live — being driven by %s — and the name is held by %s; this CLI could not read your own identity to tell whether that is you, so the server decides: it takes over if the hold is yours and refuses if it is not (a held name is not forceable, cor:agt:020:09)\n", w.Name, drivenBy(narr, live, describe), forceHeldBy)
 				case live == liveYes:
 					// Reached only under --force: the gate above refuses otherwise.
 					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live, describe))
@@ -1982,7 +2014,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 				result.AutoExpiredAt = live.autoExpiredAt
 			}
 			loadReporting(cmd.Context(), f, b, &result)
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
 					// still good (and `session end` is the recovery), but the
@@ -2005,10 +2037,21 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// The ended answer is printed (text or --json, end time included)
+			// and then exits SessionEnded, so a script or boot prompt can branch
+			// without parsing it (#1835). Only the server's `active == false`
+			// counts: an open session — quiet or dormant — and an unanswered
+			// check never reach here as "ended".
+			if result.Checked && result.Active != nil && !*result.Active {
+				return exitcode.Silent(exitcode.SessionEnded)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open; exits 14 if it has ended")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
@@ -2083,7 +2126,8 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 		// trains people to ignore the one that is right, which is the whole
 		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: this worktree has no contiguous team-chat read cursor — `hadron team chat read --since 0` starts at the oldest page (repeat with nextSince); `hadron team chat read` shows the newest page "+
+			"note: session log includes this reminder because team chat carries decisions; this worktree has no contiguous team-chat read cursor; unfiltered `hadron team chat read --all` reads from the oldest page, or `hadron team chat read --since 0` starts at the oldest page (continue with nextSince); "+
+				"bare `hadron team chat read` shows only the newest page; filtered reads and `hadron team chat mark-read` do not set this cursor "+
 				"(a read made in the portal or under another binding is not visible here)\n")
 		return
 	}
@@ -3032,6 +3076,14 @@ from a later milestone's REPORTED MODEL.`,
 			}
 			if ref != "" {
 				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
+			}
+			// cli#1653: sessionsPage has no App argument, so an explicit --app
+			// cannot narrow this listing. Say so on stderr rather than let a
+			// table of other Apps' sessions read as that App's. stdout and
+			// --json are untouched; an ambient App (config, binding) is not an
+			// explicit flag and prints nothing.
+			if f.AppFlag != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — does not filter this listing by App (it only scopes --as worker-name lookup); without --as/--repo it lists every session you can see; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
 			}
 			var asWorkerRef *string
 			if as != "" {

@@ -31,6 +31,24 @@ mutation TestAiServiceConfig(
   }
 }
 
+# The opt-in chat probe (hadron-server#4005, cli#1951) is its OWN document, so
+# the default test above keeps today's request and selection exactly, and an
+# older server only fails (GRAPHQL_VALIDATION_FAILED) when the probe is asked for.
+mutation TestAiServiceConfigWithChatProbe(
+  $id: ID!
+  $chatProbe: Boolean!
+  # @genqlient(omitempty: true)
+  $override: AiServiceConfigTestOverride
+) {
+  testAiServiceConfig(id: $id, override: $override, chatProbe: $chatProbe) {
+    ok provider model endpoint apiStyle latencyMs reply
+    error { code message transient }
+    used { provider model endpoint apiStyle key params }
+    knobs { param state detail }
+    chat { status }
+  }
+}
+
 mutation CreateAiServiceConfigWithApiStyle(
   $name: String!
   $provider: String!

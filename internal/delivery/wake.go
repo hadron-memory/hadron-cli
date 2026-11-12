@@ -387,6 +387,10 @@ func (d *Deliverer) ackable(w Wake, recs map[string]WakeRecord) bool {
 
 func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, stillOwner func() bool) Outcome {
 	if w.WorkerID != r.WorkerID {
+		// Deliberately not flagged (flagDroppedHalts), unlike malformed-wake
+		// and records-unreadable below: Poller.recipient resolves the
+		// recipient from the wake's own worker id (internal/hostpoller/
+		// delivery.go), so in production wiring this branch is unreachable.
 		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "foreign-worker"})
 	}
 	if err := CheckWake(w); err != nil {

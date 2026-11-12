@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -290,5 +291,240 @@ func TestAuthoredWriteCorruptBindingIsUnattributedWithOneDiagnostic(t *testing.T
 		if c.Session != "" {
 			t.Fatal("corrupt binding attributed")
 		}
+	}
+}
+
+// noWorktreeCwd puts the process in a directory that is not a git worktree and
+// clears the git-dir override, so the binding read fails with errNoWorktree
+// (cli#1855).
+func noWorktreeCwd(t *testing.T) {
+	t.Helper()
+	t.Setenv(team.GitDirEnv, "")
+	t.Setenv("GIT_DIR", "")
+	dir := t.TempDir()
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+	t.Chdir(dir)
+}
+
+// wantOneNoWorktreeNote asserts the gate's note (cli#1855): exactly one line
+// starting "note: no worktree session bound", carrying the pinned substrings
+// ("sent as you", the errNoWorktree cause), no failure wording on that line, and
+// never the generic note of the other failure paths anywhere on stderr.
+func wantOneNoWorktreeNote(t *testing.T, stderr string) {
+	t.Helper()
+	var note string
+	n := 0
+	for _, line := range strings.Split(stderr, "\n") {
+		if strings.Contains(line, "no worktree session bound") {
+			n++
+			note = line
+		}
+	}
+	if n != 1 {
+		t.Fatalf("want exactly one note line, got %d: %q", n, stderr)
+	}
+	for _, want := range []string{"sent as you", "not inside a git worktree"} {
+		if !strings.Contains(note, want) {
+			t.Fatalf("note lacks %q: %q", want, note)
+		}
+	}
+	for _, bad := range []string{"failed", "refused"} {
+		if strings.Contains(note, bad) {
+			t.Fatalf("note must not say %q: %q", bad, note)
+		}
+	}
+	if strings.Contains(stderr, "worker attribution unavailable") {
+		t.Fatalf("the generic note appeared beside the no-worktree note: %q", stderr)
+	}
+}
+
+func twoAuthoredCreates(t *testing.T, f interface {
+	GraphQLClient() (graphql.Client, error)
+}) {
+	t.Helper()
+	client, err := f.GraphQLClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryId: "m1", Loc: "x", Name: "X"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// cli#1855: an authored write from a cwd with no worktree at all goes out as
+// the signed-in person; say so once on stderr, never refuse, never attribute.
+func TestAuthoredWriteNoWorktreePrintsOneNoteAndStillWrites(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`})
+	f, _ := testFactory(t)
+	var diagnostic strings.Builder
+	f.IOStreams.ErrOut = &diagnostic
+	_ = NewRootCmd(f)
+	f.ServerFlag = srv.URL
+	twoAuthoredCreates(t, f)
+	if len(*calls) != 2 {
+		t.Fatalf("write was blocked or repeated: %+v", *calls)
+	}
+	for _, c := range *calls {
+		if c.Session != "" {
+			t.Fatalf("no-worktree write attributed: %+v", c)
+		}
+	}
+	wantOneNoWorktreeNote(t, diagnostic.String())
+}
+
+// The bound-worktree path stays silent and attributed.
+func TestAuthoredWriteBoundWorktreePrintsNoNote(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`, "TeamAppIdentity": teamAppIdentityJSON})
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	var diagnostic strings.Builder
+	f.IOStreams.ErrOut = &diagnostic
+	_ = NewRootCmd(f)
+	f.ServerFlag = srv.URL
+	twoAuthoredCreates(t, f)
+	if diagnostic.Len() != 0 {
+		t.Fatalf("bound worktree printed a note: %q", diagnostic.String())
+	}
+	for _, c := range *calls {
+		if c.Op == "CreateNode" && c.Session != "s-new" {
+			t.Fatalf("bound write lost its session: %+v", c)
+		}
+	}
+}
+
+// cli#1855 acceptance, end to end: `team task finish` from a cwd with no
+// worktree prints the note once on stderr (stdout untouched), still sends the
+// finish with no session, and the server's answer is what the caller gets.
+func TestTeamTaskFinishNoWorktreePrintsNoteAndSendsHeaderless(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, taskResponses())
+	f, out := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "finish", "task1", "--outcome", "succeeded", "--summary", "s", "--evidence", "https://ci.acme.com/1"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	sent := false
+	for _, c := range *calls {
+		if c.Op == "AgentTaskFinish" {
+			sent = true
+			if c.Session != "" {
+				t.Fatalf("attributed: %q", c.Session)
+			}
+		}
+	}
+	if !sent {
+		t.Fatal("finish was not sent: the note must never refuse")
+	}
+	wantOneNoWorktreeNote(t, stderr.String())
+	if strings.Contains(out.String(), "attribution") {
+		t.Fatalf("note leaked to stdout: %q", out.String())
+	}
+}
+
+// The FIT boundary (cor:agt:020:03): a chat post from a cwd with no worktree
+// keeps its typed refusal, sends nothing, and the new note does not replace it.
+func TestTeamChatPostNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
+	noWorktreeCwd(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatHumanMsgJSON + `}}`,
+		"TeamAppIdentity":       teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "hi", "--server", gql.URL, "--app", "acme.com:eng-team"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--as-me") {
+		t.Fatalf("post must keep its refusal naming --as-me: %v", err)
+	}
+	if _, posted := captured["CreateTeamChatMessage"]; posted {
+		t.Fatal("an unbound post reached the server")
+	}
+	if strings.Contains(stderr.String(), "worker attribution unavailable") || strings.Contains(stderr.String(), "no worktree session bound") {
+		t.Fatalf("the note replaced/accompanied the refusal: %q", stderr.String())
+	}
+}
+
+// cli#1855 mutant (e): the note on an authored NODE create through the real
+// command from a no-worktree cwd (scope A covers the whole AuthoredWriteContext
+// surface, not only task writes). stdout/--json stay clean.
+func TestNodeCreateNoWorktreePrintsNoteOnStderrOnly(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`})
+	f, out := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "create", "-m", "acme.com:kb", "--loc", "test:authored", "--name", "Authored", "--server", srv.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	wantOneNoWorktreeNote(t, stderr.String())
+	if strings.Contains(out.String(), "attribution") {
+		t.Fatalf("note on stdout: %q", out.String())
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &obj); err != nil {
+		t.Fatalf("--json stdout not clean JSON: %v %q", err, out.String())
+	}
+	for _, c := range *calls {
+		if c.Op == "CreateNode" && c.Session != "" {
+			t.Fatalf("attributed: %+v", c)
+		}
+	}
+}
+
+// Mutant (c): --as-person from a no-worktree cwd prints no note and writes
+// with no session.
+func TestAsPersonNoWorktreePrintsNoNote(t *testing.T) {
+	noWorktreeCwd(t)
+	srv, calls := attnServer(t, hostResponses())
+	f, _ := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "host", "issue", "worktree.remove", "--host", "orca1", "--worker", "Jonas", "--arg", "worktree=jonas-3", "--as-person", "--app", "acme.com:team"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stderr.String(), "worker attribution unavailable") || strings.Contains(stderr.String(), "no worktree session bound") {
+		t.Fatalf("--as-person printed the note: %q", stderr.String())
+	}
+	if c := findCall(t, calls, "IssueHostOperation"); c.Session != "" {
+		t.Fatalf("session %q", c.Session)
+	}
+}
+
+// Mutant (d), second half: a session-log write from a no-worktree cwd keeps
+// its typed refusal, sends nothing and never prints the note.
+func TestSessionLogNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
+	noWorktreeCwd(t)
+	called := map[string]bool{}
+	var mu sync.Mutex
+	srv := statusServer1495(t, map[string]resp1495{"RecordTeamWork": {200, `{"data":{}}`}}, func(op string) {
+		mu.Lock()
+		called[op] = true
+		mu.Unlock()
+	})
+	f, _, eo := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "a team session binds to one") {
+		t.Fatalf("want the no-binding refusal, got %v", err)
+	}
+	if called["RecordTeamWork"] || called["UpdateTeamSession"] {
+		t.Fatalf("a write was sent: %v", called)
+	}
+	if strings.Contains(eo.String(), "worker attribution unavailable") || strings.Contains(eo.String(), "no worktree session bound") {
+		t.Fatalf("note accompanied the refusal: %q", eo.String())
 	}
 }

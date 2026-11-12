@@ -20,13 +20,13 @@ func teamEventsWithActorRun() map[string]string {
 	holger := `{"id":"u1","kind":"USER","name":"holger","urn":null}`
 	rufus := `{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"}`
 	r := taskResponses()
-	r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + strings.Join([]string{
+	r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + strings.Join([]string{
 		ev("evtRun", "task.created", "null", `"run_42"`, `{}`),
 		ev("evtUser", "task.created", holger, "null", `{}`),
 		ev("evtWorker", "task.started", rufus, "null", `{}`),
 		ev("evtLapse", "availability.changed", "null", "null", `{"setBy":"lapse"}`),
 		ev("evtNone", "task.created", "null", "null", `{}`),
-	}, ",") + `]}}`
+	}, ",") + `],"hasMore":false,"nextCursor":null}}}`
 	return r
 }
 
@@ -37,7 +37,7 @@ func TestTeamEventsNamesTheActingRun(t *testing.T) {
 	}
 	selected := false
 	for _, c := range *calls {
-		if c.Op == "AgentTeamEvents" && strings.Contains(c.Query, "actorRunId") {
+		if c.Op == "AgentTeamEventsPage" && strings.Contains(c.Query, "actorRunId") {
 			selected = true
 		}
 	}
@@ -72,10 +72,13 @@ func TestTeamEventsJSONCarriesNullableActorRunID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var events []map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(out), &events); err != nil {
+	var page struct {
+		Events []map[string]json.RawMessage `json:"events"`
+	}
+	if err := json.Unmarshal([]byte(out), &page); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
+	events := page.Events
 	want := map[string]string{"evtRun": `"run_42"`, "evtUser": "null", "evtWorker": "null", "evtLapse": "null", "evtNone": "null"}
 	if len(events) != len(want) {
 		t.Fatalf("got %d events, want %d:\n%s", len(events), len(want), out)

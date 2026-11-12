@@ -189,18 +189,203 @@ func TestWorkerReleaseForcedRefusesWithoutYes(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "release", "Iris",
 		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err == nil {
+	err := root.Execute()
+	if err == nil {
 		t.Fatal("force-releasing someone else's name must not proceed unprompted")
 	}
 	if _, called := captured["ReleaseWorker"]; called {
 		t.Error("the mutation must not run when the confirmation was refused")
 	}
-	// Confirm refuses outright without a TTY, so resolving the holder's NAME
-	// here is a round trip — and an audit event — spent on a string nobody can
-	// read (PR #504 review, suppressed).
-	if _, called := captured["GetUser"]; called {
-		t.Error("no prompt can be shown, so do not pay to decorate one")
+	// #1859 (plan ruling R3): the refusal now NAMES the holder and who can lift
+	// the hold, which costs the GetUser read #504 declined to spend here. The
+	// exit code and the leading phrase are unchanged.
+	if _, called := captured["GetUser"]; !called {
+		t.Error("the refusal must resolve the holder, so it can name them")
 	}
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Errorf("exit = %d, want %d (Usage, unchanged)", code, exitcode.Usage)
+	}
+	for _, want := range []string{"refusing to proceed without --yes in non-interactive mode", "Dara (@dara)", "only the holder, or an App or org admin, can release it"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal lacks %q: %v", want, err)
+		}
+	}
+}
+
+const releaseForbidden1859 = `{"errors":[{"message":"You are not authorized to manage workers in this App.","extensions":{"code":"FORBIDDEN"}}]}`
+
+var daraUser1859 = map[string]string{
+	"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+		"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+		"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+}
+
+func runRelease1859(t *testing.T, stubs map[string]string, args ...string) error {
+	t.Helper()
+	gql, _ := captureGraphQL(t, stubs)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"team", "worker", "release", "Iris", "--app", "acme.com:eng-team", "--server", gql.URL}, args...))
+	return root.Execute()
+}
+
+// #1859: with --yes a non-admin meets the server's authorization refusal. It is
+// shown (exit 8, server sentence kept) with the holder and the remedy before it.
+func TestWorkerReleaseForbiddenNamesTheHolderAndWhoCanRelease(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": releaseForbidden1859})
+	for k, v := range daraUser1859 {
+		stubs[k] = v
+	}
+	err := runRelease1859(t, stubs, "--yes")
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Fatalf("exit = %d, want %d (Forbidden, unchanged): %v", code, exitcode.Forbidden, err)
+	}
+	for _, want := range []string{"Dara (@dara)", "only the holder, or an App or org admin, can release it", "You are not authorized to manage workers in this App."} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal lacks %q: %v", want, err)
+		}
+	}
+}
+
+// A self-release the server refuses is NOT decorated: it is not a force-release.
+func TestWorkerReleaseSelfForbiddenIsNotDecorated(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-holger"), map[string]string{"ReleaseWorker": releaseForbidden1859})
+	err := runRelease1859(t, stubs, "--yes")
+	if err == nil || strings.Contains(err.Error(), "only the holder") || strings.Contains(err.Error(), "is held by") {
+		t.Fatalf("a self-release refusal must keep the server's text alone: %v", err)
+	}
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Errorf("exit = %d, want %d", code, exitcode.Forbidden)
+	}
+}
+
+// The retry path (ruling R4): a caller who cannot see the hold meets FORBIDDEN
+// only on the retry against the holder the server named.
+func TestWorkerReleaseRetryForbiddenNamesTheHolder(t *testing.T) {
+	gilUser := map[string]string{
+		"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+	}
+	srv, _ := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil"), releaseForbidden1859}, gilUser)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Fatalf("exit = %d, want %d: %v", code, exitcode.Forbidden, err)
+	}
+	for _, want := range []string{"Gil (@gil)", "only the holder, or an App or org admin, can release it", "You are not authorized to manage workers in this App."} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("retry refusal lacks %q: %v", want, err)
+		}
+	}
+}
+
+// --json keeps the error envelope: only the message text changes.
+func TestWorkerReleaseForbiddenJSONEnvelopeUnchanged(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": releaseForbidden1859})
+	for k, v := range daraUser1859 {
+		stubs[k] = v
+	}
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json", "--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Fatalf("exit = %d, want %d", code, exitcode.Forbidden)
+	}
+	_ = renderError(f, err)
+	raw := out.String()
+	if raw == "" {
+		raw = f.IOStreams.ErrOut.(*strings.Builder).String()
+	}
+	var env struct {
+		Error map[string]any `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(raw), &env); e != nil || env.Error["code"] != float64(exitcode.Forbidden) || env.Error["message"] == nil || len(env.Error) != 2 {
+		t.Fatalf("error envelope changed: %v\n%s", e, raw)
+	}
+	// #1863 item 3: not merely "some message" — the exact text agents read: the
+	// holder and remedy first, the server's own sentence kept after them.
+	const want = "Iris is held by Dara (@dara); only the holder, or an App or org admin, can release it: " +
+		"You are not authorized to manage workers in this App."
+	if got := env.Error["message"]; got != want {
+		t.Errorf("--json message = %q, want %q", got, want)
+	}
+}
+
+// #1863 item 2: the stale-retry path. A caller who cannot read the hold asserts
+// "unheld", the server answers WORKER_HOLD_STALE naming the CALLER as the
+// holder, and the retry is then refused as FORBIDDEN. That is a self-release,
+// so it must stay undecorated exactly as on the initial path: the refusal must
+// never present the caller as a third-party holder (cor:agt:020:09, FIT on #1863).
+func TestWorkerReleaseRetrySelfReleaseForbiddenIsNotDecorated(t *testing.T) {
+	srv, _ := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-holger"), releaseForbidden1859}, nil)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected the server's refusal")
+	}
+	if code := exitCodeFor(err); code != exitcode.Forbidden {
+		t.Errorf("exit = %d, want %d: %v", code, exitcode.Forbidden, err)
+	}
+	for _, bad := range []string{"is held by", "only the holder", "App or org admin"} {
+		if strings.Contains(err.Error(), bad) {
+			t.Errorf("a self-release refused on retry must not be decorated (%q): %v", bad, err)
+		}
+	}
+	if !strings.Contains(err.Error(), "You are not authorized to manage workers in this App.") {
+		t.Errorf("the server's own sentence must survive: %v", err)
+	}
+}
+
+// #1863 item 4 (Ruth, §10): nameHolderOnForbidden decorates ONLY a Forbidden.
+// Any other server error maps exactly as api.MapError maps it — same exit code,
+// same message, no holder or remedy bolted on — on both the initial path and
+// the stale-retry path.
+func TestWorkerReleaseNonForbiddenErrorPassesThroughUnchanged(t *testing.T) {
+	const other = `{"errors":[{"message":"Worker not found.","extensions":{"code":"NOT_FOUND"}}]}`
+	const wantMsg = "Worker not found."
+	check := func(t *testing.T, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatal("expected the server's error")
+		}
+		if code := exitCodeFor(err); code == exitcode.Forbidden {
+			t.Errorf("a non-Forbidden error must not become Forbidden: %v", err)
+		}
+		if err.Error() != wantMsg {
+			t.Errorf("message = %q, want the server sentence alone, as api.MapError maps it: %q", err.Error(), wantMsg)
+		}
+		for _, bad := range []string{"is held by", "only the holder"} {
+			if strings.Contains(err.Error(), bad) {
+				t.Errorf("a non-Forbidden error must not be decorated (%q): %v", bad, err)
+			}
+		}
+	}
+	t.Run("initial path", func(t *testing.T) {
+		stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": other})
+		for k, v := range daraUser1859 {
+			stubs[k] = v
+		}
+		check(t, runRelease1859(t, stubs, "--yes"))
+	})
+	t.Run("stale-retry path", func(t *testing.T) {
+		gilUser := map[string]string{
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		}
+		srv, _ := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil"), other}, gilUser)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", srv.URL})
+		check(t, root.Execute())
+	})
 }
 
 // …and with --yes it proceeds, names the prior holder as a PERSON, and says the
@@ -1605,4 +1790,50 @@ func TestWorkerGroupHelpSummaryDoesNotPromiseANextHolder(t *testing.T) {
 				promise, help)
 		}
 	}
+}
+
+// #1862 LOCAL F1: the holder's display name is server-authored and reaches the
+// terminal in both new release refusals; a control byte in it must not forge a
+// line or an escape. Name and handle are both hostile.
+var hostileUser1859 = map[string]string{
+	"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara\nFORGED\u001b[31m","email":null,"handle":"da\nra\u001b[0m",
+		"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+		"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+}
+
+func assertNoControlBytes1859(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	for _, r := range err.Error() {
+		if r < 0x20 || r == 0x7f {
+			t.Errorf("refusal carries control byte %q: %q", r, err.Error())
+			return
+		}
+	}
+	if !strings.Contains(err.Error(), "FORGED") {
+		t.Errorf("the sanitized name should still be shown: %v", err)
+	}
+}
+
+func TestWorkerReleaseRefusalsSanitizeHolderName(t *testing.T) {
+	t.Run("non-TTY without --yes", func(t *testing.T) {
+		err := runRelease1859(t, releaseStubs(heldBy("u-dara"), hostileUser1859))
+		if code := exitCodeFor(err); code != exitcode.Usage {
+			t.Fatalf("exit = %d, want Usage", code)
+		}
+		assertNoControlBytes1859(t, err)
+	})
+	t.Run("forced FORBIDDEN", func(t *testing.T) {
+		stubs := releaseStubs(heldBy("u-dara"), map[string]string{"ReleaseWorker": releaseForbidden1859})
+		for k, v := range hostileUser1859 {
+			stubs[k] = v
+		}
+		err := runRelease1859(t, stubs, "--yes")
+		if code := exitCodeFor(err); code != exitcode.Forbidden {
+			t.Fatalf("exit = %d, want Forbidden", code)
+		}
+		assertNoControlBytes1859(t, err)
+	})
 }

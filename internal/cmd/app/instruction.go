@@ -160,25 +160,25 @@ func revokeScope(ctx context.Context, c graphql.Client, id, scope string, i *gen
 	}
 	return &gen.RevokeAppKeyScopeResponse{RevokeAppKeyScope: r.RevokeAppKeyScope}, nil
 }
-func memoryGrants(ctx context.Context, c graphql.Client, ref string, revoked *bool, i *gen.ActInstructionInput) (*gen.AppMemoryWriteGrantsResponse, error) {
+func memoryGrantsCurrent(ctx context.Context, c graphql.Client, ref string, revoked *bool, i *gen.ActInstructionInput) (*gen.AppMemoryWriteGrantsResponse, error) {
 	if i == nil {
 		return gen.AppMemoryWriteGrants(ctx, c, ref, revoked)
 	}
 	r, e := gen.AppMemoryWriteGrantsInstructed(ctx, c, i, ref, revoked)
-	if e != nil || r == nil {
+	if r == nil {
 		return nil, e
 	}
-	return &gen.AppMemoryWriteGrantsResponse{AppMemoryWriteGrants: r.AppMemoryWriteGrants}, nil
+	return &gen.AppMemoryWriteGrantsResponse{AppMemoryWriteGrants: r.AppMemoryWriteGrants}, e
 }
-func revokeMemoryGrant(ctx context.Context, c graphql.Client, id string, i *gen.ActInstructionInput) (*gen.RevokeAppMemoryWriteGrantResponse, error) {
+func revokeMemoryGrantCurrent(ctx context.Context, c graphql.Client, id string, i *gen.ActInstructionInput) (*gen.RevokeAppMemoryWriteGrantResponse, error) {
 	if i == nil {
 		return gen.RevokeAppMemoryWriteGrant(ctx, c, id)
 	}
 	r, e := gen.RevokeAppMemoryWriteGrantInstructed(ctx, c, id, i)
-	if e != nil || r == nil {
+	if r == nil {
 		return nil, e
 	}
-	return &gen.RevokeAppMemoryWriteGrantResponse{RevokeAppMemoryWriteGrant: r.RevokeAppMemoryWriteGrant}, nil
+	return &gen.RevokeAppMemoryWriteGrantResponse{RevokeAppMemoryWriteGrant: r.RevokeAppMemoryWriteGrant}, e
 }
 
 // credentialClient checks the original snapshot again after credential-store

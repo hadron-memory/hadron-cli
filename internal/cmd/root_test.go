@@ -149,6 +149,12 @@ func unstubbedDefault(op string) (string, bool) {
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.
+	// cli#1912: a spec dry run asks who the caller is before it consults
+	// effectiveAccess. Answered as a credential that resolves to no user, for
+	// which the check is skipped, so existing dry-run tests are unchanged; the
+	// write-access tests stub both operations.
+	case "AuthContext":
+		return `{"data":{"authContext":null}}`, true
 	case "GetBoundSessionEnd":
 		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
@@ -189,6 +195,11 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate terminal-report read (#1375). An older
 		// server does not know Worker.terminal; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerAvailability":
+		// `team worker get`'s separate availability-provenance read (cli#1911).
+		// An older server does not know Worker.availability; the ordinary lookup
+		// must work and shows no availability line.
+		return `{"errors":[{"message":"Cannot query field \"availability\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerRendered":
 		// `team worker get`'s separate rendered signature/trailer read
 		// (cli#1525). An older server does not know Worker.renderedSignature;

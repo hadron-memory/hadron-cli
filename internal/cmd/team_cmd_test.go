@@ -833,8 +833,56 @@ func TestTeamWorkerRetire(t *testing.T) {
 	if vars["workerRef"] != "wkr1" {
 		t.Errorf("retire must address the RESOLVED worker id: %v", vars)
 	}
-	if !strings.Contains(out.String(), "never re-cast") {
-		t.Errorf("retire output should state the name stays bound: %s", out.String())
+	// #1654: retiring keeps the name bound, but cor:agt:020:02 / cor:dmo:050:11
+	// leave one release, `worker rm` on a casting that never did anything. The
+	// output must name that escape and must not make any of the over-broad
+	// versions of it listed in retireOverpromises.
+	got := out.String()
+	if !strings.Contains(got, "stays bound") || !strings.Contains(got, "worker rm") {
+		t.Errorf("retire output should state the name stays bound and name the rm escape: %s", got)
+	}
+	for _, bad := range retireOverpromises {
+		if strings.Contains(got, bad) {
+			t.Errorf("retire output must not promise %q: %s", bad, got)
+		}
+	}
+}
+
+// retireOverpromises are the over-broad versions of the one claim the retire
+// surfaces do make (a name is freed only by `worker rm` on a casting that never
+// did anything). Only the long help is rendered by --help, so the short line is
+// not asserted.
+var retireOverpromises = []string{"forever", "never re-cast", "the one way to free"}
+
+// #1654: the retire help and the confirm prompt name the rm escape and do not
+// overpromise ("forever" / "never re-cast").
+func TestTeamWorkerRetireWordingNamesRmEscape(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "retire", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	help := out.String()
+	for _, bad := range retireOverpromises {
+		if strings.Contains(help, bad) {
+			t.Errorf("retire help must not promise %q: %s", bad, help)
+		}
+	}
+	if !strings.Contains(help, "worker rm") {
+		t.Errorf("retire help should name the rm escape: %s", help)
+	}
+
+	// The confirm prompt (not reachable non-interactively, so asserted on the
+	// text the command builds).
+	prompt := team.RetireConfirmPrompt("Iris", "wkr1")
+	for _, bad := range retireOverpromises {
+		if strings.Contains(prompt, bad) {
+			t.Errorf("retire prompt must not promise %q: %s", bad, prompt)
+		}
+	}
+	if !strings.Contains(prompt, "worker rm") {
+		t.Errorf("retire prompt should name the rm escape: %s", prompt)
 	}
 }
 
@@ -2433,6 +2481,10 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 		// answer with a command's authority. #791 lets a plain start replace
 		// an ended binding, so its remedy must not require --force.
 		wantRemedy string
+		// wantCode is the process exit (#1835): 0 while the session is open,
+		// exitcode.SessionEnded once the server reports it ended — however it
+		// ended — so a script or boot prompt can branch without parsing text.
+		wantCode int
 	}{
 		{
 			name: "still open", session: whoamiCheckSession("", ""),
@@ -2444,7 +2496,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			name: "ended by someone", session: whoamiCheckSession("2026-09-19T11:00:00Z", ""),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: "null",
 			wantInLine: "ENDED", wantMissing: "auto-expired",
-			wantRemedy: "session start --as Iris",
+			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
 		},
 		{
 			// The SERVER reaped it. Same endedAt, different cause, and the
@@ -2454,15 +2506,15 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			session:    whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: `"2026-09-19T11:00:00Z"`,
 			wantInLine: "auto-expired", wantMissing: "",
-			wantRemedy: "session start --as Iris",
+			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			root, out := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
 				"team", "session", "whoami", "--check")
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
+			if err := root.Execute(); exitCodeFor(err) != c.wantCode {
+				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
 			}
 			got := out.String()
 			if !strings.Contains(got, c.wantInLine) {
@@ -2483,8 +2535,8 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			// variable, so nothing caught it but a reviewer.
 			jroot, jout := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
 				"team", "session", "whoami", "--check", "--json")
-			if err := jroot.Execute(); err != nil {
-				t.Fatalf("execute --json: %v", err)
+			if err := jroot.Execute(); exitCodeFor(err) != c.wantCode {
+				t.Fatalf("execute --json: exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
 			}
 			var raw map[string]json.RawMessage
 			if err := json.Unmarshal([]byte(jout.String()), &raw); err != nil {
@@ -2504,6 +2556,47 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+// #1835: the exit code is an answer of its own, so the two non-answers must keep
+// theirs. An open session that has been quiet for days is still open (silence is
+// not ended, #1114), and a check the server could not answer is neither "open"
+// nor "ended" — it keeps the existing non-zero code instead of borrowing the
+// new one.
+func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
+	t.Run("open and quiet exits 0", func(t *testing.T) {
+		quiet := whoamiCheckSession("", "")
+		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": quiet}, "team", "session", "whoami", "--check")
+		if err := root.Execute(); err != nil {
+			t.Fatalf("an open session must exit 0: %v", err)
+		}
+	})
+	// A responding server's fault: the one generic code, exactly 1 — neither
+	// success, "ended" (14), nor the transport class (7).
+	t.Run("an internal server fault exits exactly 1", func(t *testing.T) {
+		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`},
+			"team", "session", "whoami", "--check")
+		if code := exitCodeFor(root.Execute()); code != exitcode.Error {
+			t.Errorf("an internal fault must exit %d, got %d", exitcode.Error, code)
+		}
+	})
+	// A request that never gets an answer (nothing listening), through the
+	// real transport classifier: exactly 7, never 0 or 14.
+	t.Run("an unreachable server exits exactly 7", func(t *testing.T) {
+		root, _ := bindWhoami(t, map[string]string{}, "team", "session", "whoami", "--check")
+		dead := httptest.NewServer(http.NotFoundHandler())
+		url := dead.URL
+		dead.Close()
+		root.SetArgs([]string{"team", "session", "whoami", "--check", "--server", url})
+		if code := exitCodeFor(root.Execute()); code != exitcode.Unavailable {
+			t.Errorf("an unanswered check must exit %d, got %d", exitcode.Unavailable, code)
+		}
+	})
+	t.Run("the ended code is not auth's", func(t *testing.T) {
+		if exitcode.SessionEnded == exitcode.AuthRequired || exitcode.SessionEnded == exitcode.NotFound {
+			t.Errorf("SessionEnded = %d collides with an existing meaning", exitcode.SessionEnded)
+		}
+	})
 }
 
 // --check must not be silently downgraded when whoami answers from the server
@@ -3144,7 +3237,7 @@ func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
 	if err := r2.Execute(); err != nil {
 		t.Fatalf("session log: %v", err)
 	}
-	if strings.Contains(errOut.String(), "no record of reading the team chat") {
+	if strings.Contains(errOut.String(), "no contiguous team-chat read cursor") {
 		t.Errorf("a read in this same worker session must count — false nudge:\n%s", errOut.String())
 	}
 }
@@ -3180,26 +3273,64 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
 		bind(t, bindingWithTeamFixture) // no chatSeenSeq
 		gql, captured := captureGraphQL(t, stubs(nil))
-		f, _ := testFactory(t)
-		errOut := f.IOStreams.ErrOut.(*strings.Builder)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
-		if err := root.Execute(); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-		if !strings.Contains(errOut.String(), "this worktree has no contiguous team-chat read cursor") ||
-			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
-			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
-		}
-		// Claims only what the CLI knows — a portal or other-binding read is
-		// invisible here, so asserting the worker never read would be a false
-		// nudge (seq 102).
-		if !strings.Contains(errOut.String(), "portal or under another binding is not visible here") {
-			t.Errorf("the note must name its own blind spot: %q", errOut.String())
-		}
-		// And it costs nothing: no count query is worth issuing for that answer.
-		if _, called := captured["TeamChatMessages"]; called {
-			t.Error("the never-read branch must not query the chat")
+		// Repeat in the same binding, including JSON mode: the note remains
+		// per log write and does not establish a cursor of its own.
+		for _, asJSON := range []bool{false, true} {
+			f, out := testFactory(t)
+			errOut := f.IOStreams.ErrOut.(*strings.Builder)
+			root := NewRootCmd(f)
+			args := []string{"team", "session", "log", "--pr", "371", "--server", gql.URL}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			note := ""
+			for _, line := range strings.Split(errOut.String(), "\n") {
+				if strings.Contains(line, "this worktree has no contiguous team-chat read cursor") {
+					if note != "" {
+						t.Errorf("duplicate chat note: %q", errOut.String())
+					}
+					note = line
+				}
+			}
+			for _, want := range []string{
+				"session log includes this reminder because team chat carries decisions",
+				"this worktree has no contiguous team-chat read cursor",
+				"unfiltered `hadron team chat read --all` reads from the oldest page",
+				"`hadron team chat read --since 0` starts at the oldest page (continue with nextSince)",
+				"bare `hadron team chat read` shows only the newest page",
+				"filtered reads and `hadron team chat mark-read` do not set this cursor",
+			} {
+				if !strings.Contains(note, want) {
+					t.Errorf("note lacks %q: %q", want, errOut.String())
+				}
+			}
+
+			if strings.Contains(out.String(), "team-chat") {
+				t.Errorf("note leaked into stdout: %q", out.String())
+			}
+			if asJSON {
+				var dto map[string]any
+				if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+					t.Fatalf("invalid worklog JSON: %v", err)
+				}
+				if dto["ref"] != "hadron-memory/hadron-cli#371" {
+					t.Errorf("worklog receipt changed: %s", out.String())
+				}
+			}
+			// Claims only what the CLI knows — a portal or other-binding read is
+			// invisible here, so asserting the worker never read would be a false
+			// nudge (seq 102).
+			if !strings.Contains(note, "portal or under another binding is not visible here") {
+				t.Errorf("the note must name its own blind spot: %q", errOut.String())
+			}
+			// And it costs nothing: no count query is worth issuing for that answer.
+			if _, called := captured["TeamChatMessages"]; called {
+				t.Error("the never-read branch must not query the chat")
+			}
 		}
 	})
 

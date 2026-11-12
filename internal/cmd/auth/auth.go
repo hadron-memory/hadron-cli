@@ -20,6 +20,8 @@ default one, or the one --server names.
   Sign out:           hadron auth logout
   Automation / CI:    hadron auth token create, then HADRON_TOKEN or
                       hadron auth login --with-token
+  Your passkeys:      hadron auth passkey list, and
+                      hadron auth passkey revoke-page (where to remove one)
   Support (admins):   hadron auth impersonate <user> --org <org>, and
                       hadron auth impersonate --stop
 
@@ -32,6 +34,7 @@ server (OS keychain, or ~/.config/hadron/auth.json without one).`,
 	cmd.AddCommand(newCmdWhoami(f))
 	cmd.AddCommand(newCmdStatus(f))
 	cmd.AddCommand(newCmdToken(f))
+	cmd.AddCommand(newCmdPasskey(f))
 	cmd.AddCommand(newCmdImpersonate(f))
 	return cmd
 }

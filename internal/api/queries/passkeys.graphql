@@ -1,0 +1,39 @@
+# cli#878 part 1: the caller's own passkey records (hadron-server#1631 PR3,
+# cor:aut:040:05). Every PasskeyCredential field the SDL has, and nothing that
+# could be key material: the server never puts the credential id, the public
+# key or the cancel IP/user agent on this type (withheld over a bearer, #1631
+# §10), and passkeys_878_test pins that this selection names none of them.
+# The query is only in the schema while the registration switch is on; the
+# command reads /capabilities first so a switched-off server is never asked.
+query MyPasskeys {
+  myPasskeys {
+    id
+    label
+    transports
+    backupEligible
+    backedUp
+    registeredAt
+    lastUsedAt
+    revokedAt
+    window {
+      endsAt
+      endedAt
+      outcome
+      registrationMethod
+    }
+    cancel {
+      at
+    }
+  }
+}
+
+# cli#878 revoke-page handoff: the server's fixed, parameterless revoke page
+# (hadron-server#4063, cor:aut:040:08). Selected alone: the CLI uses the value
+# verbatim and never builds it from baseUrl. Like myPasskeys, the field is in
+# the schema only while the registration switch is on, so the command reads
+# /capabilities first.
+query PasskeyRevokeUrl {
+  serverInfo {
+    passkeyRevokeUrl
+  }
+}

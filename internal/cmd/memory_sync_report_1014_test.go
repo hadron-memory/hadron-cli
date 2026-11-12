@@ -160,6 +160,8 @@ func TestMemoryGetUnreadableReportIsUnavailable(t *testing.T) {
 		"invalid JSON": `{not json`,
 		// #1775: version 2 is accepted, so the unknown-version pin rides 3.
 		"unknown version":     `{"version":3,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
+		"zero version":        `{"version":0,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
+		"negative version":    `{"version":-1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
 		"missing version":     `{"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[]}`,
 		"string payload":      `"partial"`,
 		"number payload":      `123`,

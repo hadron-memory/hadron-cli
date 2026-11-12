@@ -57,6 +57,12 @@ func RequireSecureURL(serverURL, token string) error {
 		serverURL, scheme, EnvAllowHTTP)
 }
 
+// URLIsSecure is schemeIsSecure for a caller outside this package: the same
+// transport rule judges a URL the server hands back for a browser (cli#878
+// revoke-page), so a page the CLI opens is never held to a weaker bar than
+// the one its own credentials ride on.
+func URLIsSecure(u *url.URL) bool { return schemeIsSecure(u) }
+
 // schemeIsSecure reports whether the bearer token may ride on u: https, an http
 // loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext http.
 // The scheme is allow-listed explicitly: a loopback host must NOT green-light a

@@ -102,7 +102,7 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
 		attnRespMu.RUnlock()
-		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd" || body.OperationName == "GetWorkerProfile" || body.OperationName == "GetWorkerTerminal" || body.OperationName == "GetWorkerModelGroups" || body.OperationName == "GetWorkerRendered" || body.OperationName == "GetWorkerBootPromptServe" || body.OperationName == "AppAgentEffectiveRoster" || body.OperationName == "GetWorkerRetireAdvisory") {
+		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd" || body.OperationName == "GetWorkerProfile" || body.OperationName == "GetWorkerTerminal" || body.OperationName == "GetWorkerModelGroups" || body.OperationName == "GetWorkerRendered" || body.OperationName == "GetWorkerAvailability" || body.OperationName == "GetWorkerBootPromptServe" || body.OperationName == "AppAgentEffectiveRoster" || body.OperationName == "GetWorkerRetireAdvisory") {
 			resp, ok = unstubbedDefault(body.OperationName)
 		}
 		if !ok {

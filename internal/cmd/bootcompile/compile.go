@@ -1,8 +1,11 @@
-// Package bootcompile implements the three manager-only boot-prompt compile
-// commands. Authority, source selection and output addresses belong to the server.
+// Package bootcompile implements the three boot-prompt compile commands. By
+// default they act as the signed-in person; with --as-worker (cli#1872) the
+// compile mutation carries this worktree's bound worker session. Authority,
+// source selection and output addresses belong to the server.
 package bootcompile
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -32,6 +35,9 @@ type BatchOptions struct {
 	// SetPointer is nil for the server default (set) and false for
 	// --no-set-pointer, exactly as the single-worker compile sends it.
 	SetPointer *bool
+	// AsWorker (cli#1872) sends the compile mutations through the bound
+	// worker session; the batch resolves it before any request.
+	AsWorker bool
 }
 
 // Batch runs the batch compile.
@@ -50,7 +56,7 @@ func NewWorker(f *cmdutil.Factory, resolve func(*cobra.Command, string) (string,
 }
 
 func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, string) (string, error), batch Batch) *cobra.Command {
-	var noSetPointer, all, apply bool
+	var noSetPointer, all, apply, asWorker bool
 	var only []string
 	use, example := "compile <agent>", "  hadron agent compile hrn:agent:acme.com:iris"
 	target := "Agent's system memory"
@@ -127,7 +133,7 @@ own code.`
 	refsHelp := "Agent and App references are ids or fully-qualified URNs."
 	switch kind {
 	case "app":
-		pointerHelp = "An App-Agent compile always sets the pointer (no --no-set-pointer flag)."
+		pointerHelp = "An App-Agent compile sets the pointer by default (no --no-set-pointer\nflag); with --as-worker the server never sets it."
 	case "worker":
 		refsHelp = `A worker is an id or a fully-qualified worker URN, which ignores the ambient
 App and binding, or a name in the selected App (--app, the configured App
@@ -144,8 +150,18 @@ Each successful compile writes a revision, even if the text is unchanged.
 Sources and output addresses are chosen by the server, not by flags.
 %s
 
-Sign in as a manager of the target Agent or App. This command acts as you and
-never sends this worktree's worker-session header.
+Acts as you by default: sign in as a manager of the target Agent or App, and
+no worker-session header is sent. With --as-worker it sends this worktree's
+bound worker session instead: the server then admits only a new revision of an
+existing compiled node that a signed bootprompt.compile.approve grant names (to
+any worker in the App, not only the bound one), never sets a pointer
+(pointerSet is false whatever --no-set-pointer says) and never creates a node.
+--as-worker never falls back to you: without a usable binding for this server
+and App it refuses (exit 2) and sends nothing. The CLI does not check the
+grant; the server's refusals print with their codes (exit 8). The grant does
+not cover signing: where an organisation has switched on signing of
+compiled boot prompts (its own setting, not the passkey switch), a person
+still signs each compiled prompt.
 %s
 
 Compile does not approve or serve a prompt. The result reports the compiled
@@ -182,6 +198,7 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 						v := false
 						opts.SetPointer = &v
 					}
+					opts.AsWorker = asWorker
 					return batch(cmd, opts)
 				}
 			}
@@ -195,14 +212,48 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 				v := false
 				setPointer = &v
 			}
+			// --as-worker resolves its session before any request, so a refusal
+			// sends nothing (cli#1872).
+			var mutCtx func(context.Context) (context.Context, error)
+			if asWorker {
+				// `app agent compile` names its App positionally: the binding
+				// must be for that App too (cli#1887).
+				var targetApps []string
+				if kind == "app" {
+					appRef, e := cmdutil.CanonicalAppRef("<app>", args[0])
+					if e != nil {
+						return e
+					}
+					targetApps = append(targetApps, appRef)
+				}
+				m, err := f.ResolveWorkerWrite(cmd.Context(), targetApps...)
+				if err != nil {
+					return err
+				}
+				mutCtx = m
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
+			// Only the compile mutation carries the session; reads (the worker
+			// name resolution above) keep the person's context.
+			sendCtx := cmd.Context()
+			send := func() error {
+				if mutCtx == nil {
+					return nil
+				}
+				c, e := mutCtx(cmd.Context())
+				sendCtx = c
+				return e
+			}
 			var result *gen.BootCompileResult
 			switch kind {
 			case "agent":
-				r, e := gen.CompileAgentBootPrompt(cmd.Context(), client, args[0], setPointer)
+				if e := send(); e != nil {
+					return e
+				}
+				r, e := gen.CompileAgentBootPrompt(sendCtx, client, args[0], setPointer)
 				err = e
 				if e == nil && r.CompileAgentBootPrompt != nil {
 					result = &r.CompileAgentBootPrompt.BootCompileResult
@@ -212,7 +263,10 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 				if e != nil {
 					return e
 				}
-				r, e := gen.CompileAppAgentBootPrompt(cmd.Context(), client, appRef, args[1])
+				if e := send(); e != nil {
+					return e
+				}
+				r, e := gen.CompileAppAgentBootPrompt(sendCtx, client, appRef, args[1])
 				err = e
 				if e == nil && r.CompileAppAgentBootPrompt != nil {
 					result = &r.CompileAppAgentBootPrompt.BootCompileResult
@@ -222,7 +276,10 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 				if e != nil {
 					return e
 				}
-				r, e := gen.CompileWorkerBootPrompt(cmd.Context(), client, workerRef, setPointer)
+				if e := send(); e != nil {
+					return e
+				}
+				r, e := gen.CompileWorkerBootPrompt(sendCtx, client, workerRef, setPointer)
 				err = e
 				if e == nil && r.CompileWorkerBootPrompt != nil {
 					result = &r.CompileWorkerBootPrompt.BootCompileResult
@@ -234,13 +291,20 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 			if result == nil || result.Node == nil || result.Node.Urn == "" {
 				return exitcode.Newf(exitcode.Error, "server returned no compiled boot prompt; check with node get before compiling again")
 			}
+			if result.RevNo < 1 {
+				return exitcode.Newf(exitcode.Error, "server returned an invalid revision number %d for the compiled boot prompt; check with node get before compiling again", result.RevNo)
+			}
 			dto := compileDTO{result.Node.Urn, result.RevNo, result.ContentHash, result.PointerSet, result.ApprovalIssued}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				pointer := "unchanged"
 				if dto.PointerSet {
 					pointer = "set"
 				}
-				_, err := fmt.Fprintf(w, "compiled %s revision %d; pointer %s.\nA compile issues no approval: read the revision's approval status with node get.\n", dto.CompiledNodeRef, dto.Revision, pointer)
+				who := ""
+				if asWorker {
+					who = " as the bound worker"
+				}
+				_, err := fmt.Fprintf(w, "compiled%s %s revision %d; pointer %s.\nA compile issues no approval: read the revision's approval status with node get.\n", who, dto.CompiledNodeRef, dto.Revision, pointer)
 				return err
 			})
 		},
@@ -251,6 +315,7 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 		cmd.Flags().StringSliceVar(&only, "only", nil, "with no worker: compile only these workers (comma-separated names, ids or URNs)")
 		cmd.Flags().BoolVar(&apply, "apply", false, "with no worker: compile (without it the batch is a dry run)")
 	}
+	cmd.Flags().BoolVar(&asWorker, "as-worker", false, cmdutil.AsWorkerFlagUsage)
 	if kind == "app" {
 		cmd.Args = cobra.ExactArgs(2)
 	} else {

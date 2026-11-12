@@ -68,6 +68,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerCompile(f))
+	cmd.AddCommand(newCmdWorkerApprove(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -585,6 +586,11 @@ type workerGetDTO struct {
 	// either way there is nothing to print, and the CLI never fills a template.
 	RenderedSignature *string `json:"renderedSignature"`
 	RenderedTrailer   *string `json:"renderedTrailer"`
+	// Availability is the stored availability record (cli#1911,
+	// hadron-server#3865). Always present; null means the server answered null:
+	// withheld from this caller OR no record, which the CLI cannot tell apart,
+	// so it never claims either.
+	Availability *workerGetAvailabilityDTO `json:"availability"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -685,6 +691,8 @@ type workerGetExtras struct {
 	renderedSig                *string
 	renderedTrailer            *string
 	renderedErr                error
+	availability               *workerGetAvailabilityDTO
+	availabilityErr            error
 	previewResp                *gen.GetWorkerBootPromptServeResponse
 	previewErr                 error
 	previewMissingField        bool
@@ -708,6 +716,7 @@ func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session
 	run(func() {
 		r.renderedSig, r.renderedTrailer, _, r.renderedErr = readWorkerRendered(ctx, client, id, session)
 	})
+	run(func() { r.availability, r.availabilityErr = readWorkerAvailability(ctx, client, id) })
 	run(func() {
 		guard := &bootpreview.ValidationRead{Client: client}
 		r.previewResp, r.previewErr = gen.GetWorkerBootPromptServe(ctx, guard, id)
@@ -791,6 +800,16 @@ THE FIELDS:
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
 
+availability   the worker's stored availability record (cor:agt:060:02): its
+                 state, the reason only when unavailable, an optional end, and
+                 who set it and when. A lapse reads "AVAILABLE (lapsed at
+                 <time>)", set by lapse; a setter whose identity the server
+                 withheld says so. Nothing is printed when the server answers
+                 null, which is BOTH "not visible to you" and "no record": the
+                 CLI cannot tell them apart, so it never says "available" or
+                 "no record" for it. --json carries availability (the record,
+                 or null). An older server without it reads as null.
+
 model groups   the model groups the worker's model is currently in, computed
                  live by the server (cor:agt:060:12): live matching information,
                  never authorization. Nothing is printed for a real empty
@@ -872,6 +891,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if reads.renderedErr != nil {
 				return reads.renderedErr
 			}
+			if reads.availabilityErr != nil {
+				return reads.availabilityErr
+			}
 			appName, ownerName, appURN := reads.appName, reads.ownerName, reads.appURN
 			terminal, modelGroups := reads.terminal, reads.modelGroups
 			renderedSig, renderedTrailer := reads.renderedSig, reads.renderedTrailer
@@ -898,7 +920,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 				preview = &p
 			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
-				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, Availability: reads.availability, appURN: appURN}
 			if preview != nil {
 				dto.Fields = preview.Fields
 			}
@@ -1014,6 +1036,10 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// Always printed: a dash is the documented answer for never
 				// reported, masked or an older server (cli#1375).
 				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
+				// Availability provenance (cli#1911): nothing for a null, which
+				// is withheld or no record — never "available", never filled
+				// from `team availability get`.
+				writeWorkerAvailability(out, dto.Availability)
 				// Model groups (cli#1485 S3): names when there are any, nothing for a
 				// real [] (no model, or no group matches), "unavailable" for null.
 				// Live matching information, never authorization.
@@ -1115,16 +1141,17 @@ func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 	var instructionRaw string
 	cmd := &cobra.Command{
 		Use:   "retire <name-or-id> [--instruction <kind>:<ref>]",
-		Short: "Retire a worker — it stops working; its name stays reserved forever",
+		Short: "Retire a worker — it stops working; its name stays reserved",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
-name stays bound to it forever — PR trailers and chat history reference the
-name, so it is never freed for a new casting (cor:agt:020:02). Retiring is
+name stays bound to it — PR trailers and chat history reference the name,
+so retiring never frees it for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
-This is the normal end of a worker. The only removal is ` + "`worker rm`" + `, the
-hard-delete escape for a casting that NEVER did anything (a typo'd cast). On
-a worker with any history, rm is REFUSED (exit 5) and writes nothing — it does
-not retire it for you; run this command instead.
+This is the normal end of a worker. A casting that NEVER did anything (a
+typo'd cast) can instead be removed with ` + "`worker rm`" + `, the hard-delete escape,
+which frees its name for a new casting. On a worker with any history, rm is
+REFUSED (exit 5) and writes nothing — it does not retire it for you; run this
+command instead.
 
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
@@ -1170,7 +1197,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			advisory := readRetireAdvisory(cmd.Context(), client, &w)
 			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
+				RetireConfirmPrompt(w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -1183,7 +1210,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
+				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it (`worker rm` removes a casting that never did anything and frees its name)\n", dto.Name)
 				return err
 			})
 		},
@@ -1516,12 +1543,14 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 	if err != nil || resp.User == nil {
 		return userID
 	}
+	// Server-authored display strings: single-lined before they reach a prompt
+	// or a refusal, so a control byte cannot forge a line or an escape (#1862).
 	name, handle := "", ""
 	if resp.User.Name != nil {
-		name = *resp.User.Name
+		name = output.SafeCell(*resp.User.Name)
 	}
 	if resp.User.Handle != nil {
-		handle = *resp.User.Handle
+		handle = output.SafeCell(*resp.User.Handle)
 	}
 	switch {
 	case name != "" && handle != "":
@@ -1717,7 +1746,7 @@ func offerInformedRelease(
 					"the current state",
 				w.Name, holderPhrase(ctx, client, staleHolderPtr(again)))
 		}
-		return zero, api.MapError(err)
+		return zero, nameHolderOnForbidden(ctx, client, w.Name, stale.HolderID, err)
 	}
 	// No classification carried back. This used to compute `forced` — true when
 	// the identity read worked, honestly nil when it did not — and that nil was
@@ -1726,6 +1755,26 @@ func offerInformedRelease(
 	// path where this client could never answer is the one where the server
 	// always can.
 	return resp, nil
+}
+
+// releaseRemedy is the sentence a refused force-release ends on: whose hold it
+// is and who can lift it. Wording matches heldRefusal's ("the holder — or an
+// App/org admin"); in a user-owned App the App's owner is that admin.
+func releaseRemedy(name, holder string) string {
+	return fmt.Sprintf("%s is held by %s; only the holder, or an App or org admin, can release it", name, holder)
+}
+
+// nameHolderOnForbidden maps a release error through api.MapError and, when it
+// is the server's not-authorized refusal (exit Forbidden), adds the holder and
+// the remedy BEFORE the server's own sentence, which stays in the message and
+// keeps its exit code. Any other error maps exactly as it did.
+func nameHolderOnForbidden(ctx context.Context, client graphql.Client, name, holderID string, err error) error {
+	mapped := api.MapError(err)
+	code := exitcode.FromError(mapped)
+	if code != exitcode.Forbidden {
+		return mapped
+	}
+	return exitcode.New(code, fmt.Errorf("%s: %w", releaseRemedy(name, describeHolder(ctx, client, holderID)), mapped))
 }
 
 // staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
@@ -1878,7 +1927,16 @@ then to their id.`,
 				// the prompt is built only when it can be shown; this makes it
 				// true (PR #504 review).
 				if !f.IOStreams.IsInputTerminal() {
-					return cmdutil.Confirm(f.IOStreams, false, "")
+					// The refusal NAMES the holder and says who can release it
+					// (#1859). This is the one place the read is spent without a
+					// reader of a prompt: the refusal is what an agent pastes
+					// into an issue, and "refusing to proceed without --yes"
+					// alone left it asking "held by whom?" (plan ruling R3,
+					// reversing #504's no-GetUser pin on this path). Same exit
+					// code (Usage) and the same leading phrase as before.
+					holder := describeHolder(ctx, client, *priorHolder)
+					return exitcode.Newf(exitcode.Usage, "%v: %s",
+						cmdutil.Confirm(f.IOStreams, false, ""), releaseRemedy(w.Name, holder))
 				}
 				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
 					w.RetiredAt, forced != nil)
@@ -1929,6 +1987,12 @@ then to their id.`,
 			if err != nil {
 				stale, isStale := api.WorkerHoldStaleDetail(err)
 				if !isStale {
+					// A force-release the server refuses as not-authorized names
+					// the holder and who can release it; a self-release is never
+					// decorated (#1859).
+					if priorHolder != nil && (forced == nil || *forced) {
+						return nameHolderOnForbidden(ctx, client, w.Name, *priorHolder, err)
+					}
 					return api.MapError(err)
 				}
 				// The assertion was wrong. The server refused rather than
@@ -2361,4 +2425,9 @@ func placementText(placement *string, reportsToID *string) string {
 		return "no reporting choice recorded (UNSET)"
 	}
 	return "reporting choice: " + *placement
+}
+
+// RetireConfirmPrompt is the question `worker retire` asks before it acts.
+func RetireConfirmPrompt(name, id string) string {
+	return fmt.Sprintf("Retire worker %s (%s)? It stops working; it keeps its name. A never-used casting can be removed with `worker rm` instead.", name, id)
 }

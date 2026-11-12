@@ -132,7 +132,7 @@ func runText1214(t *testing.T, roster []string, pages [][]task1044, argv ...stri
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 	responses["AgentTaskList"] = taskPage1044(pages[0])
 	responses["AgentTaskListText"] = taskPage1044(pages[1])
 	srv, calls := attnServer(t, responses)
@@ -229,7 +229,7 @@ func textPages1214(t *testing.T, base [][]task1044, text []string, value string)
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster1044()...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 	b, n := 0, 0
 	srv, calls := attnServerHook(t, responses, func(op string) {
 		switch op {

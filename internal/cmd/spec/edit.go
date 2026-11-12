@@ -640,6 +640,10 @@ replacement over the cap is rejected.`,
 			}
 			if dryRun {
 				// Zero writes: the preview returns before any mutation is built.
+				// A caller who cannot write gets the real run's refusal (cli#1912).
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				return render()
 			}
 
@@ -723,7 +727,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&force, "force", false, "save a body even though it starts with the metadata header a text-mode spec get / node get prints")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval; exit 8 if you cannot write to the memory, as the real run)")
 	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id and --expected-proposal-hash")
 	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision and --expected-proposal-hash")
 	cmd.Flags().StringVar(&expectedHash, "expected-proposal-hash", "", "the proposalHash from the same dry run as --expected-node-id and --expected-revision; refused if the proposed write changed")

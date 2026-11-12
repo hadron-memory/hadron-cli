@@ -23,7 +23,9 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 211: 171 command, 16 gap, 24 excluded
+[Query] 225: 182 command, 18 gap, 25 excluded
+accountUsageAccounts  command team usage accounts
+accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -32,6 +34,7 @@ agentAssets  excluded deprecated: its description says "Deprecated; use memoryAs
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
+agentServedBootPrompt  command agent boot-prompt
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
 agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions
@@ -39,7 +42,8 @@ agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
 agentTasks  command team task list
-agentTeamEvents  command team events
+agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919)
+agentTeamEventsPage  command team events
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
@@ -51,6 +55,7 @@ aiServiceConfigs  command ai-config list
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
+appGrants  gap #1880
 appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213)
 appKeysPage  command app key list
 appMemoryScope  command app memories
@@ -81,6 +86,7 @@ channelMessageSearch  command channel search
 channelMessages  command channel read
 channelReadState  command channel read-state
 channels  command channel list
+chatAiConfigChoices  command app chatbot-ai-config list
 chatHistory  gap #64
 chatServedPrompts  command chat served-prompts
 comment  command comment get
@@ -117,6 +123,9 @@ exchangeMessages  gap #198
 findNodes  command search
 findObjects  command object find
 globalSearch  command find
+grant  command team grant get
+grantSigningRequest  command team grant signing-request get
+grants  command team grant list
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
@@ -150,7 +159,8 @@ myAgentSubscriptionsPage  gap #890: subscription list command not yet implemente
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
-myPasskeys  gap #878
+myGrants  gap #1832: a worker's own grants read not yet implemented
+myPasskeys  command auth passkey list
 myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
 myUserApiKeysPage  command auth token list
 nextNode  command node next
@@ -163,6 +173,8 @@ nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage tw
 nodeRevisionsPage  command node revision list
 nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — identical exact-match loc semantics and access scoping, plus PK/URN refs via nodeId, type filtering, memoryId scoping and paging (#802).
 object  command object get
+orgBootPromptSigning  command org signing get
+orgBootPromptSigningPreview  command org signing preview
 organization  command org get
 organizations  command org list
 previewAgentSchedule  command schedule preview
@@ -218,6 +230,7 @@ teamRoles  command team role get
 teamRoster  command team roster
 teamSpecSchema  gap #811
 teamStopSignals  command team stop list
+teamUtilization  gap #1836: team utilization read not yet implemented
 teamWorkItems  command team session list
 ticker  command ticker get
 tickers  command ticker list
@@ -232,11 +245,12 @@ validateMemory  command memory validate
 verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
+webPolls  command web-poll list
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 339: 282 command, 43 gap, 14 excluded
+[Mutation] 350: 290 command, 46 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -271,6 +285,7 @@ calendarRespondToEvent  command calendar event respond
 calendarUpdateEvent  command calendar event update
 cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
+cancelWebPoll  command web-poll cancel
 castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
 claimContextReset  command team host run
@@ -308,6 +323,7 @@ createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 createDecisionLog  command decision log create
 createEdge  command edge create
+createGrant  command team grant request
 createHomeAssistantInstance  command ha create
 createMcpServer  command mcp-server create
 createMemory  command memory set
@@ -342,7 +358,7 @@ deleteAgentSchedule  command schedule rm
 deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
 deleteAiServiceConfig  command ai-config rm
-deleteApp  command app uninstall
+deleteApp  command app delete
 deleteAppModelGroup  command app model-group clear
 deleteChannel  command channel rm
 deleteChat  gap #64
@@ -416,6 +432,7 @@ mintMemoryNodes  command node mint
 mintSpecCorpus  command spec mint
 moveNode  command node move
 parkAgentTask  command team task park
+planNodeMove  gap #741
 processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  gap #61
@@ -434,6 +451,7 @@ recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  command team host run
 registerHost  command team host run
+reinstallApp  command app reinstall
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
@@ -452,6 +470,7 @@ reportContextResetAgentStopped  command team host run
 reportContextResetRelaunchFailed  command team host run
 reportContextResetRelaunched  command team host run
 reportHostOperation  command team host run
+requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
 resolveCommentThread  command comment resolve
@@ -471,6 +490,7 @@ revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
+revokeGrant  gap #1880
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
 rotateAgentWebhook  command webhook rotate
@@ -489,6 +509,7 @@ setAgentTaskPriority  command team task add-blocker
 setAgentTaskStallSchedule  command team stall-schedule set
 setAiModelPrice  command billing prices set
 setAppAgentBootPrompt  command app agent set-boot-prompt
+setAppChatbotAiConfig  command app chatbot-ai-config set
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
@@ -503,6 +524,7 @@ setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
+setOrgBootPromptSigning  command org signing on
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
@@ -528,6 +550,7 @@ testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
 uninstallAgentFromApp  command app agent remove
+uninstallApp  command app uninstall
 unlinkGithubApp  gap #60
 unlockNodeRoleRule  command memory config rule unlock
 unsubscribeWorker  command ticker unsubscribe
@@ -575,9 +598,11 @@ updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawDecision  command decision withdraw
+withdrawGrant  gap #1880
+withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 77: 41 gap, 36 excluded
+[Arguments] 82: 46 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -593,6 +618,7 @@ Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(policy)  gap #1628
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
+Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -649,12 +675,16 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
+Query.agentTeamEventsPage(alarmsInEffect)  gap #1940
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
+Query.channelMessages(teamHeadRefs)  gap #1833
 Query.dueWakes(instruction)  gap #1617
+Query.dueWakes(preview)  gap #1833
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
+Query.teamChatMessages(teamHeadRefs)  gap #1833
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind

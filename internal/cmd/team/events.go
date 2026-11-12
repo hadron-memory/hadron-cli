@@ -30,9 +30,18 @@ const (
 	teamEventPageCap = 200
 )
 
+// teamEventsPageDTO is `team events --json` (cli#1919, J2): the events in the
+// server's order plus the server's page end. Events is never null.
+type teamEventsPageDTO struct {
+	Events     []teamEventDTO `json:"events"`
+	HasMore    bool           `json:"hasMore"`
+	NextCursor *string        `json:"nextCursor"`
+}
+
 func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 	var alarms bool
-	var since, after, task, codePrefix string
+	var since, after, before, task, codePrefix string
+	var newest bool
 	var types []string
 	var limit int
 	cmd := &cobra.Command{
@@ -50,8 +59,14 @@ are participant-readable objects and may carry their own values.
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
 with --since (strictly after an RFC 3339 time) and page FORWARD with --after
-<the last event id you read>. When a page comes back full, the receipt names
-the exact --after that continues it.
+<the last event id you read>. --newest reads from the NEWEST end instead —
+newest events first, the server's mirror order — and --before <id> continues
+it toward older events; --after is refused with --newest and --before without
+it. The page end is the server's: the receipt names the exact continuation
+(--after, or --newest --before) only when the server says more events remain,
+never because a page happened to be full. With --json the output is
+{events, hasMore, nextCursor}; events keep the server's order and nextCursor
+is the cursor to pass on (null on the last page).
 
 --code-prefix filters the server event code and combines with the other flags.
 app. also matches platform types app.properties-changed, app.credential-act
@@ -67,6 +82,12 @@ reason or evidence is added. A missing subject stays —.
 			ctx := cmd.Context()
 			if limit < 1 || limit > teamEventPageCap {
 				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+			}
+			if newest && after != "" {
+				return exitcode.Newf(exitcode.Usage, "--after continues an oldest-first read; with --newest page toward older events with --before <id>")
+			}
+			if before != "" && !newest {
+				return exitcode.Newf(exitcode.Usage, "--before continues a --newest read; add --newest, or page an oldest-first read with --after <id>")
 			}
 			if since != "" {
 				if _, err := time.Parse(time.RFC3339, since); err != nil {
@@ -86,34 +107,22 @@ reason or evidence is added. A missing subject stays —.
 			if err != nil {
 				return err
 			}
-			var rows []*gen.AgentTeamEventsAgentTeamEventsAgentTeamEvent
+			var prefix *string
 			if cmd.Flags().Changed("code-prefix") {
-				resp, callErr := gen.AgentTeamEventsByCode(ctx, client, scope.Ref, codePrefix, optStr(after), optBool(alarms), &limit, optStr(since), optStr(task), types)
-				err = callErr
-				if resp != nil {
-					for _, e := range resp.AgentTeamEvents {
-						if e != nil {
-							rows = append(rows, &gen.AgentTeamEventsAgentTeamEventsAgentTeamEvent{AgentTeamEventFields: e.AgentTeamEventFields})
-						}
-					}
-				}
-			} else {
-				resp, callErr := gen.AgentTeamEvents(ctx, client, scope.Ref, optStr(after), optBool(alarms), &limit, optStr(since), optStr(task), types)
-				err = callErr
-				if resp != nil {
-					rows = resp.AgentTeamEvents
-				}
+				prefix = &codePrefix
 			}
+			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), &limit, optStr(since), optStr(task), types)
 			if err != nil {
 				return api.MapError(err)
 			}
-			events := []teamEventDTO{}
-			for _, e := range rows {
+			page := teamEventsPageDTO{Events: []teamEventDTO{}, HasMore: resp.AgentTeamEventsPage.HasMore, NextCursor: resp.AgentTeamEventsPage.NextCursor}
+			for _, e := range resp.AgentTeamEventsPage.Events {
 				if e != nil {
-					events = append(events, teamEventDTOFrom(&e.AgentTeamEventFields))
+					page.Events = append(page.Events, teamEventDTOFrom(&e.AgentTeamEventFields))
 				}
 			}
-			return output.Write(f.IOStreams, f.JSON, events, func(w io.Writer) error {
+			events := page.Events
+			return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
 				// Which stream, from where (#470) — page one of a long
 				// history looks empty-shaped enough already.
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
@@ -140,15 +149,20 @@ reason or evidence is added. A missing subject stays —.
 				if err := t.Flush(); err != nil {
 					return err
 				}
-				// A full page means more may follow. Name the exact cursor
-				// rather than letting a long history look complete. The
-				// nonempty guard is load-bearing: an empty page at --limit 0
-				// used to index -1 here (cycle 1, Diego P2-2) — 0 now refuses
-				// at the gate, and this comparison can no longer trip on a
-				// page the server emptied.
-				if len(events) > 0 && len(events) == limit {
-					last := events[len(events)-1].ID
-					_, err := fmt.Fprintf(w, "page full at %d events — continue with --after %s\n", len(events), last)
+				// The page end is the server's (cor:api:120:04): a continuation
+				// is named only when hasMore, with the server's nextCursor and
+				// the flag that matches the direction read. A page that merely
+				// happens to be full is the last page when hasMore is false.
+				if page.HasMore {
+					if page.NextCursor == nil || *page.NextCursor == "" {
+						_, err := fmt.Fprintln(w, "more events exist, but the server named no continuation cursor")
+						return err
+					}
+					flag := "--after"
+					if newest {
+						flag = "--newest --before"
+					}
+					_, err := fmt.Fprintf(w, "more events — continue with %s %s\n", flag, shellQuote(output.SafeCell(*page.NextCursor)))
 					return err
 				}
 				return nil
@@ -159,6 +173,8 @@ reason or evidence is added. A missing subject stays —.
 	cmd.Flags().BoolVar(&alarms, "alarms", false, "alarm events only")
 	cmd.Flags().StringVar(&since, "since", "", "RFC 3339 time; events strictly after it")
 	cmd.Flags().StringVar(&after, "after", "", "event id; the page continues strictly after it")
+	cmd.Flags().BoolVar(&newest, "newest", false, "read from the newest end, newest events first")
+	cmd.Flags().StringVar(&before, "before", "", "event id; with --newest, the page continues toward older events")
 	cmd.Flags().StringVar(&task, "task", "", "events of one task")
 	cmd.Flags().StringSliceVar(&types, "type", nil, "event type filter, repeatable (e.g. task.created)")
 	cmd.Flags().IntVar(&limit, "limit", teamEventsDefaultLimit, "page size (server cap 200)")

@@ -24,7 +24,7 @@ import (
 func newCmdTeamHostReportStops(f *cmdutil.Factory) *cobra.Command {
 	var configPath, reporterWorker string
 	var dryRun bool
-	var staleAfter time.Duration
+	var staleAfter, retainReported time.Duration
 	cmd := &cobra.Command{
 		Use:   "report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run)",
 		Short: "Flag halt notices the host poller could not type to each worker's coordinator",
@@ -69,12 +69,20 @@ result or exit. Matching read-back still finishes the report and clears the
 status after its reported marker is durable. No recovery/certification is
 provided by this command.
 
+Retention: a record whose report was made more than --retain-reported ago
+(default 720h, 30 days) is removed by a run, with its markers; a notice not
+yet reported is never removed. A record file that cannot be read or parsed
+does not stop the run: every other notice is still reported, the file is
+named in a failed line, the exit is 7, and it is never counted as reported.
+--dry-run counts such files as "unreadable records".
+
 Each notice handled prints one line: <result> <event id> <worker> [#seq].
   reported    posted now, at #seq
   reconciled  an earlier attempt's post was found at #seq; not posted again
   duplicate   the server refused an identical re-post; its earlier #seq is recorded
   waiting     an earlier attempt is too recent to check; the next run checks it
-  failed      not reported; stays pending (the reason follows)
+  failed      not reported; stays pending (the reason follows); an unreadable
+              record file prints "failed <file>" in place of the event and worker
 A run with nothing pending prints "nothing to report".
 
 Exit codes: 0 every pending notice reported, or waiting; 2 usage; 7 no live
@@ -97,6 +105,7 @@ stay pending); 1 any other error.`,
 			rep := &delivery.StopReporter{
 				Outbox:         &delivery.StopOutbox{Dir: delivery.StopOutboxDir(cfg.DeliveryStateDir())},
 				ReporterWorker: reporterWorker,
+				RetainReported: retainReported,
 			}
 			out := f.IOStreams.Out
 			if dryRun {
@@ -108,6 +117,9 @@ stay pending); 1 any other error.`,
 					return json.NewEncoder(out).Encode(status)
 				}
 				fmt.Fprintf(out, "pending %d, of which held over %s: %d\n", status.Pending, staleAfter, status.Stale)
+				if status.Corrupt > 0 {
+					fmt.Fprintf(out, "unreadable records: %d (a run reports each by file name)\n", status.Corrupt)
+				}
 				for _, record := range status.Records {
 					field := ""
 					if record.Field != "" {
@@ -145,9 +157,15 @@ stay pending); 1 any other error.`,
 				fmt.Fprintln(out, "another report-stops run holds the outbox; nothing done")
 			} else if len(run.Outcomes) == 0 {
 				fmt.Fprintln(out, "nothing to report")
+				if run.Pruned > 0 {
+					fmt.Fprintf(out, "removed %d reported record(s) older than %s\n", run.Pruned, retentionText(retainReported))
+				}
 			} else {
 				for _, o := range run.Outcomes {
 					line := fmt.Sprintf("%s %s %s", o.Result, output.SafeLine(o.EventID, 256), output.SafeLine(o.Worker, 256))
+					if o.File != "" {
+						line = fmt.Sprintf("%s %s", o.Result, output.SafeLine(o.File, 256))
+					}
 					if o.Seq > 0 {
 						line += fmt.Sprintf(" #%d", o.Seq)
 					}
@@ -169,6 +187,9 @@ stay pending); 1 any other error.`,
 					}
 					fmt.Fprintln(out, line)
 				}
+				if run.Pruned > 0 {
+					fmt.Fprintf(out, "removed %d reported record(s) older than %s\n", run.Pruned, retentionText(retainReported))
+				}
 			}
 			if failed > 0 {
 				return exitcode.Newf(exitcode.Unavailable, "report-stops: %d report(s) failed and stay pending", failed)
@@ -180,7 +201,15 @@ stay pending); 1 any other error.`,
 	cmd.Flags().StringVar(&reporterWorker, "reporter-worker", "", "the worker whose live session, bound in this worktree, posts the reports")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "post nothing; count pending reports")
 	cmd.Flags().DurationVar(&staleAfter, "stale-after", 10*time.Minute, "with --dry-run: count pending reports first held longer ago than this")
+	cmd.Flags().DurationVar(&retainReported, "retain-reported", delivery.DefaultRetainReported, "keep a reported record this long, then remove it on a run (a pending record is never removed); negative keeps them forever")
 	return cmd
+}
+
+func retentionText(d time.Duration) string {
+	if d == 0 {
+		d = delivery.DefaultRetainReported
+	}
+	return d.String()
 }
 
 // stopReporterAPI implements delivery.ReporterAPI over this worktree's

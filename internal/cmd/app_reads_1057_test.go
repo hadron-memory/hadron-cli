@@ -24,7 +24,7 @@ func TestAppReads1057(t *testing.T) {
 			for _, jsonMode := range []bool{false, true} {
 				t.Run(fmt.Sprintf("keys%v/null%v/json%v", keys, nulls, jsonMode), func(t *testing.T) {
 					var mu sync.Mutex
-					calls := 0
+					calls, pinCalls := 0, 0
 					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						var req struct {
 							OperationName, Query string
@@ -32,6 +32,18 @@ func TestAppReads1057(t *testing.T) {
 						}
 						if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 							t.Error(err)
+						}
+						// cli#1913: app get also reads the App's chatbot AI config pin
+						// in its own operation (so an older server still serves it).
+						// Unset here: no choices read follows. Still no settings, keys
+						// or AI configuration beyond that one id.
+						if req.OperationName == "GetAppChatbotAiConfig" {
+							mu.Lock()
+							pinCalls++
+							mu.Unlock()
+							w.Header().Set("Content-Type", "application/json")
+							fmt.Fprint(w, `{"data":{"app":{"id":"app-id","chatbotAiConfigId":null}}}`)
+							return
 						}
 						mu.Lock()
 						calls++
@@ -78,10 +90,13 @@ func TestAppReads1057(t *testing.T) {
 						t.Fatal(err)
 					}
 					mu.Lock()
-					n := calls
+					n, pins := calls, pinCalls
 					mu.Unlock()
 					if n != 1 {
 						t.Fatalf("HTTP calls=%d want1", n)
+					}
+					if wantPins := map[bool]int{false: 1, true: 0}[keys]; pins != wantPins {
+						t.Fatalf("chatbot pin reads=%d want %d", pins, wantPins)
 					}
 					for _, secret := range []string{"raw-secret-sentinel", "private-host-sentinel", "private-settings-sentinel"} {
 						if strings.Contains(out.String(), secret) {
@@ -109,7 +124,7 @@ func TestAppReads1057(t *testing.T) {
 							gotKeys = append(gotKeys, k)
 						}
 						sort.Strings(gotKeys)
-						want := []string{"id", "urn", "name", "appType", "description"}
+						want := []string{"id", "urn", "name", "appType", "description", "chatbotAiConfigId", "chatbotAiConfigName", "chatbotAiConfigListed"}
 						if keys {
 							want = []string{"id", "keyPreview", "label", "createdAt", "lastUsedAt", "revokedAt"}
 						}
@@ -117,7 +132,7 @@ func TestAppReads1057(t *testing.T) {
 						if !reflect.DeepEqual(gotKeys, want) {
 							t.Fatalf("JSON keys %v", gotKeys)
 						}
-						expected := map[string]any{"id": "app-id", "urn": appRead1057, "name": "Support", "appType": "CHATBOT", "description": "description value"}
+						expected := map[string]any{"id": "app-id", "urn": appRead1057, "name": "Support", "appType": "CHATBOT", "description": "description value", "chatbotAiConfigId": nil, "chatbotAiConfigName": nil, "chatbotAiConfigListed": false}
 						if keys {
 							expected = map[string]any{"id": "key-id", "keyPreview": "hdr_...abcd", "label": "primary", "createdAt": "2026-01-01T00:00:00Z", "lastUsedAt": "2026-01-02T00:00:00Z", "revokedAt": "2026-01-03T00:00:00Z"}
 						}

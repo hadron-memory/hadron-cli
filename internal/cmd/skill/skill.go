@@ -448,6 +448,14 @@ func toSkillNode(n *batchNode, memURN string) skilldoc.Node {
 	return sn
 }
 
+// describeNotJudged words a selected node the server's plan did not judge
+// although the local parser expected it to: the CLI's skilldoc view and the
+// server's plan scoping disagree (registry/version skew). It is a warning,
+// never a clean result, and never aborts the rest of the lint.
+func describeNotJudged(ref string) string {
+	return fmt.Sprintf("%s was not judged by the server's skill lint plan (the CLI and server disagree about its host declaration; upgrade the CLI or server) — skipped", ref)
+}
+
 // describeUnavailable is the shared wording for a ref the batch refused —
 // whether it came from a listing or straight from --node — "not found, or
 // not readable by you", by the server's own merged envelope (cor:api:040);

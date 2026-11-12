@@ -125,11 +125,16 @@ fragment AgentTaskFields on AgentTask {
 # Keep legacy role:null for ordinary requirements, but omit role entirely
 # when a role set is supplied: the two selector keys never coexist.
 # @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
+# cli#1848 (hadron-server#3816, V21-V23): matchSkipped is selected on the
+# create answer ONLY. It is returned, never stored: the server answers it on a
+# createAgentTask(match: true) that failed, and null everywhere else, so no
+# read document selects it. Needs provider be731afd (0.0.1879) or later.
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
   createAgentTask(input: $input) {
     ...AgentTaskFields
+    matchSkipped { workerId name reasons }
   }
 }
 
@@ -394,10 +399,20 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   }
 }
 
-query AgentTeamEvents(
+# Page-aware read of the team event stream (cor:api:120:04, server#3933): the
+# server says whether more rows exist (hasMore) and hands the continuation
+# (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
+# before and newestFirst are sent only when set.
+query AgentTeamEventsPage(
   $appRef: ID!
   # @genqlient(omitempty: true)
   $after: ID
+  # @genqlient(omitempty: true)
+  $before: ID
+  # @genqlient(omitempty: true)
+  $newestFirst: Boolean
+  # @genqlient(omitempty: true)
+  $codePrefix: String
   # @genqlient(omitempty: true)
   $alarmsOnly: Boolean
   # @genqlient(omitempty: true)
@@ -409,46 +424,23 @@ query AgentTeamEvents(
   # @genqlient(omitempty: true)
   $types: [String!]
 ) {
-  agentTeamEvents(
+  agentTeamEventsPage(
     appRef: $appRef
     after: $after
-    alarmsOnly: $alarmsOnly
-    limit: $limit
-    since: $since
-    taskId: $taskId
-    types: $types
-  ) {
-    ...AgentTeamEventFields
-  }
-}
-
-query AgentTeamEventsByCode(
-  $appRef: ID!
-  $codePrefix: String!
-  # @genqlient(omitempty: true)
-  $after: ID
-  # @genqlient(omitempty: true)
-  $alarmsOnly: Boolean
-  # @genqlient(omitempty: true)
-  $limit: Int
-  # @genqlient(omitempty: true)
-  $since: DateTime
-  # @genqlient(omitempty: true)
-  $taskId: ID
-  # @genqlient(omitempty: true)
-  $types: [String!]
-) {
-  agentTeamEvents(
-    appRef: $appRef
+    before: $before
+    newestFirst: $newestFirst
     codePrefix: $codePrefix
-    after: $after
     alarmsOnly: $alarmsOnly
     limit: $limit
     since: $since
     taskId: $taskId
     types: $types
   ) {
-    ...AgentTeamEventFields
+    events {
+      ...AgentTeamEventFields
+    }
+    hasMore
+    nextCursor
   }
 }
 

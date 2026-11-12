@@ -95,7 +95,7 @@ primaryMinutes, primaryResetsAt and secondaryPct, secondaryMinutes,
 secondaryResetsAt, plus sourceState (ok, no-reading-yet; glm: no-local-source).`,
 		Example: "  hadron team usage collect --config ./usage.yaml\n  hadron team usage show --config ./usage.yaml --json\n  hadron team usage install --config ./usage.yaml --interval 15m",
 	}
-	group.AddCommand(newUsageCollect(f), newUsageShow(f), newUsageInstall(f), newUsageUninstall(f), newUsageStatus(f))
+	group.AddCommand(newUsageCollect(f), newUsageShow(f), newUsageAccounts(f), newUsageProject(f), newUsageInstall(f), newUsageUninstall(f), newUsageStatus(f))
 	return group
 }
 

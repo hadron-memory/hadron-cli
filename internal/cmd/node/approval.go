@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -114,6 +115,7 @@ func approvalStatusFrom(s *gen.NodeApprovalStatusFields) *approvalStatusDTO {
 func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	var revision int
+	var asWorker bool
 	cmd := &cobra.Command{
 		Use:   "approve <node-ref>",
 		Short: "Approve a node's current revision",
@@ -128,13 +130,33 @@ alias, loc, edges) leaves it valid.
 Pass --revision from a prior node read to refuse if the node changed since
 you saw it. Without that flag, the server approves the revision current when
 it acquires the node lock. Repeating approval of the same revision leaves the
-existing approval unchanged.`,
+existing approval unchanged.
+
+Acts as you by default and sends no worker-session header. With --as-worker it
+sends this worktree's bound worker session: the server then admits the approval
+only for a compiled boot prompt that a signed bootprompt.compile.approve grant
+names, and records the approver as the worker under the batch grant. The CLI
+does not check the grant; a refusal prints with its code (exit 8).
+--as-worker never falls back to you: without a usable binding for this server
+and App it refuses (exit 2) and sends nothing. The grant does not cover
+signing: where an organisation has switched on signing of compiled boot
+prompts (its own setting, not the passkey switch), a person still signs each
+compiled prompt.`,
 		Example: `  hadron node approve hrn:node:hadronmemory.com:dev:instructions --revision 14
   hadron node approve instructions -m hrn:mem:hadronmemory.com:dev --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("revision") && revision < 1 {
 				return exitcode.Newf(exitcode.Usage, "--revision must be a positive node revision")
+			}
+			// --as-worker resolves its session before any request (cli#1872).
+			var mutCtx func(context.Context) (context.Context, error)
+			if asWorker {
+				m, err := f.ResolveWorkerWrite(cmd.Context())
+				if err != nil {
+					return err
+				}
+				mutCtx = m
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -148,7 +170,17 @@ existing approval unchanged.`,
 			if cmd.Flags().Changed("revision") {
 				expected = &revision
 			}
-			resp, err := gen.ApproveNode(cmd.Context(), client, id, expected)
+			// Only the approval mutation carries the session; the resolution
+			// and the lint read keep the person's context.
+			sendCtx := cmd.Context()
+			if mutCtx != nil {
+				c, err := mutCtx(cmd.Context())
+				if err != nil {
+					return err
+				}
+				sendCtx = c
+			}
+			resp, err := gen.ApproveNode(sendCtx, client, id, expected)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -167,6 +199,7 @@ existing approval unchanged.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare node loc against")
 	cmd.Flags().IntVar(&revision, "revision", 0, "approve only this previously read node revision")
+	cmd.Flags().BoolVar(&asWorker, "as-worker", false, cmdutil.AsWorkerFlagUsage)
 	enableLintWarnings(cmd)
 	return cmd
 }

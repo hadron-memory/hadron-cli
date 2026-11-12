@@ -34,11 +34,13 @@ type batchWorker struct {
 }
 
 type batchCall struct {
-	Op   string
-	Vars map[string]any
+	Op      string
+	Vars    map[string]any
+	Session string // X-Hadron-Session as sent (cli#1872)
 }
 
 type batchFake struct {
+	onOp    func(op string) // runs as each operation arrives (cli#1872)
 	mu      sync.Mutex
 	calls   []batchCall
 	workers []batchWorker
@@ -90,11 +92,16 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 		_ = json.Unmarshal(raw, &body)
 		op := body.OperationName
 		fake.mu.Lock()
-		fake.calls = append(fake.calls, batchCall{Op: op, Vars: body.Variables})
+		fake.calls = append(fake.calls, batchCall{Op: op, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
 		fake.mu.Unlock()
+		if fake.onOp != nil {
+			fake.onOp(op)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch op {
-		case "GetBoundSessionEnd", "ChannelReadState", "TeamAppIdentity":
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
+		case "GetBoundSessionEnd", "ChannelReadState":
 			_, _ = w.Write([]byte(`{"data":{}}`))
 		case "WorkersBootPointers":
 			items := []string{}
@@ -159,6 +166,8 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 			case wk.compile == "502":
 				w.WriteHeader(http.StatusBadGateway)
 				_, _ = w.Write([]byte("bad gateway"))
+			case strings.HasPrefix(wk.compile, "rev:"): // cli#1827: a malformed success carrying this revNo
+				fmt.Fprintf(w, `{"data":{"compileWorkerBootPrompt":{"node":{"urn":%q},"revNo":%s,"contentHash":"h-%s","pointerSet":true,"approvalIssued":false}}}`, cptr(wk.id), strings.TrimPrefix(wk.compile, "rev:"), wk.id)
 			case wk.compile == "ok" || wk.compile == "":
 				ref := wk.pointer
 				if ref == "" {

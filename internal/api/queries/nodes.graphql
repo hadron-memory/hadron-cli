@@ -1384,3 +1384,17 @@ query NodeEdgesAttributed($ref: ID!) {
     }
   }
 }
+
+# cli#879: the node's current revision beside its raw stored text, read in ONE
+# call so `node signatures --check` can tell whether the text is the revision a
+# signature names (a node edited between two reads must not be hashed against
+# an older signature). Only what the approval hash covers.
+query NodeRawText($ref: ID!) {
+  node(ref: $ref, raw: true) {
+    id
+    revision
+    name
+    abstract
+    content(raw: true)
+  }
+}

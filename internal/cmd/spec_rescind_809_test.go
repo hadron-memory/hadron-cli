@@ -33,6 +33,10 @@ type rescindServer struct {
 	rereadAbstract string // abstract JSON for that re-read, "" = same as abstr
 	calls          map[string]int
 	vars           map[string][]json.RawMessage
+	// cli#1912: who the caller is and what the server says about their write
+	// access. authUser "" = a credential with no user (the check is skipped).
+	authUser string
+	canWrite bool
 }
 
 func (s *rescindServer) serve() *httptest.Server {
@@ -72,6 +76,14 @@ func (s *rescindServer) serve() *httptest.Server {
 			}
 			_, _ = w.Write([]byte(`{"data":{"node":{"id":"` + id + `","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","description":null,"tags":` + tags +
 				`,"role":null,"content":` + string(content) + `,"abstract":` + abstr + `,"abstractOriginHash":null,"revision":7}}}`))
+		case "AuthContext":
+			if s.authUser == "" {
+				_, _ = w.Write([]byte(`{"data":{"authContext":null}}`))
+			} else {
+				_, _ = w.Write([]byte(`{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,"user":{"id":"` + s.authUser + `","name":"U","email":null,"handle":"u","githubUsername":null,"roles":[]},"apiKey":null,"impersonation":null}}}`))
+			}
+		case "EffectiveAccess":
+			_, _ = w.Write([]byte(effectiveAccessJSON(s.canWrite)))
 		case "UpdateSpecNode":
 			status, answer := http.StatusOK, guardWriteOK
 			if s.update != nil {
