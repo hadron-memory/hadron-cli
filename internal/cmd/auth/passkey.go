@@ -33,9 +33,18 @@ const passkeysUnavailable = "this server does not offer passkeys"
 const passkeyCapability = "passkey-registration"
 
 // PasskeyCapabilities reads GET /capabilities. Package-level so tests can
-// count or fail it (house convention); the default is the cached,
-// unauthenticated api.Capabilities.
+// count or fail it (TestPasskeyListDiscoveryErrorIsOneLine injects an error);
+// the default is the cached, unauthenticated api.Capabilities.
 var PasskeyCapabilities = api.Capabilities
+
+// PasskeyKeyMaterialNames are the fields the server withholds over a bearer
+// (hadron-server resolvers.passkeys.ts, #1631 §10): this read never selects
+// or prints them. It is the ONE list both guards read, the operation-selection
+// unit test here and the command-level --json key walk, so they cannot drift.
+var PasskeyKeyMaterialNames = []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}
+
+// discoveryCauseMaxRunes bounds the discovery error quoted in the refusal.
+const discoveryCauseMaxRunes = 200
 
 // passkeyNow is the clock the state derivation reads. Injected by tests.
 var passkeyNow = time.Now
@@ -163,11 +172,18 @@ func newCmdPasskeyList(f *cmdutil.Factory) *cobra.Command {
 included. Shows labels and dates only, never key material: no credential id,
 no public key.
 
-STATE is worked out on this machine's clock: revoked once a passkey is
-revoked; cooling-off while a first passkey's cooling-off window is open (it
-has not ended and WINDOW ENDS is still ahead); active otherwise. The window's
-length is a server setting, so read WINDOW ENDS against the server's time
-when it matters. The state is a display: it grants nothing.
+STATE is revoked for a removed passkey, cooling-off while a first passkey's
+cooling-off window is still open (it has not ended and WINDOW ENDS is ahead),
+and active otherwise. It is worked out on this machine's clock and grants
+nothing; read WINDOW ENDS against the server's time when it matters.
+
+A first passkey (one registered when you had no other) starts in a
+cooling-off window, at least 72 hours long and set by the server. Until it
+ends, signatures the passkey makes are kept as pending and don't count; the
+passkey can still sign you in. The window runs out, or a fresh sign-in by a
+different method, on the server's own page, ends it early; if the passkey is
+revoked first, its pending signatures never count. A later passkey has no
+window: WINDOW ENDS shows -.
 
 --json gives an array of id (the record's id, not the credential id), label,
 state, registeredAt, lastUsedAt, revokedAt, window (endsAt, endedAt, outcome,
@@ -203,7 +219,10 @@ func runPasskeyList(ctx context.Context, f *cmdutil.Factory) error {
 		// Unknown is not "no" (review:assert-the-value-the-user-gets): same
 		// exit and the same zero queries, as the gate rules, but the sentence
 		// says discovery failed rather than that the feature is absent.
-		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%v); no query was sent", err)
+		// The cause is flattened to one bounded line: a discovery error can
+		// quote a multi-line body (an HTML error page).
+		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%s); no query was sent",
+			output.SafeLine(err.Error(), discoveryCauseMaxRunes))
 	}
 	if !caps[passkeyCapability] {
 		return exitcode.Newf(exitcode.Usage, passkeysUnavailable)

@@ -463,7 +463,7 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 		"set by the server",
 		"pending and don't count",
 		"can still sign you in",
-		"a fresh sign-in by a different method ends it early",
+		"a fresh sign-in by a different method, on the server's own page, ends it early",
 		"its pending signatures never count",
 		"worked out on this machine's clock and grants nothing",
 	} {
