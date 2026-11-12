@@ -1720,6 +1720,14 @@ func codeForExtension(code string) int {
 	// or preview the switchover again.
 	case code == "ATTENTION_TOKEN_STALE" || code == "TEAM_ATTENTION_STALE_PAGE" || code == "SWITCHOVER_PROOF_STALE":
 		return exitcode.Conflict
+	// hadron-cli#1879: the signing switch-on token was missing, forged, expired
+	// or for a preview that has since changed. A blind retry cannot help; the
+	// caller previews again. Not Usage: the CLI chose the token, not the caller.
+	// BOOT_PROMPT_SIGNING_NOT_CONFIGURED is deliberately NOT mapped (R11, exit 1):
+	// it fires only when the server has no JWT_SECRET for the token signer, an
+	// operator state the caller cannot fix (production refuses to boot that way).
+	case code == "BOOT_PROMPT_SIGNING_PREVIEW_STALE":
+		return exitcode.Conflict
 	default:
 		return exitcode.Error
 	}
