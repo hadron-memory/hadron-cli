@@ -31,13 +31,18 @@ type appStateDTO struct {
 	Status string `json:"status"`
 }
 
-// runAppLifecycle sends the ref to the server unchanged (an id, or a URN the
-// server resolves): no client lookup or preflight read, so a missing App and
-// a refused caller get whatever the server answers: the CLI adds no
-// existence oracle of its own. The server's extensions.code is kept as the
-// --json envelope's serverCode.
-func runAppLifecycle(cmd *cobra.Command, f *cmdutil.Factory, raw string, confirm func(ref string) error,
-	call func(ctx context.Context, client graphql.Client, ref string) error, state string, text func(ref string) string) error {
+// lifecycleOptions keeps each command's mutation, confirmation and receipt together.
+type lifecycleOptions struct {
+	confirm func(ref string) error
+	call    func(ctx context.Context, client graphql.Client, ref string) error
+	state   string
+	text    func(ref string) string
+}
+
+// runAppLifecycle canonicalizes the reference without a lookup or preflight.
+// IDs and URNs retain their identity; org:slug becomes a v2 App URN.
+// The server's extensions.code is kept as the JSON envelope's serverCode.
+func runAppLifecycle(cmd *cobra.Command, f *cmdutil.Factory, raw string, opts lifecycleOptions) error {
 	appRef, err := cmdutil.CanonicalAppRef("<app-ref>", raw)
 	if err != nil {
 		return err
@@ -46,16 +51,16 @@ func runAppLifecycle(cmd *cobra.Command, f *cmdutil.Factory, raw string, confirm
 	if err != nil {
 		return err
 	}
-	if confirm != nil {
-		if err := confirm(appRef); err != nil {
+	if opts.confirm != nil {
+		if err := opts.confirm(appRef); err != nil {
 			return err
 		}
 	}
-	if err := call(cmd.Context(), client, appRef); err != nil {
+	if err := opts.call(cmd.Context(), client, appRef); err != nil {
 		return api.MapErrorKeepingCode(err)
 	}
-	return output.Write(f.IOStreams, f.JSON, appStateDTO{App: appRef, Status: state}, func(w io.Writer) error {
-		_, err := fmt.Fprintln(w, text(appRef))
+	return output.Write(f.IOStreams, f.JSON, appStateDTO{App: appRef, Status: opts.state}, func(w io.Writer) error {
+		_, err := fmt.Fprintln(w, opts.text(appRef))
 		return err
 	})
 }
@@ -80,7 +85,8 @@ install memories, as history; there is no undelete. A new App may later
 reclaim its handle. To keep an App read-only and reversible instead, use
 hadron app uninstall.
 
-<app-ref> is an App id or URN, sent to the server unchanged. A URN names
+<app-ref> accepts an App id or URN (sent unchanged), or org:slug
+(normalized to hrn:app:org:slug without a lookup). A URN names
 only the installed App holding it, so name an uninstalled App by its id:
 its former URN may now name a different, installed App.
 
@@ -89,24 +95,31 @@ A missing App and a caller without the right get one identical refusal
 (exit 8). A repeat by id is refused APP_DELETED (exit 5). A URN is
 resolved afresh on every call: while no installed App holds it, a repeat
 gets that same refusal (exit 8), but once another App reclaims the handle
-the URN names that App, and deleting it deletes that App. Delete and retry
-by id to keep the target fixed. Asks for confirmation on a terminal; a
+the URN names that App, and a delete by that URN deletes that App.
+Delete and retry by id to keep the target fixed. Asks for confirmation on a terminal; a
 non-interactive caller must pass --yes. Before cli#1917 this was
 "app uninstall"; rm still means delete.`,
-		Example: `  hadron app delete capp1a2b3c4d5e6f7g8h9i0j --yes
+		Example: `  hadron app delete capp100000000000000000000 --yes
   hadron app rm hrn:app:acme.com:support --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAppLifecycle(cmd, f, args[0],
-				func(ref string) error { return cmdutil.ConfirmDeletion(f.IOStreams, yes, "App "+ref) },
-				func(ctx context.Context, c graphql.Client, ref string) error {
+			return runAppLifecycle(cmd, f, args[0], lifecycleOptions{
+				confirm: func(ref string) error {
+					what := "App " + ref
+					if !cmdutil.IsAppID(ref) {
+						what += " (the installed App currently holding this URN)"
+					}
+					return cmdutil.ConfirmDeletion(f.IOStreams, yes, what)
+				},
+				call: func(ctx context.Context, c graphql.Client, ref string) error {
 					_, err := gen.DeleteApp(ctx, c, ref)
 					return err
 				},
-				appStateDeleted,
-				func(ref string) string {
+				state: appStateDeleted,
+				text: func(ref string) string {
 					return fmt.Sprintf("✓ App %s is deleted: no longer serving, kept as history, no undelete.", ref)
-				})
+				},
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
@@ -126,30 +139,32 @@ Reverse it with hadron app reinstall.
 BREAKING (cli#1917): app uninstall no longer deletes. Deleting is now
 hadron app delete (alias rm, which moved there with it).
 
-<app-ref> is an App id or URN, sent to the server unchanged: a URN names
+<app-ref> accepts an App id or URN (sent unchanged), or org:slug
+(normalized to hrn:app:org:slug without a lookup). A URN names
 the installed App holding it, else the one uninstalled App with it. Whoever
 may delete the App may uninstall it; anyone else, and an App that does not
 exist, get one identical refusal. A deleted App is refused (APP_DELETED).
 Prints the resulting state; --json is {"app": <ref>, "status":
 "uninstalled"}, the same for a repeat, which changes nothing. Asks for
 confirmation on a terminal; a non-interactive caller must pass --yes.`,
-		Example: `  hadron app uninstall capp1a2b3c4d5e6f7g8h9i0j --yes`,
+		Example: `  hadron app uninstall capp100000000000000000000 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAppLifecycle(cmd, f, args[0],
-				func(ref string) error {
+			return runAppLifecycle(cmd, f, args[0], lifecycleOptions{
+				confirm: func(ref string) error {
 					return cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf(
 						"Uninstall App %s? It stays, read-only (writes refused), and its handle is freed; undo with hadron app reinstall.", ref))
 				},
-				func(ctx context.Context, c graphql.Client, ref string) error {
+				call: func(ctx context.Context, c graphql.Client, ref string) error {
 					_, err := gen.UninstallApp(ctx, c, ref)
 					return err
 				},
-				appStateUninstalled,
-				func(ref string) string {
+				state: appStateUninstalled,
+				text: func(ref string) string {
 					return fmt.Sprintf("✓ App %s is uninstalled: kept, read-only (writes are refused), and its handle is free for another App. Reverse with: %s",
 						ref, reinstallHint(ref))
-				})
+				},
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
@@ -172,21 +187,23 @@ Prints the resulting state; --json is {"app": <ref>, "status":
 "installed"}. A repeat on an installed App changes nothing and prints the
 same.
 
-<app-ref> is an App id or URN, sent to the server unchanged: a URN names
+<app-ref> accepts an App id or URN (sent unchanged), or org:slug
+(normalized to hrn:app:org:slug without a lookup). A URN names
 the installed App holding it, else the one uninstalled App with it (two or
 more: name one by id). Same gate as app uninstall.`,
-		Example: `  hadron app reinstall capp1a2b3c4d5e6f7g8h9i0j`,
+		Example: `  hadron app reinstall capp100000000000000000000`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAppLifecycle(cmd, f, args[0], nil,
-				func(ctx context.Context, c graphql.Client, ref string) error {
+			return runAppLifecycle(cmd, f, args[0], lifecycleOptions{
+				call: func(ctx context.Context, c graphql.Client, ref string) error {
 					_, err := gen.ReinstallApp(ctx, c, ref)
 					return err
 				},
-				appStateInstalled,
-				func(ref string) string {
+				state: appStateInstalled,
+				text: func(ref string) string {
 					return fmt.Sprintf("✓ App %s is installed: the same App, with its id, keys, members and memories.", ref)
-				})
+				},
+			})
 		},
 	}
 }
