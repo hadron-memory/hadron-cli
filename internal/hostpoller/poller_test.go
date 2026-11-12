@@ -106,6 +106,8 @@ func (a *fakeAgent) Terminate() (bool, string) {
 	return true, "terminated the fake"
 }
 
+func (a *fakeAgent) Release() {}
+
 func (a *fakeAgent) terminations() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -773,6 +775,53 @@ func TestWorkerStartStopsAskingWhenAnswersStayUnclear(t *testing.T) {
 	}
 	if _, ok := st.Agents["id-iris"]; !ok {
 		t.Error("the agent's records are kept when the asking gives up")
+	}
+}
+
+// #1474 delta round 2 (Jonas P3-3): what a re-delivered start does after a
+// start-stuck give-up. The op left in flight is gone (the goroutine
+// returned), so the re-delivery re-enters workerStart — and is refused by
+// the one-agent-per-worktree guard BEFORE the occupied scan: the start
+// finishes FAILED on the record, nothing new launches, and the agent that
+// was deliberately left running is neither stopped nor forgotten.
+func TestWorkerStartRedeliveredAfterStartStuckRefusesWithoutStoppingTheAgent(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.BindPoll = time.Second // a sane pace on the fake clock
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	p.server = &flakyServer{fakeServer: srv, fails: math.MaxInt}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p) // start-stuck: the budget ends the asking, records kept
+	if len(host.launches) != 1 {
+		t.Fatalf("the first delivery launched once: %d launches", len(host.launches))
+	}
+	agent := host.agent
+	// The server re-collects the same start once its grant has expired, and
+	// answers again (the asking is healthy this time — the pin is the
+	// re-delivery's destination, not another give-up).
+	p.server = srv
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	// An occupant is named too, to prove the tracked-agent guard — not the
+	// occupied scan — is the refuser.
+	host.occupant = "pid 999, curl https://h"
+	step(t, p)
+	r := only(t, srv)
+	if r.outcome != Failed || !strings.Contains(r.reason, "an agent this host launched is still running") {
+		t.Fatalf("the re-delivered start is refused by the tracked agent, not the occupant: %+v", r)
+	}
+	if len(host.launches) != 1 {
+		t.Errorf("the re-delivery launches nothing new: %d launches", len(host.launches))
+	}
+	if agent.terminations() != 0 {
+		t.Error("the re-delivery never stops the deliberately-left-running agent")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("the running agent's records survive the refused re-delivery")
 	}
 }
 

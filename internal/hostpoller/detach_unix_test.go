@@ -14,24 +14,22 @@ import (
 	"unicode/utf8"
 )
 
-// An agent that already exited — a leader-alone launch whose group was seen
-// empty before the reap — is neither probed nor signalled again: its group
-// id has been reusable since the reap, and the probe itself could hit
-// whatever holds the number now. Terminate confirms the stop silently
-// (#1474 delta review P2-1/P3-8: the probe is not run, not merely answered).
+// An agent that already exited — its group gone, its number still reserved
+// by the launch (pinPid) — is a confirmed stop that SIGNALS nothing: the
+// probe is safe to run (a reserved number cannot be someone else's group),
+// and its ESRCH answer is the confirmation. The probes count is asserted on
+// Linux in pinpid_linux_test.go; here the contract every Unix platform
+// keeps is stopped=true, silently, with zero signals (#1474 delta round 2:
+// Jonas's P2 — this file also builds on darwin/BSD, where no pin exists).
 func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
 	}
-	signals, probes := 0, 0
+	signals := 0
 	realSignal, realProbe := signalGroup, probeGroup
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		signals++
 		return realSignal(pgid, sig)
-	}
-	probeGroup = func(pgid int) error {
-		probes++
-		return realProbe(pgid)
 	}
 	defer func() { signalGroup, probeGroup = realSignal, realProbe }()
 	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
@@ -47,54 +45,8 @@ func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if !stopped || detail != "" {
 		t.Errorf("an agent whose group is gone is a silent confirmed stop: stopped=%v %q", stopped, detail)
 	}
-	if probes != 0 || signals != 0 {
-		t.Errorf("an exited leader-alone agent is neither probed nor signalled: %d probes, %d signals", probes, signals)
-	}
-}
-
-// #1474 delta review (Jane D1): a genuine, reaped, leader-alone launch —
-// `true`, nothing else in its group — must never let a later Terminate
-// reach a reused group id. The emptiness is recorded at reap time
-// (noteGroupBeforeReap), so Terminate confirms without touching the id: the
-// probe is the attack surface (a reused id answers it), and it is not even
-// called.
-func TestTerminateAfterAReapedLeaderAloneLaunchNeverProbesTheGroupID(t *testing.T) {
-	if _, err := exec.LookPath("true"); err != nil {
-		t.Skip("no true")
-	}
-	if _, err := os.Stat("/proc/self/stat"); err != nil {
-		t.Skip("no /proc")
-	}
-	signals, probes := 0, 0
-	realSignal, realProbe := signalGroup, probeGroup
-	defer func() { signalGroup, probeGroup = realSignal, realProbe }()
-	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Done closes only after the waiter's reap-time scan, so the emptiness
-	// decision is already made here.
-	select {
-	case <-a.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("true exits at once")
-	}
-	// A reused group id would answer a signal-0 probe; model one and prove
-	// the probe never runs.
-	probeGroup = func(int) error {
-		probes++
-		return nil // "some group holds the number now"
-	}
-	signalGroup = func(int, syscall.Signal) error {
-		signals++
-		return nil
-	}
-	stopped, detail := a.Terminate()
-	if !stopped || detail != "" {
-		t.Fatalf("a leader-alone launch whose group emptied at reap is a silent confirmed stop: stopped=%v %q", stopped, detail)
-	}
-	if probes != 0 || signals != 0 {
-		t.Fatalf("a reaped leader-alone launch's id is never probed or signalled again: %d probes, %d signals", probes, signals)
+	if signals != 0 {
+		t.Errorf("an agent whose group is gone is never signalled: %d signals", signals)
 	}
 }
 
@@ -211,6 +163,25 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"invalid utf8 quoted":     {[]string{"a", "b\xff", "c"}, `a "b\xff" c`},
 		"spaces kept unambiguous": {[]string{"sh", "-c", "sleep 30 & wait"}, `sh -c "sleep 30 & wait"`},
 		"empty argument survives": {[]string{"a", "", "b"}, `a "" b`},
+		// #1474 delta round 2 (Jonas F5a): an unencoded @ in the password
+		// must not leak the tail after the first @.
+		"unencoded @ in password": {[]string{"curl", "https://u:p@ss@host/path"}, "curl https://host/path"},
+		// F5c: every URL-shaped token in one argument is stripped, not only
+		// the first.
+		"two urls in one string": {[]string{"sh", "-c", "curl https://a:b@h1/x https://c:d@h2/x"}, `sh -c "curl https://h1/x https://h2/x"`},
+		// F5d: -u/-p redaction is gated on binaries that take a credential
+		// there, so other tools' flags stay readable.
+		"python -u is unbuffered": {[]string{"python", "-u", "agent.py"}, "python -u agent.py"},
+		"find -print kept":        {[]string{"find", ".", "-print"}, "find . -print"},
+		"curl -u by name":         {[]string{"curl", "-u", "user:pass", "https://h"}, "curl -u <redacted> https://h"},
+		"curl -u by path":         {[]string{"/usr/bin/curl", "-u", "user:pass"}, "/usr/bin/curl -u <redacted>"},
+		"sshpass -p by name":      {[]string{"sshpass", "-p", "secret", "ssh", "h"}, "sshpass -p <redacted> ssh h"},
+		// F6: a setproctitle-padded argv renders one trailing empty, not a
+		// run of them.
+		"padded trailing empties": {[]string{"titled", "x", "", ""}, `titled x ""`},
+		// P3-2 residual: an argument appended raw for its name is still
+		// quoted when it carries invalid UTF-8.
+		"raw append quoted too": {[]string{"a", "--token\xff"}, `a "--token\xff"`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

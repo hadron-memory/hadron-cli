@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -127,14 +126,12 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace}
+	// Reserve the launch's id before anything can exit: pinPid holds a
+	// Linux pidfd, and a referenced number is never reused, so every later
+	// probe or signal of this launch's group id provably reaches this
+	// launch's group (#1474 delta round 2, Jane D1).
+	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, releasePid: pinPid(cmd.Process.Pid)}
 	go func() {
-		// Before cmd.Wait reaps the leader: the one moment the group's
-		// remaining membership can be read while the exited leader still
-		// pins the group id (noteGroupBeforeReap). The flag it sets is
-		// ordered before close(done) in this goroutine, so a Terminate that
-		// observes Done reads a decided flag.
-		a.noteGroupBeforeReap()
 		err := cmd.Wait()
 		if err != nil {
 			a.detail = err.Error()
@@ -151,10 +148,10 @@ type execAgent struct {
 	detail string
 	pid    int
 	grace  time.Duration
-	// groupEmpty is set when the process group was seen EMPTY before the
-	// leader was reaped (noteGroupBeforeReap): nothing of this launch is
-	// running, and the group id has been reusable since that reap.
-	groupEmpty atomic.Bool
+	// releasePid drops the launch's id reservation (pinPid), when set. Set
+	// in Launch before the agent is handed out, released only by Release —
+	// one writer, one releaser, both ordered through the poller's tracking.
+	releasePid func()
 }
 
 func (a *execAgent) Done() <-chan struct{} { return a.done }
@@ -162,18 +159,25 @@ func (a *execAgent) ExitDetail() string    { return a.detail }
 func (a *execAgent) PID() int              { return a.pid }
 
 // Terminate stops the process group this launch created and confirms the
-// whole group is gone (terminateGroup), gated by stopGuard: a launch whose
-// group was provably empty at reap time — or that has exited where no group
-// probe exists — is a confirmed stop with nothing signalled, because its pid
-// is then reusable and a signal would reach whoever holds the number now
-// (#1474 delta review P1-1/P2-1, Jane D1). The leader having exited does not
-// otherwise end the stop: the pgid stays allocated while any member lives,
-// so a wrapper's child that outlives its leader is still reached.
+// whole group is gone. The group id is this launch's own for as long as the
+// agent lives: the launch-time reservation keeps the number from being
+// reused, so a probe that finds a group finds THIS launch's group — a
+// wrapper's child that outlives its leader included — and an ESRCH probe is
+// the group gone (#1474; delta round 2, Jane D1 / Jonas P2-1 and P3-1). The
+// platform stop in detach_unix/detach_windows carries the per-OS details.
 func (a *execAgent) Terminate() (bool, string) {
-	if a.stopGuard() {
-		return true, ""
+	return a.stop()
+}
+
+// Release drops the launch's id reservation. Call exactly once, when the
+// agent is forgotten and will never be stopped again; an agent whose records
+// are kept keeps its reservation for exactly as long as it may still be
+// signalled (#1474 delta round 2, Jane D1).
+func (a *execAgent) Release() {
+	if a.releasePid != nil {
+		a.releasePid()
+		a.releasePid = nil
 	}
-	return terminateGroup(a.pid, a.grace)
 }
 
 // Occupied looks for a process whose working directory is inside path, via

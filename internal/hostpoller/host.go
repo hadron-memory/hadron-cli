@@ -68,6 +68,12 @@ type Agent interface {
 	// (#1474). A group that is already gone is a confirmed stop that
 	// signalled nothing.
 	Terminate() (stopped bool, detail string)
+	// Release drops the launch's id reservation (the Linux pidfd that keeps
+	// the number from being reused). Call exactly once, when the agent is
+	// forgotten and will never be stopped again; an agent whose records are
+	// kept keeps its reservation for exactly as long as it may still be
+	// signalled (#1474 delta round 2, Jane D1).
+	Release()
 }
 
 // Environment variables a launched agent must never inherit: the host key's

@@ -237,7 +237,14 @@ bound by then, which revokes the grant. A start reported failed stops what
 it launched and forgets its entry in the state file, so a wrapper that keeps
 relaunching its agent does not outlive the failure. On Unix that stop is
 TERM, a short grace, then KILL to the whole process group — which still
-covers a wrapper's children after the launcher itself exited. On Windows the
+covers a wrapper's children after the launcher itself exited. On Linux the
+launch's group id is its own for the agent's whole tracked life: the launch
+reserves the number (a pidfd, where the kernel offers one), so the stop can
+only ever reach this launch's group, never a process that took a reused
+number. Other Unix platforms (macOS, the BSDs) and a kernel without pidfds
+have no reservation — there the stop still probes and signals the group id,
+and a process that has taken a reused number would answer it. Linux is the
+hardened platform for this stop. On Windows the
 process tree is force-killed at once, and a launcher that already exited is
 never signalled again (its pid may have been reused); children it left
 behind cannot be reached without a Job Object, which this runner does not

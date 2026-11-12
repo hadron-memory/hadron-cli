@@ -120,26 +120,63 @@ var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passp
 var credentialHeader = regexp.MustCompile(`(?i)^[\w-]*(auth|token|key|secret|cookie)[\w-]*\s*:`)
 
 // bareCredentialFlags are short flags whose NEXT argument is a credential
-// (curl -u user:pass, sshpass -p secret). Redacting the value can over-reach
-// — ssh's -p is a port — but over-matching is the safe direction: a port
-// number never leaves instead of a password (#1474 delta review P3).
-var bareCredentialFlags = map[string]bool{"-u": true, "-p": true}
+// (curl -u user:pass, sshpass -p secret), and credentialFlagBinaries names
+// the tools that take one there. The -u/-p rules (next-argument and attached
+// value) apply only when the argv's own binary is one of them, so other
+// tools' same-letter flags stay readable — python -u (unbuffered) and find
+// -print were redacted whole (#1474 delta review P3, round 2 F5d: the
+// over-match was safe but hid WHICH process holds the tree). ssh's -p (a
+// port) is not in the set for the same reason: its value names the process,
+// and ssh takes no password on the command line.
+var (
+	bareCredentialFlags    = map[string]bool{"-u": true, "-p": true}
+	credentialFlagBinaries = map[string]bool{"curl": true, "mysql": true, "sshpass": true}
+)
 
-// stripURLUserinfo removes user:password@ (or user@) from a URL-shaped
-// argument: https://u:p@host/path renders as https://host/path (#1474 delta
-// review P3). Only scheme://…@… shapes are touched; git@host:path and bare
-// email addresses carry no scheme separator and pass through.
+// credentialFlagBinary reports whether argv[0] is a binary whose -u/-p
+// carries a credential.
+func credentialFlagBinary(argv []string) bool {
+	return len(argv) > 0 && credentialFlagBinaries[filepath.Base(argv[0])]
+}
+
+// stripURLUserinfo removes user:password@ (or user@) from every URL-shaped
+// occurrence in an argument: https://u:p@host/path renders as
+// https://host/path, and a shell string carrying two URLs loses both
+// userinfos (#1474 delta review P3, round 2 F5c). The cut for each URL is
+// the LAST @ before the first /, ? or # after the scheme — the authority's
+// end — so an unencoded @ inside a password leaves none of its tail behind
+// (round 2 F5a). Residual, deliberate: a password containing an unencoded
+// /, ? or # is indistinguishable from the path boundary and is not stripped.
+// git@host:path and bare addresses carry no scheme separator and pass
+// through.
 func stripURLUserinfo(arg string) string {
-	i := strings.Index(arg, "://")
-	if i < 0 {
-		return arg
+	var out strings.Builder
+	rest := arg
+	for {
+		i := strings.Index(rest, "://")
+		if i < 0 {
+			out.WriteString(rest)
+			return out.String()
+		}
+		out.WriteString(rest[:i+3])
+		after := rest[i+3:]
+		end := len(after)
+		if j := strings.IndexAny(after, "/?#"); j >= 0 {
+			end = j
+		}
+		if at := strings.LastIndexByte(after[:end], '@'); at >= 0 {
+			after = after[at+1:]
+			// after now starts at the host; its authority ends at the same
+			// boundary end marked — the first /, ? or # of the remainder.
+			if j := strings.IndexAny(after, "/?#"); j >= 0 {
+				end = j
+			} else {
+				end = len(after)
+			}
+		}
+		out.WriteString(after[:end])
+		rest = after[end:]
 	}
-	rest := arg[i+3:]
-	at := strings.IndexByte(rest, '@')
-	if at < 0 || strings.ContainsAny(rest[:at], "/?#") {
-		return arg // no userinfo, or the @ belongs to a later component
-	}
-	return arg[:i+3] + rest[at+1:]
 }
 
 // renderArgv renders a command line for the occupied-tree refusal: an
@@ -148,6 +185,14 @@ func stripURLUserinfo(arg string) string {
 // bounded (#1474 review P2-4: name WHICH process holds the tree, never its
 // secrets, in the reason and in the logs).
 func renderArgv(fields []string) string {
+	// A setproctitle-padded argv carries runs of trailing NULs. One trailing
+	// empty argument is real and kept (Jane D3); a RUN of them is padding
+	// and collapses to one, so the display bound is not spent on it
+	// (#1474 delta round 2, F6).
+	for len(fields) > 1 && fields[len(fields)-1] == "" && fields[len(fields)-2] == "" {
+		fields = fields[:len(fields)-1]
+	}
+	credFlags := credentialFlagBinary(fields)
 	out := make([]string, 0, len(fields))
 	redactNext := false
 	for _, f := range fields {
@@ -168,8 +213,8 @@ func renderArgv(fields []string) string {
 				continue
 			}
 			if !hasValue && strings.HasPrefix(f, "-") {
-				if bareCredentialFlags[f] {
-					out = append(out, f)
+				if credFlags && bareCredentialFlags[f] {
+					out = append(out, quoteArg(f))
 					redactNext = true
 					continue
 				}
@@ -177,12 +222,12 @@ func renderArgv(fields []string) string {
 				// -uuser:pass): the flag stays, the value never leaves.
 				// This is checked BEFORE the credential-name branch — the
 				// value attached to -p can itself contain "secret".
-				if len(f) > 2 && (strings.HasPrefix(f, "-p") || strings.HasPrefix(f, "-u")) {
+				if credFlags && len(f) > 2 && (strings.HasPrefix(f, "-p") || strings.HasPrefix(f, "-u")) {
 					out = append(out, f[:2]+"<redacted>")
 					continue
 				}
 				if credentialName.MatchString(f) {
-					out = append(out, f)
+					out = append(out, quoteArg(f))
 					redactNext = true
 					continue
 				}
@@ -271,24 +316,29 @@ func groupGoneWithin(pgid int, wait time.Duration) bool {
 	}
 }
 
-// stopGuard is the Unix Terminate gate: this launch's process group was
-// already seen EMPTY before the leader was reaped (noteGroupBeforeReap), so
-// nothing of the launch is running and the group id has been reusable since
-// the reap — probing or signalling it again could reach whatever holds the
-// number now (#1474 delta review P2-1, Jane D1). Until then the id stays
-// allocated while any member lives, and Terminate probes and signals as
-// before.
-func (a *execAgent) stopGuard() bool { return a.groupEmpty.Load() }
+// stop ends the launch by its process group, and is safe to run at any
+// point of the agent's life because the launch reserved its id (pinPid,
+// Linux pidfd): a number with a live reference is never reused for a new
+// process or a new process group, so a probe that finds a group there finds
+// THIS launch's group — a wrapper's child that outlives its leader included
+// — and an ESRCH answer is the group gone, not the number taken (#1474;
+// delta round 2: Jane D1's durable lifetime ownership, closing the reuse
+// windows Jonas's P2-1 and P3-1 left behind). A kernel or policy without
+// pidfds gets no reservation: the probe-and-signal path still runs, with
+// the residual that a reused number would answer its probe — the position
+// of the non-Linux Unix platforms, stated in host_run's help.
+func (a *execAgent) stop() (bool, string) {
+	return terminateGroup(a.pid, a.grace)
+}
 
 // terminateGroup stops the process group a launch created, and confirms the
 // WHOLE group is gone — the leader being reaped is not the group being gone:
 // a wrapper's child can outlive its leader (#1474). A launched agent runs as
-// its own session leader (detach sets Setsid), so its group id is its pid,
-// and that id cannot be reused while any member lives — the kernel keeps a
-// pgid allocated until its group is empty, and an empty group answers ESRCH
-// — so probing and signalling the group stays safe after the leader's exit,
-// reaped or not. SIGTERM, a bounded grace, SIGKILL, then a short fixed wait;
-// stopped is false whenever the group could not be confirmed empty.
+// its own session leader (detach sets Setsid), so its group id is its pid;
+// that id stays reserved for the launch (pinPid, above), so probing and
+// signalling the group is safe after the leader's exit, reaped or not.
+// SIGTERM, a bounded grace, SIGKILL, then a short fixed wait; stopped is
+// false whenever the group could not be confirmed empty.
 func terminateGroup(pid int, grace time.Duration) (stopped bool, detail string) {
 	if groupGone(pid) {
 		// The group is already gone: nothing was running, nothing was
