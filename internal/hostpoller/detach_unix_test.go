@@ -11,22 +11,29 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
-// An agent that already exited is signalled nothing — its pid may have been
-// reused — and Terminate says so: the group probe finds the group empty, so
-// the stop is confirmed without a signal going out (#1474 review P2-1).
+// An agent that already exited — a leader-alone launch whose group was seen
+// empty before the reap — is neither probed nor signalled again: its group
+// id has been reusable since the reap, and the probe itself could hit
+// whatever holds the number now. Terminate confirms the stop silently
+// (#1474 delta review P2-1/P3-8: the probe is not run, not merely answered).
 func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
 	}
-	signals := 0
-	realSignal := signalGroup
+	signals, probes := 0, 0
+	realSignal, realProbe := signalGroup, probeGroup
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		signals++
 		return realSignal(pgid, sig)
 	}
-	defer func() { signalGroup = realSignal }()
+	probeGroup = func(pgid int) error {
+		probes++
+		return realProbe(pgid)
+	}
+	defer func() { signalGroup, probeGroup = realSignal, realProbe }()
 	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
 		t.Fatal(err)
@@ -40,8 +47,54 @@ func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if !stopped || detail != "" {
 		t.Errorf("an agent whose group is gone is a silent confirmed stop: stopped=%v %q", stopped, detail)
 	}
-	if signals != 0 {
-		t.Errorf("an exited agent is signalled nothing: %d signals", signals)
+	if probes != 0 || signals != 0 {
+		t.Errorf("an exited leader-alone agent is neither probed nor signalled: %d probes, %d signals", probes, signals)
+	}
+}
+
+// #1474 delta review (Jane D1): a genuine, reaped, leader-alone launch —
+// `true`, nothing else in its group — must never let a later Terminate
+// reach a reused group id. The emptiness is recorded at reap time
+// (noteGroupBeforeReap), so Terminate confirms without touching the id: the
+// probe is the attack surface (a reused id answers it), and it is not even
+// called.
+func TestTerminateAfterAReapedLeaderAloneLaunchNeverProbesTheGroupID(t *testing.T) {
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc")
+	}
+	signals, probes := 0, 0
+	realSignal, realProbe := signalGroup, probeGroup
+	defer func() { signalGroup, probeGroup = realSignal, realProbe }()
+	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Done closes only after the waiter's reap-time scan, so the emptiness
+	// decision is already made here.
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	// A reused group id would answer a signal-0 probe; model one and prove
+	// the probe never runs.
+	probeGroup = func(int) error {
+		probes++
+		return nil // "some group holds the number now"
+	}
+	signalGroup = func(int, syscall.Signal) error {
+		signals++
+		return nil
+	}
+	stopped, detail := a.Terminate()
+	if !stopped || detail != "" {
+		t.Fatalf("a leader-alone launch whose group emptied at reap is a silent confirmed stop: stopped=%v %q", stopped, detail)
+	}
+	if probes != 0 || signals != 0 {
+		t.Fatalf("a reaped leader-alone launch's id is never probed or signalled again: %d probes, %d signals", probes, signals)
 	}
 }
 
@@ -133,7 +186,8 @@ func TestTerminateGroupReportsWhatItCouldNotConfirm(t *testing.T) {
 }
 
 // The occupied-tree refusal names the occupant without carrying its
-// credentials or an unbounded tail (#1474 review P2-4).
+// credentials or an unbounded tail (#1474 review P2-4; delta review D2/P3:
+// credential-shaped headers, URL userinfo, -u/-p, invalid UTF-8).
 func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 	for name, tc := range map[string]struct {
 		argv []string
@@ -145,6 +199,16 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"bare flag":               {[]string{"agent", "--token", "hdr_secret_1", "--verbose"}, "agent --token <redacted> --verbose"},
 		"header":                  {[]string{"curl", "-H", "Authorization: Bearer hdr_x"}, "curl -H Authorization: <redacted>"},
 		"cookie":                  {[]string{"curl", "-H", "Cookie: session=hdr_x"}, "curl -H Cookie: <redacted>"},
+		"api-key header":          {[]string{"curl", "-H", "X-API-Key: SYNTHETIC_SECRET_1817"}, "curl -H X-API-Key: <redacted>"},
+		"auth-token header":       {[]string{"curl", "-H", "X-Auth-Token: SYNTHETIC_SECRET_1817"}, "curl -H X-Auth-Token: <redacted>"},
+		"secret-named header":     {[]string{"curl", "-H", "Client-Secret: SYNTHETIC_1817"}, "curl -H Client-Secret: <redacted>"},
+		"plain header kept":       {[]string{"curl", "-H", "Accept: application/json"}, `curl -H "Accept: application/json"`},
+		"url userinfo":            {[]string{"curl", "https://user:pass@host/path"}, "curl https://host/path"},
+		"url userinfo no pass":    {[]string{"curl", "https://user@host/path"}, "curl https://host/path"},
+		"git ssh form kept":       {[]string{"git", "clone", "git@host:repo.git"}, "git clone git@host:repo.git"},
+		"curl -u next arg":        {[]string{"curl", "-u", "user:pass", "https://h"}, "curl -u <redacted> https://h"},
+		"mysql -p attached":       {[]string{"mysql", "-pSECRET_1817"}, "mysql -p<redacted>"},
+		"invalid utf8 quoted":     {[]string{"a", "b\xff", "c"}, `a "b\xff" c`},
 		"spaces kept unambiguous": {[]string{"sh", "-c", "sleep 30 & wait"}, `sh -c "sleep 30 & wait"`},
 		"empty argument survives": {[]string{"a", "", "b"}, `a "" b`},
 	} {
@@ -161,8 +225,41 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 	if got := renderArgv(long); len(got) > argvDisplayLimit+len("…") {
 		t.Errorf("the rendered line is bounded: %d bytes", len(got))
 	}
+	// Truncation cuts on a rune boundary, never mid-rune.
+	multibyte := strings.Repeat("文", 150)
+	if got := renderArgv([]string{multibyte}); !utf8.ValidString(strings.TrimSuffix(got, "…")) {
+		t.Errorf("a truncated line is valid UTF-8 up to the ellipsis: %q", got)
+	}
 	long[len(long)-1] = "HADRON_TOKEN=hdr_secret_tail"
 	if rendered := renderArgv(long); strings.Contains(rendered, "hdr_secret_tail") {
 		t.Error("redaction applies inside the bounded tail too")
+	}
+}
+
+// argvFromCmdline keeps an empty LAST argument (Jane D3) and treats an empty
+// read as no argv at all, so comm answers for kernel threads and zombies
+// (#1474 delta review P3-1).
+func TestArgvFromCmdline(t *testing.T) {
+	for name, tc := range map[string]struct {
+		raw  []byte
+		want []string
+		ok   bool
+	}{
+		"ordinary":            {[]byte("sh\x00-c\x00echo hi\x00"), []string{"sh", "-c", "echo hi"}, true},
+		"one terminator only": {[]byte("a\x00"), []string{"a"}, true},
+		"empty last argument": {[]byte("sh\x00-c\x00sleep 30 & wait\x00label\x00\x00"), []string{"sh", "-c", "sleep 30 & wait", "label", ""}, true},
+		"empty is no argv":    {nil, nil, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, ok := argvFromCmdline(tc.raw)
+			if ok != tc.ok || len(got) != len(tc.want) {
+				t.Fatalf("argvFromCmdline(%q) = %q, %v; want %q, %v", tc.raw, got, ok, tc.want, tc.ok)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("argv[%d] = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
 	}
 }

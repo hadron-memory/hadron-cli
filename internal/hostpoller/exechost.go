@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -128,6 +129,12 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	}
 	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace}
 	go func() {
+		// Before cmd.Wait reaps the leader: the one moment the group's
+		// remaining membership can be read while the exited leader still
+		// pins the group id (noteGroupBeforeReap). The flag it sets is
+		// ordered before close(done) in this goroutine, so a Terminate that
+		// observes Done reads a decided flag.
+		a.noteGroupBeforeReap()
 		err := cmd.Wait()
 		if err != nil {
 			a.detail = err.Error()
@@ -144,6 +151,10 @@ type execAgent struct {
 	detail string
 	pid    int
 	grace  time.Duration
+	// groupEmpty is set when the process group was seen EMPTY before the
+	// leader was reaped (noteGroupBeforeReap): nothing of this launch is
+	// running, and the group id has been reusable since that reap.
+	groupEmpty atomic.Bool
 }
 
 func (a *execAgent) Done() <-chan struct{} { return a.done }
@@ -151,12 +162,17 @@ func (a *execAgent) ExitDetail() string    { return a.detail }
 func (a *execAgent) PID() int              { return a.pid }
 
 // Terminate stops the process group this launch created and confirms the
-// whole group is gone (terminateGroup). The leader having exited — even
-// reaped — does not end the stop: the pgid stays allocated while any member
-// lives, so a wrapper's child that outlives its leader is still reached and
-// the empty group still answers the probe, never an unrelated process
-// (#1474).
+// whole group is gone (terminateGroup), gated by stopGuard: a launch whose
+// group was provably empty at reap time — or that has exited where no group
+// probe exists — is a confirmed stop with nothing signalled, because its pid
+// is then reusable and a signal would reach whoever holds the number now
+// (#1474 delta review P1-1/P2-1, Jane D1). The leader having exited does not
+// otherwise end the stop: the pgid stays allocated while any member lives,
+// so a wrapper's child that outlives its leader is still reached.
 func (a *execAgent) Terminate() (bool, string) {
+	if a.stopGuard() {
+		return true, ""
+	}
 	return terminateGroup(a.pid, a.grace)
 }
 

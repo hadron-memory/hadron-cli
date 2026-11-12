@@ -233,14 +233,18 @@ user, with key_file readable by that user only, to close that.
 THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
 its exit is read as the agent's. A launcher that starts a detached session
 and returns (a tmux or wrapper script) is reported failed if no session has
-bound by then, which revokes the grant. A start reported failed stops the
-process group it launched — TERM, a short grace, KILL — and forgets its
-entry in the state file, so a wrapper that keeps relaunching its agent does
-not outlive the failure. The stop covers the whole group even when the
-launcher itself already exited, and an entry survives a stop that could not
-be confirmed. A refusal saying the operation was already reported stops the
-launch only when it names the recorded outcome as failed; one naming
-success, or naming nothing, leaves what was launched running.
+bound by then, which revokes the grant. A start reported failed stops what
+it launched and forgets its entry in the state file, so a wrapper that keeps
+relaunching its agent does not outlive the failure. On Unix that stop is
+TERM, a short grace, then KILL to the whole process group — which still
+covers a wrapper's children after the launcher itself exited. On Windows the
+process tree is force-killed at once, and a launcher that already exited is
+never signalled again (its pid may have been reused); children it left
+behind cannot be reached without a Job Object, which this runner does not
+yet assign. An entry survives a stop that could not be confirmed. A refusal
+saying the operation was already reported stops the launch only when it
+names the recorded outcome as failed; one naming success, or naming nothing,
+leaves what was launched running.
 
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a

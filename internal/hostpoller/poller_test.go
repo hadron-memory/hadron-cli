@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -561,8 +563,12 @@ func TestWorkerStartFailsWhenTheAgentExitsFirst(t *testing.T) {
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "exited before binding") {
 		t.Errorf("%+v", r)
 	}
-	// #1474: the failure still drops the state entry (the process is gone;
-	// nothing may be signalled for it).
+	// #1474: the failure still stops the group the launch created (exactly
+	// once) and drops the state entry (the process is gone; nothing may be
+	// signalled for it).
+	if host.agent == nil || host.agent.terminations() != 1 {
+		t.Error("a start whose agent exited unbound still stops the group it launched")
+	}
 	if st, err := LoadState(p.cfg.StateFile); err != nil {
 		t.Fatal(err)
 	} else if len(st.Agents) != 0 {
@@ -578,8 +584,14 @@ func TestWorkerStartDeadlineHonoursABindThatLandsLate(t *testing.T) {
 	p, srv, host := testPoller(t)
 	p.BindPoll = time.Second
 	// NOT_DONE through the last pre-deadline ask; the first ask at the
-	// deadline finds the bind (the pre-launch ask is counted too).
-	srv.notDone["s1"] = int(LaunchGrantTTL / time.Second)
+	// deadline finds the bind. The count is derived, not magic: asks issue
+	// at 0 (pre-launch), BindPoll, 2·BindPoll, …, the deadline is
+	// start+LaunchGrantTTL, and an ask at exactly the deadline already
+	// counts as past it (Before is strict) — so the pre-deadline asks are
+	// exactly LaunchGrantTTL/BindPoll = 600, the pre-launch one included,
+	// and NOT_DONE must cover precisely those (#1474 delta review P3:
+	// derive the count where the test reads it).
+	srv.notDone["s1"] = int(LaunchGrantTTL / p.BindPoll)
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
 	if r := only(t, srv); r.outcome != Succeeded {
@@ -641,6 +653,127 @@ func (f *flakyServer) Report(ctx context.Context, id, outcome, worktree, reason 
 		return Operation{}, context.DeadlineExceeded
 	}
 	return f.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// lateBindServer answers the pre-launch ask NOT_DONE (delegating); on the
+// first post-launch ask the start's session binds server-side, the local
+// clock flips past the grant's deadline — as a delayed response delivery
+// would — and the server still answers NOT_DONE: a snapshot taken before
+// the bind landed (#1474 delta review, Jane F2 refined 2ms probe).
+type lateBindServer struct {
+	*fakeServer
+	asks int
+	late func()
+}
+
+func (s *lateBindServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	s.asks++
+	if s.asks == 2 {
+		s.late()
+		return Operation{}, ErrNotDone // sampled before the bind landed
+	}
+	return s.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// #1474 delta review (Jane F2): a NOT_DONE answer that was sampled before a
+// bind landed but delivered after the local deadline is NOT evidence the
+// start failed. Only an ask issued past the deadline, still answered
+// NOT_DONE, fails the start.
+func TestWorkerStartDoesNotFailOnANotDoneAnswerThatCrossedTheDeadline(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{})} // runs until stopped
+	now := p.now()
+	var late atomic.Bool
+	p.now = func() time.Time {
+		if late.Load() {
+			return now.Add(LaunchGrantTTL + time.Millisecond)
+		}
+		return now
+	}
+	p.server = &lateBindServer{fakeServer: srv, late: func() { late.Store(true) }}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind landing inside the grant is a success even when the NOT_DONE answer crossed the deadline: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a start whose bind landed is never terminated")
+	}
+}
+
+// exitDuringAskServer answers the pre-launch ask NOT_DONE (delegating); on
+// the first post-launch ask the agent exits mid-flight and the server
+// answers with the stale NOT_DONE sampled before the exit; later asks find
+// the bind (#1474 delta review, Jane F2 exit variant).
+type exitDuringAskServer struct {
+	*fakeServer
+	agent *fakeAgent
+	asks  int
+}
+
+func (s *exitDuringAskServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	s.asks++
+	if s.asks == 2 {
+		s.agent.mu.Lock()
+		select {
+		case <-s.agent.done:
+		default:
+			close(s.agent.done)
+		}
+		s.agent.mu.Unlock()
+		return Operation{}, ErrNotDone // sampled before the exit
+	}
+	return s.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// #1474 delta review (Jane F2, exit half): an agent exit that lands while a
+// NOT_DONE answer is in flight does not make that answer authoritative —
+// the ask was issued while the agent lived. The next ask, issued after the
+// exit, decides; a bind it finds is a success.
+func TestWorkerStartDoesNotFailOnANotDoneAnswerThatCrossedTheAgentsExit(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	p.server = &exitDuringAskServer{fakeServer: srv, agent: host.agent}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind that landed behind a stale NOT_DONE is a success: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a start whose bind landed is never terminated")
+	}
+}
+
+// #1474 delta review P2-2: a server that never answers clearly must not
+// hold the start — and its worker's whole dispatch order — forever. Past
+// the grant's deadline the asking ends on a budget: nothing is stopped,
+// nothing is reported, and every record is kept for the re-delivered start
+// and the operator.
+func TestWorkerStartStopsAskingWhenAnswersStayUnclear(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.BindPoll = time.Second // a sane pace on the fake clock
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	// The pre-launch ask answers NOT_DONE once; every ask after it fails
+	// unclear, forever (an effectively unbounded fails).
+	p.server = &flakyServer{fakeServer: srv, fails: math.MaxInt}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p) // must return: the budget ends the asking
+	if rs := srv.finalReports(); len(rs) != 0 {
+		t.Errorf("an unclear answer never reports an outcome: %+v", rs)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("an unclear answer never stops the agent")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("the agent's records are kept when the asking gives up")
+	}
 }
 
 // A start into a worktree another process is already working in is refused

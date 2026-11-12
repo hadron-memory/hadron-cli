@@ -79,15 +79,25 @@ func occupied(path string) (string, error) {
 // a refusal reason and the logs (#1474).
 func processArgv(dir string) string {
 	raw, err := os.ReadFile(filepath.Join("/proc", dir, "cmdline"))
-	if err == nil {
-		// Split on NUL and keep empty arguments (FieldsFunc dropped them,
-		// #1474 review): an empty argv slot is not nothing.
-		if fields := strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00"); len(fields) > 0 {
-			return renderArgv(fields)
-		}
+	if fields, ok := argvFromCmdline(raw); err == nil && ok {
+		return renderArgv(fields)
 	}
 	comm, _ := os.ReadFile(filepath.Join("/proc", dir, "comm"))
 	return strings.TrimSpace(string(comm))
+}
+
+// argvFromCmdline splits a /proc/<pid>/cmdline read: NUL-separated, ending
+// in ONE terminator NUL. A further trailing NUL is an empty LAST argument,
+// which is kept — an empty argv slot is not nothing (#1474 review; Jane D3:
+// TrimRight ate every empty trailing slot). An empty read — kernel threads,
+// zombies — is not an argv at all: false, so comm answers instead (#1474
+// delta review P3-1: Split("") returns [""], which used to render as a bare
+// quoted empty argument and starve the comm fallback).
+func argvFromCmdline(raw []byte) ([]string, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	return strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00"), true
 }
 
 // argvDisplayLimit bounds how much of an occupant's command line leaves the
@@ -101,9 +111,36 @@ const argvDisplayLimit = 200
 // the name alone still identifies the process; the value never leaves.
 var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passphrase|credential|api[-_]?key|private[-_]?key|session|authorization|cookie)`)
 
-// credentialHeader matches an argument that IS a header whose value is a
-// credential ("-H", "Authorization: Bearer …", "Cookie: …").
-var credentialHeader = regexp.MustCompile(`(?i)^(authorization|proxy-authorization|cookie)\s*:`)
+// credentialHeader matches an argument that IS a header whose name says it
+// carries a credential ("Authorization: Bearer …", "Cookie: …",
+// "X-API-Key: …", "X-Auth-Token: …", "Proxy-Authorization: …"): any header
+// name containing auth, token, key, secret or cookie (#1474 delta review
+// D2). Over-matching is safe — the name alone still identifies the header;
+// the value never leaves.
+var credentialHeader = regexp.MustCompile(`(?i)^[\w-]*(auth|token|key|secret|cookie)[\w-]*\s*:`)
+
+// bareCredentialFlags are short flags whose NEXT argument is a credential
+// (curl -u user:pass, sshpass -p secret). Redacting the value can over-reach
+// — ssh's -p is a port — but over-matching is the safe direction: a port
+// number never leaves instead of a password (#1474 delta review P3).
+var bareCredentialFlags = map[string]bool{"-u": true, "-p": true}
+
+// stripURLUserinfo removes user:password@ (or user@) from a URL-shaped
+// argument: https://u:p@host/path renders as https://host/path (#1474 delta
+// review P3). Only scheme://…@… shapes are touched; git@host:path and bare
+// email addresses carry no scheme separator and pass through.
+func stripURLUserinfo(arg string) string {
+	i := strings.Index(arg, "://")
+	if i < 0 {
+		return arg
+	}
+	rest := arg[i+3:]
+	at := strings.IndexByte(rest, '@')
+	if at < 0 || strings.ContainsAny(rest[:at], "/?#") {
+		return arg // no userinfo, or the @ belongs to a later component
+	}
+	return arg[:i+3] + rest[at+1:]
+}
 
 // renderArgv renders a command line for the occupied-tree refusal: an
 // argument that would not survive a re-split on spaces is %q-quoted, a
@@ -114,10 +151,11 @@ func renderArgv(fields []string) string {
 	out := make([]string, 0, len(fields))
 	redactNext := false
 	for _, f := range fields {
+		f = stripURLUserinfo(f)
 		switch {
 		case redactNext:
-			// The previous argument was a bare credential flag (--token);
-			// this one is its value.
+			// The previous argument was a bare credential flag (--token,
+			// -u, -p); this one is its value.
 			out = append(out, "<redacted>")
 			redactNext = false
 		case credentialHeader.MatchString(f):
@@ -129,31 +167,51 @@ func renderArgv(fields []string) string {
 				out = append(out, name+"=<redacted>")
 				continue
 			}
-			if !hasValue && strings.HasPrefix(f, "-") && credentialName.MatchString(f) {
-				out = append(out, f)
-				redactNext = true
-				continue
+			if !hasValue && strings.HasPrefix(f, "-") {
+				if bareCredentialFlags[f] {
+					out = append(out, f)
+					redactNext = true
+					continue
+				}
+				// An attached short-flag value (mysql -pSECRET, curl
+				// -uuser:pass): the flag stays, the value never leaves.
+				// This is checked BEFORE the credential-name branch — the
+				// value attached to -p can itself contain "secret".
+				if len(f) > 2 && (strings.HasPrefix(f, "-p") || strings.HasPrefix(f, "-u")) {
+					out = append(out, f[:2]+"<redacted>")
+					continue
+				}
+				if credentialName.MatchString(f) {
+					out = append(out, f)
+					redactNext = true
+					continue
+				}
 			}
 			out = append(out, quoteArg(f))
 		}
 	}
 	line := strings.Join(out, " ")
 	if len(line) > argvDisplayLimit {
-		line = line[:argvDisplayLimit]
-		// Do not cut mid-rune: back off to a valid UTF-8 boundary.
-		for len(line) > 0 && !utf8.ValidString(line) {
-			line = line[:len(line)-1]
+		// Never slice a rune in half: back the cut off to a rune boundary.
+		// Every argument is valid UTF-8 by now (quoteArg escapes invalid
+		// bytes), so this back-off is bounded by one rune's length.
+		cut := argvDisplayLimit
+		for cut > 0 && !utf8.RuneStart(line[cut]) {
+			cut--
 		}
-		line += "…"
+		line = line[:cut] + "…"
 	}
 	return line
 }
 
 // quoteArg keeps an argument unambiguous in the joined line: only arguments
-// that would not survive being re-split on spaces are quoted, so a plain
-// `sleep 30` stays readable while `sh -c "sleep 30 & wait"` keeps its shape.
+// that would not survive being re-split on spaces — or that carry invalid
+// UTF-8, which would otherwise both render raw and make the byte-bound
+// truncation back off past them (#1474 delta review P3) — are quoted, so a
+// plain `sleep 30` stays readable while `sh -c "sleep 30 & wait"` keeps its
+// shape and an invalid byte arrives as an escape, never raw.
 func quoteArg(arg string) string {
-	if arg == "" || strings.IndexFunc(arg, func(r rune) bool {
+	if arg == "" || !utf8.ValidString(arg) || strings.IndexFunc(arg, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '"' || r == '\\' || !unicode.IsPrint(r)
 	}) >= 0 {
 		return strconv.Quote(arg)
@@ -212,6 +270,15 @@ func groupGoneWithin(pgid int, wait time.Duration) bool {
 		}
 	}
 }
+
+// stopGuard is the Unix Terminate gate: this launch's process group was
+// already seen EMPTY before the leader was reaped (noteGroupBeforeReap), so
+// nothing of the launch is running and the group id has been reusable since
+// the reap — probing or signalling it again could reach whatever holds the
+// number now (#1474 delta review P2-1, Jane D1). Until then the id stays
+// allocated while any member lives, and Terminate probes and signals as
+// before.
+func (a *execAgent) stopGuard() bool { return a.groupEmpty.Load() }
 
 // terminateGroup stops the process group a launch created, and confirms the
 // WHOLE group is gone — the leader being reaped is not the group being gone:

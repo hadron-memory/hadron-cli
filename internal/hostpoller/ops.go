@@ -129,6 +129,13 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 	p.finish(ctx, op, Succeeded, "", "")
 }
 
+// postDeadlineUnclearBudget is how many unclear Report answers a start still
+// tolerates once the launch grant's deadline has passed (#1474 delta review
+// P2-2): an unclear answer still decides nothing — nothing is stopped,
+// forgotten or reported on it — but the asking itself ends, so a server that
+// never answers clearly cannot hold the worker's dispatch goroutine forever.
+const postDeadlineUnclearBudget = 3
+
 // worker.start: launch the configured agent in a registered worktree and
 // hand it the grant, then report SUCCEEDED once the server sees its session
 // bound, within the grant's lifetime.
@@ -208,6 +215,9 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	}
 	p.trackAgent(op.WorkerID, token, agent)
 	p.log("launched", op.ID, op.Type, "", fmt.Sprintf("worker %s in %s", ref, token))
+	// Unclear answers past the grant's deadline are tolerated only a bounded
+	// number of times (#1474 delta review P2-2): postDeadlineUnclearBudget.
+	postDeadline := 0
 	for {
 		select {
 		case <-agent.Done():
@@ -221,6 +231,16 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 				return
 			}
 		}
+		// Both decision predicates are sampled BEFORE the ask (Jane F2,
+		// #1474 delta review): a NOT_DONE answer only decides an event —
+		// the agent's exit, the grant's deadline — that had already
+		// happened when the ask was issued, because the server's answer is
+		// never older than the ask. An event landing while the answer is
+		// in flight leaves that answer stale (the server may not have seen
+		// the event yet); the loop asks again, and the next answer —
+		// issued after the event — is authoritative.
+		askExpired := exited(agent)
+		askPastDeadline := !p.now().Before(deadline)
 		_, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
 		switch {
 		case err == nil:
@@ -236,22 +256,23 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			p.alreadyFinished(op, agent, err)
 			return
 		case errors.Is(err, ErrNotDone):
-			if exited(agent) {
-				// The agent is gone AND the server, asked after its exit,
-				// says nothing bound: an authoritative failure. Nothing is
-				// left to signal, but the group it leaves behind is stopped
-				// and the record of it must not outlive the report.
+			if askExpired {
+				// The agent was already gone when the ask was issued, and
+				// the server — answering at or after that moment — says
+				// nothing bound: an authoritative failure. Nothing is left
+				// to signal, but the group it leaves behind is stopped and
+				// the record of it must not outlive the report.
 				p.stopLaunchedAgent(op, agent)
 				p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+"); the launch command must stay in the foreground for the agent's life")
 				return
 			}
-			if !p.now().Before(deadline) {
-				// The grant is spent AND the server — asked after the
-				// deadline, so on evidence newer than the deadline, never a
-				// stale NOT_DONE sample — says nothing bound (Jane F2,
-				// #1474 review): stop what was launched (a wrapper that
-				// keeps relaunching its agent must not outlive the failure)
-				// and forget it, then report.
+			if askPastDeadline {
+				// The grant was already spent when the ask was issued, and
+				// the server — answering at or after that moment, never on
+				// a NOT_DONE sampled before the deadline — says nothing
+				// bound: an authoritative failure. Stop what was launched
+				// (a wrapper that keeps relaunching its agent must not
+				// outlive the failure) and forget it, then report.
 				p.stopLaunchedAgent(op, agent)
 				p.finish(ctx, op, Failed, "", fmt.Sprintf("no session was bound within %s, the launch grant's lifetime", LaunchGrantTTL))
 				return
@@ -260,9 +281,23 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			// An unclear answer stops and forgets nothing: a bind may have
 			// landed while the answer was in flight. Ask again next pass,
 			// paced when the agent is gone (the loop's own sleep only runs
-			// while it lives).
+			// while it lives) — but only a bounded number of times once the
+			// grant's deadline has passed: the asking itself then ends,
+			// with every record kept and nothing signalled, so a server
+			// that never answers clearly cannot hold this worker's
+			// dispatch goroutine forever (#1474 delta review P2-2). The
+			// operation stays collected server-side and is re-delivered;
+			// the still-recorded agent refuses a re-launch until it is
+			// resolved.
 			p.log("report-failed", op.ID, op.Type, Succeeded, err.Error())
-			if exited(agent) {
+			if askPastDeadline {
+				postDeadline++
+				if postDeadline > postDeadlineUnclearBudget {
+					p.log("start-stuck", op.ID, op.Type, "", "giving up asking for this start: unclear answers persisted past the launch grant's lifetime; the agent is left running and every record is kept")
+					return
+				}
+			}
+			if askExpired {
 				if err := p.sleep(ctx, p.BindPoll); err != nil {
 					return
 				}
@@ -303,8 +338,11 @@ func (p *Poller) alreadyFinished(op Operation, agent Agent, err error) {
 		p.log("reported", op.ID, op.Type, "", "the server recorded it succeeded; what was launched was left running: "+err.Error())
 	default:
 		// Unnamed outcome: what was launched is left running, kept on every
-		// record; the grant's deadline path still bounds it.
-		p.log("reported", op.ID, op.Type, "", "the server already finished it without naming the outcome; what was launched was left running: "+err.Error())
+		// record. Nothing bounds it automatically after this return — the
+		// grant's deadline path governs only the ask loop that already
+		// ended — so this log line is the operator's notice: the agent runs
+		// until someone ends it (#1474 delta review P3).
+		p.log("reported", op.ID, op.Type, "", "the server already finished it without naming the outcome; what was launched was left running and stays recorded until ended by hand: "+err.Error())
 	}
 }
 
