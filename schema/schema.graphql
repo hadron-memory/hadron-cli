@@ -10778,7 +10778,7 @@ type Mutation {
   reportHostOperation(input: ReportHostOperationInput!): HostOperation!
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Whoever may read the grant may ask (as grant(ref:) reads it), a bound worker included; workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Two callers may ask: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it); workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
   """
   requestGrantSignature(grantRef: ID!): GrantSigningRequest!
 
@@ -12123,7 +12123,7 @@ type Mutation {
   withdrawGrant(ref: ID!): Grant!
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
   """
   withdrawGrantSigningRequest(id: ID!): GrantSigningRequest!
 
@@ -15076,7 +15076,7 @@ type Query {
   grant(ref: ID!): Grant
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller (as grant(ref:) reads it).
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it).
   """
   grantSigningRequest(id: ID!): GrantSigningRequest
 
@@ -17694,6 +17694,11 @@ type ServerInfo {
   Present and true only when passkey registration is enabled separately from node signing.
   """
   passkeyRegistration: Boolean!
+
+  """
+  #4051: the fixed, parameterless URL of the passkey revoke page (the deployment's baseUrl in this same response plus /passkeys/revoke), for a client that hands the owner off to it (hrn:node:hadronmemory.com:specs:cor:aut:040:08). Present only while passkey registration is enabled, exactly like passkeyRegistration: while it is off the field is removed from the schema, never null (hrn:node:hadronmemory.com:specs:cor:api:020:01), so check the passkey-registration token on GET /capabilities before selecting it. It names no passkey, credential, user or session, and is the same for every caller. Revoking happens interactively on that page; the URL grants nothing.
+  """
+  passkeyRevokeUrl: String!
 
   """
   Present and true only when this deployment offers node signing. Discovery never grants access to sign.
