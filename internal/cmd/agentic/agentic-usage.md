@@ -5290,8 +5290,10 @@ verbatim for server resolution. Command spellings and output stay unchanged.
 `org signing get|preview|on|off <org>` reads and sets an organization's
 boot-prompt signing switch (hadron-server#2973). Only the org's current ADMIN
 or OWNER, signed in as themselves, may call it: a worker session, an App key,
-a run, impersonation, a non-member and an unknown org ALL get the same
-FORBIDDEN (exit 8, one constant message), so the CLI never looks the org up
+a run, impersonation (reads and previews), a non-member and an unknown org ALL
+get the same FORBIDDEN (exit 8, one constant message); an impersonated `on`/`off`
+is instead refused by the platform with HTTP 403 IMPERSONATION_READ_ONLY (exit 1,
+the server's message, serverCode in the envelope) and nothing changes, so the CLI never looks the org up
 first and never sends the worker-session header. `<org>` goes to the server as
 typed and `--json` echoes it unchanged in `org`. `get --json`:
 {org, required, enforced, deploymentSigns}; `enforced` is the switch AND the

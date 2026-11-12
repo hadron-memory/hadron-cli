@@ -67,6 +67,10 @@ func newSigFake(t *testing.T, respond func(op string, n int, vars map[string]any
 			hook()
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if rest, ok := strings.CutPrefix(resp, "HTTP403 "); ok {
+			resp = rest
+			w.WriteHeader(http.StatusForbidden)
+		}
 		_, _ = w.Write([]byte(resp))
 	}))
 	t.Cleanup(s.srv.Close)
@@ -110,6 +114,11 @@ func (s *sigFake) assertNoSessionHeader(t *testing.T) {
 // code a user would get (renderError, not exitcode.FromError).
 func runSigning(t *testing.T, f *cmdutil.Factory, fake *sigFake, args ...string) int {
 	t.Helper()
+	// A bound worker session whose server matches the fake: the situation in
+	// which a command that opted in to the session WOULD send X-Hadron-Session.
+	// The signing verbs must send none anyway (cor:agt:040:09), and the control
+	// test below proves this fixture does make a session-enabled command send it.
+	writeTeamBindingIn(t, teamGitDir(t), fake.srv.URL)
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{}, args...), "--server", fake.srv.URL))
 	if err := root.Execute(); err != nil {
@@ -896,6 +905,53 @@ func TestOrgSigningNullResultsAreControlledErrors(t *testing.T) {
 			}
 			if c.name == "on: null preview" && len(fake.requests("SetOrgBootPromptSigning")) != 0 {
 				t.Error("a null preview reached the mutation")
+			}
+		})
+	}
+}
+
+// Control for the session-header pins: with the same bound-session fixture a
+// session-enabled command DOES send X-Hadron-Session, so "none sent" by the
+// signing verbs is the verbs' doing and not an inert fixture.
+func TestOrgSigningSessionFixtureIsLive(t *testing.T) {
+	fake := newSigFake(t, func(string, int, map[string]any) string {
+		return `{"data":{"setAssetPublicLink":{"id":"a1","publicLinkEnabled":false,"canManagePublicLink":true,"publicLinkAvailable":false,"publicUrl":null}}}`
+	})
+	f, _ := testFactory(t)
+	if code := runSigning(t, f, fake, "asset", "public-link", "a1", "--on", "--instruction", "task:one", "--yes"); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	reqs := fake.requests(fake.ops()[0])
+	if len(reqs) == 0 || reqs[0].Session != "s-new" {
+		t.Fatalf("control request did not carry the bound session: %+v", reqs)
+	}
+}
+
+// §10 P3 (cli#1942): an impersonated mutation is refused before any resolver by
+// the platform's HTTP 403 IMPERSONATION_READ_ONLY. The CLI adds no case: exit 1,
+// the server's message, serverCode in the envelope, and NOT the FORBIDDEN
+// constant (which would hide that the caller is merely impersonating).
+func TestOrgSigningImpersonatedMutationKeepsServerRefusal(t *testing.T) {
+	const msg = "impersonated sessions are read-only"
+	body := "HTTP403 " + gqlErrorResp("IMPERSONATION_READ_ONLY", msg)
+	for _, verb := range [][]string{{"on", "acme.com", "--yes", "--json"}, {"off", "acme.com", "--yes", "--json"}} {
+		t.Run(verb[0], func(t *testing.T) {
+			fake := newSigFake(t, func(op string, n int, v map[string]any) string {
+				if op == "SetOrgBootPromptSigning" {
+					return body
+				}
+				return threePages(op, n, v)
+			})
+			f, out, errOut := testFactoryTTY(t, "")
+			if code := runSigning(t, f, fake, append([]string{"org", "signing"}, verb...)...); code != exitcode.Error {
+				t.Errorf("exit %d, want 1", code)
+			}
+			all := out.String() + errOut.String()
+			if !strings.Contains(all, msg) || !strings.Contains(all, "IMPERSONATION_READ_ONLY") {
+				t.Errorf("server refusal not surfaced:\n%s", all)
+			}
+			if strings.Contains(all, "ADMINs and OWNERs") {
+				t.Errorf("must not be folded into the FORBIDDEN constant:\n%s", all)
 			}
 		})
 	}
