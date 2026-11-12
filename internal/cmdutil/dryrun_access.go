@@ -1,6 +1,8 @@
 package cmdutil
 
 import (
+	"strings"
+
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
@@ -28,7 +30,7 @@ const noWriteAccessRefusal = "Forbidden: no write access to this memory"
 // it is returned through the normal error mapping. Only a successful answer
 // that names no user (an App key) skips the check; the real write's gate stays
 // the authority there.
-func RequireWriteAccessForDryRun(cmd *cobra.Command, client graphql.Client, memURN string) error {
+func RequireWriteAccessForDryRun(cmd *cobra.Command, client graphql.Client, memoryRef string) error {
 	ctx := cmd.Context()
 	auth, err := gen.AuthContext(ctx, client)
 	if err != nil {
@@ -37,7 +39,24 @@ func RequireWriteAccessForDryRun(cmd *cobra.Command, client graphql.Client, memU
 	if auth.AuthContext == nil || auth.AuthContext.User == nil {
 		return nil
 	}
-	resp, err := gen.EffectiveAccess(ctx, client, auth.AuthContext.User.Id, CanonicalMemoryRef(memURN))
+	resource := CanonicalMemoryRef(memoryRef)
+	if !strings.Contains(resource, ":") {
+		if resource == "" {
+			return exitcode.Newf(exitcode.NotFound, "target memory not found, or not readable by you")
+		}
+		// effectiveAccess dispatches by URN type; a bare ID there denotes an
+		// AI config, not a memory. memory(ref:) does accept memory IDs. Read
+		// only identity, after user auth so no-user credentials still skip.
+		memory, err := gen.DryRunMemoryIdentity(ctx, client, resource)
+		if err != nil {
+			return api.MapError(err)
+		}
+		if memory.Memory == nil || memory.Memory.Id != resource || memory.Memory.Urn == "" {
+			return exitcode.Newf(exitcode.NotFound, "memory %q not found, or not readable by you", resource)
+		}
+		resource = memory.Memory.Urn
+	}
+	resp, err := gen.EffectiveAccess(ctx, client, auth.AuthContext.User.Id, resource)
 	if err != nil {
 		return api.MapError(err)
 	}

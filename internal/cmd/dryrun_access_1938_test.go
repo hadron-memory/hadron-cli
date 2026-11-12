@@ -22,7 +22,11 @@ func dryCases1938() []dryCase1938 {
 	cases := []dryCase1938{
 		{"supersede", []string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--dry-run"}, func() map[string]string { return supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent) }, "GetNode", "hrn:mem:micromentor.org:platform-specs"},
 		{"extract", []string{"spec", "extract", "cor:dmo:060:02", "-m", specMem, "--to-feature", "020", "--title", "Node type", "--dry-run"}, extractMocks, "GetSpecNodeRaw", "hrn:mem:micromentor.org:platform-specs"},
-		{"node", []string{"node", "update", testNodeURN, "--name", "Renamed", "--dry-run"}, func() map[string]string { return bodyOnlyStubs(delimiterBody) }, "GetNodeRaw", "mem1"},
+		{"node", []string{"node", "update", testNodeURN, "--name", "Renamed", "--dry-run"}, func() map[string]string {
+			m := bodyOnlyStubs(delimiterBody)
+			m["DryRunMemoryIdentity"] = `{"data":{"memory":{"id":"mem1","urn":"hrn:mem:acme.com:kb"}}}`
+			return m
+		}, "GetNodeRaw", "hrn:mem:acme.com:kb"},
 	}
 	by := cases[0]
 	by.name = "supersede-by"
@@ -122,7 +126,7 @@ func runDry1938(t *testing.T, c dryCase1938, mocks map[string]string, asJSON boo
 
 func noWrites1938(t *testing.T, calls []string) {
 	t.Helper()
-	allowed := map[string]bool{"ResolveUrn": true, "GetNode": true, "GetSpecSupersedeTarget": true, "GetNodeRaw": true, "GetSpecNodeRaw": true, "FindNodes": true, "NodeBatch": true, "SpecCorpusState": true, "GetMemory": true, "Memories": true, "AuthContext": true, "EffectiveAccess": true}
+	allowed := map[string]bool{"ResolveUrn": true, "GetNode": true, "GetSpecSupersedeTarget": true, "GetNodeRaw": true, "GetSpecNodeRaw": true, "FindNodes": true, "NodeBatch": true, "SpecCorpusState": true, "GetMemory": true, "Memories": true, "AuthContext": true, "EffectiveAccess": true, "DryRunMemoryIdentity": true}
 	for _, op := range calls {
 		if !allowed[op] {
 			t.Errorf("dry run sent unexpected operation %s", op)
@@ -161,6 +165,19 @@ func TestDryRun1938ReaderRefused(t *testing.T) {
 						access++
 					}
 				}
+				identity := 0
+				for _, op := range calls {
+					if op == "DryRunMemoryIdentity" {
+						identity++
+					}
+				}
+				wantIdentity := 0
+				if c.name == "node" {
+					wantIdentity = 1
+				}
+				if identity != wantIdentity {
+					t.Errorf("memory identity count=%d want=%d: %v", identity, wantIdentity, calls)
+				}
 				if auth != 1 || access != 1 {
 					t.Errorf("want one access check: %v", calls)
 				}
@@ -190,6 +207,10 @@ func TestDryRun1938WriterAndNoUserPlan(t *testing.T) {
 					t.Fatalf("not dry plan: %s %v", out, err)
 				}
 				if mode != "writer" {
+					if _, ok := vars["DryRunMemoryIdentity"]; ok {
+						t.Error("no-user queried memory identity")
+					}
+
 					if _, ok := vars["EffectiveAccess"]; ok {
 						t.Error("no-user consulted access")
 					}
@@ -285,4 +306,50 @@ func TestDryRun1938RealPathsLeaveAccessToTheWrite(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDryRun1938MemoryIdentityFailureNeverAuditsOrPlans(t *testing.T) {
+	c := dryCases1938()[2]
+	for _, tc := range []struct {
+		name, reply string
+		want        int
+	}{
+		{"not-visible", `{"data":{"memory":null}}`, exitcode.NotFound},
+		{"wrong-id", `{"data":{"memory":{"id":"other","urn":"hrn:mem:acme.com:other"}}}`, exitcode.NotFound},
+		{"no-urn", `{"data":{"memory":{"id":"mem1","urn":""}}}`, exitcode.NotFound},
+		{"lookup-failed", `{"errors":[{"message":"lookup failed","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, exitcode.Error},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := accessMocks(c.mocks(), true)
+			m["DryRunMemoryIdentity"] = tc.reply
+			out, vars, calls, err := runDry1938(t, c, m, false)
+			if exitCodeFor(err) != tc.want || out != "" {
+				t.Fatalf("identity failure: %v exit%d out%q", err, exitCodeFor(err), out)
+			}
+			if _, ok := vars["EffectiveAccess"]; ok {
+				t.Error("audited without memory identity")
+			}
+			noWrites1938(t, calls)
+		})
+	}
+}
+
+func TestDryRun1938EmptyTargetMemoryNeverAuditsOrPlans(t *testing.T) {
+	c := dryCases1938()[2]
+	m := accessMocks(c.mocks(), true)
+	raw := m["GetNodeRaw"]
+	if !strings.Contains(raw, `"memoryId":"mem1"`) {
+		t.Fatal("missing fixture memory identity")
+	}
+	m["GetNodeRaw"] = strings.Replace(raw, `"memoryId":"mem1"`, `"memoryId":""`, 1)
+	out, vars, calls, err := runDry1938(t, c, m, false)
+	if exitCodeFor(err) != exitcode.NotFound || out != "" {
+		t.Fatalf("missing memory identity: %v out%q", err, out)
+	}
+	for _, op := range []string{"DryRunMemoryIdentity", "EffectiveAccess"} {
+		if _, ok := vars[op]; ok {
+			t.Errorf("%s asked with no target memory", op)
+		}
+	}
+	noWrites1938(t, calls)
 }
