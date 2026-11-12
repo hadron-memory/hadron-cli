@@ -5326,7 +5326,7 @@ deployment does not sign yet. `preview --json`: {org, enforced, deploymentSigns,
 total, rows[], hasMore, endCursor}, each row {appId, appUrn, agentId, agentName,
 workerId|null, workerName|null, compiledNodeId, compiledNodeUrn|null,
 servedRevSeq, state SIGNATURE_PENDING|REVISION_CHANGES|UNSIGNED_STOPS,
-changesToRevSeq|null}; rows is [] when empty; there is no previewToken. A plain
+changesToRevSeq|null, agentUrn|null, workerUrn|null}; agentUrn/workerUrn (cli#1949, server >= cac6c05c6, an older server refuses the preview request: exit 2, a sentence naming both fields and that commit and saying no signing change was sent, serverCode GRAPHQL_VALIDATION_FAILED, no retry or fallback) are the server's display URNs printed as served, never built here, and an absent one is an explicit null key (workerUrn is null on an install-level row); the text table adds AGENT URN and WORKER URN columns, empty when absent; the same rows embedded in `on`'s document carry both; rows is [] when empty; there is no previewToken. A plain
 `preview` reads ONE server page (the server's default of 20) and, when hasMore,
 says to use `--after <endCursor>` or `--all` (every page; not combinable with
 --first/--after). `--first N` goes to the server unchanged (below 1 is the

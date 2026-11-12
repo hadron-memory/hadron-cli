@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -661,6 +663,37 @@ func IsGraphQLValidationOnlyFor(err error, names ...string) bool {
 	}
 	return true
 }
+
+// IsFrameworkValidationOnlyFor reports whether every error in err's envelope is
+// the framework's own rejection of a selected field, and the rejected field is
+// one of names: extensions.code GRAPHQL_VALIDATION_FAILED and a message of the
+// form `Cannot query field "<name>" on type "…"`. The name is read from the
+// rejected-field position only, never from anywhere in the text: the validator's
+// own suggestion (`Did you mean "agentUrn"?`) or type name would otherwise
+// misread an unrelated rejection as this one (cli#1957 LOCAL P2). It also
+// requires the code, because genqlient turns a non-JSON non-200 body into one
+// code-less error whose message is the raw text (cli#1955). Use it where the
+// sentence printed claims the server itself rejected that field.
+func IsFrameworkValidationOnlyFor(err error, names ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || extensionCode(e) != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+		m := rejectedFieldRE.FindStringSubmatch(e.Message)
+		if m == nil || !slices.Contains(names, m[1]) {
+			return false
+		}
+	}
+	return true
+}
+
+// rejectedFieldRE reads the field a validation error rejects: the first quoted
+// token of `Cannot query field "<field>" on type "<type>"`.
+var rejectedFieldRE = regexp.MustCompile(`^Cannot query field "([^"]+)" on type "`)
 
 // isValidationErrorFor is one error's half of IsGraphQLValidationFor.
 func isValidationErrorFor(e *gqlerror.Error, name string) bool {

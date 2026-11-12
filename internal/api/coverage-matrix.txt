@@ -602,7 +602,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 82: 46 gap, 36 excluded
+[Arguments] 83: 47 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -658,6 +658,7 @@ Mutation.setTeamStopSignal(instruction)  gap #1617
 Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
 Mutation.subscribeWorker(instruction)  gap #1617
+Mutation.testAiServiceConfig(chatProbe)  gap #1951: ai-config test does not pass or render the chat probe (server#4005)
 Mutation.unsubscribeWorker(instruction)  gap #1617
 Mutation.updateAgentTask(instruction)  gap #1617
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config

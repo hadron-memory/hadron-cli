@@ -67934,6 +67934,10 @@ type OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigning
 	ServedRevSeq    int                           `json:"servedRevSeq"`
 	State           BootPromptSigningPreviewState `json:"state"`
 	ChangesToRevSeq *int                          `json:"changesToRevSeq"`
+	// Canonical URN of this row's Agent, rooted at its author rather than the serving App; null when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:urn:010:01
+	AgentUrn *string `json:"agentUrn"`
+	// Canonical URN of this row's Worker, using its stored slug; null on an install-level row or when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+	WorkerUrn *string `json:"workerUrn"`
 }
 
 // GetAppId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AppId, and is useful for accessing the field via an interface.
@@ -67989,6 +67993,16 @@ func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSig
 // GetChangesToRevSeq returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.ChangesToRevSeq, and is useful for accessing the field via an interface.
 func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetChangesToRevSeq() *int {
 	return v.ChangesToRevSeq
+}
+
+// GetAgentUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AgentUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAgentUrn() *string {
+	return v.AgentUrn
+}
+
+// GetWorkerUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.WorkerUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetWorkerUrn() *string {
+	return v.WorkerUrn
 }
 
 // OrgBootPromptSigningPreviewResponse is returned by OrgBootPromptSigningPreview on success.
@@ -142964,11 +142978,15 @@ query OrgBootPromptSigningPreview ($org: ID!, $first: Int, $after: String) {
 			servedRevSeq
 			state
 			changesToRevSeq
+			agentUrn
+			workerUrn
 		}
 	}
 }
 `
 
+// agentUrn/workerUrn (server >= cac6c05c6, cli#1949) are shared by `preview` and
+// `on`; an older server rejects this document loudly, with no fallback.
 // first/after are omitted (not sent as null) on a plain preview, so the server's
 // default page (20) applies.
 func OrgBootPromptSigningPreview(

@@ -69,6 +69,11 @@ type signingRowDTO struct {
 	ServedRevSeq    int     `json:"servedRevSeq"`
 	State           string  `json:"state"`
 	ChangesToRevSeq *int    `json:"changesToRevSeq"`
+	// AgentURN and WorkerURN are the server's display URNs, printed as served:
+	// this CLI builds and re-canonicalises none (cli#1949). Null (an explicit key)
+	// when the server could not derive one, and WorkerURN on an install-level row.
+	AgentURN  *string `json:"agentUrn"`
+	WorkerURN *string `json:"workerUrn"`
 }
 
 // signingPreviewDTO is the stable --json shape of preview. It deliberately has
@@ -178,7 +183,8 @@ func newCmdSigningPreview(f *cmdutil.Factory) *cobra.Command {
 App, Agent and worker each belongs to, the revision served today, and what
 would happen: SIGNATURE_PENDING (not served until the signature's cooling-off
 ends), REVISION_CHANGES (falls back to an older signed revision) or
-UNSIGNED_STOPS (would be refused).
+UNSIGNED_STOPS (would be refused). The Agent and Worker URNs are the server's,
+printed as served (empty when it could not derive one; --json shows null).
 
 A plain preview reads ONE server page (20 rows) and prints how to get more.
 --all reads every page; --first and --after choose a page by hand (--all
@@ -368,9 +374,31 @@ func signingError(err error) error {
 	return api.WithServerCode(mapped, err)
 }
 
+// previewURNFields are the two fields the preview document selects that a
+// server older than previewMinServerCommit lacks (cli#1949).
+var previewURNFields = []string{"agentUrn", "workerUrn"}
+
+// previewMinServerCommit is the hadron-server commit that serves them, from the
+// settled cli#1949 gate. It is guidance in the message only, never a support
+// decision: the CLI learns a field is missing from the server's own refusal.
+const previewMinServerCommit = "cac6c05c6"
+
+// signingOlderServerMsg: the preview request is what the server refused, so it
+// says no signing change was sent, not that nothing was.
+const signingOlderServerMsg = "this server is older than this hadron build needs for the boot-prompt signing preview: " +
+	"it does not serve one or both of agentUrn and workerUrn (needs hadron-server at or after " + previewMinServerCommit + "). " +
+	"The preview was refused and no signing change was sent. Upgrade the server, or use an older hadron build"
+
 func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org string, first *int, after *string) (previewPage, error) {
 	resp, err := gen.OrgBootPromptSigningPreview(ctx, client, org, first, after)
 	if err != nil {
+		// cli#1955: a server without the two URN fields refuses this document.
+		// Only that exact refusal (every parsed error is a validation rejection
+		// naming agentUrn or workerUrn, with the framework code) gets its own sentence; anything else
+		// keeps the existing mapping. Exit 2, the framework code rides along.
+		if api.IsFrameworkValidationOnlyFor(err, previewURNFields...) {
+			return previewPage{}, api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s", signingOlderServerMsg), err)
+		}
 		return previewPage{}, signingError(err)
 	}
 	p := resp.OrgBootPromptSigningPreview
@@ -390,6 +418,7 @@ func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org str
 			WorkerID: r.WorkerId, WorkerName: r.WorkerName,
 			CompiledNodeID: r.CompiledNodeId, CompiledNodeURN: r.CompiledNodeUrn,
 			ServedRevSeq: r.ServedRevSeq, State: string(r.State), ChangesToRevSeq: r.ChangesToRevSeq,
+			AgentURN: r.AgentUrn, WorkerURN: r.WorkerUrn,
 		})
 	}
 	return previewPage{dto: dto, token: p.PreviewToken}, nil
@@ -479,7 +508,7 @@ func writeSigningPreview(w io.Writer, p signingPreviewDTO) error {
 	if len(p.Rows) == 0 {
 		return nil
 	}
-	t := output.NewTable(w, "APP", "AGENT", "WORKER", "COMPILED NODE", "SERVED", "STATE", "FALLS BACK TO")
+	t := output.NewTable(w, "APP", "AGENT", "WORKER", "COMPILED NODE", "SERVED", "STATE", "FALLS BACK TO", "AGENT URN", "WORKER URN")
 	for _, r := range p.Rows {
 		worker := "(install)"
 		if r.WorkerName != nil {
@@ -496,7 +525,17 @@ func writeSigningPreview(w io.Writer, p signingPreviewDTO) error {
 			falls = "rev " + strconv.Itoa(*r.ChangesToRevSeq)
 		}
 		t.Row(output.SafeCell(r.AppURN), output.SafeCell(r.AgentName), output.SafeCell(worker), output.SafeCell(node),
-			"rev "+strconv.Itoa(r.ServedRevSeq), r.State, falls)
+			"rev "+strconv.Itoa(r.ServedRevSeq), r.State, falls,
+			output.SafeCell(derefOrEmpty(r.AgentURN)), output.SafeCell(derefOrEmpty(r.WorkerURN)))
 	}
 	return t.Flush()
+}
+
+// derefOrEmpty renders an absent server URN as an empty cell: the text view
+// omits what the server did not send rather than printing a placeholder.
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
