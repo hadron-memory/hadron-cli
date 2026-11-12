@@ -306,7 +306,7 @@ func TestPasskeyRevokePageFieldMissing(t *testing.T) {
 	mixed := `{"errors":[{"message":"Cannot query field \"passkeyRevokeUrl\" on type \"ServerInfo\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`
 	s3 := newRevokePageServer(t, 200, passkeysOn, 200, mixed)
 	r3 := runRevokePage(t, s3.url, false, nil, nil)
-	if r3.code != 8 || !strings.Contains(r3.out+r3.errOut, "forbidden") || strings.Contains(r3.out+r3.errOut, "does not provide") {
+	if r3.code != 2 || !strings.Contains(r3.out+r3.errOut, "out of sync") || strings.Contains(r3.out+r3.errOut, "does not provide") {
 		t.Fatalf("a mixed envelope was read as the missing field: %q", r3.out+r3.errOut)
 	}
 }
@@ -407,7 +407,7 @@ func TestPasskeyRevokePageHelp(t *testing.T) {
 			t.Fatalf("help lacks %q:\n%s", want, out.String())
 		}
 	}
-	for _, bad := range []string{"http", "/passkeys/"} {
+	for _, bad := range []string{"http://", "https://", "/passkeys/"} {
 		if strings.Contains(out.String(), bad) {
 			t.Fatalf("help names %q", bad)
 		}

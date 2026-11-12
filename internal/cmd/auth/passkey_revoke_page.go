@@ -33,16 +33,16 @@ var PasskeyOpenBrowser = authpkg.OpenInBrowser
 // PasskeyStdoutIsTerminal reports whether stdout is a terminal, the one
 // condition under which --open may launch. A seam because the test streams
 // can fake an input terminal but not an output one.
-var PasskeyStdoutIsTerminal = func(io *output.IOStreams) bool { return io.IsTerminal() }
+var PasskeyStdoutIsTerminal = func(streams *output.IOStreams) bool { return streams.IsTerminal() }
 
 // The one field this read selects. A server before #4063 lacks it, and a
 // switched-off server drops it from the schema; either way the query fails
 // validation on this name alone, and the two cannot be told apart.
 var passkeyRevokeSchemaNames = []string{"passkeyRevokeUrl"}
 
-const passkeyRevokeNotAdvertised = "this server does not advertise its passkey revoke page (an older server, or passkeys were switched off since discovery); no URL was constructed"
+const passkeyRevokeNotAdvertised = "this server does not provide a passkey revoke page (it may be an older server, or passkey registration was switched off since the check)"
 
-const passkeyRevokeInvalid = "the server returned an invalid passkey revoke URL"
+const passkeyRevokeInvalid = "the server returned an address that is not a valid, secure web address, so it was not printed or opened; tell the server operator"
 
 // passkeyRevokePageDTO is the stable --json shape, named like the SDL field.
 type passkeyRevokePageDTO struct {
@@ -59,7 +59,7 @@ it's you, with another passkey or a linked identity provider, and choose which
 passkey to remove. The address is the same for everyone. It names no passkey
 and grants nothing, and this CLI removes nothing itself.
 
---open also asks your browser to open it. It is refused (exit 2) with --json
+--open also asks your default browser to open it. It is refused (exit 2) with --json
 or when output is not a terminal. Without --open, nothing is launched. A
 launcher that starts is not proof that the page loaded.
 
@@ -67,8 +67,12 @@ The address is printed alone on one line; --json gives an object with one
 key, passkeyRevokeUrl. No sign-in is needed. A server that does not offer
 passkeys exits 2 before any query, and so does one whose passkey support
 cannot be confirmed. A server that offers passkeys but does not advertise the
-page also exits 2. An address that is not a valid, secure web address exits 1
-and is never opened.`,
+page also exits 2 (it may be an older server, or passkey registration was
+switched off since the check). Both printing and --open refuse an insecure
+server address (exit 2): use https, loopback for local development, or
+HADRON_ALLOW_HTTP=1 for a trusted self-hosted server. If the server returns no
+address, exit 1 says so. An address that is not a valid, secure web address
+exits 1 and is never printed or opened.`,
 		Example: `  hadron auth passkey revoke-page
   hadron auth passkey revoke-page --open
   hadron auth passkey revoke-page --json | jq -r .passkeyRevokeUrl`,
@@ -77,7 +81,7 @@ and is never opened.`,
 			return runPasskeyRevokePage(cmd.Context(), f, open, PasskeyStdoutIsTerminal(f.IOStreams))
 		},
 	}
-	cmd.Flags().BoolVar(&open, "open", false, "also ask your browser to open the page (terminal only, not with --json)")
+	cmd.Flags().BoolVar(&open, "open", false, "also ask your default browser to open the page (terminal only, not with --json)")
 	return cmd
 }
 
@@ -88,11 +92,15 @@ func runPasskeyRevokePage(ctx context.Context, f *cmdutil.Factory, open, termina
 		return exitcode.Newf(exitcode.Usage, "--open cannot be used with --json: --json only prints the address")
 	}
 	if open && !terminal {
-		return exitcode.Newf(exitcode.Usage, "--open needs stdout to be a terminal; nothing was launched. Drop --open to print the address")
+		return exitcode.Newf(exitcode.Usage, "--open needs output to go to a terminal; nothing was launched. Drop --open to print the address")
 	}
 	server, err := f.Server()
 	if err != nil {
 		return err
+	}
+	u, parseErr := url.Parse(server)
+	if parseErr != nil || !api.URLIsSecure(u) {
+		return exitcode.Newf(exitcode.Usage, "refusing an insecure server address; use https, loopback for local development, or HADRON_ALLOW_HTTP=1 for a trusted self-hosted server; nothing was printed or opened")
 	}
 	caps, err := PasskeyCapabilities(ctx, server)
 	if err != nil {
@@ -117,9 +125,12 @@ func runPasskeyRevokePage(ctx context.Context, f *cmdutil.Factory, open, termina
 		return api.MapErrorKeepingCode(err)
 	}
 	if resp == nil || resp.ServerInfo == nil {
-		return exitcode.Newf(exitcode.Error, passkeyRevokeInvalid)
+		return exitcode.Newf(exitcode.Error, "the server did not return a passkey revoke page address")
 	}
 	target := resp.ServerInfo.PasskeyRevokeUrl
+	if target == "" {
+		return exitcode.Newf(exitcode.Error, "the server did not return a passkey revoke page address")
+	}
 	if !validRevokeURL(target) {
 		return exitcode.Newf(exitcode.Error, passkeyRevokeInvalid)
 	}

@@ -42,3 +42,21 @@ func TestPasskeyRevokePage1960NoPositional(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestPasskeyRevokePage1960SecureServerPolicy(t *testing.T) {
+	for _, tc := range []struct{ server, allow string }{{"https://server.example", ""}, {"http://127.0.0.1:1234", ""}, {"http://[::1]:1234", ""}, {"http://server.example", "1"}} {
+		t.Run(tc.server+tc.allow, func(t *testing.T) {
+			old := auth.PasskeyCapabilities
+			calls := 0
+			auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
+				calls++
+				return nil, errors.New("synthetic stop before GraphQL")
+			}
+			defer func() { auth.PasskeyCapabilities = old }()
+			r := runRevokePage(t, tc.server, false, nil, map[string]string{"HADRON_ALLOW_HTTP": tc.allow, "HADRON_TOKEN": ""})
+			if calls != 1 || r.code != 2 || !strings.Contains(r.out+r.errOut, "synthetic stop before GraphQL") {
+				t.Fatalf("calls=%d result=%+v", calls, r)
+			}
+		})
+	}
+}
