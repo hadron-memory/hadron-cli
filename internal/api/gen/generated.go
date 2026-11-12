@@ -13422,9 +13422,11 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 // AgentTeamEventsPageResponse is returned by AgentTeamEventsPage on success.
 type AgentTeamEventsPageResponse struct {
 	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
-	// filters, order and paging, returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
+	// filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
 	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
-	// newestFirst, as before; null on the last page.
+	// newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
+	// limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
 	AgentTeamEventsPage *AgentTeamEventsPageAgentTeamEventsPage `json:"agentTeamEventsPage"`
 }
 
@@ -71192,6 +71194,21 @@ var AllRegisterRole = []RegisterRole{
 	RegisterRoleWatch,
 }
 
+// ReinstallAppResponse is returned by ReinstallApp on success.
+type ReinstallAppResponse struct {
+	// #3774 — Reinstall an uninstalled App: the SAME App (id, keys, members, memories) is installed again; no row is created
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21, R2). Same gate as uninstallApp.
+	//
+	// Refused APP_URN_IN_USE while another installed App holds the handle, and APP_DELETED for a deleted App (there is no
+	// undelete). A repeat on an installed App changes nothing. Accepts the ID, or a URN: it names the installed App holding
+	// it (so a repeat by URN is a no-op), else the one uninstalled App with it (two or more: name one by id). The refusal's
+	// extensions carry appId and urn. A worker that is still dark opens a NEW episode on the next sweep.
+	ReinstallApp bool `json:"reinstallApp"`
+}
+
+// GetReinstallApp returns ReinstallAppResponse.ReinstallApp, and is useful for accessing the field via an interface.
+func (v *ReinstallAppResponse) GetReinstallApp() bool { return v.ReinstallApp }
+
 // ReleaseEditorLockResponse is returned by ReleaseEditorLock on success.
 type ReleaseEditorLockResponse struct {
 	// Release the editor lock for an Agent's system memory.
@@ -74216,7 +74233,7 @@ type ResumeSessionInput struct {
 	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
 	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
 	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT.
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read.
 	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
@@ -94510,6 +94527,21 @@ func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload)
 	return v.AppId
 }
 
+// UninstallAppResponse is returned by UninstallApp on success.
+type UninstallAppResponse struct {
+	// #3774 — Uninstall an App: it is kept, read-only (every write through it is refused, usually APP_UNINSTALLED), and its
+	// handle is free for a new App. Ends every open dark-worker episode of the App's workers at the uninstall time, in the
+	// same transaction (hrn:node:hadronmemory.com:specs:cor:dmo:050:21, Holger R1-R3, 2026-11-09).
+	//
+	// Whoever may deleteApp may call this (the same gate); anyone else, and an App that does not exist, gets one identical
+	// refusal. A repeat on an uninstalled App changes nothing. A deleted App is refused (APP_DELETED). Accepts the ID, or a URN: it
+	// names the installed App holding it, else the one uninstalled App with it.
+	UninstallApp bool `json:"uninstallApp"`
+}
+
+// GetUninstallApp returns UninstallAppResponse.UninstallApp, and is useful for accessing the field via an interface.
+func (v *UninstallAppResponse) GetUninstallApp() bool { return v.UninstallApp }
+
 // UnlockNodeRoleRuleResponse is returned by UnlockNodeRoleRule on success.
 type UnlockNodeRoleRuleResponse struct {
 	// #1334 — the deliberate step before a rule a required template LOCKED can be
@@ -113017,6 +113049,14 @@ type __RegisterHostInput struct {
 // GetInput returns __RegisterHostInput.Input, and is useful for accessing the field via an interface.
 func (v *__RegisterHostInput) GetInput() *RegisterHostInput { return v.Input }
 
+// __ReinstallAppInput is used internally by genqlient
+type __ReinstallAppInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __ReinstallAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ReinstallAppInput) GetRef() string { return v.Ref }
+
 // __ReleaseEditorLockInput is used internally by genqlient
 type __ReleaseEditorLockInput struct {
 	AgentId string `json:"agentId"`
@@ -115120,6 +115160,14 @@ func (v *__UninstallAgentFromAppInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __UninstallAgentFromAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__UninstallAgentFromAppInput) GetAgentRef() string { return v.AgentRef }
+
+// __UninstallAppInput is used internally by genqlient
+type __UninstallAppInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __UninstallAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UninstallAppInput) GetRef() string { return v.Ref }
 
 // __UnlockNodeRoleRuleInput is used internally by genqlient
 type __UnlockNodeRoleRuleInput struct {
@@ -143160,6 +143208,38 @@ func RegisterHost(
 	return data_, err_
 }
 
+// The mutation executed by ReinstallApp.
+const ReinstallApp_Operation = `
+mutation ReinstallApp ($ref: ID!) {
+	reinstallApp(ref: $ref)
+}
+`
+
+func ReinstallApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *ReinstallAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReinstallApp",
+		Query:  ReinstallApp_Operation,
+		Variables: &__ReinstallAppInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &ReinstallAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ReleaseEditorLock.
 const ReleaseEditorLock_Operation = `
 mutation ReleaseEditorLock ($agentId: ID!) {
@@ -151373,6 +151453,40 @@ func UninstallAgentFromApp(
 	}
 
 	data_ = &UninstallAgentFromAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UninstallApp.
+const UninstallApp_Operation = `
+mutation UninstallApp ($ref: ID!) {
+	uninstallApp(ref: $ref)
+}
+`
+
+// cli#1917 (hadron-server#3774, cor:dmo:050:21): the reversible pair. Both
+// answer true for a real move and for a repeat alike.
+func UninstallApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *UninstallAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UninstallApp",
+		Query:  UninstallApp_Operation,
+		Variables: &__UninstallAppInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &UninstallAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

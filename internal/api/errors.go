@@ -1553,6 +1553,11 @@ func codeForExtension(code string) int {
 	// caller's argument — Conflict, like WORKER_RETIRED above.
 	case code == "APP_UNINSTALLED":
 		return exitcode.Conflict
+	// The App lifecycle refusals (cli#1917, hadron-server#3774): the App is
+	// deleted (no undelete), or another installed App holds the handle a
+	// reinstall needs. The App's state, not the argument.
+	case code == "APP_DELETED" || code == "APP_URN_IN_USE":
+		return exitcode.Conflict
 	// An operation that requires a bound worker session, called without one.
 	// The caller is AUTHENTICATED (a plain FORBIDDEN or 3 would misname it);
 	// the fix is their own next command — `team session start --as <worker>` —

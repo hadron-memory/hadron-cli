@@ -28,7 +28,7 @@ humans only). Ask the user to log in, or use a token:
    errors to stderr as `{"error":{"code":...,"message":"..."}}`. Field names
    are stable.
 2. **Always pass `--yes` on destructive commands** (`memory rm`, `node rm`,
-   `edge rm`, `app uninstall`). Without it they exit 2 when non-interactive.
+   `edge rm`, `app delete`, `app uninstall`). Without it they exit 2 when non-interactive.
    Confirm with the user before deleting anything you did not create.
 3. **Node references are always fully-qualified URNs**:
    `hrn:node:<root>:<slug>:<loc>` (e.g. `hrn:node:acme.com:kb:findings:flaky-ci`).

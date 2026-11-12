@@ -2600,13 +2600,15 @@ func TestAppInstallRequiresOrgOrOwnerMe(t *testing.T) {
 	}
 }
 
-func TestAppUninstall(t *testing.T) {
+// cli#1917: deleting is app delete now (app uninstall calls uninstallApp,
+// pinned in app_lifecycle_1917_test.go).
+func TestAppDelete(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"DeleteApp": `{"data":{"deleteApp":true}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "uninstall", "capp100000000000000000000", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"app", "delete", "capp100000000000000000000", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}

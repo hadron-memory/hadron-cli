@@ -250,7 +250,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 350: 287 command, 49 gap, 14 excluded
+[Mutation] 350: 289 command, 47 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -358,7 +358,7 @@ deleteAgentSchedule  command schedule rm
 deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
 deleteAiServiceConfig  command ai-config rm
-deleteApp  command app uninstall
+deleteApp  command app delete
 deleteAppModelGroup  command app model-group clear
 deleteChannel  command channel rm
 deleteChat  gap #64
@@ -451,7 +451,7 @@ recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  command team host run
 registerHost  command team host run
-reinstallApp  gap #1915
+reinstallApp  command app reinstall
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
@@ -550,7 +550,7 @@ testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
 uninstallAgentFromApp  command app agent remove
-uninstallApp  gap #1915
+uninstallApp  command app uninstall
 unlinkGithubApp  gap #60
 unlockNodeRoleRule  command memory config rule unlock
 unsubscribeWorker  command ticker unsubscribe
