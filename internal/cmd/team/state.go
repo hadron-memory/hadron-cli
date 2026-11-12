@@ -116,7 +116,11 @@ func gitDirOrPlain(ctx context.Context) (dir string, plain bool, err error) {
 	if d := os.Getenv(GitDirEnv); d != "" {
 		return d, false, nil
 	}
-	out, err := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir").Output()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir")
+	// git localizes "not a git repository" (gettext): the C locale keeps the
+	// one message this classifies on in English (Gloria's BLIND F1, #1968).
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANGUAGE=C")
+	out, err := cmd.Output()
 	if err != nil {
 		detail := err.Error()
 		var exitErr *exec.ExitError
@@ -272,11 +276,12 @@ func errDirectoryHeld(path string, held *binding) error {
 		held.WorkerName, path, held.SessionID, held.WorkerName, path)
 }
 
-// heldByOtherWorker reports whether a plain directory's cached binding names a
-// different worker than the one being bound. Only a binding that carries a
-// worker id can say; one without is replaced as before.
+// heldByOtherWorker reports whether a plain directory's cached binding may
+// name a different worker than the one being bound. A binding with no worker
+// id cannot show it is the same worker, so it counts as held — the safe
+// direction, as the start's pre-check reads it (Gloria's BLIND F2, #1968).
 func heldByOtherWorker(held *binding, workerID string) bool {
-	return held != nil && strings.TrimSpace(held.WorkerID) != "" && held.WorkerID != workerID
+	return held != nil && (strings.TrimSpace(held.WorkerID) == "" || held.WorkerID != workerID)
 }
 
 func writeBinding(ctx context.Context, b *binding) (string, error) {
