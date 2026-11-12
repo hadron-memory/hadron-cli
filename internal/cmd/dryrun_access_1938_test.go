@@ -81,16 +81,32 @@ func runDry1938(t *testing.T, c dryCase1938, mocks map[string]string, asJSON boo
 	var mu sync.Mutex
 	calls := []string{}
 	counts := map[string]int{}
+	var accessVariables map[string]json.RawMessage
 	srv, captured := captureGraphQLFunc(t, func(op string) string {
 		mu.Lock()
 		defer mu.Unlock()
 		calls = append(calls, op)
 		counts[op]++
+		// Match the real effectiveAccess dispatcher: bare IDs are AI configs,
+		// not memories (server source 0c816205, effectiveAccess.ts resolveResource).
+		if op == "EffectiveAccess" {
+			capturedMu.Lock()
+			raw := accessVariables[op]
+			capturedMu.Unlock()
+			var resource struct{ Resource string }
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				t.Error(err)
+			}
+			if !strings.Contains(resource.Resource, ":") {
+				return `{"errors":[{"message":"Resource not found","extensions":{"code":"NOT_FOUND"}}]}`
+			}
+		}
 		if response, ok := mocks[op+":"+strconv.Itoa(counts[op])]; ok {
 			return translateFindNodes(op, response)
 		}
 		return translateFindNodes(op, mocks[op])
 	})
+	accessVariables = captured
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	args := append([]string{}, c.args...)
