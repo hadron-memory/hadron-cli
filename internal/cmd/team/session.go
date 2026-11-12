@@ -950,6 +950,55 @@ ends the recovered session: run start again to pick it up.`,
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
 				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
 			}
+			// The client opens early only for the plain-directory read below;
+			// everywhere else it opens after the existing-binding check, as
+			// before, so that refusal still comes ahead of a sign-in error.
+			var client graphql.Client
+			// The App scope for resolving a worker NAME: -m names the team
+			// memory (its appId IS the team App), else the ambient --app /
+			// configured context. A worker ID resolves without any of them.
+			appScope := ""
+			var appRefArg *string
+			resolveScope := func() error {
+				if teamMemory != "" {
+					resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
+					if aerr != nil {
+						return aerr
+					}
+					appScope = resolved
+					// Passed through to startSession too: the server verifies it
+					// matches the worker's App, so a `-m` naming another team's
+					// memory fails loudly instead of silently binding elsewhere.
+					appRefArg = &resolved
+				} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
+					appScope = ambient
+				}
+				return nil
+			}
+			var w gen.WorkerFields
+			resolved := false
+			// The name check above only refuses; a MATCH proves nothing, because
+			// a worker name is App-scoped and a URN's last segment is only a
+			// slug — "Iris" may resolve to another App's Iris (Gizelle's LOCAL
+			// F1 on #1968). So in a plain directory the decision is the
+			// RESOLVED worker's id against the cached one, taken with reads
+			// only, before --force ends the cached session and before any
+			// start. A cache with no worker id cannot prove sameness: refused.
+			if plainDir && existing != nil && strings.TrimSpace(as) != "" {
+				if client, err = f.GraphQLClient(); err != nil {
+					return err
+				}
+				if err := resolveScope(); err != nil {
+					return err
+				}
+				if w, err = resolveWorker(ctx, client, appScope, as); err != nil {
+					return err
+				}
+				resolved = true
+				if existing.WorkerID == "" || w.Id != existing.WorkerID {
+					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				}
+			}
 			var lapsedBinding bool
 			if existing != nil && !force {
 				lapsedBinding, err = checkExistingBinding(ctx, f, existing)
@@ -957,9 +1006,10 @@ ends the recovered session: run start again to pick it up.`,
 					return err
 				}
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
+			if client == nil {
+				if client, err = f.GraphQLClient(); err != nil {
+					return err
+				}
 			}
 			userLabel := sessionUserLabeller(ctx, client)
 			// --force over an existing binding: best-effort end the session it
@@ -983,30 +1033,16 @@ ends the recovered session: run start again to pick it up.`,
 					fmt.Fprintln(f.IOStreams.ErrOut, "the old session is ended without a handoff from this command; any handoff it already saved is kept")
 				}
 			}
-			// The App scope for resolving a worker NAME: -m names the team
-			// memory (its appId IS the team App), else the ambient --app /
-			// configured context. A worker ID resolves without any of them.
-			appScope := ""
-			var appRefArg *string
-			var w gen.WorkerFields
 			live := liveNo
-			if teamMemory != "" {
-				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
-				if aerr != nil {
-					return aerr
-				}
-				appScope = resolved
-				// Passed through to startSession too: the server verifies it
-				// matches the worker's App, so a `-m` naming another team's
-				// memory fails loudly instead of silently binding elsewhere.
-				appRefArg = &resolved
-			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
-				appScope = ambient
-			}
-			if strings.TrimSpace(as) != "" {
-				w, err = resolveWorker(ctx, client, appScope, as)
-				if err != nil {
+			if !resolved {
+				if err := resolveScope(); err != nil {
 					return err
+				}
+				if strings.TrimSpace(as) != "" {
+					w, err = resolveWorker(ctx, client, appScope, as)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			if w.Id != "" && w.RetiredAt != nil {
@@ -2605,10 +2641,13 @@ func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string
 	return *resp.Memory.AppId, nil
 }
 
-// namesBoundWorker reports whether --as names the worker a binding records: its
-// name (case-insensitively), id or URN. A ref that cannot be matched here reads
-// as another worker, so a plain directory refuses rather than shares; the same
-// worker under an unmatched spelling is refused with a message naming it.
+// namesBoundWorker reports whether --as COULD name the worker a binding
+// records: its name (case-insensitively), id or URN slug. It is a fast, local
+// refusal only — a non-match is certainly another worker, but a match is not
+// proof of sameness, since names are App-scoped and a slug repeats across
+// Apps; the plain-directory start decides on the resolved worker's id
+// (Gizelle's LOCAL F1 on #1968). The same worker under an unmatched spelling
+// is refused with a message naming it.
 func namesBoundWorker(b *binding, as string) bool {
 	as = strings.TrimSpace(as)
 	if strings.EqualFold(as, b.WorkerName) || (b.WorkerID != "" && as == b.WorkerID) {

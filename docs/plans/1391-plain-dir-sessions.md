@@ -38,9 +38,9 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 - A **bind** (`writeBinding`, `readBindingForBind`, called by `session start` and the resume) reaches the cache directory, and the lock creates it.
 
 **One worker per plain directory.**
-- `session start --as <worker>` refuses **before any server call** (exit 5) when the directory's binding names a different worker. This includes `--force`, which would otherwise end the other worker's session and then share its directory.
-  - The match is by name (case-insensitive), worker id, or a `hrn:worker:` URN's last segment.
-  - A ref that cannot be matched reads as another worker: the safe direction.
+- `session start --as <worker>` refuses **before any session is started or ended** (exit 5) when the directory's binding names a different worker. This includes `--force`, which would otherwise end the other worker's session and then share its directory.
+  - First a local check, with no server call: a ref that matches the binding by none of name (case-insensitive), worker id or `hrn:worker:` URN's last segment is another worker, and refuses.
+  - A local match proves nothing, because a name is App-scoped and a slug repeats across Apps (Gizelle's LOCAL F1 on #1968: another App's `Iris` passed, and `--force` ended the cached session before the lock-time check refused). So the start then resolves the named worker, with reads only, and refuses unless its id is the binding's worker id. A binding with no worker id refuses: sameness can't be shown.
 - `writeBinding` re-checks under the lock, against a fresh read, by worker id. This backstop covers:
   - a launch grant, whose worker is known only after the bind (start rolls the bind back);
   - a resume (the session stays open, as every failed resume write leaves it);
