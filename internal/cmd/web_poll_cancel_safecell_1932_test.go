@@ -9,7 +9,7 @@ import (
 // cli#1932: web-poll cancel prints the SERVER-returned jobId, which is
 // untrusted text. Each text outcome must run it through output.SafeCell (as
 // web-poll list does), while --json keeps the value the server sent.
-const hostileJobID1932 = "job\x1b[31m‮\rX\nforged"
+const hostileJobID1932 = "job\x1b[31m\u202e\rX\nforged"
 
 func hostileCancel1932(cancelled, already bool) string {
 	id, _ := json.Marshal(hostileJobID1932)
@@ -38,7 +38,7 @@ func TestWebPollCancelTextOutcomesSanitizeServerJobID1932(t *testing.T) {
 			if !strings.Contains(out, tc.want) {
 				t.Fatalf("want %q in output: %q", tc.want, out)
 			}
-			for _, bad := range []string{"\x1b", "‮", "\r"} {
+			for _, bad := range []string{"\x1b", "\u202e", "\r"} {
 				if strings.Contains(out, bad) {
 					t.Fatalf("hidden control %q reached the terminal: %q", bad, out)
 				}
