@@ -111,6 +111,11 @@ func TestOrgSigningPreviewTextPrintsPresentURNsAndOmitsAbsent(t *testing.T) {
 			byApp[strings.Fields(l)[0]] = l
 		}
 	}
+	for _, app := range []string{"a1", "a2", "a3"} {
+		if byApp["hrn:app:acme.com:"+app] == "" {
+			t.Fatalf("row %s is missing from the table:\n%s", app, out.String())
+		}
+	}
 	for _, col := range []string{"AGENT URN", "WORKER URN"} {
 		if !strings.Contains(header, col) {
 			t.Errorf("header lacks %q: %q", col, header)

@@ -386,7 +386,7 @@ const previewMinServerCommit = "cac6c05c6"
 // signingOlderServerMsg: the preview request is what the server refused, so it
 // says no signing change was sent, not that nothing was.
 const signingOlderServerMsg = "this server is older than this hadron build needs for the boot-prompt signing preview: " +
-	"it does not serve agentUrn and workerUrn (needs hadron-server at or after " + previewMinServerCommit + "). " +
+	"it does not serve one or both of agentUrn and workerUrn (needs hadron-server at or after " + previewMinServerCommit + "). " +
 	"The preview was refused and no signing change was sent. Upgrade the server, or use an older hadron build"
 
 func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org string, first *int, after *string) (previewPage, error) {
