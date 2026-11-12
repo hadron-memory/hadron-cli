@@ -529,7 +529,7 @@ hadron app update <app-ref> [settings flags] [--yes]   # omitted = preserved; no
 
 hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints]
 hadron ai-config list (--owner-type APP|AGENT|ORGANIZATION|HADRON_SERVER --owner-id <id-or-urn> | --all-owners) [--limit N] [--offset N]
-hadron ai-config test <id> [--override-file <path|->] [--json]
+hadron ai-config test <id> [--override-file <path|->] [--chat-probe] [--json]
 hadron ai-config get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-style CHAT_COMPLETIONS|RESPONSES] [--api-key -] [--file <path>]
 hadron ai-config update <id> [--endpoint <url|"">] [--api-style CHAT_COMPLETIONS|RESPONSES | --clear-api-style] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | signing get|off <org> | signing preview <org> [--first N] [--after C] [--all] | signing on <org>   # boot-prompt signing switch (#1879); off|on take [--yes] | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
@@ -2361,6 +2361,16 @@ Conventions:
   KEY_UNREADABLE make no provider call. The completed diagnostic exits 0 even
   for `ok:false`; inspect `ok`/`error.code` in JSON (with effective values,
   latency, value sources and knobs). Request refusals use normal CLI exits.
+  `--chat-probe` (cli#1951, hadron-server#4005; off by default) adds ONE second,
+  separately metered provider call: its closed status (PASS, FAIL_TEXT_ONLY,
+  FAIL_OTHER_TOOL, FAIL_MULTIPLE_CALLS, FAIL_MALFORMED,
+  FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER; an unknown value passes
+  through verbatim) prints on its own `chat:` line and is the `chat` key in
+  `--json` (always present; null when not requested). It is a separate outcome
+  from `ok`: the exit status follows the run alone, so run PASS + chat
+  FAIL_TEXT_ONLY exits 0. Default requests omit `chatProbe` and select no
+  `chat`, so older servers work unchanged; with the flag an older server is
+  refused (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
   The submitted override key is redacted locally from request-error messages
   and completed-test error code/message fields (literal and string-escaped
   echoes); this does not change the sent key or a request refusal's exit code.
