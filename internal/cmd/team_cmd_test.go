@@ -3237,7 +3237,7 @@ func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
 	if err := r2.Execute(); err != nil {
 		t.Fatalf("session log: %v", err)
 	}
-	if strings.Contains(errOut.String(), "no record of reading the team chat") {
+	if strings.Contains(errOut.String(), "no contiguous team-chat read cursor") {
 		t.Errorf("a read in this same worker session must count — false nudge:\n%s", errOut.String())
 	}
 }
@@ -3273,26 +3273,64 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
 		bind(t, bindingWithTeamFixture) // no chatSeenSeq
 		gql, captured := captureGraphQL(t, stubs(nil))
-		f, _ := testFactory(t)
-		errOut := f.IOStreams.ErrOut.(*strings.Builder)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
-		if err := root.Execute(); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-		if !strings.Contains(errOut.String(), "this worktree has no contiguous team-chat read cursor") ||
-			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
-			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
-		}
-		// Claims only what the CLI knows — a portal or other-binding read is
-		// invisible here, so asserting the worker never read would be a false
-		// nudge (seq 102).
-		if !strings.Contains(errOut.String(), "portal or under another binding is not visible here") {
-			t.Errorf("the note must name its own blind spot: %q", errOut.String())
-		}
-		// And it costs nothing: no count query is worth issuing for that answer.
-		if _, called := captured["TeamChatMessages"]; called {
-			t.Error("the never-read branch must not query the chat")
+		// Repeat in the same binding, including JSON mode: the note remains
+		// per log write and does not establish a cursor of its own.
+		for _, asJSON := range []bool{false, true} {
+			f, out := testFactory(t)
+			errOut := f.IOStreams.ErrOut.(*strings.Builder)
+			root := NewRootCmd(f)
+			args := []string{"team", "session", "log", "--pr", "371", "--server", gql.URL}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			note := ""
+			for _, line := range strings.Split(errOut.String(), "\n") {
+				if strings.Contains(line, "this worktree has no contiguous team-chat read cursor") {
+					if note != "" {
+						t.Errorf("duplicate chat note: %q", errOut.String())
+					}
+					note = line
+				}
+			}
+			for _, want := range []string{
+				"session log includes this reminder because team chat carries decisions",
+				"this worktree has no contiguous team-chat read cursor",
+				"unfiltered `hadron team chat read --all` reads from the oldest page",
+				"`hadron team chat read --since 0` starts at the oldest page (continue with nextSince)",
+				"bare `hadron team chat read` shows only the newest page",
+				"filtered reads and `hadron team chat mark-read` do not set this cursor",
+			} {
+				if !strings.Contains(note, want) {
+					t.Errorf("note lacks %q: %q", want, errOut.String())
+				}
+			}
+
+			if strings.Contains(out.String(), "team-chat") {
+				t.Errorf("note leaked into stdout: %q", out.String())
+			}
+			if asJSON {
+				var dto map[string]any
+				if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+					t.Fatalf("invalid worklog JSON: %v", err)
+				}
+				if dto["ref"] != "hadron-memory/hadron-cli#371" {
+					t.Errorf("worklog receipt changed: %s", out.String())
+				}
+			}
+			// Claims only what the CLI knows — a portal or other-binding read is
+			// invisible here, so asserting the worker never read would be a false
+			// nudge (seq 102).
+			if !strings.Contains(note, "portal or under another binding is not visible here") {
+				t.Errorf("the note must name its own blind spot: %q", errOut.String())
+			}
+			// And it costs nothing: no count query is worth issuing for that answer.
+			if _, called := captured["TeamChatMessages"]; called {
+				t.Error("the never-read branch must not query the chat")
+			}
 		}
 	})
 

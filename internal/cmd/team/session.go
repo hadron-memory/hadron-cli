@@ -2126,7 +2126,8 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 		// trains people to ignore the one that is right, which is the whole
 		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: this worktree has no contiguous team-chat read cursor — `hadron team chat read --since 0` starts at the oldest page (repeat with nextSince); `hadron team chat read` shows the newest page "+
+			"note: session log includes this reminder because team chat carries decisions; this worktree has no contiguous team-chat read cursor; unfiltered `hadron team chat read --all` reads from the oldest page, or `hadron team chat read --since 0` starts at the oldest page (continue with nextSince); "+
+				"bare `hadron team chat read` shows only the newest page; filtered reads and `hadron team chat mark-read` do not set this cursor "+
 				"(a read made in the portal or under another binding is not visible here)\n")
 		return
 	}
