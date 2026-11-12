@@ -1133,6 +1133,13 @@ func TestIsFrameworkValidationOnlyFor(t *testing.T) {
 		{"coded plus raw text", gqlerror.List{coded("a"), rawText}, false},
 		{"coded plus another field", gqlerror.List{coded("a"), coded("c")}, false},
 		{"no errors", gqlerror.List{}, false},
+		// cli#1957 LOCAL P2: the rejected field is "c"; "a" only appears in the
+		// validator's suggestion, so the server has "a" and this is not our refusal.
+		{"target only in a did-you-mean suggestion", gqlerror.List{{Message: `Cannot query field "c" on type "Row". Did you mean "a"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"target only as the type name", gqlerror.List{{Message: `Cannot query field "c" on type "a".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"rejected field with a suggestion", gqlerror.List{{Message: `Cannot query field "a" on type "Row". Did you mean "b"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, true},
+		// An explicitly different code on a matching message is not the framework's.
+		{"other code on a matching message", gqlerror.List{{Message: `Cannot query field "a" on type "Row".`, Extensions: map[string]any{"code": "BAD_USER_INPUT"}}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}

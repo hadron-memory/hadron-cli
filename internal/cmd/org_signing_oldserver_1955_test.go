@@ -132,6 +132,10 @@ func TestOrgSigningOlderServerMessageIsNarrow(t *testing.T) {
 			"HTTP400 " + errsResp(valErr("orgBootPromptSigningPreview", "Query")), exitcode.Usage, "out of sync"},
 		{"unparsed 400 body",
 			`HTTP400 GRAPHQL_VALIDATION_FAILED: Cannot query field "agentUrn"`, exitcode.Usage, "out of sync"},
+		// cli#1957 LOCAL P2: this server HAS both fields; it rejects agentId and the
+		// validator suggests agentUrn. Not the older-server refusal.
+		{"unrelated field with a did-you-mean naming agentUrn",
+			"HTTP400 " + errsResp(`{"message":"Cannot query field \"agentId\" on type \"Row\". Did you mean \"agentUrn\"?","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`), exitcode.Usage, "out of sync"},
 		{"FORBIDDEN", forbiddenResp, exitcode.Forbidden, ""},
 		{"internal fault", `HTTP400 {"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`, -1, ""},
 	}
