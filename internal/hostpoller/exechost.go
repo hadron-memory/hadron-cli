@@ -150,16 +150,14 @@ func (a *execAgent) Done() <-chan struct{} { return a.done }
 func (a *execAgent) ExitDetail() string    { return a.detail }
 func (a *execAgent) PID() int              { return a.pid }
 
-// Terminate stops the process group this launch created. After Done it
-// signals nothing: the exit is reaped before Done closes, and a reaped pid
-// can be reused by an unrelated process.
-func (a *execAgent) Terminate() string {
-	select {
-	case <-a.done:
-		return ""
-	default:
-	}
-	return terminateGroup(a.pid, a.grace, a.done)
+// Terminate stops the process group this launch created and confirms the
+// whole group is gone (terminateGroup). The leader having exited — even
+// reaped — does not end the stop: the pgid stays allocated while any member
+// lives, so a wrapper's child that outlives its leader is still reached and
+// the empty group still answers the probe, never an unrelated process
+// (#1474).
+func (a *execAgent) Terminate() (bool, string) {
+	return terminateGroup(a.pid, a.grace)
 }
 
 // Occupied looks for a process whose working directory is inside path, via

@@ -129,7 +129,11 @@ func (s *hostServer) Report(ctx context.Context, id, outcome, worktree, reason s
 			return hostpoller.Operation{}, hostpoller.ErrNotDone
 		}
 		if api.HasErrorCode(err, "HOST_OPERATION_ALREADY_REPORTED") {
-			return hostpoller.Operation{}, fmt.Errorf("%w: %v", hostpoller.ErrFinal, api.MapError(err))
+			// The refusal's message carries what the server recorded ("This
+			// operation was already reported <status>."); keep it on the
+			// error so the poller acts on the recorded outcome, never an
+			// inference (#1474 review P2-3).
+			return hostpoller.Operation{}, hostpoller.ErrFinalWithRecorded(api.MapError(err).Error())
 		}
 		return hostpoller.Operation{}, api.MapError(err)
 	}
@@ -198,9 +202,9 @@ reports every outcome. One poller per host or container.
                    worktree with HADRON_LAUNCH_GRANT, then report once the
                    agent's session binds (team session start reads the grant);
                    refused before launching when any process is working in the
-                   tree (Linux /proc, the pid and argv named), and a start
-                   that fails stops the process group it launched and leaves
-                   no agents entry in the state file
+                   tree (Linux /proc, the pid and a short redacted argv
+                   named), and a start that fails stops the process group it
+                   launched and leaves no agents entry in the state file
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report; never kills the agent
@@ -232,7 +236,11 @@ and returns (a tmux or wrapper script) is reported failed if no session has
 bound by then, which revokes the grant. A start reported failed stops the
 process group it launched — TERM, a short grace, KILL — and forgets its
 entry in the state file, so a wrapper that keeps relaunching its agent does
-not outlive the failure.
+not outlive the failure. The stop covers the whole group even when the
+launcher itself already exited, and an entry survives a stop that could not
+be confirmed. A refusal saying the operation was already reported stops the
+launch only when it names the recorded outcome as failed; one naming
+success, or naming nothing, leaves what was launched running.
 
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a

@@ -185,8 +185,10 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	// Any process working in the tree refuses the start too — an agent an
 	// older wrapper runs in a terminal there, a human's shell (#1474). The
 	// same /proc scan worktree.remove uses, which is what sees a process
-	// this poller has no record of; it names the pid and argv, and fails
-	// closed when it cannot tell.
+	// this poller has no record of; it names the pid and a bounded, redacted
+	// argv, and fails closed when it cannot tell. Best-effort by nature: a
+	// process can start between this scan and the launch, and the grant's
+	// lifetime plus the recorded-agent guard bound what that window costs.
 	if who, err := p.host.Occupied(ctx, dir); err != nil {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("could not tell whether a process is working in %s: %s; nothing was launched", token, err.Error()))
 		return
@@ -209,57 +211,120 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	for {
 		select {
 		case <-agent.Done():
-			// One last ask: an agent that bound and then exited is a start
-			// that succeeded.
-			if _, err := p.server.Report(ctx, op.ID, Succeeded, "", ""); err == nil {
-				p.log("reported", op.ID, op.Type, Succeeded, "its session bound before the agent exited")
+			// The agent is gone; the ask below still decides what happened
+			// — an agent that bound and then exited is a start that
+			// succeeded, and one that never bound still leaves a group to
+			// stop.
+		default:
+			// Still running: wait out the bind poll before the next ask.
+			if err := p.sleep(ctx, p.BindPoll); err != nil {
 				return
 			}
-			// The start failed with its agent already gone: nothing to
-			// signal, but the record of it must not outlive the report.
-			p.stopLaunchedAgent(op, agent)
-			p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+"); the launch command must stay in the foreground for the agent's life")
-			return
-		default:
-		}
-		if !p.now().Before(deadline) {
-			// The launch's grant is spent and nothing bound: stop what was
-			// launched (a wrapper that keeps relaunching its agent must not
-			// outlive the failure) and forget it, then report (#1474).
-			p.stopLaunchedAgent(op, agent)
-			p.finish(ctx, op, Failed, "", fmt.Sprintf("no session was bound within %s, the launch grant's lifetime", LaunchGrantTTL))
-			return
-		}
-		if err := p.sleep(ctx, p.BindPoll); err != nil {
-			return
 		}
 		_, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
-		if err == nil {
-			p.log("reported", op.ID, op.Type, Succeeded, "its session bound")
+		switch {
+		case err == nil:
+			// The server recorded the bind: the agent IS the start, and
+			// nothing about it is stopped or forgotten.
+			if exited(agent) {
+				p.log("reported", op.ID, op.Type, Succeeded, "its session bound before the agent exited")
+			} else {
+				p.log("reported", op.ID, op.Type, Succeeded, "its session bound")
+			}
 			return
-		}
-		if errors.Is(err, ErrFinal) {
-			// ALREADY_REPORTED answers a SUCCEEDED ask only when the server
-			// recorded the other outcome — an idempotent re-report returns
-			// the operation itself — so this start failed (e.g. a refused
-			// bind), and what was launched is stopped and forgotten (#1474).
-			p.stopLaunchedAgent(op, agent)
-			p.log("reported", op.ID, op.Type, "", "the server already finished it: "+err.Error())
+		case errors.Is(err, ErrFinal):
+			p.alreadyFinished(op, agent, err)
 			return
-		}
-		if !errors.Is(err, ErrNotDone) {
+		case errors.Is(err, ErrNotDone):
+			if exited(agent) {
+				// The agent is gone AND the server, asked after its exit,
+				// says nothing bound: an authoritative failure. Nothing is
+				// left to signal, but the group it leaves behind is stopped
+				// and the record of it must not outlive the report.
+				p.stopLaunchedAgent(op, agent)
+				p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+"); the launch command must stay in the foreground for the agent's life")
+				return
+			}
+			if !p.now().Before(deadline) {
+				// The grant is spent AND the server — asked after the
+				// deadline, so on evidence newer than the deadline, never a
+				// stale NOT_DONE sample — says nothing bound (Jane F2,
+				// #1474 review): stop what was launched (a wrapper that
+				// keeps relaunching its agent must not outlive the failure)
+				// and forget it, then report.
+				p.stopLaunchedAgent(op, agent)
+				p.finish(ctx, op, Failed, "", fmt.Sprintf("no session was bound within %s, the launch grant's lifetime", LaunchGrantTTL))
+				return
+			}
+		default:
+			// An unclear answer stops and forgets nothing: a bind may have
+			// landed while the answer was in flight. Ask again next pass,
+			// paced when the agent is gone (the loop's own sleep only runs
+			// while it lives).
 			p.log("report-failed", op.ID, op.Type, Succeeded, err.Error())
+			if exited(agent) {
+				if err := p.sleep(ctx, p.BindPoll); err != nil {
+					return
+				}
+			}
 		}
 	}
 }
 
-// stopLaunchedAgent cleans up after a start that failed: terminate the
-// process group the poller launched (an agent that already exited is
-// signalled nothing) and forget the agent, in memory and in the state file,
-// so nothing of the failed launch is left running or recorded (#1474).
+// exited reports whether a launched agent's process has already exited.
+func exited(agent Agent) bool {
+	select {
+	case <-agent.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// alreadyFinished acts on an ALREADY_REPORTED answer after the launch: the
+// refusal says what the server recorded, and only a recorded FAILED stops
+// what was launched — a recorded SUCCEEDED means the agent IS the bound
+// start, and a refusal naming nothing stops nothing either: never a kill on
+// an inference (#1474 review P2-3). The server handler pins the contract:
+// the same outcome again is answered with the operation itself (so a lost
+// SUCCEEDED response retried is not a refusal), a different one refused
+// carrying what it recorded (reportHostOperation).
+func (p *Poller) alreadyFinished(op Operation, agent Agent, err error) {
+	recorded := ""
+	var fin *FinalError
+	if errors.As(err, &fin) {
+		recorded = fin.Recorded
+	}
+	switch recorded {
+	case Failed:
+		p.stopLaunchedAgent(op, agent)
+		p.log("reported", op.ID, op.Type, "", "the server recorded it failed: "+err.Error())
+	case Succeeded:
+		p.log("reported", op.ID, op.Type, "", "the server recorded it succeeded; what was launched was left running: "+err.Error())
+	default:
+		// Unnamed outcome: what was launched is left running, kept on every
+		// record; the grant's deadline path still bounds it.
+		p.log("reported", op.ID, op.Type, "", "the server already finished it without naming the outcome; what was launched was left running: "+err.Error())
+	}
+}
+
+// stopLaunchedAgent cleans up after a start that failed: stop the process
+// group the poller launched, and — only once the stop is CONFIRMED (the
+// whole group observed gone) — forget the agent, in memory and in the state
+// file, so nothing of the failed launch is left running or recorded (#1474).
+// An unconfirmed stop keeps every record: the "an agent this host launched
+// is still running" guard must not lose a process it could not prove dead.
+// The stop happens on the worker's own dispatch goroutine (dispatch, behind
+// its tail), so its bounded waits never stall the poller loop or another
+// worker's operations.
 func (p *Poller) stopLaunchedAgent(op Operation, agent Agent) {
-	if detail := agent.Terminate(); detail != "" {
+	stopped, detail := agent.Terminate()
+	if detail != "" {
 		p.log("stopped", op.ID, op.Type, "", detail)
+	}
+	if !stopped {
+		p.log("stop-unconfirmed", op.ID, op.Type, "", "the launched agent could not be confirmed stopped; its records are kept")
+		return
 	}
 	p.mu.Lock()
 	delete(p.agents, op.WorkerID)
@@ -267,6 +332,10 @@ func (p *Poller) stopLaunchedAgent(op Operation, agent Agent) {
 	delete(p.agentIDs, op.WorkerID)
 	p.mu.Unlock()
 	if err := p.state.dropAgent(op.WorkerID); err != nil {
+		// Logged, not fatal: the entry can then survive a restart in the
+		// state file — a start is refused while its pid reads Alive on it,
+		// which an operator resolves from this line (a dead pid stops
+		// reading Alive on its own).
 		p.log("state-failed", op.ID, op.Type, "", err.Error())
 	}
 }

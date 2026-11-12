@@ -8,10 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // detach starts the agent in a new session, so it outlives the poller and
@@ -71,41 +74,171 @@ func occupied(path string) (string, error) {
 
 // processArgv names a process by its command line (/proc/<pid>/cmdline,
 // NUL-separated), falling back to comm for a process with no command line
-// (a kernel thread) or an unreadable one.
+// (a kernel thread) or an unreadable one. The line is rendered by
+// renderArgv — quoted, redacted and bounded — because it leaves the host in
+// a refusal reason and the logs (#1474).
 func processArgv(dir string) string {
 	raw, err := os.ReadFile(filepath.Join("/proc", dir, "cmdline"))
-	fields := strings.FieldsFunc(string(raw), func(r rune) bool { return r == 0 })
-	if err == nil && len(fields) > 0 {
-		return strings.Join(fields, " ")
+	if err == nil {
+		// Split on NUL and keep empty arguments (FieldsFunc dropped them,
+		// #1474 review): an empty argv slot is not nothing.
+		if fields := strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00"); len(fields) > 0 {
+			return renderArgv(fields)
+		}
 	}
 	comm, _ := os.ReadFile(filepath.Join("/proc", dir, "comm"))
 	return strings.TrimSpace(string(comm))
 }
 
-// terminateGroup stops the process group a launch created. A launched agent
-// runs as its own session leader (detach sets Setsid), so its group id is its
-// pid: SIGTERM to the group, a bounded grace, then SIGKILL to the group. The
-// caller has checked the agent is not Done, and a pid cannot be reused while
-// its exit is unreaped — reaping is what closes Done — so a group id reached
-// here can only be the launch's own.
-func terminateGroup(pid int, grace time.Duration, done <-chan struct{}) string {
-	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
+// argvDisplayLimit bounds how much of an occupant's command line leaves the
+// host, in bytes. The pid, the executable and a short prefix of the rest are
+// what an operator needs to tell WHICH process holds the tree (#1474); the
+// rest of an arbitrary command line is not this host's to send or log.
+const argvDisplayLimit = 200
+
+// credentialName matches the NAME of an assignment (NAME=value,
+// --flag=value) whose value looks like a credential. Over-matching is safe —
+// the name alone still identifies the process; the value never leaves.
+var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passphrase|credential|api[-_]?key|private[-_]?key|session|authorization|cookie)`)
+
+// credentialHeader matches an argument that IS a header whose value is a
+// credential ("-H", "Authorization: Bearer …", "Cookie: …").
+var credentialHeader = regexp.MustCompile(`(?i)^(authorization|proxy-authorization|cookie)\s*:`)
+
+// renderArgv renders a command line for the occupied-tree refusal: an
+// argument that would not survive a re-split on spaces is %q-quoted, a
+// credential-shaped value keeps only its name, and the whole line is
+// bounded (#1474 review P2-4: name WHICH process holds the tree, never its
+// secrets, in the reason and in the logs).
+func renderArgv(fields []string) string {
+	out := make([]string, 0, len(fields))
+	redactNext := false
+	for _, f := range fields {
+		switch {
+		case redactNext:
+			// The previous argument was a bare credential flag (--token);
+			// this one is its value.
+			out = append(out, "<redacted>")
+			redactNext = false
+		case credentialHeader.MatchString(f):
+			name, _, _ := strings.Cut(f, ":")
+			out = append(out, name+": <redacted>")
+		default:
+			name, _, hasValue := strings.Cut(f, "=")
+			if hasValue && credentialName.MatchString(name) {
+				out = append(out, name+"=<redacted>")
+				continue
+			}
+			if !hasValue && strings.HasPrefix(f, "-") && credentialName.MatchString(f) {
+				out = append(out, f)
+				redactNext = true
+				continue
+			}
+			out = append(out, quoteArg(f))
+		}
 	}
-	timer := time.NewTimer(grace)
-	defer timer.Stop()
-	select {
-	case <-done:
-		return fmt.Sprintf("terminated the launched process group (pid %d)", pid)
-	case <-timer.C:
+	line := strings.Join(out, " ")
+	if len(line) > argvDisplayLimit {
+		line = line[:argvDisplayLimit]
+		// Do not cut mid-rune: back off to a valid UTF-8 boundary.
+		for len(line) > 0 && !utf8.ValidString(line) {
+			line = line[:len(line)-1]
+		}
+		line += "…"
 	}
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Sprintf("SIGTERM did not stop the launched process group (pid %d) and SIGKILL failed: %v", pid, err)
+	return line
+}
+
+// quoteArg keeps an argument unambiguous in the joined line: only arguments
+// that would not survive being re-split on spaces are quoted, so a plain
+// `sleep 30` stays readable while `sh -c "sleep 30 & wait"` keeps its shape.
+func quoteArg(arg string) string {
+	if arg == "" || strings.IndexFunc(arg, func(r rune) bool {
+		return unicode.IsSpace(r) || r == '"' || r == '\\' || !unicode.IsPrint(r)
+	}) >= 0 {
+		return strconv.Quote(arg)
 	}
-	select {
-	case <-done:
-		return fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, grace)
-	case <-time.After(grace):
-		return fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, grace)
+	return arg
+}
+
+// signalGroup and probeGroup are the group primitives terminateGroup uses,
+// as package vars so tests can make them fail (#1474 review: the
+// signal-fails and does-not-exit paths are otherwise unreachable on a
+// healthy host).
+var (
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		return syscall.Kill(-pgid, sig)
 	}
+	probeGroup = func(pgid int) error {
+		return syscall.Kill(-pgid, 0)
+	}
+)
+
+// groupPollInterval is how often terminateGroup probes a group it is
+// waiting on. It is far below any sane grace, so the probe cost bounds the
+// latency of noticing the group emptied.
+var groupPollInterval = 20 * time.Millisecond
+
+// postKillWait bounds the wait after SIGKILL. It is deliberately NOT
+// TerminateGrace again (the review's double-grace): SIGKILL cannot be
+// caught or ignored, so only an unkillable (D-state) member can outlive it,
+// and that is reported rather than waited on twice.
+var postKillWait = 2 * time.Second
+
+// groupGone reports whether the process group no longer exists: an ESRCH
+// answer to a signal-0 probe of the group.
+func groupGone(pgid int) bool {
+	return errors.Is(probeGroup(pgid), syscall.ESRCH)
+}
+
+// groupGoneWithin polls the group until it is seen gone or wait passes;
+// true when the group was seen gone.
+func groupGoneWithin(pgid int, wait time.Duration) bool {
+	if groupGone(pgid) {
+		return true
+	}
+	ticker := time.NewTicker(groupPollInterval)
+	defer ticker.Stop()
+	timeout := time.NewTimer(wait)
+	defer timeout.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if groupGone(pgid) {
+				return true
+			}
+		case <-timeout.C:
+			return groupGone(pgid)
+		}
+	}
+}
+
+// terminateGroup stops the process group a launch created, and confirms the
+// WHOLE group is gone — the leader being reaped is not the group being gone:
+// a wrapper's child can outlive its leader (#1474). A launched agent runs as
+// its own session leader (detach sets Setsid), so its group id is its pid,
+// and that id cannot be reused while any member lives — the kernel keeps a
+// pgid allocated until its group is empty, and an empty group answers ESRCH
+// — so probing and signalling the group stays safe after the leader's exit,
+// reaped or not. SIGTERM, a bounded grace, SIGKILL, then a short fixed wait;
+// stopped is false whenever the group could not be confirmed empty.
+func terminateGroup(pid int, grace time.Duration) (stopped bool, detail string) {
+	if groupGone(pid) {
+		// The group is already gone: nothing was running, nothing was
+		// signalled, and the stop needs no words.
+		return true, ""
+	}
+	if err := signalGroup(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
+	}
+	if groupGoneWithin(pid, grace) {
+		return true, fmt.Sprintf("terminated the launched process group (pid %d)", pid)
+	}
+	if err := signalGroup(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, grace, err)
+	}
+	if groupGoneWithin(pid, postKillWait) {
+		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, grace)
+	}
+	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
 }

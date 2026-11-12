@@ -180,7 +180,7 @@ func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = a.Terminate() }()
+	defer func() { _, _ = a.Terminate() }()
 	// Gate on the child existing: a TERM that outruns the fork kills the
 	// leader before there is a group to leave behind, which would prove
 	// nothing.
@@ -194,8 +194,8 @@ func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if detail := a.Terminate(); !strings.Contains(detail, "terminated the launched process group") {
-		t.Errorf("a live group is stopped: %q", detail)
+	if stopped, detail := a.Terminate(); !stopped || !strings.Contains(detail, "terminated the launched process group") {
+		t.Errorf("a live group is stopped: stopped=%v %q", stopped, detail)
 	}
 	select {
 	case <-a.Done():
@@ -235,7 +235,7 @@ func TestExecHostTerminateEscalatesOnAWrapperThatKeepsRelaunching(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = a.Terminate() }()
+	defer func() { _, _ = a.Terminate() }()
 	// Wait for the trap to be armed: a TERM that lands first kills the shell
 	// before it ever ignores one, which is not the shape under test.
 	deadline := time.Now().Add(5 * time.Second)
@@ -249,8 +249,8 @@ func TestExecHostTerminateEscalatesOnAWrapperThatKeepsRelaunching(t *testing.T) 
 		time.Sleep(10 * time.Millisecond)
 	}
 	start := time.Now()
-	if detail := a.Terminate(); !strings.Contains(detail, "killed the launched process group") {
-		t.Errorf("a TERM-ignoring wrapper is killed after the grace: %q", detail)
+	if stopped, detail := a.Terminate(); !stopped || !strings.Contains(detail, "killed the launched process group") {
+		t.Errorf("a TERM-ignoring wrapper is killed after the grace: stopped=%v %q", stopped, detail)
 	}
 	if elapsed := time.Since(start); elapsed < 250*time.Millisecond {
 		t.Errorf("the escalation must wait the grace first: %s", elapsed)
@@ -259,24 +259,6 @@ func TestExecHostTerminateEscalatesOnAWrapperThatKeepsRelaunching(t *testing.T) 
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
 		t.Fatal("the wrapper must be dead after the escalation")
-	}
-}
-
-// An agent that already exited is signalled nothing — its pid may have been
-// reused — and Terminate says so.
-func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
-	h := ExecHost{}
-	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-a.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("true exits at once")
-	}
-	if detail := a.Terminate(); detail != "" {
-		t.Errorf("an exited agent is signalled nothing: %q", detail)
 	}
 }
 
