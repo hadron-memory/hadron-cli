@@ -28,6 +28,7 @@ func TestMemoryGrantFieldsUnavailable(t *testing.T) {
 		{"both", gqlerror.List{valid("notEffective"), valid("notEffectiveReason")}, true},
 		{"one", gqlerror.List{valid("notEffectiveReason")}, true},
 		{"http400", &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: gqlerror.List{valid("notEffective")}}}, true},
+		{"http400 with data", &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Data: map[string]any{"revokeAppMemoryWriteGrant": map[string]any{"id": "g1"}}, Errors: gqlerror.List{valid("notEffective")}}}, false},
 		{"http500", &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{valid("notEffective")}}}, false},
 		{"path", gqlerror.List{path}, false}, {"wrong type", gqlerror.List{wrongType}, false}, {"wrong code", gqlerror.List{wrongCode}, false}, {"no code", gqlerror.List{noCode}, false},
 		{"mixed", gqlerror.List{valid("notEffective"), {Message: "denied", Extensions: map[string]any{"code": "FORBIDDEN"}}}, false},

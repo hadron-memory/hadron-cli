@@ -174,3 +174,31 @@ func TestMemoryGrant1946InstructedPartialDoesNotRetry(t *testing.T) {
 		})
 	}
 }
+
+func TestMemoryGrant1946HTTP400PartialDoesNotRetry(t *testing.T) {
+	for _, tc := range surfaceCases1338() {
+		if tc.name != "grant list" && tc.name != "grant add" && tc.name != "grant rm" {
+			continue
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			requests := make(chan bool, 4)
+			body := strings.Replace(grantValidation1946, `{"errors":`, `{"data":`+tc.response+`,"errors":`, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests <- true
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(400)
+				fmt.Fprint(w, body)
+			}))
+			defer srv.Close()
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, tc.args...), "--server", srv.URL))
+			if err := root.Execute(); err == nil {
+				t.Fatal("expected error")
+			}
+			if len(requests) != 1 {
+				t.Fatalf("requests=%d want1", len(requests))
+			}
+		})
+	}
+}

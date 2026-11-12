@@ -14,7 +14,7 @@ import (
 // never authorize replaying a mutation with an older document.
 func MemoryGrantFieldsUnavailable(err error) bool {
 	var transport *graphql.HTTPError
-	if errors.As(err, &transport) && transport.StatusCode != http.StatusBadRequest {
+	if errors.As(err, &transport) && (transport.StatusCode != http.StatusBadRequest || transport.Response.Data != nil) {
 		return false
 	}
 	list := graphQLErrors(err)
