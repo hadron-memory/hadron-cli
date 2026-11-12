@@ -72,7 +72,7 @@ func TestMyPasskeysSelectsNoKeyMaterial(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := map[string]bool{}
-	for _, n := range keyMaterialNames {
+	for _, n := range PasskeyKeyMaterialNames {
 		forbidden[strings.ToLower(n)] = true
 	}
 	var walk func(ast.SelectionSet)
@@ -95,8 +95,3 @@ func TestMyPasskeysSelectsNoKeyMaterial(t *testing.T) {
 		t.Fatalf("walked only %d fields: the parse did not reach the selection", seen)
 	}
 }
-
-// keyMaterialNames are the fields the server withholds over a bearer
-// (hadron-server resolvers.passkeys.ts, #1631 §10). Shared with the
-// command-level --json grep.
-var keyMaterialNames = []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}

@@ -8,13 +8,18 @@ package cmd
 // the transports-null guard is a DTO unit test in internal/cmd/auth, not here.
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmd/auth"
 )
 
 // passkeyServer serves /capabilities with capsStatus/capsBody and answers
@@ -161,12 +166,12 @@ func TestPasskeyListSchemaDroppedAfterDiscovery(t *testing.T) {
 }
 
 func TestPasskeyListJSON(t *testing.T) {
-	srv, posts, auth := passkeyServer(t, 200, passkeysOn, 200, passkeyListJSON)
+	srv, posts, authHdr := passkeyServer(t, 200, passkeysOn, 200, passkeyListJSON)
 	out, _, code := runPasskeyList(t, srv.URL, true, nil)
 	if code != 0 || posts.Load() != 1 {
 		t.Fatalf("exit %d posts %d: %s", code, posts.Load(), out)
 	}
-	if got := auth.Load().(string); got != "Bearer hdr_user_test" {
+	if got := authHdr.Load().(string); got != "Bearer hdr_user_test" {
 		t.Fatalf("authorization %q", got)
 	}
 	var got []map[string]any
@@ -199,12 +204,33 @@ func TestPasskeyListJSON(t *testing.T) {
 	if w["outcome"] != "cancelled" || w["registrationMethod"] != "google" || got[1]["cancel"].(map[string]any)["at"] != "2026-10-03T09:00:00Z" {
 		t.Fatalf("window/cancel not carried: %v", got[1])
 	}
-	// Pin 3b: no key-material name anywhere in the output.
-	lower := strings.ToLower(out)
-	for _, n := range []string{"credentialid", "publickey", `"ip"`, "ipaddress", "useragent"} {
-		if strings.Contains(lower, n) {
-			t.Fatalf("--json carries %s: %s", n, out)
+	// Pin 3b: no key-material name as any key of the output. The names are
+	// the one canonical list the operation-selection unit test also reads
+	// (cli#1950 item 3), so the two guards cannot drift apart.
+	forbidden := map[string]bool{}
+	for _, n := range auth.PasskeyKeyMaterialNames {
+		forbidden[strings.ToLower(n)] = true
+	}
+	var keys []map[string]any
+	_ = json.Unmarshal([]byte(out), &keys)
+	var walk func(any)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			for k, inner := range v {
+				if forbidden[strings.ToLower(k)] {
+					t.Fatalf("--json carries %s: %s", k, out)
+				}
+				walk(inner)
+			}
+		case []any:
+			for _, inner := range v {
+				walk(inner)
+			}
 		}
+	}
+	for _, row := range keys {
+		walk(row)
 	}
 }
 
@@ -247,9 +273,107 @@ func TestPasskeyListWindowlessRowShowsDash(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	row := strings.Split(strings.TrimRight(out, "\n"), "\n")[1]
-	if !strings.Contains(row, "active") || !strings.Contains(row, " - ") {
-		t.Fatalf("a later passkey has no window: %q", row)
+	// The WINDOW ENDS cell itself is "-", not a dash anywhere in the padding
+	// (cli#1950 item 5). Cells are split on the table's two-space gutter.
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	cells := tableCells(lines[1])
+	header := tableCells(lines[0])
+	if len(cells) != len(header) {
+		t.Fatalf("row %q has %d cells, header %q has %d", lines[1], len(cells), lines[0], len(header))
+	}
+	for i, h := range header {
+		switch h {
+		case "STATE":
+			if cells[i] != "active" {
+				t.Fatalf("STATE %q, want active", cells[i])
+			}
+		case "WINDOW ENDS":
+			if cells[i] != "-" {
+				t.Fatalf("WINDOW ENDS %q, want - for a later passkey", cells[i])
+			}
+		}
+	}
+}
+
+var tableGutter = regexp.MustCompile(`\s{2,}`)
+
+func tableCells(line string) []string {
+	return tableGutter.Split(strings.TrimSpace(line), -1)
+}
+
+// cli#1950 item 4 (+ item 6, the PasskeyCapabilities seam): a discovery
+// error whose text spans lines (an HTML error page quoted in it) still
+// reads as ONE refusal line that keeps its "no query was sent" tail.
+func TestPasskeyListDiscoveryErrorIsOneLine(t *testing.T) {
+	srv, posts, _ := passkeyServer(t, 200, passkeysOn, 200, passkeyListJSON)
+	prev := auth.PasskeyCapabilities
+	t.Cleanup(func() { auth.PasskeyCapabilities = prev })
+	calls := 0
+	auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
+		calls++
+		return nil, errors.New("GET /capabilities: 502\n<html>\n<body>boom</body>\r\n</html>")
+	}
+	out, errOut, code := runPasskeyList(t, srv.URL, false, nil)
+	if code != 2 || posts.Load() != 0 || calls != 1 {
+		t.Fatalf("exit %d posts %d discovery calls %d, want 2, 0 and 1", code, posts.Load(), calls)
+	}
+	all := out + errOut
+	var line string
+	for _, l := range strings.Split(all, "\n") {
+		if strings.Contains(l, "could not confirm that this server offers passkeys") {
+			line = l
+		}
+	}
+	if line == "" || !strings.Contains(line, "boom") || !strings.HasSuffix(strings.TrimSpace(line), "no query was sent") {
+		t.Fatalf("the refusal must be one line with the cause and its tail: %q", all)
+	}
+	if strings.Contains(all, "\r") {
+		t.Fatalf("a raw CR reached the terminal: %q", all)
+	}
+}
+
+// cli#1950 item 7: a transport failure at query time (capabilities on, the
+// GraphQL POST answers 500 with an HTML page) keeps the generic server-error
+// mapping: one request, not the passkeys sentence, no HTML dumped.
+func TestPasskeyListQueryTransportFailure(t *testing.T) {
+	srv, posts, _ := passkeyServer(t, 200, passkeysOn, 500, "<html><body>Internal Server Error</body></html>")
+	out, errOut, code := runPasskeyList(t, srv.URL, true, nil)
+	if posts.Load() != 1 {
+		t.Fatalf("posts %d, want 1", posts.Load())
+	}
+	if code == 0 || code == 2 {
+		t.Fatalf("exit %d: a 500 is neither success nor \"no passkeys\" (out %q err %q)", code, out, errOut)
+	}
+	all := out + errOut
+	if strings.Contains(all, "does not offer passkeys") || strings.Contains(all, "could not confirm") {
+		t.Fatalf("a query-time 500 must not read as a discovery answer: %q", all)
+	}
+	if strings.Contains(all, "<html") {
+		t.Fatalf("the HTML body reached the output: %q", all)
+	}
+}
+
+// cli#1950 item 8: an owner-chosen label carrying control characters can
+// neither recolor the terminal nor forge a row (output.SafeCell).
+func TestPasskeyListLabelIsSafeCell(t *testing.T) {
+	body := `{"data":{"myPasskeys":[{"id":"pk9","label":"evil\u001b[31mred\nforged row","transports":[],"backupEligible":false,"backedUp":false,` +
+		`"registeredAt":"2026-11-01T00:00:00Z","lastUsedAt":null,"revokedAt":null,"window":null,"cancel":null}]}}`
+	srv, _, _ := passkeyServer(t, 200, passkeysOn, 200, body)
+	out, _, code := runPasskeyList(t, srv.URL, false, nil)
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if strings.ContainsRune(out, 0x1b) {
+		t.Fatalf("an escape reached the terminal: %q", out)
+	}
+	if lines := strings.Split(strings.TrimRight(out, "\n"), "\n"); len(lines) != 2 || !strings.Contains(lines[1], "forged row") {
+		t.Fatalf("the label forged a row: %q", out)
+	}
+	// --json keeps the owner's original label.
+	jout, _, _ := runPasskeyList(t, srv.URL, true, nil)
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(jout), &rows); err != nil || rows[0]["label"] != "evil\x1b[31mred\nforged row" {
+		t.Fatalf("--json must carry the original label: %v %s", err, jout)
 	}
 }
 
@@ -326,6 +450,32 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 	help := out.String()
 	if !strings.Contains(help, "This CLI cannot remove a passkey.") {
 		t.Fatalf("help:\n%s", help)
+	}
+	// cli#1950 items 1-2: STATE leads with its meaning, and the cooling-off
+	// window is explained inside cor:aut:040:07 (the FIT's four points):
+	// first passkey only, it holds back signatures (not sign-in), how it
+	// ends, and a server-set length of at least 72 hours, never a fixed one.
+	flat := strings.Join(strings.Fields(help), " ")
+	for _, want := range []string{
+		"STATE is revoked for a removed passkey",
+		"one registered when you had no other",
+		"at least 72 hours",
+		"set by the server",
+		"pending and don't count",
+		"can still sign you in",
+		"a fresh sign-in by a different method ends it early",
+		"its pending signatures never count",
+		"worked out on this machine's clock and grants nothing",
+	} {
+		if !strings.Contains(flat, want) {
+			t.Fatalf("help lacks %q:\n%s", want, help)
+		}
+	}
+	if strings.Contains(flat, "STATE is worked out") {
+		t.Fatalf("STATE still leads with the mechanism:\n%s", help)
+	}
+	if strings.Contains(strings.ReplaceAll(flat, "at least 72 hours", ""), "72 hours") {
+		t.Fatalf("a fixed window length is named:\n%s", help)
 	}
 	for _, bad := range []string{"http", "/passkeys/", "portal", "security page"} {
 		if strings.Contains(help, bad) {
