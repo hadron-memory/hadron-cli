@@ -492,6 +492,11 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 	if !strings.Contains(help, "This CLI cannot remove a passkey.") {
 		t.Fatalf("help:\n%s", help)
 	}
+	// cli#878 revoke-page cut: the revoke paragraph names the command that
+	// prints the page's address, still without naming a URL itself.
+	if !strings.Contains(strings.Join(strings.Fields(help), " "), "hadron auth passkey revoke-page prints its address") {
+		t.Fatalf("list help does not name revoke-page:\n%s", help)
+	}
 	// cli#1950 items 1-2: STATE leads with its meaning, and the cooling-off
 	// window is explained inside cor:aut:040:07 (the FIT's four points):
 	// first passkey only, it holds back signatures (not sign-in), how it

@@ -3,9 +3,9 @@ package auth
 // cli#878 part 1: `hadron auth passkey list`, the caller's own passkey records
 // over Query.myPasskeys (hadron-server#1631 PR3, cor:aut:040:05). List only:
 // removing a passkey is an interactive proof on the server's own page
-// (cor:aut:040:08), and no surface advertises that page's URL, so the CLI
-// offers no revoke and builds no URL (#878 gate 6831823066; the URL companion
-// is hadron-server#4051).
+// (cor:aut:040:08), so the CLI offers no revoke and builds no URL (#878 gate
+// 6831823066). `revoke-page` (passkey_revoke_page.go) prints the address the
+// server advertises for that page (hadron-server#4051/#4063).
 
 import (
 	"context"
@@ -167,17 +167,17 @@ func derivePasskeyState(d passkeyDTO, now time.Time) string {
 }
 
 func newCmdPasskey(f *cmdutil.Factory) *cobra.Command {
-	// The help points at "the server's own pages" without a URL on purpose:
-	// no surface advertises the revoke page's address yet (hadron-server#4051),
-	// and the CLI builds none (#878 gate 6831823066).
+	// The help names no URL: the server advertises the revoke page's address
+	// (revoke-page prints it), and the CLI builds none (#878 gate 6831823066).
 	cmd := &cobra.Command{
 		Use:   "passkey <command>",
 		Short: "Inspect your passkeys",
 		Long: `Inspect the passkeys registered to your account, on servers that offer
 passkeys. The CLI reads them only. Registering and removing a passkey are
-interactive ceremonies on the server's own pages, not CLI commands.`,
+interactive ceremonies on the server's own pages, not CLI commands;
+revoke-page prints the address of the page where you remove one.`,
 	}
-	cmd.AddCommand(newCmdPasskeyList(f))
+	cmd.AddCommand(newCmdPasskeyList(f), newCmdPasskeyRevokePage(f))
 	return cmd
 }
 
@@ -214,7 +214,8 @@ so does one whose passkey support cannot be confirmed (its message says so).
 
 Removing a passkey happens on the server's interactive revoke page, where you
 prove it's you with another passkey or a linked identity provider and choose
-the passkey there. This CLI cannot remove a passkey.`,
+the passkey there; hadron auth passkey revoke-page prints its address.
+This CLI cannot remove a passkey.`,
 		Example: `  hadron auth passkey list
   hadron auth passkey list --json | jq -r '.[] | select(.state == "active") | .label'`,
 		Args: cobra.NoArgs,

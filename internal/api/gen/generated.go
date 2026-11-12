@@ -68897,6 +68897,38 @@ func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdi
 	return v.RecordReviewVerdict
 }
 
+// PasskeyRevokeUrlResponse is returned by PasskeyRevokeUrl on success.
+type PasskeyRevokeUrlResponse struct {
+	// Identity of the hadron-server this GraphQL endpoint is bound to: the
+	// server-identity version and the deployment's canonical base URL. The
+	// GraphQL counterpart to the hadron_server_info MCP tool — both read the
+	// same getDeploymentInfo() helper, so MCP and GraphQL callers get one
+	// consistent answer to "which server/API am I talking to?".
+	//
+	// 'version' is HADRON_SERVER_VERSION — the MCP/API-surface contract
+	// version, bumped when the tool/query surface changes in a caller-visible
+	// way. It is intentionally NOT the repo's package.json release version.
+	//
+	// Public — no authentication required. Does NOT expose the DATABASE_URL
+	// (it may carry credentials).
+	ServerInfo *PasskeyRevokeUrlServerInfo `json:"serverInfo"`
+}
+
+// GetServerInfo returns PasskeyRevokeUrlResponse.ServerInfo, and is useful for accessing the field via an interface.
+func (v *PasskeyRevokeUrlResponse) GetServerInfo() *PasskeyRevokeUrlServerInfo { return v.ServerInfo }
+
+// PasskeyRevokeUrlServerInfo includes the requested fields of the GraphQL type ServerInfo.
+// The GraphQL type's documentation follows.
+//
+// Identity of the running hadron-server (see Query.serverInfo).
+type PasskeyRevokeUrlServerInfo struct {
+	// #4051: the fixed, parameterless URL of the passkey revoke page (the deployment's baseUrl in this same response plus /passkeys/revoke), for a client that hands the owner off to it (hrn:node:hadronmemory.com:specs:cor:aut:040:08). Present only while passkey registration is enabled, exactly like passkeyRegistration: while it is off the field is removed from the schema, never null (hrn:node:hadronmemory.com:specs:cor:api:020:01), so check the passkey-registration token on GET /capabilities before selecting it. It names no passkey, credential, user or session, and is the same for every caller. Revoking happens interactively on that page; the URL grants nothing.
+	PasskeyRevokeUrl string `json:"passkeyRevokeUrl"`
+}
+
+// GetPasskeyRevokeUrl returns PasskeyRevokeUrlServerInfo.PasskeyRevokeUrl, and is useful for accessing the field via an interface.
+func (v *PasskeyRevokeUrlServerInfo) GetPasskeyRevokeUrl() string { return v.PasskeyRevokeUrl }
+
 // #3457: what a schedule would do, asked before it exists. The inputs create takes that the pin or the timing sentence depend on; the schedule's own name, policy and scope never do. Resolved exactly as createAgentSchedule resolves them.
 type PreviewAgentScheduleInput struct {
 	// Agent - ref: PK or URN; must be installed in the App.
@@ -143416,6 +143448,41 @@ func PRVerdict(
 	}
 
 	data_ = &PRVerdictResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PasskeyRevokeUrl.
+const PasskeyRevokeUrl_Operation = `
+query PasskeyRevokeUrl {
+	serverInfo {
+		passkeyRevokeUrl
+	}
+}
+`
+
+// cli#878 revoke-page handoff: the server's fixed, parameterless revoke page
+// (hadron-server#4063, cor:aut:040:08). Selected alone: the CLI uses the value
+// verbatim and never builds it from baseUrl. Like myPasskeys, the field is in
+// the schema only while the registration switch is on, so the command reads
+// /capabilities first.
+func PasskeyRevokeUrl(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *PasskeyRevokeUrlResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PasskeyRevokeUrl",
+		Query:  PasskeyRevokeUrl_Operation,
+	}
+
+	data_ = &PasskeyRevokeUrlResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

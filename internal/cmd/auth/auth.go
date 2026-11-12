@@ -20,7 +20,8 @@ default one, or the one --server names.
   Sign out:           hadron auth logout
   Automation / CI:    hadron auth token create, then HADRON_TOKEN or
                       hadron auth login --with-token
-  Your passkeys:      hadron auth passkey list
+  Your passkeys:      hadron auth passkey list, and
+                      hadron auth passkey revoke-page (where to remove one)
   Support (admins):   hadron auth impersonate <user> --org <org>, and
                       hadron auth impersonate --stop
 

@@ -26,3 +26,14 @@ query MyPasskeys {
     }
   }
 }
+
+# cli#878 revoke-page handoff: the server's fixed, parameterless revoke page
+# (hadron-server#4063, cor:aut:040:08). Selected alone: the CLI uses the value
+# verbatim and never builds it from baseUrl. Like myPasskeys, the field is in
+# the schema only while the registration switch is on, so the command reads
+# /capabilities first.
+query PasskeyRevokeUrl {
+  serverInfo {
+    passkeyRevokeUrl
+  }
+}
