@@ -141,23 +141,37 @@ type credentialFlagValue struct {
 // credentialFlagBinaries is the per-binary table of flags that carry a
 // credential, because the same letters mean different things in different
 // tools: curl's -u/--user and -U/--proxy-user take user:pass as the next
-// argument or attached (-uuser:pass, --user=u:p); sshpass's -p takes the
-// password next or attached; mysql's -p takes the password ATTACHED only —
-// `-p db` names a database and prompts instead. ssh's -p is a port and ssh
-// takes no password on the command line, so it is not in any table; python
-// -u (unbuffered) and find -print stay readable for the same reason
-// (#1474). The rules arm at every argv entry whose basename is in the
-// table, not only argv[0], because wrapper launchers run in front (sudo
-// curl -u …, env curl -u …, timeout 30 sshpass -p …) and argv[0]-gating
-// leaked the credential for every wrapped form. Residuals, deliberate: a
-// command line hidden inside ONE argument (sh -c "curl -u …") is not
-// tokenised here — it renders as one quoted argument, and only its
-// URL-shaped userinfo is stripped (stripURLUserinfo) — and bundled short
-// flags (curl -su user:pass) are not unclustered into their letters.
+// argument or attached (-uuser:pass, --user=u:p); curl's --pass,
+// --proxy-pass and --oauth2-bearer carry a secret next or attached, and
+// its -E/--cert carries keyfile:password the same two ways; sshpass's -p
+// takes the password next or attached; mysql's -p takes the password
+// ATTACHED only — `-p db` names a database and prompts instead. ssh's -p
+// is a port and ssh takes no password on the command line, so it is not in
+// any table; python -u (unbuffered) and find -print stay readable for the
+// same reason (#1474). The tables ACCUMULATE at every argv entry whose
+// basename is in the map, not only argv[0], because wrapper launchers run
+// in front (sudo curl -u …, env curl -u …, timeout 30 sshpass -p …) and
+// argv[0]-gating leaked the credential for every wrapped form — and a
+// later table must never DISARM an earlier one: `curl -o mysql -u u:p`
+// would switch to mysql's table and leak curl's -u value, and the
+// replacement is not knowable from the argv alone (an output FILE named
+// mysql is not the mysql binary), so the union of every armed table
+// applies, and where two tables spell the same flag differently the
+// more-redacting spec wins (next|attached beats either alone: over-
+// redaction is the safe direction under this contract) (#1474). Residuals, deliberate: a command line hidden inside ONE argument
+// (sh -c "curl -u …") is not tokenised here — it renders as one quoted
+// argument, and only its URL-shaped userinfo is stripped (stripURLUserinfo)
+// — bundled short flags (curl -su user:pass) are not unclustered into
+// their letters, and curl's unambiguous long-option abbreviations
+// (--proxy-use for --proxy-user) are not expanded: only exact spellings
+// and their '='-attached values are matched.
 var credentialFlagBinaries = map[string]map[string]credentialFlagValue{
 	"curl": {
 		"-u": {next: true, attached: true}, "--user": {next: true, attached: true},
 		"-U": {next: true, attached: true}, "--proxy-user": {next: true, attached: true},
+		"--pass": {next: true, attached: true}, "--proxy-pass": {next: true, attached: true},
+		"--oauth2-bearer": {next: true, attached: true},
+		"-E":              {next: true, attached: true}, "--cert": {next: true, attached: true},
 	},
 	"sshpass": {"-p": {next: true, attached: true}},
 	"mysql":   {"-p": {attached: true}},
@@ -241,16 +255,28 @@ func stripURLUserinfo(arg string) string {
 // the reason and in the logs).
 func renderArgv(fields []string) string {
 	out := make([]string, 0, len(fields))
-	credTable := map[string]credentialFlagValue(nil)
+	credTable := map[string]credentialFlagValue{}
 	credFrom := -1
 	redactNext := false
 	for i, f := range fields {
 		f = stripURLUserinfo(f)
-		// (Re-)arm at EVERY credential-flag binary on the line: a second
-		// one further along (sshpass -p x curl -u u:p) would otherwise run
-		// under the first's table and leak its own flags' values.
+		// Arm at EVERY credential-flag binary on the line, ACCUMULATING:
+		// the union of the armed tables applies to everything after the
+		// first one, and a later binary never disarms an earlier one's
+		// flags — whether a later table-binary spelling is the binary or
+		// an argument of the last one (`curl -o mysql -u u:p`) is not
+		// knowable from argv alone, and the union redacts both readings.
 		if table, ok := credentialFlagBinaries[filepath.Base(f)]; ok {
-			credTable, credFrom = table, i
+			if credFrom < 0 {
+				credFrom = i
+			}
+			for flag, spec := range table {
+				cur := credTable[flag]
+				// More-redacting wins: next|attached beats either alone.
+				cur.next = cur.next || spec.next
+				cur.attached = cur.attached || spec.attached
+				credTable[flag] = cur
+			}
 		}
 		switch {
 		case redactNext:
@@ -268,8 +294,8 @@ func renderArgv(fields []string) string {
 				continue
 			}
 			if strings.HasPrefix(f, "-") {
-				// Only arguments AFTER the (current) credential-flag binary
-				// carry its flags; the wrapper's own arguments never do.
+				// Only arguments AFTER the first credential-flag binary
+				// carry its flags; a wrapper's own arguments never do.
 				// The table match runs for '='-attached long spellings too
 				// (--user=u:p) — the '='-cut above only governed the
 				// credential-NAME assignment form.
@@ -370,20 +396,22 @@ func groupGone(pgid int) bool {
 
 // stop ends the launch by its process group, and is safe at any point of
 // the agent's life because the launch's own leader is the ownership proof:
-// while it is alive, or while it is the unreaped zombie the waiter holds
-// (waitid WNOWAIT, reapgroup_linux.go), its pid — the process-group id —
-// stays allocated to THIS launch, so a probe or a signal by that number can
-// only ever reach this launch's group, never a process that took a reused
-// number, and an ESRCH answer means the group is gone, not that the number
-// was taken (#1474: a pidfd holds the pid OBJECT but not its allocator
-// slot — free_pid drops the idr entry at the reap, so a reaped launch's
-// number can be retaken and killed by number; the zombie hold is what
-// closes that). The zombie is reaped HERE, only once the group has drained
-// (or the group was already proven empty at the waiter's reap — or by its
-// drain watcher), so the number is never public while the launch may still
-// be signalled. Platforms without the hold reap at the leader's exit and
-// stop by number with the reuse residual documented in host_run's help.
-// Windows gates on Done instead (detach_windows.go).
+// while it is alive, or while it is the unreaped zombie the hold keeps
+// (waitid WNOWAIT or the /proc poll, reapgroup_linux.go), its pid — the
+// process-group id — stays allocated to THIS launch, so a probe or a
+// signal by that number can only ever reach this launch's group, never a
+// process that took a reused number, and an ESRCH answer means the group
+// is gone, not that the number was taken (#1474: a pidfd holds the pid
+// OBJECT but not its allocator slot — free_pid drops the idr entry at the
+// reap, so a reaped launch's number can be retaken and killed by number;
+// the zombie hold is what closes that). The zombie is reaped HERE, only
+// once the group has drained (or the group was already proven empty at
+// the waiter's reap — or by its drain watcher), so the number is never
+// public while the launch may still be signalled. Platforms without any
+// hold reap at the leader's exit; their stop signals only while the
+// leader is live and aborts to unconfirmed at the first sight of the
+// exit, the reuse residual documented in host_run's help. Windows gates
+// on Done instead (detach_windows.go).
 func (a *execAgent) stop() (bool, string) {
 	if a.confirmed.Load() {
 		return true, "" // a confirmed stop stays confirmed; a repeat signals nothing
@@ -391,35 +419,44 @@ func (a *execAgent) stop() (bool, string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if leaderHoldCapable && a.exited.Load() && a.reaped.Load() {
-		// On a hold-capable platform only the waiter reaps before a stop,
-		// and it does so only after a scan found the group EMPTY
-		// (emptyAtReap): nothing of this launch ran at the reap, the
-		// number became public then, and a group answering it now is not
-		// ours — confirm without touching it. A reap without that proof
-		// (the waitid-failure fallback) can claim nothing: report
-		// unconfirmed and keep the records rather than signal a number
-		// the launch may not own. A platform without the hold takes none
-		// of this: its waiter reaped at the exit by design, and the stop
-		// below probes and signals the number with the reuse residual the
-		// help documents for it.
+		// On a hold-capable platform a reap can precede a stop only after
+		// a scan found the group EMPTY (emptyAtReap): nothing of this
+		// launch ran at the reap, the number became public then, and a
+		// group answering it now is not ours — confirm without touching
+		// it. A reaped launch without that proof (a reap whose wait
+		// failed on a host that also refused waitid) can claim nothing:
+		// report unconfirmed and keep the records rather than signal a
+		// number the launch may no longer own.
 		if a.emptyAtReap.Load() {
 			a.confirmed.Store(true)
 			return true, ""
 		}
-		return false, fmt.Sprintf("the launch (pid %d) could not be tracked through its exit (waitid failed); its stop is left unconfirmed and its records kept", a.pid)
+		return false, fmt.Sprintf("the launch (pid %d) could not be tracked through its exit; its stop is left unconfirmed and its records kept", a.pid)
 	}
 	stopped, detail := a.terminateGroup()
 	if stopped {
 		a.confirmed.Store(true)
 		if a.exited.Load() {
 			// The group has drained and the leader is the held zombie (a
-			// no-hold platform reaped it already): reap now, releasing
-			// the number only once nothing of the launch can be
-			// signalled.
+			// no-hold platform never gets here post-exit — the abort
+			// above returned first): reap now, releasing the number only
+			// once nothing of the launch can be signalled.
 			a.reap()
 		}
 	}
 	return stopped, detail
+}
+
+// stopAuthorityGone reports whether this stop may no longer signal the
+// group by number: a platform without the hold frees the number at the
+// leader's exit — unserialized with any stop — so once the exit is
+// observed, a signal by number could reach whatever took the reused
+// number. While the leader is live the number is bound to it and
+// signalling stays sound. Hold-capable platforms never lose authority:
+// the zombie keeps the number allocated until a reap under the stop
+// mutex, so false there is a fact, not a sample.
+func (a *execAgent) stopAuthorityGone() bool {
+	return !leaderHoldCapable && a.exited.Load()
 }
 
 // terminateGroup stops the launch's process group by number and confirms
@@ -427,30 +464,56 @@ func (a *execAgent) stop() (bool, string) {
 // gone: a wrapper's child can outlive its leader (#1474). A launched agent
 // runs as its own session leader (detach sets Setsid), so its group id is
 // its pid, and every signal below goes out while the leader — live, or
-// the zombie the waiter holds — keeps that number this launch's.
-// SIGTERM, a bounded grace, SIGKILL, then a short fixed wait; stopped is
-// false whenever the group could not be confirmed empty. Called with a.mu
-// held.
+// the zombie the hold keeps — owns that number. On a platform without the
+// hold the loop re-checks stopAuthorityGone before every signal and every
+// probe answer it acts on: the leader's exit there releases the number
+// unserialized with this stop, and the first observation of it ends the
+// procedure unconfirmed instead of signalling a number the launch may no
+// longer own (#1474). SIGTERM, a bounded grace, SIGKILL, then a short
+// fixed wait; stopped is false whenever the group could not be confirmed
+// empty. Called with a.mu held.
 func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	pid := a.pid
 	if a.drained() {
 		// The group is already gone: nothing was running, nothing was
-		// signalled, and the stop needs no words.
+		// signalled, and the stop needs no words. This check runs BEFORE
+		// the authority abort on purpose: an ESRCH answer is sound even
+		// after the number went public — a group answering the number
+		// would not be ESRCH — so a no-hold launch whose group is already
+		// gone still confirms instead of degrading to unconfirmed.
 		return true, ""
+	}
+	if a.stopAuthorityGone() {
+		return false, a.unconfirmedDetail()
 	}
 	if err := signalGroup(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
 	}
-	if a.drainedWithin(a.grace) {
+	if a.drainedOrAuthorityLost(a.grace) {
+		if a.stopAuthorityGone() {
+			return false, a.unconfirmedDetail()
+		}
 		return true, fmt.Sprintf("terminated the launched process group (pid %d)", pid)
+	}
+	if a.stopAuthorityGone() {
+		return false, a.unconfirmedDetail()
 	}
 	if err := signalGroup(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, a.grace, err)
 	}
-	if a.drainedWithin(postKillWait) {
+	if a.drainedOrAuthorityLost(postKillWait) {
+		if a.stopAuthorityGone() {
+			return false, a.unconfirmedDetail()
+		}
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
 	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+}
+
+// unconfirmedDetail is the no-hold platform's abort wording: records
+// kept, nothing signalled, the operator told why.
+func (a *execAgent) unconfirmedDetail() string {
+	return fmt.Sprintf("the launch (pid %d) exited while being stopped on a platform without the ownership hold; its stop is left unconfirmed and its records kept", a.pid)
 }
 
 // drained reports whether nothing of this launch's group runs, other than
@@ -458,19 +521,25 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 // the launch's and an ESRCH probe means the whole group — leader
 // included — is gone. Once the leader has exited, a hold-capable
 // platform's zombie answers that probe forever, so the oracle switches to
-// the /proc scan, which excludes the zombie; on the platforms without the
-// hold there is no zombie (the waiter reaped at the exit) and the probe
-// keeps its meaning.
+// the /proc scan, which excludes the zombie; the zombie-state check
+// catches the exit even in the polling hold's notice lag (a TERM the stop
+// itself just sent may have killed the leader a tick before the waiter
+// stored exited). On the platforms without the hold there is no zombie
+// (the waiter reaped at the exit) and the probe keeps its meaning until
+// stopAuthorityGone ends the procedure.
 func (a *execAgent) drained() bool {
-	if leaderHoldCapable && a.exited.Load() {
+	if leaderHoldCapable && (a.exited.Load() || leaderZombie(a.pid)) {
 		return !groupHasOtherMembers(a.pid, a.pid)
 	}
 	return groupGone(a.pid)
 }
 
-// drainedWithin polls until drained or wait passes; true when drained was
-// seen. Called with a.mu held.
-func (a *execAgent) drainedWithin(wait time.Duration) bool {
+// drainedOrAuthorityLost polls until drained, the wait passes, or — on a
+// platform without the hold — the leader's exit is observed, which ends
+// the stop's authority to signal (the caller then answers unconfirmed).
+// True when drained was seen; the caller re-checks stopAuthorityGone to
+// tell "drained" from "aborted". Called with a.mu held.
+func (a *execAgent) drainedOrAuthorityLost(wait time.Duration) bool {
 	if a.drained() {
 		return true
 	}
@@ -481,11 +550,11 @@ func (a *execAgent) drainedWithin(wait time.Duration) bool {
 	for {
 		select {
 		case <-ticker.C:
-			if a.drained() {
+			if a.drained() || a.stopAuthorityGone() {
 				return true
 			}
 		case <-timeout.C:
-			return a.drained()
+			return a.drained() || a.stopAuthorityGone()
 		}
 	}
 }

@@ -224,6 +224,20 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"mysql --password next": {[]string{"mysql", "--password", "db"}, "mysql --password <redacted>"},
 		"second binary re-arms": {[]string{"sshpass", "-p", "secret", "curl", "-u", "user:pass"}, "sshpass -p <redacted> curl -u <redacted>"},
 		"re-arm proxy-user att": {[]string{"sshpass", "-p", "s", "curl", "--proxy-user=p:q"}, "sshpass -p <redacted> curl --proxy-user=<redacted>"},
+		// Delta round 6, Jonas P2-C: a later table-binary spelling never
+		// DISARMS an earlier one — whether the spelling is the binary or
+		// just an argument (an output file named mysql) is not knowable
+		// from argv, so the UNION of the armed tables applies.
+		"curl -o mysql -u":  {[]string{"curl", "-o", "mysql", "-u", "user:pass", "https://h"}, "curl -o mysql -u <redacted> https://h"},
+		"mysql -u curl -p":  {[]string{"mysql", "-u", "curl", "-phunter2"}, "mysql -u curl -p<redacted>"},
+		"re-arm on a value": {[]string{"sshpass", "-p", "curl", "curl", "-u", "u:p"}, "sshpass -p <redacted> curl -u <redacted>"},
+		// Delta round 6, Jonas P3: curl's other secret-carrying flags.
+		"curl --pass next":         {[]string{"curl", "--pass", "secret", "https://h"}, "curl --pass <redacted> https://h"},
+		"curl --pass attached":     {[]string{"curl", "--pass=secret"}, "curl --pass=<redacted>"},
+		"curl --proxy-pass next":   {[]string{"curl", "--proxy-pass", "secret"}, "curl --proxy-pass <redacted>"},
+		"curl --oauth2-bearer att": {[]string{"curl", "--oauth2-bearer=hdr_x"}, "curl --oauth2-bearer=<redacted>"},
+		"curl -E next":             {[]string{"curl", "-E", "k.pem:secret"}, "curl -E <redacted>"},
+		"curl --cert attached":     {[]string{"curl", "--cert=k.pem:secret"}, "curl --cert=<redacted>"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

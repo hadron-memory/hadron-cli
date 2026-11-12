@@ -140,12 +140,23 @@ type execAgent struct {
 	pid    int
 	grace  time.Duration
 	cmd    *exec.Cmd
+	// watcherDone closes when the drain watcher exits (nil when none was
+	// armed), so tests can wait out a watcher before swapping the scan
+	// package vars it reads through.
+	watcherDone chan struct{}
 
-	// mu serializes the stop against the waiter's reap decision: a stop
-	// holding it may signal the group id because the leader (live, or the
-	// zombie the waiter holds) keeps the number allocated, so the waiter's
-	// reap must not be able to release that number mid-stop. Nothing may
-	// block on the leader's life while holding it.
+	// mu serializes the stop against every reap on a hold-capable
+	// platform: a stop holding it may signal the group id because the
+	// leader — live, or the zombie the hold keeps — cannot be reaped by
+	// the waiter while mu is held, so the number cannot be released
+	// mid-stop. All three reapers (the hold's empty reap, the drain
+	// watcher, the stop itself) reap under mu; the only path that frees
+	// the number outside mu is the no-hold platform's waitReaping, whose
+	// blocking wait must not hold mu (a live launch would be
+	// unstoppable), which is why that platform's stop refuses to signal
+	// by number once it has seen the exit instead. Nothing may block on
+	// the leader's life while holding mu — the hold's reaps wait on an
+	// already-exited zombie, which returns at once.
 	mu sync.Mutex
 	// exited is set once the leader has ACTUALLY exited: on a hold-capable
 	// platform the zombie exists before that store, so a stop that observes
@@ -155,97 +166,155 @@ type execAgent struct {
 	// that must reap: a live leader keeps the number allocated, which is
 	// exactly what makes the stop's probe oracle real while it runs.
 	exited atomic.Bool
+	// reaped flips only inside a reap decision. On a hold-capable platform
+	// every reap runs under mu, so a stop observing reaped there knows the
+	// release was serialized with it; on a no-hold platform it flips as
+	// the waiter enters its blocking reap — possibly before the exit — and
+	// nothing there reads it as proof about the number (the stop gates on
+	// exited instead, and only while the leader is provably live).
 	reaped atomic.Bool
-	// emptyAtReap is set when the waiter reaped the leader after a scan
-	// found the group EMPTY: nothing of this launch was running at the
-	// reap, the number became public then, and a later stop confirms
-	// without touching it. The no-proof fallback reap never sets it.
+	// emptyAtReap is set when the leader was reaped after a scan found the
+	// group EMPTY: nothing of this launch was running at the reap, the
+	// number became public then, and a later stop confirms without
+	// touching it. A reap without that proof never sets it.
 	emptyAtReap atomic.Bool
 	confirmed   atomic.Bool
 }
 
-// The SIGCHLD si_code values of a waitid answer (include/uapi/linux/wait.h;
-// exported by neither Go's syscall nor x/sys). For WEXITED waits only
-// CLD_EXITED, CLD_KILLED and CLD_DUMPED can appear.
+// The kinds of leader exit readLeaderExitStatus reports, decoded off the
+// exit_code word /proc renders — the same word a reaping wait would
+// report, so the detail reads identically before and after the reap.
 const (
-	cldExited = 1
-	cldKilled = 2
-	cldDumped = 3
+	unknownStatus = iota // the word could not be read: never guessed at
+	exitStatus           // WIFEXITED: the status is the exit code
+	killStatus           // WIFSIGNALED without a core: the status is the signal
+	dumpStatus           // WIFSIGNALED with WCOREDUMP
 )
 
-// leaderExit is how the leader's exit happened, read off the hold's waitid
-// answer: the SIGCHLD code (si_code) and the status it carries (si_status)
-// — the exit code for CLD_EXITED, the signal for CLD_KILLED/CLD_DUMPED.
-// This is the leader's authoritative outcome, available WHILE the zombie is
-// held; the reap later reports the same value (#1474).
+// leaderExit is how the leader's exit happened, read off /proc's
+// exit_code field while the zombie is held (readLeaderExitStatus). This is
+// the leader's authoritative outcome, available WITHOUT reaping; the reap
+// later reports the same value (#1474).
 type leaderExit struct {
-	code   int32
-	status uint32
+	kind   int
+	status int
 }
 
-// describe renders the hold's answer the way a reaped wait reports the same
-// exit ("exit status N", "signal: killed"), so the detail reads the same
-// before and after the reap.
+// describe renders the exit the way a reaped wait reports the same one
+// ("exit status N", "signal: killed", "signal: aborted (core dumped)"),
+// so the detail reads the same before and after the reap.
 func (e leaderExit) describe() string {
-	switch e.code {
-	case cldExited:
+	switch e.kind {
+	case exitStatus:
 		return fmt.Sprintf("exit status %d", e.status)
-	case cldKilled, cldDumped:
-		return fmt.Sprintf("signal: %v", syscall.Signal(int32(e.status)))
+	case killStatus:
+		return fmt.Sprintf("signal: %v", syscall.Signal(e.status))
+	case dumpStatus:
+		return fmt.Sprintf("signal: %v (core dumped)", syscall.Signal(e.status))
 	default:
-		return fmt.Sprintf("exit (waitid code %d, status %d)", e.code, e.status)
+		return "exit (the leader's status could not be read)"
 	}
 }
 
 // waitExit is the launch's waiter goroutine. On a hold-capable platform it
-// waits the leader out WITHOUT reaping it (waitid WNOWAIT): the leader
-// stays a zombie, and the zombie holds the launch's pid — the group id —
-// allocated, so nothing can reuse the group's number from the exit until
-// the reap (#1474). It reaps at once when a scan finds no other member (the
-// common exit: nothing left to keep the zombie for) and otherwise LEAVES
-// the zombie held, recording the leader's real exit — read from the hold's
-// waitid answer — as the detail right away, with a drain watcher that reaps
-// once the group empties on its own: a launch whose members outlive it must
-// not need a stop to release the number. Every later probe or signal by
-// number still goes out while the launch provably owns the number.
-// Platforms without the hold (non-Linux Unix) and a failed waitid reap at
-// the exit — outside the stop mutex, so a live launch stays stoppable — and
-// keep the stop's documented probe position; Windows runs this same waiter
-// for its Done/ExitDetail semantics only.
+// waits the leader out WITHOUT reaping it: the leader stays a zombie, and
+// the zombie holds the launch's pid — the group id — allocated, so nothing
+// can reuse the group's number from the exit until the reap (#1474). It
+// reaps at once when a scan finds no other member (the common exit:
+// nothing left to keep the zombie for) and otherwise LEAVES the zombie
+// held, recording the leader's real exit — read from /proc while the
+// zombie is held — as the detail right away, with a drain watcher that
+// reaps once the group empties on its own: a launch whose members outlive
+// it must not need a stop to release the number. Every later probe or
+// signal by number still goes out while the launch provably owns the
+// number. The hold is taken by waitid WNOWAIT where the kernel allows it
+// and — when a policy refuses waitid — by POLLING /proc for the zombie
+// instead (waitHeldByPolling): either way the reap happens only under the
+// stop mutex, so no Linux path ever frees the number while a stop may be
+// mid-signal. Platforms without any hold (non-Linux Unix) reap at the
+// exit — outside the stop mutex, so a live launch stays stoppable — and
+// their stop aborts to unconfirmed at the first sight of the exit, the
+// reuse residual documented in host_run's help; Windows runs this same
+// waiter for its Done/ExitDetail semantics only.
 func (a *execAgent) waitExit() {
-	if leaderHoldCapable && a.waitHeld() {
+	if leaderHoldCapable {
+		if a.waitHeld() {
+			return
+		}
+		a.waitHeldByPolling()
 		return
 	}
 	a.waitReaping()
 }
 
-// waitHeld is the hold-capable waiter: it returns once the leader is an
-// UNREAPED zombie, or false when the hold could not be taken (a kernel or
-// policy that refuses waitid) and the caller must fall back to reaping.
+// waitHeld is the waitid hold: it returns once the leader is an UNREAPED
+// zombie, or false when the hold could not be taken (a kernel or policy
+// that refuses waitid) and the caller must fall back to the polling hold.
 // EINTR interrupts the wait without proving the exit, so it retries.
 func (a *execAgent) waitHeld() bool {
-	var exit leaderExit
 	for {
-		var err error
-		exit, err = waitLeaderExit(a.pid)
+		err := waitLeaderExit(a.pid)
 		if errors.Is(err, syscall.EINTR) {
 			continue // interrupted without a status: the leader is neither exited nor reaped
 		}
 		if err != nil {
-			return false // no proof can ever be taken for this launch
+			return false // waitid is refused: the polling hold takes over
 		}
 		break
 	}
+	a.holdExit(readLeaderExitStatus(a.pid))
+	return true
+}
+
+// waitHeldByPolling is the hold for a kernel or policy that refuses
+// waitid: the zombie itself is the ownership proof, and /proc shows it,
+// so the waiter polls for the leader's state to turn Z and then takes the
+// same exit branch the waitid hold does. Nothing reaps the leader outside
+// the stop mutex on this path either — the reap is reap(), under mu — so
+// a stop's by-number signals stay serialized with the number's release
+// exactly as with the waitid hold (#1474: the fallback this replaces reaped
+// from a blocking Wait outside mu, which could free the number while a
+// stop was between its probe and its signal, and the signal then reached
+// whatever took the reused number). A leader that vanishes from /proc
+// without ever showing Z (nothing but this process can reap it, so that
+// is a pathological host) is treated as an exit whose status cannot be
+// read, never as liveness. The reap itself needs a wait syscall; if the
+// host refuses those too, waitOut fails, the zombie stays held — the
+// number never becomes public, which is the safe direction — and the
+// launch's records keep the unconfirmed posture.
+func (a *execAgent) waitHeldByPolling() {
+	t := time.NewTicker(drainWatchInterval)
+	defer t.Stop()
+	var gone bool
+	for range t.C {
+		state, err := pollLeaderState(a.pid)
+		switch {
+		case err == nil && state == 'Z':
+			gone = true
+		case errors.Is(err, syscall.ENOENT):
+			gone = true // vanished without a zombie: an exit nobody can describe
+		}
+		if gone {
+			break
+		}
+	}
+	a.holdExit(readLeaderExitStatus(a.pid))
+}
+
+// holdExit is the shared tail of both holds: the leader has exited and is
+// the unreaped zombie that keeps the group's number allocated. An empty
+// group reaps at once (nothing to keep the zombie for); members keep it
+// held, the leader's real exit becomes the detail NOW — a reader that
+// sees Done closed gets the authoritative status even if no stop ever
+// comes — and a drain watcher releases the number once the group empties
+// on its own.
+func (a *execAgent) holdExit(exit leaderExit) {
 	a.exited.Store(true)
 	a.mu.Lock()
 	switch {
 	case groupHasOtherMembers(a.pid, a.pid):
-		// Members remain: hold the zombie for the stop or the drain
-		// watcher. The leader's real exit — already read off the hold —
-		// is the detail NOW, not a placeholder: a reader that sees Done
-		// closed gets the authoritative status even if no stop ever
-		// comes. If a stop already reaped (it confirmed and released
-		// the number first), its finalized detail stands.
+		// If a stop already reaped (it confirmed and released the number
+		// first), its finalized detail stands.
 		if !a.reaped.Load() {
 			a.detail = exit.describe()
 		}
@@ -255,23 +324,29 @@ func (a *execAgent) waitHeld() bool {
 	}
 	a.mu.Unlock()
 	if !a.reaped.Load() {
-		go a.watchDrain()
+		a.startWatchDrain()
 	}
 	close(a.done)
-	return true
 }
 
-// waitReaping is the waiter without a hold: the leader is reaped because
-// that is the only way to learn its status, on the platforms with no hold
-// and wherever taking one failed. The reap's wait can block for the
-// leader's WHOLE life, so it runs WITHOUT the stop mutex — a stop must
-// still be able to terminate a live launch — and exited is stored only once
-// the leader has actually exited: until then the number is still allocated
-// to the live leader and the stop's probe oracle is a real one. After the
-// reap nothing proves the number is still this launch's, so on a
-// hold-capable platform the stop takes its no-proof branch (unconfirmed,
-// records kept); elsewhere the probe position is the documented platform
-// residual.
+// waitReaping is the waiter of the platforms with NO hold (non-Linux
+// Unix): the leader is reaped at its exit because that is the only way to
+// learn its status there. The reap's wait can block for the leader's
+// WHOLE life, so it runs WITHOUT the stop mutex — a stop must still be
+// able to terminate a live launch — which is exactly why the reap cannot
+// be serialized with a stop's signals on these platforms: the number
+// turns public at a moment no mutex governs. The stop therefore never
+// signals by number once it has seen the exit (stopAuthorityGone, in
+// terminateGroup): while the leader is live the number is bound to it and
+// the probe oracle is a real one, and after the exit the stop reports
+// unconfirmed and keeps records instead of reaching for a number the
+// launch may no longer own. The instant between the stop's last
+// exit-check and its signal — an exit landing inside it frees the number
+// mid-signal — is these platforms' un-closable residual, documented in
+// host_run's help: without a hold there is no syscall that both proves
+// the number is bound and signals it. exited is stored only once the
+// leader has actually exited, so the probe oracle is real for as long as
+// the stop uses it.
 func (a *execAgent) waitReaping() {
 	detail, reaped := a.waitOut()
 	a.exited.Store(true)
@@ -295,27 +370,52 @@ var drainWatchInterval = 200 * time.Millisecond
 // waiting for a Terminate that may never come — that is one leaked zombie
 // per such launch in a long-running poller. The reap uses the same proof
 // the waiter's own empty reap uses — a clean scan — and sets the same
-// emptyAtReap, so a later stop confirms without touching the number. It
-// returns as soon as the zombie is reaped, by a stop or by itself.
+// emptyAtReap, so a later stop confirms without touching the number. The
+// scan itself runs WITHOUT mu: a scan is up to eight /proc listings, and
+// running it under mu would hand every stop a mutex held for the whole
+// scan on busy hosts (a stop deferred for the watcher's /proc churn); the
+// re-check of reaped after re-taking mu is what keeps the reap decision
+// sound, and an empty scan cannot be invalidated between the scan and the
+// reap — a new member can only come from a member that was alive at the
+// scan, and an empty scan saw none. It returns as soon as the zombie is
+// reaped, by a stop or by itself; watcherDone lets a test wait for that.
 func (a *execAgent) watchDrain() {
+	defer close(a.watcherDone)
 	t := time.NewTicker(drainWatchInterval)
 	defer t.Stop()
 	for range t.C {
 		if a.reaped.Load() {
 			return
 		}
+		if groupHasOtherMembers(a.pid, a.pid) {
+			continue
+		}
 		a.mu.Lock()
 		if a.reaped.Load() {
 			a.mu.Unlock()
 			return
 		}
-		if !groupHasOtherMembers(a.pid, a.pid) {
-			a.reap()
-			a.emptyAtReap.Store(true)
-			a.mu.Unlock()
-			return
-		}
+		a.reap()
+		a.emptyAtReap.Store(true)
 		a.mu.Unlock()
+		return
+	}
+}
+
+// startWatchDrain arms the drain watcher once, recording its done channel
+// for tests that swap package vars (a watcher left running by an earlier
+// test would read through the swap; #1474).
+func (a *execAgent) startWatchDrain() {
+	a.watcherDone = make(chan struct{})
+	go a.watchDrain()
+}
+
+// waitWatchers blocks until the drain watcher (if one was armed) has
+// exited, so a test may swap scan/waiter package vars without racing a
+// watcher this agent left behind.
+func (a *execAgent) waitWatchers() {
+	if ch := a.watcherDone; ch != nil {
+		<-ch
 	}
 }
 

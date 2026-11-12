@@ -115,10 +115,11 @@ func (e *FinalError) Unwrap() error { return ErrFinal }
 
 // ErrFinalWithRecorded wraps an ALREADY_REPORTED refusal as a FinalError.
 // The recorded outcome comes from the refusal's extensions.status — the
-// server spells it there exactly as the host sends its own reports
+// server spells it there as the host sends its own reports
 // (SUCCEEDED / FAILED) so a client reads the code's extension instead of
-// parsing the message. Only those two spellings are kept; anything else
-// reads as unnamed, so no caller ever acts on an inferred outcome (#1474).
+// parsing the message. The read tolerates case and padding, and only the
+// two outcomes are kept: anything else a server might place there reads as
+// unnamed, so no caller ever acts on an inferred outcome (#1474).
 func ErrFinalWithRecorded(msg, recorded string) *FinalError {
 	switch strings.ToUpper(strings.TrimSpace(recorded)) {
 	case "SUCCEEDED":

@@ -247,9 +247,15 @@ may still signal it — the stop can only ever reach this launch's group. A
 launch that provably left nothing behind (its group was empty at the exit)
 confirms a later stop without signalling anything at all. Other Unix
 platforms (macOS, the BSDs) reap the leader at its exit and have no such
-hold — there the stop still probes and signals the group id, and a process
-that has taken a reused number would answer it. Linux is the hardened
-platform for this stop. On Windows the
+hold, so their stop signals the group id only while the leader is still
+live — the number is bound to a live leader and cannot be reused — and
+once the leader's exit is observed there, the stop refuses to reach for
+the number (an exit frees it at a moment no mutex governs, and a process
+that took the reused number would answer a probe or take a signal): the
+stop reports it unconfirmed and keeps the records instead. The instant
+between a stop's last exit-check and its signal is those platforms'
+un-closable window — no syscall there both proves the number is bound and
+signals it. Linux is the hardened platform for this stop. On Windows the
 process tree is force-killed at once, and a launcher that already exited is
 never signalled again (its pid may have been reused); children it left
 behind cannot be reached without a Job Object, which this runner does not
