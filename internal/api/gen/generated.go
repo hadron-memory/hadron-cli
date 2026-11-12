@@ -44651,6 +44651,45 @@ func (v *DriveReadFile) GetModifiedAt() *string { return v.ModifiedAt }
 // GetWebLink returns DriveReadFile.WebLink, and is useful for accessing the field via an interface.
 func (v *DriveReadFile) GetWebLink() *string { return v.WebLink }
 
+// DryRunMemoryIdentityMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type DryRunMemoryIdentityMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+}
+
+// GetId returns DryRunMemoryIdentityMemory.Id, and is useful for accessing the field via an interface.
+func (v *DryRunMemoryIdentityMemory) GetId() string { return v.Id }
+
+// GetUrn returns DryRunMemoryIdentityMemory.Urn, and is useful for accessing the field via an interface.
+func (v *DryRunMemoryIdentityMemory) GetUrn() string { return v.Urn }
+
+// DryRunMemoryIdentityResponse is returned by DryRunMemoryIdentity on success.
+type DryRunMemoryIdentityResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *DryRunMemoryIdentityMemory `json:"memory"`
+}
+
+// GetMemory returns DryRunMemoryIdentityResponse.Memory, and is useful for accessing the field via an interface.
+func (v *DryRunMemoryIdentityResponse) GetMemory() *DryRunMemoryIdentityMemory { return v.Memory }
+
 // DueTickWakesDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
 // The GraphQL type's documentation follows.
 //
@@ -111024,6 +111063,14 @@ func (v *__DriveListInput) GetTop() int { return v.Top }
 // GetPageToken returns __DriveListInput.PageToken, and is useful for accessing the field via an interface.
 func (v *__DriveListInput) GetPageToken() *string { return v.PageToken }
 
+// __DryRunMemoryIdentityInput is used internally by genqlient
+type __DryRunMemoryIdentityInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DryRunMemoryIdentityInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DryRunMemoryIdentityInput) GetRef() string { return v.Ref }
+
 // __DueTickWakesInput is used internally by genqlient
 type __DueTickWakesInput struct {
 	AppRef     string   `json:"appRef"`
@@ -133720,6 +133767,44 @@ func DriveList(
 	}
 
 	data_ = &DriveListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DryRunMemoryIdentity.
+const DryRunMemoryIdentity_Operation = `
+query DryRunMemoryIdentity ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		urn
+	}
+}
+`
+
+// effectiveAccess(resource:) needs a typed URN for a memory: a bare ID is
+// reserved for AI configs. Resolve only identity after a readable target and
+// successful user auth; no-user credentials keep their existing preview path.
+func DryRunMemoryIdentity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DryRunMemoryIdentityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DryRunMemoryIdentity",
+		Query:  DryRunMemoryIdentity_Operation,
+		Variables: &__DryRunMemoryIdentityInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DryRunMemoryIdentityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

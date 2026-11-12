@@ -214,7 +214,7 @@ func TestNodeUpdateDryRunWritesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	for op := range captured {
-		if op != "ResolveUrn" && op != "GetNodeRaw" {
+		if op != "ResolveUrn" && op != "GetNodeRaw" && op != "AuthContext" && op != "EffectiveAccess" {
 			t.Errorf("a dry run may only read, sent %s", op)
 		}
 	}

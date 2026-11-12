@@ -165,7 +165,7 @@ and revision.`,
 			newBody := withBanner(derefStr(node.Content), plan.banner)
 			render := func(w io.Writer) error { return renderRescind(w, result, plan) }
 			if dryRun {
-				if err := requireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 					return err
 				}
 				return output.Write(f.IOStreams, f.JSON, result, render)

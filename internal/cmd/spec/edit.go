@@ -641,7 +641,7 @@ replacement over the cap is rejected.`,
 			if dryRun {
 				// Zero writes: the preview returns before any mutation is built.
 				// A caller who cannot write gets the real run's refusal (cli#1912).
-				if err := requireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 					return err
 				}
 				return render()

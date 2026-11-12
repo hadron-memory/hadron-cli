@@ -16,7 +16,7 @@ func TestNodeClearRoleDryRunAndAtomicMergeGuard(t *testing.T) {
 		t.Fatal(err)
 	}
 	for op := range captured {
-		if op != "ResolveUrn" && op != "GetNodeRaw" {
+		if op != "ResolveUrn" && op != "GetNodeRaw" && op != "AuthContext" && op != "EffectiveAccess" {
 			t.Fatalf("dry-run sent %s", op)
 		}
 	}
@@ -103,7 +103,7 @@ func TestNodeClearRoleDryRunChecksCurrentAndResultingKinds(t *testing.T) {
 		t.Fatalf("expected same union refusal as write: %v", err)
 	}
 	for op := range captured {
-		if op != "ResolveUrn" && op != "GetNodeRaw" {
+		if op != "ResolveUrn" && op != "GetNodeRaw" && op != "AuthContext" && op != "EffectiveAccess" {
 			t.Fatalf("preview wrote %s", op)
 		}
 	}

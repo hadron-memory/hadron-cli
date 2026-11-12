@@ -69,7 +69,13 @@ citation. For a spec at any other loc, create the new spec with
 By default the source is left untouched and you're reminded to trim the moved
 chunk out of it. --strip-source also removes the chunk from the source body,
 but only when it matches verbatim (exactly once) — a reformatted or absent
-chunk leaves the source alone with a warning.`,
+chunk leaves the source alone with a warning.
+
+--dry-run checks the signed-in user's write access to the source memory
+(the new spec is created in that same memory), after reading the source.
+A denied caller gets exit 8 and no plan; a failed access lookup is an error.
+Credentials without a user keep the existing preview. The real write
+remains authoritative for other refusals.`,
 		Example: `  # Carve the "Node type" field out of the Node entity spec into feature 020.
   # The awk prints from that heading up to, not including, the next "## " heading;
   # run the pipeline without extract first to inspect the chunk before --strip-source.
@@ -215,6 +221,9 @@ chunk leaves the source alone with a warning.`,
 			}
 
 			if dryRun {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				result.Content = body
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					return renderExtractResult(w, result)
