@@ -301,9 +301,10 @@ func tableCells(line string) []string {
 	return tableGutter.Split(strings.TrimSpace(line), -1)
 }
 
-// cli#1950 item 4 (+ item 6, the PasskeyCapabilities seam): a discovery
-// error whose text spans lines (an HTML error page quoted in it) still
-// reads as ONE refusal line that keeps its "no query was sent" tail.
+// cli#1950 item 4 (+ item 6, the PasskeyCapabilities seam). Defence in
+// depth: api.Capabilities never quotes a response body today, so this cause
+// is synthetic. Whatever the cause text, the refusal is ONE line that keeps
+// its "no query was sent" tail, and an over-long cause is cut, not the tail.
 func TestPasskeyListDiscoveryErrorIsOneLine(t *testing.T) {
 	srv, posts, _ := passkeyServer(t, 200, passkeysOn, 200, passkeyListJSON)
 	prev := auth.PasskeyCapabilities
@@ -330,6 +331,29 @@ func TestPasskeyListDiscoveryErrorIsOneLine(t *testing.T) {
 	if strings.Contains(all, "\r") {
 		t.Fatalf("a raw CR reached the terminal: %q", all)
 	}
+
+	// An over-long cause is bounded with an ellipsis; the tail survives.
+	auth.PasskeyCapabilities = func(context.Context, string) (map[string]bool, error) {
+		return nil, errors.New(strings.Repeat("x", 5000))
+	}
+	_, errOut, code = runPasskeyList(t, srv.URL, false, nil)
+	line = strings.TrimSpace(errOut)
+	if code != 2 || !strings.Contains(line, "…") || !strings.HasSuffix(line, "no query was sent") || len([]rune(line)) > 1200 {
+		t.Fatalf("an over-long cause must be cut before the tail (exit %d, %d runes): %.120q", code, len([]rune(line)), line)
+	}
+}
+
+// The real shape: a transport error behind a long --server URL. The client
+// composes it with the reason LAST, so the bound must keep the reason.
+func TestPasskeyListDiscoveryTransportErrorKeepsReason(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	url := srv.URL + "/" + strings.Repeat("long-path-segment/", 12)
+	srv.Close() // the port now refuses connections
+	out, errOut, code := runPasskeyList(t, url, false, nil)
+	line := strings.TrimSpace(out + errOut)
+	if code != 2 || !strings.Contains(line, "connection refused") || !strings.HasSuffix(line, "no query was sent") {
+		t.Fatalf("exit %d: the reason behind a long URL must survive: %q", code, line)
+	}
 }
 
 // cli#1950 item 7: a transport failure at query time (capabilities on, the
@@ -341,8 +365,8 @@ func TestPasskeyListQueryTransportFailure(t *testing.T) {
 	if posts.Load() != 1 {
 		t.Fatalf("posts %d, want 1", posts.Load())
 	}
-	if code == 0 || code == 2 {
-		t.Fatalf("exit %d: a 500 is neither success nor \"no passkeys\" (out %q err %q)", code, out, errOut)
+	if code != 7 {
+		t.Fatalf("exit %d, want 7 (transport): a 500 is neither success nor \"no passkeys\" (out %q err %q)", code, out, errOut)
 	}
 	all := out + errOut
 	if strings.Contains(all, "does not offer passkeys") || strings.Contains(all, "could not confirm") {
@@ -457,7 +481,7 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 	// ends, and a server-set length of at least 72 hours, never a fixed one.
 	flat := strings.Join(strings.Fields(help), " ")
 	for _, want := range []string{
-		"STATE is revoked for a removed passkey",
+		"STATE is revoked for a revoked passkey",
 		"one registered when you had no other",
 		"at least 72 hours",
 		"set by the server",
@@ -465,11 +489,14 @@ func TestPasskeyHelpIsTruthfulAboutRemoval(t *testing.T) {
 		"can still sign you in",
 		"a fresh sign-in by a different method, on the server's own page, ends it early",
 		"its pending signatures never count",
-		"worked out on this machine's clock and grants nothing",
+		"worked out on this machine's clock and grants nothing: if this machine's clock is wrong, so is STATE",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Fatalf("help lacks %q:\n%s", want, help)
 		}
+	}
+	if strings.Index(flat, "starts in a cooling-off window") > strings.Index(flat, "STATE is revoked") {
+		t.Fatalf("the cooling-off window is used before it is explained:\n%s", help)
 	}
 	if strings.Contains(flat, "STATE is worked out") {
 		t.Fatalf("STATE still leads with the mechanism:\n%s", help)

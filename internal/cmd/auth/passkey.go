@@ -44,7 +44,10 @@ var PasskeyCapabilities = api.Capabilities
 var PasskeyKeyMaterialNames = []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}
 
 // discoveryCauseMaxRunes bounds the discovery error quoted in the refusal.
-const discoveryCauseMaxRunes = 200
+// Real causes are client-composed (the --server URL, then the reason last:
+// "connection refused", a timeout, an HTTP status), so the bound is wide
+// enough to keep the reason behind a long URL.
+const discoveryCauseMaxRunes = 1024
 
 // passkeyNow is the clock the state derivation reads. Injected by tests.
 var passkeyNow = time.Now
@@ -172,11 +175,6 @@ func newCmdPasskeyList(f *cmdutil.Factory) *cobra.Command {
 included. Shows labels and dates only, never key material: no credential id,
 no public key.
 
-STATE is revoked for a removed passkey, cooling-off while a first passkey's
-cooling-off window is still open (it has not ended and WINDOW ENDS is ahead),
-and active otherwise. It is worked out on this machine's clock and grants
-nothing; read WINDOW ENDS against the server's time when it matters.
-
 A first passkey (one registered when you had no other) starts in a
 cooling-off window, at least 72 hours long and set by the server. Until it
 ends, signatures the passkey makes are kept as pending and don't count; the
@@ -184,6 +182,11 @@ passkey can still sign you in. The window runs out, or a fresh sign-in by a
 different method, on the server's own page, ends it early; if the passkey is
 revoked first, its pending signatures never count. A later passkey has no
 window: WINDOW ENDS shows -.
+
+STATE is revoked for a revoked passkey, cooling-off while a first passkey's
+cooling-off window is still open (it has not ended and WINDOW ENDS is ahead),
+and active otherwise. It is worked out on this machine's clock and grants
+nothing: if this machine's clock is wrong, so is STATE.
 
 --json gives an array of id (the record's id, not the credential id), label,
 state, registeredAt, lastUsedAt, revokedAt, window (endsAt, endedAt, outcome,
@@ -219,8 +222,10 @@ func runPasskeyList(ctx context.Context, f *cmdutil.Factory) error {
 		// Unknown is not "no" (review:assert-the-value-the-user-gets): same
 		// exit and the same zero queries, as the gate rules, but the sentence
 		// says discovery failed rather than that the feature is absent.
-		// The cause is flattened to one bounded line: a discovery error can
-		// quote a multi-line body (an HTML error page).
+		// The cause is flattened to one bounded line. api.Capabilities never
+		// quotes the response body (an HTTP status, a parse error or a
+		// transport error), so this is defence in depth: whatever the cause
+		// text becomes, the refusal stays one line with its tail.
 		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%s); no query was sent",
 			output.SafeLine(err.Error(), discoveryCauseMaxRunes))
 	}

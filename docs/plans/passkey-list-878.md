@@ -40,8 +40,11 @@ There is no platform spec for this derivation. It is a client-clock display, not
   - five OFF shapes, each giving exit 2 with zero POSTs (switch off, all off, a 404, an unparsable body, off with no credential);
   - the schema dropping the field after discovery;
   - a validation error on another name keeping the skew mapping;
-  - the JSON keys, order, state and the key-material grep;
-  - the table, the windowless dash and empty output;
+  - the JSON keys, order and state, and a walk of every `--json` key against `auth.PasskeyKeyMaterialNames`, the one list the operation-selection unit test also reads (cli#1950);
+  - the table, the windowless WINDOW ENDS cell asserted exactly `-`, and empty output;
+  - a label carrying ESC and LF rendered as one safe row, with `--json` keeping the original (cli#1950);
+  - the discovery-failure refusal as one line keeping its tail, for a synthetic multi-line cause, an over-long cause and a real connection-refused error behind a long `--server` URL (cli#1950);
+  - a query-time 500 with an HTML body giving exit 7 with neither discovery sentence and no HTML (cli#1950);
   - both refusals, with their exit and `serverCode`;
   - ON with no credential giving exit 3 with zero POSTs;
   - the help naming no URL or portal page, and no `revoke` verb.
