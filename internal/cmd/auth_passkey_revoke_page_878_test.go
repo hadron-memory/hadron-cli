@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/auth"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // The fixture's host is NOT the --server host (a 127.0.0.1 httptest server):
@@ -103,7 +104,9 @@ func runRevokePage(t *testing.T, serverURL string, tty bool, openErr error, env 
 	var opened []string
 	prev := auth.PasskeyOpenBrowser
 	auth.PasskeyOpenBrowser = func(u string) error { opened = append(opened, u); return openErr }
-	t.Cleanup(func() { auth.PasskeyOpenBrowser = prev })
+	prevTTY := auth.PasskeyStdoutIsTerminal
+	auth.PasskeyStdoutIsTerminal = func(*output.IOStreams) bool { return tty }
+	t.Cleanup(func() { auth.PasskeyOpenBrowser, auth.PasskeyStdoutIsTerminal = prev, prevTTY })
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"auth", "passkey", "revoke-page", "--server", serverURL}, extra...))
 	code := 0
@@ -327,6 +330,8 @@ func TestPasskeyRevokePageInvalidURL(t *testing.T) {
 		"https:opaque",
 		"https:///passkeys/revoke",
 		"ftp://localhost/passkeys/revoke",
+		"https://accounts.hadron.example/passkeys/revoke\u0085",
+		"https://accounts.hadron.example/\u202epasskeys/revoke",
 	} {
 		t.Run(bad, func(t *testing.T) {
 			s := newRevokePageServer(t, 200, passkeysOn, 200, revokeURLBody(bad))
