@@ -33,9 +33,36 @@ const passkeysUnavailable = "this server does not offer passkeys"
 const passkeyCapability = "passkey-registration"
 
 // PasskeyCapabilities reads GET /capabilities. Package-level so tests can
-// count or fail it (house convention); the default is the cached,
-// unauthenticated api.Capabilities.
+// count or fail it (TestPasskeyListDiscoveryErrorIsOneLine injects an error);
+// the default is the cached, unauthenticated api.Capabilities.
 var PasskeyCapabilities = api.Capabilities
+
+// PasskeyKeyMaterialNames returns the fields the server withholds over a
+// bearer (hadron-server resolvers.passkeys.ts, #1631 §10): this read never
+// selects or prints them. It is the ONE list both guards read, the
+// operation-selection unit test here and the command-level --json key walk,
+// so they cannot drift. A fresh copy each call, so no caller can edit it.
+func PasskeyKeyMaterialNames() []string {
+	return []string{"credentialId", "publicKey", "ip", "ipAddress", "userAgent"}
+}
+
+// discoveryCauseMaxRunes bounds the discovery error quoted in the refusal.
+// Real causes are client-composed with the reason LAST (`Get "<--server
+// URL>/capabilities": dial tcp …: connection refused`, a timeout, an HTTP
+// status), so an over-long cause keeps its END: see oneLineTail.
+const discoveryCauseMaxRunes = 1024
+
+// oneLineTail flattens s to one terminal-safe line (output.SafeLine's
+// control-character rule, no cut) and, if it is longer than maxRunes, keeps
+// the last maxRunes-1 runes behind a leading "…", because the end of a
+// discovery error is where its reason is.
+func oneLineTail(s string, maxRunes int) string {
+	r := []rune(output.SafeLine(s, len(s)+1))
+	if len(r) <= maxRunes {
+		return string(r)
+	}
+	return "…" + string(r[len(r)-(maxRunes-1):])
+}
 
 // passkeyNow is the clock the state derivation reads. Injected by tests.
 var passkeyNow = time.Now
@@ -163,11 +190,18 @@ func newCmdPasskeyList(f *cmdutil.Factory) *cobra.Command {
 included. Shows labels and dates only, never key material: no credential id,
 no public key.
 
-STATE is worked out on this machine's clock: revoked once a passkey is
-revoked; cooling-off while a first passkey's cooling-off window is open (it
-has not ended and WINDOW ENDS is still ahead); active otherwise. The window's
-length is a server setting, so read WINDOW ENDS against the server's time
-when it matters. The state is a display: it grants nothing.
+A first passkey (one registered when you had no other) starts in a
+cooling-off window, at least 72 hours long and set by the server. Until it
+ends, signatures the passkey makes are kept as pending and don't count; the
+passkey can still sign you in. The window runs out, or a fresh sign-in by a
+different method, on the server's own page, ends it early; if the passkey is
+revoked first, its pending signatures never count. A later passkey has no
+window: WINDOW ENDS shows -.
+
+STATE is revoked for a revoked passkey, cooling-off while a first passkey's
+cooling-off window is still open (it has not ended and WINDOW ENDS is ahead),
+and active otherwise. It is worked out on this machine's clock and grants
+nothing: if this machine's clock is wrong, so is STATE.
 
 --json gives an array of id (the record's id, not the credential id), label,
 state, registeredAt, lastUsedAt, revokedAt, window (endsAt, endedAt, outcome,
@@ -203,7 +237,12 @@ func runPasskeyList(ctx context.Context, f *cmdutil.Factory) error {
 		// Unknown is not "no" (review:assert-the-value-the-user-gets): same
 		// exit and the same zero queries, as the gate rules, but the sentence
 		// says discovery failed rather than that the feature is absent.
-		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%v); no query was sent", err)
+		// The cause is flattened to one bounded line. api.Capabilities never
+		// quotes the response body (an HTTP status, a parse error or a
+		// transport error), so this is defence in depth: whatever the cause
+		// text becomes, the refusal stays one line with its tail.
+		return exitcode.Newf(exitcode.Usage, "could not confirm that this server offers passkeys (%s); no query was sent",
+			oneLineTail(err.Error(), discoveryCauseMaxRunes))
 	}
 	if !caps[passkeyCapability] {
 		return exitcode.Newf(exitcode.Usage, passkeysUnavailable)
