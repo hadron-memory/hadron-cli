@@ -5,11 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-
-	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -291,6 +291,7 @@ func runLifecycleOrdered(t *testing.T, responses map[string]string, args ...stri
 	t.Helper()
 	captured := map[string]json.RawMessage{}
 	calls := []string{}
+	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			OperationName string
@@ -300,8 +301,10 @@ func runLifecycleOrdered(t *testing.T, responses map[string]string, args ...stri
 			t.Error(err)
 			return
 		}
+		mu.Lock()
 		calls = append(calls, req.OperationName)
 		captured[req.OperationName] = req.Variables
+		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(responses[req.OperationName]))
 	}))
@@ -313,6 +316,8 @@ func runLifecycleOrdered(t *testing.T, responses map[string]string, args ...stri
 	if err != nil {
 		renderError(f, err)
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	return out.String(), captured, calls, err
 }
 
@@ -355,6 +360,11 @@ func TestAppLifecycle1934JSONRefusalEnvelope(t *testing.T) {
 		}
 		if err := json.Unmarshal([]byte(out), &envelope); err != nil {
 			t.Fatal(err)
+		}
+		// appId/urn extensions are deliberately not projected; only the server
+		// message and code are promised (the #1933 help already stopped claiming them).
+		if strings.Contains(out, lifecycleID) || strings.Contains(out, lifecycleURN) {
+			t.Fatalf("unexpected extension projection: %s", out)
 		}
 		if envelope.Error.Code != tc.exit || envelope.Error.ServerCode != tc.code || !strings.Contains(envelope.Error.Message, "refused") {
 			t.Fatalf("%s: %s", tc.code, out)
