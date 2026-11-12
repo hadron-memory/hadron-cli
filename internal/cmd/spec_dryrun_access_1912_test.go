@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -124,31 +127,80 @@ func TestSpecDryRunWithoutAUserIsUnchanged(t *testing.T) {
 	}
 }
 
-// No new existence oracle: when the server conceals the memory (not found), the
-// dry run gives the not-found, never the write refusal.
-func TestSpecDryRunUnreadableMemoryIsNotFoundNotForbidden(t *testing.T) {
+// notFoundExit is the exit code the CLI gives a server NOT_FOUND, the real
+// run's answer for a target the caller cannot read.
+func notFoundExit() int {
+	return exitCodeFor(api.MapError(&gqlerror.Error{Message: "x", Extensions: map[string]any{"code": "NOT_FOUND"}}))
+}
+
+// Access-query mapping: when the server conceals the memory from effectiveAccess
+// (NOT_FOUND), the dry run gives exactly the not-found exit, never the write refusal.
+func TestSpecDryRunConcealedMemoryFromAccessIsNotFound(t *testing.T) {
 	for _, c := range dryRunCases() {
 		t.Run(c.name, func(t *testing.T) {
 			m := accessMocks(c.mock(), false)
 			m["EffectiveAccess"] = `{"errors":[{"message":"Memory not found","extensions":{"code":"NOT_FOUND"}}]}`
 			_, _, err := runDry(t, c.args(t), m)
-			if err == nil || exitCodeFor(err) == exitcode.Forbidden || strings.Contains(err.Error(), "write access") {
-				t.Fatalf("got %v, want the not-found, not a write-access refusal", err)
+			if got := exitCodeFor(err); err == nil || got != notFoundExit() || strings.Contains(err.Error(), "write access") {
+				t.Fatalf("got %v (exit %d), want the not-found exit %d", err, got, notFoundExit())
 			}
 		})
 	}
 }
 
-// An unreadable spec is the real run's not-found before access is consulted.
-func TestSpecEditDryRunUnreadableSpecNeverAsksAccess(t *testing.T) {
-	m := accessMocks(previewMocks(), false)
-	m["GetSpecNodeForEdit"] = `{"data":{"node":null}}`
-	_, captured, err := runDry(t, []string{"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", "x\n"), "--dry-run"}, m)
-	if err == nil || exitCodeFor(err) == exitcode.Forbidden {
-		t.Fatalf("got %v, want a not-found", err)
+// A lookup that FAILS is never read as "allowed": the reader does not get a
+// plan and exit 0 (cli#1912 BLIND P2). Both operations, every dry-run path.
+func TestSpecDryRunAccessLookupFailureIsNotASuccessfulPlan(t *testing.T) {
+	boom := `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	for _, op := range []string{"AuthContext", "EffectiveAccess"} {
+		for _, c := range dryRunCases() {
+			t.Run(op+"/"+c.name, func(t *testing.T) {
+				m := accessMocks(c.mock(), true)
+				m[op] = boom
+				out, _, err := runDry(t, c.args(t), m)
+				if err == nil {
+					t.Fatalf("a failed %s lookup still produced a plan:\n%s", op, out)
+				}
+				if exitCodeFor(err) == exitcode.Forbidden {
+					t.Errorf("a failed lookup must not read as a refusal: %v", err)
+				}
+			})
+		}
 	}
-	if _, asked := captured["EffectiveAccess"]; asked {
-		t.Error("access was consulted before the target was read")
+}
+
+// The ordering guarantee itself: when the TARGET read is the not-found (an
+// unreadable memory or spec; `new <loc>` reads only "is the loc free", so its
+// concealed-memory case is the access-query one above), the dry run gives the real run's not-found and
+// neither access operation is sent.
+func TestSpecDryRunUnreadableTargetNeverAsksAccess(t *testing.T) {
+	nf := `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}]}`
+	for _, c := range []struct {
+		name string
+		args func(t *testing.T) []string
+		mock func() map[string]string
+		op   string
+	}{
+		{"new scaffold", func(*testing.T) []string {
+			return []string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "T", "--dry-run"}
+		}, newDryMocks, "FindNodes"},
+		{"edit", func(t *testing.T) []string {
+			return []string{"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", "x\n"), "--dry-run"}
+		}, previewMocks, "GetSpecNodeForEdit"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			m := accessMocks(c.mock(), false)
+			m[c.op] = nf
+			_, captured, err := runDry(t, c.args(t), m)
+			if err == nil || exitCodeFor(err) != notFoundExit() {
+				t.Fatalf("got %v (exit %d), want the real run's not-found exit %d", err, exitCodeFor(err), notFoundExit())
+			}
+			for _, op := range []string{"AuthContext", "EffectiveAccess"} {
+				if _, asked := captured[op]; asked {
+					t.Errorf("%s sent although the target read failed first", op)
+				}
+			}
+		})
 	}
 }
 

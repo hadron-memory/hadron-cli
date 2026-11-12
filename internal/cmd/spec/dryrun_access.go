@@ -24,21 +24,23 @@ const noWriteAccessRefusal = "Forbidden: no write access to this memory"
 // memory (cor:acl, hadron-server#323), never a client-side role table. It is
 // called only AFTER the target has been read, so a memory or spec the caller
 // cannot read already gave the real run's not-found: this refusal never
-// confirms that an unreadable target exists (cor:api:140:03). Any failure to
-// decide (an App key with no user, an error) leaves the dry run as it was;
-// the real write's gate stays the authority.
+// confirms that an unreadable target exists (cor:api:140:03). A lookup that FAILS is
+// never read as "allowed" (a failure does not show the caller is an App key):
+// it is returned through the normal error mapping. Only a successful answer
+// that names no user (an App key) skips the check; the real write's gate stays
+// the authority there.
 func requireWriteAccessForDryRun(cmd *cobra.Command, client graphql.Client, memURN string) error {
 	ctx := cmd.Context()
 	auth, err := gen.AuthContext(ctx, client)
-	if err != nil || auth.AuthContext == nil || auth.AuthContext.User == nil {
+	if err != nil {
+		return api.MapError(err)
+	}
+	if auth.AuthContext == nil || auth.AuthContext.User == nil {
 		return nil
 	}
 	resp, err := gen.EffectiveAccess(ctx, client, auth.AuthContext.User.Id, cmdutil.CanonicalMemoryRef(memURN))
 	if err != nil {
-		if api.HasErrorCode(err, "NOT_FOUND") {
-			return api.MapError(err)
-		}
-		return nil
+		return api.MapError(err)
 	}
 	if !resp.EffectiveAccess.CanWrite {
 		return exitcode.Newf(exitcode.Forbidden, "%s", noWriteAccessRefusal)
