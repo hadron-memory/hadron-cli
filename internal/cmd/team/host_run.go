@@ -129,11 +129,12 @@ func (s *hostServer) Report(ctx context.Context, id, outcome, worktree, reason s
 			return hostpoller.Operation{}, hostpoller.ErrNotDone
 		}
 		if api.HasErrorCode(err, "HOST_OPERATION_ALREADY_REPORTED") {
-			// The refusal's message carries what the server recorded ("This
-			// operation was already reported <status>."); keep it on the
-			// error so the poller acts on the recorded outcome, never an
-			// inference (#1474 review P2-3).
-			return hostpoller.Operation{}, hostpoller.ErrFinalWithRecorded(api.MapError(err).Error())
+			// The refusal carries what the server recorded in
+			// extensions.status (server #4062), spelled as the host sends
+			// it; the poller acts on that recorded outcome, never on the
+			// message text or an inference (#1474).
+			recorded, _ := api.ErrorCodeExtension(err, "HOST_OPERATION_ALREADY_REPORTED", "status")
+			return hostpoller.Operation{}, hostpoller.ErrFinalWithRecorded(api.MapError(err).Error(), recorded)
 		}
 		return hostpoller.Operation{}, api.MapError(err)
 	}

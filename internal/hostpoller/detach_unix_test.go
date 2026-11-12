@@ -207,6 +207,23 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		// P3-2 residual: an argument appended raw for its name is still
 		// quoted when it carries invalid UTF-8.
 		"raw append quoted too": {[]string{"a", "--token\xff"}, `a "--token\xff"`},
+		// curl's LONG credential spellings: next-argument, and attached
+		// with '='. A long flag matches exactly or '='-delimited —
+		// --user-agent is a different flag and stays readable.
+		"curl --user next":       {[]string{"curl", "--user", "user:pass", "https://h"}, "curl --user <redacted> https://h"},
+		"curl --user attached":   {[]string{"curl", "--user=user:pass"}, "curl --user=<redacted>"},
+		"curl --proxy-user next": {[]string{"curl", "--proxy-user", "p:q"}, "curl --proxy-user <redacted>"},
+		"curl --proxy-user att":  {[]string{"curl", "--proxy-user=p:q"}, "curl --proxy-user=<redacted>"},
+		"curl -u attached short": {[]string{"curl", "-uuser:pass"}, "curl -u<redacted>"},
+		"curl --user-agent kept": {[]string{"curl", "--user-agent", "hdr_agent_1", "https://h"}, "curl --user-agent hdr_agent_1 https://h"},
+		"curl --username kept":   {[]string{"curl", "--username", "bob"}, "curl --username bob"},
+		// A long credential flag's space-separated value is its value in the
+		// generic credential-name rules too (mysql --password pass): the
+		// value never leaves; -p's attached-only distinction is the readable
+		// bare form.
+		"mysql --password next": {[]string{"mysql", "--password", "db"}, "mysql --password <redacted>"},
+		"second binary re-arms": {[]string{"sshpass", "-p", "secret", "curl", "-u", "user:pass"}, "sshpass -p <redacted> curl -u <redacted>"},
+		"re-arm proxy-user att": {[]string{"sshpass", "-p", "s", "curl", "--proxy-user=p:q"}, "sshpass -p <redacted> curl --proxy-user=<redacted>"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

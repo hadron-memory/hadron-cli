@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -95,18 +94,11 @@ var ErrNotDone = errors.New("no session bound with this start's grant yet")
 // it.
 var ErrFinal = errors.New("the operation is already finished")
 
-// finalRecorded pulls the outcome the server says it already recorded out of
-// an ALREADY_REPORTED refusal: the server's message carries it ("This
-// operation was already reported <status>."). Only a status the message
-// actually names is trusted — an unreadable message answers "", so no caller
-// ever acts on an inferred outcome (#1474 review P2-3).
-var finalRecorded = regexp.MustCompile(`(?i)already reported (succeeded|failed)`)
-
 // FinalError is ErrFinal carrying, when the refusal said it, the outcome the
 // server already recorded.
 type FinalError struct {
 	// Recorded is "SUCCEEDED" or "FAILED" (upper case), or "" when the
-	// refusal's message did not name one.
+	// refusal did not name one.
 	Recorded string
 	// Msg is the refusal as it reached the client.
 	Msg string
@@ -121,14 +113,21 @@ func (e *FinalError) Error() string {
 
 func (e *FinalError) Unwrap() error { return ErrFinal }
 
-// ErrFinalWithRecorded wraps an ALREADY_REPORTED refusal as a FinalError,
-// reading the recorded outcome off its message when it carries one.
-func ErrFinalWithRecorded(msg string) *FinalError {
-	e := &FinalError{Msg: msg}
-	if m := finalRecorded.FindStringSubmatch(msg); m != nil {
-		e.Recorded = strings.ToUpper(m[1])
+// ErrFinalWithRecorded wraps an ALREADY_REPORTED refusal as a FinalError.
+// The recorded outcome comes from the refusal's extensions.status — the
+// server spells it there exactly as the host sends its own reports
+// (SUCCEEDED / FAILED) so a client reads the code's extension instead of
+// parsing the message. Only those two spellings are kept; anything else
+// reads as unnamed, so no caller ever acts on an inferred outcome (#1474).
+func ErrFinalWithRecorded(msg, recorded string) *FinalError {
+	switch strings.ToUpper(strings.TrimSpace(recorded)) {
+	case "SUCCEEDED":
+		return &FinalError{Msg: msg, Recorded: Succeeded}
+	case "FAILED":
+		return &FinalError{Msg: msg, Recorded: Failed}
+	default:
+		return &FinalError{Msg: msg}
 	}
-	return e
 }
 
 // Event is one line of what the poller did, for the operator. The --json

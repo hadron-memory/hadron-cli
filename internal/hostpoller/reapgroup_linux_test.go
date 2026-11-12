@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -202,7 +204,7 @@ func TestWaitidFailureIsAnUnconfirmedStop(t *testing.T) {
 	signals := 0
 	realWait, realSignal := waitLeaderExit, signalGroup
 	defer func() { waitLeaderExit, signalGroup = realWait, realSignal }()
-	waitLeaderExit = func(int) error { return syscall.ENOSYS }
+	waitLeaderExit = func(int) (leaderExit, error) { return leaderExit{}, syscall.ENOSYS }
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		signals++
 		return realSignal(pgid, sig)
@@ -298,13 +300,11 @@ func TestForcedPidReuseNeverSignalsTheReplacement(t *testing.T) {
 // still holds. Same private-namespace harness as above.
 //
 // The test binary is PID 1 here, so the killed member's zombie reparents to
-// IT, and nothing reaps it unless the test does — a host's init reaps
-// orphans, and an unreaped zombie answers the /proc membership scan exactly
-// as the old number-probe answered it (Jonas N2/P3-6: "alive" and "unreaped"
-// are indistinguishable to both oracles). The targeted reaper below plays
-// the host init's part — it reaps ONLY this launch's orphaned group members,
-// never the held leader (whose zombie is the ownership proof) and never the
-// replacement; without it the stop is — correctly — unconfirmed.
+// IT and nothing reaps it. That is exactly the subreaper world the scan is
+// written for: a zombie member cannot run and keeps the number allocated
+// until reaped, so it does not count as a member while draining, and the
+// stop confirms with the orphan's zombie still on the books — the launch's
+// own records release the leader only after the whole group stopped.
 func TestTheHeldZombieKeepsTheNumberAllocated(t *testing.T) {
 	if os.Getenv("HADRON_PRIVATE_PIDNS") != "1" || os.Getpid() != 1 {
 		t.Skip("only inside a private PID namespace (see the comment)")
@@ -354,40 +354,10 @@ func TestTheHeldZombieKeepsTheNumberAllocated(t *testing.T) {
 	if repl.Process.Pid == old {
 		t.Fatalf("the held number was handed to a new process: old=%d replacement=%d", old, repl.Process.Pid)
 	}
-	// The init part: reap this launch's orphaned members as they die, never
-	// the held leader (pid old) and never the replacement.
-	reapStop := make(chan struct{})
-	reapDone := make(chan struct{})
-	go func() {
-		defer close(reapDone)
-		var ws syscall.WaitStatus
-		for {
-			select {
-			case <-reapStop:
-				return
-			default:
-			}
-			entries, err := os.ReadDir("/proc")
-			if err == nil {
-				for _, e := range entries {
-					pid, err := strconv.Atoi(e.Name())
-					if err != nil || pid <= 1 || pid == old || pid == repl.Process.Pid {
-						continue
-					}
-					if procState(pid) != 'Z' {
-						continue
-					}
-					if pgrp, err := readPgrp(fmt.Sprintf("/proc/%d/stat", pid)); err == nil && pgrp == old {
-						_, _ = syscall.Wait4(pid, &ws, syscall.WNOHANG, nil)
-					}
-				}
-			}
-			time.Sleep(2 * time.Millisecond)
-		}
-	}()
-	defer func() { close(reapStop); <-reapDone }()
-	// The stop still kills the launch's own member and confirms, and the
-	// replacement — on its own different number — is untouched.
+	// The stop still kills the launch's own member and confirms — with the
+	// killed member's orphan zombie still present under PID 1, which the
+	// scan must not count as a member — and the replacement, on its own
+	// different number, is untouched.
 	stopped, detail := a.Terminate()
 	if !stopped || !strings.Contains(detail, "killed the launched process group") {
 		t.Fatalf("the held group is stopped: stopped=%v %q", stopped, detail)
@@ -409,4 +379,383 @@ func procState(pid int) byte {
 		return 0
 	}
 	return stat[i+2]
+}
+
+// A launch whose hold cannot be taken (waitid refuses) must still be
+// STOPPABLE while its leader lives: the fallback reap's wait runs WITHOUT
+// the stop mutex — it used to hold it, and Terminate then blocked for the
+// leader's whole life — and exited must not be stored while the leader may
+// still be live, because the number probe is a real oracle exactly then
+// (the live leader keeps the number allocated) (#1474).
+func TestLiveLaunchIsStoppableWhenTheHoldFails(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("no sleep")
+	}
+	realWait := waitLeaderExit
+	defer func() { waitLeaderExit = realWait }()
+	waitLeaderExit = func(int) (leaderExit, error) { return leaderExit{}, syscall.ENOSYS }
+	signals := 0
+	realSignal := signalGroup
+	defer func() { signalGroup = realSignal }()
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		signals++
+		return realSignal(pgid, sig)
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sleep", "30"}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ea := a.(*execAgent)
+	defer func() { _, _ = a.Terminate() }()
+	if ea.exited.Load() {
+		t.Fatal("a live leader is not exited: the probe oracle depends on it")
+	}
+	stopped := false
+	detail := ""
+	terminated := make(chan struct{})
+	go func() { stopped, detail = a.Terminate(); close(terminated) }()
+	select {
+	case <-terminated:
+	case <-time.After(15 * time.Second):
+		t.Fatal("Terminate never returned for a live launch whose hold failed")
+	}
+	if !stopped || signals == 0 {
+		t.Fatalf("a live launch is stopped through the probe oracle: stopped=%v signals=%d %q", stopped, signals, detail)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the waiter finishes after the stop ends the launch")
+	}
+	if got := a.ExitDetail(); !strings.Contains(got, "signal: terminated") {
+		t.Fatalf("the finalized detail is the leader's real death: %q", got)
+	}
+	if !ea.reaped.Load() {
+		t.Fatal("the fallback waiter reaps the leader")
+	}
+}
+
+// A held exit's detail is the leader's REAL outcome, read from the hold's
+// waitid answer at Done time — not a placeholder about the group's shape
+// (#1474: the operator reading the exit reason must see the leader's own
+// status even while members keep the group alive and no stop ever comes).
+func TestHeldExitCarriesTheLeadersRealExit(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sh", "-c", `sleep 30 & exit 7`}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = a.Terminate() }()
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the leader must exit at once")
+	}
+	if got := a.ExitDetail(); got != "exit status 7" {
+		t.Fatalf("ExitDetail() = %q, want the leader's real exit status", got)
+	}
+	ea := a.(*execAgent)
+	if ea.reaped.Load() {
+		t.Fatal("a member still runs: the leader stays held")
+	}
+	stopped, detail := a.Terminate()
+	if !stopped || !strings.Contains(detail, "launched process group") {
+		t.Fatalf("the held group is still stopped: stopped=%v %q", stopped, detail)
+	}
+	if got := a.ExitDetail(); got != "exit status 7" {
+		t.Fatalf("the stop's reap reports the same exit: %q", got)
+	}
+}
+
+// The held zombie is reaped once the group empties ON ITS OWN: a launch
+// whose member outlives its leader by a moment must not keep a zombie (and
+// with it the group's number) until a Terminate that may never come — one
+// leaked zombie per such launch in a long-running poller (#1474). The
+// watcher's reap uses the waiter's own proof (a clean empty scan), so the
+// later stop confirms silently, touching nothing.
+func TestHeldZombieIsReapedWhenTheGroupDrainsAlone(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	signals, probes := 0, 0
+	realSignal, realProbe := signalGroup, probeGroup
+	defer func() { signalGroup, probeGroup = realSignal, realProbe }()
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		signals++
+		return realSignal(pgid, sig)
+	}
+	probeGroup = func(pgid int) error {
+		probes++
+		return realProbe(pgid)
+	}
+	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sh", "-c", `sleep 1 & exit 3`}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = a.Terminate() }()
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the leader must exit at once")
+	}
+	ea := a.(*execAgent)
+	deadline := time.Now().Add(10 * time.Second)
+	for !ea.reaped.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("the held zombie is never reaped after the group drains on its own")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !ea.emptyAtReap.Load() {
+		t.Fatal("the watcher's reap is an empty-scan reap: a later stop confirms from it")
+	}
+	if got := a.ExitDetail(); got != "exit status 3" {
+		t.Fatalf("the watcher's reap finalizes the same exit: %q", got)
+	}
+	stopped, detail := a.Terminate()
+	if !stopped || detail != "" {
+		t.Fatalf("a drained-then-reaped launch is a silent confirmed stop: stopped=%v %q", stopped, detail)
+	}
+	if signals != 0 || probes != 0 {
+		t.Fatalf("a number that went public at the watcher's reap is never touched: %d probes, %d signals", probes, signals)
+	}
+}
+
+// startGroupWithMembers runs a session leader running script and returns the
+// command: the leader's pid IS the group id, and its members are its
+// background children, unreaped by it for as long as it lives.
+func startGroupWithMembers(t *testing.T, script string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command("sh", "-c", script)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	return cmd
+}
+
+// spawnGroupMember starts a child of the TEST process in process group
+// leader — leader 0 starts a fresh group at the child's own pid — staying
+// in this session, so setpgid is permitted. A shell cannot hold the
+// unreaped-member shape this file needs — a shell reaps its background
+// children from inside its wait for the foreground job, so the corpse is
+// gone in microseconds — so a member whose parent does not reap it is
+// built here: this test process never waits on the child until cleanup,
+// which is exactly the subreaper world's leftover zombie.
+func spawnGroupMember(t *testing.T, leader int, argv ...string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: leader}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	return cmd
+}
+
+// groupMemberStates returns the states of the group's members other than
+// the leader itself.
+func groupMemberStates(leader int) []byte {
+	var states []byte
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == leader {
+			continue
+		}
+		pgrp, state, err := readPgrp(filepath.Join("/proc", e.Name(), "stat"))
+		if err != nil || pgrp != leader {
+			continue
+		}
+		states = append(states, state)
+	}
+	return states
+}
+
+func hasState(states []byte, want byte) bool {
+	for _, s := range states {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// A group whose only remaining member is a ZOMBIE reads as drained: a
+// zombie cannot run, and it keeps the number allocated until reaped, so
+// treating it as drained can never open reuse — while counting it made a
+// stop under a subreaper poller (the container world, where the poller is
+// PID 1 and never reaps orphans) permanently unconfirmable (#1474).
+func TestZombieMemberDoesNotKeepAGroupUndrained(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("no sleep")
+	}
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	// A live group leader (a child of this test in its own process GROUP,
+	// not a setsid session — a foreign session's group cannot be joined)
+	// holding two members placed straight into its group: one running, one
+	// already dead and never reaped by its parent (this test) — the zombie
+	// member.
+	leader := spawnGroupMember(t, 0, "sleep", "30")
+	runner := spawnGroupMember(t, leader.Process.Pid, "sleep", "30")
+	dead := spawnGroupMember(t, leader.Process.Pid, "true")
+	defer func() {
+		for _, c := range []*exec.Cmd{leader, runner, dead} {
+			if c.Process != nil {
+				_ = c.Process.Kill()
+				_, _ = c.Process.Wait()
+			}
+		}
+	}()
+	lg := leader.Process.Pid
+	deadline := time.Now().Add(5 * time.Second)
+	for !hasState(groupMemberStates(lg), 'Z') {
+		if time.Now().After(deadline) {
+			t.Fatal("the zombie member never appeared")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// A running member still reads as a member...
+	if !groupHasOtherMembers(lg, lg) {
+		t.Fatal("a group with a running member is not drained")
+	}
+	// ...and once only zombies remain, the group reads as drained.
+	if err := syscall.Kill(-lg, syscall.SIGKILL); err != nil {
+		t.Fatalf("killing the group's running members: %v", err)
+	}
+	deadline = time.Now().Add(5 * time.Second)
+	for func() bool {
+		states := groupMemberStates(lg)
+		return len(states) == 0 || hasNonZombie(states)
+	}() {
+		if time.Now().After(deadline) {
+			t.Fatal("the running members never drained")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if groupHasOtherMembers(lg, lg) {
+		t.Fatal("a group whose only other members are zombies reads as drained")
+	}
+}
+
+func hasNonZombie(states []byte) bool {
+	for _, s := range states {
+		if s != 'Z' {
+			return true
+		}
+	}
+	return false
+}
+
+// fakeDirEntry is a /proc listing entry that names a pid and nothing else.
+type fakeDirEntry struct{ name string }
+
+func (f fakeDirEntry) Name() string               { return f.name }
+func (f fakeDirEntry) IsDir() bool                { return false }
+func (f fakeDirEntry) Type() fs.FileMode          { return 0 }
+func (f fakeDirEntry) Info() (fs.FileInfo, error) { return nil, fs.ErrNotExist }
+
+// A listing in which an entry VANISHES before its stat read proves nothing:
+// the member that forked after the listing and exited before the read is
+// gone from between the two, and its child — forked before the parent
+// vanished — first appears in the NEXT listing. A vanishing pass must be
+// retried, and only a whole pass with nothing vanishing may answer "empty"
+// (#1474: the double-fork daemonise pattern reads as an empty, escaped,
+// group otherwise).
+func TestScanRescansWhenAListedEntryVanishes(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	cmd := startGroupWithMembers(t, `sleep 30 & sleep 30`)
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+	leader := cmd.Process.Pid
+	deadline := time.Now().Add(5 * time.Second)
+	for len(groupMemberStates(leader)) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("the running members never appeared")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	realRead := readProcDir
+	defer func() { readProcDir = realRead }()
+	calls := 0
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		calls++
+		if calls == 1 {
+			// One pass listing only a pid that is not there when its stat
+			// is read: without the rescan this pass would answer "empty".
+			return []os.DirEntry{fakeDirEntry{name: "99999999"}}, nil
+		}
+		return realRead(dir)
+	}
+	if !groupHasOtherMembers(leader, leader) {
+		t.Fatal("a vanishing pass is not an empty group: the scan retried and found the live member")
+	}
+	if calls != 2 {
+		t.Fatalf("a vanishing pass is retried exactly once here: %d listings", calls)
+	}
+}
+
+// The double-fork daemonise shape end to end: the leader's child forks a
+// grandchild and exits at once; the grandchild keeps the group alive. The
+// scan that decides the waiter's reap must read the group as having
+// members — the leader stays held, its real exit is the detail, and the
+// stop still reaches the grandchild (#1474).
+func TestADoubleForkIsNotReadAsAnEmptyGroup(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sh", "-c", `sh -c 'sleep 30 &' & exit 0`}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = a.Terminate() }()
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the leader must exit at once")
+	}
+	ea := a.(*execAgent)
+	if ea.reaped.Load() || ea.emptyAtReap.Load() {
+		t.Fatal("the grandchild keeps the group alive: the leader must stay held, not reaped-on-empty")
+	}
+	if got := a.ExitDetail(); got != "exit status 0" {
+		t.Fatalf("the held exit's detail is the leader's real exit: %q", got)
+	}
+	stopped, detail := a.Terminate()
+	if !stopped || !strings.Contains(detail, "launched process group") {
+		t.Fatalf("the escaped grandchild is still stopped: stopped=%v %q", stopped, detail)
+	}
 }

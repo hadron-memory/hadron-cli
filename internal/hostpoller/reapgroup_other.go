@@ -9,11 +9,13 @@ import "errors"
 // no waitid on them, so the waiter reaps the leader at its exit and the
 // stop keeps the probe-and-signal position — a reused number can answer a
 // probe there, which is the documented residual in host_run's help
-// (#1474 delta round 3, Ada #102351). Windows takes these stubs too and
-// gates its stop on Done instead (detach_windows.go).
+// (#1474). Windows takes these stubs too and gates its stop on Done
+// instead (detach_windows.go).
 const leaderHoldCapable = false
 
-func waitLeaderExit(int) error { return errors.New("no leader hold on this platform") }
+func waitLeaderExit(int) (leaderExit, error) {
+	return leaderExit{}, errors.New("no leader hold on this platform")
+}
 
 // groupHasOtherMembers has no oracle here; the stop never asks (every call
 // site is gated on leaderHoldCapable) and the stub exists only so the

@@ -1095,28 +1095,33 @@ func TestWorkerStartActsOnTheOutcomeTheServerNamed(t *testing.T) {
 	}
 }
 
-// The refusal a real server sends carries what it recorded as message text;
-// ErrFinalWithRecorded reads exactly that and nothing else.
+// The refusal a real server sends carries what it recorded in
+// extensions.status, spelled as the host sends its own reports
+// (server #4062); ErrFinalWithRecorded keeps exactly those two spellings
+// and nothing else — an unnamed refusal reads unnamed, so no caller ever
+// acts on an inferred outcome.
 func TestErrFinalWithRecorded(t *testing.T) {
 	for name, tc := range map[string]struct {
-		msg      string
 		recorded string
+		want     string
 	}{
-		"failed":      {"This operation was already reported failed.", Failed},
-		"succeeded":   {"This operation was already reported succeeded.", Succeeded},
-		"other words": {"the operation is closed", ""},
-		"empty":       {"", ""},
+		"failed upper":    {"FAILED", Failed},
+		"succeeded upper": {"SUCCEEDED", Succeeded},
+		"lowercase":       {"failed", Failed},
+		"padded":          {" SUCCEEDED ", Succeeded},
+		"other value":     {"PENDING", ""},
+		"empty":           {"", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e := ErrFinalWithRecorded(tc.msg)
-			if e.Recorded != tc.recorded {
-				t.Errorf("Recorded=%q, want %q", e.Recorded, tc.recorded)
+			e := ErrFinalWithRecorded("the refusal's message", tc.recorded)
+			if e.Recorded != tc.want {
+				t.Errorf("Recorded=%q, want %q", e.Recorded, tc.want)
 			}
 			if !errors.Is(e, ErrFinal) {
 				t.Error("a FinalError is ErrFinal")
 			}
 			var fin *FinalError
-			if !errors.As(error(e), &fin) || fin.Recorded != tc.recorded {
+			if !errors.As(error(e), &fin) || fin.Recorded != tc.want {
 				t.Errorf("errors.As must recover the recorded outcome: %+v", fin)
 			}
 		})
@@ -1152,9 +1157,9 @@ func TestWorkerStartKeepsTheAgentWhenTheStopIsUnconfirmed(t *testing.T) {
 
 // finalServer answers NOT_DONE to the first SUCCEEDED and a final refusal
 // after, shaped as the server's own answer: the refusal carries what the
-// server recorded ("This operation was already reported <status>." — the
-// real handler; same-outcome re-asks are answered with the operation, never
-// refused). recorded "" names nothing.
+// server recorded in extensions.status (the real handler; same-outcome
+// re-asks are answered with the operation, never refused). recorded ""
+// names nothing.
 type finalServer struct {
 	*fakeServer
 	asks     int
@@ -1170,7 +1175,7 @@ func (f *finalServer) Report(ctx context.Context, id, outcome, worktree, reason 
 	if f.recorded != "" {
 		msg = "This operation was already reported " + strings.ToLower(f.recorded) + "."
 	}
-	return Operation{}, ErrFinalWithRecorded(msg)
+	return Operation{}, ErrFinalWithRecorded(msg, f.recorded)
 }
 
 func TestWorkerEndIgnoresAnAgentThatExitedLongAgo(t *testing.T) {

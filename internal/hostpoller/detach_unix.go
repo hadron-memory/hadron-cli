@@ -88,20 +88,18 @@ func processArgv(dir string) string {
 
 // argvFromCmdline splits a /proc/<pid>/cmdline read: NUL-separated, ending
 // in ONE terminator NUL. A further trailing NUL is an empty LAST argument,
-// which is kept — an empty argv slot is not nothing (#1474 review; Jane D3:
-// TrimRight ate every empty trailing slot). An empty read — kernel threads,
-// zombies — is not an argv at all: false, so comm answers instead (#1474
-// delta review P3-1: Split("") returns [""], which used to render as a bare
-// quoted empty argument and starve the comm fallback). A setproctitle-
-// padded cmdline carries runs of trailing NULs beyond that, which read as
-// empty arguments; a RUN of trailing empties is padding and collapses to
-// one HERE — at the /proc boundary where padding happens — so the display
-// bound is not spent on it and renderArgv renders the slots it is given
-// (delta round 2 F6; round 3 Jane D3: the collapse used to live in
-// renderArgv and ate genuine slots). Residual, accepted (Jane D3,
-// optional): in /proc a genuine argv with two or more trailing empty
-// slots is byte-identical to padding, so it collapses with it and one
-// empty slot renders.
+// which is kept — an empty argv slot is not nothing (#1474). An empty read
+// — kernel threads, zombies — is not an argv at all: false, so comm answers
+// instead (Split("") returns [""], which would render as a bare quoted
+// empty argument and starve the comm fallback). A setproctitle-padded
+// cmdline carries runs of trailing NULs beyond that, which read as empty
+// arguments; a RUN of trailing empties is padding and collapses to one
+// HERE — at the /proc boundary where padding happens — so the display bound
+// is not spent on it and renderArgv renders the slots it is given (the
+// collapse used to live in renderArgv and ate genuine slots). Residual,
+// accepted: in /proc a genuine argv with two or more trailing empty slots
+// is byte-identical to padding, so it collapses with it and one empty slot
+// renders.
 func argvFromCmdline(raw []byte) ([]string, bool) {
 	if len(raw) == 0 {
 		return nil, false
@@ -127,9 +125,9 @@ var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passp
 // credentialHeader matches an argument that IS a header whose name says it
 // carries a credential ("Authorization: Bearer …", "Cookie: …",
 // "X-API-Key: …", "X-Auth-Token: …", "Proxy-Authorization: …"): any header
-// name containing auth, token, key, secret or cookie (#1474 delta review
-// D2). Over-matching is safe — the name alone still identifies the header;
-// the value never leaves.
+// name containing auth, token, key, secret or cookie (#1474).
+// Over-matching is safe — the name alone still identifies the header; the
+// value never leaves.
 var credentialHeader = regexp.MustCompile(`(?i)^[\w-]*(auth|token|key|secret|cookie)[\w-]*\s*:`)
 
 // credentialFlagValue says how a binary's short flag carries a credential:
@@ -140,49 +138,51 @@ type credentialFlagValue struct {
 	attached bool
 }
 
-// credentialFlagBinaries is the per-binary table of short flags that carry
-// a credential, because the same letters mean different things in different
-// tools: curl's -u and -U (--proxy-user) take user:pass next or attached;
-// sshpass's -p takes the password next or attached; mysql's -p takes the
-// password ATTACHED only — `-p db` names a database and prompts instead.
-// ssh's -p is a port and ssh takes no password on the command line, so it
-// is not in any table; python -u (unbuffered) and find -print stay readable
-// for the same reason (#1474 delta review P3, round 2 F5d; round 3 Jonas
-// N3: one shared -u/-p set was both too wide and too narrow). The rules arm
-// from the FIRST argv entry whose basename is in the table, not only
-// argv[0], because wrapper launchers run in front (sudo curl -u …,
-// env curl -u …, timeout 30 sshpass -p …) and argv[0]-gating leaked the
-// credential for every wrapped form (N3). Residual, deliberate: a command
-// line hidden inside ONE argument (sh -c "curl -u …") is not tokenised
-// here — it renders as one quoted argument, and only its URL-shaped
-// userinfo is stripped (stripURLUserinfo).
+// credentialFlagBinaries is the per-binary table of flags that carry a
+// credential, because the same letters mean different things in different
+// tools: curl's -u/--user and -U/--proxy-user take user:pass as the next
+// argument or attached (-uuser:pass, --user=u:p); sshpass's -p takes the
+// password next or attached; mysql's -p takes the password ATTACHED only —
+// `-p db` names a database and prompts instead. ssh's -p is a port and ssh
+// takes no password on the command line, so it is not in any table; python
+// -u (unbuffered) and find -print stay readable for the same reason
+// (#1474). The rules arm at every argv entry whose basename is in the
+// table, not only argv[0], because wrapper launchers run in front (sudo
+// curl -u …, env curl -u …, timeout 30 sshpass -p …) and argv[0]-gating
+// leaked the credential for every wrapped form. Residuals, deliberate: a
+// command line hidden inside ONE argument (sh -c "curl -u …") is not
+// tokenised here — it renders as one quoted argument, and only its
+// URL-shaped userinfo is stripped (stripURLUserinfo) — and bundled short
+// flags (curl -su user:pass) are not unclustered into their letters.
 var credentialFlagBinaries = map[string]map[string]credentialFlagValue{
-	"curl":    {"-u": {next: true, attached: true}, "-U": {next: true, attached: true}},
+	"curl": {
+		"-u": {next: true, attached: true}, "--user": {next: true, attached: true},
+		"-U": {next: true, attached: true}, "--proxy-user": {next: true, attached: true},
+	},
 	"sshpass": {"-p": {next: true, attached: true}},
 	"mysql":   {"-p": {attached: true}},
 }
 
-// credentialFlagTable returns the flag table of the FIRST argv entry naming
-// a credential-flag binary, and that entry's index, so the arguments before
-// it — the wrapper's own — are never treated as credential flags.
-func credentialFlagTable(argv []string) (map[string]credentialFlagValue, int, bool) {
-	for i, f := range argv {
-		if table, ok := credentialFlagBinaries[filepath.Base(f)]; ok {
-			return table, i, true
-		}
-	}
-	return nil, -1, false
-}
-
-// matchCredentialFlag finds the table's flag that f carries: either the
-// bare flag (-u) or the flag with its value attached (-uuser:pass). The
-// longest matching flag wins, so a table holding both a flag and its
-// longer spelling cannot mis-split.
+// matchCredentialFlag finds the table's flag that f carries. A SHORT flag
+// carries its value attached with no separator (curl -uuser:pass), so a
+// bare prefix matches it; a LONG flag carries one only after '=' (--user=u:p),
+// so it matches exactly or '='-delimited — a bare prefix (--user-agent) is
+// a different flag and must stay readable. The longest matching flag wins,
+// so a table holding a flag and its longer spelling cannot mis-split.
 func matchCredentialFlag(table map[string]credentialFlagValue, f string) (credentialFlagValue, string) {
 	var best credentialFlagValue
 	var bestFlag string
 	for flag, spec := range table {
-		if strings.HasPrefix(f, flag) && len(flag) > len(bestFlag) {
+		var matched bool
+		switch {
+		case f == flag:
+			matched = true
+		case strings.HasPrefix(flag, "--"):
+			matched = strings.HasPrefix(f, flag+"=")
+		default:
+			matched = len(f) > len(flag) && strings.HasPrefix(f, flag)
+		}
+		if matched && len(flag) > len(bestFlag) {
 			best, bestFlag = spec, flag
 		}
 	}
@@ -192,15 +192,14 @@ func matchCredentialFlag(table map[string]credentialFlagValue, f string) (creden
 // stripURLUserinfo removes user:password@ (or user@) from every URL-shaped
 // occurrence in an argument: https://u:p@host/path renders as
 // https://host/path, and a shell string carrying two URLs loses both
-// userinfos (#1474 delta review P3, round 2 F5c). The cut for each URL is
-// the LAST @ before the authority's end — the first /, ? or # after the
-// scheme, or any whitespace or quote character, none of which a URL's
-// authority can carry raw — so an unencoded @ inside a password leaves
-// none of its tail behind (round 2 F5a) and a URL-shaped prefix running
-// into prose (`https://h1 mail user@example.com`) ends its authority at
-// the space instead of cutting the prose at a later @ (round 3, Jonas
-// P3-1). Residual, deliberate: a password containing an unencoded /, ? or
-// # is indistinguishable from the path boundary and is not stripped.
+// userinfos (#1474). The cut for each URL is the LAST @ before the
+// authority's end — the first /, ? or # after the scheme, or any whitespace
+// or quote character, none of which a URL's authority can carry raw — so an
+// unencoded @ inside a password leaves none of its tail behind, and a
+// URL-shaped prefix running into prose (`https://h1 mail user@example.com`)
+// ends its authority at the space instead of cutting the prose at a later
+// @. Residual, deliberate: a password containing an unencoded /, ? or # is
+// indistinguishable from the path boundary and is not stripped.
 // git@host:path and bare addresses carry no scheme separator and pass
 // through.
 func stripURLUserinfo(arg string) string {
@@ -238,18 +237,25 @@ func stripURLUserinfo(arg string) string {
 // renderArgv renders a command line for the occupied-tree refusal: an
 // argument that would not survive a re-split on spaces is %q-quoted, a
 // credential-shaped value keeps only its name, and the whole line is
-// bounded (#1474 review P2-4: name WHICH process holds the tree, never its
-// secrets, in the reason and in the logs).
+// bounded (#1474: name WHICH process holds the tree, never its secrets, in
+// the reason and in the logs).
 func renderArgv(fields []string) string {
-	credTable, credFrom, credArmed := credentialFlagTable(fields)
 	out := make([]string, 0, len(fields))
+	credTable := map[string]credentialFlagValue(nil)
+	credFrom := -1
 	redactNext := false
 	for i, f := range fields {
 		f = stripURLUserinfo(f)
+		// (Re-)arm at EVERY credential-flag binary on the line: a second
+		// one further along (sshpass -p x curl -u u:p) would otherwise run
+		// under the first's table and leak its own flags' values.
+		if table, ok := credentialFlagBinaries[filepath.Base(f)]; ok {
+			credTable, credFrom = table, i
+		}
 		switch {
 		case redactNext:
 			// The previous argument was a bare credential flag (--token,
-			// -u, -p); this one is its value.
+			// -u, --user); this one is its value.
 			out = append(out, "<redacted>")
 			redactNext = false
 		case credentialHeader.MatchString(f):
@@ -261,10 +267,13 @@ func renderArgv(fields []string) string {
 				out = append(out, name+"=<redacted>")
 				continue
 			}
-			if !hasValue && strings.HasPrefix(f, "-") {
-				// Only arguments AFTER the credential-flag binary carry its
-				// flags; the wrapper's own arguments never do (Jonas N3).
-				if credArmed && i > credFrom {
+			if strings.HasPrefix(f, "-") {
+				// Only arguments AFTER the (current) credential-flag binary
+				// carry its flags; the wrapper's own arguments never do.
+				// The table match runs for '='-attached long spellings too
+				// (--user=u:p) — the '='-cut above only governed the
+				// credential-NAME assignment form.
+				if credFrom >= 0 && i > credFrom {
 					if spec, flag := matchCredentialFlag(credTable, f); flag != "" {
 						switch {
 						case spec.next && len(f) == len(flag):
@@ -273,12 +282,17 @@ func renderArgv(fields []string) string {
 							redactNext = true
 							continue
 						case spec.attached && len(f) > len(flag):
-							// An attached short-flag value (mysql -pSECRET, curl
-							// -uuser:pass): the flag stays, the value never
-							// leaves. Checked BEFORE the credential-name branch —
-							// the value attached to -p can itself contain
-							// "secret".
-							out = append(out, flag+"<redacted>")
+							// An attached value (mysql -pSECRET, curl
+							// -uuser:pass, curl --user=u:p): the flag stays,
+							// the value never leaves. Checked BEFORE the
+							// credential-name branch — the value attached to
+							// a credential flag can itself contain "secret".
+							// A long flag's separator '=' stays with the flag.
+							rest := "<redacted>"
+							if strings.HasPrefix(f[len(flag):], "=") {
+								rest = "=<redacted>"
+							}
+							out = append(out, flag+rest)
 							continue
 						}
 						// A bare attached-only flag (mysql -p) carries no
@@ -287,7 +301,7 @@ func renderArgv(fields []string) string {
 						continue
 					}
 				}
-				if credentialName.MatchString(f) {
+				if !hasValue && credentialName.MatchString(f) {
 					out = append(out, quoteArg(f))
 					redactNext = true
 					continue
@@ -313,9 +327,9 @@ func renderArgv(fields []string) string {
 // quoteArg keeps an argument unambiguous in the joined line: only arguments
 // that would not survive being re-split on spaces — or that carry invalid
 // UTF-8, which would otherwise both render raw and make the byte-bound
-// truncation back off past them (#1474 delta review P3) — are quoted, so a
-// plain `sleep 30` stays readable while `sh -c "sleep 30 & wait"` keeps its
-// shape and an invalid byte arrives as an escape, never raw.
+// truncation back off past them — are quoted, so a plain `sleep 30` stays
+// readable while `sh -c "sleep 30 & wait"` keeps its shape and an invalid
+// byte arrives as an escape, never raw.
 func quoteArg(arg string) string {
 	if arg == "" || !utf8.ValidString(arg) || strings.IndexFunc(arg, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '"' || r == '\\' || !unicode.IsPrint(r)
@@ -326,9 +340,8 @@ func quoteArg(arg string) string {
 }
 
 // signalGroup and probeGroup are the group primitives terminateGroup uses,
-// as package vars so tests can make them fail (#1474 review: the
-// signal-fails and does-not-exit paths are otherwise unreachable on a
-// healthy host).
+// as package vars so tests can make them fail (#1474: the signal-fails and
+// does-not-exit paths are otherwise unreachable on a healthy host).
 var (
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		return syscall.Kill(-pgid, sig)
@@ -344,9 +357,9 @@ var (
 var groupPollInterval = 20 * time.Millisecond
 
 // postKillWait bounds the wait after SIGKILL. It is deliberately NOT
-// TerminateGrace again (the review's double-grace): SIGKILL cannot be
-// caught or ignored, so only an unkillable (D-state) member can outlive it,
-// and that is reported rather than waited on twice.
+// TerminateGrace again: SIGKILL cannot be caught or ignored, so only an
+// unkillable (D-state) member can outlive it, and that is reported rather
+// than waited on twice.
 var postKillWait = 2 * time.Second
 
 // groupGone reports whether the process group no longer exists: an ESRCH
@@ -358,20 +371,19 @@ func groupGone(pgid int) bool {
 // stop ends the launch by its process group, and is safe at any point of
 // the agent's life because the launch's own leader is the ownership proof:
 // while it is alive, or while it is the unreaped zombie the waiter holds
-// (waitid WNOWAIT, reapgroup_linux.go), its pid — the process-group id
-// — stays allocated to THIS launch, so a probe or a signal by that number
-// can only ever reach this launch's group, never a process that took a
-// reused number, and an ESRCH answer means the group is gone, not that the
-// number was taken (#1474 delta round 3, Ada #102351, closing Jane D1 /
-// Jonas N1 / Cameron's forced-reuse proof that a pidfd holds the pid
-// OBJECT but not its allocator slot: free_pid drops the idr entry at the
-// reap, so a reaped launch's number can be retaken and killed by number).
-// The zombie is reaped HERE, only once the group has drained (or the group
-// was already proven empty at the waiter's reap), so the number is never
-// public while the launch may still be signalled. Platforms without the
-// hold reap at the leader's exit and stop by number with the reuse
-// residual documented in host_run's help. Windows gates on Done instead
-// (detach_windows.go).
+// (waitid WNOWAIT, reapgroup_linux.go), its pid — the process-group id —
+// stays allocated to THIS launch, so a probe or a signal by that number can
+// only ever reach this launch's group, never a process that took a reused
+// number, and an ESRCH answer means the group is gone, not that the number
+// was taken (#1474: a pidfd holds the pid OBJECT but not its allocator
+// slot — free_pid drops the idr entry at the reap, so a reaped launch's
+// number can be retaken and killed by number; the zombie hold is what
+// closes that). The zombie is reaped HERE, only once the group has drained
+// (or the group was already proven empty at the waiter's reap — or by its
+// drain watcher), so the number is never public while the launch may still
+// be signalled. Platforms without the hold reap at the leader's exit and
+// stop by number with the reuse residual documented in host_run's help.
+// Windows gates on Done instead (detach_windows.go).
 func (a *execAgent) stop() (bool, string) {
 	if a.confirmed.Load() {
 		return true, "" // a confirmed stop stays confirmed; a repeat signals nothing
