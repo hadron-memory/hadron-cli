@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -35,6 +36,13 @@ func newCmdSession(f *cmdutil.Factory) *cobra.Command {
 who is driving it, from where, with which tool. The binding lives under the
 worktree's git dir, so it survives a context compaction — ` + "`whoami`" + ` reads
 it back.
+
+A directory that is NOT a git checkout works too (a non-coding worker needs
+no repository): start, resume and shed there keep the binding in a hidden
+.hadron-team/ directory inside that directory, under the same lock. Such a
+directory binds ONE worker: another worker's start there is refused, never
+shared — give each worker its own directory. Only the directory a command
+runs in is looked at, never a parent.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -708,7 +716,9 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 
 BEFORE YOU START:
   1. Sign in (` + "`hadron auth login`" + `, or HADRON_TOKEN) and work in a git worktree of
-     your own — one worktree per worker (below).
+     your own — one worktree per worker (below). A worker that writes no code
+     may use a plain directory of its own instead: the binding is cached in
+     its .hadron-team/, and another worker's start there is refused.
   2. Ask the server whether this worktree is already bound:
      ` + "`hadron team session whoami --check`" + `.
        server: still open   you are already that worker, even after a
@@ -880,7 +890,9 @@ spent its claim.
 --parent-session, --previous-session, --plan, --pr-number and --type do not
 apply and are refused. A worktree still
 bound to a live session refuses first, before any claim is spent, as does a
-directory outside a git worktree. A failure after the server answered never
+directory where git fails for any reason other than "not a git repository".
+A plain (non-git) directory resumes and caches the binding in .hadron-team/.
+A failure after the server answered never
 ends the recovered session: run start again to pick it up.`,
 		Example: `  # ordinary start, recording the repo and branch for ` + "`session log`" + `
   hadron team session start --as Iris --app acme.com:eng-team --tool claude-code \
@@ -925,9 +937,18 @@ ends the recovered session: run start again to pick it up.`,
 			if grant != "" && force {
 				return exitcode.Newf(exitcode.Usage, "--force does not apply to a launch grant: a refused launch is not overridable (cor:agt:070:08)")
 			}
-			existing, _, err := readBinding(ctx)
+			existing, plainDir, err := readBindingForBind(ctx)
 			if err != nil {
 				return err
+			}
+			// A plain directory binds one worker (cli#1391, ruling 0230):
+			// another worker's binding there refuses BEFORE anything else,
+			// --force included — a takeover would end that worker's session
+			// and then share its directory. A launch grant's worker is only
+			// known after the bind; writeBinding's check under the lock
+			// refuses that one, and the bind is rolled back below.
+			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
+				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
 			}
 			var lapsedBinding bool
 			if existing != nil && !force {
@@ -2582,6 +2603,21 @@ func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string
 			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
 	}
 	return *resp.Memory.AppId, nil
+}
+
+// namesBoundWorker reports whether --as names the worker a binding records: its
+// name (case-insensitively), id or URN. A ref that cannot be matched here reads
+// as another worker, so a plain directory refuses rather than shares; the same
+// worker under an unmatched spelling is refused with a message naming it.
+func namesBoundWorker(b *binding, as string) bool {
+	as = strings.TrimSpace(as)
+	if strings.EqualFold(as, b.WorkerName) || (b.WorkerID != "" && as == b.WorkerID) {
+		return true
+	}
+	if i := strings.LastIndex(as, ":"); i >= 0 && strings.HasPrefix(as, "hrn:worker:") {
+		return strings.EqualFold(as[i+1:], b.WorkerName)
+	}
+	return false
 }
 
 // defaultRepo qualifies bare artifact numbers/shas: the binding's recorded

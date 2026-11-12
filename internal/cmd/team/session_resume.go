@@ -79,9 +79,12 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		}
 		pick = &p
 	}
-	// Outside a git worktree this errors: there is nowhere to cache the
-	// binding, and spending the claim anyway would strand it.
-	existing, _, err := readBinding(ctx)
+	// Where this resume would cache the binding: a git worktree's git dir, or
+	// a plain directory's own cache (cli#1391). Another worker's binding in a
+	// plain directory is sent as the expected worker below, so the server
+	// refuses this claim instead of consuming it, and writeBinding refuses
+	// under the lock as the backstop.
+	existing, _, err := readBindingForBind(ctx)
 	if err != nil {
 		return err
 	}

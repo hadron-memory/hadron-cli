@@ -3146,8 +3146,13 @@ server error fails the command).
   `code`, `reason`, `picked`, `expectedWorkerId/Name`, `foundWorkerId/Name`
   and `foundSource` (CLAIM|LIVE_SESSION), exactly as the server sent them. A resume refuses `--repo`, `--branch`, `--reports-to`, `-m` and
   `--force` (exit 2), refuses over a worktree still bound to a live session
-  (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
-  spent. It never ends the session it recovered: on a later failure, run
+  (exit 5) and where git fails for any reason other than "not a git
+  repository" (exit 2), all BEFORE any claim is spent. A plain directory
+  (not a git checkout, cli#1391) resumes, starts and sheds: the binding is
+  cached in `.hadron-team/hadron-team-session.json` inside that directory
+  (owner-only, same lock), only the current directory is consulted, and
+  another worker's start or resume there is refused (exit 5),
+  `--force` included, so one directory never shares a binding. It never ends the session it recovered: on a later failure, run
   `start` again. The binding caches the bound session's own tool, model and
   repo; a flag fills only a field it lacks, and a flag a RESUMED session
   ignores gets a stderr note. A claim carries no secret and no id — there is nothing to
