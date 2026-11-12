@@ -63,7 +63,7 @@ The command prints the address of the server's revoke page, or, on an explicit `
 3. **`f.PublicGraphQLClient()`.** No credential is required: the server answers the field anonymously and the URL grants nothing. A signed-in user's credential still rides under the existing transport rules, unchanged (gate: preserve that helper's behaviour).
 4. **One `PasskeyRevokeUrl` query**, selecting only `serverInfo { passkeyRevokeUrl }`. No mutation exists in the path.
 5. **Errors.** An envelope whose every error is a validation error naming `passkeyRevokeUrl` exits 2 with "this server does not advertise its passkey revoke page (an older server, or passkeys were switched off since discovery); no URL was constructed": the two causes look the same, so the sentence names both. A mixed envelope, or a validation error on any other name, keeps `api.MapErrorKeepingCode` (skew advice, exit 7 for transport).
-6. **Validation, construct nothing** (`validRevokeURL`). The value is used byte-for-byte if it is an absolute http(s) URL with a host, no userinfo and no opaque part (node open's rule), does not start with `-`, carries no control or format character (it is printed verbatim; `url.Parse` refuses only ASCII controls, so a C1 control or a bidi override would otherwise pass), and passes the CLI's own transport rule (`api.URLIsSecure`, exporting `schemeIsSecure`: https, http to a loopback host, or `HADRON_ALLOW_HTTP=1`). Anything else exits 1, "the server returned an invalid passkey revoke URL", and nothing is opened. **No same-origin check against `--server`**: the value is the deployment's canonical `baseUrl`, which may differ from the host the CLI dials (§10 judges this boundary).
+6. **Validation, construct nothing** (`validRevokeURL`). The value is used byte-for-byte if it is an absolute http(s) URL with a host, no userinfo and no opaque part (node open's rule), does not start with `-`, carries no control or format character (it is printed verbatim; `url.Parse` refuses ASCII controls only before the `#`, so an ESC in the fragment, a C1 control or a bidi override would otherwise pass), and passes the CLI's own transport rule (`api.URLIsSecure`, exporting `schemeIsSecure`: https, http to a loopback host, or `HADRON_ALLOW_HTTP=1`). Anything else exits 1, "the server returned an invalid passkey revoke URL", and nothing is opened. **No same-origin check against `--server`**: the value is the deployment's canonical `baseUrl`, which may differ from the host the CLI dials (§10 judges this boundary).
 7. **Output.** Text: the URL alone on one line. `--json`: `{"passkeyRevokeUrl": "<url>"}` (an explicit DTO). With `--open`: one launcher call (`auth.OpenInBrowser`: argv, no shell) with exactly that URL, then the URL is printed; a launcher failure exits 1 with the URL in the message. A launcher that starts is not proof that the page loaded. **No auto-open**: unlike `node open`, a terminal without `--open` only prints.
 
 Test seams: `auth.PasskeyOpenBrowser` (the launcher) and `auth.PasskeyStdoutIsTerminal` (the test streams can fake a terminal on input, not on output).
@@ -75,7 +75,39 @@ Test seams: `auth.PasskeyOpenBrowser` (the launcher) and `auth.PasskeyStdoutIsTe
 - `--json` exactly one key; no auto-open on a terminal; `--open` one call with the exact URL; launcher failure exit 1 with the URL.
 - `--open --json` and `--open` off a terminal: exit 2 with 0 capability reads, 0 POSTs, 0 opener calls.
 - The missing field: exit 2 with its sentence and no skew advice, even with `--open`; another name keeps the skew advice; a mixed envelope is not read as the missing field. A 500: exit 7, no HTML, nothing opened.
-- Invalid values (`""`, `javascript:`, a relative path, userinfo, `-h`, insecure http, an opaque form, an empty host, `ftp://localhost`, a trailing U+0085, a U+202E) under `--open`, `--json` and text: exit 1, nothing opened, the value not echoed. Loopback http and `HADRON_ALLOW_HTTP=1` pass.
+- Invalid values (`""`, `javascript:`, a relative path, userinfo, `-h`, insecure http, an opaque form, an empty host, `ftp://localhost`, a trailing U+0085, a U+202E, an ESC hyperlink sequence in the fragment, an empty hostname `https://:443/…`) under `--open`, `--json` and text: exit 1, nothing opened, the value not echoed. Loopback http and `HADRON_ALLOW_HTTP=1` pass.
+- The production terminal seam asks stdout, not stdin (`TestTTY` streams are an input terminal only).
 - The help's sentences, and no URL in it. The `list` help pin now also requires its revoke paragraph to name `revoke-page`.
 
-Seventeen mutants, each one guard. Fifteen are killed by a named test: the capability gate, the discovery error, auto-open on a terminal, the terminal check, the `--json` check, the URL built from `--server`, userinfo, host, the transport rule, the control-character rule, the validation mapping dropped, the validation match broadened to `IsGraphQLValidationFor`, `GraphQLClient` instead of the public client, a swallowed launcher error, and opening before validation. Two survive as equivalent today and are kept on purpose: the explicit http(s) allow-list (`URLIsSecure` allows only those two schemes now, but it is a credential rule that could grow) and the leading-`-` refusal (no absolute http(s) URL can start with `-`; it backs up `OpenInBrowser`'s own refusal). A third candidate, `!u.IsAbs()`, was equivalent to the scheme allow-list and was removed.
+Twenty mutants, one guard each. Every mutant's search text was asserted to match exactly once before it was applied, and the file was restored afterwards. `TestPasskey*` was run against each mutant.
+
+| Mutant | Killed by |
+|---|---|
+| capability gate dropped | `RevokePageOffMakesNoGraphQLRequest` |
+| discovery error let through | `RevokePageOffMakesNoGraphQLRequest` |
+| auto-open on a terminal | `RevokePageNoAutoOpen`, `RevokePageJSON` |
+| terminal check dropped | `RevokePageOpenMisuse` |
+| `--json` check dropped | `RevokePageOpenMisuse` |
+| terminal seam asks stdin (`IsInputTerminal`) | `StdoutIsTerminalReadsStdout` |
+| URL built from `--server` + `/passkeys/revoke` | `RevokePageJSON`, `RevokePageInvalidURL`, `RevokePageLauncherFailure` |
+| userinfo check dropped | `RevokePageInvalidURL` |
+| host and hostname checks dropped | `RevokePageInvalidURL` |
+| hostname check alone dropped (`https://:443/…`) | `RevokePageInvalidURL` |
+| transport rule (`URLIsSecure`) dropped | `RevokePageInvalidURL` |
+| control/format-character check dropped (U+0085, U+202E, ESC in the fragment) | `RevokePageInvalidURL` |
+| validation mapping dropped (generic skew) | `RevokePageFieldMissing` |
+| match broadened to `IsGraphQLValidationFor` | `RevokePageFieldMissing` (mixed envelope) |
+| `GraphQLClient` instead of the public client | `RevokePageSignedOut` |
+| launcher error swallowed | `RevokePageLauncherFailure` |
+| opened before validation | `RevokePageInvalidURL`, `RevokePageOpen` |
+| explicit http(s) allow-list dropped | survives, equivalent today (see below) |
+| opaque check dropped | survives, equivalent (see below) |
+| leading-`-` refusal dropped | survives, equivalent (see below) |
+
+Three mutants survive because each guard is equivalent to another check, and each guard is kept on purpose:
+
+- **The http(s) allow-list.** `URLIsSecure` allows only http and https today. That rule decides where a credential may go and could gain schemes later; the allow-list keeps this page a web page if it does.
+- **The opaque check.** An opaque URL has no host, so `u.Host == ""` already refuses it. The check stays to keep node open's rule word for word.
+- **The leading-`-` refusal.** No absolute http(s) URL can start with `-`. The refusal backs up `OpenInBrowser`'s own.
+
+A fourth guard, `!u.IsAbs()`, was equivalent to the scheme allow-list and was removed.

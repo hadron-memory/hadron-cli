@@ -259,7 +259,7 @@ func TestPasskeyRevokePageOpenMisuse(t *testing.T) {
 		want  string
 	}{
 		{"open with json", true, []string{"--open", "--json"}, "--open cannot be used with --json"},
-		{"open not a terminal", false, []string{"--open"}, "--open needs a terminal"},
+		{"open not a terminal", false, []string{"--open"}, "--open needs stdout to be a terminal"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -332,6 +332,8 @@ func TestPasskeyRevokePageInvalidURL(t *testing.T) {
 		"ftp://localhost/passkeys/revoke",
 		"https://accounts.hadron.example/passkeys/revoke\u0085",
 		"https://accounts.hadron.example/\u202epasskeys/revoke",
+		"https://accounts.hadron.example/passkeys/revoke#\x1b]8;;https://evil.example\x07",
+		"https://:443/passkeys/revoke",
 	} {
 		t.Run(bad, func(t *testing.T) {
 			s := newRevokePageServer(t, 200, passkeysOn, 200, revokeURLBody(bad))
@@ -364,6 +366,16 @@ func TestPasskeyRevokePageInvalidURL(t *testing.T) {
 				t.Fatalf("exit %d opened %v out %q err %q", r.code, r.opened, r.out, r.errOut)
 			}
 		})
+	}
+}
+
+// The production terminal seam asks about stdout, not stdin: TestTTY streams
+// are an input terminal only, so they must read as "not a terminal" here, or
+// `revoke-page --open | cat` typed at a prompt would launch.
+func TestPasskeyStdoutIsTerminalReadsStdout(t *testing.T) {
+	tty, _, _ := output.TestTTY("")
+	if auth.PasskeyStdoutIsTerminal(tty) {
+		t.Fatal("an input-only terminal reads as an output terminal")
 	}
 }
 

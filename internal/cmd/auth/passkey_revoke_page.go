@@ -59,9 +59,9 @@ it's you, with another passkey or a linked identity provider, and choose which
 passkey to remove. The address is the same for everyone. It names no passkey
 and grants nothing, and this CLI removes nothing itself.
 
---open asks your browser to open it; that works only in a terminal and never
-with --json. Without --open, nothing is launched. A launcher that starts is
-not proof that the page loaded.
+--open also asks your browser to open it. It is refused (exit 2) with --json
+or when output is not a terminal. Without --open, nothing is launched. A
+launcher that starts is not proof that the page loaded.
 
 The address is printed alone on one line; --json gives an object with one
 key, passkeyRevokeUrl. No sign-in is needed. A server that does not offer
@@ -88,7 +88,7 @@ func runPasskeyRevokePage(ctx context.Context, f *cmdutil.Factory, open, termina
 		return exitcode.Newf(exitcode.Usage, "--open cannot be used with --json: --json only prints the address")
 	}
 	if open && !terminal {
-		return exitcode.Newf(exitcode.Usage, "--open needs a terminal: stdout is not one, so nothing would be launched; drop --open to print the address")
+		return exitcode.Newf(exitcode.Usage, "--open needs stdout to be a terminal; nothing was launched. Drop --open to print the address")
 	}
 	server, err := f.Server()
 	if err != nil {
@@ -141,8 +141,9 @@ func runPasskeyRevokePage(ctx context.Context, f *cmdutil.Factory, open, termina
 // no opaque part (node open's writeNodePortal rule), not starting with '-'
 // (a launcher would read it as a flag; no http(s) URL can, so this only
 // backs up OpenInBrowser's own refusal), with no control or format character
-// (it is printed to a terminal verbatim, and url.Parse only refuses ASCII
-// controls: a C1 control or a bidi override would pass it), and passing the CLI's own transport rule:
+// (it is printed to a terminal verbatim; url.Parse refuses ASCII controls
+// only before the '#', so an ESC in the fragment, a C1 control or a bidi
+// override would pass it), and passing the CLI's own transport rule:
 // https, http to a loopback host, or HADRON_ALLOW_HTTP=1. No same-origin check
 // against --server: the value is the deployment's canonical baseUrl, which
 // may differ from the API host the CLI dials (gate 6835278968).
