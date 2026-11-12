@@ -61987,6 +61987,113 @@ type MyAppResponse struct {
 // GetMyApp returns MyAppResponse.MyApp, and is useful for accessing the field via an interface.
 func (v *MyAppResponse) GetMyApp() *MyAppMyApp { return v.MyApp }
 
+// MyPasskeysMyPasskeysPasskeyCredential includes the requested fields of the GraphQL type PasskeyCredential.
+// The GraphQL type's documentation follows.
+//
+// #1631: a passkey record, as its owner sees it. Never a private key.
+type MyPasskeysMyPasskeysPasskeyCredential struct {
+	Id string `json:"id"`
+	// The owner's name for it; the fixed text "Erased passkey" once the owner's account is deleted.
+	Label          string   `json:"label"`
+	Transports     []string `json:"transports"`
+	BackupEligible bool     `json:"backupEligible"`
+	BackedUp       bool     `json:"backedUp"`
+	RegisteredAt   string   `json:"registeredAt"`
+	LastUsedAt     *string  `json:"lastUsedAt"`
+	RevokedAt      *string  `json:"revokedAt"`
+	// A first passkey's cooling-off window; null for a later passkey.
+	Window *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow `json:"window"`
+	// When its cancel link was used; null if never cancelled. The cancel IP address and user agent,
+	// and the credential id, are shown only on the interactive revocation page after the owner proves who they are,
+	// never over a bearer credential (#1631 PR3 §10).
+	Cancel *MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord `json:"cancel"`
+}
+
+// GetId returns MyPasskeysMyPasskeysPasskeyCredential.Id, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetId() string { return v.Id }
+
+// GetLabel returns MyPasskeysMyPasskeysPasskeyCredential.Label, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetLabel() string { return v.Label }
+
+// GetTransports returns MyPasskeysMyPasskeysPasskeyCredential.Transports, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetTransports() []string { return v.Transports }
+
+// GetBackupEligible returns MyPasskeysMyPasskeysPasskeyCredential.BackupEligible, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetBackupEligible() bool { return v.BackupEligible }
+
+// GetBackedUp returns MyPasskeysMyPasskeysPasskeyCredential.BackedUp, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetBackedUp() bool { return v.BackedUp }
+
+// GetRegisteredAt returns MyPasskeysMyPasskeysPasskeyCredential.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetRegisteredAt() string { return v.RegisteredAt }
+
+// GetLastUsedAt returns MyPasskeysMyPasskeysPasskeyCredential.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns MyPasskeysMyPasskeysPasskeyCredential.RevokedAt, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetWindow returns MyPasskeysMyPasskeysPasskeyCredential.Window, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetWindow() *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow {
+	return v.Window
+}
+
+// GetCancel returns MyPasskeysMyPasskeysPasskeyCredential.Cancel, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredential) GetCancel() *MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord {
+	return v.Cancel
+}
+
+// MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord includes the requested fields of the GraphQL type PasskeyCancelRecord.
+type MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord struct {
+	At string `json:"at"`
+}
+
+// GetAt returns MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord.At, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredentialCancelPasskeyCancelRecord) GetAt() string { return v.At }
+
+// MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow includes the requested fields of the GraphQL type PasskeyWindow.
+type MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow struct {
+	EndsAt  string  `json:"endsAt"`
+	EndedAt *string `json:"endedAt"`
+	// ran-out | ended-early | cancelled, or null while open (a window that ran out reads by its end time).
+	Outcome *string `json:"outcome"`
+	// The fresh sign-in method it was registered with.
+	RegistrationMethod *string `json:"registrationMethod"`
+}
+
+// GetEndsAt returns MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow.EndsAt, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow) GetEndsAt() string {
+	return v.EndsAt
+}
+
+// GetEndedAt returns MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow.EndedAt, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow) GetEndedAt() *string {
+	return v.EndedAt
+}
+
+// GetOutcome returns MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow.Outcome, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow) GetOutcome() *string {
+	return v.Outcome
+}
+
+// GetRegistrationMethod returns MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow.RegistrationMethod, and is useful for accessing the field via an interface.
+func (v *MyPasskeysMyPasskeysPasskeyCredentialWindowPasskeyWindow) GetRegistrationMethod() *string {
+	return v.RegistrationMethod
+}
+
+// MyPasskeysResponse is returned by MyPasskeys on success.
+type MyPasskeysResponse struct {
+	// #1631 PR3: the caller's own passkey records, revoked ones included, newest first. Only the
+	// owner sees them: an App key or an impersonation session is refused. Registering and revoking are interactive
+	// ceremonies on the server-hosted pages, never GraphQL. Present only while passkey registration is enabled.
+	MyPasskeys []*MyPasskeysMyPasskeysPasskeyCredential `json:"myPasskeys"`
+}
+
+// GetMyPasskeys returns MyPasskeysResponse.MyPasskeys, and is useful for accessing the field via an interface.
+func (v *MyPasskeysResponse) GetMyPasskeys() []*MyPasskeysMyPasskeysPasskeyCredential {
+	return v.MyPasskeys
+}
+
 // MyUserApiKeysMyUserApiKeysPageUserApiKeyPage includes the requested fields of the GraphQL type UserApiKeyPage.
 // The GraphQL type's documentation follows.
 //
@@ -140809,6 +140916,59 @@ func MyApp(
 	}
 
 	data_ = &MyAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MyPasskeys.
+const MyPasskeys_Operation = `
+query MyPasskeys {
+	myPasskeys {
+		id
+		label
+		transports
+		backupEligible
+		backedUp
+		registeredAt
+		lastUsedAt
+		revokedAt
+		window {
+			endsAt
+			endedAt
+			outcome
+			registrationMethod
+		}
+		cancel {
+			at
+		}
+	}
+}
+`
+
+// cli#878 part 1: the caller's own passkey records (hadron-server#1631 PR3,
+// cor:aut:040:05). Every PasskeyCredential field the SDL has, and nothing that
+// could be key material: the server never puts the credential id, the public
+// key or the cancel IP/user agent on this type (withheld over a bearer, #1631
+// §10), and passkeys_878_test pins that this selection names none of them.
+// The query is only in the schema while the registration switch is on; the
+// command reads /capabilities first so a switched-off server is never asked.
+func MyPasskeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *MyPasskeysResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MyPasskeys",
+		Query:  MyPasskeys_Operation,
+	}
+
+	data_ = &MyPasskeysResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
