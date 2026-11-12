@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 225: 179 command, 21 gap, 25 excluded
+[Query] 225: 181 command, 19 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -173,8 +173,8 @@ nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage tw
 nodeRevisionsPage  command node revision list
 nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — identical exact-match loc semantics and access scoping, plus PK/URN refs via nodeId, type filtering, memoryId scoping and paging (#802).
 object  command object get
-orgBootPromptSigning  gap #1879
-orgBootPromptSigningPreview  gap #1879
+orgBootPromptSigning  command org signing get
+orgBootPromptSigningPreview  command org signing preview
 organization  command org get
 organizations  command org list
 previewAgentSchedule  command schedule preview
@@ -250,7 +250,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 350: 289 command, 47 gap, 14 excluded
+[Mutation] 350: 290 command, 46 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -524,7 +524,7 @@ setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
-setOrgBootPromptSigning  gap #1879
+setOrgBootPromptSigning  command org signing on
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
@@ -602,7 +602,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 81: 45 gap, 36 excluded
+[Arguments] 82: 46 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -675,6 +675,7 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
+Query.agentTeamEventsPage(alarmsInEffect)  gap #1940
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617

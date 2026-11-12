@@ -1,0 +1,63 @@
+# hadron-cli#1879 / hadron-server#2973 PR 2: an organisation's boot-prompt
+# signing switch. Three SEPARATE documents on purpose: an older server rejects
+# a document that names a field it lacks, so folding these into a shared
+# operation would break unrelated commands against it.
+
+query OrgBootPromptSigning($org: ID!) {
+  orgBootPromptSigning(org: $org) {
+    required
+    enforced
+    deploymentSigns
+  }
+}
+
+# first/after are omitted (not sent as null) on a plain preview, so the server's
+# default page (20) applies.
+query OrgBootPromptSigningPreview(
+  $org: ID!
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  orgBootPromptSigningPreview(org: $org, first: $first, after: $after) {
+    enforced
+    deploymentSigns
+    total
+    hasMore
+    endCursor
+    previewToken
+    rows {
+      appId
+      appUrn
+      agentId
+      agentName
+      workerId
+      workerName
+      compiledNodeId
+      compiledNodeUrn
+      servedRevSeq
+      state
+      changesToRevSeq
+    }
+  }
+}
+
+# previewToken is omitted on switch-off (the server reads an explicit null as a
+# clear/invalid token); only switch-on carries one.
+mutation SetOrgBootPromptSigning(
+  $org: ID!
+  $required: Boolean!
+  # @genqlient(omitempty: true)
+  $previewToken: String
+) {
+  setOrgBootPromptSigning(
+    org: $org
+    required: $required
+    previewToken: $previewToken
+  ) {
+    required
+    enforced
+    deploymentSigns
+  }
+}
