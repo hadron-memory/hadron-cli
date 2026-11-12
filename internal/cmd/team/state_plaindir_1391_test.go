@@ -152,3 +152,45 @@ func TestPlainDir1391OtherGitFailuresStayHard(t *testing.T) {
 		t.Fatal("no cache may be created on a non-plain git failure")
 	}
 }
+
+// Gloria's BLIND F1 on #1968: git localizes "not a git repository". The
+// shim answers in German unless the CLI asks git for the C locale, so a plain
+// directory under a non-C locale must still read as plain.
+func TestPlainDir1391PlainUnderATranslatedGit(t *testing.T) {
+	bin := t.TempDir()
+	script := "#!/bin/sh\nif [ \"$LC_ALL\" = C ]; then echo 'fatal: not a git repository (or any of the parent directories): .git' >&2; else echo 'Schwerwiegend: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git' >&2; fi\nexit 128\n"
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o700); err != nil { // #nosec G306 — a test shim must be executable
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	t.Setenv(GitDirEnv, "")
+	t.Setenv("LC_ALL", "de_DE.UTF-8")
+	t.Setenv("LANG", "de_DE.UTF-8")
+	t.Chdir(t.TempDir())
+	if _, plain, err := readBindingForBind(context.Background()); err != nil || !plain {
+		t.Fatalf("a plain directory under a German locale must read as plain, got plain=%v err=%v", plain, err)
+	}
+}
+
+// Gloria's BLIND F2 on #1968: the lock-time check is the only guard for a
+// resume and a launch grant, so a cached binding with no worker id — which
+// cannot show it is the same worker — refuses rather than being replaced.
+func TestPlainDir1391BindingWithoutWorkerIDIsNotReplaced(t *testing.T) {
+	dir := plainDir1391(t)
+	ctx := context.Background()
+	if err := os.MkdirAll(filepath.Join(dir, plainDirCacheName), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(dir, plainDirCacheName, bindingFileName)
+	legacy := `{"sessionId":"s1","workerName":"Iris","agentId":"agt1"}`
+	if err := os.WriteFile(cache, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := writeBinding(ctx, &binding{SessionID: "s9", WorkerID: "wkr2", WorkerName: "Bob"})
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Fatalf("exit %d, want Conflict: %v", code, err)
+	}
+	if raw, _ := os.ReadFile(cache); string(raw) != legacy {
+		t.Fatal("a refused bind must leave the cached binding byte-identical")
+	}
+}
