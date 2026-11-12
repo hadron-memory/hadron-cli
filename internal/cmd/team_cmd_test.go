@@ -3273,21 +3273,42 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
 		bind(t, bindingWithTeamFixture) // no chatSeenSeq
 		gql, captured := captureGraphQL(t, stubs(nil))
-		f, _ := testFactory(t)
+		f, out := testFactory(t)
 		errOut := f.IOStreams.ErrOut.(*strings.Builder)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
-		if !strings.Contains(errOut.String(), "this worktree has no contiguous team-chat read cursor") ||
-			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
-			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
+		note := ""
+		for _, line := range strings.Split(errOut.String(), "\n") {
+			if strings.Contains(line, "this worktree has no contiguous team-chat read cursor") {
+				if note != "" {
+					t.Errorf("duplicate chat note: %q", errOut.String())
+				}
+				note = line
+			}
+		}
+		for _, want := range []string{
+			"session log surfaces team-chat decisions",
+			"this worktree has no contiguous team-chat read cursor",
+			"unfiltered `hadron team chat read --all` reads from the oldest page",
+			"`hadron team chat read --since 0` starts at the oldest page (continue with nextSince)",
+			"bare `hadron team chat read` shows only the newest page",
+			"filtered reads and `hadron team chat mark-read` do not set this cursor",
+		} {
+			if !strings.Contains(note, want) {
+				t.Errorf("note lacks %q: %q", want, errOut.String())
+			}
+		}
+
+		if strings.Contains(out.String(), "team-chat") {
+			t.Errorf("note leaked into stdout: %q", out.String())
 		}
 		// Claims only what the CLI knows — a portal or other-binding read is
 		// invisible here, so asserting the worker never read would be a false
 		// nudge (seq 102).
-		if !strings.Contains(errOut.String(), "portal or under another binding is not visible here") {
+		if !strings.Contains(note, "portal or under another binding is not visible here") {
 			t.Errorf("the note must name its own blind spot: %q", errOut.String())
 		}
 		// And it costs nothing: no count query is worth issuing for that answer.
