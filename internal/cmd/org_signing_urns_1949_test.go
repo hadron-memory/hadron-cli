@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -15,19 +16,22 @@ const (
 	urnAgentA  = "hrn:agent:author.com:planner"
 	urnWorkerA = "hrn:worker:acme.com:team:ada"
 	urnAgentB  = "hrn:agent:author.com:reviewer"
+
+	workerNameA = "ada"
 )
 
-// urnRows serves three rows: a worker row (both URNs), an install-level row
-// (agentUrn only, workerUrn null) and a row where the server derived neither.
+// urnRows serves three rows: a worker row (a real worker id and name, both
+// URNs), an install-level row (agentUrn only; no worker, so workerUrn is null as
+// the server derives it) and a row where the server derived neither.
 func urnRows() string {
-	row := func(n int, agent, worker string) string {
-		return fmt.Sprintf(`{"appId":"app-%d","appUrn":"hrn:app:acme.com:a%d","agentId":"agt-%d","agentName":"agent-%d","workerId":null,"workerName":null,"compiledNodeId":"cn-%d","compiledNodeUrn":null,"servedRevSeq":%d,"state":"UNSIGNED_STOPS","changesToRevSeq":null,"agentUrn":%s,"workerUrn":%s}`,
-			n, n, n, n, n, n, agent, worker)
+	row := func(n int, agent, worker, workerID, workerName string) string {
+		return fmt.Sprintf(`{"appId":"app-%d","appUrn":"hrn:app:acme.com:a%d","agentId":"agt-%d","agentName":"agent-%d","workerId":%s,"workerName":%s,"compiledNodeId":"cn-%d","compiledNodeUrn":null,"servedRevSeq":%d,"state":"UNSIGNED_STOPS","changesToRevSeq":null,"agentUrn":%s,"workerUrn":%s}`,
+			n, n, n, n, workerID, workerName, n, n, agent, worker)
 	}
 	rows := strings.Join([]string{
-		row(1, `"`+urnAgentA+`"`, `"`+urnWorkerA+`"`),
-		row(2, `"`+urnAgentB+`"`, `null`),
-		row(3, `null`, `null`),
+		row(1, `"`+urnAgentA+`"`, `"`+urnWorkerA+`"`, `"wrk-1"`, `"`+workerNameA+`"`),
+		row(2, `"`+urnAgentB+`"`, `null`, `null`, `null`),
+		row(3, `null`, `null`, `null`, `null`),
 	}, ",")
 	return `{"data":{"orgBootPromptSigningPreview":{"enforced":false,"deploymentSigns":true,"total":3,"hasMore":false,"endCursor":null,"previewToken":"tok","rows":[` + rows + `]}}}`
 }
@@ -96,13 +100,40 @@ func TestOrgSigningPreviewTextPrintsPresentURNsAndOmitsAbsent(t *testing.T) {
 	if code := runSigning(t, f, fake, "org", "signing", "preview", "acme.com"); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	s := out.String()
-	for _, want := range []string{urnAgentA, urnWorkerA, urnAgentB} {
-		if !strings.Contains(s, want) {
-			t.Errorf("text lacks %q:\n%s", want, s)
+	lines := strings.Split(out.String(), "\n")
+	var header string
+	byApp := map[string]string{}
+	for _, l := range lines {
+		switch {
+		case strings.HasPrefix(l, "APP"):
+			header = l
+		case strings.Contains(l, "hrn:app:acme.com:a"):
+			byApp[strings.Fields(l)[0]] = l
 		}
 	}
-	if strings.Contains(s, "null") || strings.Contains(s, "<nil>") {
-		t.Errorf("an absent URN must be omitted, not printed:\n%s", s)
+	for _, app := range []string{"a1", "a2", "a3"} {
+		if byApp["hrn:app:acme.com:"+app] == "" {
+			t.Fatalf("row %s is missing from the table:\n%s", app, out.String())
+		}
+	}
+	for _, col := range []string{"AGENT URN", "WORKER URN"} {
+		if !strings.Contains(header, col) {
+			t.Errorf("header lacks %q: %q", col, header)
+		}
+	}
+	// Row 1: the worker's name sits in the WORKER cell, beside its workerUrn.
+	r1 := strings.Fields(byApp["hrn:app:acme.com:a1"])
+	if !slices.Contains(r1, workerNameA) || !slices.Contains(r1, urnAgentA) || !slices.Contains(r1, urnWorkerA) {
+		t.Errorf("worker row lacks name/URNs: %q", byApp["hrn:app:acme.com:a1"])
+	}
+	// Row 2: an install row prints (install) and agentUrn only.
+	r2 := byApp["hrn:app:acme.com:a2"]
+	if !strings.Contains(r2, "(install)") || !strings.Contains(r2, urnAgentB) || strings.Contains(r2, "hrn:worker:") {
+		t.Errorf("install row wrong: %q", r2)
+	}
+	// Row 3: neither URN, and nothing placeholder-like in the row.
+	r3 := byApp["hrn:app:acme.com:a3"]
+	if strings.Contains(r3, "hrn:agent:") || strings.Contains(r3, "hrn:worker:") || strings.Contains(r3, "null") || strings.Contains(r3, "<nil>") {
+		t.Errorf("absent URNs must be omitted, not printed: %q", r3)
 	}
 }
