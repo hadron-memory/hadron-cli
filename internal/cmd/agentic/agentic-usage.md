@@ -529,7 +529,7 @@ hadron ai-config list (--owner-type APP|AGENT|ORGANIZATION|HADRON_SERVER --owner
 hadron ai-config test <id> [--override-file <path|->] [--json]
 hadron ai-config get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-style CHAT_COMPLETIONS|RESPONSES] [--api-key -] [--file <path>]
 hadron ai-config update <id> [--endpoint <url|"">] [--api-style CHAT_COMPLETIONS|RESPONSES | --clear-api-style] ... | rm <id>
-hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
+hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | signing get|off <org> | signing preview <org> [--first N] [--after C] [--all] | signing on <org>   # boot-prompt signing switch (#1879); off|on take [--yes] | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] [--app-context <app>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent compile <agent> [--no-set-pointer] [--as-worker] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | memory add <agent> <memory> [--role <r>] | memory set-role <agent> <memory> --role <r> | memory rm <agent> <memory> --yes (refs sent verbatim, one mutation each; prints the Agent DTO; the server owns authority and role validation) | revision create <agent> [--description <t>] (prints revisionLoc/label/published/createdAt; no publish/restore yet) | lock acquire <agent> (locked:false prints holder/expiry and exits 5, no retry) | lock release <agent> (released:false exits 5) | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear) | boot-prompt <agent> [--app <app>] [--model <m>] (cli#1853: the boot prompt the Agent is served now, no worker binding; stdout is a header line `served boot prompt: <LEVEL> <compiledNodeId> revision <N>` then the served text raw (final newline on a TTY only); --json `{decision,text}`; without --app only the Agent's own pointer, never the configured default App; exits 4 AGENT_NOT_FOUND; BOOT_PROMPT_NOT_SET/_TARGET_DELETED/_NOT_APPROVED/_NOT_SIGNED exit 1 (branch on the code); a malformed decision exits 1; valid decision with empty text is success) | model-group list <agent> | model-group set <agent> <name> [--pattern <glob>]… | model-group delete <agent> <name> [--yes]
   # Agent detail (`hadron agent get <ref>`): when systemMemoryId is present, one optional memory read adds the server-returned URN as systemMemoryUrn and displays `system memory: <urn> (<id>)`. If that read is unavailable, refused, missing or unsupported by the server, the command silently keeps its ID-only output and omits systemMemoryUrn. Agent listing is unchanged.
@@ -5286,6 +5286,39 @@ invitation metadata; treat the output as private.
 `org member add|set-role|rm` forwards orgRef/userRef, replacing deprecated
 orgId/userId arguments. Org ID/slug/URN and user ID/email/handle/URN are passed
 verbatim for server resolution. Command spellings and output stay unchanged.
+
+`org signing get|preview|on|off <org>` reads and sets an organization's
+boot-prompt signing switch (hadron-server#2973). Only the org's current ADMIN
+or OWNER, signed in as themselves, may call it: a worker session, an App key,
+a run, impersonation (reads and previews), a non-member and an unknown org ALL
+get the same FORBIDDEN (exit 8, one constant message); an impersonated `on`/`off`
+is instead refused by the platform with HTTP 403 IMPERSONATION_READ_ONLY (exit 1,
+the server's message, serverCode in the envelope) and nothing changes, so the CLI never looks the org up
+first and never sends the worker-session header. `<org>` goes to the server as
+typed and `--json` echoes it unchanged in `org`. `get --json`:
+{org, required, enforced, deploymentSigns}; `enforced` is the switch AND the
+deployment shipping signing, so required=true, enforced=false means this
+deployment does not sign yet. `preview --json`: {org, enforced, deploymentSigns,
+total, rows[], hasMore, endCursor}, each row {appId, appUrn, agentId, agentName,
+workerId|null, workerName|null, compiledNodeId, compiledNodeUrn|null,
+servedRevSeq, state SIGNATURE_PENDING|REVISION_CHANGES|UNSIGNED_STOPS,
+changesToRevSeq|null}; rows is [] when empty; there is no previewToken. A plain
+`preview` reads ONE server page (the server's default of 20) and, when hasMore,
+says to use `--after <endCursor>` or `--all` (every page; not combinable with
+--first/--after). `--first N` goes to the server unchanged (below 1 is the
+server's BAD_USER_INPUT, exit 2; above 200 is served as 200); a non-integer is
+exit 2 with no request. `on` always reads EVERY page and writes the full
+preview to stderr (JSON under --json) BEFORE it confirms, then sends the FIRST
+page's token; `--yes` skips only the prompt, and a non-interactive run without
+it exits 2 (an empty preview still confirms). Its stdout is one document:
+{org, required, enforced, deploymentSigns, preview:{total, rows}}. If the
+preview changed or expired (10 minutes), BOOT_PROMPT_SIGNING_PREVIEW_STALE exits
+5 with serverCode in the envelope and nothing changes: run `on` again. A preview
+that moves while it is being read exits 1 with nothing printed. `off` needs no
+token, confirms (`--yes` skips; non-interactive without it exits 2), sends no
+previewToken, and prints {org, required, enforced, deploymentSigns}.
+BOOT_PROMPT_SIGNING_NOT_CONFIGURED (the server has no token key) exits 1.
+Older servers answer GRAPHQL_VALIDATION_FAILED (schema skew, exit 2).
 
 ### Team session inputs and host availability (#1337)
 

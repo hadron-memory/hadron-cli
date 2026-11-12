@@ -21875,6 +21875,25 @@ var AllBootPromptServeRefusal = []BootPromptServeRefusal{
 	BootPromptServeRefusalBootPromptTargetDeleted,
 }
 
+// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09 and hrn:node:hadronmemory.com:specs:cor:agt:040:10: what
+// switching signing on would do to ONE served compiled boot prompt.
+// SIGNATURE_PENDING: the served revision's signature is pending (a first passkey's cooling-off window), so it would stop
+// being served until the window ends. REVISION_CHANGES: the serve would fall back to changesToRevSeq, the newest older
+// revision that is approved and signed (R35). UNSIGNED_STOPS: no approved revision is signed, so it would be refused.
+type BootPromptSigningPreviewState string
+
+const (
+	BootPromptSigningPreviewStateRevisionChanges  BootPromptSigningPreviewState = "REVISION_CHANGES"
+	BootPromptSigningPreviewStateSignaturePending BootPromptSigningPreviewState = "SIGNATURE_PENDING"
+	BootPromptSigningPreviewStateUnsignedStops    BootPromptSigningPreviewState = "UNSIGNED_STOPS"
+)
+
+var AllBootPromptSigningPreviewState = []BootPromptSigningPreviewState{
+	BootPromptSigningPreviewStateRevisionChanges,
+	BootPromptSigningPreviewStateSignaturePending,
+	BootPromptSigningPreviewStateUnsignedStops,
+}
+
 // CalendarCreateEventCalendarCreateEventCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
 type CalendarCreateEventCalendarCreateEventCalendarEvent struct {
 	CalendarReadEvent `json:"-"`
@@ -67443,6 +67462,182 @@ type OrgAgentGrantsResponse struct {
 // GetOrganization returns OrgAgentGrantsResponse.Organization, and is useful for accessing the field via an interface.
 func (v *OrgAgentGrantsResponse) GetOrganization() *OrgAgentGrantsOrganization { return v.Organization }
 
+// OrgBootPromptSigningOrgBootPromptSigning includes the requested fields of the GraphQL type OrgBootPromptSigning.
+// The GraphQL type's documentation follows.
+//
+// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: where an organisation stands on requiring a SIGNED compiled
+// boot prompt. required is the stored switch; enforced is what is true: the switch AND the deployment shipping signing
+// (PASSKEY_SIGNING_ENABLED), so an organisation never reads as protected on a deployment where it is not. deploymentSigns
+// is the second term alone. Readable by the organisation's current ADMINs and OWNERs, acting as themselves.
+type OrgBootPromptSigningOrgBootPromptSigning struct {
+	Required        bool `json:"required"`
+	Enforced        bool `json:"enforced"`
+	DeploymentSigns bool `json:"deploymentSigns"`
+}
+
+// GetRequired returns OrgBootPromptSigningOrgBootPromptSigning.Required, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningOrgBootPromptSigning) GetRequired() bool { return v.Required }
+
+// GetEnforced returns OrgBootPromptSigningOrgBootPromptSigning.Enforced, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningOrgBootPromptSigning) GetEnforced() bool { return v.Enforced }
+
+// GetDeploymentSigns returns OrgBootPromptSigningOrgBootPromptSigning.DeploymentSigns, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningOrgBootPromptSigning) GetDeploymentSigns() bool {
+	return v.DeploymentSigns
+}
+
+// OrgBootPromptSigningPreviewOrgBootPromptSigningPreview includes the requested fields of the GraphQL type BootPromptSigningPreview.
+// The GraphQL type's documentation follows.
+//
+// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: the preview shown BEFORE an organisation's switch goes on,
+// one page of it. Each request mints its own previewToken over the FULL preview (every row, every page) at one consistent
+// snapshot; any page's token is accepted within its own ten minutes. setOrgBootPromptSigning(required: true) must present it. The token grants no
+// authority and holds no prompt text; it expires after ten minutes. While the deployment does not ship signing the rows
+// still say what WOULD change, and enforced says false.
+type OrgBootPromptSigningPreviewOrgBootPromptSigningPreview struct {
+	Enforced        bool `json:"enforced"`
+	DeploymentSigns bool `json:"deploymentSigns"`
+	// The number of rows across all pages.
+	Total   int  `json:"total"`
+	HasMore bool `json:"hasMore"`
+	// Pass as after to read the next page; null on an empty page.
+	EndCursor    *string                                                                                  `json:"endCursor"`
+	PreviewToken string                                                                                   `json:"previewToken"`
+	Rows         []*OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow `json:"rows"`
+}
+
+// GetEnforced returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.Enforced, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetEnforced() bool {
+	return v.Enforced
+}
+
+// GetDeploymentSigns returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.DeploymentSigns, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetDeploymentSigns() bool {
+	return v.DeploymentSigns
+}
+
+// GetTotal returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.Total, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetTotal() int { return v.Total }
+
+// GetHasMore returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.HasMore, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetHasMore() bool { return v.HasMore }
+
+// GetEndCursor returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.EndCursor, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// GetPreviewToken returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.PreviewToken, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetPreviewToken() string {
+	return v.PreviewToken
+}
+
+// GetRows returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreview.Rows, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetRows() []*OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow {
+	return v.Rows
+}
+
+// OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow includes the requested fields of the GraphQL type BootPromptSigningPreviewRow.
+// The GraphQL type's documentation follows.
+//
+// #2973 PR2: one served compiled boot prompt the switch would change. workerId is null on the install-level row (an uncustomised worker and a chat share it).
+type OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow struct {
+	AppId           string  `json:"appId"`
+	AppUrn          string  `json:"appUrn"`
+	AgentId         string  `json:"agentId"`
+	AgentName       string  `json:"agentName"`
+	WorkerId        *string `json:"workerId"`
+	WorkerName      *string `json:"workerName"`
+	CompiledNodeId  string  `json:"compiledNodeId"`
+	CompiledNodeUrn *string `json:"compiledNodeUrn"`
+	// The revision served today.
+	ServedRevSeq    int                           `json:"servedRevSeq"`
+	State           BootPromptSigningPreviewState `json:"state"`
+	ChangesToRevSeq *int                          `json:"changesToRevSeq"`
+}
+
+// GetAppId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AppId, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAppId() string {
+	return v.AppId
+}
+
+// GetAppUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AppUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAppUrn() string {
+	return v.AppUrn
+}
+
+// GetAgentId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AgentId, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentName returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.AgentName, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetAgentName() string {
+	return v.AgentName
+}
+
+// GetWorkerId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.WorkerId, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetWorkerId() *string {
+	return v.WorkerId
+}
+
+// GetWorkerName returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.WorkerName, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetWorkerName() *string {
+	return v.WorkerName
+}
+
+// GetCompiledNodeId returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetCompiledNodeId() string {
+	return v.CompiledNodeId
+}
+
+// GetCompiledNodeUrn returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.CompiledNodeUrn, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetCompiledNodeUrn() *string {
+	return v.CompiledNodeUrn
+}
+
+// GetServedRevSeq returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetServedRevSeq() int {
+	return v.ServedRevSeq
+}
+
+// GetState returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.State, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetState() BootPromptSigningPreviewState {
+	return v.State
+}
+
+// GetChangesToRevSeq returns OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow.ChangesToRevSeq, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow) GetChangesToRevSeq() *int {
+	return v.ChangesToRevSeq
+}
+
+// OrgBootPromptSigningPreviewResponse is returned by OrgBootPromptSigningPreview on success.
+type OrgBootPromptSigningPreviewResponse struct {
+	// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: what switching the organisation's boot-prompt signing on
+	// would change, paged (first at least 1, default 20, served at 200 when more is asked, hrn:node:hadronmemory.com:specs:cor:api:120:04; after is the previous page's endCursor). The audience and refusals are
+	// orgBootPromptSigning's.
+	OrgBootPromptSigningPreview *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview `json:"orgBootPromptSigningPreview"`
+}
+
+// GetOrgBootPromptSigningPreview returns OrgBootPromptSigningPreviewResponse.OrgBootPromptSigningPreview, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningPreviewResponse) GetOrgBootPromptSigningPreview() *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview {
+	return v.OrgBootPromptSigningPreview
+}
+
+// OrgBootPromptSigningResponse is returned by OrgBootPromptSigning on success.
+type OrgBootPromptSigningResponse struct {
+	// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: the organisation's boot-prompt signing switch and whether
+	// it is enforced. Only the organisation's current ADMINs and OWNERs, acting as themselves. A worker session (an admin's
+	// included), an App key, an App run, impersonation, a non-member (a platform admin included), a revoked member, a member
+	// below ADMIN, and an organisation that does not exist are all refused with the same FORBIDDEN.
+	OrgBootPromptSigning *OrgBootPromptSigningOrgBootPromptSigning `json:"orgBootPromptSigning"`
+}
+
+// GetOrgBootPromptSigning returns OrgBootPromptSigningResponse.OrgBootPromptSigning, and is useful for accessing the field via an interface.
+func (v *OrgBootPromptSigningResponse) GetOrgBootPromptSigning() *OrgBootPromptSigningOrgBootPromptSigning {
+	return v.OrgBootPromptSigning
+}
+
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 // The GraphQL type's documentation follows.
 //
@@ -77182,7 +77377,9 @@ func (v *ScopesScopesScopesPageItemsScope) __premarshalJSON() (*__premarshalScop
 type SearchEntityType string
 
 const (
-	SearchEntityTypeAgent           SearchEntityType = "agent"
+	SearchEntityTypeAgent SearchEntityType = "agent"
+	// GraphQL only (hrn:node:hadronmemory.com:specs:cor:api:050): MCP hadron_search stays at seven types. Hits only for a person or worker session the task read gate admits.
+	SearchEntityTypeAgenttask       SearchEntityType = "agentTask"
 	SearchEntityTypeAiserviceconfig SearchEntityType = "aiServiceConfig"
 	SearchEntityTypeApp             SearchEntityType = "app"
 	SearchEntityTypeMemory          SearchEntityType = "memory"
@@ -77193,6 +77390,7 @@ const (
 
 var AllSearchEntityType = []SearchEntityType{
 	SearchEntityTypeAgent,
+	SearchEntityTypeAgenttask,
 	SearchEntityTypeAiserviceconfig,
 	SearchEntityTypeApp,
 	SearchEntityTypeMemory,
@@ -81548,6 +81746,49 @@ func (v *SetModelFamilyAvailabilityInput) GetState() AvailabilityState { return 
 
 // GetUntil returns SetModelFamilyAvailabilityInput.Until, and is useful for accessing the field via an interface.
 func (v *SetModelFamilyAvailabilityInput) GetUntil() *string { return v.Until }
+
+// SetOrgBootPromptSigningResponse is returned by SetOrgBootPromptSigning on success.
+type SetOrgBootPromptSigningResponse struct {
+	// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: switch an organisation's boot-prompt signing on or off.
+	// The audience is orgBootPromptSigning's (current ADMIN or OWNER, as themselves; every other shape is FORBIDDEN, the same
+	// for an organisation that does not exist), re-checked inside the transaction. No passkey or step-up either way.
+	// Off needs nothing and is idempotent. On requires the previewToken of a preview fetched with
+	// orgBootPromptSigningPreview by THIS caller for THIS organisation in the last ten minutes: the server locks the
+	// organisation, recomputes the whole preview and refuses BOOT_PROMPT_SIGNING_PREVIEW_STALE, changing nothing, when the
+	// token is missing, forged, another organisation's or caller's, expired, future-dated, or describes a preview that has
+	// since changed. That refusal comes only after the audience check. On when already on, with a valid token, succeeds and
+	// changes nothing. Turning the switch on does not turn on the deployment's signing: read enforced.
+	SetOrgBootPromptSigning *SetOrgBootPromptSigningSetOrgBootPromptSigning `json:"setOrgBootPromptSigning"`
+}
+
+// GetSetOrgBootPromptSigning returns SetOrgBootPromptSigningResponse.SetOrgBootPromptSigning, and is useful for accessing the field via an interface.
+func (v *SetOrgBootPromptSigningResponse) GetSetOrgBootPromptSigning() *SetOrgBootPromptSigningSetOrgBootPromptSigning {
+	return v.SetOrgBootPromptSigning
+}
+
+// SetOrgBootPromptSigningSetOrgBootPromptSigning includes the requested fields of the GraphQL type OrgBootPromptSigning.
+// The GraphQL type's documentation follows.
+//
+// #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: where an organisation stands on requiring a SIGNED compiled
+// boot prompt. required is the stored switch; enforced is what is true: the switch AND the deployment shipping signing
+// (PASSKEY_SIGNING_ENABLED), so an organisation never reads as protected on a deployment where it is not. deploymentSigns
+// is the second term alone. Readable by the organisation's current ADMINs and OWNERs, acting as themselves.
+type SetOrgBootPromptSigningSetOrgBootPromptSigning struct {
+	Required        bool `json:"required"`
+	Enforced        bool `json:"enforced"`
+	DeploymentSigns bool `json:"deploymentSigns"`
+}
+
+// GetRequired returns SetOrgBootPromptSigningSetOrgBootPromptSigning.Required, and is useful for accessing the field via an interface.
+func (v *SetOrgBootPromptSigningSetOrgBootPromptSigning) GetRequired() bool { return v.Required }
+
+// GetEnforced returns SetOrgBootPromptSigningSetOrgBootPromptSigning.Enforced, and is useful for accessing the field via an interface.
+func (v *SetOrgBootPromptSigningSetOrgBootPromptSigning) GetEnforced() bool { return v.Enforced }
+
+// GetDeploymentSigns returns SetOrgBootPromptSigningSetOrgBootPromptSigning.DeploymentSigns, and is useful for accessing the field via an interface.
+func (v *SetOrgBootPromptSigningSetOrgBootPromptSigning) GetDeploymentSigns() bool {
+	return v.DeploymentSigns
+}
 
 type SetQuotaLimitInput struct {
 	// run.execute, llm.tokens, sms.send, or email.send.
@@ -96795,7 +97036,9 @@ func (v *UpdateAiServiceConfigWithEndpointUpdateAiServiceConfig) __premarshalJSO
 type UpdateAppResponse struct {
 	// Update an App.
 	//
-	// Accepts the entity's ID or URN.
+	// Accepts the entity's ID or URN. An uninstalled App is kept read-only
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21): this refuses it with
+	// APP_UNINSTALLED, for every field, after the access gate, writing nothing.
 	UpdateApp *UpdateAppUpdateApp `json:"updateApp"`
 }
 
@@ -96806,7 +97049,9 @@ func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.Update
 type UpdateAppSettingsResponse struct {
 	// Update an App.
 	//
-	// Accepts the entity's ID or URN.
+	// Accepts the entity's ID or URN. An uninstalled App is kept read-only
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21): this refuses it with
+	// APP_UNINSTALLED, for every field, after the access gate, writing nothing.
 	UpdateApp *UpdateAppSettingsUpdateApp `json:"updateApp"`
 }
 
@@ -112577,6 +112822,30 @@ type __OrgAgentGrantsInput struct {
 // GetRef returns __OrgAgentGrantsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__OrgAgentGrantsInput) GetRef() string { return v.Ref }
 
+// __OrgBootPromptSigningInput is used internally by genqlient
+type __OrgBootPromptSigningInput struct {
+	Org string `json:"org"`
+}
+
+// GetOrg returns __OrgBootPromptSigningInput.Org, and is useful for accessing the field via an interface.
+func (v *__OrgBootPromptSigningInput) GetOrg() string { return v.Org }
+
+// __OrgBootPromptSigningPreviewInput is used internally by genqlient
+type __OrgBootPromptSigningPreviewInput struct {
+	Org   string  `json:"org"`
+	First *int    `json:"first,omitempty"`
+	After *string `json:"after,omitempty"`
+}
+
+// GetOrg returns __OrgBootPromptSigningPreviewInput.Org, and is useful for accessing the field via an interface.
+func (v *__OrgBootPromptSigningPreviewInput) GetOrg() string { return v.Org }
+
+// GetFirst returns __OrgBootPromptSigningPreviewInput.First, and is useful for accessing the field via an interface.
+func (v *__OrgBootPromptSigningPreviewInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __OrgBootPromptSigningPreviewInput.After, and is useful for accessing the field via an interface.
+func (v *__OrgBootPromptSigningPreviewInput) GetAfter() *string { return v.After }
+
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
 	Ref string `json:"ref"`
@@ -114064,6 +114333,22 @@ type __SetHostWorkerAvailabilityInput struct {
 
 // GetInput returns __SetHostWorkerAvailabilityInput.Input, and is useful for accessing the field via an interface.
 func (v *__SetHostWorkerAvailabilityInput) GetInput() *SetHostWorkerAvailabilityInput { return v.Input }
+
+// __SetOrgBootPromptSigningInput is used internally by genqlient
+type __SetOrgBootPromptSigningInput struct {
+	Org          string  `json:"org"`
+	Required     bool    `json:"required"`
+	PreviewToken *string `json:"previewToken,omitempty"`
+}
+
+// GetOrg returns __SetOrgBootPromptSigningInput.Org, and is useful for accessing the field via an interface.
+func (v *__SetOrgBootPromptSigningInput) GetOrg() string { return v.Org }
+
+// GetRequired returns __SetOrgBootPromptSigningInput.Required, and is useful for accessing the field via an interface.
+func (v *__SetOrgBootPromptSigningInput) GetRequired() bool { return v.Required }
+
+// GetPreviewToken returns __SetOrgBootPromptSigningInput.PreviewToken, and is useful for accessing the field via an interface.
+func (v *__SetOrgBootPromptSigningInput) GetPreviewToken() *string { return v.PreviewToken }
 
 // __SetQuotaLimitInput is used internally by genqlient
 type __SetQuotaLimitInput struct {
@@ -141665,6 +141950,100 @@ func OrgAgentGrants(
 	return data_, err_
 }
 
+// The query executed by OrgBootPromptSigning.
+const OrgBootPromptSigning_Operation = `
+query OrgBootPromptSigning ($org: ID!) {
+	orgBootPromptSigning(org: $org) {
+		required
+		enforced
+		deploymentSigns
+	}
+}
+`
+
+func OrgBootPromptSigning(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	org string,
+) (data_ *OrgBootPromptSigningResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgBootPromptSigning",
+		Query:  OrgBootPromptSigning_Operation,
+		Variables: &__OrgBootPromptSigningInput{
+			Org: org,
+		},
+	}
+
+	data_ = &OrgBootPromptSigningResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by OrgBootPromptSigningPreview.
+const OrgBootPromptSigningPreview_Operation = `
+query OrgBootPromptSigningPreview ($org: ID!, $first: Int, $after: String) {
+	orgBootPromptSigningPreview(org: $org, first: $first, after: $after) {
+		enforced
+		deploymentSigns
+		total
+		hasMore
+		endCursor
+		previewToken
+		rows {
+			appId
+			appUrn
+			agentId
+			agentName
+			workerId
+			workerName
+			compiledNodeId
+			compiledNodeUrn
+			servedRevSeq
+			state
+			changesToRevSeq
+		}
+	}
+}
+`
+
+// first/after are omitted (not sent as null) on a plain preview, so the server's
+// default page (20) applies.
+func OrgBootPromptSigningPreview(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	org string,
+	first *int,
+	after *string,
+) (data_ *OrgBootPromptSigningPreviewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgBootPromptSigningPreview",
+		Query:  OrgBootPromptSigningPreview_Operation,
+		Variables: &__OrgBootPromptSigningPreviewInput{
+			Org:   org,
+			First: first,
+			After: after,
+		},
+	}
+
+	data_ = &OrgBootPromptSigningPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by OrgMembers.
 const OrgMembers_Operation = `
 query OrgMembers ($ref: ID!) {
@@ -147356,6 +147735,48 @@ func SetHostWorkerAvailability(
 	}
 
 	data_ = &SetHostWorkerAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetOrgBootPromptSigning.
+const SetOrgBootPromptSigning_Operation = `
+mutation SetOrgBootPromptSigning ($org: ID!, $required: Boolean!, $previewToken: String) {
+	setOrgBootPromptSigning(org: $org, required: $required, previewToken: $previewToken) {
+		required
+		enforced
+		deploymentSigns
+	}
+}
+`
+
+// previewToken is omitted on switch-off (the server reads an explicit null as a
+// clear/invalid token); only switch-on carries one.
+func SetOrgBootPromptSigning(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	org string,
+	required bool,
+	previewToken *string,
+) (data_ *SetOrgBootPromptSigningResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetOrgBootPromptSigning",
+		Query:  SetOrgBootPromptSigning_Operation,
+		Variables: &__SetOrgBootPromptSigningInput{
+			Org:          org,
+			Required:     required,
+			PreviewToken: previewToken,
+		},
+	}
+
+	data_ = &SetOrgBootPromptSigningResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
