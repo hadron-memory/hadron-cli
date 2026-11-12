@@ -366,7 +366,7 @@ is one call instead of four.`, abstractSoftMax),
 			}
 
 			if dryRun {
-				if err := requireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 					return err
 				}
 				result.Content = body
@@ -559,7 +559,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 		result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
 	}
 	if in.dryRun {
-		if err := requireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 			return err
 		}
 		result.Content = body
@@ -990,7 +990,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		})
 	}
 	if dryRun {
-		if err := requireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 			return err
 		}
 		return render()
