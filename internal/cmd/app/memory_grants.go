@@ -15,22 +15,24 @@ import (
 )
 
 type memoryGrantDTO struct {
-	ID              string  `json:"id"`
-	AppID           string  `json:"appId"`
-	MemoryURN       *string `json:"memoryUrn"`
-	Prefix          string  `json:"prefix"`
-	RegisterNodeURN *string `json:"registerNodeUrn"`
-	GrantedBy       string  `json:"grantedBy"`
-	CreatedAt       string  `json:"createdAt"`
-	RevokedAt       *string `json:"revokedAt"`
-	RevokedBy       *string `json:"revokedBy"`
+	ID                 string  `json:"id"`
+	AppID              string  `json:"appId"`
+	MemoryURN          *string `json:"memoryUrn"`
+	Prefix             string  `json:"prefix"`
+	RegisterNodeURN    *string `json:"registerNodeUrn"`
+	GrantedBy          string  `json:"grantedBy"`
+	CreatedAt          string  `json:"createdAt"`
+	RevokedAt          *string `json:"revokedAt"`
+	RevokedBy          *string `json:"revokedBy"`
+	NotEffective       *bool   `json:"notEffective"`
+	NotEffectiveReason *string `json:"notEffectiveReason"`
 }
 
 func memoryGrantFrom(g gen.AppMemoryGrantFields) (memoryGrantDTO, error) {
 	if g.Id == "" || g.AppId == "" || g.Prefix == "" {
 		return memoryGrantDTO{}, exitcode.Newf(exitcode.Error, "the server returned an incomplete memory write grant")
 	}
-	return memoryGrantDTO{ID: g.Id, AppID: g.AppId, MemoryURN: g.MemoryUrn, Prefix: g.Prefix, RegisterNodeURN: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}, nil
+	return memoryGrantDTO{NotEffective: g.NotEffective, NotEffectiveReason: g.NotEffectiveReason, ID: g.Id, AppID: g.AppId, MemoryURN: g.MemoryUrn, Prefix: g.Prefix, RegisterNodeURN: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}, nil
 }
 
 // A null memory URN may be concealed; distinguish it from absent optional metadata.
@@ -41,9 +43,27 @@ func memoryGrantMemoryText(value *string) string {
 	return *value
 }
 
+// The server decides effectiveness. Unknown reasons remain display text, never
+// a client-side policy table; a null mark is concealed/unknown, not false.
+func memoryGrantMark(d memoryGrantDTO) string {
+	if d.NotEffective == nil || !*d.NotEffective {
+		return ""
+	}
+	if d.NotEffectiveReason == nil || *d.NotEffectiveReason == "" {
+		return "not-effective"
+	}
+	return "not-effective: " + output.SafeCell(*d.NotEffectiveReason)
+}
+
 func writeMemoryGrant(f *cmdutil.Factory, d memoryGrantDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 		_, err := fmt.Fprintf(w, "id: %s\napp: %s\nmemory: %s\nprefix: %s\nregister: %s\ngranted by: %s\ncreated: %s\nrevoked: %s\nrevoked by: %s\n", output.SafeCell(d.ID), output.SafeCell(d.AppID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(d.GrantedBy), output.SafeCell(d.CreatedAt), output.SafeCell(optionalReadText(d.RevokedAt)), output.SafeCell(optionalReadText(d.RevokedBy)))
+		if err != nil {
+			return err
+		}
+		if mark := memoryGrantMark(d); mark != "" {
+			_, err = fmt.Fprintln(w, mark)
+		}
 		return err
 	})
 }
@@ -54,6 +74,13 @@ A grant covers one loc prefix and its colon-boundary descendants: reports:team
 covers reports:team:daily, but not reports:teamX. It never grants a whole memory.
 These commands grant no read access and do not change a user's own authority.
 The server checks every write again, including the memory's current class.
+A server-marked not-effective grant authorizes nothing now; the reason is shown
+when supplied. This mark is not revocation: the row remains in the default list
+until a manager revokes it. The mark can disappear if the target qualifies again.
+When the memory is concealed, both notEffective and notEffectiveReason are null.
+Older providers without this metadata keep working; both fields are null there.
+No mark is not proof of effectiveness. These fields are server-derived metadata,
+not a client access decision.
 
 Only a person managing the App may add. Listing and revoking also admit their
 held worker on --instruction; without it these calls act as the person.
@@ -80,7 +107,9 @@ and a nonempty loc prefix. The server validates the prefix and authority.
 line exists; it is omitted unless given. Empty reference flags are refused.
 
 The target App, memory and prefix are confirmed before sending. Scripts need
---yes. This is one mutation, never retried. A lost answer is an unknown
+--yes. At most one mutation executes. A schema refusal for the new metadata can
+use an older compatible document; network/runtime failures are never retried.
+A lost answer is an unknown
 outcome: list the App's grants before retrying. The server decides whether an
 existing live grant is reused. No file, credential or source content is read.
 JSON is the returned grant metadata; nullable memory/citation/revoker fields
@@ -108,7 +137,7 @@ stay null. Human output uses ? for a concealed/null memory and - for other null 
 		if err != nil {
 			return err
 		}
-		r, err := gen.SetAppMemoryWriteGrant(cmd.Context(), client, ref, memoryRef, prefix, citation)
+		r, err := setMemoryGrant(cmd.Context(), client, ref, memoryRef, prefix, citation)
 		if err != nil {
 			return api.MapErrorKeepingCode(err)
 		}
@@ -130,9 +159,17 @@ stay null. Human output uses ? for a concealed/null memory and - for other null 
 	return cmd
 }
 
+func memoryGrantListMemory(d memoryGrantDTO) string {
+	text := output.SafeCell(memoryGrantMemoryText(d.MemoryURN))
+	if mark := memoryGrantMark(d); mark != "" {
+		text += " [" + mark + "]"
+	}
+	return text
+}
+
 func newCmdMemoryGrantList(f *cmdutil.Factory) *cobra.Command {
 	var revoked bool
-	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `Read the server's grant list once, in server order. Revoked rows are excluded
+	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `Read the server's grant list in server order. Revoked rows are excluded
 unless --include-revoked is true. Personal/private grants belonging to someone
 else are hidden by the server, so this is not an inventory of hidden grants.
 Pass an explicit App ID, URN or root:slug; ambient --app is not the target.
@@ -177,12 +214,12 @@ as null. Text shows ? for a null memory and - for other null metadata. No keys o
 			t := output.NewTable(w)
 			t.Row("ID", "MEMORY", "PREFIX", "REGISTER", "REVOKED")
 			for _, d := range rows {
-				t.Row(output.SafeCell(d.ID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(optionalReadText(d.RevokedAt)))
+				t.Row(output.SafeCell(d.ID), memoryGrantListMemory(d), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(optionalReadText(d.RevokedAt)))
 			}
 			return t.Flush()
 		})
 	}}
-	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include revoked rows (default: live rows only)")
+	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include revoked rows (default: unrevoked rows, including not-effective grants)")
 	addCredentialInstruction(cmd)
 	return cmd
 }
@@ -192,7 +229,9 @@ func newCmdMemoryGrantRM(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "rm <grant-id> [--yes]", Short: "Revoke a memory write grant; keep its historical row", Long: `Revoke one grant by the ID from app memory-grant list. The App's next write
 using that grant is refused. The row stays; revoking an already revoked row
 changes nothing. Confirmation is required; scripts pass --yes.
-One mutation is sent and never retried. If its answer is lost, list with
+At most one mutation executes. A schema refusal for the new metadata can
+use an older compatible document; network/runtime failures are never retried.
+If its answer is lost, list with
 --include-revoked to check the outcome before retrying. JSON returns the grant
 metadata including revokedAt; text uses ? for a concealed/null memory and -
 for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
