@@ -384,6 +384,13 @@ successful or not, before anything is retired or prescribed:
   `spec get <old>` shows that `superseded-by` edge.** A rerun that still
   can't see it takes the new-supersede path and mints a *second* replacement.
 
+`spec edit|new|rescind --dry-run` (cli#1912) answers a caller who cannot write to the
+memory with the real run's refusal, `Forbidden: no write access to this memory`, exit 8,
+and prints no plan. The verdict is the server's (`effectiveAccess` for the caller on the
+memory), asked only after the spec/memory was read, so an unreadable one still gives
+the real run's not-found. A credential with no user (an App key) is not asked; its dry
+run is the plan as before.
+
 `spec supersede` (both modes, `--dry-run` too) refuses a RESCINDED or WITHDRAWN
 source (lead or `rescinded`/`withdrawn` tag, cor:spc:010:01) with exit 5 and no
 write. If the source becomes one after the link or replacement landed, the
