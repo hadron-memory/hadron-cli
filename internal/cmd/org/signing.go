@@ -374,9 +374,31 @@ func signingError(err error) error {
 	return api.WithServerCode(mapped, err)
 }
 
+// previewURNFields are the two fields the preview document selects that a
+// server older than previewMinServerCommit lacks (cli#1949).
+var previewURNFields = []string{"agentUrn", "workerUrn"}
+
+// previewMinServerCommit is the hadron-server commit that serves them, from the
+// settled cli#1949 gate. It is guidance in the message only, never a support
+// decision: the CLI learns a field is missing from the server's own refusal.
+const previewMinServerCommit = "cac6c05c6"
+
+// signingOlderServerMsg: the preview request is what the server refused, so it
+// says no signing change was sent, not that nothing was.
+const signingOlderServerMsg = "this server is older than this hadron build needs for the boot-prompt signing preview: " +
+	"it does not serve agentUrn and workerUrn (needs hadron-server at or after " + previewMinServerCommit + "). " +
+	"The preview was refused and no signing change was sent. Upgrade the server, or use an older hadron build"
+
 func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org string, first *int, after *string) (previewPage, error) {
 	resp, err := gen.OrgBootPromptSigningPreview(ctx, client, org, first, after)
 	if err != nil {
+		// cli#1955: a server without the two URN fields refuses this document.
+		// Only that exact refusal (every parsed error is a validation rejection
+		// naming agentUrn or workerUrn, with the framework code) gets its own sentence; anything else
+		// keeps the existing mapping. Exit 2, the framework code rides along.
+		if api.IsFrameworkValidationOnlyFor(err, previewURNFields...) {
+			return previewPage{}, api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s", signingOlderServerMsg), err)
+		}
 		return previewPage{}, signingError(err)
 	}
 	p := resp.OrgBootPromptSigningPreview

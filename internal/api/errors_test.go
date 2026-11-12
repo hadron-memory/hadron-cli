@@ -1115,6 +1115,34 @@ func TestIsGraphQLValidationOnlyFor(t *testing.T) {
 	}
 }
 
+func TestIsFrameworkValidationOnlyFor(t *testing.T) {
+	coded := func(f string) *gqlerror.Error {
+		return &gqlerror.Error{Message: `Cannot query field "` + f + `" on type "Row".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}
+	}
+	// genqlient's shape for a non-JSON non-200 body: one code-less error whose
+	// message is the raw text.
+	rawText := &gqlerror.Error{Message: `Cannot query field "a" on type "Row".`}
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+		want bool
+	}{
+		{"coded, one field", gqlerror.List{coded("a")}, true},
+		{"coded, both fields", gqlerror.List{coded("a"), coded("b")}, true},
+		{"raw text body naming the field", gqlerror.List{rawText}, false},
+		{"coded plus raw text", gqlerror.List{coded("a"), rawText}, false},
+		{"coded plus another field", gqlerror.List{coded("a"), coded("c")}, false},
+		{"no errors", gqlerror.List{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
+			if got := IsFrameworkValidationOnlyFor(err, "a", "b"); got != tc.want {
+				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBulkTemplateRefusalRoot1701(t *testing.T) {
 	for _, tc := range []struct {
 		name string

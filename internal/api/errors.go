@@ -662,6 +662,24 @@ func IsGraphQLValidationOnlyFor(err error, names ...string) bool {
 	return true
 }
 
+// IsFrameworkValidationOnlyFor is IsGraphQLValidationOnlyFor with one more
+// requirement: every error must CARRY extensions.code GRAPHQL_VALIDATION_FAILED.
+// genqlient turns a non-JSON non-200 body (a proxy page, a gateway error) into
+// one code-less error whose message is the raw text, and a text match alone
+// would take that for the server's own refusal. Use it where the sentence
+// printed claims the server itself rejected the field (cli#1955).
+func IsFrameworkValidationOnlyFor(err error, names ...string) bool {
+	if !IsGraphQLValidationOnlyFor(err, names...) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if extensionCode(e) != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+	}
+	return true
+}
+
 // isValidationErrorFor is one error's half of IsGraphQLValidationFor.
 func isValidationErrorFor(e *gqlerror.Error, name string) bool {
 	if e == nil || !strings.Contains(e.Message, `"`+name+`"`) {
