@@ -369,9 +369,10 @@ func (p *Poller) stopLaunchedAgent(op Operation, agent Agent) {
 	delete(p.agentTrees, op.WorkerID)
 	delete(p.agentIDs, op.WorkerID)
 	p.mu.Unlock()
-	// The confirmed stop ends the launch's id reservation; an unconfirmed
-	// one returned above and keeps it (#1474 delta round 2, Jane D1).
-	agent.Release()
+	// The confirmed stop ends the launch's hold on its group number too
+	// (it reaps the leader it had kept unreaped); an unconfirmed one
+	// returned above and keeps both the records and the hold (#1474 delta
+	// round 3, Ada #102351).
 	if err := p.state.dropAgent(op.WorkerID); err != nil {
 		// Logged, not fatal: the entry can then survive a restart in the
 		// state file — a start is refused while its pid reads Alive on it,

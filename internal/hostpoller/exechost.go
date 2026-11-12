@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -126,20 +128,8 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	// Reserve the launch's id before anything can exit: pinPid holds a
-	// Linux pidfd, and a referenced number is never reused, so every later
-	// probe or signal of this launch's group id provably reaches this
-	// launch's group (#1474 delta round 2, Jane D1).
-	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, releasePid: pinPid(cmd.Process.Pid)}
-	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			a.detail = err.Error()
-		} else {
-			a.detail = "exit status 0"
-		}
-		close(a.done)
-	}()
+	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd}
+	go a.waitExit()
 	return a, nil
 }
 
@@ -148,36 +138,108 @@ type execAgent struct {
 	detail string
 	pid    int
 	grace  time.Duration
-	// releasePid drops the launch's id reservation (pinPid), when set. Set
-	// in Launch before the agent is handed out, released only by Release —
-	// one writer, one releaser, both ordered through the poller's tracking.
-	releasePid func()
+	cmd    *exec.Cmd
+
+	// mu serializes the stop against the waiter's reap decision: a stop
+	// holding it may signal the group id because the leader (live, or the
+	// zombie the waiter holds) keeps the number allocated, so the waiter's
+	// reap must not be able to release that number mid-stop.
+	mu sync.Mutex
+	// exited is set once the leader has exited. On a hold-capable platform
+	// the zombie exists before that store, so a stop that observes exited
+	// knows the number is still this launch's: a zombie holds its pid —
+	// the pgid — allocated until the reap (reapgroup_linux.go).
+	exited atomic.Bool
+	reaped atomic.Bool
+	// emptyAtReap is set when the waiter reaped the leader after a scan
+	// found the group EMPTY: nothing of this launch was running at the
+	// reap, the number became public then, and a later stop confirms
+	// without touching it. The no-proof fallback reap never sets it.
+	emptyAtReap atomic.Bool
+	confirmed   atomic.Bool
+}
+
+// waitExit is the launch's waiter goroutine. On a hold-capable platform it
+// waits the leader out WITHOUT reaping it (waitid WNOWAIT): the leader
+// stays a zombie, and the zombie holds the launch's pid — the group id —
+// allocated, so nothing can reuse the group's number from the exit until
+// the reap (#1474 delta round 3, Ada #102351; a pidfd does NOT do this —
+// free_pid drops the allocator's idr entry at the reap while the fd stays
+// valid, Jane D1 / Jonas N1 / Cameron's forced-reuse reproductions). It
+// reaps at once when a scan finds no other member (the common exit:
+// nothing left to keep the zombie for) and otherwise LEAVES the zombie
+// held: that reap then happens only inside the stop, after the group has
+// drained, so every later probe or signal by number goes out while the
+// launch provably owns the number. Platforms without the hold (non-Linux
+// Unix) reap at the exit and keep the stop's documented probe position;
+// Windows runs this same waiter for its Done/ExitDetail semantics only.
+func (a *execAgent) waitExit() {
+	holdFailed := false
+	if leaderHoldCapable {
+		if err := waitLeaderExit(a.pid); err != nil {
+			holdFailed = true // no proof can be taken: reap, and the stop reports what it knows
+		}
+	}
+	a.exited.Store(true)
+	a.mu.Lock()
+	switch {
+	case !leaderHoldCapable || holdFailed:
+		a.reap()
+	case groupHasOtherMembers(a.pid, a.pid):
+		// Members remain: hold the zombie for the stop (its reap
+		// finalizes this provisional detail — the authoritative exit
+		// status is read by cmd.Wait at that reap, not here). If a stop
+		// already reaped (it confirmed and released the number first),
+		// whatever the scan sees on the number now is not this launch's,
+		// and the finalized status stays.
+		if !a.reaped.Load() {
+			a.detail = "the leader exited; its process group still has members"
+		}
+	default:
+		a.reap() // empty group: nothing to keep the number for
+		a.emptyAtReap.Store(true)
+	}
+	a.mu.Unlock()
+	close(a.done)
+}
+
+// reap reaps the leader at most once and finalizes the exit detail. Always
+// called with a.mu held (the waiter's decision, or a confirmed stop).
+func (a *execAgent) reap() {
+	if !a.reaped.CompareAndSwap(false, true) {
+		return
+	}
+	if err := a.cmd.Wait(); err != nil {
+		a.detail = err.Error()
+	} else {
+		a.detail = "exit status 0"
+	}
 }
 
 func (a *execAgent) Done() <-chan struct{} { return a.done }
-func (a *execAgent) ExitDetail() string    { return a.detail }
-func (a *execAgent) PID() int              { return a.pid }
 
-// Terminate stops the process group this launch created and confirms the
-// whole group is gone. The group id is this launch's own for as long as the
-// agent lives: the launch-time reservation keeps the number from being
-// reused, so a probe that finds a group finds THIS launch's group — a
-// wrapper's child that outlives its leader included — and an ESRCH probe is
-// the group gone (#1474; delta round 2, Jane D1 / Jonas P2-1 and P3-1). The
-// platform stop in detach_unix/detach_windows carries the per-OS details.
-func (a *execAgent) Terminate() (bool, string) {
-	return a.stop()
+// ExitDetail describes the exit. Under mu: a stop reaps the held zombie
+// after Done is closed and finalizes the status then, so a read concurrent
+// with a stop must not race that write.
+func (a *execAgent) ExitDetail() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.detail
 }
 
-// Release drops the launch's id reservation. Call exactly once, when the
-// agent is forgotten and will never be stopped again; an agent whose records
-// are kept keeps its reservation for exactly as long as it may still be
-// signalled (#1474 delta round 2, Jane D1).
-func (a *execAgent) Release() {
-	if a.releasePid != nil {
-		a.releasePid()
-		a.releasePid = nil
-	}
+func (a *execAgent) PID() int { return a.pid }
+
+// Terminate stops the process group this launch created and confirms the
+// whole group is gone. On a hold-capable platform the group id stays this
+// launch's own for the agent's whole tracked life — the waiter keeps the
+// exited leader as an unreaped zombie while any member lives, and the reap
+// happens only here, once the group has drained — so a signal by number can
+// only ever reach this launch's group, never a process that took a reused
+// number (#1474; delta round 3, Ada #102351, replacing the pidfd pin Jane
+// D1 / Jonas N1 / Cameron's reproduction disproved). The platform stop in
+// detach_unix/detach_windows carries the per-OS details.
+func (a *execAgent) Terminate() (bool, string) {
+	return a.stop()
 }
 
 // Occupied looks for a process whose working directory is inside path, via

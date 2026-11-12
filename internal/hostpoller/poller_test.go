@@ -106,8 +106,6 @@ func (a *fakeAgent) Terminate() (bool, string) {
 	return true, "terminated the fake"
 }
 
-func (a *fakeAgent) Release() {}
-
 func (a *fakeAgent) terminations() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()

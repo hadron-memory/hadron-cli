@@ -14,13 +14,14 @@ import (
 	"unicode/utf8"
 )
 
-// An agent that already exited — its group gone, its number still reserved
-// by the launch (pinPid) — is a confirmed stop that SIGNALS nothing: the
-// probe is safe to run (a reserved number cannot be someone else's group),
-// and its ESRCH answer is the confirmation. The probes count is asserted on
-// Linux in pinpid_linux_test.go; here the contract every Unix platform
-// keeps is stopped=true, silently, with zero signals (#1474 delta round 2:
-// Jonas's P2 — this file also builds on darwin/BSD, where no pin exists).
+// An agent that already exited — its group gone — is a confirmed stop that
+// SIGNALS nothing. On Linux the waiter proved the group empty at its reap
+// (emptyAtReap) and the stop confirms from that proof alone; on the other
+// Unix platforms the leader was reaped at its exit and the stop's ESRCH
+// probe — the documented residual position — is the confirmation. Either
+// way the contract every Unix platform keeps is stopped=true, silently,
+// with zero signals (#1474 delta round 3; the probe counts are asserted on
+// Linux in reapgroup_linux_test.go — this file also builds on darwin/BSD).
 func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
@@ -53,8 +54,9 @@ func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 // #1474 review P2-1: the leader exiting first must not end the group stop.
 // A launcher that backgrounds a TERM-ignoring agent and returns is the
 // documented failure shape; Terminate — called AFTER the leader is gone —
-// must still stop the whole group, because it probes the group, not the
-// leader.
+// must still stop the whole group: the exited leader is held as an unreaped
+// zombie (Linux), so the group's number is still the launch's and the stop
+// reaches the member through it.
 func TestExecHostTerminateStopsTheGroupAfterTheLeaderExits(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
@@ -110,14 +112,18 @@ func TestExecHostTerminateStopsTheGroupAfterTheLeaderExits(t *testing.T) {
 
 // The paths a healthy host never takes: a group signal that fails outright,
 // and a group that outlives SIGKILL — both must report stopped=false, so the
-// caller keeps the agent's records (#1474 review P2-2).
+// caller keeps the agent's records (#1474 review P2-2). terminateGroup is a
+// method now (it consults the agent's hold state); the agents here model a
+// LIVE leader (not exited), whose drain oracle is the number probe, so the
+// wrapped probe and signal decide the outcome.
 func TestTerminateGroupReportsWhatItCouldNotConfirm(t *testing.T) {
 	t.Run("signal fails", func(t *testing.T) {
 		realSignal, realProbe := signalGroup, probeGroup
 		signalGroup = func(int, syscall.Signal) error { return syscall.EPERM }
 		probeGroup = func(int) error { return nil } // the group is there
 		defer func() { signalGroup, probeGroup = realSignal, realProbe }()
-		stopped, detail := terminateGroup(999998, 50*time.Millisecond)
+		a := &execAgent{pid: 999998, grace: 50 * time.Millisecond}
+		stopped, detail := a.Terminate()
 		if stopped || !strings.Contains(detail, "could not stop") {
 			t.Errorf("a failed signal is not a stop: stopped=%v %q", stopped, detail)
 		}
@@ -130,7 +136,8 @@ func TestTerminateGroupReportsWhatItCouldNotConfirm(t *testing.T) {
 		defer func() {
 			signalGroup, probeGroup, postKillWait = realSignal, realProbe, realWait
 		}()
-		stopped, detail := terminateGroup(999998, 50*time.Millisecond)
+		a := &execAgent{pid: 999998, grace: 50 * time.Millisecond}
+		stopped, detail := a.Terminate()
 		if stopped || !strings.Contains(detail, "did not exit within") {
 			t.Errorf("a group that outlives SIGKILL is not a stop: stopped=%v %q", stopped, detail)
 		}
@@ -176,9 +183,27 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl -u by name":         {[]string{"curl", "-u", "user:pass", "https://h"}, "curl -u <redacted> https://h"},
 		"curl -u by path":         {[]string{"/usr/bin/curl", "-u", "user:pass"}, "/usr/bin/curl -u <redacted>"},
 		"sshpass -p by name":      {[]string{"sshpass", "-p", "secret", "ssh", "h"}, "sshpass -p <redacted> ssh h"},
-		// F6: a setproctitle-padded argv renders one trailing empty, not a
-		// run of them.
-		"padded trailing empties": {[]string{"titled", "x", "", ""}, `titled x ""`},
+		// Delta round 3, Jonas N3: the rules arm from the first argument
+		// naming a credential-flag binary, so WRAPPERS no longer leak the
+		// value; and the flags are per-binary, so curl's -p (--proxytunnel,
+		// no value) does not swallow -u's value and mysql's -p (attached
+		// only) leaves a following database name readable.
+		"sudo curl -u":            {[]string{"sudo", "curl", "-u", "user:pass", "https://h"}, "sudo curl -u <redacted> https://h"},
+		"env curl -u":             {[]string{"env", "curl", "-u", "user:pass"}, "env curl -u <redacted>"},
+		"timeout sshpass -p":      {[]string{"timeout", "30", "sshpass", "-p", "secret", "ssh", "h"}, "timeout 30 sshpass -p <redacted> ssh h"},
+		"nice mysql -p attached":  {[]string{"nice", "mysql", "-pX"}, "nice mysql -p<redacted>"},
+		"curl -p takes no value":  {[]string{"curl", "-p", "-u", "user:pass", "https://h"}, "curl -p -u <redacted> https://h"},
+		"curl -U next":            {[]string{"curl", "-U", "proxy:pass", "https://h"}, "curl -U <redacted> https://h"},
+		"curl -U attached":        {[]string{"curl", "-Uproxy:pass"}, "curl -U<redacted>"},
+		"mysql -p next is a name": {[]string{"mysql", "-p", "db"}, "mysql -p db"},
+		// Round 3, Jonas P3-1: a URL-shaped prefix running into prose ends
+		// its authority at the whitespace; the prose is never cut at a
+		// later @.
+		"url into prose kept": {[]string{"sh", "-c", "curl https://h1 mail user@example.com"}, `sh -c "curl https://h1 mail user@example.com"`},
+		// F6 moved to the /proc boundary (argvFromCmdline): renderArgv
+		// renders the slots it is given, real empties included (round 3,
+		// Jane D3).
+		"two real trailing empties": {[]string{"agent", "", ""}, `agent "" ""`},
 		// P3-2 residual: an argument appended raw for its name is still
 		// quoted when it carries invalid UTF-8.
 		"raw append quoted too": {[]string{"a", "--token\xff"}, `a "--token\xff"`},
@@ -207,19 +232,22 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 	}
 }
 
-// argvFromCmdline keeps an empty LAST argument (Jane D3) and treats an empty
-// read as no argv at all, so comm answers for kernel threads and zombies
-// (#1474 delta review P3-1).
+// argvFromCmdline keeps an empty LAST argument (Jane D3), collapses a RUN of
+// trailing empties — setproctitle padding (F6), now at this /proc boundary
+// rather than in renderArgv (round 3 Jane D3) — and treats an empty read as
+// no argv at all, so comm answers for kernel threads and zombies (#1474
+// delta review P3-1).
 func TestArgvFromCmdline(t *testing.T) {
 	for name, tc := range map[string]struct {
 		raw  []byte
 		want []string
 		ok   bool
 	}{
-		"ordinary":            {[]byte("sh\x00-c\x00echo hi\x00"), []string{"sh", "-c", "echo hi"}, true},
-		"one terminator only": {[]byte("a\x00"), []string{"a"}, true},
-		"empty last argument": {[]byte("sh\x00-c\x00sleep 30 & wait\x00label\x00\x00"), []string{"sh", "-c", "sleep 30 & wait", "label", ""}, true},
-		"empty is no argv":    {nil, nil, false},
+		"ordinary":             {[]byte("sh\x00-c\x00echo hi\x00"), []string{"sh", "-c", "echo hi"}, true},
+		"one terminator only":  {[]byte("a\x00"), []string{"a"}, true},
+		"empty last argument":  {[]byte("sh\x00-c\x00sleep 30 & wait\x00label\x00\x00"), []string{"sh", "-c", "sleep 30 & wait", "label", ""}, true},
+		"setproctitle padding": {[]byte("titled\x00x\x00\x00\x00\x00"), []string{"titled", "x", ""}, true},
+		"empty is no argv":     {nil, nil, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, ok := argvFromCmdline(tc.raw)
