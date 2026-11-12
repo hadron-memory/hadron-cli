@@ -26266,6 +26266,32 @@ func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesRes
 	return v.FindNodes
 }
 
+// #4005: PASS = exactly ONE respond call with a string message and every required field, whichever tool choice was sent.
+// FAIL_TEXT_ONLY = no tool call. FAIL_OTHER_TOOL = a call to a tool that was not offered. FAIL_MULTIPLE_CALLS = more than one call.
+// FAIL_MALFORMED = one respond call whose arguments do not fit its schema. FAIL_PROVIDER_UNAVAILABLE = the call failed or timed out, or
+// none could be made (no key, an unbuildable config, a quota refusal). UNSUPPORTED_PROVIDER = the provider is not offered tools.
+type ChatProbeStatus string
+
+const (
+	ChatProbeStatusFailMalformed           ChatProbeStatus = "FAIL_MALFORMED"
+	ChatProbeStatusFailMultipleCalls       ChatProbeStatus = "FAIL_MULTIPLE_CALLS"
+	ChatProbeStatusFailOtherTool           ChatProbeStatus = "FAIL_OTHER_TOOL"
+	ChatProbeStatusFailProviderUnavailable ChatProbeStatus = "FAIL_PROVIDER_UNAVAILABLE"
+	ChatProbeStatusFailTextOnly            ChatProbeStatus = "FAIL_TEXT_ONLY"
+	ChatProbeStatusPass                    ChatProbeStatus = "PASS"
+	ChatProbeStatusUnsupportedProvider     ChatProbeStatus = "UNSUPPORTED_PROVIDER"
+)
+
+var AllChatProbeStatus = []ChatProbeStatus{
+	ChatProbeStatusFailMalformed,
+	ChatProbeStatusFailMultipleCalls,
+	ChatProbeStatusFailOtherTool,
+	ChatProbeStatusFailProviderUnavailable,
+	ChatProbeStatusFailTextOnly,
+	ChatProbeStatusPass,
+	ChatProbeStatusUnsupportedProvider,
+}
+
 // Chat-history search (hadron-cli#1327 over hadron-server#2882, cor:agt:020:04).
 // Results are references only (seq + message URN): no body, no snippet. The
 // server owns the query bound, the default and maximum page, and the scan bound,
@@ -56350,7 +56376,7 @@ const (
 	LintKindRecompileAvailable LintKind = "RECOMPILE_AVAILABLE"
 	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
 	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
-	// The include says signed; signing is not checked yet.
+	// The include says signed; this deployment's signing policy is off, so signing is not checked.
 	LintKindSigningNotChecked LintKind = "SIGNING_NOT_CHECKED"
 	// A worker's signature or trailer does not carry the worker link (hrn:node:hadronmemory.com:specs:cor:agt:040:04 S3). workerField names which.
 	LintKindWorkerLinkMissing LintKind = "WORKER_LINK_MISSING"
@@ -90169,7 +90195,7 @@ func (v *TeamGrantSigningRequestGrantSigningRequest) __premarshalJSON() (*__prem
 
 // TeamGrantSigningRequestResponse is returned by TeamGrantSigningRequest on success.
 type TeamGrantSigningRequestResponse struct {
-	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller (as grant(ref:) reads it).
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it).
 	GrantSigningRequest *TeamGrantSigningRequestGrantSigningRequest `json:"grantSigningRequest"`
 }
 
@@ -90662,7 +90688,7 @@ func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) __pr
 
 // TeamRequestGrantSignatureResponse is returned by TeamRequestGrantSignature on success.
 type TeamRequestGrantSignatureResponse struct {
-	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Whoever may read the grant may ask (as grant(ref:) reads it), a bound worker included; workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Two callers may ask: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it); workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
 	RequestGrantSignature *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest `json:"requestGrantSignature"`
 }
 
@@ -93058,7 +93084,7 @@ func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) __premar
 
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
 type TeamWithdrawGrantSigningRequestResponse struct {
-	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
 	WithdrawGrantSigningRequest *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest `json:"withdrawGrantSigningRequest"`
 }
 
@@ -93879,6 +93905,14 @@ type TestAiServiceConfigResponse struct {
 	// reaches the provider is metered (usage type ai-config-test); NO_API_KEY
 	// and KEY_UNREADABLE make no call and record nothing. The call is bounded
 	// by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+	//
+	// #4005: chatProbe (default false) also runs ONE chat probe: the chat turn's
+	// own respond tool, sent with the chat turn's tool-choice decision
+	// (ChatAiConfigChoice.toolChoice), output capped at 64 tokens, 20s, no
+	// retries. Its outcome is the closed AiServiceConfigTestResult.chat status.
+	// It is a second, separately metered provider attempt (usage type
+	// ai-config-test-chat) under the same one rate-limit unit. Absent or false,
+	// the result and the call are exactly what they were.
 	TestAiServiceConfig *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult `json:"testAiServiceConfig"`
 }
 
@@ -94048,6 +94082,217 @@ func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiSe
 
 // GetParams returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Params, and is useful for accessing the field via an interface.
 func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetParams() AiConfigTestValueSource {
+	return v.Params
+}
+
+// TestAiServiceConfigWithChatProbeResponse is returned by TestAiServiceConfigWithChatProbe on success.
+type TestAiServiceConfigWithChatProbeResponse struct {
+	// #1378: test a SAVED config by id with one small real call, through the same
+	// client, endpoint and egress guard a run uses; the stored key never leaves
+	// the server. The override argument tests edited values without saving them. Auth: as
+	// updateAiServiceConfig; refused under impersonation. Every test that
+	// reaches the provider is metered (usage type ai-config-test); NO_API_KEY
+	// and KEY_UNREADABLE make no call and record nothing. The call is bounded
+	// by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+	//
+	// #4005: chatProbe (default false) also runs ONE chat probe: the chat turn's
+	// own respond tool, sent with the chat turn's tool-choice decision
+	// (ChatAiConfigChoice.toolChoice), output capped at 64 tokens, 20s, no
+	// retries. Its outcome is the closed AiServiceConfigTestResult.chat status.
+	// It is a second, separately metered provider attempt (usage type
+	// ai-config-test-chat) under the same one rate-limit unit. Absent or false,
+	// the result and the call are exactly what they were.
+	TestAiServiceConfig *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult `json:"testAiServiceConfig"`
+}
+
+// GetTestAiServiceConfig returns TestAiServiceConfigWithChatProbeResponse.TestAiServiceConfig, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeResponse) GetTestAiServiceConfig() *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult {
+	return v.TestAiServiceConfig
+}
+
+// TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult includes the requested fields of the GraphQL type AiServiceConfigTestResult.
+// The GraphQL type's documentation follows.
+//
+// #1378: one test call, made through the same client and endpoint a run uses.
+type TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult struct {
+	Ok       bool   `json:"ok"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	// The endpoint the request actually went to: the explicit endpoint, else the host the SDK chose (OPENAI_BASE_URL / ANTHROPIC_BASE_URL when the server sets one, Bedrock's regional host), else the catalog default. Null when it can't be known (Bedrock with no region).
+	Endpoint *string `json:"endpoint"`
+	// The wire protocol the request actually used.
+	ApiStyle  *AiApiStyle `json:"apiStyle"`
+	LatencyMs int         `json:"latencyMs"`
+	// The model's reply, truncated.
+	Reply *string                                                                                                    `json:"reply"`
+	Error *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError `json:"error"`
+	Used  *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed   `json:"used"`
+	// #1417: what each provider knob in the effective params did on the call. Empty unless the call completed (a failed call's adapter warnings are unknown), or when the params carry none. maxTokens is listed as the ceiling it set (ADJUSTED when the probe's cap is lower); toolCalling (a gate) is not a provider knob and is not listed.
+	Knobs []*TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob `json:"knobs"`
+	// #4005: the chat probe's outcome. Null unless chatProbe was requested. A closed status and nothing else: no key, model text or provider text.
+	Chat *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome `json:"chat"`
+}
+
+// GetOk returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Ok, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetOk() bool {
+	return v.Ok
+}
+
+// GetProvider returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Provider, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetProvider() string {
+	return v.Provider
+}
+
+// GetModel returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Model, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetModel() string {
+	return v.Model
+}
+
+// GetEndpoint returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Endpoint, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetEndpoint() *string {
+	return v.Endpoint
+}
+
+// GetApiStyle returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.ApiStyle, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetApiStyle() *AiApiStyle {
+	return v.ApiStyle
+}
+
+// GetLatencyMs returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.LatencyMs, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetLatencyMs() int {
+	return v.LatencyMs
+}
+
+// GetReply returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Reply, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetReply() *string {
+	return v.Reply
+}
+
+// GetError returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Error, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetError() *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError {
+	return v.Error
+}
+
+// GetUsed returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Used, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetUsed() *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed {
+	return v.Used
+}
+
+// GetKnobs returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Knobs, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetKnobs() []*TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob {
+	return v.Knobs
+}
+
+// GetChat returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult.Chat, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult) GetChat() *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome {
+	return v.Chat
+}
+
+// TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome includes the requested fields of the GraphQL type ChatProbeOutcome.
+// The GraphQL type's documentation follows.
+//
+// #4005: the outcome of the chat probe.
+type TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome struct {
+	Status ChatProbeStatus `json:"status"`
+}
+
+// GetStatus returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome.Status, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultChatChatProbeOutcome) GetStatus() ChatProbeStatus {
+	return v.Status
+}
+
+// TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError includes the requested fields of the GraphQL type AiServiceConfigTestError.
+type TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError struct {
+	// NO_API_KEY | KEY_UNREADABLE (the stored key cannot be decrypted here; re-enter it) | CONFIG_INVALID (the config cannot be built at all, e.g. a malformed Bedrock key; no call made) | QUOTA_EXCEEDED (a platform-funded test with the org's daily token allowance used up; no call made) | LLM_CALL_FAILED (the provider call failed or timed out; see transient)
+	Code string `json:"code"`
+	// Provider error text, scrubbed of the key and truncated.
+	Message   string `json:"message"`
+	Transient bool   `json:"transient"`
+}
+
+// GetCode returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Code, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Message, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetMessage() string {
+	return v.Message
+}
+
+// GetTransient returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Transient, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetTransient() bool {
+	return v.Transient
+}
+
+// TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob includes the requested fields of the GraphQL type AiConfigTestKnob.
+// The GraphQL type's documentation follows.
+//
+// #1417: what one provider knob in the effective params did on the call.
+type TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob struct {
+	// The params key, e.g. temperature.
+	Param string `json:"param"`
+	// SENT (carried to the provider, no adapter warning) | ADJUSTED (sent, but the adapter changed the value, e.g. clamped to its range) | DROPPED (the adapter removed it, e.g. temperature on a reasoning model) | NOT_SENT (the platform does not forward it; see detail)
+	State string `json:"state"`
+	// Why it was not sent, or the adapter's own warning text.
+	Detail *string `json:"detail"`
+}
+
+// GetParam returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.Param, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetParam() string {
+	return v.Param
+}
+
+// GetState returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.State, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetState() string {
+	return v.State
+}
+
+// GetDetail returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.Detail, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetDetail() *string {
+	return v.Detail
+}
+
+// TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed includes the requested fields of the GraphQL type AiServiceConfigTestUsed.
+// The GraphQL type's documentation follows.
+//
+// #1378: per field, whether the test used the saved value or the override.
+type TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed struct {
+	Provider AiConfigTestValueSource `json:"provider"`
+	Model    AiConfigTestValueSource `json:"model"`
+	Endpoint AiConfigTestValueSource `json:"endpoint"`
+	ApiStyle AiConfigTestValueSource `json:"apiStyle"`
+	Key      AiConfigTestKeySource   `json:"key"`
+	Params   AiConfigTestValueSource `json:"params"`
+}
+
+// GetProvider returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Provider, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetProvider() AiConfigTestValueSource {
+	return v.Provider
+}
+
+// GetModel returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Model, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetModel() AiConfigTestValueSource {
+	return v.Model
+}
+
+// GetEndpoint returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Endpoint, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetEndpoint() AiConfigTestValueSource {
+	return v.Endpoint
+}
+
+// GetApiStyle returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.ApiStyle, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetApiStyle() AiConfigTestValueSource {
+	return v.ApiStyle
+}
+
+// GetKey returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Key, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetKey() AiConfigTestKeySource {
+	return v.Key
+}
+
+// GetParams returns TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Params, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetParams() AiConfigTestValueSource {
 	return v.Params
 }
 
@@ -115868,6 +116113,24 @@ func (v *__TestAiServiceConfigInput) GetId() string { return v.Id }
 
 // GetOverride returns __TestAiServiceConfigInput.Override, and is useful for accessing the field via an interface.
 func (v *__TestAiServiceConfigInput) GetOverride() *gqltypes.AiServiceConfigTestOverride {
+	return v.Override
+}
+
+// __TestAiServiceConfigWithChatProbeInput is used internally by genqlient
+type __TestAiServiceConfigWithChatProbeInput struct {
+	Id        string                                `json:"id"`
+	ChatProbe bool                                  `json:"chatProbe"`
+	Override  *gqltypes.AiServiceConfigTestOverride `json:"override,omitempty"`
+}
+
+// GetId returns __TestAiServiceConfigWithChatProbeInput.Id, and is useful for accessing the field via an interface.
+func (v *__TestAiServiceConfigWithChatProbeInput) GetId() string { return v.Id }
+
+// GetChatProbe returns __TestAiServiceConfigWithChatProbeInput.ChatProbe, and is useful for accessing the field via an interface.
+func (v *__TestAiServiceConfigWithChatProbeInput) GetChatProbe() bool { return v.ChatProbe }
+
+// GetOverride returns __TestAiServiceConfigWithChatProbeInput.Override, and is useful for accessing the field via an interface.
+func (v *__TestAiServiceConfigWithChatProbeInput) GetOverride() *gqltypes.AiServiceConfigTestOverride {
 	return v.Override
 }
 
@@ -152437,6 +152700,74 @@ func TestAiServiceConfig(
 	}
 
 	data_ = &TestAiServiceConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TestAiServiceConfigWithChatProbe.
+const TestAiServiceConfigWithChatProbe_Operation = `
+mutation TestAiServiceConfigWithChatProbe ($id: ID!, $chatProbe: Boolean!, $override: AiServiceConfigTestOverride) {
+	testAiServiceConfig(id: $id, override: $override, chatProbe: $chatProbe) {
+		ok
+		provider
+		model
+		endpoint
+		apiStyle
+		latencyMs
+		reply
+		error {
+			code
+			message
+			transient
+		}
+		used {
+			provider
+			model
+			endpoint
+			apiStyle
+			key
+			params
+		}
+		knobs {
+			param
+			state
+			detail
+		}
+		chat {
+			status
+		}
+	}
+}
+`
+
+// The opt-in chat probe (hadron-server#4005, cli#1951) is its OWN document, so
+// the default test above keeps today's request and selection exactly, and an
+// older server only fails (GRAPHQL_VALIDATION_FAILED) when the probe is asked for.
+func TestAiServiceConfigWithChatProbe(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	chatProbe bool,
+	override *gqltypes.AiServiceConfigTestOverride,
+) (data_ *TestAiServiceConfigWithChatProbeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TestAiServiceConfigWithChatProbe",
+		Query:  TestAiServiceConfigWithChatProbe_Operation,
+		Variables: &__TestAiServiceConfigWithChatProbeInput{
+			Id:        id,
+			ChatProbe: chatProbe,
+			Override:  override,
+		},
+	}
+
+	data_ = &TestAiServiceConfigWithChatProbeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

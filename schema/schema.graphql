@@ -1900,6 +1900,11 @@ type AiServiceConfigTestResult {
   apiStyle: AiApiStyle
 
   """
+  #4005: the chat probe's outcome. Null unless chatProbe was requested. A closed status and nothing else: no key, model text or provider text.
+  """
+  chat: ChatProbeOutcome
+
+  """
   The endpoint the request actually went to: the explicit endpoint, else the host the SDK chose (OPENAI_BASE_URL / ANTHROPIC_BASE_URL when the server sets one, Bedrock's regional host), else the catalog default. Null when it can't be known (Bedrock with no region).
   """
   endpoint: String
@@ -3426,6 +3431,11 @@ type BootPromptSigningPreview {
 type BootPromptSigningPreviewRow {
   agentId: ID!
   agentName: String!
+
+  """
+  Canonical URN of this row's Agent, rooted at its author rather than the serving App; null when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:urn:010:01
+  """
+  agentUrn: String
   appId: ID!
   appUrn: String!
   changesToRevSeq: Int
@@ -3437,6 +3447,11 @@ type BootPromptSigningPreviewRow {
   state: BootPromptSigningPreviewState!
   workerId: ID
   workerName: String
+
+  """
+  Canonical URN of this row's Worker, using its stored slug; null on an install-level row or when it cannot be derived. hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+  """
+  workerUrn: String
 }
 
 """
@@ -3774,6 +3789,11 @@ type ChatAiConfigChoice {
   provider: String
 
   """
+  #4005: the server's tool-choice decision for this config's provider and model, judged verbatim. Null for the `default` entry, which names no single config.
+  """
+  toolChoice: ChatToolChoice
+
+  """
   `default` for the walk entry, else the config id: the value to send back as aiConfigChoice.
   """
   value: String!
@@ -3794,6 +3814,27 @@ type ChatPage {
   hasMore: Boolean!
   items: [Chat!]!
   total: Int!
+}
+
+"""#4005: the outcome of the chat probe."""
+type ChatProbeOutcome {
+  status: ChatProbeStatus!
+}
+
+"""
+#4005: PASS = exactly ONE respond call with a string message and every required field, whichever tool choice was sent.
+FAIL_TEXT_ONLY = no tool call. FAIL_OTHER_TOOL = a call to a tool that was not offered. FAIL_MULTIPLE_CALLS = more than one call.
+FAIL_MALFORMED = one respond call whose arguments do not fit its schema. FAIL_PROVIDER_UNAVAILABLE = the call failed or timed out, or
+none could be made (no key, an unbuildable config, a quota refusal). UNSUPPORTED_PROVIDER = the provider is not offered tools.
+"""
+enum ChatProbeStatus {
+  FAIL_MALFORMED
+  FAIL_MULTIPLE_CALLS
+  FAIL_OTHER_TOOL
+  FAIL_PROVIDER_UNAVAILABLE
+  FAIL_TEXT_ONLY
+  PASS
+  UNSUPPORTED_PROVIDER
 }
 
 type ChatPromptResult {
@@ -3842,6 +3883,17 @@ type ChatStartResult {
   stageName: String
   systemMessage: String!
   tools: JSON
+}
+
+"""#4005: how a chat turn offers its respond tool."""
+enum ChatToolChoice {
+  """
+  tool_choice auto: for the models that reject a forced choice. The turn also tells the model to answer by calling respond.
+  """
+  AUTO
+
+  """A forced choice of the respond tool: every other provider/model."""
+  FORCED
 }
 
 input ClaimContextResetInput {
@@ -6780,7 +6832,9 @@ enum LintKind {
   """
   RETIRED_TARGET
 
-  """The include says signed; signing is not checked yet."""
+  """
+  The include says signed; this deployment's signing policy is off, so signing is not checked.
+  """
   SIGNING_NOT_CHECKED
 
   """
@@ -10724,7 +10778,7 @@ type Mutation {
   reportHostOperation(input: ReportHostOperationInput!): HostOperation!
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Whoever may read the grant may ask (as grant(ref:) reads it), a bound worker included; workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — ask for one pending grant to be signed. Two callers may ask: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it); workers never sign. No signer is named: whoever signs must be able to issue it. The request pins the grant's version and terms hash. Refusals: FORBIDDEN while impersonating; GRANT_NOT_FOUND (unknown and unreadable alike); GRANT_NOT_PENDING (activated, revoked, or its holder gone; no state is named); GRANT_EXPIRED (past its expiry, so it can never be signed); GRANT_TERMS_UNREPRESENTABLE (extensions.reason). No call takes an assertion: the signer signs on the server-hosted ceremony page.
   """
   requestGrantSignature(grantRef: ID!): GrantSigningRequest!
 
@@ -11404,8 +11458,16 @@ type Mutation {
   reaches the provider is metered (usage type ai-config-test); NO_API_KEY
   and KEY_UNREADABLE make no call and record nothing. The call is bounded
   by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+  
+  #4005: chatProbe (default false) also runs ONE chat probe: the chat turn's
+  own respond tool, sent with the chat turn's tool-choice decision
+  (ChatAiConfigChoice.toolChoice), output capped at 64 tokens, 20s, no
+  retries. Its outcome is the closed AiServiceConfigTestResult.chat status.
+  It is a second, separately metered provider attempt (usage type
+  ai-config-test-chat) under the same one rate-limit unit. Absent or false,
+  the result and the call are exactly what they were.
   """
-  testAiServiceConfig(id: ID!, override: AiServiceConfigTestOverride): AiServiceConfigTestResult!
+  testAiServiceConfig(chatProbe: Boolean = false, id: ID!, override: AiServiceConfigTestOverride): AiServiceConfigTestResult!
   testExchangeConnection(id: ID!): Boolean!
 
   """
@@ -12061,7 +12123,7 @@ type Mutation {
   withdrawGrant(ref: ID!): Grant!
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
   """
   withdrawGrantSigningRequest(id: ID!): GrantSigningRequest!
 
@@ -15014,7 +15076,7 @@ type Query {
   grant(ref: ID!): Grant
 
   """
-  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller (as grant(ref:) reads it).
+  #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it).
   """
   grantSigningRequest(id: ID!): GrantSigningRequest
 
