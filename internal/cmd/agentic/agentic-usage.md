@@ -2368,8 +2368,9 @@ Conventions:
   FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER; an unknown value passes
   through verbatim) prints on its own `chat:` line and is the `chat` key in
   `--json` (always present; null when not requested). It is a separate outcome
-  from `ok`: the exit status follows the run alone, so run PASS + chat
-  FAIL_TEXT_ONLY exits 0. Default requests omit `chatProbe` and select no
+  from `ok`, and neither stands for the other. A completed test exits 0
+  whatever `ok` and the chat status say (cli#1959); only a request refusal or
+  an invalid server response uses the normal CLI error exits. Default requests omit `chatProbe` and select no
   `chat`, so older servers work unchanged; with the flag an older server is
   refused (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
   The submitted override key is redacted locally from request-error messages

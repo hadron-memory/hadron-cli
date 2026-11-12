@@ -85,9 +85,9 @@ an older one refuses it (exit 2) and nothing is retried. Its closed status
 (PASS, FAIL_TEXT_ONLY, FAIL_OTHER_TOOL, FAIL_MULTIPLE_CALLS, FAIL_MALFORMED,
 FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER) prints on its own "chat:" line
 and is the "chat" key in --json (null when not requested). The run result and
-the chat status are two outcomes: neither stands for the other, and the exit
-status follows the run alone, so a run that passes with chat FAIL_TEXT_ONLY
-still exits 0.`,
+the chat status are two outcomes: neither stands for the other. A completed
+test exits 0 whatever ok and the chat status say; only a request refusal or an
+invalid response from the server uses the normal CLI error exits.`,
 		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -118,32 +118,30 @@ still exits 0.`,
 				if err != nil {
 					return redactTestError(api.MapError(err), submittedKey)
 				}
-				v = toTestResult(r.TestAiServiceConfig)
+				v = fromProbeTestResult(r.TestAiServiceConfig)
 			} else {
 				r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
 				if err != nil {
 					return redactTestError(api.MapError(err), submittedKey)
 				}
-				v = toTestResult(r.TestAiServiceConfig)
+				v = fromDefaultTestResult(r.TestAiServiceConfig)
 			}
 			if v == nil || v.Used == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no AI config test result or value sources")
 			}
 			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: v.APIStyle, LatencyMS: v.LatencyMs, Reply: v.Reply,
-				Used: testUsedDTO{Provider: v.Used.Provider, Model: v.Used.Model, Endpoint: v.Used.Endpoint, APIStyle: v.Used.APIStyle, Key: v.Used.Key, Params: v.Used.Params}, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+				Used: *v.Used, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
 			if chatProbe {
 				if v.Chat == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no chat probe status though one was requested")
 				}
-				dto.Chat = &v.Chat.Status
+				dto.Chat = v.Chat
 			}
 			if v.Error != nil {
 				dto.Error = &testErrorDTO{Code: redactSubmittedKey(v.Error.Code, submittedKey), Message: redactSubmittedKey(v.Error.Message, submittedKey), Transient: v.Error.Transient}
 			}
 			for _, k := range v.Knobs {
-				if k != nil {
-					dto.Knobs = append(dto.Knobs, testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
-				}
+				dto.Knobs = append(dto.Knobs, *k)
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				state := "failed"
@@ -267,43 +265,75 @@ func redactSubmittedKey(message, key string) string {
 }
 
 // testResult is what the command renders from either test document. The
-// default and chat-probe documents differ only by the chat selection, so one
-// JSON round trip of the generated result (same field tags) serves both.
+// default and chat-probe documents are distinct generated types (the probe
+// adds the chat selection), so each has its own typed adapter below: a field
+// added to, renamed in or retyped in either document is a compile error here,
+// never a silent runtime conversion failure (cli#1959).
 type testResult struct {
-	Ok        bool    `json:"ok"`
-	Provider  string  `json:"provider"`
-	Model     string  `json:"model"`
-	Endpoint  *string `json:"endpoint"`
-	APIStyle  *string `json:"apiStyle"`
-	LatencyMs int     `json:"latencyMs"`
-	Reply     *string `json:"reply"`
-	Error     *struct {
-		Code      string `json:"code"`
-		Message   string `json:"message"`
-		Transient bool   `json:"transient"`
-	} `json:"error"`
-	Used *struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-		Endpoint string `json:"endpoint"`
-		APIStyle string `json:"apiStyle"`
-		Key      string `json:"key"`
-		Params   string `json:"params"`
-	} `json:"used"`
-	Knobs []*testKnobDTO `json:"knobs"`
-	Chat  *struct {
-		Status string `json:"status"`
-	} `json:"chat"`
+	Ok        bool
+	Provider  string
+	Model     string
+	Endpoint  *string
+	APIStyle  *string
+	LatencyMs int
+	Reply     *string
+	Error     *testErrorDTO
+	Used      *testUsedDTO
+	Knobs     []*testKnobDTO
+	Chat      *string // nil when the document has no chat selection, or the server sent none
 }
 
-func toTestResult(generated any) *testResult {
-	raw, err := json.Marshal(generated)
-	if err != nil {
+type (
+	defaultTestResult = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult
+	probeTestResult   = gen.TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult
+)
+
+func fromDefaultTestResult(r *defaultTestResult) *testResult {
+	if r == nil {
 		return nil
 	}
-	var v *testResult
-	if json.Unmarshal(raw, &v) != nil {
-		return nil
+	v := &testResult{Ok: r.Ok, Provider: r.Provider, Model: r.Model, Endpoint: r.Endpoint, APIStyle: apiStyleString(r.ApiStyle), LatencyMs: r.LatencyMs, Reply: r.Reply, Knobs: make([]*testKnobDTO, 0, len(r.Knobs))}
+	if e := r.Error; e != nil {
+		v.Error = &testErrorDTO{Code: e.Code, Message: e.Message, Transient: e.Transient}
+	}
+	if u := r.Used; u != nil {
+		v.Used = &testUsedDTO{Provider: string(u.Provider), Model: string(u.Model), Endpoint: string(u.Endpoint), APIStyle: string(u.ApiStyle), Key: string(u.Key), Params: string(u.Params)}
+	}
+	for _, k := range r.Knobs {
+		if k != nil {
+			v.Knobs = append(v.Knobs, &testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
+		}
 	}
 	return v
+}
+
+func fromProbeTestResult(r *probeTestResult) *testResult {
+	if r == nil {
+		return nil
+	}
+	v := &testResult{Ok: r.Ok, Provider: r.Provider, Model: r.Model, Endpoint: r.Endpoint, APIStyle: apiStyleString(r.ApiStyle), LatencyMs: r.LatencyMs, Reply: r.Reply, Knobs: make([]*testKnobDTO, 0, len(r.Knobs))}
+	if e := r.Error; e != nil {
+		v.Error = &testErrorDTO{Code: e.Code, Message: e.Message, Transient: e.Transient}
+	}
+	if u := r.Used; u != nil {
+		v.Used = &testUsedDTO{Provider: string(u.Provider), Model: string(u.Model), Endpoint: string(u.Endpoint), APIStyle: string(u.ApiStyle), Key: string(u.Key), Params: string(u.Params)}
+	}
+	for _, k := range r.Knobs {
+		if k != nil {
+			v.Knobs = append(v.Knobs, &testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
+		}
+	}
+	if r.Chat != nil {
+		status := string(r.Chat.Status) // verbatim, an unknown future value included
+		v.Chat = &status
+	}
+	return v
+}
+
+func apiStyleString(s *gen.AiApiStyle) *string {
+	if s == nil {
+		return nil
+	}
+	v := string(*s)
+	return &v
 }
