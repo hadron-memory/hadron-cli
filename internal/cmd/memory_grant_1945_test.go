@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -67,7 +68,7 @@ func TestMemoryGrant1945MarksAndReadbacks(t *testing.T) {
 						t.Fatalf("operation %s want %s", req.OperationName, surface.op)
 					}
 					for _, field := range []string{"notEffective", "notEffectiveReason"} {
-						if !strings.Contains(req.Query, field) {
+						if !slices.Contains(strings.Fields(req.Query), field) {
 							t.Errorf("query missing %s", field)
 						}
 					}
@@ -116,5 +117,52 @@ func TestMemoryGrant1945MarksAndReadbacks(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestMemoryGrant1945ServerOrderAndRevokedFlag(t *testing.T) {
+	for _, flag := range []string{"", "--include-revoked", "--include-revoked=false"} {
+		t.Run(flag, func(t *testing.T) {
+			marked := strings.TrimSuffix(strings.Replace(grant1338, `"id":"g1"`, `"id":"g2"`, 1), "}") + `,"notEffective":true,"notEffectiveReason":"system"}`
+			effective := strings.TrimSuffix(grant1338, "}") + `,"notEffective":false,"notEffectiveReason":null}`
+			rows := marked + "," + effective
+			if flag == "--include-revoked" {
+				rows += "," + strings.Replace(effective, `"revokedAt":null`, `"revokedAt":"2026-10-31T01:00:00Z"`, 1)
+			}
+			srv, captured := captureGraphQL(t, map[string]string{"AppMemoryWriteGrants": `{"data":{"appMemoryWriteGrants":[` + rows + `]}}`})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"app", "memory-grant", "list", "acme.com:team", "--json", "--server", srv.URL}
+			if flag != "" {
+				args = append(args, flag)
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var result []map[string]any
+			if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+				t.Fatal(err)
+			}
+			want := 2
+			if flag == "--include-revoked" {
+				want = 3
+			}
+			if len(result) != want || result[0]["id"] != "g2" || result[1]["id"] != "g1" {
+				t.Fatal(result)
+			}
+			var vars map[string]any
+			if err := json.Unmarshal(captured["AppMemoryWriteGrants"], &vars); err != nil {
+				t.Fatal(err)
+			}
+			value, present := vars["includeRevoked"]
+			if flag == "" {
+				if present {
+					t.Fatal(vars)
+				}
+			} else if !present || value != (flag == "--include-revoked") {
+				t.Fatal(vars)
+			}
+		})
 	}
 }

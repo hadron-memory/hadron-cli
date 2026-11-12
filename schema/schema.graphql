@@ -2489,6 +2489,16 @@ type AppMemoryWriteGrant {
   memoryUrn: String
 
   """
+  True when this live grant can no longer take effect because its target memory is no longer one a write grant may target (for example an Agent system memory, or one later encrypted): the row is accurate but authorizes nothing, and only a revoke clears it. Derived at read by the same function the write doors call, never stored, and gone when the memory qualifies again. False on a revoked row and on an effective one. Null when memoryUrn is null (the memory is concealed from the caller). hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  """
+  notEffective: Boolean
+
+  """
+  Why notEffective is true: system, encrypted, install-memory, no-owner or tenancy; null otherwise, and null whenever memoryUrn is null. Display only: a client must not branch on a value it does not know.
+  """
+  notEffectiveReason: String
+
+  """
   The loc prefix: the loc itself and its colon-boundary descendants (reports:team-progress does not cover reports:team-progressX).
   """
   prefix: String!

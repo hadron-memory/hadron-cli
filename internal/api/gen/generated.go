@@ -17436,6 +17436,10 @@ type AppMemoryGrantFields struct {
 	CreatedAt string  `json:"createdAt"`
 	RevokedAt *string `json:"revokedAt"`
 	RevokedBy *string `json:"revokedBy"`
+	// True when this live grant can no longer take effect because its target memory is no longer one a write grant may target (for example an Agent system memory, or one later encrypted): the row is accurate but authorizes nothing, and only a revoke clears it. Derived at read by the same function the write doors call, never stored, and gone when the memory qualifies again. False on a revoked row and on an effective one. Null when memoryUrn is null (the memory is concealed from the caller). hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	NotEffective *bool `json:"notEffective"`
+	// Why notEffective is true: system, encrypted, install-memory, no-owner or tenancy; null otherwise, and null whenever memoryUrn is null. Display only: a client must not branch on a value it does not know.
+	NotEffectiveReason *string `json:"notEffectiveReason"`
 }
 
 // GetId returns AppMemoryGrantFields.Id, and is useful for accessing the field via an interface.
@@ -17464,6 +17468,12 @@ func (v *AppMemoryGrantFields) GetRevokedAt() *string { return v.RevokedAt }
 
 // GetRevokedBy returns AppMemoryGrantFields.RevokedBy, and is useful for accessing the field via an interface.
 func (v *AppMemoryGrantFields) GetRevokedBy() *string { return v.RevokedBy }
+
+// GetNotEffective returns AppMemoryGrantFields.NotEffective, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantFields) GetNotEffective() *bool { return v.NotEffective }
+
+// GetNotEffectiveReason returns AppMemoryGrantFields.NotEffectiveReason, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantFields) GetNotEffectiveReason() *string { return v.NotEffectiveReason }
 
 // AppMemoryScopeAppMemoryScopeAppScopedMemoryPage includes the requested fields of the GraphQL type AppScopedMemoryPage.
 // The GraphQL type's documentation follows.
@@ -17662,6 +17672,16 @@ func (v *AppMemoryWriteGrantsRows1595) GetRevokedBy() *string {
 	return v.AppMemoryGrantFields.RevokedBy
 }
 
+// GetNotEffective returns AppMemoryWriteGrantsRows1595.NotEffective, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetNotEffective() *bool {
+	return v.AppMemoryGrantFields.NotEffective
+}
+
+// GetNotEffectiveReason returns AppMemoryWriteGrantsRows1595.NotEffectiveReason, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetNotEffectiveReason() *string {
+	return v.AppMemoryGrantFields.NotEffectiveReason
+}
+
 func (v *AppMemoryWriteGrantsRows1595) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -17705,6 +17725,10 @@ type __premarshalAppMemoryWriteGrantsRows1595 struct {
 	RevokedAt *string `json:"revokedAt"`
 
 	RevokedBy *string `json:"revokedBy"`
+
+	NotEffective *bool `json:"notEffective"`
+
+	NotEffectiveReason *string `json:"notEffectiveReason"`
 }
 
 func (v *AppMemoryWriteGrantsRows1595) MarshalJSON() ([]byte, error) {
@@ -17727,6 +17751,8 @@ func (v *AppMemoryWriteGrantsRows1595) __premarshalJSON() (*__premarshalAppMemor
 	retval.CreatedAt = v.AppMemoryGrantFields.CreatedAt
 	retval.RevokedAt = v.AppMemoryGrantFields.RevokedAt
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
+	retval.NotEffective = v.AppMemoryGrantFields.NotEffective
+	retval.NotEffectiveReason = v.AppMemoryGrantFields.NotEffectiveReason
 	return &retval, nil
 }
 
@@ -75667,6 +75693,16 @@ func (v *RevokeAppMemoryWriteGrantRow1595) GetRevokedBy() *string {
 	return v.AppMemoryGrantFields.RevokedBy
 }
 
+// GetNotEffective returns RevokeAppMemoryWriteGrantRow1595.NotEffective, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetNotEffective() *bool {
+	return v.AppMemoryGrantFields.NotEffective
+}
+
+// GetNotEffectiveReason returns RevokeAppMemoryWriteGrantRow1595.NotEffectiveReason, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetNotEffectiveReason() *string {
+	return v.AppMemoryGrantFields.NotEffectiveReason
+}
+
 func (v *RevokeAppMemoryWriteGrantRow1595) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -75710,6 +75746,10 @@ type __premarshalRevokeAppMemoryWriteGrantRow1595 struct {
 	RevokedAt *string `json:"revokedAt"`
 
 	RevokedBy *string `json:"revokedBy"`
+
+	NotEffective *bool `json:"notEffective"`
+
+	NotEffectiveReason *string `json:"notEffectiveReason"`
 }
 
 func (v *RevokeAppMemoryWriteGrantRow1595) MarshalJSON() ([]byte, error) {
@@ -75732,6 +75772,8 @@ func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevo
 	retval.CreatedAt = v.AppMemoryGrantFields.CreatedAt
 	retval.RevokedAt = v.AppMemoryGrantFields.RevokedAt
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
+	retval.NotEffective = v.AppMemoryGrantFields.NotEffective
+	retval.NotEffectiveReason = v.AppMemoryGrantFields.NotEffectiveReason
 	return &retval, nil
 }
 
@@ -80840,6 +80882,16 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetRevokedBy() *string {
 	return v.AppMemoryGrantFields.RevokedBy
 }
 
+// GetNotEffective returns SetAppMemoryWriteGrantSetAppMemoryWriteGrant.NotEffective, and is useful for accessing the field via an interface.
+func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetNotEffective() *bool {
+	return v.AppMemoryGrantFields.NotEffective
+}
+
+// GetNotEffectiveReason returns SetAppMemoryWriteGrantSetAppMemoryWriteGrant.NotEffectiveReason, and is useful for accessing the field via an interface.
+func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetNotEffectiveReason() *string {
+	return v.AppMemoryGrantFields.NotEffectiveReason
+}
+
 func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -80883,6 +80935,10 @@ type __premarshalSetAppMemoryWriteGrantSetAppMemoryWriteGrant struct {
 	RevokedAt *string `json:"revokedAt"`
 
 	RevokedBy *string `json:"revokedBy"`
+
+	NotEffective *bool `json:"notEffective"`
+
+	NotEffectiveReason *string `json:"notEffectiveReason"`
 }
 
 func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) MarshalJSON() ([]byte, error) {
@@ -80905,6 +80961,8 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) __premarshalJSON() (*__pr
 	retval.CreatedAt = v.AppMemoryGrantFields.CreatedAt
 	retval.RevokedAt = v.AppMemoryGrantFields.RevokedAt
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
+	retval.NotEffective = v.AppMemoryGrantFields.NotEffective
+	retval.NotEffectiveReason = v.AppMemoryGrantFields.NotEffectiveReason
 	return &retval, nil
 }
 
@@ -123512,6 +123570,8 @@ fragment AppMemoryGrantFields on AppMemoryWriteGrant {
 	createdAt
 	revokedAt
 	revokedBy
+	notEffective
+	notEffectiveReason
 }
 `
 
@@ -123559,10 +123619,13 @@ fragment AppMemoryGrantFields on AppMemoryWriteGrant {
 	createdAt
 	revokedAt
 	revokedBy
+	notEffective
+	notEffectiveReason
 }
 `
 
-// cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+// cli#1595: explicitly instructed documents; legacy instruction arguments stay unchanged.
+// cli#1945 extends the shared grant projection on both paths.
 func AppMemoryWriteGrantsInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -145494,6 +145557,8 @@ fragment AppMemoryGrantFields on AppMemoryWriteGrant {
 	createdAt
 	revokedAt
 	revokedBy
+	notEffective
+	notEffectiveReason
 }
 `
 
@@ -145539,6 +145604,8 @@ fragment AppMemoryGrantFields on AppMemoryWriteGrant {
 	createdAt
 	revokedAt
 	revokedBy
+	notEffective
+	notEffectiveReason
 }
 `
 
@@ -147381,6 +147448,8 @@ fragment AppMemoryGrantFields on AppMemoryWriteGrant {
 	createdAt
 	revokedAt
 	revokedBy
+	notEffective
+	notEffectiveReason
 }
 `
 

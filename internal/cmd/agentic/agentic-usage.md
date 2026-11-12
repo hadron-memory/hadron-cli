@@ -5206,6 +5206,14 @@ success payloads are errors, not fabricated success.
 hadron app memory-grant add <app-ref> --memory <ref> --prefix <loc> [--register-node <node-urn>] [--yes]
 hadron app memory-grant list <app-ref> [--include-revoked] [--instruction <kind>:<ref>]
 hadron app memory-grant rm <grant-id> [--yes] [--instruction <kind>:<ref>]
+  # list/add/rm grant JSON adds server-derived notEffective (bool|null) and
+  # notEffectiveReason (string|null). Text marks true rows as not-effective,
+  # with the reason when returned; false/null rows have no mark. A concealed
+  # memoryUrn has both fields null. A not-effective grant is still unrevoked:
+  # it stays in the default list until a manager revokes it; the mark can go
+  # away if its target qualifies again. Requires server f9429dc19 (#4031);
+  # older schemas reject these new selections with schema skew (exit 2).
+
 hadron app whoami
 hadron run latest <app-ref> [--previous]
 hadron app asset-upload enable|disable <agent-ref> [--yes]
