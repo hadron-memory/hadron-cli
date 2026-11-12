@@ -1,0 +1,47 @@
+# Pre-#4031 grant projection. These documents are used only after a complete
+# pre-execution validation refusal naming the two new fields on this type.
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+  id appId memoryUrn prefix registerNodeUrn grantedBy createdAt revokedAt revokedBy
+}
+query AppMemoryWriteGrantsLegacy(
+ $appRef: String!
+ # @genqlient(omitempty: true)
+ $includeRevoked: Boolean
+) {
+ # @genqlient(typename: "AppMemoryGrantLegacyRow1946")
+ appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {
+  ...AppMemoryGrantLegacyFields
+ }
+}
+mutation SetAppMemoryWriteGrantLegacy(
+ $appRef: String!, $memoryRef: String!, $prefix: String!
+ # @genqlient(omitempty: true)
+ $registerNodeUrn: String
+) {
+ # @genqlient(typename: "AppMemoryGrantLegacyRow1946")
+ setAppMemoryWriteGrant(appRef: $appRef, memoryRef: $memoryRef, prefix: $prefix, registerNodeUrn: $registerNodeUrn) {
+  ...AppMemoryGrantLegacyFields
+ }
+}
+mutation RevokeAppMemoryWriteGrantLegacy($id: ID!) {
+ # @genqlient(typename: "AppMemoryGrantLegacyRow1946")
+ revokeAppMemoryWriteGrant(id: $id) {
+  ...AppMemoryGrantLegacyFields
+ }
+}
+query AppMemoryWriteGrantsInstructedLegacy(
+ $instruction: ActInstructionInput!, $appRef: String!
+ # @genqlient(omitempty: true)
+ $includeRevoked: Boolean
+) {
+ # @genqlient(typename: "AppMemoryGrantLegacyRow1946")
+ appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+  ...AppMemoryGrantLegacyFields
+ }
+}
+mutation RevokeAppMemoryWriteGrantInstructedLegacy($id: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppMemoryGrantLegacyRow1946")
+ revokeAppMemoryWriteGrant(id: $id, instruction: $instruction) {
+  ...AppMemoryGrantLegacyFields
+ }
+}

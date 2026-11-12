@@ -5211,8 +5211,11 @@ hadron app memory-grant rm <grant-id> [--yes] [--instruction <kind>:<ref>]
   # with the reason when returned; false/null rows have no mark. A concealed
   # memoryUrn has both fields null. A not-effective grant is still unrevoked:
   # it stays in the default list until a manager revokes it; the mark can go
-  # away if its target qualifies again. Requires server f9429dc19 (#4031);
-  # older schemas reject these new selections with schema skew (exit 2).
+  # away if its target qualifies again. Older providers lacking the fields
+  # still support list/add/rm; both metadata fields are then null (unknown).
+  # Only a typed pre-execution validation refusal for these exact fields on
+  # AppMemoryWriteGrant permits one legacy-document attempt, same inputs/actor.
+  # No transport/runtime/mixed/partial-result error is retried.
 
 hadron app whoami
 hadron run latest <app-ref> [--previous]
@@ -5226,8 +5229,8 @@ a person managing the App; list/rm also admit their held worker with
 memory. Personal/private targets and listing are owner-only, shared targets
 must belong to the App's org/team space, encrypted/system targets are refused.
 No read access or authorization bypass is created. The CLI asks once and
-reimplements none of those checks. Add/rm confirm (scripts need `--yes`), never
-retry, and keep nullable metadata (including withheld `memoryUrn`) as null in
+reimplements none of those checks. Add/rm confirm (scripts need `--yes`), execute at most one mutation,
+and keep nullable metadata (including withheld `memoryUrn`) as null in
 JSON. Text uses `?` for a concealed/null memory and `-` for other null metadata.
 List is an array, `[]` when empty, oldest-first server order, revoked rows
 only with `--include-revoked`. Explicit `--include-revoked=false` sends false;

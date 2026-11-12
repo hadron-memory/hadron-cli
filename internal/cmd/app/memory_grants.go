@@ -78,7 +78,9 @@ A server-marked not-effective grant authorizes nothing now; the reason is shown
 when supplied. This mark is not revocation: the row remains in the default list
 until a manager revokes it. The mark can disappear if the target qualifies again.
 When the memory is concealed, both notEffective and notEffectiveReason are null.
-These fields are server-derived metadata, not a client access decision.
+Older providers without this metadata keep working; both fields are null there.
+No mark is not proof of effectiveness. These fields are server-derived metadata,
+not a client access decision.
 
 Only a person managing the App may add. Listing and revoking also admit their
 held worker on --instruction; without it these calls act as the person.
@@ -105,7 +107,9 @@ and a nonempty loc prefix. The server validates the prefix and authority.
 line exists; it is omitted unless given. Empty reference flags are refused.
 
 The target App, memory and prefix are confirmed before sending. Scripts need
---yes. This is one mutation, never retried. A lost answer is an unknown
+--yes. At most one mutation executes. A schema refusal for the new metadata can
+use an older compatible document; network/runtime failures are never retried.
+A lost answer is an unknown
 outcome: list the App's grants before retrying. The server decides whether an
 existing live grant is reused. No file, credential or source content is read.
 JSON is the returned grant metadata; nullable memory/citation/revoker fields
@@ -133,7 +137,7 @@ stay null. Human output uses ? for a concealed/null memory and - for other null 
 		if err != nil {
 			return err
 		}
-		r, err := gen.SetAppMemoryWriteGrant(cmd.Context(), client, ref, memoryRef, prefix, citation)
+		r, err := setMemoryGrant(cmd.Context(), client, ref, memoryRef, prefix, citation)
 		if err != nil {
 			return api.MapErrorKeepingCode(err)
 		}
@@ -165,7 +169,7 @@ func memoryGrantListMemory(d memoryGrantDTO) string {
 
 func newCmdMemoryGrantList(f *cmdutil.Factory) *cobra.Command {
 	var revoked bool
-	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `Read the server's grant list once, in server order. Revoked rows are excluded
+	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `Read the server's grant list in server order. Revoked rows are excluded
 unless --include-revoked is true. Personal/private grants belonging to someone
 else are hidden by the server, so this is not an inventory of hidden grants.
 Pass an explicit App ID, URN or root:slug; ambient --app is not the target.
@@ -225,7 +229,9 @@ func newCmdMemoryGrantRM(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "rm <grant-id> [--yes]", Short: "Revoke a memory write grant; keep its historical row", Long: `Revoke one grant by the ID from app memory-grant list. The App's next write
 using that grant is refused. The row stays; revoking an already revoked row
 changes nothing. Confirmation is required; scripts pass --yes.
-One mutation is sent and never retried. If its answer is lost, list with
+At most one mutation executes. A schema refusal for the new metadata can
+use an older compatible document; network/runtime failures are never retried.
+If its answer is lost, list with
 --include-revoked to check the outcome before retrying. JSON returns the grant
 metadata including revokedAt; text uses ? for a concealed/null memory and -
 for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {

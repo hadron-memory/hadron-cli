@@ -25,11 +25,27 @@ confirmation and mutation semantics are unchanged. Unrevoked marked rows
 remain listed until a manager revokes them; server-derived marks can also
 clear if targets qualify again.
 
-Compatibility: these existing operations now require the server fields from
-#4031; older schemas return the ordinary schema-skew error (exit 2), never
-an invented effective result. Each command sends the same single operation
-as before, adding two scalar response selections and no request fanout.
-No bytes/latency benchmark or live permission claim is made.
+Compatibility fix (Marco ruling chat101705, BLIND F1): existing commands
+keep working before #4031. Current providers still use the rich fragment.
+Only a complete typed GRAPHQL_VALIDATION_FAILED envelope naming an unknown
+notEffective/notEffectiveReason field on AppMemoryWriteGrant, with no field
+path and no partial result, permits one legacy-document attempt. HTTP errors
+must be400; parsed HTTP200 validation envelopes also qualify. Mixed/auth,
+transport, other-schema and runtime errors never retry. A lost answer remains
+unknown. An older server validates the first document before any mutation;
+at most one mutation executes. The second attempt preserves inputs, context,
+client and instruction, and never recursively falls back. Legacy results map
+to the same DTO with both new metadata fields null (unknown).
+
+Current-provider request count remains one. Old providers require two requests:
+one validation refusal plus one ordinary compatible operation, with no added
+lookup/fanout. A pinned pre-#4031 SDL projection validates all three ordinary
+and both instructed legacy operations in tests. Its fields/arguments/inputs
+come from the base CLI snapshot8a77296b; unrelated root fields are omitted.
+Red-first2ce632db reproduces all three ordinary failures. Extra controls pin
+same caller/input for instructed attempts and no retry on mixed, auth, runtime,
+partial result, wrong field/type, unparsed or non400 HTTP errors.
+No production permission/performance claim is made.
 
 Red-first 4a188020 pins all three command surfaces in text/JSON, requested
 fields on the actual wire, true/reason, true/null, null/null, false/null,

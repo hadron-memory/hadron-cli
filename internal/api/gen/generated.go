@@ -17475,6 +17475,166 @@ func (v *AppMemoryGrantFields) GetNotEffective() *bool { return v.NotEffective }
 // GetNotEffectiveReason returns AppMemoryGrantFields.NotEffectiveReason, and is useful for accessing the field via an interface.
 func (v *AppMemoryGrantFields) GetNotEffectiveReason() *string { return v.NotEffectiveReason }
 
+// Pre-#4031 grant projection. These documents are used only after a complete
+// pre-execution validation refusal naming the two new fields on this type.
+type AppMemoryGrantLegacyFields struct {
+	Id    string `json:"id"`
+	AppId string `json:"appId"`
+	// The granted memory. Null when the grant is on someone's personal or private memory and the caller is not its owner.
+	MemoryUrn *string `json:"memoryUrn"`
+	// The loc prefix: the loc itself and its colon-boundary descendants (reports:team-progress does not cover reports:team-progressX).
+	Prefix string `json:"prefix"`
+	// The register line this grant cites. A citation only, never evidence that the line exists.
+	RegisterNodeUrn *string `json:"registerNodeUrn"`
+	// The person who set it.
+	GrantedBy string  `json:"grantedBy"`
+	CreatedAt string  `json:"createdAt"`
+	RevokedAt *string `json:"revokedAt"`
+	RevokedBy *string `json:"revokedBy"`
+}
+
+// GetId returns AppMemoryGrantLegacyFields.Id, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetId() string { return v.Id }
+
+// GetAppId returns AppMemoryGrantLegacyFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetAppId() string { return v.AppId }
+
+// GetMemoryUrn returns AppMemoryGrantLegacyFields.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetMemoryUrn() *string { return v.MemoryUrn }
+
+// GetPrefix returns AppMemoryGrantLegacyFields.Prefix, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetPrefix() string { return v.Prefix }
+
+// GetRegisterNodeUrn returns AppMemoryGrantLegacyFields.RegisterNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
+
+// GetGrantedBy returns AppMemoryGrantLegacyFields.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetGrantedBy() string { return v.GrantedBy }
+
+// GetCreatedAt returns AppMemoryGrantLegacyFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetRevokedAt returns AppMemoryGrantLegacyFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetRevokedBy returns AppMemoryGrantLegacyFields.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyFields) GetRevokedBy() *string { return v.RevokedBy }
+
+// AppMemoryGrantLegacyRow1946 includes the requested fields of the GraphQL type AppMemoryWriteGrant.
+// The GraphQL type's documentation follows.
+//
+// #2484: an App's write grant on one memory under one loc prefix, for the App's userless runs only. It permits node create and update at the prefix and its colon-boundary descendants, checked live at each write; never delete, edges, memory settings or stored files, and nothing for another App's run, a user-backed run, an App key or a worker. A revoked grant stays as a terminal row. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type AppMemoryGrantLegacyRow1946 struct {
+	AppMemoryGrantLegacyFields `json:"-"`
+}
+
+// GetId returns AppMemoryGrantLegacyRow1946.Id, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetId() string { return v.AppMemoryGrantLegacyFields.Id }
+
+// GetAppId returns AppMemoryGrantLegacyRow1946.AppId, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetAppId() string { return v.AppMemoryGrantLegacyFields.AppId }
+
+// GetMemoryUrn returns AppMemoryGrantLegacyRow1946.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetMemoryUrn() *string {
+	return v.AppMemoryGrantLegacyFields.MemoryUrn
+}
+
+// GetPrefix returns AppMemoryGrantLegacyRow1946.Prefix, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetPrefix() string { return v.AppMemoryGrantLegacyFields.Prefix }
+
+// GetRegisterNodeUrn returns AppMemoryGrantLegacyRow1946.RegisterNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetRegisterNodeUrn() *string {
+	return v.AppMemoryGrantLegacyFields.RegisterNodeUrn
+}
+
+// GetGrantedBy returns AppMemoryGrantLegacyRow1946.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetGrantedBy() string {
+	return v.AppMemoryGrantLegacyFields.GrantedBy
+}
+
+// GetCreatedAt returns AppMemoryGrantLegacyRow1946.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetCreatedAt() string {
+	return v.AppMemoryGrantLegacyFields.CreatedAt
+}
+
+// GetRevokedAt returns AppMemoryGrantLegacyRow1946.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetRevokedAt() *string {
+	return v.AppMemoryGrantLegacyFields.RevokedAt
+}
+
+// GetRevokedBy returns AppMemoryGrantLegacyRow1946.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryGrantLegacyRow1946) GetRevokedBy() *string {
+	return v.AppMemoryGrantLegacyFields.RevokedBy
+}
+
+func (v *AppMemoryGrantLegacyRow1946) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppMemoryGrantLegacyRow1946
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppMemoryGrantLegacyRow1946 = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppMemoryGrantLegacyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppMemoryGrantLegacyRow1946 struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix string `json:"prefix"`
+
+	RegisterNodeUrn *string `json:"registerNodeUrn"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *AppMemoryGrantLegacyRow1946) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppMemoryGrantLegacyRow1946) __premarshalJSON() (*__premarshalAppMemoryGrantLegacyRow1946, error) {
+	var retval __premarshalAppMemoryGrantLegacyRow1946
+
+	retval.Id = v.AppMemoryGrantLegacyFields.Id
+	retval.AppId = v.AppMemoryGrantLegacyFields.AppId
+	retval.MemoryUrn = v.AppMemoryGrantLegacyFields.MemoryUrn
+	retval.Prefix = v.AppMemoryGrantLegacyFields.Prefix
+	retval.RegisterNodeUrn = v.AppMemoryGrantLegacyFields.RegisterNodeUrn
+	retval.GrantedBy = v.AppMemoryGrantLegacyFields.GrantedBy
+	retval.CreatedAt = v.AppMemoryGrantLegacyFields.CreatedAt
+	retval.RevokedAt = v.AppMemoryGrantLegacyFields.RevokedAt
+	retval.RevokedBy = v.AppMemoryGrantLegacyFields.RevokedBy
+	return &retval, nil
+}
+
 // AppMemoryScopeAppMemoryScopeAppScopedMemoryPage includes the requested fields of the GraphQL type AppScopedMemoryPage.
 // The GraphQL type's documentation follows.
 //
@@ -17607,6 +17767,17 @@ var AllAppMemorySourceKind = []AppMemorySourceKind{
 	AppMemorySourceKindTeamSpace,
 }
 
+// AppMemoryWriteGrantsInstructedLegacyResponse is returned by AppMemoryWriteGrantsInstructedLegacy on success.
+type AppMemoryWriteGrantsInstructedLegacyResponse struct {
+	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	AppMemoryWriteGrants []*AppMemoryGrantLegacyRow1946 `json:"appMemoryWriteGrants"`
+}
+
+// GetAppMemoryWriteGrants returns AppMemoryWriteGrantsInstructedLegacyResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsInstructedLegacyResponse) GetAppMemoryWriteGrants() []*AppMemoryGrantLegacyRow1946 {
+	return v.AppMemoryWriteGrants
+}
+
 // AppMemoryWriteGrantsInstructedResponse is returned by AppMemoryWriteGrantsInstructed on success.
 type AppMemoryWriteGrantsInstructedResponse struct {
 	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
@@ -17615,6 +17786,17 @@ type AppMemoryWriteGrantsInstructedResponse struct {
 
 // GetAppMemoryWriteGrants returns AppMemoryWriteGrantsInstructedResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
 func (v *AppMemoryWriteGrantsInstructedResponse) GetAppMemoryWriteGrants() []*AppMemoryWriteGrantsRows1595 {
+	return v.AppMemoryWriteGrants
+}
+
+// AppMemoryWriteGrantsLegacyResponse is returned by AppMemoryWriteGrantsLegacy on success.
+type AppMemoryWriteGrantsLegacyResponse struct {
+	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	AppMemoryWriteGrants []*AppMemoryGrantLegacyRow1946 `json:"appMemoryWriteGrants"`
+}
+
+// GetAppMemoryWriteGrants returns AppMemoryWriteGrantsLegacyResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsLegacyResponse) GetAppMemoryWriteGrants() []*AppMemoryGrantLegacyRow1946 {
 	return v.AppMemoryWriteGrants
 }
 
@@ -75624,6 +75806,17 @@ func (v *RevokeAppKeyScopeRow1595) __premarshalJSON() (*__premarshalRevokeAppKey
 	return &retval, nil
 }
 
+// RevokeAppMemoryWriteGrantInstructedLegacyResponse is returned by RevokeAppMemoryWriteGrantInstructedLegacy on success.
+type RevokeAppMemoryWriteGrantInstructedLegacyResponse struct {
+	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	RevokeAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"revokeAppMemoryWriteGrant"`
+}
+
+// GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantInstructedLegacyResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantInstructedLegacyResponse) GetRevokeAppMemoryWriteGrant() *AppMemoryGrantLegacyRow1946 {
+	return v.RevokeAppMemoryWriteGrant
+}
+
 // RevokeAppMemoryWriteGrantInstructedResponse is returned by RevokeAppMemoryWriteGrantInstructed on success.
 type RevokeAppMemoryWriteGrantInstructedResponse struct {
 	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
@@ -75632,6 +75825,17 @@ type RevokeAppMemoryWriteGrantInstructedResponse struct {
 
 // GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantInstructedResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
 func (v *RevokeAppMemoryWriteGrantInstructedResponse) GetRevokeAppMemoryWriteGrant() *RevokeAppMemoryWriteGrantRow1595 {
+	return v.RevokeAppMemoryWriteGrant
+}
+
+// RevokeAppMemoryWriteGrantLegacyResponse is returned by RevokeAppMemoryWriteGrantLegacy on success.
+type RevokeAppMemoryWriteGrantLegacyResponse struct {
+	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	RevokeAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"revokeAppMemoryWriteGrant"`
+}
+
+// GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantLegacyResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantLegacyResponse) GetRevokeAppMemoryWriteGrant() *AppMemoryGrantLegacyRow1946 {
 	return v.RevokeAppMemoryWriteGrant
 }
 
@@ -80816,6 +81020,17 @@ func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetUrn() string { return
 // GetChatbotAiConfigId returns SetAppChatbotAiConfigSetAppChatbotAiConfigApp.ChatbotAiConfigId, and is useful for accessing the field via an interface.
 func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetChatbotAiConfigId() *string {
 	return v.ChatbotAiConfigId
+}
+
+// SetAppMemoryWriteGrantLegacyResponse is returned by SetAppMemoryWriteGrantLegacy on success.
+type SetAppMemoryWriteGrantLegacyResponse struct {
+	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	SetAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"setAppMemoryWriteGrant"`
+}
+
+// GetSetAppMemoryWriteGrant returns SetAppMemoryWriteGrantLegacyResponse.SetAppMemoryWriteGrant, and is useful for accessing the field via an interface.
+func (v *SetAppMemoryWriteGrantLegacyResponse) GetSetAppMemoryWriteGrant() *AppMemoryGrantLegacyRow1946 {
+	return v.SetAppMemoryWriteGrant
 }
 
 // SetAppMemoryWriteGrantResponse is returned by SetAppMemoryWriteGrant on success.
@@ -107971,6 +108186,38 @@ func (v *__AppMemoryWriteGrantsInstructedInput) GetAppRef() string { return v.Ap
 // GetIncludeRevoked returns __AppMemoryWriteGrantsInstructedInput.IncludeRevoked, and is useful for accessing the field via an interface.
 func (v *__AppMemoryWriteGrantsInstructedInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
 
+// __AppMemoryWriteGrantsInstructedLegacyInput is used internally by genqlient
+type __AppMemoryWriteGrantsInstructedLegacyInput struct {
+	Instruction    *ActInstructionInput `json:"instruction,omitempty"`
+	AppRef         string               `json:"appRef"`
+	IncludeRevoked *bool                `json:"includeRevoked,omitempty"`
+}
+
+// GetInstruction returns __AppMemoryWriteGrantsInstructedLegacyInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedLegacyInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// GetAppRef returns __AppMemoryWriteGrantsInstructedLegacyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedLegacyInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRevoked returns __AppMemoryWriteGrantsInstructedLegacyInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedLegacyInput) GetIncludeRevoked() *bool {
+	return v.IncludeRevoked
+}
+
+// __AppMemoryWriteGrantsLegacyInput is used internally by genqlient
+type __AppMemoryWriteGrantsLegacyInput struct {
+	AppRef         string `json:"appRef"`
+	IncludeRevoked *bool  `json:"includeRevoked,omitempty"`
+}
+
+// GetAppRef returns __AppMemoryWriteGrantsLegacyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsLegacyInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRevoked returns __AppMemoryWriteGrantsLegacyInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsLegacyInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
 // __AppNodesPageInput is used internally by genqlient
 type __AppNodesPageInput struct {
 	AppRef string      `json:"appRef"`
@@ -113813,6 +114060,28 @@ func (v *__RevokeAppMemoryWriteGrantInstructedInput) GetInstruction() *ActInstru
 	return v.Instruction
 }
 
+// __RevokeAppMemoryWriteGrantInstructedLegacyInput is used internally by genqlient
+type __RevokeAppMemoryWriteGrantInstructedLegacyInput struct {
+	Id          string               `json:"id"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetId returns __RevokeAppMemoryWriteGrantInstructedLegacyInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppMemoryWriteGrantInstructedLegacyInput) GetId() string { return v.Id }
+
+// GetInstruction returns __RevokeAppMemoryWriteGrantInstructedLegacyInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeAppMemoryWriteGrantInstructedLegacyInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// __RevokeAppMemoryWriteGrantLegacyInput is used internally by genqlient
+type __RevokeAppMemoryWriteGrantLegacyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RevokeAppMemoryWriteGrantLegacyInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppMemoryWriteGrantLegacyInput) GetId() string { return v.Id }
+
 // __RevokeAutomationReadGrantInput is used internally by genqlient
 type __RevokeAutomationReadGrantInput struct {
 	Id string `json:"id"`
@@ -114304,6 +114573,26 @@ func (v *__SetAppMemoryWriteGrantInput) GetPrefix() string { return v.Prefix }
 
 // GetRegisterNodeUrn returns __SetAppMemoryWriteGrantInput.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *__SetAppMemoryWriteGrantInput) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
+
+// __SetAppMemoryWriteGrantLegacyInput is used internally by genqlient
+type __SetAppMemoryWriteGrantLegacyInput struct {
+	AppRef          string  `json:"appRef"`
+	MemoryRef       string  `json:"memoryRef"`
+	Prefix          string  `json:"prefix"`
+	RegisterNodeUrn *string `json:"registerNodeUrn,omitempty"`
+}
+
+// GetAppRef returns __SetAppMemoryWriteGrantLegacyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppMemoryWriteGrantLegacyInput) GetAppRef() string { return v.AppRef }
+
+// GetMemoryRef returns __SetAppMemoryWriteGrantLegacyInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SetAppMemoryWriteGrantLegacyInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetPrefix returns __SetAppMemoryWriteGrantLegacyInput.Prefix, and is useful for accessing the field via an interface.
+func (v *__SetAppMemoryWriteGrantLegacyInput) GetPrefix() string { return v.Prefix }
+
+// GetRegisterNodeUrn returns __SetAppMemoryWriteGrantLegacyInput.RegisterNodeUrn, and is useful for accessing the field via an interface.
+func (v *__SetAppMemoryWriteGrantLegacyInput) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
 
 // __SetAppModelGroupInput is used internally by genqlient
 type __SetAppModelGroupInput struct {
@@ -123644,6 +123933,102 @@ func AppMemoryWriteGrantsInstructed(
 	}
 
 	data_ = &AppMemoryWriteGrantsInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMemoryWriteGrantsInstructedLegacy.
+const AppMemoryWriteGrantsInstructedLegacy_Operation = `
+query AppMemoryWriteGrantsInstructedLegacy ($instruction: ActInstructionInput!, $appRef: String!, $includeRevoked: Boolean) {
+	appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+		... AppMemoryGrantLegacyFields
+	}
+}
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func AppMemoryWriteGrantsInstructedLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	instruction *ActInstructionInput,
+	appRef string,
+	includeRevoked *bool,
+) (data_ *AppMemoryWriteGrantsInstructedLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemoryWriteGrantsInstructedLegacy",
+		Query:  AppMemoryWriteGrantsInstructedLegacy_Operation,
+		Variables: &__AppMemoryWriteGrantsInstructedLegacyInput{
+			Instruction:    instruction,
+			AppRef:         appRef,
+			IncludeRevoked: includeRevoked,
+		},
+	}
+
+	data_ = &AppMemoryWriteGrantsInstructedLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMemoryWriteGrantsLegacy.
+const AppMemoryWriteGrantsLegacy_Operation = `
+query AppMemoryWriteGrantsLegacy ($appRef: String!, $includeRevoked: Boolean) {
+	appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {
+		... AppMemoryGrantLegacyFields
+	}
+}
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func AppMemoryWriteGrantsLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	includeRevoked *bool,
+) (data_ *AppMemoryWriteGrantsLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemoryWriteGrantsLegacy",
+		Query:  AppMemoryWriteGrantsLegacy_Operation,
+		Variables: &__AppMemoryWriteGrantsLegacyInput{
+			AppRef:         appRef,
+			IncludeRevoked: includeRevoked,
+		},
+	}
+
+	data_ = &AppMemoryWriteGrantsLegacyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -145636,6 +146021,98 @@ func RevokeAppMemoryWriteGrantInstructed(
 	return data_, err_
 }
 
+// The mutation executed by RevokeAppMemoryWriteGrantInstructedLegacy.
+const RevokeAppMemoryWriteGrantInstructedLegacy_Operation = `
+mutation RevokeAppMemoryWriteGrantInstructedLegacy ($id: ID!, $instruction: ActInstructionInput!) {
+	revokeAppMemoryWriteGrant(id: $id, instruction: $instruction) {
+		... AppMemoryGrantLegacyFields
+	}
+}
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func RevokeAppMemoryWriteGrantInstructedLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeAppMemoryWriteGrantInstructedLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppMemoryWriteGrantInstructedLegacy",
+		Query:  RevokeAppMemoryWriteGrantInstructedLegacy_Operation,
+		Variables: &__RevokeAppMemoryWriteGrantInstructedLegacyInput{
+			Id:          id,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeAppMemoryWriteGrantInstructedLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAppMemoryWriteGrantLegacy.
+const RevokeAppMemoryWriteGrantLegacy_Operation = `
+mutation RevokeAppMemoryWriteGrantLegacy ($id: ID!) {
+	revokeAppMemoryWriteGrant(id: $id) {
+		... AppMemoryGrantLegacyFields
+	}
+}
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func RevokeAppMemoryWriteGrantLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RevokeAppMemoryWriteGrantLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppMemoryWriteGrantLegacy",
+		Query:  RevokeAppMemoryWriteGrantLegacy_Operation,
+		Variables: &__RevokeAppMemoryWriteGrantLegacyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RevokeAppMemoryWriteGrantLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeAutomationReadGrant.
 const RevokeAutomationReadGrant_Operation = `
 mutation RevokeAutomationReadGrant ($id: ID!) {
@@ -147473,6 +147950,57 @@ func SetAppMemoryWriteGrant(
 	}
 
 	data_ = &SetAppMemoryWriteGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAppMemoryWriteGrantLegacy.
+const SetAppMemoryWriteGrantLegacy_Operation = `
+mutation SetAppMemoryWriteGrantLegacy ($appRef: String!, $memoryRef: String!, $prefix: String!, $registerNodeUrn: String) {
+	setAppMemoryWriteGrant(appRef: $appRef, memoryRef: $memoryRef, prefix: $prefix, registerNodeUrn: $registerNodeUrn) {
+		... AppMemoryGrantLegacyFields
+	}
+}
+fragment AppMemoryGrantLegacyFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func SetAppMemoryWriteGrantLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	memoryRef string,
+	prefix string,
+	registerNodeUrn *string,
+) (data_ *SetAppMemoryWriteGrantLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppMemoryWriteGrantLegacy",
+		Query:  SetAppMemoryWriteGrantLegacy_Operation,
+		Variables: &__SetAppMemoryWriteGrantLegacyInput{
+			AppRef:          appRef,
+			MemoryRef:       memoryRef,
+			Prefix:          prefix,
+			RegisterNodeUrn: registerNodeUrn,
+		},
+	}
+
+	data_ = &SetAppMemoryWriteGrantLegacyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
