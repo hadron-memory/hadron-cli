@@ -255,8 +255,12 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 
 // pushOutcome folds a worker's batch outcomes: held beats unconfirmed beats
 // typed beats not-pushed beats pushed, because the worse state is the one the sender must act on.
-// batch is the span of the first batch seen at that state (cli#1900); "" when
-// no batch decided it.
+// state, reason and batch are one triple: batch is the span of the batch whose
+// note decided the displayed state and reason (cli#1900), "" when no batch
+// decided it. A worse state replaces all three. At the same state the first
+// batch stays, except for a reason upgrade (reason empty, the new one not),
+// which replaces state, reason and batch together: the batch shown is then
+// the upgrading batch's, never the first's.
 type pushOutcome struct {
 	state, reason, batch string
 	acked                int

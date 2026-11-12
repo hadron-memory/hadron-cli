@@ -28,6 +28,8 @@ type scriptedDeliverer struct {
 	cancel      context.CancelFunc
 	// ackPending: workers whose delivery is typed but whose ack did not land.
 	ackPending map[string]bool
+	// emptyReason: workers whose kind outcome (Failed/Held) carries no reason.
+	emptyReason map[string]bool
 }
 
 func (d *scriptedDeliverer) Deliver(_ context.Context, b delivery.Batch, _ delivery.Recipient) delivery.Outcome {
@@ -36,6 +38,9 @@ func (d *scriptedDeliverer) Deliver(_ context.Context, b delivery.Batch, _ deliv
 		d.cancel()
 	}
 	if k, ok := d.kind[b.WorkerID]; ok {
+		if d.emptyReason[b.WorkerID] {
+			return delivery.Outcome{Kind: k}
+		}
 		return delivery.Outcome{Kind: k, Reason: "draft"}
 	}
 	return delivery.Outcome{Kind: delivery.Delivered, AckPending: d.ackPending[b.WorkerID]}
@@ -503,5 +508,93 @@ func TestPushTextReceiptShowsAckPendingWithZeroAcked(t *testing.T) {
 	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
 	if r.err != nil || !strings.Contains(r.out, "push one: typed (ack-pending; acked 0)") {
 		t.Fatalf("text receipt: %v %q", r.err, r.out)
+	}
+}
+
+// pushReceipt is the recipient's state:reason, batch span and acked count.
+func pushReceipt(t *testing.T, r pushRun, who string) (state, batch string, acked float64) {
+	t.Helper()
+	return pushStates(t, r)[who], pushBatch(t, r, who), pushAcked(t, r, who)
+}
+
+var pushArgs = []string{"hi", "--push", "--orca-host-config", "HOST"}
+
+// cli#1930: the batch is the span of the batch whose note decided the shown
+// state+reason. At a state the first batch stays (One: a1=ch#1:1-1, a2=ch#1:3-3).
+func TestPushBatchIsTheFirstBatchAtItsState(t *testing.T) {
+	// pushed: both batches pushed, the first one names it.
+	r := runPush(t, pushArgs, []string{"one"}, nil, false, false)
+	if st, b, n := pushReceipt(t, r, "one"); st != "pushed:<nil>" || b != "ch#1:1-1" || n != 2 {
+		t.Fatalf("pushed: %s %s %v", st, b, n)
+	}
+	// typed: a later pending batch does not replace the typed one (cor:agt:080:12).
+	r = runPushHook(t, pushArgs, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
+	if st, b, n := pushReceipt(t, r, "one"); st != "typed:ack-pending" || b != "ch#1:1-1" || n != 0 {
+		t.Fatalf("typed: %s %s %v", st, b, n)
+	}
+	// not-pushed with a reason: the blocked later batch does not upgrade a reason that exists.
+	r = runPush(t, pushArgs, []string{"one"}, map[string]delivery.Kind{"wkr1": delivery.Failed}, false, false)
+	if st, b, _ := pushReceipt(t, r, "one"); st != "not-pushed:draft" || b != "ch#1:1-1" {
+		t.Fatalf("not-pushed with reason: %s %s", st, b)
+	}
+}
+
+// A same-state reason upgrade replaces state, reason and batch together: the
+// first batch failed with no reason, the blocked second one upgrades it to
+// pending and carries its own span (ch#1:3-3).
+func TestPushReasonUpgradeCarriesTheUpgradingBatch(t *testing.T) {
+	r := runPushHook(t, pushArgs, []string{"one"}, func(x *scriptedDeliverer) {
+		x.kind = map[string]delivery.Kind{"wkr1": delivery.Failed}
+		x.emptyReason = map[string]bool{"wkr1": true}
+	})
+	if st, b, _ := pushReceipt(t, r, "one"); st != "not-pushed:pending" || b != "ch#1:3-3" {
+		t.Fatalf("upgrade: %s %s, want not-pushed:pending ch#1:3-3", st, b)
+	}
+}
+
+// Pure fold: a worse state replaces the triple; a lower one never does.
+func TestPushOutcomeNoteKeepsTheTripleTogether(t *testing.T) {
+	o := &pushOutcome{}
+	o.note(pushStateNotPushed, "", "b1")
+	o.note(pushStateNotPushed, "pending", "b2") // reason upgrade: all three move
+	if o.state != pushStateNotPushed || o.reason != "pending" || o.batch != "b2" {
+		t.Fatalf("upgrade %+v", o)
+	}
+	o.note(pushStateNotPushed, "other", "b3") // reason already set: first stays
+	o.note(pushStatePushed, "", "b4")         // lower rank never replaces
+	if o.reason != "pending" || o.batch != "b2" {
+		t.Fatalf("kept %+v", o)
+	}
+	o.note(pushStateHeld, "draft", "b5") // worse state replaces all three
+	if o.state != pushStateHeld || o.reason != "draft" || o.batch != "b5" {
+		t.Fatalf("worse %+v", o)
+	}
+}
+
+// Two workers share the token mary-jane (wkr2 "Mary Jane": b1=ch#1:2-2, b2=4-4;
+// wkr3 "Mary-Jane": c1=ch#1:5-5). The token's receipt is the worse sharer's
+// state+reason+batch, and acked still sums over every sharer.
+func TestPushSharedTokenFoldCarriesTheDecidingSharersBatch(t *testing.T) {
+	mary := []string{"mary-jane"}
+	// held on wkr3 beats wkr2's pushes: held:draft with wkr3's batch; acked = wkr2's 2.
+	r := runPushWith(t, pushArgs, mary, map[string]delivery.Kind{"wkr3": delivery.Held}, false, false, "", true)
+	if st, b, n := pushReceipt(t, r, "mary-jane"); st != "held:draft" || b != "ch#1:5-5" || n != 2 {
+		t.Fatalf("held sharer: %s %s %v", st, b, n)
+	}
+	// typed (wkr2, ack-pending) beats pushed (wkr3): typed with wkr2's first batch,
+	// never pushed; acked is wkr3's 1 only.
+	pushHook = func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr2": true} }
+	defer func() { pushHook = nil }()
+	r = runPushWith(t, pushArgs, mary, nil, false, false, "", true)
+	if st, b, n := pushReceipt(t, r, "mary-jane"); st != "typed:ack-pending" || b != "ch#1:2-2" || n != 1 {
+		t.Fatalf("typed sharer: %s %s %v", st, b, n)
+	}
+}
+
+// An unresolved sharer at a pass error stays unconfirmed/push-failed, batch none.
+func TestPushUnresolvedSharerIsUnconfirmedWithNoBatch(t *testing.T) {
+	r := runPushWith(t, pushArgs, []string{"mary-jane"}, nil, false, false, "b1", true)
+	if st, b, _ := pushReceipt(t, r, "mary-jane"); st != "unconfirmed:push-failed" || b != "none" {
+		t.Fatalf("unresolved: %s %s", st, b)
 	}
 }
