@@ -71,6 +71,11 @@ func newSigFake(t *testing.T, respond func(op string, n int, vars map[string]any
 			resp = rest
 			w.WriteHeader(http.StatusForbidden)
 		}
+		// A real GraphQL validation refusal is a 400 carrying the envelope.
+		if rest, ok := strings.CutPrefix(resp, "HTTP400 "); ok {
+			resp = rest
+			w.WriteHeader(http.StatusBadRequest)
+		}
 		_, _ = w.Write([]byte(resp))
 	}))
 	t.Cleanup(s.srv.Close)

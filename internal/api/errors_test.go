@@ -1115,6 +1115,41 @@ func TestIsGraphQLValidationOnlyFor(t *testing.T) {
 	}
 }
 
+func TestIsFrameworkValidationOnlyFor(t *testing.T) {
+	coded := func(f string) *gqlerror.Error {
+		return &gqlerror.Error{Message: `Cannot query field "` + f + `" on type "Row".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}
+	}
+	// genqlient's shape for a non-JSON non-200 body: one code-less error whose
+	// message is the raw text.
+	rawText := &gqlerror.Error{Message: `Cannot query field "a" on type "Row".`}
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+		want bool
+	}{
+		{"coded, one field", gqlerror.List{coded("a")}, true},
+		{"coded, both fields", gqlerror.List{coded("a"), coded("b")}, true},
+		{"raw text body naming the field", gqlerror.List{rawText}, false},
+		{"coded plus raw text", gqlerror.List{coded("a"), rawText}, false},
+		{"coded plus another field", gqlerror.List{coded("a"), coded("c")}, false},
+		{"no errors", gqlerror.List{}, false},
+		// cli#1957 LOCAL P2: the rejected field is "c"; "a" only appears in the
+		// validator's suggestion, so the server has "a" and this is not our refusal.
+		{"target only in a did-you-mean suggestion", gqlerror.List{{Message: `Cannot query field "c" on type "Row". Did you mean "a"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"target only as the type name", gqlerror.List{{Message: `Cannot query field "c" on type "a".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, false},
+		{"rejected field with a suggestion", gqlerror.List{{Message: `Cannot query field "a" on type "Row". Did you mean "b"?`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}, true},
+		// An explicitly different code on a matching message is not the framework's.
+		{"other code on a matching message", gqlerror.List{{Message: `Cannot query field "a" on type "Row".`, Extensions: map[string]any{"code": "BAD_USER_INPUT"}}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
+			if got := IsFrameworkValidationOnlyFor(err, "a", "b"); got != tc.want {
+				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBulkTemplateRefusalRoot1701(t *testing.T) {
 	for _, tc := range []struct {
 		name string
