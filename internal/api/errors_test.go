@@ -286,6 +286,8 @@ func TestMapError(t *testing.T) {
 		{"attention token stale", gqlErr("ATTENTION_TOKEN_STALE"), exitcode.Conflict},
 		{"attention page stale", gqlErr("TEAM_ATTENTION_STALE_PAGE"), exitcode.Conflict},
 		{"switchover proof stale", gqlErr("SWITCHOVER_PROOF_STALE"), exitcode.Conflict},
+		{"signing preview stale", gqlErr("BOOT_PROMPT_SIGNING_PREVIEW_STALE"), exitcode.Conflict},
+		{"signing not configured stays an operator state", gqlErr("BOOT_PROMPT_SIGNING_NOT_CONFIGURED"), exitcode.Error},
 		// These two ride the existing _REQUIRED / _TOO_LARGE suffix rules.
 		{"attention scope too large", gqlErr("TEAM_ATTENTION_SCOPE_TOO_LARGE"), exitcode.Usage},
 		// NOT Forbidden, and each for its own reason, so a later reader does
