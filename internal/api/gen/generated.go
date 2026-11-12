@@ -77182,7 +77182,9 @@ func (v *ScopesScopesScopesPageItemsScope) __premarshalJSON() (*__premarshalScop
 type SearchEntityType string
 
 const (
-	SearchEntityTypeAgent           SearchEntityType = "agent"
+	SearchEntityTypeAgent SearchEntityType = "agent"
+	// GraphQL only (hrn:node:hadronmemory.com:specs:cor:api:050): MCP hadron_search stays at seven types. Hits only for a person or worker session the task read gate admits.
+	SearchEntityTypeAgenttask       SearchEntityType = "agentTask"
 	SearchEntityTypeAiserviceconfig SearchEntityType = "aiServiceConfig"
 	SearchEntityTypeApp             SearchEntityType = "app"
 	SearchEntityTypeMemory          SearchEntityType = "memory"
@@ -77193,6 +77195,7 @@ const (
 
 var AllSearchEntityType = []SearchEntityType{
 	SearchEntityTypeAgent,
+	SearchEntityTypeAgenttask,
 	SearchEntityTypeAiserviceconfig,
 	SearchEntityTypeApp,
 	SearchEntityTypeMemory,
@@ -96795,7 +96798,9 @@ func (v *UpdateAiServiceConfigWithEndpointUpdateAiServiceConfig) __premarshalJSO
 type UpdateAppResponse struct {
 	// Update an App.
 	//
-	// Accepts the entity's ID or URN.
+	// Accepts the entity's ID or URN. An uninstalled App is kept read-only
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21): this refuses it with
+	// APP_UNINSTALLED, for every field, after the access gate, writing nothing.
 	UpdateApp *UpdateAppUpdateApp `json:"updateApp"`
 }
 
@@ -96806,7 +96811,9 @@ func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.Update
 type UpdateAppSettingsResponse struct {
 	// Update an App.
 	//
-	// Accepts the entity's ID or URN.
+	// Accepts the entity's ID or URN. An uninstalled App is kept read-only
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21): this refuses it with
+	// APP_UNINSTALLED, for every field, after the access gate, writing nothing.
 	UpdateApp *UpdateAppSettingsUpdateApp `json:"updateApp"`
 }
 

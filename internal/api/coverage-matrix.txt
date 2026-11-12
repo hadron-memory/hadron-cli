@@ -602,7 +602,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 81: 45 gap, 36 excluded
+[Arguments] 82: 46 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -675,6 +675,7 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
+Query.agentTeamEventsPage(alarmsInEffect)  gap #1940
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
