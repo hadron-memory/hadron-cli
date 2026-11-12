@@ -157,6 +157,9 @@ Needs ADMIN or OWNER of the organization, signed in as yourself.`,
 				return signingError(err)
 			}
 			s := resp.OrgBootPromptSigning
+			if s == nil {
+				return exitcode.Newf(exitcode.Error, "server returned an empty orgBootPromptSigning result")
+			}
 			dto := signingStatusDTO{Org: args[0], Required: s.Required, Enforced: s.Enforced, DeploymentSigns: s.DeploymentSigns}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSigningStatus(w, dto)
@@ -277,7 +280,9 @@ the new status plus the preview you were shown.`,
 					return err
 				}
 				if len(page.dto.Rows) == 0 {
-					fmt.Fprintln(f.IOStreams.ErrOut, "Nothing served today would change.")
+					if _, err := fmt.Fprintln(f.IOStreams.ErrOut, "Nothing served today would change."); err != nil {
+						return err
+					}
 				}
 			}
 			prompt := fmt.Sprintf("Switch boot-prompt signing ON for %s? The %d prompt(s) listed above would change or stop being served; prompts compiled and approved later must be signed too", output.SafeCell(args[0]), page.dto.Total)
@@ -293,6 +298,9 @@ the new status plus the preview you were shown.`,
 				return signingError(err)
 			}
 			s := resp.SetOrgBootPromptSigning
+			if s == nil {
+				return exitcode.Newf(exitcode.Error, "server returned an empty setOrgBootPromptSigning result; run `hadron org signing get` to see the switch")
+			}
 			dto := signingOnDTO{
 				Org: args[0], Required: s.Required, Enforced: s.Enforced, DeploymentSigns: s.DeploymentSigns,
 				Preview: signingShownDTO{Total: page.dto.Total, Rows: page.dto.Rows},
@@ -333,6 +341,9 @@ and switching off an already-off switch succeeds. It asks you to confirm;
 				return signingError(err)
 			}
 			s := resp.SetOrgBootPromptSigning
+			if s == nil {
+				return exitcode.Newf(exitcode.Error, "server returned an empty setOrgBootPromptSigning result; run `hadron org signing get` to see the switch")
+			}
 			dto := signingStatusDTO{Org: args[0], Required: s.Required, Enforced: s.Enforced, DeploymentSigns: s.DeploymentSigns}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSigningStatus(w, dto)
@@ -363,6 +374,9 @@ func fetchSigningPreviewPage(ctx context.Context, client graphql.Client, org str
 		return previewPage{}, signingError(err)
 	}
 	p := resp.OrgBootPromptSigningPreview
+	if p == nil {
+		return previewPage{}, exitcode.Newf(exitcode.Error, "server returned an empty orgBootPromptSigningPreview result; nothing was sent")
+	}
 	dto := signingPreviewDTO{
 		Org: org, Enforced: p.Enforced, DeploymentSigns: p.DeploymentSigns, Total: p.Total,
 		Rows: []signingRowDTO{}, HasMore: p.HasMore, EndCursor: p.EndCursor,
@@ -438,18 +452,29 @@ func yesNo(b bool) string {
 	return "no"
 }
 
-func writeSigningStatus(w io.Writer, s signingStatusDTO) error {
-	fmt.Fprintf(w, "required: %s\nenforced: %s\ndeploymentSigns: %s\n", yesNo(s.Required), yesNo(s.Enforced), yesNo(s.DeploymentSigns))
-	if s.Required && !s.Enforced {
-		fmt.Fprintf(w, "enforced: no — %s\n", signingNotEnforcedNote)
+// writeSigningStatus and writeSigningPreview return every write error: on's
+// display-before-mutation guarantee is worthless if a failed display is
+// swallowed and the mutation goes anyway.
+func writeSigningStatus(w io.Writer, st signingStatusDTO) error {
+	if _, err := fmt.Fprintf(w, "required: %s\nenforced: %s\ndeploymentSigns: %s\n", yesNo(st.Required), yesNo(st.Enforced), yesNo(st.DeploymentSigns)); err != nil {
+		return err
+	}
+	if st.Required && !st.Enforced {
+		if _, err := fmt.Fprintf(w, "enforced: no — %s\n", signingNotEnforcedNote); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func writeSigningPreview(w io.Writer, p signingPreviewDTO) error {
-	fmt.Fprintf(w, "total: %d\nenforced: %s\ndeploymentSigns: %s\n", p.Total, yesNo(p.Enforced), yesNo(p.DeploymentSigns))
+	if _, err := fmt.Fprintf(w, "total: %d\nenforced: %s\ndeploymentSigns: %s\n", p.Total, yesNo(p.Enforced), yesNo(p.DeploymentSigns)); err != nil {
+		return err
+	}
 	if !p.DeploymentSigns {
-		fmt.Fprintf(w, "enforced: no — %s\n", signingNotEnforcedNote)
+		if _, err := fmt.Fprintf(w, "enforced: no — %s\n", signingNotEnforcedNote); err != nil {
+			return err
+		}
 	}
 	if len(p.Rows) == 0 {
 		return nil

@@ -831,3 +831,72 @@ func TestSessionStartBootPromptNotSignedPassesThrough(t *testing.T) {
 		t.Errorf("server message lost:\n%s", errOut)
 	}
 }
+
+type sigClosedWriter struct{}
+
+func (sigClosedWriter) Write([]byte) (int, error) { return 0, fmt.Errorf("stderr closed") }
+
+// Blind review P2 (cli#1942): a failed display must stop `on`, for a non-empty
+// AND an empty preview, in text and --json: the preview is only "shown" if the
+// write succeeded.
+func TestOrgSigningOnFailedDisplayNeverSendsTheMutation(t *testing.T) {
+	empty := func(op string, n int, _ map[string]any) string {
+		if op == "SetOrgBootPromptSigning" {
+			return setResp(true, true, true)
+		}
+		return sigPage(nil, 0, false, "", "tok")
+	}
+	for name, respond := range map[string]func(string, int, map[string]any) string{"rows": threePages, "empty": empty} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%v", name, asJSON), func(t *testing.T) {
+				fake := newSigFake(t, respond)
+				f, _ := testFactory(t)
+				f.IOStreams.ErrOut = sigClosedWriter{}
+				args := []string{"org", "signing", "on", "acme.com", "--yes"}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				if code := runSigning(t, f, fake, args...); code == 0 {
+					t.Error("a failed preview display must fail the command")
+				}
+				if len(fake.requests("SetOrgBootPromptSigning")) != 0 {
+					t.Error("mutation sent although the preview could not be displayed")
+				}
+			})
+		}
+	}
+}
+
+// Blind review P2 (cli#1942): a successful response with a null result is a
+// controlled error, never a panic, and a null preview never reaches the mutation.
+func TestOrgSigningNullResultsAreControlledErrors(t *testing.T) {
+	nullData := func(field string) string { return fmt.Sprintf(`{"data":{%q:null}}`, field) }
+	cases := []struct {
+		name    string
+		args    []string
+		respond func(op string, n int, v map[string]any) string
+	}{
+		{"get", []string{"get", "acme.com"}, func(string, int, map[string]any) string { return nullData("orgBootPromptSigning") }},
+		{"preview", []string{"preview", "acme.com"}, func(string, int, map[string]any) string { return nullData("orgBootPromptSigningPreview") }},
+		{"on: null preview", []string{"on", "acme.com", "--yes"}, func(string, int, map[string]any) string { return nullData("orgBootPromptSigningPreview") }},
+		{"on: null mutation result", []string{"on", "acme.com", "--yes"}, func(op string, n int, v map[string]any) string {
+			if op == "SetOrgBootPromptSigning" {
+				return nullData("setOrgBootPromptSigning")
+			}
+			return threePages(op, n, v)
+		}},
+		{"off: null mutation result", []string{"off", "acme.com", "--yes"}, func(string, int, map[string]any) string { return nullData("setOrgBootPromptSigning") }},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fake := newSigFake(t, c.respond)
+			f, _ := testFactory(t)
+			if code := runSigning(t, f, fake, append([]string{"org", "signing"}, c.args...)...); code != exitcode.Error {
+				t.Errorf("exit %d, want 1", code)
+			}
+			if c.name == "on: null preview" && len(fake.requests("SetOrgBootPromptSigning")) != 0 {
+				t.Error("a null preview reached the mutation")
+			}
+		})
+	}
+}
