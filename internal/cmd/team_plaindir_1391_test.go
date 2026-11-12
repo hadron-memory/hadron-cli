@@ -225,3 +225,91 @@ func TestPlainDir1391SecondWorkerStartIsRefusedBeforeAnyWrite(t *testing.T) {
 		})
 	}
 }
+
+// Gizelle's LOCAL F1 on #1968: a worker NAME is App-scoped and a URN's last
+// segment is only a slug, so "Iris" (or hrn:worker:<root>:<other-app>:iris)
+// may resolve to ANOTHER App's Iris. The directory check must decide on the
+// resolved worker's id, before --force ends the cached session and before any
+// start — never on the name or slug alone.
+func TestPlainDir1391SameNameWorkerOfAnotherAppIsRefusedBeforeAnyMutation(t *testing.T) {
+	for _, ref := range []string{"Iris", "hrn:worker:acme.com:other-team:iris"} {
+		for _, force := range []bool{false, true} {
+			name := ref + "/plain"
+			if force {
+				name = ref + "/force"
+			}
+			t.Run(name, func(t *testing.T) {
+				dir := plainDir1391(t)
+				if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+				if err := os.WriteFile(cache, []byte(bindingWithTeamFixture), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				other := strings.NewReplacer(`"id":"wkr1"`, `"id":"wkr2"`, `capp100000000000000000000`, `otherapp`, `:eng-team:iris`, `:other-team:iris`).Replace(withLiveness(irisWorkerJSON, "false"))
+				stubs := startStubs1391()
+				stubs["GetWorker"] = `{"data":{"worker":` + other + `}}`
+				stubs["GetWorkerInApp"] = `{"data":{"worker":` + other + `}}`
+				stubs["Workers"] = `{"data":{"workers":{"total":1,"items":[` + other + `]}}}`
+				stubs["WorkersRoster"] = stubs["Workers"]
+				stubs["StartTeamSession"] = `{"data":{"startSession":` + strings.NewReplacer(`"workerId":"wkr1"`, `"workerId":"wkr2"`, `"id":"s-new"`, `"id":"s-other"`).Replace(startedSessionJSON) + `}}`
+				stubs["EndTeamSession"] = `{"data":{"endSession":` + startedSessionJSON + `}}`
+				gql, captured := captureGraphQL(t, stubs)
+				f, _ := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"team", "session", "start", "--as", ref, "--app", "acme.com:other-team", "--server", gql.URL}
+				if force {
+					args = append(args, "--force")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if code := exitCodeFor(err); code != exitcode.Conflict {
+					t.Fatalf("exit %d, want Conflict: %v", code, err)
+				}
+				if err == nil || !strings.Contains(err.Error(), "one worker") {
+					t.Errorf("the refusal must state the one-worker rule: %v", err)
+				}
+				for _, op := range []string{"StartTeamSession", "EndTeamSession"} {
+					if _, called := captured[op]; called {
+						t.Errorf("%s must not be sent: the cached worker's session is not this start's to touch", op)
+					}
+				}
+				if raw, _ := os.ReadFile(cache); string(raw) != bindingWithTeamFixture {
+					t.Error("the cached binding must be left byte-identical")
+				}
+			})
+		}
+	}
+}
+
+// The other side of F1: the directory's OWN worker, named by name, still
+// replaces its binding with --force (the documented worktree replacement).
+func TestPlainDir1391SameWorkerForceRebindStillReplaces(t *testing.T) {
+	dir := plainDir1391(t)
+	if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+	if err := os.WriteFile(cache, []byte(strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-old"`, 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubs := startStubs1391()
+	stubs["GetWorkerInApp"] = `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`
+	stubs["EndTeamSession"] = `{"data":{"endSession":` + endedSessionJSON + `}}`
+	gql, captured := captureGraphQL(t, stubs)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--force", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the directory's own worker must rebind with --force: %v", err)
+	}
+	for _, op := range []string{"EndTeamSession", "StartTeamSession"} {
+		if _, called := captured[op]; !called {
+			t.Errorf("%s must be sent on a forced rebind of the same worker", op)
+		}
+	}
+	if got := readPlainBinding1391(t, dir)["sessionId"]; got != "s-new" {
+		t.Errorf("the binding must name the new session, got %v", got)
+	}
+}
