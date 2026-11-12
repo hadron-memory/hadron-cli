@@ -53,7 +53,7 @@ server makes every authorization decision; the CLI checks nothing ahead of it.`,
 			if !dto.Cancelled && !dto.AlreadyCancelled {
 				// Neither a stop nor an already-stopped watch: not a success.
 				if werr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-					_, err := fmt.Fprintf(w, "watch %s was not stopped\n", dto.JobID)
+					_, err := fmt.Fprintf(w, "watch %s was not stopped\n", output.SafeCell(dto.JobID))
 					return err
 				}); werr != nil {
 					return werr
@@ -62,10 +62,10 @@ server makes every authorization decision; the CLI checks nothing ahead of it.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.AlreadyCancelled {
-					_, err := fmt.Fprintf(w, "watch %s was already stopped\n", dto.JobID)
+					_, err := fmt.Fprintf(w, "watch %s was already stopped\n", output.SafeCell(dto.JobID))
 					return err
 				}
-				_, err := fmt.Fprintf(w, "✓ stopped watch %s\n", dto.JobID)
+				_, err := fmt.Fprintf(w, "✓ stopped watch %s\n", output.SafeCell(dto.JobID))
 				return err
 			})
 		},
