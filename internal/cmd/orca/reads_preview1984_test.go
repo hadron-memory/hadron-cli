@@ -3,12 +3,15 @@ package orca
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
@@ -112,5 +115,40 @@ func TestMonitoringPreviewDoesNotChangeDeliveryReader(t *testing.T) {
 		if field.Arguments.ForName("preview") != nil {
 			t.Fatalf("%s changed with the monitoring-only fix", name)
 		}
+	}
+}
+
+// Older servers must never induce a spending fallback. The existing API mapper
+// must name the monitoring prerequisite for both GraphQL HTTP shapes.
+func TestDueTicksPreviewValidationRefusalNoSpendingFallback(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			calls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{
+					"message":    "Unknown argument \"preview\" on field \"Query.dueWakes\".",
+					"extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"},
+				}}})
+			}))
+			defer srv.Close()
+			client, err := api.NewClient(srv.URL, "hdr_user_synthetic", srv.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := (graphReads{client: client, app: "app1"}).DueTicks(context.Background(), []string{"w1"})
+			var coded *exitcode.CodedError
+			if !errors.As(err, &coded) || coded.Code != exitcode.Usage {
+				t.Fatalf("unclean refusal: %v", err)
+			}
+			if !strings.Contains(err.Error(), "requires a server with dueWakes(preview)") || !strings.Contains(err.Error(), "upgrade the server") {
+				t.Fatalf("not actionable: %v", err)
+			}
+			if calls != 1 || got != nil {
+				t.Fatalf("fallback or success: calls=%d got=%+v", calls, got)
+			}
+		})
 	}
 }
