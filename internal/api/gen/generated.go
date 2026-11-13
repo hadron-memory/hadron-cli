@@ -8273,6 +8273,345 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	return &retval, nil
 }
 
+// AgentTaskListCreatorAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskListCreatorAgentTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListCreatorAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskListCreatorAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskListCreatorAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListCreatorAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskListCreatorAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskListCreatorAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskListCreatorAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskListCreatorAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskListCreatorAgentTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskListCreatorAgentTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskListCreatorAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskListCreatorAgentTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskListCreatorAgentTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskListCreatorAgentTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskListCreatorAgentTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskListCreatorAgentTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskListCreatorAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskListCreatorAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskListCreatorAgentTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskListCreatorAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns AgentTaskListCreatorAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns AgentTaskListCreatorAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskListCreatorAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns AgentTaskListCreatorAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns AgentTaskListCreatorAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns AgentTaskListCreatorAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns AgentTaskListCreatorAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskListCreatorAgentTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskListCreatorAgentTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskListCreatorAgentTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskListCreatorAgentTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskListCreatorAgentTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskListCreatorAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskListCreatorAgentTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskListCreatorAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskListCreatorAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskListCreatorAgentTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskListCreatorAgentTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskListCreatorAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskListCreatorAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskListCreatorAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListCreatorAgentTasksAgentTask, error) {
+	var retval __premarshalAgentTaskListCreatorAgentTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskListCreatorResponse is returned by AgentTaskListCreator on success.
+type AgentTaskListCreatorResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*AgentTaskListCreatorAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns AgentTaskListCreatorResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorResponse) GetAgentTasks() []*AgentTaskListCreatorAgentTasksAgentTask {
+	return v.AgentTasks
+}
+
 // AgentTaskListFilteredAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -17182,6 +17521,24 @@ func (v *AppFilter) GetAgentId() *string { return v.AgentId }
 
 // GetOwnedByMe returns AppFilter.OwnedByMe, and is useful for accessing the field via an interface.
 func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
+
+// #1747, #3308 — the closed list of named App grants (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Giving any grant stays person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12).
+type AppGrantName string
+
+const (
+	// Named permission for headless App-member add/remove; the holder's own member-management rights still apply. Provisioned before the separate #3308 enforcement rollout.
+	AppGrantNameAppMembers AppGrantName = "APP_MEMBERS"
+	// Subscribe and unsubscribe OTHER workers of the App, at any cadence.
+	AppGrantNameTickerSubscribeWorkers AppGrantName = "TICKER_SUBSCRIBE_WORKERS"
+	// Named permission for headless casting, retiring and deleting workers; the holder's own staffing rights still apply. Provisioned before the separate #3308 enforcement rollout.
+	AppGrantNameWorkersStaff AppGrantName = "WORKERS_STAFF"
+)
+
+var AllAppGrantName = []AppGrantName{
+	AppGrantNameAppMembers,
+	AppGrantNameTickerSubscribeWorkers,
+	AppGrantNameWorkersStaff,
+}
 
 // The key's id, label and scopes only — never its preview or any key material.
 type AppKeyScopesFields struct {
@@ -72559,6 +72916,18 @@ var AllRegisterRole = []RegisterRole{
 	RegisterRoleWatch,
 }
 
+type RegisterRouteKind string
+
+const (
+	RegisterRouteKindUser   RegisterRouteKind = "USER"
+	RegisterRouteKindWorker RegisterRouteKind = "WORKER"
+)
+
+var AllRegisterRouteKind = []RegisterRouteKind{
+	RegisterRouteKindUser,
+	RegisterRouteKindWorker,
+}
+
 // ReinstallAppResponse is returned by ReinstallApp on success.
 type ReinstallAppResponse struct {
 	// #3774 — Reinstall an uninstalled App: the SAME App (id, keys, members, memories) is installed again; no row is created
@@ -87195,6 +87564,271 @@ func (v *TeamActionRegisterIndexResponse) GetActionRegisterIndex() *TeamActionRe
 	return v.ActionRegisterIndex
 }
 
+// TeamAppGrantAddGrantAppAppGrant includes the requested fields of the GraphQL type AppGrant.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a narrow, named permission held by one worker (hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+type TeamAppGrantAddGrantAppAppGrant struct {
+	TeamAppGrantFields `json:"-"`
+}
+
+// GetId returns TeamAppGrantAddGrantAppAppGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetId() string { return v.TeamAppGrantFields.Id }
+
+// GetName returns TeamAppGrantAddGrantAppAppGrant.Name, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetName() AppGrantName { return v.TeamAppGrantFields.Name }
+
+// GetGrantedAt returns TeamAppGrantAddGrantAppAppGrant.GrantedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetGrantedAt() string {
+	return v.TeamAppGrantFields.GrantedAt
+}
+
+// GetRevokedAt returns TeamAppGrantAddGrantAppAppGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetRevokedAt() *string {
+	return v.TeamAppGrantFields.RevokedAt
+}
+
+// GetApp returns TeamAppGrantAddGrantAppAppGrant.App, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetApp() *TeamAppGrantFieldsApp {
+	return v.TeamAppGrantFields.App
+}
+
+// GetWorker returns TeamAppGrantAddGrantAppAppGrant.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddGrantAppAppGrant) GetWorker() *TeamAppGrantFieldsWorker {
+	return v.TeamAppGrantFields.Worker
+}
+
+func (v *TeamAppGrantAddGrantAppAppGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamAppGrantAddGrantAppAppGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamAppGrantAddGrantAppAppGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamAppGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamAppGrantAddGrantAppAppGrant struct {
+	Id string `json:"id"`
+
+	Name AppGrantName `json:"name"`
+
+	GrantedAt string `json:"grantedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	App *TeamAppGrantFieldsApp `json:"app"`
+
+	Worker *TeamAppGrantFieldsWorker `json:"worker"`
+}
+
+func (v *TeamAppGrantAddGrantAppAppGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamAppGrantAddGrantAppAppGrant) __premarshalJSON() (*__premarshalTeamAppGrantAddGrantAppAppGrant, error) {
+	var retval __premarshalTeamAppGrantAddGrantAppAppGrant
+
+	retval.Id = v.TeamAppGrantFields.Id
+	retval.Name = v.TeamAppGrantFields.Name
+	retval.GrantedAt = v.TeamAppGrantFields.GrantedAt
+	retval.RevokedAt = v.TeamAppGrantFields.RevokedAt
+	retval.App = v.TeamAppGrantFields.App
+	retval.Worker = v.TeamAppGrantFields.Worker
+	return &retval, nil
+}
+
+// TeamAppGrantAddResponse is returned by TeamAppGrantAdd on success.
+type TeamAppGrantAddResponse struct {
+	// #1747 — give a worker a named App grant (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Whoever manages the App only. Idempotent. Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session (a worker never gives a grant to itself) in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App.
+	GrantApp *TeamAppGrantAddGrantAppAppGrant `json:"grantApp"`
+}
+
+// GetGrantApp returns TeamAppGrantAddResponse.GrantApp, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantAddResponse) GetGrantApp() *TeamAppGrantAddGrantAppAppGrant { return v.GrantApp }
+
+// TeamAppGrantFields includes the GraphQL fields of AppGrant requested by the fragment TeamAppGrantFields.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a narrow, named permission held by one worker (hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+type TeamAppGrantFields struct {
+	Id        string                    `json:"id"`
+	Name      AppGrantName              `json:"name"`
+	GrantedAt string                    `json:"grantedAt"`
+	RevokedAt *string                   `json:"revokedAt"`
+	App       *TeamAppGrantFieldsApp    `json:"app"`
+	Worker    *TeamAppGrantFieldsWorker `json:"worker"`
+}
+
+// GetId returns TeamAppGrantFields.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetId() string { return v.Id }
+
+// GetName returns TeamAppGrantFields.Name, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetName() AppGrantName { return v.Name }
+
+// GetGrantedAt returns TeamAppGrantFields.GrantedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetGrantedAt() string { return v.GrantedAt }
+
+// GetRevokedAt returns TeamAppGrantFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetApp returns TeamAppGrantFields.App, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetApp() *TeamAppGrantFieldsApp { return v.App }
+
+// GetWorker returns TeamAppGrantFields.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFields) GetWorker() *TeamAppGrantFieldsWorker { return v.Worker }
+
+// TeamAppGrantFieldsApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type TeamAppGrantFieldsApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns TeamAppGrantFieldsApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFieldsApp) GetId() string { return v.Id }
+
+// TeamAppGrantFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type TeamAppGrantFieldsWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns TeamAppGrantFieldsWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantFieldsWorker) GetId() string { return v.Id }
+
+// TeamAppGrantRmResponse is returned by TeamAppGrantRm on success.
+type TeamAppGrantRmResponse struct {
+	// #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Takes effect at the grantee next call.
+	RevokeAppGrant *TeamAppGrantRmRevokeAppGrant `json:"revokeAppGrant"`
+}
+
+// GetRevokeAppGrant returns TeamAppGrantRmResponse.RevokeAppGrant, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmResponse) GetRevokeAppGrant() *TeamAppGrantRmRevokeAppGrant {
+	return v.RevokeAppGrant
+}
+
+// TeamAppGrantRmRevokeAppGrant includes the requested fields of the GraphQL type AppGrant.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a narrow, named permission held by one worker (hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+type TeamAppGrantRmRevokeAppGrant struct {
+	TeamAppGrantFields `json:"-"`
+}
+
+// GetId returns TeamAppGrantRmRevokeAppGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetId() string { return v.TeamAppGrantFields.Id }
+
+// GetName returns TeamAppGrantRmRevokeAppGrant.Name, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetName() AppGrantName { return v.TeamAppGrantFields.Name }
+
+// GetGrantedAt returns TeamAppGrantRmRevokeAppGrant.GrantedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetGrantedAt() string { return v.TeamAppGrantFields.GrantedAt }
+
+// GetRevokedAt returns TeamAppGrantRmRevokeAppGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetRevokedAt() *string { return v.TeamAppGrantFields.RevokedAt }
+
+// GetApp returns TeamAppGrantRmRevokeAppGrant.App, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetApp() *TeamAppGrantFieldsApp {
+	return v.TeamAppGrantFields.App
+}
+
+// GetWorker returns TeamAppGrantRmRevokeAppGrant.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantRmRevokeAppGrant) GetWorker() *TeamAppGrantFieldsWorker {
+	return v.TeamAppGrantFields.Worker
+}
+
+func (v *TeamAppGrantRmRevokeAppGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamAppGrantRmRevokeAppGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamAppGrantRmRevokeAppGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamAppGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamAppGrantRmRevokeAppGrant struct {
+	Id string `json:"id"`
+
+	Name AppGrantName `json:"name"`
+
+	GrantedAt string `json:"grantedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	App *TeamAppGrantFieldsApp `json:"app"`
+
+	Worker *TeamAppGrantFieldsWorker `json:"worker"`
+}
+
+func (v *TeamAppGrantRmRevokeAppGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamAppGrantRmRevokeAppGrant) __premarshalJSON() (*__premarshalTeamAppGrantRmRevokeAppGrant, error) {
+	var retval __premarshalTeamAppGrantRmRevokeAppGrant
+
+	retval.Id = v.TeamAppGrantFields.Id
+	retval.Name = v.TeamAppGrantFields.Name
+	retval.GrantedAt = v.TeamAppGrantFields.GrantedAt
+	retval.RevokedAt = v.TeamAppGrantFields.RevokedAt
+	retval.App = v.TeamAppGrantFields.App
+	retval.Worker = v.TeamAppGrantFields.Worker
+	return &retval, nil
+}
+
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -87230,6 +87864,92 @@ type TeamAppIdentityResponse struct {
 
 // GetApp returns TeamAppIdentityResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamAppIdentityResponse) GetApp() *TeamAppIdentityApp { return v.App }
+
+// TeamAttendeeRegisterAttendeeRegisterRegisterViewRow includes the requested fields of the GraphQL type RegisterViewRow.
+// The GraphQL type's documentation follows.
+//
+// One row of an attendee's RESOLVED register (spec 049 §4.3): the winning
+// register entry for a Channel (App › organization, Worker › Agent › everyone,
+// never unioned), the Channel's watermark, and the ATTENDEE's real standing on
+// the host memory — canRead / canPost are the existing gates, the register
+// grants nothing. A row the attendee cannot act on is returned with its reason,
+// never dropped. Host memory identifiers remain gated for the VIEWER.
+type TeamAttendeeRegisterAttendeeRegisterRegisterViewRow struct {
+	AttendeeUrn *string         `json:"attendeeUrn"`
+	NamedBy     RegisterNamedBy `json:"namedBy"`
+	CanRead     bool            `json:"canRead"`
+	// False for a Worker without an eligible driver (UNKNOWN_ACTOR); null only when no access subject was supplied.
+	CanPost *bool `json:"canPost"`
+	// Phase 7 — the attendee's cursor; null until read-state lands.
+	LastSeenSeq *int                                                                           `json:"lastSeenSeq"`
+	Channel     *TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel `json:"channel"`
+}
+
+// GetAttendeeUrn returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetAttendeeUrn() *string {
+	return v.AttendeeUrn
+}
+
+// GetNamedBy returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.NamedBy, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetNamedBy() RegisterNamedBy {
+	return v.NamedBy
+}
+
+// GetCanRead returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.CanRead, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetCanRead() bool { return v.CanRead }
+
+// GetCanPost returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.CanPost, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetCanPost() *bool { return v.CanPost }
+
+// GetLastSeenSeq returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetLastSeenSeq() *int {
+	return v.LastSeenSeq
+}
+
+// GetChannel returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRow.Channel, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRow) GetChannel() *TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel {
+	return v.Channel
+}
+
+// TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel includes the requested fields of the GraphQL type RegisterViewChannel.
+// The GraphQL type's documentation follows.
+//
+// The Channel half of a register view row; the host memory's URN only when the viewer may read it.
+type TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Loc  string `json:"loc"`
+}
+
+// GetId returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel.Id, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel) GetId() string {
+	return v.Id
+}
+
+// GetName returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel.Name, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel) GetName() string {
+	return v.Name
+}
+
+// GetLoc returns TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel.Loc, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel) GetLoc() string {
+	return v.Loc
+}
+
+// TeamAttendeeRegisterResponse is returned by TeamAttendeeRegister on success.
+type TeamAttendeeRegisterResponse struct {
+	// Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
+	// a Worker (workerRef) or to an Agent in an App (agentRef + appRef), one per
+	// Channel, with YOUR standing on each host memory. The relay reads this
+	// instead of a configured appRef. Gated on App participation (the same gate
+	// as the Worker's briefing); a foreign or nonexistent attendee is an empty list.
+	AttendeeRegister []*TeamAttendeeRegisterAttendeeRegisterRegisterViewRow `json:"attendeeRegister"`
+}
+
+// GetAttendeeRegister returns TeamAttendeeRegisterResponse.AttendeeRegister, and is useful for accessing the field via an interface.
+func (v *TeamAttendeeRegisterResponse) GetAttendeeRegister() []*TeamAttendeeRegisterAttendeeRegisterRegisterViewRow {
+	return v.AttendeeRegister
+}
 
 // TeamAvailabilityResponse is returned by TeamAvailability on success.
 type TeamAvailabilityResponse struct {
@@ -91088,6 +91808,140 @@ type TeamGrantsResponse struct {
 // GetGrants returns TeamGrantsResponse.Grants, and is useful for accessing the field via an interface.
 func (v *TeamGrantsResponse) GetGrants() *TeamGrantsGrantsGrantsPage { return v.Grants }
 
+// TeamHeldWorkersHeldWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type TeamHeldWorkersHeldWorkersWorkersPage struct {
+	Items []*TeamHeldWorkersHeldWorkersWorkersPageItemsWorker `json:"items"`
+	Total int                                                 `json:"total"`
+}
+
+// GetItems returns TeamHeldWorkersHeldWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPage) GetItems() []*TeamHeldWorkersHeldWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// GetTotal returns TeamHeldWorkersHeldWorkersWorkersPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPage) GetTotal() int { return v.Total }
+
+// TeamHeldWorkersHeldWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type TeamHeldWorkersHeldWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name  string `json:"name"`
+	AppId string `json:"appId"`
+	// The App's canonical URN (the same value App.urn returns, e.g.
+	// hrn:app:acme.com:team), as a scalar identity suitable for cross-App
+	// worker lists. PROFILE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11):
+	// null only for a caller who may not see this worker's profile. This
+	// intentionally does not return the App object, whose nested keys and
+	// members have a narrower read audience.
+	AppUrn *string `json:"appUrn"`
+	// #1149 — the App's display name ('Team'), so a worker's profile page can say
+	// whose staff it is without the App object. PROFILE field
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:11): readable by any signed-in user who
+	// names the worker; null for a caller who may not see its profile.
+	AppName *string `json:"appName"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role *string `json:"role"`
+	// When the current hold was taken. Null exactly when heldByUserId is — and
+	// likewise masked on deny.
+	//
+	// #1034: "taken" here is the HOLD's timestamp, unrelated to `WORKER_TAKEN`
+	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
+	// the register). Three senses of one word across two types.
+	HeldAt *string `json:"heldAt"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+	// hadron-cli#487 — whether anyone is DRIVING this name right now.
+	//
+	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+	// ended or idle session never frees a name. This says only whether someone is
+	// mid-stint, which is the question a coordinator asks about a name already
+	// theirs. Conflating the two is the CLI bug this field exists for.
+	//
+	// #1114 — COMPUTED, never stored: an unended session driven inside its
+	// type's idle window, with no promised hard expiry at or before now.
+	// An open row alone is insufficient. Inactivity does not end the session
+	// or release a human-held name. An eligible act may resume a lapsed session;
+	// a dormant or terminal session cannot be revived by an agent act.
+	//
+	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
+	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+	// binder can take, and since #1114 that is load-bearing rather than tidy:
+	// with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+	// refuse a bind forever and leave force as the only route.
+	//
+	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
+	// is a working-state field like heldByUserId, masked to null on deny rather
+	// than answering false, which would state a fact the server never computed.
+	HasLiveSession *bool `json:"hasLiveSession"`
+}
+
+// GetId returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetId() string { return v.Id }
+
+// GetUrn returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetUrn() *string { return v.Urn }
+
+// GetName returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetName() string { return v.Name }
+
+// GetAppId returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.AppId, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetAppId() string { return v.AppId }
+
+// GetAppUrn returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.AppUrn, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetAppUrn() *string { return v.AppUrn }
+
+// GetAppName returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.AppName, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetAppName() *string { return v.AppName }
+
+// GetRole returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetRole() *string { return v.Role }
+
+// GetHeldAt returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetHeldAt() *string { return v.HeldAt }
+
+// GetRetiredAt returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetHasLiveSession returns TeamHeldWorkersHeldWorkersWorkersPageItemsWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersHeldWorkersWorkersPageItemsWorker) GetHasLiveSession() *bool {
+	return v.HasLiveSession
+}
+
+// TeamHeldWorkersResponse is returned by TeamHeldWorkers on success.
+type TeamHeldWorkersResponse struct {
+	// Workers CURRENTLY held by userRef across Apps the caller may inspect
+	// (#1344), oldest casting first. userRef accepts a user id, handle, URN, or
+	// email. Missing users, no holds, and holds confined to unreadable Apps all
+	// return the same empty page; total and pagination are computed only after
+	// the App authorization filter.
+	//
+	// Retired castings are hidden unless includeRetired. hasLiveSession on each
+	// item uses the existing derived idle-window predicate — it means the worker
+	// is being driven now, not merely that an unended Session row exists.
+	HeldWorkers *TeamHeldWorkersHeldWorkersWorkersPage `json:"heldWorkers"`
+}
+
+// GetHeldWorkers returns TeamHeldWorkersResponse.HeldWorkers, and is useful for accessing the field via an interface.
+func (v *TeamHeldWorkersResponse) GetHeldWorkers() *TeamHeldWorkersHeldWorkersWorkersPage {
+	return v.HeldWorkers
+}
+
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -91121,6 +91975,169 @@ type TeamMemoryAppResponse struct {
 
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
+
+// TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage includes the requested fields of the GraphQL type RegisterRoleCandidatePage.
+// The GraphQL type's documentation follows.
+//
+// Experimental action register role-picking projection. No routing or assignment.
+type TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage struct {
+	AppId   string  `json:"appId"`
+	Code    string  `json:"code"`
+	Depth   *int    `json:"depth"`
+	TaskLoc *string `json:"taskLoc"`
+	// Total nearest-depth ties, independent of the requested page.
+	Total      int                                                                                                     `json:"total"`
+	Candidates []*TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate `json:"candidates"`
+}
+
+// GetAppId returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetAppId() string {
+	return v.AppId
+}
+
+// GetCode returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.Code, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetCode() string {
+	return v.Code
+}
+
+// GetDepth returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.Depth, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetDepth() *int {
+	return v.Depth
+}
+
+// GetTaskLoc returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.TaskLoc, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetTaskLoc() *string {
+	return v.TaskLoc
+}
+
+// GetTotal returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.Total, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetTotal() int {
+	return v.Total
+}
+
+// GetCandidates returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage.Candidates, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage) GetCandidates() []*TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate {
+	return v.Candidates
+}
+
+// TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate includes the requested fields of the GraphQL type RegisterRoleCandidate.
+type TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate struct {
+	// Own Agent is zero; each base link adds one.
+	Depth   int                                                                                                                       `json:"depth"`
+	Role    *string                                                                                                                   `json:"role"`
+	TaskUrn string                                                                                                                    `json:"taskUrn"`
+	Worker  *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty `json:"worker"`
+}
+
+// GetDepth returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate.Depth, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate) GetDepth() int {
+	return v.Depth
+}
+
+// GetRole returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate.Role, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate) GetRole() *string {
+	return v.Role
+}
+
+// GetTaskUrn returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate.TaskUrn, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate) GetTaskUrn() string {
+	return v.TaskUrn
+}
+
+// GetWorker returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate.Worker, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidate) GetWorker() *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePageCandidatesRegisterRoleCandidateWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// TeamRegisterCandidatesResponse is returned by TeamRegisterCandidates on success.
+type TeamRegisterCandidatesResponse struct {
+	// Experimental register role picker: all readable workers tied at the nearest task depth, paged. Never assigns or routes.
+	RegisterRoleCandidates *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage `json:"registerRoleCandidates"`
+}
+
+// GetRegisterRoleCandidates returns TeamRegisterCandidatesResponse.RegisterRoleCandidates, and is useful for accessing the field via an interface.
+func (v *TeamRegisterCandidatesResponse) GetRegisterRoleCandidates() *TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage {
+	return v.RegisterRoleCandidates
+}
+
+// TeamRegisterPickRegisterRolePick includes the requested fields of the GraphQL type RegisterRolePick.
+type TeamRegisterPickRegisterRolePick struct {
+	AppId string `json:"appId"`
+	Code  string `json:"code"`
+	// Worker arms carry exactly one WORKER entry; the managers arm one USER entry per manager, nearest first.
+	Entries []*TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry `json:"entries"`
+}
+
+// GetAppId returns TeamRegisterPickRegisterRolePick.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickRegisterRolePick) GetAppId() string { return v.AppId }
+
+// GetCode returns TeamRegisterPickRegisterRolePick.Code, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickRegisterRolePick) GetCode() string { return v.Code }
+
+// GetEntries returns TeamRegisterPickRegisterRolePick.Entries, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickRegisterRolePick) GetEntries() []*TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry {
+	return v.Entries
+}
+
+// TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry includes the requested fields of the GraphQL type RegisterRouteEntry.
+type TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry struct {
+	Id   string            `json:"id"`
+	Kind RegisterRouteKind `json:"kind"`
+}
+
+// GetId returns TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry.Id, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry) GetId() string { return v.Id }
+
+// GetKind returns TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry.Kind, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickRegisterRolePickEntriesRegisterRouteEntry) GetKind() RegisterRouteKind {
+	return v.Kind
+}
+
+// TeamRegisterPickResponse is returned by TeamRegisterPick on success.
+type TeamRegisterPickResponse struct {
+	// Experimental: the routed pick for a register code: the named worker, else one role holder (matcher least-recently-assigned), else one coordinator-role holder, else the App's managers (shown only to a manager). Empty when nothing matches. Never assigns or delivers.
+	RegisterRolePick *TeamRegisterPickRegisterRolePick `json:"registerRolePick"`
+}
+
+// GetRegisterRolePick returns TeamRegisterPickResponse.RegisterRolePick, and is useful for accessing the field via an interface.
+func (v *TeamRegisterPickResponse) GetRegisterRolePick() *TeamRegisterPickRegisterRolePick {
+	return v.RegisterRolePick
+}
 
 // TeamReportingLinesResponse is returned by TeamReportingLines on success.
 type TeamReportingLinesResponse struct {
@@ -93872,6 +94889,56 @@ func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) __premar
 	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
 	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
 	return &retval, nil
+}
+
+// TeamTickerSettingsSetResponse is returned by TeamTickerSettingsSet on success.
+type TeamTickerSettingsSetResponse struct {
+	// #1747 — change an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05, :19). Whoever manages the App only.
+	// Refusals: TICKER_SETTINGS_OUT_OF_RANGE, TICKER_SETTINGS_CONFLICT (a floor above a live ticker cadence),
+	// DELIVERY_SETTINGS_CONFLICT (the shared cadence floor must keep stuckWindowSeconds greater than busyDelaySeconds + minCadenceSeconds).
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetAppTickerSettings *TeamTickerSettingsSetSetAppTickerSettings `json:"setAppTickerSettings"`
+}
+
+// GetSetAppTickerSettings returns TeamTickerSettingsSetResponse.SetAppTickerSettings, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetResponse) GetSetAppTickerSettings() *TeamTickerSettingsSetSetAppTickerSettings {
+	return v.SetAppTickerSettings
+}
+
+// TeamTickerSettingsSetSetAppTickerSettings includes the requested fields of the GraphQL type AppTickerSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+type TeamTickerSettingsSetSetAppTickerSettings struct {
+	MinCadenceSeconds           int `json:"minCadenceSeconds"`
+	LiveCap                     int `json:"liveCap"`
+	SelfSubscribeCadenceSeconds int `json:"selfSubscribeCadenceSeconds"`
+	DailyWakeBudget             int `json:"dailyWakeBudget"`
+	// True when the budget is derived from the roster rather than set.
+	DailyWakeBudgetDerived bool `json:"dailyWakeBudgetDerived"`
+}
+
+// GetMinCadenceSeconds returns TeamTickerSettingsSetSetAppTickerSettings.MinCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetSetAppTickerSettings) GetMinCadenceSeconds() int {
+	return v.MinCadenceSeconds
+}
+
+// GetLiveCap returns TeamTickerSettingsSetSetAppTickerSettings.LiveCap, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetSetAppTickerSettings) GetLiveCap() int { return v.LiveCap }
+
+// GetSelfSubscribeCadenceSeconds returns TeamTickerSettingsSetSetAppTickerSettings.SelfSubscribeCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetSetAppTickerSettings) GetSelfSubscribeCadenceSeconds() int {
+	return v.SelfSubscribeCadenceSeconds
+}
+
+// GetDailyWakeBudget returns TeamTickerSettingsSetSetAppTickerSettings.DailyWakeBudget, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetSetAppTickerSettings) GetDailyWakeBudget() int {
+	return v.DailyWakeBudget
+}
+
+// GetDailyWakeBudgetDerived returns TeamTickerSettingsSetSetAppTickerSettings.DailyWakeBudgetDerived, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsSetSetAppTickerSettings) GetDailyWakeBudgetDerived() bool {
+	return v.DailyWakeBudgetDerived
 }
 
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
@@ -103377,6 +104444,146 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 	return &retval, nil
 }
 
+// UpdateTeamRoleReposResponse is returned by UpdateTeamRoleRepos on success.
+type UpdateTeamRoleReposResponse struct {
+	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+	//
+	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
+	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
+	// stating because a client whose variables default to null would otherwise
+	// have to guess, and the two readings differ (preserve vs wipe). Pass `[]`
+	// to clear deliberately. It is merged into the node's `data` rather than replacing it,
+	// and the write is guarded on the row's revision — a concurrent generic node
+	// write (updateNode, hadron_update_node_data) refuses TEAM_ROLE_DATA_CONFLICT
+	// rather than silently reverting, since those surfaces do not take this one's
+	// lock. Retry after re-reading. A description-only edit carries no data and
+	// takes no guard.
+	//
+	// #1050: with the register gone this otherwise edits the description alone,
+	// so the #987 expectedNames compare-and-swap is gone too — it existed solely
+	// to stop two concurrent wholesale register writes silently dropping each
+	// other's newly added FREE names, a hazard that cannot arise when the write
+	// owns no list. That closes #1028 (the client-side register CAS arithmetic)
+	// outright rather than by implementing it.
+	UpdateTeamRole *UpdateTeamRoleReposUpdateTeamRole `json:"updateTeamRole"`
+}
+
+// GetUpdateTeamRole returns UpdateTeamRoleReposResponse.UpdateTeamRole, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposResponse) GetUpdateTeamRole() *UpdateTeamRoleReposUpdateTeamRole {
+	return v.UpdateTeamRole
+}
+
+// UpdateTeamRoleReposUpdateTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory. #1050: it carries no name register — a role is a definition, not an
+// allocation pool.
+// The boot prompt is NOT here — it is the role-agent's compiled boot prompt
+// (hrn:node:hadronmemory.com:specs:cor:agt:040:07); roleAgent points at it.
+type UpdateTeamRoleReposUpdateTeamRole struct {
+	TeamRoleFields `json:"-"`
+	// #1024 — the repos a worker in this role normally works in, from
+	// `data.repos`. A SOFT signal for clients to warn on a role/repo mismatch at
+	// session start (hadron-cli#456): a worker bound as a server-engineer with
+	// `--repo …/hadron-cli` is usually a mistake and is sometimes deliberate.
+	//
+	// NEVER a refusal, and never inferred. Cross-repo work is legitimate — a
+	// coordinator does it by definition, and sibling repos share code — so a hard
+	// gate would be wrong the first time someone makes a genuine cross-cutting
+	// change. Affinity is declared, not guessed from the role slug, which happens
+	// to work for `cli-engineer` → `hadron-cli` and breaks for any team whose repo
+	// names do not match their role names.
+	//
+	// EMPTY AND UNSET ARE THE SAME: no affinity, never warn. A client cannot
+	// usefully act differently on the two, since "spans everything" and "not
+	// configured yet" both mean do-not-warn, and distinguishing them would make an
+	// unconfigured team look misconfigured.
+	Repos []string `json:"repos"`
+}
+
+// GetRepos returns UpdateTeamRoleReposUpdateTeamRole.Repos, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetRepos() []string { return v.Repos }
+
+// GetRole returns UpdateTeamRoleReposUpdateTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetRole() string { return v.TeamRoleFields.Role }
+
+// GetLoc returns UpdateTeamRoleReposUpdateTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
+
+// GetNodeId returns UpdateTeamRoleReposUpdateTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetNodeId() string { return v.TeamRoleFields.NodeId }
+
+// GetDescription returns UpdateTeamRoleReposUpdateTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetDescription() *string {
+	return v.TeamRoleFields.Description
+}
+
+// GetRoleAgent returns UpdateTeamRoleReposUpdateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleReposUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+func (v *UpdateTeamRoleReposUpdateTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTeamRoleReposUpdateTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTeamRoleReposUpdateTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTeamRoleReposUpdateTeamRole struct {
+	Repos []string `json:"repos"`
+
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+}
+
+func (v *UpdateTeamRoleReposUpdateTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTeamRoleReposUpdateTeamRole) __premarshalJSON() (*__premarshalUpdateTeamRoleReposUpdateTeamRole, error) {
+	var retval __premarshalUpdateTeamRoleReposUpdateTeamRole
+
+	retval.Repos = v.Repos
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	return &retval, nil
+}
+
 // UpdateTeamSessionResponse is returned by UpdateTeamSession on success.
 type UpdateTeamSessionResponse struct {
 	// #931: update a live session's mutable provenance fields (a PR is usually
@@ -108554,6 +109761,114 @@ type __AgentTaskIndexListInput struct {
 
 // GetRef returns __AgentTaskIndexListInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AgentTaskIndexListInput) GetRef() string { return v.Ref }
+
+// __AgentTaskListCreatorInput is used internally by genqlient
+type __AgentTaskListCreatorInput struct {
+	AppRef             string                    `json:"appRef"`
+	UnresolvedFindings *bool                     `json:"unresolvedFindings,omitempty"`
+	Assignee           *AgentTaskPartyInput      `json:"assignee,omitempty"`
+	CreatedAfter       *string                   `json:"createdAfter,omitempty"`
+	CreatedBefore      *string                   `json:"createdBefore,omitempty"`
+	FinishedAfter      *string                   `json:"finishedAfter,omitempty"`
+	FinishedBefore     *string                   `json:"finishedBefore,omitempty"`
+	MatchFailed        *bool                     `json:"matchFailed,omitempty"`
+	Limit              *int                      `json:"limit,omitempty"`
+	Offset             *int                      `json:"offset,omitempty"`
+	Overdue            *bool                     `json:"overdue,omitempty"`
+	Owner              *AgentTaskPartyInput      `json:"owner,omitempty"`
+	ParentTaskId       *string                   `json:"parentTaskId,omitempty"`
+	Queued             *bool                     `json:"queued,omitempty"`
+	RootsOnly          *bool                     `json:"rootsOnly,omitempty"`
+	Reference          *AgentTaskReferenceFilter `json:"reference,omitempty"`
+	Source             *string                   `json:"source,omitempty"`
+	ExternalId         *string                   `json:"externalId,omitempty"`
+	StartedAfter       *string                   `json:"startedAfter,omitempty"`
+	StartedBefore      *string                   `json:"startedBefore,omitempty"`
+	Status             []AgentTaskStatus         `json:"status,omitempty"`
+	Tag                *string                   `json:"tag,omitempty"`
+	TagsAll            []string                  `json:"tagsAll,omitempty"`
+	TagsAny            []string                  `json:"tagsAny,omitempty"`
+	Text               *string                   `json:"text,omitempty"`
+	Creator            *AgentTaskPartyInput      `json:"creator,omitempty"`
+}
+
+// GetAppRef returns __AgentTaskListCreatorInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetAppRef() string { return v.AppRef }
+
+// GetUnresolvedFindings returns __AgentTaskListCreatorInput.UnresolvedFindings, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetUnresolvedFindings() *bool { return v.UnresolvedFindings }
+
+// GetAssignee returns __AgentTaskListCreatorInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
+
+// GetCreatedAfter returns __AgentTaskListCreatorInput.CreatedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetCreatedAfter() *string { return v.CreatedAfter }
+
+// GetCreatedBefore returns __AgentTaskListCreatorInput.CreatedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetCreatedBefore() *string { return v.CreatedBefore }
+
+// GetFinishedAfter returns __AgentTaskListCreatorInput.FinishedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetFinishedAfter() *string { return v.FinishedAfter }
+
+// GetFinishedBefore returns __AgentTaskListCreatorInput.FinishedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetFinishedBefore() *string { return v.FinishedBefore }
+
+// GetMatchFailed returns __AgentTaskListCreatorInput.MatchFailed, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetMatchFailed() *bool { return v.MatchFailed }
+
+// GetLimit returns __AgentTaskListCreatorInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentTaskListCreatorInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetOffset() *int { return v.Offset }
+
+// GetOverdue returns __AgentTaskListCreatorInput.Overdue, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetOverdue() *bool { return v.Overdue }
+
+// GetOwner returns __AgentTaskListCreatorInput.Owner, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
+
+// GetParentTaskId returns __AgentTaskListCreatorInput.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetQueued returns __AgentTaskListCreatorInput.Queued, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetQueued() *bool { return v.Queued }
+
+// GetRootsOnly returns __AgentTaskListCreatorInput.RootsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetRootsOnly() *bool { return v.RootsOnly }
+
+// GetReference returns __AgentTaskListCreatorInput.Reference, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetReference() *AgentTaskReferenceFilter { return v.Reference }
+
+// GetSource returns __AgentTaskListCreatorInput.Source, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetSource() *string { return v.Source }
+
+// GetExternalId returns __AgentTaskListCreatorInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetExternalId() *string { return v.ExternalId }
+
+// GetStartedAfter returns __AgentTaskListCreatorInput.StartedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetStartedAfter() *string { return v.StartedAfter }
+
+// GetStartedBefore returns __AgentTaskListCreatorInput.StartedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetStartedBefore() *string { return v.StartedBefore }
+
+// GetStatus returns __AgentTaskListCreatorInput.Status, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetStatus() []AgentTaskStatus { return v.Status }
+
+// GetTag returns __AgentTaskListCreatorInput.Tag, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetTag() *string { return v.Tag }
+
+// GetTagsAll returns __AgentTaskListCreatorInput.TagsAll, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetTagsAll() []string { return v.TagsAll }
+
+// GetTagsAny returns __AgentTaskListCreatorInput.TagsAny, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetTagsAny() []string { return v.TagsAny }
+
+// GetText returns __AgentTaskListCreatorInput.Text, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetText() *string { return v.Text }
+
+// GetCreator returns __AgentTaskListCreatorInput.Creator, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListCreatorInput) GetCreator() *AgentTaskPartyInput { return v.Creator }
 
 // __AgentTaskListFilteredInput is used internally by genqlient
 type __AgentTaskListFilteredInput struct {
@@ -116291,6 +117606,38 @@ func (v *__TeamActionRegisterIndexInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __TeamActionRegisterIndexInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamActionRegisterIndexInput) GetOffset() *int { return v.Offset }
 
+// __TeamAppGrantAddInput is used internally by genqlient
+type __TeamAppGrantAddInput struct {
+	AppRef    string       `json:"appRef"`
+	WorkerRef string       `json:"workerRef"`
+	Name      AppGrantName `json:"name"`
+}
+
+// GetAppRef returns __TeamAppGrantAddInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantAddInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRef returns __TeamAppGrantAddInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantAddInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetName returns __TeamAppGrantAddInput.Name, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantAddInput) GetName() AppGrantName { return v.Name }
+
+// __TeamAppGrantRmInput is used internally by genqlient
+type __TeamAppGrantRmInput struct {
+	AppRef    string       `json:"appRef"`
+	WorkerRef string       `json:"workerRef"`
+	Name      AppGrantName `json:"name"`
+}
+
+// GetAppRef returns __TeamAppGrantRmInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantRmInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRef returns __TeamAppGrantRmInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantRmInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetName returns __TeamAppGrantRmInput.Name, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantRmInput) GetName() AppGrantName { return v.Name }
+
 // __TeamAppIdentityInput is used internally by genqlient
 type __TeamAppIdentityInput struct {
 	AppRef string `json:"appRef"`
@@ -116298,6 +117645,22 @@ type __TeamAppIdentityInput struct {
 
 // GetAppRef returns __TeamAppIdentityInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamAppIdentityInput) GetAppRef() string { return v.AppRef }
+
+// __TeamAttendeeRegisterInput is used internally by genqlient
+type __TeamAttendeeRegisterInput struct {
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
+	WorkerRef *string `json:"workerRef,omitempty"`
+}
+
+// GetAppRef returns __TeamAttendeeRegisterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttendeeRegisterInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __TeamAttendeeRegisterInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttendeeRegisterInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetWorkerRef returns __TeamAttendeeRegisterInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttendeeRegisterInput) GetWorkerRef() *string { return v.WorkerRef }
 
 // __TeamAvailabilityInput is used internally by genqlient
 type __TeamAvailabilityInput struct {
@@ -116711,6 +118074,26 @@ func (v *__TeamGrantsInput) GetLimit() int { return v.Limit }
 // GetOffset returns __TeamGrantsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamGrantsInput) GetOffset() int { return v.Offset }
 
+// __TeamHeldWorkersInput is used internally by genqlient
+type __TeamHeldWorkersInput struct {
+	UserRef        string `json:"userRef"`
+	IncludeRetired *bool  `json:"includeRetired,omitempty"`
+	Limit          *int   `json:"limit,omitempty"`
+	Offset         *int   `json:"offset,omitempty"`
+}
+
+// GetUserRef returns __TeamHeldWorkersInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__TeamHeldWorkersInput) GetUserRef() string { return v.UserRef }
+
+// GetIncludeRetired returns __TeamHeldWorkersInput.IncludeRetired, and is useful for accessing the field via an interface.
+func (v *__TeamHeldWorkersInput) GetIncludeRetired() *bool { return v.IncludeRetired }
+
+// GetLimit returns __TeamHeldWorkersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamHeldWorkersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamHeldWorkersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamHeldWorkersInput) GetOffset() *int { return v.Offset }
+
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
 	Ref string `json:"ref"`
@@ -116718,6 +118101,42 @@ type __TeamMemoryAppInput struct {
 
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
+
+// __TeamRegisterCandidatesInput is used internally by genqlient
+type __TeamRegisterCandidatesInput struct {
+	AppRef string `json:"appRef"`
+	Code   string `json:"code"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamRegisterCandidatesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterCandidatesInput) GetAppRef() string { return v.AppRef }
+
+// GetCode returns __TeamRegisterCandidatesInput.Code, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterCandidatesInput) GetCode() string { return v.Code }
+
+// GetLimit returns __TeamRegisterCandidatesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterCandidatesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamRegisterCandidatesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterCandidatesInput) GetOffset() *int { return v.Offset }
+
+// __TeamRegisterPickInput is used internally by genqlient
+type __TeamRegisterPickInput struct {
+	AppRef    string  `json:"appRef"`
+	Code      string  `json:"code"`
+	WorkerRef *string `json:"workerRef,omitempty"`
+}
+
+// GetAppRef returns __TeamRegisterPickInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterPickInput) GetAppRef() string { return v.AppRef }
+
+// GetCode returns __TeamRegisterPickInput.Code, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterPickInput) GetCode() string { return v.Code }
+
+// GetWorkerRef returns __TeamRegisterPickInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamRegisterPickInput) GetWorkerRef() *string { return v.WorkerRef }
 
 // __TeamReportingLinesInput is used internally by genqlient
 type __TeamReportingLinesInput struct {
@@ -116876,6 +118295,36 @@ func (v *__TeamStopSignalsInput) GetFirst() *int { return v.First }
 
 // GetAfter returns __TeamStopSignalsInput.After, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalsInput) GetAfter() *string { return v.After }
+
+// __TeamTickerSettingsSetInput is used internally by genqlient
+type __TeamTickerSettingsSetInput struct {
+	AppRef                      string `json:"appRef"`
+	MinCadenceSeconds           *int   `json:"minCadenceSeconds,omitempty"`
+	LiveCap                     *int   `json:"liveCap,omitempty"`
+	SelfSubscribeCadenceSeconds *int   `json:"selfSubscribeCadenceSeconds,omitempty"`
+	WakeDailyBudget             *int   `json:"wakeDailyBudget,omitempty"`
+	ClearWakeDailyBudget        *bool  `json:"clearWakeDailyBudget,omitempty"`
+}
+
+// GetAppRef returns __TeamTickerSettingsSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetAppRef() string { return v.AppRef }
+
+// GetMinCadenceSeconds returns __TeamTickerSettingsSetInput.MinCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetMinCadenceSeconds() *int { return v.MinCadenceSeconds }
+
+// GetLiveCap returns __TeamTickerSettingsSetInput.LiveCap, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetLiveCap() *int { return v.LiveCap }
+
+// GetSelfSubscribeCadenceSeconds returns __TeamTickerSettingsSetInput.SelfSubscribeCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetSelfSubscribeCadenceSeconds() *int {
+	return v.SelfSubscribeCadenceSeconds
+}
+
+// GetWakeDailyBudget returns __TeamTickerSettingsSetInput.WakeDailyBudget, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetWakeDailyBudget() *int { return v.WakeDailyBudget }
+
+// GetClearWakeDailyBudget returns __TeamTickerSettingsSetInput.ClearWakeDailyBudget, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsSetInput) GetClearWakeDailyBudget() *bool { return v.ClearWakeDailyBudget }
 
 // __TeamWithdrawGrantSigningRequestInput is used internally by genqlient
 type __TeamWithdrawGrantSigningRequestInput struct {
@@ -118936,6 +120385,30 @@ func (v *__UpdateTeamRoleMetaInput) GetRole() string { return v.Role }
 
 // GetDescription returns __UpdateTeamRoleMetaInput.Description, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamRoleMetaInput) GetDescription() *string { return v.Description }
+
+// __UpdateTeamRoleReposInput is used internally by genqlient
+type __UpdateTeamRoleReposInput struct {
+	AppRef       string   `json:"appRef"`
+	TeamAgentRef *string  `json:"teamAgentRef,omitempty"`
+	Role         string   `json:"role"`
+	Description  *string  `json:"description,omitempty"`
+	Repos        []string `json:"repos"`
+}
+
+// GetAppRef returns __UpdateTeamRoleReposInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleReposInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __UpdateTeamRoleReposInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleReposInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetRole returns __UpdateTeamRoleReposInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleReposInput) GetRole() string { return v.Role }
+
+// GetDescription returns __UpdateTeamRoleReposInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleReposInput) GetDescription() *string { return v.Description }
+
+// GetRepos returns __UpdateTeamRoleReposInput.Repos, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleReposInput) GetRepos() []string { return v.Repos }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -121818,6 +123291,185 @@ func AgentTaskList(
 	}
 
 	data_ = &AgentTaskListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskListCreator.
+const AgentTaskListCreator_Operation = `
+query AgentTaskListCreator ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String, $creator: AgentTaskPartyInput) {
+	agentTasks(appRef: $appRef, creator: $creator, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// Separate creator document preserves older list documents when omitted.
+func AgentTaskListCreator(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	unresolvedFindings *bool,
+	assignee *AgentTaskPartyInput,
+	createdAfter *string,
+	createdBefore *string,
+	finishedAfter *string,
+	finishedBefore *string,
+	matchFailed *bool,
+	limit *int,
+	offset *int,
+	overdue *bool,
+	owner *AgentTaskPartyInput,
+	parentTaskId *string,
+	queued *bool,
+	rootsOnly *bool,
+	reference *AgentTaskReferenceFilter,
+	source *string,
+	externalId *string,
+	startedAfter *string,
+	startedBefore *string,
+	status []AgentTaskStatus,
+	tag *string,
+	tagsAll []string,
+	tagsAny []string,
+	text *string,
+	creator *AgentTaskPartyInput,
+) (data_ *AgentTaskListCreatorResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskListCreator",
+		Query:  AgentTaskListCreator_Operation,
+		Variables: &__AgentTaskListCreatorInput{
+			AppRef:             appRef,
+			UnresolvedFindings: unresolvedFindings,
+			Assignee:           assignee,
+			CreatedAfter:       createdAfter,
+			CreatedBefore:      createdBefore,
+			FinishedAfter:      finishedAfter,
+			FinishedBefore:     finishedBefore,
+			MatchFailed:        matchFailed,
+			Limit:              limit,
+			Offset:             offset,
+			Overdue:            overdue,
+			Owner:              owner,
+			ParentTaskId:       parentTaskId,
+			Queued:             queued,
+			RootsOnly:          rootsOnly,
+			Reference:          reference,
+			Source:             source,
+			ExternalId:         externalId,
+			StartedAfter:       startedAfter,
+			StartedBefore:      startedBefore,
+			Status:             status,
+			Tag:                tag,
+			TagsAll:            tagsAll,
+			TagsAny:            tagsAny,
+			Text:               text,
+			Creator:            creator,
+		},
+	}
+
+	data_ = &AgentTaskListCreatorResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -151604,6 +153256,106 @@ func TeamActionRegisterIndex(
 	return data_, err_
 }
 
+// The mutation executed by TeamAppGrantAdd.
+const TeamAppGrantAdd_Operation = `
+mutation TeamAppGrantAdd ($appRef: String!, $workerRef: String!, $name: AppGrantName!) {
+	grantApp(appRef: $appRef, workerRef: $workerRef, name: $name) {
+		... TeamAppGrantFields
+	}
+}
+fragment TeamAppGrantFields on AppGrant {
+	id
+	name
+	grantedAt
+	revokedAt
+	app {
+		id
+	}
+	worker {
+		id
+	}
+}
+`
+
+func TeamAppGrantAdd(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRef string,
+	name AppGrantName,
+) (data_ *TeamAppGrantAddResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAppGrantAdd",
+		Query:  TeamAppGrantAdd_Operation,
+		Variables: &__TeamAppGrantAddInput{
+			AppRef:    appRef,
+			WorkerRef: workerRef,
+			Name:      name,
+		},
+	}
+
+	data_ = &TeamAppGrantAddResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamAppGrantRm.
+const TeamAppGrantRm_Operation = `
+mutation TeamAppGrantRm ($appRef: String!, $workerRef: String!, $name: AppGrantName!) {
+	revokeAppGrant(appRef: $appRef, workerRef: $workerRef, name: $name) {
+		... TeamAppGrantFields
+	}
+}
+fragment TeamAppGrantFields on AppGrant {
+	id
+	name
+	grantedAt
+	revokedAt
+	app {
+		id
+	}
+	worker {
+		id
+	}
+}
+`
+
+func TeamAppGrantRm(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRef string,
+	name AppGrantName,
+) (data_ *TeamAppGrantRmResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAppGrantRm",
+		Query:  TeamAppGrantRm_Operation,
+		Variables: &__TeamAppGrantRmInput{
+			AppRef:    appRef,
+			WorkerRef: workerRef,
+			Name:      name,
+		},
+	}
+
+	data_ = &TeamAppGrantRmResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamAppIdentity.
 const TeamAppIdentity_Operation = `
 query TeamAppIdentity ($appRef: ID!) {
@@ -151634,6 +153386,53 @@ func TeamAppIdentity(
 	}
 
 	data_ = &TeamAppIdentityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamAttendeeRegister.
+const TeamAttendeeRegister_Operation = `
+query TeamAttendeeRegister ($appRef: ID!, $agentRef: ID, $workerRef: ID) {
+	attendeeRegister(appRef: $appRef, agentRef: $agentRef, workerRef: $workerRef) {
+		attendeeUrn
+		namedBy
+		canRead
+		canPost
+		lastSeenSeq
+		channel {
+			id
+			name
+			loc
+		}
+	}
+}
+`
+
+func TeamAttendeeRegister(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	workerRef *string,
+) (data_ *TeamAttendeeRegisterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAttendeeRegister",
+		Query:  TeamAttendeeRegister_Operation,
+		Variables: &__TeamAttendeeRegisterInput{
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &TeamAttendeeRegisterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -152959,6 +154758,58 @@ func TeamGrants(
 	return data_, err_
 }
 
+// The query executed by TeamHeldWorkers.
+const TeamHeldWorkers_Operation = `
+query TeamHeldWorkers ($userRef: String!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
+	heldWorkers(userRef: $userRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+		items {
+			id
+			urn
+			name
+			appId
+			appUrn
+			appName
+			role
+			heldAt
+			retiredAt
+			hasLiveSession
+		}
+		total
+	}
+}
+`
+
+func TeamHeldWorkers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	userRef string,
+	includeRetired *bool,
+	limit *int,
+	offset *int,
+) (data_ *TeamHeldWorkersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHeldWorkers",
+		Query:  TeamHeldWorkers_Operation,
+		Variables: &__TeamHeldWorkersInput{
+			UserRef:        userRef,
+			IncludeRetired: includeRetired,
+			Limit:          limit,
+			Offset:         offset,
+		},
+	}
+
+	data_ = &TeamHeldWorkersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamMemoryApp.
 const TeamMemoryApp_Operation = `
 query TeamMemoryApp ($ref: ID!) {
@@ -152986,6 +154837,104 @@ func TeamMemoryApp(
 	}
 
 	data_ = &TeamMemoryAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRegisterCandidates.
+const TeamRegisterCandidates_Operation = `
+query TeamRegisterCandidates ($appRef: ID!, $code: String!, $limit: Int, $offset: Int) {
+	registerRoleCandidates(appRef: $appRef, code: $code, limit: $limit, offset: $offset) {
+		appId
+		code
+		depth
+		taskLoc
+		total
+		candidates {
+			depth
+			role
+			taskUrn
+			worker {
+				id
+				kind
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+func TeamRegisterCandidates(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	code string,
+	limit *int,
+	offset *int,
+) (data_ *TeamRegisterCandidatesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRegisterCandidates",
+		Query:  TeamRegisterCandidates_Operation,
+		Variables: &__TeamRegisterCandidatesInput{
+			AppRef: appRef,
+			Code:   code,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TeamRegisterCandidatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRegisterPick.
+const TeamRegisterPick_Operation = `
+query TeamRegisterPick ($appRef: ID!, $code: String!, $workerRef: ID) {
+	registerRolePick(appRef: $appRef, code: $code, workerRef: $workerRef) {
+		appId
+		code
+		entries {
+			id
+			kind
+		}
+	}
+}
+`
+
+func TeamRegisterPick(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	code string,
+	workerRef *string,
+) (data_ *TeamRegisterPickResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRegisterPick",
+		Query:  TeamRegisterPick_Operation,
+		Variables: &__TeamRegisterPickInput{
+			AppRef:    appRef,
+			Code:      code,
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &TeamRegisterPickResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -153676,6 +155625,54 @@ func TeamStopSignals(
 	}
 
 	data_ = &TeamStopSignalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamTickerSettingsSet.
+const TeamTickerSettingsSet_Operation = `
+mutation TeamTickerSettingsSet ($appRef: String!, $minCadenceSeconds: Int, $liveCap: Int, $selfSubscribeCadenceSeconds: Int, $wakeDailyBudget: Int, $clearWakeDailyBudget: Boolean) {
+	setAppTickerSettings(appRef: $appRef, input: {minCadenceSeconds:$minCadenceSeconds,liveCap:$liveCap,selfSubscribeCadenceSeconds:$selfSubscribeCadenceSeconds,wakeDailyBudget:$wakeDailyBudget,clearWakeDailyBudget:$clearWakeDailyBudget}) {
+		minCadenceSeconds
+		liveCap
+		selfSubscribeCadenceSeconds
+		dailyWakeBudget
+		dailyWakeBudgetDerived
+	}
+}
+`
+
+func TeamTickerSettingsSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	minCadenceSeconds *int,
+	liveCap *int,
+	selfSubscribeCadenceSeconds *int,
+	wakeDailyBudget *int,
+	clearWakeDailyBudget *bool,
+) (data_ *TeamTickerSettingsSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamTickerSettingsSet",
+		Query:  TeamTickerSettingsSet_Operation,
+		Variables: &__TeamTickerSettingsSetInput{
+			AppRef:                      appRef,
+			MinCadenceSeconds:           minCadenceSeconds,
+			LiveCap:                     liveCap,
+			SelfSubscribeCadenceSeconds: selfSubscribeCadenceSeconds,
+			WakeDailyBudget:             wakeDailyBudget,
+			ClearWakeDailyBudget:        clearWakeDailyBudget,
+		},
+	}
+
+	data_ = &TeamTickerSettingsSetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -157764,6 +159761,62 @@ func UpdateTeamRoleMeta(
 	}
 
 	data_ = &UpdateTeamRoleMetaResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamRoleRepos.
+const UpdateTeamRoleRepos_Operation = `
+mutation UpdateTeamRoleRepos ($appRef: ID!, $teamAgentRef: ID, $role: String!, $description: String, $repos: [String!]!) {
+	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description, repos: $repos) {
+		... TeamRoleFields
+		repos
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+}
+`
+
+// A separate repos document can send [] to clear without changing the legacy description request.
+func UpdateTeamRoleRepos(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	role string,
+	description *string,
+	repos []string,
+) (data_ *UpdateTeamRoleReposResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamRoleRepos",
+		Query:  UpdateTeamRoleRepos_Operation,
+		Variables: &__UpdateTeamRoleReposInput{
+			AppRef:       appRef,
+			TeamAgentRef: teamAgentRef,
+			Role:         role,
+			Description:  description,
+			Repos:        repos,
+		},
+	}
+
+	data_ = &UpdateTeamRoleReposResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

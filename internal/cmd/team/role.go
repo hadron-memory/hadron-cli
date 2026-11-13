@@ -399,11 +399,14 @@ Team Agent's definition-edit gate — whoever may write its system memory.`,
 
 func newCmdRoleUpdate(f *cmdutil.Factory) *cobra.Command {
 	var description, teamAgent string
+	var repos []string
+	var clearRepos bool
 	cmd := &cobra.Command{
-		Use:   "update <role> --description <d>",
-		Short: "Edit a role's description",
-		Long: `Edit a role definition's description — the only field a client sets now
-that the name register is gone (hadron-server#1050).
+		Use:   "update <role> [--description <d>] [--repo <owner/repo> | --clear-repos]",
+		Short: "Edit a role's description or repository affinity",
+		Long: `Edit a role description or repository affinity. Repeat --repo for each repository;
+--clear-repos sends an empty list. Omitted fields preserve their values.
+Repository affinity is advisory only, never an authorization or launch gate.
 
 Omitted is "preserve" on this server, so an update that names nothing is
 refused rather than sent: a no-op write that reports success is worse than
@@ -411,8 +414,16 @@ a usage error. Sibling data keys always survive (hadron-server#960).`,
 		Example: `  hadron team role update backend-engineer --description "Go services and the GraphQL API"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("description") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --description")
+			if cmd.Flags().Changed("repo") && cmd.Flags().Changed("clear-repos") {
+				return exitcode.Newf(exitcode.Usage, "use --repo or --clear-repos, not both")
+			}
+			for _, r := range repos {
+				if strings.TrimSpace(r) == "" {
+					return exitcode.Newf(exitcode.Usage, "--repo must not be empty; use --clear-repos")
+				}
+			}
+			if !cmd.Flags().Changed("description") && !cmd.Flags().Changed("repo") && !clearRepos {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --description, --repo or --clear-repos")
 			}
 			scope, err := roleAppScope(cmd, f)
 			if err != nil {
@@ -430,16 +441,53 @@ a usage error. Sibling data keys always survive (hadron-server#960).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateTeamRoleMeta(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, &description)
+			var desc *string
+			if cmd.Flags().Changed("description") {
+				desc = &description
+			}
+			var fields *gen.TeamRoleFields
+			var resultRepos []string
+			if cmd.Flags().Changed("repo") || clearRepos {
+				if clearRepos {
+					repos = []string{}
+				}
+				resp, e := gen.UpdateTeamRoleRepos(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, desc, repos)
+				err = e
+				if resp != nil && resp.UpdateTeamRole != nil {
+					fields = &resp.UpdateTeamRole.TeamRoleFields
+					resultRepos = append([]string{}, resp.UpdateTeamRole.Repos...)
+				}
+			} else {
+				resp, e := gen.UpdateTeamRoleMeta(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, desc)
+				err = e
+				if resp != nil && resp.UpdateTeamRole != nil {
+					fields = &resp.UpdateTeamRole.TeamRoleFields
+				}
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.UpdateTeamRole == nil {
+			if fields == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no role")
 			}
-			return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated", appLabel)
+			if cmd.Flags().Changed("repo") || clearRepos {
+				d := struct {
+					roleDTO
+					Repos []string `json:"repos"`
+				}{roleDTOFromFields(*fields), resultRepos}
+				return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+					if _, e := fmt.Fprintf(w, "app: %s\n", appLabel()); e != nil {
+						return e
+					}
+					_, e := fmt.Fprintf(w, "updated role %s; repos: %s\n", output.SafeCell(d.Role), output.SafeCell(strings.Join(d.Repos, ", ")))
+					return e
+				})
+			}
+			return emitRoleReceipt(f, *fields, "updated", appLabel)
 		},
 	}
+	cmd.Flags().StringArrayVar(&repos, "repo", nil, "repository affinity, repeatable; omitted preserves")
+	cmd.Flags().BoolVar(&clearRepos, "clear-repos", false, "clear all repository affinity")
 	cmd.Flags().StringVar(&description, "description", "", "role description")
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd

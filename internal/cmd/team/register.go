@@ -160,6 +160,7 @@ bounded as described by team --help. Requires server#3312 or later.`,
 			})
 		},
 	}
+	cmd.AddCommand(newCmdRegisterRouting(f, true), newCmdRegisterRouting(f, false), newCmdRegisterAttendee(f))
 	cmd.Flags().StringVar(&agent, "agent", "", "Asking Agent id or URN; omitted uses the server's authenticated worker/run Agent")
 	cmd.Flags().StringVar(&taskLoc, "task-loc", "", "Only entries naming this task loc")
 	cmd.Flags().StringVar(&code, "code", "", "Only this register code")

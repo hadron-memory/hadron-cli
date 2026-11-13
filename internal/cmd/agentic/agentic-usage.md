@@ -6222,3 +6222,57 @@ List JSON is `{items:[],total:N}` (empty items stays `[]`); count-only JSON is `
 The signing request prints exactly id, grantId, version, termsHash, payloadVersion, state, requestedBy{userId,appId,workerId,sessionId}, createdAt, expiresAt, endedAt, ceremonyUrl. `state` is the server's own state for the request (OPEN, COMPLETED, DECLINED, EXPIRED, STALE, WITHDRAWN), printed as sent; the CLI derives no grant state label. `ceremonyUrl` is the page where a person signs: hand it over as printed. It is never composed, shortened or rewritten; text mode refuses (exit 1, nothing on stdout, pointing to `--json`) a URL carrying control or format characters, and `--json` always carries it byte for byte. Nothing here signs: a requested grant allows nothing until a person signs it.
 
 These verbs make no local worker check. With no worker binding in the worktree they send the one operation without a worker session, print `no worker binding in this worktree; sent without a worker session` to stderr, and report the server's answer (`GRANT_REQUESTER_NOT_WORKER`, exit 8, for `request`). A binding for another server or another `--app` exits 2 with nothing sent. Empty optional flags, a blank id and malformed `--values` exit 2 before any call. Exit codes: `GRANT_REQUESTER_NOT_WORKER`, `GRANT_HOLDER_NOT_ALLOWED`, `SIGNING_REQUEST_NOT_REQUESTER`, `FORBIDDEN` 8; `GRANT_ACTION_UNKNOWN`, `GRANT_VALUES_INVALID`, `GRANT_TERMS_INVALID` 2; `GRANT_NOT_PENDING`, `GRANT_EXPIRED`, `GRANT_TERMS_UNREPRESENTABLE`, `SIGNING_REQUEST_ENDED` 5; `GRANT_NOT_FOUND`, `SIGNING_REQUEST_NOT_FOUND` 4. The verbs exist only where signing is switched on; a server without it answers `does not offer grant requests and grant signing` (exit 2, no upgrade advice). `--json` errors carry `serverCode`.
+
+## Team App controls and read filters
+
+`hadron team grant add <worker-id-or-URN> <name>` and
+`team grant rm <worker-id-or-URN> <name> --yes` give/revoke named App grants,
+separate from the existing worker action-grant list/request workflow. Ordinary
+person authentication is used, no worker session/instruction; the server owns
+manager permission. Names: TICKER_SUBSCRIBE_WORKERS (subscribe/unsubscribe other
+workers at any cadence), WORKERS_STAFF (headless casting/retiring/deleting;
+holder's staffing rights still apply), APP_MEMBERS (headless member add/remove;
+holder's member rights still apply). The latter two are provisioned before the
+separate server#3308 enforcement rollout; no gating effect is inferred here.
+Giving is person-only/idempotent; revoking takes effect at the next grantee call.
+The JSON receipt is {id,appId,workerId,name,grantedAt,revokedAt}; revokedAt may be null.
+rm confirms on a terminal, or requires --yes. Refusals retain normal CLI exit codes.
+
+`hadron team ticker settings set` changes only supplied flags:
+--min-cadence-seconds, --live-cap, --self-subscribe-cadence-seconds,
+--wake-daily-budget, --clear-wake-daily-budget[=false]. Omitted preserves; null
+is refused. Clear=true returns to a derived budget; explicit false remains false.
+No field flags still sends a manager write; no standby flag or instruction.
+Server bounds: floor>=60s, self-subscription between floor and86400s, live cap1–100,
+budget>=0; server also checks existing ticker/delivery conflicts. The CLI parses
+GraphQL whole-number shape only. JSON: {minCadenceSeconds,liveCap,
+selfSubscribeCadenceSeconds,dailyWakeBudget,dailyWakeBudgetDerived}.
+App scope is --app, configured context or worktree binding for these App controls.
+
+`team worker held --user <id|handle|URN|email> [--include-retired] [--limit N]
+[--offset N]` reads across all readable Apps, oldest casting first. Default20,
+offset0; limit0 counts only. Empty output gives no cause: missing users, no holds
+and unreadable holds are indistinguishable. --app does not narrow this query.
+JSON is {items:[],total:N}; items retain nullable profile/live-session/hold fields.
+No hold is released and no session is changed.
+
+`team register candidates <code> [--limit N] [--offset N]` and
+`team register pick <code> [--worker <id-or-URN>]` are experimental read-only
+projections. Never assign, route or deliver; never re-rank/filter the server's
+answer. candidates JSON: {appId,code,depth,taskLoc,total,candidates}; each candidate
+has depth,role,taskUrn,worker{id,kind,name,urn}; depth/taskLoc/role/name/urn may be
+null. pick JSON: {appId,code,entries:[{id,kind}]}. Empty arrays stay[].
+
+`team register attendee --agent <id-or-URN>` (or --worker, exactly one) reads the
+resolved Channel register, separate from the action register index printed by
+plain `team register`. JSON array rows retain attendeeUrn,namedBy,canRead,canPost,
+lastSeenSeq and channel{id,name,loc}; nullable values are not interpreted as false.
+App reads use --app, configured context or binding; none of these reads delivers.
+
+`team role update <role> --repo owner/repo [--repo owner/another]` replaces repository
+affinity; --clear-repos sends[], omission preserves. Can combine with --description;
+--repo and --clear-repos conflict. Affinity is advisory, not an authorization gate.
+The repo-update receipt additionally reports repos as an array; other role DTOs are unchanged. `team task list --creator
+worker:<ref>|user:<ref>` filters by creator server-side, combining with other plain
+list filters. It cannot combine with --team. Without --creator the existing list
+operation documents stay unchanged. No authorization is reimplemented locally.

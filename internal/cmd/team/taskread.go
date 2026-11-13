@@ -339,7 +339,7 @@ func strOr(s *string) string {
 
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
-	var assignee, owner, parent, tag, team, staleOver, text string
+	var assignee, owner, creator, parent, tag, team, staleOver, text string
 	var queued, rootsOnly, tree, overdue, matchFailed, unresolved bool
 	var tagsAny, tagsAll []string
 	var source, externalID, refTarget, refKind string
@@ -370,7 +370,7 @@ when present. Every task command requires provider server#3245 for these fields.
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
 ` + taskStatusDoc + `; --assignee and
---owner name a party, --queued keeps only pending tasks with no assignee,
+--owner and --creator name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
 filters by tag. --text matches a case-insensitive substring of title and description
 only, ANDed with other filters. Text is sent unchanged; the server trims and
@@ -483,7 +483,14 @@ ageFrom; --tree changes text only.`,
 			for _, s := range statuses {
 				status = append(status, gen.AgentTaskStatus(strings.ToUpper(s)))
 			}
-			var assigneeIn, ownerIn *gen.AgentTaskPartyInput
+			var assigneeIn, ownerIn, creatorIn *gen.AgentTaskPartyInput
+			if cmd.Flags().Changed("creator") {
+				p, e := parseTaskPartyFlag("--creator", creator)
+				if e != nil {
+					return e
+				}
+				creatorIn = p
+			}
 			if assignee != "" {
 				p, err := parseTaskPartyFlag("--assignee", assignee)
 				if err != nil {
@@ -552,7 +559,7 @@ ageFrom; --tree changes text only.`,
 				return err
 			}
 			return listTasks(ctx, f, scope, taskListQuery{
-				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
+				assignee: assigneeIn, owner: ownerIn, creator: creatorIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
 				matchFailed:   matchFailedIn,
@@ -565,6 +572,7 @@ ageFrom; --tree changes text only.`,
 	}
 	cmd.Flags().StringSliceVar(&statuses, "status", nil, "status filter, repeatable ("+taskStatusDoc+")")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party filter (worker:<…> / user:<…>)")
+	cmd.Flags().StringVar(&creator, "creator", "", "creator party filter (worker:<…> / user:<…>); not with --team")
 	cmd.Flags().StringVar(&owner, "owner", "", "party filter (worker:<…> / user:<…>)")
 	cmd.Flags().StringVar(&parent, "parent", "", "list this task's children")
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
@@ -594,11 +602,11 @@ ageFrom; --tree changes text only.`,
 
 // taskListQuery is one AgentTaskList request's filters and page.
 type taskListQuery struct {
-	assignee, owner   *gen.AgentTaskPartyInput
-	parent, tag, text *string
-	queued, rootsOnly *bool
-	status            []gen.AgentTaskStatus
-	limit, offset     int
+	assignee, owner, creator *gen.AgentTaskPartyInput
+	parent, tag, text        *string
+	queued, rootsOnly        *bool
+	status                   []gen.AgentTaskStatus
+	limit, offset            int
 	// limitExplicit is true when the user passed --limit: a full page of the
 	// default size is then their own page, not a silent truncation.
 	limitExplicit bool
@@ -650,6 +658,20 @@ func checkTaskPage(limit, offset int) error {
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
 func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
 	tasks := []taskDTO{}
+	if q.creator != nil {
+		r, err := gen.AgentTaskListCreator(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
+			q.status, q.tag, q.tagsAll, q.tagsAny, q.text, q.creator)
+		if err != nil {
+			return nil, 0, mapFindingError(err)
+		}
+		for _, t := range r.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(r.AgentTasks), nil
+	}
 	if q.unresolved != nil {
 		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,

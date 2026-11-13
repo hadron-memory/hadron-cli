@@ -1,0 +1,62 @@
+fragment TeamAppGrantFields on AppGrant {
+  id name grantedAt revokedAt app { id } worker { id }
+}
+mutation TeamAppGrantAdd($appRef: String!, $workerRef: String!, $name: AppGrantName!) {
+  grantApp(appRef: $appRef, workerRef: $workerRef, name: $name) { ...TeamAppGrantFields }
+}
+mutation TeamAppGrantRm($appRef: String!, $workerRef: String!, $name: AppGrantName!) {
+  revokeAppGrant(appRef: $appRef, workerRef: $workerRef, name: $name) { ...TeamAppGrantFields }
+}
+mutation TeamTickerSettingsSet(
+ $appRef: String!
+ # @genqlient(omitempty: true)
+ $minCadenceSeconds: Int
+ # @genqlient(omitempty: true)
+ $liveCap: Int
+ # @genqlient(omitempty: true)
+ $selfSubscribeCadenceSeconds: Int
+ # @genqlient(omitempty: true)
+ $wakeDailyBudget: Int
+ # @genqlient(omitempty: true)
+ $clearWakeDailyBudget: Boolean
+) {
+ setAppTickerSettings(appRef: $appRef, input: {
+ minCadenceSeconds: $minCadenceSeconds, liveCap: $liveCap,
+ selfSubscribeCadenceSeconds: $selfSubscribeCadenceSeconds,
+ wakeDailyBudget: $wakeDailyBudget, clearWakeDailyBudget: $clearWakeDailyBudget
+ }) { minCadenceSeconds liveCap selfSubscribeCadenceSeconds dailyWakeBudget dailyWakeBudgetDerived }
+}
+query TeamHeldWorkers($userRef: String!
+ # @genqlient(omitempty: true)
+ $includeRetired: Boolean
+ # @genqlient(omitempty: true)
+ $limit: Int
+ # @genqlient(omitempty: true)
+ $offset: Int) {
+ heldWorkers(userRef: $userRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+ items { id urn name appId appUrn appName role heldAt retiredAt hasLiveSession } total
+ }
+}
+query TeamRegisterCandidates($appRef: ID!, $code: String!
+ # @genqlient(omitempty: true)
+ $limit: Int
+ # @genqlient(omitempty: true)
+ $offset: Int) {
+ registerRoleCandidates(appRef: $appRef, code: $code, limit: $limit, offset: $offset) {
+ appId code depth taskLoc total candidates { depth role taskUrn worker { id kind name urn } }
+ }
+}
+query TeamRegisterPick($appRef: ID!, $code: String!
+ # @genqlient(omitempty: true)
+ $workerRef: ID) {
+ registerRolePick(appRef: $appRef, code: $code, workerRef: $workerRef) { appId code entries { id kind } }
+}
+query TeamAttendeeRegister($appRef: ID!
+ # @genqlient(omitempty: true)
+ $agentRef: ID
+ # @genqlient(omitempty: true)
+ $workerRef: ID) {
+ attendeeRegister(appRef: $appRef, agentRef: $agentRef, workerRef: $workerRef) {
+ attendeeUrn namedBy canRead canPost lastSeenSeq channel { id name loc }
+ }
+}
