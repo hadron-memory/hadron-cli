@@ -34,9 +34,9 @@ operation, plus one best-effort App-label read for App-scoped human output (none
 for JSON, none for cross-App held). Grants and ticker settings send one mutation,
 plus the same human-only label decoration. Grant rm confirmation may read that
 label before the write. No prompt/body/transcript fields are fetched. Default
-list pages20 (held/candidates); profile/route/capability scalars only, normally
+list pages 20 (held/candidates); profile/route/capability scalars only, normally
 kilobytes rather than whole worker briefings. Role repo update reuses the existing
-role-definition resolver (teamRoles pages200 until exhaustion) and then one write;
+role-definition resolver (teamRoles pages 200 until exhaustion) and then one write;
 there is no narrower teamRole query in this schema. This does not add another
 lookup or alter the existing role resolution path. Task creator stays one filtered
-page request (default20), plus existing human App-label decoration.
+page request (default 20), plus existing human App-label decoration.

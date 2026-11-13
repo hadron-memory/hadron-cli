@@ -405,7 +405,7 @@ func newCmdRoleUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <role> [--description <d>] [--repo <owner/repo> | --clear-repos]",
 		Short: "Edit a role's description or repository affinity",
 		Long: `Edit a role description or repository affinity. Repeat --repo for each repository;
---clear-repos sends an empty list. Omitted fields preserve their values.
+--clear-repos sends an empty list (--clear-repos=false is the same as leaving it out). Omitted fields preserve their values.
 Repository affinity is advisory only, never an authorization or launch gate.
 
 Omitted is "preserve" on this server, so an update that names nothing is
@@ -414,7 +414,7 @@ a usage error. Sibling data keys always survive (hadron-server#960).`,
 		Example: `  hadron team role update backend-engineer --description "Go services and the GraphQL API"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("repo") && cmd.Flags().Changed("clear-repos") {
+			if cmd.Flags().Changed("repo") && clearRepos {
 				return exitcode.Newf(exitcode.Usage, "use --repo or --clear-repos, not both")
 			}
 			for _, r := range repos {

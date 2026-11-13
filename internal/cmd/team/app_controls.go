@@ -3,6 +3,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -71,10 +72,12 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 			return exitcode.Newf(exitcode.Usage, "worker reference must not be empty")
 		}
 		name := gen.AppGrantName(args[1])
-		switch name {
-		case gen.AppGrantNameAppMembers, gen.AppGrantNameWorkersStaff, gen.AppGrantNameTickerSubscribeWorkers:
-		default:
-			return exitcode.Newf(exitcode.Usage, "name must be APP_MEMBERS, WORKERS_STAFF or TICKER_SUBSCRIBE_WORKERS")
+		if !slices.Contains(gen.AllAppGrantName, name) {
+			known := make([]string, 0, len(gen.AllAppGrantName))
+			for _, n := range gen.AllAppGrantName {
+				known = append(known, string(n))
+			}
+			return exitcode.Newf(exitcode.Usage, "name must be one of %s", strings.Join(known, ", "))
 		}
 		if remove && !yes && !f.IOStreams.IsInputTerminal() {
 			return cmdutil.Confirm(f.IOStreams, false, "")
@@ -144,8 +147,9 @@ must exceed busy delay plus the cadence floor. These are current server
 limits, not client-side authorization or validation.
 
 --clear-wake-daily-budget returns to a roster-derived budget; explicit
-=false is sent as false. With no field flags, set still sends a manager
-write and returns current values. No standby switch is available.
+=false is sent as false. A set that names no field is refused before any
+request, because it would be a manager-attributed write that changes nothing.
+No standby switch is available.
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker settings set --live-cap 10 --app acme.com:eng\n  hadron team ticker settings set --clear-wake-daily-budget", Args: cobra.NoArgs}
 	var raw [4]string
@@ -161,7 +165,10 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 			if cmd.Flags().Changed(name) {
 				v, e := strconv.ParseInt(raw[i], 10, 32)
 				if e != nil {
-					return exitcode.Newf(exitcode.Usage, "--%s takes a GraphQL whole number, not null", name)
+					if strings.EqualFold(strings.TrimSpace(raw[i]), "null") {
+						return exitcode.Newf(exitcode.Usage, "--%s takes a whole number; null is not accepted (omit the flag to preserve the value)", name)
+					}
+					return exitcode.Newf(exitcode.Usage, "--%s takes a whole number that fits 32 bits, got %q", name, raw[i])
 				}
 				n := int(v)
 				vals[i] = &n
@@ -170,6 +177,12 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 		var cp *bool
 		if cmd.Flags().Changed("clear-wake-daily-budget") {
 			cp = &clear
+		}
+		// An update that names nothing is refused rather than sent, as in
+		// `team role update`: a bare set would be a manager-attributed write
+		// that changes nothing (cli#1980 BLIND).
+		if cp == nil && vals == [4]*int{} {
+			return exitcode.Newf(exitcode.Usage, "nothing to change — pass at least one of --%s or --clear-wake-daily-budget; nothing was sent", strings.Join(names, ", --"))
 		}
 		s, client, e := controlsClient(cmd, f)
 		if e != nil {

@@ -56,7 +56,11 @@ server values, including hasLiveSession (not availability).`, Example: "  hadron
 		if e != nil {
 			return e
 		}
-		r, e := gen.TeamHeldWorkers(cmd.Context(), client, user, &retired, &limit, &offset)
+		var includeRetired *bool
+		if cmd.Flags().Changed("include-retired") {
+			includeRetired = &retired
+		}
+		r, e := gen.TeamHeldWorkers(cmd.Context(), client, user, includeRetired, &limit, &offset)
 		if e != nil {
 			return api.MapError(e)
 		}
@@ -76,7 +80,7 @@ server values, including hasLiveSession (not availability).`, Example: "  hadron
 			}
 			t := output.NewTable(w, "WORKER", "APP", "ROLE", "HELD AT")
 			for _, v := range d.Items {
-				t.Row(output.SafeCell(v.Name), output.SafeCell(v.AppID), output.SafeCell(strOr(v.Role)), output.SafeCell(strOr(v.HeldAt)))
+				t.Row(output.SafeCell(v.Name), output.SafeCell(heldAppText(v)), output.SafeCell(strOr(v.Role)), output.SafeCell(strOr(v.HeldAt)))
 			}
 			if e := t.Flush(); e != nil {
 				return e
@@ -112,7 +116,7 @@ type registerCandidatesDTO struct {
 	Candidates []registerCandidateDTO `json:"candidates"`
 }
 
-func newCmdRegisterRouting(f *cmdutil.Factory, pick bool) *cobra.Command {
+func newCmdRegisterPicker(f *cmdutil.Factory, pick bool) *cobra.Command {
 	verb := "candidates"
 	if pick {
 		verb = "pick"
@@ -281,4 +285,16 @@ with channel id/name/loc, namedBy, canRead, canPost, attendeeUrn and lastSeenSeq
 		})
 	}
 	return c
+}
+
+// heldAppText names the App by its display name where the server returned one,
+// then its URN, and only then the opaque id.
+func heldAppText(v heldWorkerDTO) string {
+	if v.AppName != nil && *v.AppName != "" {
+		return *v.AppName
+	}
+	if v.AppURN != nil && *v.AppURN != "" {
+		return *v.AppURN
+	}
+	return v.AppID
 }

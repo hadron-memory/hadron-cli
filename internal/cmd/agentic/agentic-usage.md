@@ -6242,16 +6242,16 @@ rm confirms on a terminal, or requires --yes. Refusals retain normal CLI exit co
 --min-cadence-seconds, --live-cap, --self-subscribe-cadence-seconds,
 --wake-daily-budget, --clear-wake-daily-budget[=false]. Omitted preserves; null
 is refused. Clear=true returns to a derived budget; explicit false remains false.
-No field flags still sends a manager write; no standby flag or instruction.
-Server bounds: floor>=60s, self-subscription between floor and86400s, live cap1–100,
+A set that names no field is refused (usage, exit 2) before any request; no standby flag or instruction.
+Server bounds: floor>=60s, self-subscription between floor and 86400s, live cap 1–100,
 budget>=0; server also checks existing ticker/delivery conflicts. The CLI parses
 GraphQL whole-number shape only. JSON: {minCadenceSeconds,liveCap,
 selfSubscribeCadenceSeconds,dailyWakeBudget,dailyWakeBudgetDerived}.
 App scope is --app, configured context or worktree binding for these App controls.
 
 `team worker held --user <id|handle|URN|email> [--include-retired] [--limit N]
-[--offset N]` reads across all readable Apps, oldest casting first. Default20,
-offset0; limit0 counts only. Empty output gives no cause: missing users, no holds
+[--offset N]` reads across all readable Apps, oldest casting first. Default 20,
+offset 0; limit 0 counts only. Empty output gives no cause: missing users, no holds
 and unreadable holds are indistinguishable. --app does not narrow this query.
 JSON is {items:[],total:N}; items retain nullable profile/live-session/hold fields.
 No hold is released and no session is changed.
@@ -6265,7 +6265,8 @@ hadron team register attendee --agent <id-or-URN>  # or --worker (exactly one)
 projections. Never assign, route or deliver; never re-rank/filter the server's
 answer. candidates JSON: {appId,code,depth,taskLoc,total,candidates}; each candidate
 has depth,role,taskUrn,worker{id,kind,name,urn}; depth/taskLoc/role/name/urn may be
-null. pick JSON: {appId,code,entries:[{id,kind}]}. Empty arrays stay[].
+null. pick JSON: {appId,code,entries:[{id,kind}]}. Empty arrays stay [].
+
 
 `team register attendee --agent <id-or-URN>` (or --worker, exactly one) reads the
 resolved Channel register, separate from the action register index printed by
@@ -6274,9 +6275,11 @@ lastSeenSeq and channel{id,name,loc}; nullable values are not interpreted as fal
 App reads use --app, configured context or binding; none of these reads delivers.
 
 `team role update <role> --repo owner/repo [--repo owner/another]` replaces repository
-affinity; --clear-repos sends[], omission preserves. Can combine with --description;
+affinity; --clear-repos sends [], omission preserves (--clear-repos=false is omission). Can combine with --description;
 --repo and --clear-repos conflict. Affinity is advisory, not an authorization gate.
-The repo-update receipt additionally reports repos as an array; other role DTOs are unchanged. `team task list --creator
+The repo-update receipt additionally reports repos as an array; other role DTOs are unchanged.
+
+`team task list --creator
 worker:<ref>|user:<ref>` filters by creator server-side, combining with other plain
 list filters. It cannot combine with --team. Without --creator the existing list
 operation documents stay unchanged. No authorization is reimplemented locally.

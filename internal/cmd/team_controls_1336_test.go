@@ -97,7 +97,6 @@ func TestTeamControls1336TickerPatch(t *testing.T) {
 		args []string
 		want map[string]any
 	}{
-		{nil, map[string]any{}},
 		{[]string{"--wake-daily-budget", "0"}, map[string]any{"wakeDailyBudget": float64(0)}},
 		{[]string{"--clear-wake-daily-budget=false"}, map[string]any{"clearWakeDailyBudget": false}},
 		{[]string{"--clear-wake-daily-budget"}, map[string]any{"clearWakeDailyBudget": true}},
@@ -130,8 +129,8 @@ func TestTeamControls1336RefusalMapping(t *testing.T) {
 		{[]string{"team", "grant", "add", "w", "APP_MEMBERS"}, "TeamAppGrantAdd", "FORBIDDEN", 8},
 		{[]string{"team", "grant", "rm", "w", "APP_MEMBERS", "--yes"}, "TeamAppGrantRm", "WORKER_NOT_FOUND", 4},
 		{[]string{"team", "ticker", "settings", "set", "--live-cap", "101"}, "TeamTickerSettingsSet", "TICKER_SETTINGS_OUT_OF_RANGE", 2},
-		{[]string{"team", "ticker", "settings", "set"}, "TeamTickerSettingsSet", "TICKER_SETTINGS_CONFLICT", 5},
-		{[]string{"team", "ticker", "settings", "set"}, "TeamTickerSettingsSet", "DELIVERY_SETTINGS_CONFLICT", 2},
+		{[]string{"team", "ticker", "settings", "set", "--min-cadence-seconds", "120"}, "TeamTickerSettingsSet", "TICKER_SETTINGS_CONFLICT", 5},
+		{[]string{"team", "ticker", "settings", "set", "--min-cadence-seconds", "120"}, "TeamTickerSettingsSet", "DELIVERY_SETTINGS_CONFLICT", 2},
 	} {
 		r := taskResponses()
 		r[tc.op] = `{"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}]}`
