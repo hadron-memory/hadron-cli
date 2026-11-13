@@ -30,6 +30,7 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 - `.hadron-team/` holds the same `hadron-team-session.json` and `hadron-team-session.lock` that a git dir holds. The directory is created owner-only (0700), and only by a bind.
 - Only the **current** directory is consulted, never a parent. A command run in a subdirectory therefore cannot pick up the binding of a directory above it.
 - A dubious-ownership refusal, or a corrupt repository, may sit inside a real worktree. That is why only git's own "not a git repository" makes a directory plain: reading a real worktree as plain would put its binding in the wrong place.
+- git localizes that message, so the probe runs git under `LC_ALL=C` and `LANGUAGE=C` (Gloria's BLIND F1 on #1968). Without that, a plain directory under a German locale fell into the hard error.
 
 **Readers and writers differ on purpose:**
 - A **read** (`readBinding`, `updateBinding`, `clearBinding`, `bindingIsSession`) sees a plain directory's cache only when the binding file already exists. When there is none, it gets `errNoWorktree`, exactly as before.
@@ -41,11 +42,12 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 - `session start --as <worker>` refuses **before any session is started or ended** (exit 5) when the directory's binding names a different worker. This includes `--force`, which would otherwise end the other worker's session and then share its directory.
   - First a local check, with no server call: a ref that matches the binding by none of name (case-insensitive), worker id or `hrn:worker:` URN's last segment is another worker, and refuses.
   - A local match proves nothing, because a name is App-scoped and a slug repeats across Apps (Gizelle's LOCAL F1 on #1968: another App's `Iris` passed, and `--force` ended the cached session before the lock-time check refused). So the start then resolves the named worker, with reads only, and refuses unless its id is the binding's worker id. A binding with no worker id refuses: sameness can't be shown.
-- `writeBinding` re-checks under the lock, against a fresh read, by worker id. This backstop covers:
+- `writeBinding` re-checks under the lock, against a fresh read, by worker id. A cached binding with no worker id counts as held, since it can't show it is the same worker (Gloria's BLIND F2 on #1968). This backstop covers:
   - a launch grant, whose worker is known only after the bind (start rolls the bind back);
   - a resume (the session stays open, as every failed resume write leaves it);
   - two starts racing in one directory.
 - A resume in a directory whose binding names a worker also sends that worker as `expectedWorkerId`, so the server refuses another worker's claim instead of consuming it (cli#1839).
+  - A resume over a binding with no worker id has no worker to send, so it refuses (exit 5) before the claim is redeemed.
 - Worktrees keep their documented behaviour: a fresh bind replaces whatever binding was there.
 
 **shed.** The cooldown stamp sits beside the binding (`shedStampPath`), in the git dir or in `.hadron-team/`.
