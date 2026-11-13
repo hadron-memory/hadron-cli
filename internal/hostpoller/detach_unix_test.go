@@ -152,15 +152,19 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		argv []string
 		want string
 	}{
-		"plain":                   {[]string{"sleep", "30"}, "sleep 30"},
-		"assignment":              {[]string{"agent", "--token=hdr_secret_1"}, "agent --token=<redacted>"},
-		"env style":               {[]string{"agent", "HADRON_TOKEN=hdr_x"}, "agent HADRON_TOKEN=<redacted>"},
-		"bare flag":               {[]string{"agent", "--token", "hdr_secret_1", "--verbose"}, "agent --token <redacted> --verbose"},
-		"header":                  {[]string{"curl", "-H", "Authorization: Bearer hdr_x"}, "curl -H Authorization: <redacted>"},
-		"cookie":                  {[]string{"curl", "-H", "Cookie: session=hdr_x"}, "curl -H Cookie: <redacted>"},
-		"api-key header":          {[]string{"curl", "-H", "X-API-Key: SYNTHETIC_SECRET_1817"}, "curl -H X-API-Key: <redacted>"},
-		"auth-token header":       {[]string{"curl", "-H", "X-Auth-Token: SYNTHETIC_SECRET_1817"}, "curl -H X-Auth-Token: <redacted>"},
-		"secret-named header":     {[]string{"curl", "-H", "Client-Secret: SYNTHETIC_1817"}, "curl -H Client-Secret: <redacted>"},
+		"plain":             {[]string{"sleep", "30"}, "sleep 30"},
+		"assignment":        {[]string{"agent", "--token=hdr_secret_1"}, "agent --token=<redacted>"},
+		"env style":         {[]string{"agent", "HADRON_TOKEN=hdr_x"}, "agent HADRON_TOKEN=<redacted>"},
+		"bare flag":         {[]string{"agent", "--token", "hdr_secret_1", "--verbose"}, "agent --token <redacted> --verbose"},
+		"header":            {[]string{"curl", "-H", "Authorization: Bearer hdr_x"}, "curl -H Authorization: <redacted>"},
+		"cookie":            {[]string{"curl", "-H", "Cookie: session=hdr_x"}, "curl -H Cookie: <redacted>"},
+		"api-key header":    {[]string{"curl", "-H", "X-API-Key: SYNTHETIC_SECRET_1817"}, "curl -H X-API-Key: <redacted>"},
+		"auth-token header": {[]string{"curl", "-H", "X-Auth-Token: SYNTHETIC_SECRET_1817"}, "curl -H X-Auth-Token: <redacted>"},
+		// Round 12 (Jonas N-13, Ada's ruling): Client-Secret is not an
+		// allowlisted header name, so not even the name leaves — only
+		// <redacted> does. This row kept "Client-Secret: <redacted>" before
+		// the allowlist; over-redaction is the safe direction.
+		"secret-named header":     {[]string{"curl", "-H", "Client-Secret: SYNTHETIC_1817"}, "curl -H <redacted>"},
 		"plain header kept":       {[]string{"curl", "-H", "Accept: application/json"}, `curl -H "Accept: application/json"`},
 		"url userinfo":            {[]string{"curl", "https://user:pass@host/path"}, "curl https://host/path"},
 		"url userinfo no pass":    {[]string{"curl", "https://user@host/path"}, "curl https://host/path"},
@@ -268,6 +272,22 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		// redacts them again.
 		"env assignment header": {[]string{"env", "HDR=Authorization: Bearer tok_1817", "curl", "https://h"}, `env HDR=Authorization: <redacted> curl https://h`},
 		"docker -e assignment":  {[]string{"docker", "run", "-e", "AUTH_HDR=Authorization: Bearer tok_1817", "img"}, `docker run -e AUTH_HDR=Authorization: <redacted> img`},
+		// Round 12, Jonas N-13 (Ada's ruling): a header-SHAPED value keeps
+		// its pre-colon material only when that material is an ALLOWLISTED
+		// header name. credentialHeader accepts any name-shaped prefix
+		// containing auth/token/key/secret/cookie, so before the allowlist
+		// the token half of a non-header user:pass value survived: the three
+		// token_SYNTHETIC_1817 rows were RED at 98042ed7, rendering
+		// UPSTREAM=token_SYNTHETIC_1817: <redacted>,
+		// --foo=token_SYNTHETIC_1817: <redacted> and
+		// token_SYNTHETIC_1817: <redacted> (bare, glue included). The
+		// lowercase row pins the other side: an allowlisted name keeps
+		// rendering as written, case-insensitively.
+		"env non-header token:pass":  {[]string{"env", "UPSTREAM=token_SYNTHETIC_1817:x-oauth-basic", "curl", "https://h"}, `env UPSTREAM=<redacted> curl https://h`},
+		"unknown flag token:pass":    {[]string{"curl", "--foo=token_SYNTHETIC_1817:pass", "https://h"}, `curl --foo=<redacted> https://h`},
+		"lowercase allowlisted name": {[]string{"env", "hdr=authorization: bearer tok_1817", "curl"}, `env hdr=authorization: <redacted> curl`},
+		"bare non-allowlisted":       {[]string{"curl", "-H", "token_SYNTHETIC_1817:y", "https://h"}, `curl -H <redacted> https://h`},
+		"glued non-allowlisted":      {[]string{"curl", "-Htoken_SYNTHETIC_1817:y", "https://h"}, `curl <redacted> https://h`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

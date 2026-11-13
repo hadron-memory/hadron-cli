@@ -130,6 +130,56 @@ var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passp
 // value never leaves.
 var credentialHeader = regexp.MustCompile(`(?i)^[\w-]*(auth|token|key|secret|cookie)[\w-]*\s*:`)
 
+// credentialHeaderNames is the allowlist of header names whose name alone
+// is not secret material (round 12, Jonas N-13): the part before ':' in a
+// header-shaped argument survives rendering only when it is one of these
+// names, case-insensitively. Anything else name-shaped that the regex
+// above accepts is presumed to be credential material — the user half of
+// a user:pass value, a token before a realm — and must not leave.
+// Over-redaction is the safe direction: dropping a name loses only which
+// header it was, never which process held the tree.
+var credentialHeaderNames = map[string]bool{
+	"authorization":       true,
+	"proxy-authorization": true,
+	"cookie":              true,
+	"set-cookie":          true,
+	"x-api-key":           true,
+	"x-auth-token":        true,
+	"x-session-token":     true,
+}
+
+// headerNameAllowed reports whether the pre-colon material of a
+// header-shaped argument is an allowlisted header name. A glued short flag
+// (-HAuthorization: …) is stripped before the check — the glue is the
+// flag, the remainder is the name — and the comparison is
+// case-insensitive (hdr=authorization: … keeps its name as written).
+// Everything else — token_SYNTHETIC_1817:pass on an unknown flag, in an
+// env assignment, or as a bare argument — is not a header name and
+// renders fully redacted.
+func headerNameAllowed(name string) bool {
+	rest := strings.TrimLeft(name, "-")
+	if rest != name && len(rest) > 1 {
+		// A short flag glues as '-' plus one letter; a long flag never
+		// glues without '=', so it falls through over-redacted — safe.
+		rest = rest[1:]
+	}
+	return credentialHeaderNames[strings.ToLower(rest)]
+}
+
+// renderHeaderShaped renders an argument (prefix "") or the value of an
+// assignment (prefix "NAME=") whose text credentialHeader matched: the
+// pre-colon name survives only when headerNameAllowed accepts it, and
+// otherwise the whole value is <redacted> (round 12, Jonas N-13: the old
+// rendering kept everything before ':' whenever the regex matched, and
+// the regex accepts any name-shaped prefix).
+func renderHeaderShaped(prefix, text string) string {
+	name, _, _ := strings.Cut(text, ":")
+	if !headerNameAllowed(name) {
+		return prefix + "<redacted>"
+	}
+	return prefix + name + ": <redacted>"
+}
+
 // credentialFlagValue says how a binary's short flag carries a credential:
 // as the NEXT argument (curl -u user:pass), attached to the flag itself
 // (mysql -pSECRET), or both (sshpass -p secret / sshpass -psecret).
@@ -295,8 +345,7 @@ func renderArgv(fields []string) string {
 			out = append(out, "<redacted>")
 			redactNext = false
 		case credentialHeader.MatchString(f):
-			name, _, _ := strings.Cut(f, ":")
-			out = append(out, name+": <redacted>")
+			out = append(out, renderHeaderShaped("", f))
 		default:
 			name, value, hasValue := strings.Cut(f, "=")
 			if hasValue && credentialName.MatchString(name) {
@@ -342,15 +391,15 @@ func renderArgv(fields []string) string {
 				// knows: the header regex cannot cross '=', so the whole
 				// argument never matched it above, and header flags
 				// deliberately carry no table entry — the VALUE is the
-				// header line, and only its name leaves. This runs AFTER
+				// header line, and only its ALLOWLISTED name leaves
+				// (renderHeaderShaped, round 12). This runs AFTER
 				// the table: a header-SHAPED value on a known credential
 				// flag (--user=token:…, --cert=key:…) is credential
 				// material, not a header line, and keeps the table's FULL
 				// redaction — its prefix is not a header name and must
 				// not survive (round 9, Jane D8).
 				if hasValue && credentialHeader.MatchString(value) {
-					hname, _, _ := strings.Cut(value, ":")
-					out = append(out, name+"="+hname+": <redacted>")
+					out = append(out, renderHeaderShaped(name+"=", value))
 					continue
 				}
 				if !hasValue && credentialName.MatchString(f) {
@@ -367,9 +416,9 @@ func renderArgv(fields []string) string {
 				// not run — without this, the assignment renders verbatim
 				// (round 10, Jonas N-8; the pre-D8 position of the check
 				// caught it, and the D8 reorder into the '-' branch lost
-				// it). Only the header's name leaves.
-				hname, _, _ := strings.Cut(value, ":")
-				out = append(out, name+"="+hname+": <redacted>")
+				// it). Only the header's ALLOWLISTED name leaves
+				// (renderHeaderShaped, round 12).
+				out = append(out, renderHeaderShaped(name+"=", value))
 				continue
 			}
 			out = append(out, quoteArg(f))
