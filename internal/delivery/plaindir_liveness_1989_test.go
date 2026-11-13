@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
 func writeRecordPID(t *testing.T, dir, handle string, pid int) {
@@ -209,24 +211,42 @@ func TestADanglingGitLinkIsNotAPlainDirectory(t *testing.T) {
 	}
 }
 
-// Caspian D1: the check-(c) binding guard through the PRODUCTION BoundWorker
-// (no harness seam), at checkouts registered nowhere: a git-dir checkout and
-// a linked-worktree checkout whose binding names another worker hold; one
-// naming the recipient is allowed.
-func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.T) {
-	write := func(gitDir, worker string) {
+// writeCheckoutBinding plants a session binding (raw content) in gitDir.
+func writeCheckoutBinding(t *testing.T, gitDir, content string) {
+	t.Helper()
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, bindingFileName), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// checkoutShapes builds an unregistered checkout of each kind, its binding
+// file holding content ("" plants none): a plain-git directory, a linked
+// worktree, and a plain (no .git) directory.
+var checkoutShapes = map[string]func(t *testing.T, root, content string) string{
+	"gitdir": func(t *testing.T, root, content string) string {
 		t.Helper()
+		dir := filepath.Join(root, "plain-git")
+		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if content != "" {
+			writeCheckoutBinding(t, filepath.Join(dir, ".git"), content)
+		}
+		return dir
+	},
+	"linked": func(t *testing.T, root, content string) string {
+		t.Helper()
+		dir := filepath.Join(root, "linked")
+		gitDir := filepath.Join(root, "gitdirs", "linked")
 		if err := os.MkdirAll(gitDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(gitDir, bindingFileName), []byte(`{"workerId":"`+worker+`"}`), 0o600); err != nil {
-			t.Fatal(err)
+		if content != "" {
+			writeCheckoutBinding(t, gitDir, content)
 		}
-	}
-	linked := func(root, worker string) string {
-		dir := filepath.Join(root, "linked")
-		gitDir := filepath.Join(root, "gitdirs", "linked")
-		write(gitDir, worker)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -234,15 +254,25 @@ func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.
 			t.Fatal(err)
 		}
 		return dir
-	}
-	for name, mk := range map[string]func(root, worker string) string{
-		"gitdir": func(root, worker string) string {
-			dir := filepath.Join(root, "plain-git")
-			write(filepath.Join(dir, ".git"), worker)
-			return dir
-		},
-		"linked": linked,
-	} {
+	},
+	"plain": func(t *testing.T, root, content string) string {
+		t.Helper()
+		dir := filepath.Join(root, "plain")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if content != "" {
+			writeCheckoutBinding(t, filepath.Join(dir, ".hadron-team"), content)
+		}
+		return dir
+	},
+}
+
+// Caspian D1: the check-(c) binding guard through the PRODUCTION BoundWorker
+// (no harness seam), at checkouts registered nowhere: a binding naming another
+// worker holds; one naming the recipient is allowed.
+func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.T) {
+	for name, mk := range checkoutShapes {
 		t.Run(name, func(t *testing.T) {
 			p := newPlainHarness(t)
 			p.d.Bound = func(w string) string {
@@ -251,16 +281,93 @@ func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.
 				}
 				return BoundWorker(w)
 			}
-			other := mk(t.TempDir(), "w-other")
-			p.orca.terms[0].WorktreePath = other
+			p.orca.terms[0].WorktreePath = mk(t, t.TempDir(), `{"workerId":"w-other"}`)
 			p.wantHold(p.deliver(p.batch()), HoldTerminalBoundElsewhere)
 			p.wantNoSend()
 
-			own := mk(t.TempDir(), p.r.WorkerID)
-			p.orca.terms[0].WorktreePath = own
+			p.orca.terms[0].WorktreePath = mk(t, t.TempDir(), `{"workerId":"`+p.r.WorkerID+`"}`)
 			if o := p.deliver(p.batch()); o.Kind != Delivered {
 				t.Fatalf("own binding should deliver: %+v", o)
 			}
 		})
 	}
+}
+
+// cli#1992 N2: only a binding file that does not exist is "absent" (admit). A
+// binding that exists but is malformed, empty of a worker, or unreadable
+// holds: a hold costs delay, typing into another worker's terminal breaches
+// the floor.
+func TestPlainDirTerminalCheckoutBindingAbsentAdmitsMalformedHolds(t *testing.T) {
+	for name, mk := range checkoutShapes {
+		for _, c := range []struct {
+			label, content string
+			hold           bool
+		}{
+			{"absent", "", false},
+			{"malformed", `{"workerId":`, true},
+			{"not-json", `not json`, true},
+			{"empty-worker", `{"workerId":""}`, true},
+			{"no-worker-field", `{}`, true},
+		} {
+			t.Run(name+"/"+c.label, func(t *testing.T) {
+				p := newPlainHarness(t)
+				p.d.Bound = func(w string) string {
+					if w == p.plain {
+						return plainBoundWorker(w)
+					}
+					return BoundWorker(w)
+				}
+				p.orca.terms[0].WorktreePath = mk(t, t.TempDir(), c.content)
+				if !c.hold {
+					if o := p.deliver(p.batch()); o.Kind != Delivered {
+						t.Fatalf("an absent binding should admit: %+v", o)
+					}
+					return
+				}
+				p.wantHold(p.deliver(p.batch()), HoldTerminalBoundElsewhere)
+				p.wantNoSend()
+			})
+		}
+	}
+}
+
+// A binding that exists but cannot be read as a file (here a directory in
+// its place) is unusable, never absent.
+func TestBoundWorkerUnreadableBindingIsNotAbsent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".git", bindingFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := BoundWorker(dir); got != unreadableBinding {
+		t.Fatalf("BoundWorker = %q, want unreadableBinding", got)
+	}
+	plain := filepath.Join(t.TempDir(), "p")
+	if err := os.MkdirAll(filepath.Join(plain, ".hadron-team", bindingFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := plainBoundWorker(plain); got != unreadableBinding {
+		t.Fatalf("plainBoundWorker = %q, want unreadableBinding", got)
+	}
+}
+
+// cli#1992 F3: a worker with a healthy worktree row AND a plain directory
+// whose terminal record is gone is held whole: the plain directory's hold
+// returns first, so nothing is typed into the healthy row either. Documented
+// in the how-to; pinned here.
+func TestPlainDirMixedRegistrationHoldsWholeWorker(t *testing.T) {
+	p := newPlainHarness(t)
+	wt := filepath.Join(t.TempDir(), "joshua-wt")
+	if err := os.MkdirAll(filepath.Join(wt, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p.bound[wt] = p.r.WorkerID
+	p.orca.terms = append(p.orca.terms, orcaterm.Terminal{Handle: "term_w", WorktreePath: wt, AgentIdentity: ptr("claude"), Connected: true, Writable: true})
+	p.orca.screens["term_w"] = []*orcaterm.Screen{screen(claudeIdle)}
+	p.r.Worktrees = []string{wt, p.plain}
+	p.d.Registered = func() Registered { return Registered{"Joshua": {wt, p.plain}} }
+	if err := os.Remove(filepath.Join(p.plain, ".hadron-team", "terminal.json")); err != nil {
+		t.Fatal(err)
+	}
+	p.wantHold(p.deliver(p.batch()), HoldNoTerminalRecord)
+	p.wantNoSend()
 }

@@ -52,15 +52,21 @@ func isPlainDir(dir string) bool {
 // plainBoundWorker is the worker id a plain directory's binding names. The
 // file is worker-writable, so it is read as a bounded regular file only.
 func plainBoundWorker(dir string) string {
-	b, ok := readSmallRegular(filepath.Join(dir, plainCacheName, bindingFileName))
+	path := filepath.Join(dir, plainCacheName, bindingFileName)
+	b, ok := readSmallRegular(path)
 	if !ok {
-		return ""
+		// Absent is "no binding"; present but not a bounded regular file
+		// (a link, a FIFO, oversized) is unusable, never absent.
+		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
+			return ""
+		}
+		return unreadableBinding
 	}
 	var binding struct {
 		WorkerID string `json:"workerId"`
 	}
-	if json.Unmarshal(b, &binding) != nil {
-		return ""
+	if json.Unmarshal(b, &binding) != nil || binding.WorkerID == "" {
+		return unreadableBinding
 	}
 	return binding.WorkerID
 }
