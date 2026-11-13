@@ -260,6 +260,14 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl --user header-shaped":   {[]string{"curl", "--user=token_SYNTHETIC_1817:ignored"}, `curl --user=<redacted>`},
 		"curl --cert header-shaped":   {[]string{"curl", "--cert=key_SYNTHETIC_1817:ignored"}, `curl --cert=<redacted>`},
 		"curl --proxy-user hdr-shape": {[]string{"curl", "--proxy-user=auth_SYNTHETIC_1817:ignored"}, `curl --proxy-user=<redacted>`},
+		// Round 10, Jonas N-8: an assignment argument whose VALUE is a
+		// header line (env HDR=…, docker -e AUTH_HDR=…) is not dash-
+		// prefixed, so the D8 reorder — which moved the value-side match
+		// inside the '-' branch — stopped catching it. Both rows were RED
+		// at c89928f4 (rendered verbatim); the restored non-dash check
+		// redacts them again.
+		"env assignment header": {[]string{"env", "HDR=Authorization: Bearer tok_1817", "curl", "https://h"}, `env HDR=Authorization: <redacted> curl https://h`},
+		"docker -e assignment":  {[]string{"docker", "run", "-e", "AUTH_HDR=Authorization: Bearer tok_1817", "img"}, `docker run -e AUTH_HDR=Authorization: <redacted> img`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

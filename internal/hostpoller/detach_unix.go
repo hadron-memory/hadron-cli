@@ -358,6 +358,19 @@ func renderArgv(fields []string) string {
 					redactNext = true
 					continue
 				}
+			} else if hasValue && credentialHeader.MatchString(value) {
+				// The same value-side header match, for a NON-dash
+				// argument: an assignment whose value is a header line
+				// (env HDR=Authorization: …, docker -e AUTH_HDR=…). The
+				// whole-argument header case above cannot match it (the
+				// NAME= prefix is not \w), and the dash-branch copy does
+				// not run — without this, the assignment renders verbatim
+				// (round 10, Jonas N-8; the pre-D8 position of the check
+				// caught it, and the D8 reorder into the '-' branch lost
+				// it). Only the header's name leaves.
+				hname, _, _ := strings.Cut(value, ":")
+				out = append(out, name+"="+hname+": <redacted>")
+				continue
 			}
 			out = append(out, quoteArg(f))
 		}
