@@ -135,7 +135,8 @@ type tickerSettingsDTO struct {
 
 func newCmdTeamTicker(f *cmdutil.Factory) *cobra.Command {
 	root := &cobra.Command{Use: "ticker <command>", Short: "App ticker controls"}
-	settings := &cobra.Command{Use: "settings <command>", Short: "Change the App's ticker settings"}
+	settings := &cobra.Command{Use: "settings <command>", Short: "Show or change the App's ticker settings"}
+	settings.AddCommand(newCmdTeamTickerSettingsGet(f))
 	c := &cobra.Command{Use: "set", Short: "Change only the ticker setting fields supplied", Long: `Change App ticker settings using your ordinary authenticated caller.
 The server checks manager permission; no worker session or instruction is sent.
 Omitted fields preserve their values; null is not accepted. The server checks
@@ -149,7 +150,8 @@ limits, not client-side authorization or validation.
 --clear-wake-daily-budget returns to a roster-derived budget; explicit
 =false is sent as false. A set that names no field is refused before any
 request, because it would be a manager-attributed write that changes nothing.
-No standby switch is available.
+No standby switch is available. To read the current values, use
+` + "`hadron team ticker settings get`" + `.
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker settings set --live-cap 10 --app acme.com:eng\n  hadron team ticker settings set --clear-wake-daily-budget", Args: cobra.NoArgs}
 	var raw [4]string
@@ -209,4 +211,52 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 	settings.AddCommand(c)
 	root.AddCommand(settings)
 	return root
+}
+
+// tickerSettingsText renders the settings for the human branch. The daily
+// wake budget says only whether the server derived it (cli#1985, cor:api:240:01):
+// no formula or default is named, because the CLI never computes it.
+func tickerSettingsText(w io.Writer, d tickerSettingsDTO) error {
+	origin := "set"
+	if d.DailyWakeBudgetDerived {
+		origin = "derived"
+	}
+	_, e := fmt.Fprintf(w, "ticker settings: minimum cadence %ds; live cap %d; self-subscribe cadence %ds; daily wake budget %d (%s)\n", d.MinCadenceSeconds, d.LiveCap, d.SelfSubscribeCadenceSeconds, d.DailyWakeBudget, origin)
+	return e
+}
+
+func newCmdTeamTickerSettingsGet(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get",
+		Short: "Show the App's ticker settings",
+		Long: `Show the App's ticker settings as the server returns them: the minimum
+cadence floor and the self-subscription cadence, in seconds, the live-ticker
+cap, and the daily wake budget. The budget is marked "derived" when the
+server computed it rather than the App setting it; the CLI never works it out
+itself. Any App participant may read. To change a value, use
+` + "`hadron team ticker settings set`" + `.
+--json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
+dailyWakeBudget and dailyWakeBudgetDerived.`,
+		Example: "  hadron team ticker settings get --app acme.com:eng\n  hadron team ticker settings get --json",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			s, client, e := controlsClient(cmd, f)
+			if e != nil {
+				return e
+			}
+			r, e := gen.TeamTickerSettingsGet(cmd.Context(), client, s.Ref)
+			if e != nil {
+				return api.MapError(e)
+			}
+			v := r.AppTickerSettings
+			label := lazyAppLabel(cmd.Context(), f, s)
+			d := tickerSettingsDTO{v.MinCadenceSeconds, v.LiveCap, v.SelfSubscribeCadenceSeconds, v.DailyWakeBudget, v.DailyWakeBudgetDerived}
+			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+				if _, e := fmt.Fprintf(w, "app: %s\n", label()); e != nil {
+					return e
+				}
+				return tickerSettingsText(w, d)
+			})
+		},
+	}
 }
