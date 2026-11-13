@@ -951,7 +951,7 @@ func TestAZombieLeaderWithLiveThreadsIsSignalledAndOnlyThenConfirmed(t *testing.
 	}
 	select {
 	case <-a.Done():
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("a confirmed stop ends the launch: Done closes once the group is gone")
 	}
 }

@@ -20,7 +20,7 @@ import (
 // Unix platforms the leader was reaped at its exit and the stop's ESRCH
 // probe — the documented residual position — is the confirmation. Either
 // way the contract every Unix platform keeps is stopped=true, silently,
-// with zero signals (#1474 delta round 3; the probe counts are asserted on
+// with zero signals (the probe counts are asserted on
 // Linux in reapgroup_linux_test.go — this file also builds on darwin/BSD).
 //
 // #1970: on Linux a churning /proc can void the exit-time scan, so the
@@ -184,8 +184,8 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"invalid utf8 quoted":     {[]string{"a", "b\xff", "c"}, `a "b\xff" c`},
 		"spaces kept unambiguous": {[]string{"sh", "-c", "sleep 30 & wait"}, `sh -c "sleep 30 & wait"`},
 		"empty argument survives": {[]string{"a", "", "b"}, `a "" b`},
-		// #1474 delta round 2 (Jonas F5a): an unencoded @ in the password
-		// must not leak the tail after the first @.
+		// An unencoded @ in the password must not leak the tail after the
+		// first @.
 		"unencoded @ in password": {[]string{"curl", "https://u:p@ss@host/path"}, "curl https://host/path"},
 		// F5c: every URL-shaped token in one argument is stripped, not only
 		// the first.
@@ -210,13 +210,12 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl -U next":            {[]string{"curl", "-U", "proxy:pass", "https://h"}, "curl -U <redacted> https://h"},
 		"curl -U attached":        {[]string{"curl", "-Uproxy:pass"}, "curl -U<redacted>"},
 		"mysql -p next is a name": {[]string{"mysql", "-p", "db"}, "mysql -p db"},
-		// Round 3, Jonas P3-1: a URL-shaped prefix running into prose ends
+		// A URL-shaped prefix running into prose ends
 		// its authority at the whitespace; the prose is never cut at a
 		// later @.
 		"url into prose kept": {[]string{"sh", "-c", "curl https://h1 mail user@example.com"}, `sh -c "curl https://h1 mail user@example.com"`},
 		// F6 moved to the /proc boundary (argvFromCmdline): renderArgv
-		// renders the slots it is given, real empties included (round 3,
-		// Jane D3).
+		// renders the slots it is given, real empties included.
 		"two real trailing empties": {[]string{"agent", "", ""}, `agent "" ""`},
 		// P3-2 residual: an argument appended raw for its name is still
 		// quoted when it carries invalid UTF-8.
@@ -238,14 +237,14 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"mysql --password next": {[]string{"mysql", "--password", "db"}, "mysql --password <redacted>"},
 		"second binary re-arms": {[]string{"sshpass", "-p", "secret", "curl", "-u", "user:pass"}, "sshpass -p <redacted> curl -u <redacted>"},
 		"re-arm proxy-user att": {[]string{"sshpass", "-p", "s", "curl", "--proxy-user=p:q"}, "sshpass -p <redacted> curl --proxy-user=<redacted>"},
-		// Delta round 6, Jonas P2-C: a later table-binary spelling never
+		// A later table-binary spelling never
 		// DISARMS an earlier one — whether the spelling is the binary or
 		// just an argument (an output file named mysql) is not knowable
 		// from argv, so the UNION of the armed tables applies.
 		"curl -o mysql -u":  {[]string{"curl", "-o", "mysql", "-u", "user:pass", "https://h"}, "curl -o mysql -u <redacted> https://h"},
 		"mysql -u curl -p":  {[]string{"mysql", "-u", "curl", "-phunter2"}, "mysql -u curl -p<redacted>"},
 		"re-arm on a value": {[]string{"sshpass", "-p", "curl", "curl", "-u", "u:p"}, "sshpass -p <redacted> curl -u <redacted>"},
-		// Delta round 6, Jonas P3: curl's other secret-carrying flags.
+		// curl's other secret-carrying flags.
 		"curl --pass next":         {[]string{"curl", "--pass", "secret", "https://h"}, "curl --pass <redacted> https://h"},
 		"curl --pass attached":     {[]string{"curl", "--pass=secret"}, "curl --pass=<redacted>"},
 		"curl --proxy-pass next":   {[]string{"curl", "--proxy-pass", "secret"}, "curl --proxy-pass <redacted>"},
@@ -324,6 +323,22 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"github fine-grained pat":   {[]string{"tool", "github_pat_" + tok36}, `tool <redacted>`},
 		"hpt query value":           {[]string{"curl", "https://h/hooks/abc/name?x=1&hpt=eyJhbGciOi.payload.sig"}, `curl https://h/hooks/<redacted>/name?x=1&hpt=<redacted>`},
 		"webhook path secret":       {[]string{"curl", "https://h/hooks/s3cr3tpath/deploy"}, `curl https://h/hooks/<redacted>/deploy`},
+		// A token directly after a control character is quoted as \n / \t,
+		// whose last letter would hide the boundary; the detector runs
+		// BEFORE quoting for the verbatim pieces (P3-D1).
+		"token after newline in sh -c": {[]string{"sh", "-c", "echo hi\nghp_" + tok36}, `sh -c "echo hi\n<redacted>"`},
+		"token after tab in sh -c":     {[]string{"sh", "-c", "echo hi\tghp_" + tok36}, `sh -c "echo hi\t<redacted>"`},
+		// Minimum body lengths: the shortest body fires, one less does not.
+		"ghp min body fires": {[]string{"tool", "ghp_" + strings.Repeat("a", 20)}, `tool <redacted>`},
+		"ghp below min kept": {[]string{"tool", "ghp_" + strings.Repeat("a", 19)}, `tool ghp_` + strings.Repeat("a", 19)},
+		"hdr_user min body":  {[]string{"tool", "hdr_user_" + strings.Repeat("a", 16)}, `tool <redacted>`},
+		"hdr_user below min": {[]string{"tool", "hdr_user_" + strings.Repeat("a", 15)}, `tool hdr_user_` + strings.Repeat("a", 15)},
+		"xoxb min body":      {[]string{"tool", "xoxb-" + strings.Repeat("1", 10)}, `tool <redacted>`},
+		"xoxb below min":     {[]string{"tool", "xoxb-" + strings.Repeat("1", 9)}, `tool xoxb-` + strings.Repeat("1", 9)},
+		"akia exact length":  {[]string{"tool", "AKIA" + strings.Repeat("A", 16)}, `tool <redacted>`},
+		"akia one short":     {[]string{"tool", "AKIA" + strings.Repeat("A", 15)}, `tool AKIA` + strings.Repeat("A", 15)},
+		// A long hyphenated word that merely ENDS in a prefix-alike is kept.
+		"hyphenated prefix-alike kept": {[]string{"echo", "a-very-long-desk-" + tok36}, `echo a-very-long-desk-` + tok36},
 		// Negatives: short prefix-alikes and prose stay readable.
 		"short ghp prefix kept":       {[]string{"echo", "ghp_short"}, `echo ghp_short`},
 		"path containing sk- kept":    {[]string{"ls", "/opt/sk-learn/x"}, `ls /opt/sk-learn/x`},
@@ -354,11 +369,10 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 	}
 }
 
-// argvFromCmdline keeps an empty LAST argument (Jane D3), collapses a RUN of
+// argvFromCmdline keeps an empty LAST argument, collapses a RUN of
 // trailing empties — setproctitle padding (F6), now at this /proc boundary
-// rather than in renderArgv (round 3 Jane D3) — and treats an empty read as
-// no argv at all, so comm answers for kernel threads and zombies (#1474
-// delta review P3-1).
+// rather than in renderArgv — and treats an empty read as
+// no argv at all, so comm answers for kernel threads and zombies (#1474).
 func TestArgvFromCmdline(t *testing.T) {
 	for name, tc := range map[string]struct {
 		raw  []byte

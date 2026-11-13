@@ -231,12 +231,13 @@ and binds on its holder's own stored token. An agent running as the SAME OS
 user as the poller can still read key_file itself: run the poller as its own
 user, with key_file readable by that user only, to close that.
 
-THE OCCUPANT'S ARGV is redacted by keyword (token, secret, password, auth,
-cookie, key, …), by credential flags of curl, sshpass and mysql, by URL
-userinfo, and by a fixed list of known token prefixes (hdr_user_, hdr_app_,
-GitHub, GitLab, Slack, sk-, AWS access-key ids, the webhook hpt value and
-path secret). A credential with neither a keyword nor a listed prefix still
-renders verbatim: there is no entropy or general secret scanning.
+WHERE AN OCCUPANT IS NAMED (Linux /proc; other platforms name none), its
+argv is redacted by keyword (token, secret, password, auth, cookie, key, …),
+by the credential flags of curl, sshpass and mysql, by URL userinfo, and by a
+fixed list of known token prefixes (hdr_user_, hdr_app_, GitHub, GitLab,
+Slack, sk-, AWS access-key ids, the webhook hpt value and path secret). A
+credential with neither a keyword nor a listed prefix still renders
+verbatim: there is no entropy or general secret scanning.
 
 THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
 its exit is read as the agent's. A launcher that starts a detached session

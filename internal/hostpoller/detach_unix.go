@@ -419,7 +419,8 @@ func renderArgv(fields []string) string {
 			out = append(out, quoteArg(f))
 		}
 	}
-	// Known tokens are redacted on the RENDERED pieces, never before the
+	// Known tokens are also redacted on the RENDERED pieces (name pieces
+	// that bypass quoteArg), never before the
 	// classification above: a "<redacted>" inside a header-shaped name would
 	// break the anchored credentialHeader/credentialName matches and let the
 	// value fall through verbatim. Applied last, the output can only lose
@@ -448,6 +449,9 @@ func renderArgv(fields []string) string {
 // readable while `sh -c "sleep 30 & wait"` keeps its shape and an invalid
 // byte arrives as an escape, never raw.
 func quoteArg(arg string) string {
+	// Known tokens go BEFORE quoting: strconv.Quote turns a raw newline or
+	// tab into \n / \t, whose letter would otherwise hide the token's boundary.
+	arg = redactKnownTokens(arg)
 	if arg == "" || !utf8.ValidString(arg) || strings.IndexFunc(arg, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '"' || r == '\\' || !unicode.IsPrint(r)
 	}) >= 0 {

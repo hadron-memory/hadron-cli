@@ -15,7 +15,9 @@ import "regexp"
 // then GitHub, GitLab, Slack, sk-/sk_live_/sk_test_ and AWS access-key ids.
 // A prefix counts only when a minimum body follows it, so a prefix-alike in
 // prose or a short path segment (sk-, ghp_) does not fire. Over-redaction is
-// the acceptable direction.
+// the acceptable direction. The /hooks/<secret>/ path secret is redacted only
+// in a URL (scheme://host/hooks/…); a bare /hooks/… path is not a webhook URL
+// and stays readable.
 //
 // Non-goals, deliberately: entropy or shape heuristics and general secret
 // scanning. A credential that carries neither a keyword (credentialName,
