@@ -34416,6 +34416,10 @@ type CreateAgentTaskInput struct {
 	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
 	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
 	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	// #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
+	// claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
+	// matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08 governs the first); a backlog task still takes no assignee.
 	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
@@ -53763,6 +53767,288 @@ func (v *GlobalSearchResponse) GetGlobalSearch() *GlobalSearchGlobalSearchGlobal
 	return v.GlobalSearch
 }
 
+// GrantActionActionGrantAction includes the requested fields of the GraphQL type GrantAction.
+// The GraphQL type's documentation follows.
+//
+// #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02): one registered action a grant can allow. The registry is written only by a deploy; no call creates, changes or deletes an action. There is no plain-language summary here (its own slice).
+type GrantActionActionGrantAction struct {
+	GrantActionFields `json:"-"`
+}
+
+// GetName returns GrantActionActionGrantAction.Name, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetName() string { return v.GrantActionFields.Name }
+
+// GetParameters returns GrantActionActionGrantAction.Parameters, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetParameters() []*GrantActionFieldsParametersGrantActionParameter {
+	return v.GrantActionFields.Parameters
+}
+
+// GetTool returns GrantActionActionGrantAction.Tool, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetTool() *string { return v.GrantActionFields.Tool }
+
+// GetEnforcement returns GrantActionActionGrantAction.Enforcement, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetEnforcement() string {
+	return v.GrantActionFields.Enforcement
+}
+
+// GetIssuerRule returns GrantActionActionGrantAction.IssuerRule, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetIssuerRule() string { return v.GrantActionFields.IssuerRule }
+
+// GetSource returns GrantActionActionGrantAction.Source, and is useful for accessing the field via an interface.
+func (v *GrantActionActionGrantAction) GetSource() string { return v.GrantActionFields.Source }
+
+func (v *GrantActionActionGrantAction) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GrantActionActionGrantAction
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GrantActionActionGrantAction = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantActionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGrantActionActionGrantAction struct {
+	Name string `json:"name"`
+
+	Parameters []*GrantActionFieldsParametersGrantActionParameter `json:"parameters"`
+
+	Tool *string `json:"tool"`
+
+	Enforcement string `json:"enforcement"`
+
+	IssuerRule string `json:"issuerRule"`
+
+	Source string `json:"source"`
+}
+
+func (v *GrantActionActionGrantAction) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GrantActionActionGrantAction) __premarshalJSON() (*__premarshalGrantActionActionGrantAction, error) {
+	var retval __premarshalGrantActionActionGrantAction
+
+	retval.Name = v.GrantActionFields.Name
+	retval.Parameters = v.GrantActionFields.Parameters
+	retval.Tool = v.GrantActionFields.Tool
+	retval.Enforcement = v.GrantActionFields.Enforcement
+	retval.IssuerRule = v.GrantActionFields.IssuerRule
+	retval.Source = v.GrantActionFields.Source
+	return &retval, nil
+}
+
+// cli#1996: the registered grant actions an App's anyone-in-the-App reader may
+// see (cor:acl:140:02). The App ref goes to the server exactly as given: every
+// refused caller gets an empty page / null, and the CLI must add no signal.
+type GrantActionFields struct {
+	// The dotted code, unique, e.g. schedule.create.
+	Name string `json:"name"`
+	// The parameters a grant of this action must supply.
+	Parameters []*GrantActionFieldsParametersGrantActionParameter `json:"parameters"`
+	// The tool that performs it, if any.
+	Tool *string `json:"tool"`
+	// The enforcement level the action DECLARES: what the platform promises, not an active guarantee. It says nothing about whether a gate enforces it today (schedule.create and webhook.create are not enforced until hadron-server#3483; the boot-prompt actions are checked where the grant is spent).
+	Enforcement string `json:"enforcement"`
+	// A closed key naming who may issue a grant of this action.
+	IssuerRule string `json:"issuerRule"`
+	// Where the action comes from: PLATFORM today.
+	Source string `json:"source"`
+}
+
+// GetName returns GrantActionFields.Name, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetName() string { return v.Name }
+
+// GetParameters returns GrantActionFields.Parameters, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetParameters() []*GrantActionFieldsParametersGrantActionParameter {
+	return v.Parameters
+}
+
+// GetTool returns GrantActionFields.Tool, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetTool() *string { return v.Tool }
+
+// GetEnforcement returns GrantActionFields.Enforcement, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetEnforcement() string { return v.Enforcement }
+
+// GetIssuerRule returns GrantActionFields.IssuerRule, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetIssuerRule() string { return v.IssuerRule }
+
+// GetSource returns GrantActionFields.Source, and is useful for accessing the field via an interface.
+func (v *GrantActionFields) GetSource() string { return v.Source }
+
+// GrantActionFieldsParametersGrantActionParameter includes the requested fields of the GraphQL type GrantActionParameter.
+// The GraphQL type's documentation follows.
+//
+// #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): one parameter an action declares.
+type GrantActionFieldsParametersGrantActionParameter struct {
+	// The parameter's name, as a grant's values name it.
+	Name string `json:"name"`
+	// The kind of value it takes, e.g. node-ref.
+	Type string `json:"type"`
+	// True when a wildcard value is refused for this parameter.
+	RefusesWildcard bool `json:"refusesWildcard"`
+}
+
+// GetName returns GrantActionFieldsParametersGrantActionParameter.Name, and is useful for accessing the field via an interface.
+func (v *GrantActionFieldsParametersGrantActionParameter) GetName() string { return v.Name }
+
+// GetType returns GrantActionFieldsParametersGrantActionParameter.Type, and is useful for accessing the field via an interface.
+func (v *GrantActionFieldsParametersGrantActionParameter) GetType() string { return v.Type }
+
+// GetRefusesWildcard returns GrantActionFieldsParametersGrantActionParameter.RefusesWildcard, and is useful for accessing the field via an interface.
+func (v *GrantActionFieldsParametersGrantActionParameter) GetRefusesWildcard() bool {
+	return v.RefusesWildcard
+}
+
+// GrantActionResponse is returned by GrantAction on success.
+type GrantActionResponse struct {
+	// #3708: one registered action by its exact name, read under the same gate as grantActions. An unknown name and every refused caller answer null.
+	Action *GrantActionActionGrantAction `json:"action"`
+}
+
+// GetAction returns GrantActionResponse.Action, and is useful for accessing the field via an interface.
+func (v *GrantActionResponse) GetAction() *GrantActionActionGrantAction { return v.Action }
+
+// GrantActionsGrantActionsGrantActionsPage includes the requested fields of the GraphQL type GrantActionsPage.
+type GrantActionsGrantActionsGrantActionsPage struct {
+	Total int                                                         `json:"total"`
+	Items []*GrantActionsGrantActionsGrantActionsPageItemsGrantAction `json:"items"`
+}
+
+// GetTotal returns GrantActionsGrantActionsGrantActionsPage.Total, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPage) GetTotal() int { return v.Total }
+
+// GetItems returns GrantActionsGrantActionsGrantActionsPage.Items, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPage) GetItems() []*GrantActionsGrantActionsGrantActionsPageItemsGrantAction {
+	return v.Items
+}
+
+// GrantActionsGrantActionsGrantActionsPageItemsGrantAction includes the requested fields of the GraphQL type GrantAction.
+// The GraphQL type's documentation follows.
+//
+// #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02): one registered action a grant can allow. The registry is written only by a deploy; no call creates, changes or deletes an action. There is no plain-language summary here (its own slice).
+type GrantActionsGrantActionsGrantActionsPageItemsGrantAction struct {
+	GrantActionFields `json:"-"`
+}
+
+// GetName returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.Name, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetName() string {
+	return v.GrantActionFields.Name
+}
+
+// GetParameters returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.Parameters, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetParameters() []*GrantActionFieldsParametersGrantActionParameter {
+	return v.GrantActionFields.Parameters
+}
+
+// GetTool returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.Tool, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetTool() *string {
+	return v.GrantActionFields.Tool
+}
+
+// GetEnforcement returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.Enforcement, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetEnforcement() string {
+	return v.GrantActionFields.Enforcement
+}
+
+// GetIssuerRule returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.IssuerRule, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetIssuerRule() string {
+	return v.GrantActionFields.IssuerRule
+}
+
+// GetSource returns GrantActionsGrantActionsGrantActionsPageItemsGrantAction.Source, and is useful for accessing the field via an interface.
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) GetSource() string {
+	return v.GrantActionFields.Source
+}
+
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GrantActionsGrantActionsGrantActionsPageItemsGrantAction
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GrantActionsGrantActionsGrantActionsPageItemsGrantAction = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantActionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGrantActionsGrantActionsGrantActionsPageItemsGrantAction struct {
+	Name string `json:"name"`
+
+	Parameters []*GrantActionFieldsParametersGrantActionParameter `json:"parameters"`
+
+	Tool *string `json:"tool"`
+
+	Enforcement string `json:"enforcement"`
+
+	IssuerRule string `json:"issuerRule"`
+
+	Source string `json:"source"`
+}
+
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GrantActionsGrantActionsGrantActionsPageItemsGrantAction) __premarshalJSON() (*__premarshalGrantActionsGrantActionsGrantActionsPageItemsGrantAction, error) {
+	var retval __premarshalGrantActionsGrantActionsGrantActionsPageItemsGrantAction
+
+	retval.Name = v.GrantActionFields.Name
+	retval.Parameters = v.GrantActionFields.Parameters
+	retval.Tool = v.GrantActionFields.Tool
+	retval.Enforcement = v.GrantActionFields.Enforcement
+	retval.IssuerRule = v.GrantActionFields.IssuerRule
+	retval.Source = v.GrantActionFields.Source
+	return &retval, nil
+}
+
+// GrantActionsResponse is returned by GrantActions on success.
+type GrantActionsResponse struct {
+	// #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): the registered actions, by name, for anyone in the named App: a participating person, or a bound worker session of that App. The App is named, never inferred. Every other caller (no credential, a non-participant, an unknown, malformed or deleted App, another App's or a retired worker, an App key, a headless run, an impersonated session even of a participant) gets an empty page, never an error. Read only; limit 0 returns the count only.
+	GrantActions *GrantActionsGrantActionsGrantActionsPage `json:"grantActions"`
+}
+
+// GetGrantActions returns GrantActionsResponse.GrantActions, and is useful for accessing the field via an interface.
+func (v *GrantActionsResponse) GetGrantActions() *GrantActionsGrantActionsGrantActionsPage {
+	return v.GrantActions
+}
+
 // #1747 — whether the team-chat post for a grant use went out.
 type GrantAnnouncement string
 
@@ -69023,7 +69309,8 @@ func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetRows() []*Or
 //
 // #2973 PR2: one served compiled boot prompt the switch would change. workerId is null on the install-level row (an uncustomised worker and a chat share it).
 type OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow struct {
-	AppId           string  `json:"appId"`
+	AppId string `json:"appId"`
+	// Canonical v2 URN of this row's App (#4061), like agentUrn and workerUrn; a stored form that cannot be emitted is served as stored. hrn:node:hadronmemory.com:specs:cor:urn:010:01
 	AppUrn          string  `json:"appUrn"`
 	AgentId         string  `json:"agentId"`
 	AgentName       string  `json:"agentName"`
@@ -114671,6 +114958,34 @@ func (v *__GlobalSearchInput) GetScope() *string { return v.Scope }
 // GetAppRef returns __GlobalSearchInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GlobalSearchInput) GetAppRef() *string { return v.AppRef }
 
+// __GrantActionInput is used internally by genqlient
+type __GrantActionInput struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __GrantActionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GrantActionInput) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __GrantActionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GrantActionInput) GetRef() string { return v.Ref }
+
+// __GrantActionsInput is used internally by genqlient
+type __GrantActionsInput struct {
+	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetAppRef returns __GrantActionsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GrantActionsInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __GrantActionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__GrantActionsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __GrantActionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__GrantActionsInput) GetOffset() int { return v.Offset }
+
 // __GrantAppKeyScopeInput is used internally by genqlient
 type __GrantAppKeyScopeInput struct {
 	Id     string  `json:"id"`
@@ -140802,6 +141117,108 @@ func GlobalSearch(
 	}
 
 	data_ = &GlobalSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GrantAction.
+const GrantAction_Operation = `
+query GrantAction ($appRef: String!, $ref: ID!) {
+	action(appRef: $appRef, ref: $ref) {
+		... GrantActionFields
+	}
+}
+fragment GrantActionFields on GrantAction {
+	name
+	parameters {
+		name
+		type
+		refusesWildcard
+	}
+	tool
+	enforcement
+	issuerRule
+	source
+}
+`
+
+func GrantAction(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *GrantActionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GrantAction",
+		Query:  GrantAction_Operation,
+		Variables: &__GrantActionInput{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &GrantActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GrantActions.
+const GrantActions_Operation = `
+query GrantActions ($appRef: String!, $limit: Int!, $offset: Int!) {
+	grantActions(appRef: $appRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... GrantActionFields
+		}
+	}
+}
+fragment GrantActionFields on GrantAction {
+	name
+	parameters {
+		name
+		type
+		refusesWildcard
+	}
+	tool
+	enforcement
+	issuerRule
+	source
+}
+`
+
+// limit 0 returns the count only.
+func GrantActions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit int,
+	offset int,
+) (data_ *GrantActionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GrantActions",
+		Query:  GrantActions_Operation,
+		Variables: &__GrantActionsInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &GrantActionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

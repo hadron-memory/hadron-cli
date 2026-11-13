@@ -23,9 +23,10 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 226: 186 command, 15 gap, 25 excluded
+[Query] 228: 188 command, 15 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
+action  command team grant action
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -125,6 +126,7 @@ findNodes  command search
 findObjects  command object find
 globalSearch  command find
 grant  command team grant get
+grantActions  command team grant actions
 grantSigningRequest  command team grant signing-request get
 grants  command team grant list
 heldWorkers  command team worker held

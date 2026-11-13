@@ -33,7 +33,7 @@ person signs, and nothing here does. The separate hadron grant group reads and
 manages organization action grants.`
 
 func newCmdTeamGrant(f *cmdutil.Factory) *cobra.Command {
-	group := &cobra.Command{Use: "grant <command>", Short: "Worker action grants and named App grants", Long: "add/rm manage named App grants. list/get/request manage worker action grants.\n\n" + workerGrantHelp}
+	group := &cobra.Command{Use: "grant <command>", Short: "Worker action grants and named App grants", Long: "add/rm manage named App grants. list/get/request manage worker action grants. actions/action read an App's registered grant actions (any App participant, no worker binding needed).\n\n" + workerGrantHelp}
 	var limit, offset int
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: workerGrantHelp + `
 
@@ -113,7 +113,7 @@ A missing or hidden row returns the same not-found line and exit 4.
 			return nil
 		})
 	}}
-	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f))
+	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f), newCmdTeamGrantActions(f), newCmdTeamGrantAction(f))
 	return group
 }
 
