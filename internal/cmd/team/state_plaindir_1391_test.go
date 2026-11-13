@@ -194,3 +194,26 @@ func TestPlainDir1391BindingWithoutWorkerIDIsNotReplaced(t *testing.T) {
 		t.Fatal("a refused bind must leave the cached binding byte-identical")
 	}
 }
+
+// Rico's §10 P3 on #1968: git says "not a git repository: <path>" for a
+// worktree whose admin dir is gone, or a bad GIT_DIR — a real checkout, not
+// a plain directory. Only the discovery form ("... (or any of the parent
+// directories)") makes a directory plain.
+func TestPlainDir1391BrokenWorktreeIsNotPlain(t *testing.T) {
+	for _, msg := range []string{
+		"fatal: not a git repository: /src/repo/.git/worktrees/gone",
+		"fatal: not a git repository: '/nowhere'",
+	} {
+		t.Run(msg, func(t *testing.T) {
+			fakeGit(t, msg)
+			dir := t.TempDir()
+			t.Chdir(dir)
+			if _, plain, err := readBindingForBind(context.Background()); plain || !errors.Is(err, errNoWorktree) {
+				t.Fatalf("want the hard errNoWorktree, got plain=%v err=%v", plain, err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, plainDirCacheName)); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("no cache may be created in a broken checkout")
+			}
+		})
+	}
+}
