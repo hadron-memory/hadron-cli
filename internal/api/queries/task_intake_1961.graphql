@@ -1,0 +1,41 @@
+# cli#1961 (hadron-server#4084, cor:agt:120:02): the reads and writes the
+# intake adapter flow makes in Hadron. Needs a server with #4084 (the batch
+# external-id read and AgentTask.portalUrl).
+
+# Which of these outside items does a task of the App already hold? Hadron's
+# check is authoritative (cor:agt:120): an item is dropped only because a task
+# holds it. 1 to 100 ids; each is compared exactly as written, in any state.
+query IntakeTasksByExternalIds($appRef: ID!, $externalIds: [String!]!) {
+  agentTasks(appRef: $appRef, externalIds: $externalIds) {
+    id
+    externalId
+  }
+}
+
+# The claim: an ordinary root create naming the external id. The create IS the
+# claim (TASK_EXTERNAL_ID_TAKEN means another caller won). portalUrl is the
+# server's, printed for the adapter's mark; null when the server prints none.
+mutation IntakeClaimTask($input: CreateAgentTaskInput!) {
+  createAgentTask(input: $input) {
+    id
+    handle
+    title
+    status
+    externalId
+    portalUrl
+    assignee {
+      id
+      kind
+      name
+      urn
+    }
+  }
+}
+
+# The claimant starts a task it assigned to itself (assignee-only).
+mutation IntakeStartTask($taskId: ID!) {
+  startAgentTask(taskId: $taskId) {
+    id
+    status
+  }
+}

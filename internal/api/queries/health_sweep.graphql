@@ -1,6 +1,8 @@
 # Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
 # @genqlient(for: "WorkerTerminalReportInput.reason", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.lastTurnAt", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.attempt", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.repair", omitempty: true)
 mutation HealthSweepSetTerminals(
   $input: SetHostWorkerTerminalsInput!
 ) {
