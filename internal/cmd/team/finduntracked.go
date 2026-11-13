@@ -77,7 +77,7 @@ optionally claim some. There are two sources; name exactly one.
 INTAKE ADAPTER (--adapter <executable>, else $` + adapterEnv + `): the team's own local
 executable that knows its tracker and holds the tracker credential; Hadron
 never calls the tracker. The CLI runs it as ` + "`<executable> <call>`" + ` (describe,
-list-untracked, mark-tracked), a JSON request on stdin and one JSON answer on
+list-untracked, mark-tracked, untrack, report), a JSON request on stdin and one JSON answer on
 stdout. Its output is untrusted: capped, parsed strictly, printed terminal-safe.
 An adapter that speaks another contract version exits 15 before it is asked
 for anything, and before the App or Hadron is read. Its describe answer must
@@ -95,6 +95,20 @@ portal link and the worker. The claim goes to --assignee, else --for, else your
 bound worker; one assigned to you is started, one for another worker stays
 PENDING for them to start. A refused create stops the walk after printing what
 was claimed; a failed mark leaves the claim standing and exits 1.
+
+RECONCILE (every adapter run, before the list). The CLI reads, from the server,
+what changed on the App's tasks that carry an outside item since its cursor, and
+tells the adapter what its tracker should hear: a reassignment calls mark-tracked
+again for the new assignee, a release (` + "`task release`" + `) calls untrack with the
+released item, a cancel calls report only if the adapter's describe lists it, and
+a finish, hand-back or first assignment call nothing. The cursor is the server's
+own opaque value, kept per server, App and adapter in a file beside the CLI's
+config (intake-cursors.json); the first run reads from the oldest change, a later
+run only what is new, and nothing is told twice. A change the adapter refuses
+holds the cursor there so the next run retries it: the list and claim still run,
+the run exits 1, and the output's reconcile object names the refusal. An
+adapter whose describe does not list a call is simply not told. The summary is a
+note on stderr, and the reconcile object in --json.
 
 SERVER INTEGRATION (--integration <name>): the older path, kept until its
 retirement. List the open items of one of the App's task integrations that no

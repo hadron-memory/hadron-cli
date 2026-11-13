@@ -5200,6 +5200,30 @@ func (v *AgentTaskDisposeFindingResponse) GetDisposeAgentTaskFinding() *AgentTas
 	return v.DisposeAgentTaskFinding
 }
 
+// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120): what a change to a task with an external id was.
+type AgentTaskExternalIdChangeKind string
+
+const (
+	// task.assigned, or the platform's assignment.matched
+	AgentTaskExternalIdChangeKindAssigned  AgentTaskExternalIdChangeKind = "ASSIGNED"
+	AgentTaskExternalIdChangeKindCancelled AgentTaskExternalIdChangeKind = "CANCELLED"
+	AgentTaskExternalIdChangeKindFinished  AgentTaskExternalIdChangeKind = "FINISHED"
+	// The assignee handed the task back to the queue.
+	AgentTaskExternalIdChangeKindHandedBack AgentTaskExternalIdChangeKind = "HANDED_BACK"
+	AgentTaskExternalIdChangeKindReassigned AgentTaskExternalIdChangeKind = "REASSIGNED"
+	// The external id was released (cleared); externalId is the released id.
+	AgentTaskExternalIdChangeKindReleased AgentTaskExternalIdChangeKind = "RELEASED"
+)
+
+var AllAgentTaskExternalIdChangeKind = []AgentTaskExternalIdChangeKind{
+	AgentTaskExternalIdChangeKindAssigned,
+	AgentTaskExternalIdChangeKindCancelled,
+	AgentTaskExternalIdChangeKindFinished,
+	AgentTaskExternalIdChangeKindHandedBack,
+	AgentTaskExternalIdChangeKindReassigned,
+	AgentTaskExternalIdChangeKindReleased,
+}
+
 // AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
 // The GraphQL type's documentation follows.
 //
@@ -10778,6 +10802,355 @@ var AllAgentTaskReferenceKind = []AgentTaskReferenceKind{
 	AgentTaskReferenceKindPullRequest,
 	AgentTaskReferenceKindTask,
 	AgentTaskReferenceKindUrl,
+}
+
+// AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) __premarshalJSON() (*__premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask, error) {
+	var retval __premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskReleaseResponse is returned by AgentTaskRelease on success.
+type AgentTaskReleaseResponse struct {
+	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120:02; who may release is Proposed, V87) — give a task's outside item
+	// back: clear its externalId so the next create naming it claims it. Whoever may cancel the task may release it
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09), in any status; the assignee alone may not. Refused like a cancel:
+	// TASK_NOT_FOUND (a task you cannot read reads as absent), TASK_NOT_OWNER, APP_UNINSTALLED; then
+	// TASK_EXTERNAL_ID_NONE when the task holds no external id (a second release included). Nothing else about the task
+	// changes, and a refusal writes nothing. One task.external-id-released team event names the released id. The id is never
+	// set again on this task. #3323's instruction arm applies as on cancelAgentTask.
+	ReleaseAgentTaskExternalId *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask `json:"releaseAgentTaskExternalId"`
+}
+
+// GetReleaseAgentTaskExternalId returns AgentTaskReleaseResponse.ReleaseAgentTaskExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseResponse) GetReleaseAgentTaskExternalId() *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask {
+	return v.ReleaseAgentTaskExternalId
 }
 
 // AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -55538,6 +55911,152 @@ func (v *IntakeClaimTaskResponse) GetCreateAgentTask() *IntakeClaimTaskCreateAge
 	return v.CreateAgentTask
 }
 
+// IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage includes the requested fields of the GraphQL type AgentTaskExternalIdChangePage.
+// The GraphQL type's documentation follows.
+//
+// #4084: one page of agentTaskExternalIdChanges and whether more remain (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage struct {
+	HasMore bool `json:"hasMore"`
+	// The cursor to pass as after when hasMore; null on the last page.
+	NextCursor *string                                                                                                           `json:"nextCursor"`
+	Changes    []*IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange `json:"changes"`
+}
+
+// GetHasMore returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage.HasMore, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetNextCursor returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage.NextCursor, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage) GetNextCursor() *string {
+	return v.NextCursor
+}
+
+// GetChanges returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage.Changes, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage) GetChanges() []*IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange {
+	return v.Changes
+}
+
+// IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange includes the requested fields of the GraphQL type AgentTaskExternalIdChange.
+// The GraphQL type's documentation follows.
+//
+// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120): one change to a task with an external id.
+type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange struct {
+	// Opaque; pass it as after to read the changes that follow this one.
+	Cursor string                        `json:"cursor"`
+	Kind   AgentTaskExternalIdChangeKind `json:"kind"`
+	// The task's external id, or for RELEASED the id the release cleared.
+	ExternalId string `json:"externalId"`
+	// The task as it is now.
+	Task *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask `json:"task"`
+}
+
+// GetCursor returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange.Cursor, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange) GetCursor() string {
+	return v.Cursor
+}
+
+// GetKind returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange.Kind, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange) GetKind() AgentTaskExternalIdChangeKind {
+	return v.Kind
+}
+
+// GetExternalId returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange.ExternalId, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange) GetExternalId() string {
+	return v.ExternalId
+}
+
+// GetTask returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange.Task, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange) GetTask() *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask {
+	return v.Task
+}
+
+// IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string `json:"handle"`
+	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120) — the portal page that opens this task,
+	// <FRONTEND_URL>/app/apps/<appId>/tasks/<taskId>, printed by the server so no client builds it. Null when FRONTEND_URL
+	// is unset or malformed (as Node.portalUrl).
+	PortalUrl *string `json:"portalUrl"`
+	// Null while the task is queued.
+	Assignee *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty `json:"assignee"`
+}
+
+// GetId returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask) GetId() string {
+	return v.Id
+}
+
+// GetHandle returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask) GetHandle() string {
+	return v.Handle
+}
+
+// GetPortalUrl returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask.PortalUrl, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask) GetPortalUrl() *string {
+	return v.PortalUrl
+}
+
+// GetAssignee returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask) GetAssignee() *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty {
+	return v.Assignee
+}
+
+// IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty struct {
+	Id string `json:"id"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+}
+
+// GetId returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetName returns IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTaskAssigneeAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// IntakeExternalIdChangesResponse is returned by IntakeExternalIdChanges on success.
+type IntakeExternalIdChangesResponse struct {
+	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120, minimal write-back) — what changed on this App's tasks that carry an
+	// external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
+	// cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
+	// the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
+	// it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+	// oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
+	// appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
+	// to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
+	// this App is BAD_USER_INPUT. limit defaults to 20 (cap 200, floor 1).
+	AgentTaskExternalIdChanges *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage `json:"agentTaskExternalIdChanges"`
+}
+
+// GetAgentTaskExternalIdChanges returns IntakeExternalIdChangesResponse.AgentTaskExternalIdChanges, and is useful for accessing the field via an interface.
+func (v *IntakeExternalIdChangesResponse) GetAgentTaskExternalIdChanges() *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage {
+	return v.AgentTaskExternalIdChanges
+}
+
 // IntakeStartTaskResponse is returned by IntakeStartTask on success.
 type IntakeStartTaskResponse struct {
 	// #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
@@ -55569,6 +56088,34 @@ func (v *IntakeStartTaskStartAgentTask) GetId() string { return v.Id }
 
 // GetStatus returns IntakeStartTaskStartAgentTask.Status, and is useful for accessing the field via an interface.
 func (v *IntakeStartTaskStartAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// IntakeTaskExternalIdAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeTaskExternalIdAgentTask struct {
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims (an issue's canonical URL), set once at creation and never edited. Unique within the App, whatever the task's state. Null when none.
+	ExternalId *string `json:"externalId"`
+}
+
+// GetExternalId returns IntakeTaskExternalIdAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *IntakeTaskExternalIdAgentTask) GetExternalId() *string { return v.ExternalId }
+
+// IntakeTaskExternalIdResponse is returned by IntakeTaskExternalId on success.
+type IntakeTaskExternalIdResponse struct {
+	// #1705 — one agent task, or null when it does not exist or the caller may
+	// not read it (no existence oracle). Readers: the App's participants, workers
+	// acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AgentTask *IntakeTaskExternalIdAgentTask `json:"agentTask"`
+}
+
+// GetAgentTask returns IntakeTaskExternalIdResponse.AgentTask, and is useful for accessing the field via an interface.
+func (v *IntakeTaskExternalIdResponse) GetAgentTask() *IntakeTaskExternalIdAgentTask {
+	return v.AgentTask
+}
 
 // IntakeTasksByExternalIdsAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
@@ -108344,6 +108891,14 @@ func (v *__AgentTaskReassignInput) GetAssignee() *AgentTaskPartyInput { return v
 // GetCloseSessionWhenDone returns __AgentTaskReassignInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *__AgentTaskReassignInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
 
+// __AgentTaskReleaseInput is used internally by genqlient
+type __AgentTaskReleaseInput struct {
+	TaskId string `json:"taskId"`
+}
+
+// GetTaskId returns __AgentTaskReleaseInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskReleaseInput) GetTaskId() string { return v.TaskId }
+
 // __AgentTaskRemoveBlockerInput is used internally by genqlient
 type __AgentTaskRemoveBlockerInput struct {
 	TaskRef        string `json:"taskRef"`
@@ -112948,6 +113503,22 @@ type __IntakeClaimTaskInput struct {
 // GetInput returns __IntakeClaimTaskInput.Input, and is useful for accessing the field via an interface.
 func (v *__IntakeClaimTaskInput) GetInput() *CreateAgentTaskInput { return v.Input }
 
+// __IntakeExternalIdChangesInput is used internally by genqlient
+type __IntakeExternalIdChangesInput struct {
+	AppRef string  `json:"appRef"`
+	After  *string `json:"after,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// GetAppRef returns __IntakeExternalIdChangesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__IntakeExternalIdChangesInput) GetAppRef() string { return v.AppRef }
+
+// GetAfter returns __IntakeExternalIdChangesInput.After, and is useful for accessing the field via an interface.
+func (v *__IntakeExternalIdChangesInput) GetAfter() *string { return v.After }
+
+// GetLimit returns __IntakeExternalIdChangesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__IntakeExternalIdChangesInput) GetLimit() *int { return v.Limit }
+
 // __IntakeStartTaskInput is used internally by genqlient
 type __IntakeStartTaskInput struct {
 	TaskId string `json:"taskId"`
@@ -112955,6 +113526,14 @@ type __IntakeStartTaskInput struct {
 
 // GetTaskId returns __IntakeStartTaskInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__IntakeStartTaskInput) GetTaskId() string { return v.TaskId }
+
+// __IntakeTaskExternalIdInput is used internally by genqlient
+type __IntakeTaskExternalIdInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __IntakeTaskExternalIdInput.Id, and is useful for accessing the field via an interface.
+func (v *__IntakeTaskExternalIdInput) GetId() string { return v.Id }
 
 // __IntakeTasksByExternalIdsInput is used internally by genqlient
 type __IntakeTasksByExternalIdsInput struct {
@@ -122266,6 +122845,138 @@ func AgentTaskReassign(
 	}
 
 	data_ = &AgentTaskReassignResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskRelease.
+const AgentTaskRelease_Operation = `
+mutation AgentTaskRelease ($taskId: ID!) {
+	releaseAgentTaskExternalId(taskId: $taskId) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// Give a task's outside item back: clears externalId so the next create naming it
+// claims it. Whoever may cancel the task may release it (cor:agt:050:09; V87 is
+// Proposed). The server owns every refusal (TASK_NOT_FOUND, TASK_NOT_OWNER,
+// APP_UNINSTALLED, TASK_EXTERNAL_ID_NONE).
+func AgentTaskRelease(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+) (data_ *AgentTaskReleaseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskRelease",
+		Query:  AgentTaskRelease_Operation,
+		Variables: &__AgentTaskReleaseInput{
+			TaskId: taskId,
+		},
+	}
+
+	data_ = &AgentTaskReleaseResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -139200,6 +139911,63 @@ func IntakeClaimTask(
 	return data_, err_
 }
 
+// The query executed by IntakeExternalIdChanges.
+const IntakeExternalIdChanges_Operation = `
+query IntakeExternalIdChanges ($appRef: ID!, $after: String, $limit: Int) {
+	agentTaskExternalIdChanges(appRef: $appRef, after: $after, limit: $limit) {
+		hasMore
+		nextCursor
+		changes {
+			cursor
+			kind
+			externalId
+			task {
+				id
+				handle
+				portalUrl
+				assignee {
+					id
+					name
+				}
+			}
+		}
+	}
+}
+`
+
+// The reconcile pass's read (hadron-server#4084, cor:agt:120): what changed on
+// the App's tasks that carry an external id, oldest first, after an OPAQUE
+// cursor. `after` is omitted on the first run (the server starts at the oldest
+// change) and never sent as null.
+func IntakeExternalIdChanges(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	after *string,
+	limit *int,
+) (data_ *IntakeExternalIdChangesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeExternalIdChanges",
+		Query:  IntakeExternalIdChanges_Operation,
+		Variables: &__IntakeExternalIdChangesInput{
+			AppRef: appRef,
+			After:  after,
+			Limit:  limit,
+		},
+	}
+
+	data_ = &IntakeExternalIdChangesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by IntakeStartTask.
 const IntakeStartTask_Operation = `
 mutation IntakeStartTask ($taskId: ID!) {
@@ -139225,6 +139993,42 @@ func IntakeStartTask(
 	}
 
 	data_ = &IntakeStartTaskResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by IntakeTaskExternalId.
+const IntakeTaskExternalId_Operation = `
+query IntakeTaskExternalId ($id: ID!) {
+	agentTask(id: $id) {
+		externalId
+	}
+}
+`
+
+// cli#1962 (hadron-server#4084, cor:agt:120:02): `task release` reads the task's
+// external id BEFORE the release clears it, so the receipt can give the URL back.
+func IntakeTaskExternalId(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *IntakeTaskExternalIdResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeTaskExternalId",
+		Query:  IntakeTaskExternalId_Operation,
+		Variables: &__IntakeTaskExternalIdInput{
+			Id: id,
+		},
+	}
+
+	data_ = &IntakeTaskExternalIdResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

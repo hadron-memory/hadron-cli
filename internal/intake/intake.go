@@ -378,3 +378,19 @@ func (r *Runner) MarkTracked(ctx context.Context, externalID string, task Task, 
 	var ignored map[string]json.RawMessage
 	return r.call(ctx, "mark-tracked", req, &ignored)
 }
+
+// Untrack tells the adapter an item was released: its task no longer holds it
+// (cli#1962, cor:agt:120:04). It is given the RELEASED id the server reported,
+// since the task holds none.
+func (r *Runner) Untrack(ctx context.Context, externalID string) error {
+	var ignored map[string]json.RawMessage
+	return r.call(ctx, "untrack", map[string]any{"externalId": externalID}, &ignored)
+}
+
+// Report tells an adapter that declares `report` that a task ended in state
+// (cor:agt:120, D4: a cancel may call it; the adapter's choice what to do).
+func (r *Runner) Report(ctx context.Context, externalID string, task Task, state string) error {
+	req := map[string]any{"externalId": externalID, "task": task, "state": state}
+	var ignored map[string]json.RawMessage
+	return r.call(ctx, "report", req, &ignored)
+}

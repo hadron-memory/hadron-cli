@@ -1,0 +1,45 @@
+# cli#1962 (hadron-server#4084, cor:agt:120:02): `task release` reads the task's
+# external id BEFORE the release clears it, so the receipt can give the URL back.
+query IntakeTaskExternalId($id: ID!) {
+  agentTask(id: $id) {
+    externalId
+  }
+}
+
+# Give a task's outside item back: clears externalId so the next create naming it
+# claims it. Whoever may cancel the task may release it (cor:agt:050:09; V87 is
+# Proposed). The server owns every refusal (TASK_NOT_FOUND, TASK_NOT_OWNER,
+# APP_UNINSTALLED, TASK_EXTERNAL_ID_NONE).
+mutation AgentTaskRelease($taskId: ID!) {
+  releaseAgentTaskExternalId(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
+# The reconcile pass's read (hadron-server#4084, cor:agt:120): what changed on
+# the App's tasks that carry an external id, oldest first, after an OPAQUE
+# cursor. `after` is omitted on the first run (the server starts at the oldest
+# change) and never sent as null.
+query IntakeExternalIdChanges(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $after: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  agentTaskExternalIdChanges(appRef: $appRef, after: $after, limit: $limit) {
+    hasMore
+    nextCursor
+    changes {
+      cursor
+      kind
+      externalId
+      task {
+        id
+        handle
+        portalUrl
+        assignee { id name }
+      }
+    }
+  }
+}

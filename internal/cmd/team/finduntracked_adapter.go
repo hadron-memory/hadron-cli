@@ -55,6 +55,8 @@ type adapterListDTO struct {
 	Adapter  string           `json:"adapter"`
 	Items    []adapterItemDTO `json:"items"`
 	Complete bool             `json:"complete"`
+	// Reconcile is the write-back pass that ran first (cli#1962).
+	Reconcile reconcileDTO `json:"reconcile"`
 }
 
 type adapterClaimedDTO struct {
@@ -81,6 +83,8 @@ type adapterClaimDTO struct {
 	Lost          []string            `json:"lost"`
 	Complete      bool                `json:"complete"`
 	StoppedReason *string             `json:"stoppedReason"`
+	// Reconcile is the write-back pass that ran first (cli#1962).
+	Reconcile reconcileDTO `json:"reconcile"`
 }
 
 type adapterOpts struct {
@@ -159,6 +163,13 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 	if b != nil && b.WorkerID != "" && bindingServerMatches(f, b) {
 		boundWorker = b.WorkerID
 	}
+	// The reconcile pass comes first, every run (cli#1962). A failed adapter
+	// call stops the pass at that change (the next run retries it) but not the
+	// list or the claim, which do not depend on it; the run still ends non-zero.
+	rec, recErr, err := reconcileRun(ctx, f, client, appRef, runner, desc)
+	if err != nil {
+		return err
+	}
 	var claim adapterClaim
 	if o.track {
 		claim = adapterClaim{f: f, ctx: ctx, client: client, runner: runner, appRef: appRef, b: b, boundWorker: boundWorker, o: o}
@@ -166,8 +177,8 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 			return err
 		}
 	}
-	list := adapterListDTO{Adapter: desc.Name, Items: []adapterItemDTO{}}
-	claimed := adapterClaimDTO{Adapter: desc.Name, Tasks: []adapterClaimedDTO{}, Lost: []string{}}
+	list := adapterListDTO{Adapter: desc.Name, Items: []adapterItemDTO{}, Reconcile: rec}
+	claimed := adapterClaimDTO{Adapter: desc.Name, Tasks: []adapterClaimedDTO{}, Lost: []string{}, Reconcile: rec}
 	var stopErr error
 	walkErr := runner.Walk(ctx, o.forWorker, pageHint(limit), func(p intake.Page) (bool, error) {
 		ids := make([]string, 0, len(p.Items))
@@ -212,6 +223,9 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 	})
 	if walkErr != nil && stopErr == nil {
 		stopErr = adapterErr(walkErr)
+	}
+	if stopErr == nil {
+		stopErr = recErr
 	}
 	complete := stopErr == nil
 	var reason *string
@@ -337,7 +351,16 @@ func (c *adapterClaim) one(it intake.Item) (claimOne, error) {
 	return claimOne{task: dto}, nil
 }
 
+// noteReconcile prints the pass's one line on stderr when it did or said
+// something, so stdout (and --json) stay the result.
+func noteReconcile(f *cmdutil.Factory, d reconcileDTO) {
+	if line := humanReconcile(d); line != "" && !f.JSON {
+		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", output.SafeCell(line))
+	}
+}
+
 func writeAdapterList(f *cmdutil.Factory, dto adapterListDTO) error {
+	noteReconcile(f, dto.Reconcile)
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if len(dto.Items) == 0 {
 			_, err := fmt.Fprintf(w, "no untracked items (adapter %s)\n", output.SafeCell(dto.Adapter))
@@ -352,6 +375,7 @@ func writeAdapterList(f *cmdutil.Factory, dto adapterListDTO) error {
 }
 
 func writeAdapterClaim(f *cmdutil.Factory, dto adapterClaimDTO) error {
+	noteReconcile(f, dto.Reconcile)
 	err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if len(dto.Tasks) == 0 {
 			_, err := fmt.Fprintln(w, "claimed nothing: no untracked item was won")

@@ -198,6 +198,8 @@ func authoredWriteField(field string) bool {
 		"disposeAgentTaskFinding", "cloneAgentTask", "createAgentTasks", "updateAgentTask",
 		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask", "handBackAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
+		// cli#1962: release is a cancel-grade act (cor:agt:050:09, V87).
+		"releaseAgentTaskExternalId",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
 		// #1664: owner-chain and assignee gates admit bound workers.

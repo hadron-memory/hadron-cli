@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 226: 182 command, 19 gap, 25 excluded
+[Query] 226: 183 command, 18 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -38,7 +38,7 @@ agentServedBootPrompt  command agent boot-prompt
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
 agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions
-agentTaskExternalIdChanges  gap #1962: the reconcile pass reads the changed-since feed
+agentTaskExternalIdChanges  command team task find-untracked
 agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
@@ -251,7 +251,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 351: 290 command, 47 gap, 14 excluded
+[Mutation] 351: 291 command, 46 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -453,7 +453,7 @@ regenerateAppKey  command app key rotate
 registerContextResetRecovery  command team host run
 registerHost  command team host run
 reinstallApp  command app reinstall
-releaseAgentTaskExternalId  gap #1962: the release verb ships with the reconcile pass
+releaseAgentTaskExternalId  command team task release
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
@@ -604,7 +604,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 84: 48 gap, 36 excluded
+[Arguments] 85: 49 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -640,6 +640,7 @@ Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
 Mutation.reassignAgentTask(instruction)  gap #1617
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
+Mutation.releaseAgentTaskExternalId(instruction)  gap #1617
 Mutation.removeAgentTaskBlocker(instruction)  gap #1617
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).

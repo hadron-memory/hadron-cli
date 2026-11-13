@@ -86,7 +86,10 @@ type taskDTO struct {
 	Source            *string                `json:"source"`
 	// ExternalID is the outside item the task claims (cli#1524, cor:agt:120:02):
 	// set once at create, never edited; null when the task claims none.
-	ExternalID           *string              `json:"externalId"`
+	ExternalID *string `json:"externalId"`
+	// ReleasedExternalID is set only by `task release` (cli#1962): the outside
+	// item the release gave back, since the task no longer holds it.
+	ReleasedExternalID   string               `json:"releasedExternalId,omitempty"`
 	References           []taskReferenceDTO   `json:"references"`
 	HandBack             *taskHandBackDTO     `json:"handBack"`
 	StartBy              *string              `json:"startBy"`
@@ -462,7 +465,7 @@ var taskErrorCodes = []string{
 	"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER",
 	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
 	"TASK_FINDING_NOT_FOUND", "TASK_NOT_FINISHED",
-	"TASK_ENDED", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH",
+	"TASK_ENDED", "TASK_EXTERNAL_ID_NONE", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH",
 	"TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_OWNER_REQUIRED", "TASK_ASSIGNEE_REQUIRED", "APP_KEY_SESSION_BOUND", "TASK_STOPPED", "TASK_BATCH_TOO_LARGE", "TASK_MATCH_FAILED",
 	"PROPERTIES_NOT_AN_OBJECT", "PROPERTIES_TOO_LARGE",
 	"PROPERTIES_SCHEMA_VIOLATION", "PROPERTIES_SCHEMA_UNUSABLE",
