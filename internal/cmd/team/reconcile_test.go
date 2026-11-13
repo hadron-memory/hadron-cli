@@ -256,3 +256,23 @@ func TestReconcileReassignedWithoutAssigneeIsSkipped(t *testing.T) {
 		t.Fatalf("no worker, no mark: %+v %v %v %s", d, aerr, ferr, b)
 	}
 }
+
+// Joost (cli#1975 LOCAL delta): an empty page that says hasMore and carries a
+// nextCursor must be refused BEFORE the checkpoint, so the stored cursor never
+// moves past state nothing answered.
+func TestReconcileEmptyHasMorePageDoesNotMoveTheCheckpoint(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+	if err := store.Set(key, "c-old"); err != nil {
+		t.Fatal(err)
+	}
+	c := &feedClient{pages: []string{`{"changes":[],"hasMore":true,"nextCursor":"c-unanswered"}`}}
+	d, aerr, ferr := reconcile(context.Background(), c, store, key, "app", r, desc)
+	if aerr == nil || ferr != nil || d.Complete || d.Error == nil {
+		t.Fatalf("must fail loudly: %+v %v %v", d, aerr, ferr)
+	}
+	if got, _ := store.Get(key); got != "c-old" {
+		t.Fatalf("the checkpoint must stay at the last answered state, got %q", got)
+	}
+}

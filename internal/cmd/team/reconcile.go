@@ -116,6 +116,14 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			dto.Error, dto.Complete = &msg, false
 			return dto, exitcode.Newf(exitcode.Error, "%s", msg), nil
 		}
+		// More promised, none served: refused BEFORE any checkpoint, so the stored
+		// cursor never moves past state nothing answered (an empty answer must not
+		// read as the end, and a nextCursor on it is not evidence of coverage).
+		if page.HasMore && len(page.Changes) == 0 {
+			msg := "the server's change feed promised more changes and served none"
+			dto.Error, dto.Complete = &msg, false
+			return dto, exitcode.Newf(exitcode.Error, "%s", msg), nil
+		}
 		for _, ch := range page.Changes {
 			if ch == nil { // a null element cannot be told to an adapter
 				dto.Skipped++
@@ -134,22 +142,14 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			}
 			cursor = ch.Cursor // past this change only now that it is answered
 		}
-		cursor = pageCursor(page.NextCursor, page.Changes)
-		if cursor != "" {
+		if next := pageCursor(page.NextCursor, page.Changes); next != "" {
+			cursor = next
 			if err := store.Set(key, cursor); err != nil {
 				return dto, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
 			}
 		}
 		if !page.HasMore {
 			return dto, nil, nil
-		}
-		if len(page.Changes) == 0 {
-			// More promised, none served: do not claim to be caught up (an
-			// empty answer must not read as the end), and do not spin.
-			// More promised, none served: loud, not "more next run".
-			msg := "the server's change feed promised more changes and served none"
-			dto.Error, dto.Complete = &msg, false
-			return dto, exitcode.Newf(exitcode.Error, "%s", msg), nil
 		}
 	}
 }
