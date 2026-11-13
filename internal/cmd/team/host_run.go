@@ -129,7 +129,12 @@ func (s *hostServer) Report(ctx context.Context, id, outcome, worktree, reason s
 			return hostpoller.Operation{}, hostpoller.ErrNotDone
 		}
 		if api.HasErrorCode(err, "HOST_OPERATION_ALREADY_REPORTED") {
-			return hostpoller.Operation{}, fmt.Errorf("%w: %v", hostpoller.ErrFinal, api.MapError(err))
+			// The refusal carries what the server recorded in
+			// extensions.status (server #4062), spelled as the host sends
+			// it; the poller acts on that recorded outcome, never on the
+			// message text or an inference (#1474).
+			recorded, _ := api.ErrorCodeExtension(err, "HOST_OPERATION_ALREADY_REPORTED", "status")
+			return hostpoller.Operation{}, hostpoller.ErrFinalWithRecorded(api.MapError(err).Error(), recorded)
 		}
 		return hostpoller.Operation{}, api.MapError(err)
 	}
@@ -196,7 +201,11 @@ reports every outcome. One poller per host or container.
                    <repo>/<label> under worktrees_root
   worker.start     run the worker's configured launch argv in a registered
                    worktree with HADRON_LAUNCH_GRANT, then report once the
-                   agent's session binds (team session start reads the grant)
+                   agent's session binds (team session start reads the grant);
+                   refused before launching when any process is working in the
+                   tree (Linux /proc, the pid and a short redacted argv
+                   named), and a start that fails stops the process group it
+                   launched and leaves no agents entry in the state file
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report; never kills the agent
@@ -225,7 +234,39 @@ user, with key_file readable by that user only, to close that.
 THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
 its exit is read as the agent's. A launcher that starts a detached session
 and returns (a tmux or wrapper script) is reported failed if no session has
-bound by then, which revokes the grant.
+bound by then, which revokes the grant. A start reported failed stops what
+it launched and forgets its entry in the state file, so a wrapper that keeps
+relaunching its agent does not outlive the failure. On Unix that stop is
+TERM, a short grace, then KILL to the whole process group — which still
+covers a wrapper's children after the launcher itself exited. On Linux the
+launch's group id is its own for the agent's whole tracked life: an exited
+leader is kept as an unreaped zombie while anything of its group still runs,
+and is reaped only once the group is observed empty (or after the stop's
+KILL), so another process cannot take the group's number while the launch
+may still signal it — the stop can only ever reach this launch's group. A
+launch that provably left nothing behind (its group was empty at the exit)
+confirms a later stop without signalling anything at all. A Linux kernel
+or policy that refuses waitid (an exotic environment) has no hold either:
+the stop takes the same shape as the platforms below. Other Unix
+platforms (macOS, the BSDs) reap the leader at its exit and have no such
+hold, so their stop signals the group id only while the leader is still
+live — the number is bound to a live leader and cannot be reused — and
+once the leader's exit is observed there, the stop refuses to reach for
+the number (an exit frees it at a moment no mutex governs, and a process
+that took the reused number would answer a probe or take a signal): the
+stop reports it unconfirmed and keeps the records instead. On those
+platforms a stop that signals a live launch is always reported unconfirmed,
+even when the launch did stop, and its entry is kept. The instant
+between a stop's last exit-check and its signal is those platforms'
+un-closable window — no syscall there both proves the number is bound and
+signals it. Linux is the hardened platform for this stop. On Windows the
+process tree is force-killed at once, and a launcher that already exited is
+never signalled again (its pid may have been reused); children it left
+behind cannot be reached without a Job Object, which this runner does not
+yet assign. An entry survives a stop that could not be confirmed. A refusal
+saying the operation was already reported stops the launch only when it
+names the recorded outcome as failed; one naming success, or naming nothing,
+leaves what was launched running.
 
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a

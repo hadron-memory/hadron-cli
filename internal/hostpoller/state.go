@@ -186,6 +186,16 @@ func (s *State) recordAgent(workerID, token string, pid int, start string) error
 	return s.save()
 }
 
+// dropAgent forgets a worker's launched agent: a start that failed leaves no
+// entry behind (#1474), so a dead pid is never consulted again and a state
+// file read by an operator names only agents that were left running.
+func (s *State) dropAgent(workerID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.Agents, workerID)
+	return s.save()
+}
+
 // agentPIDsIn lists the recorded agent pids in a worktree.
 func (s *State) agentPIDsIn(token string) []int {
 	s.mu.Lock()

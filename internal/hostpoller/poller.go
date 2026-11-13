@@ -94,6 +94,43 @@ var ErrNotDone = errors.New("no session bound with this start's grant yet")
 // it.
 var ErrFinal = errors.New("the operation is already finished")
 
+// FinalError is ErrFinal carrying, when the refusal said it, the outcome the
+// server already recorded.
+type FinalError struct {
+	// Recorded is "SUCCEEDED" or "FAILED" (upper case), or "" when the
+	// refusal did not name one.
+	Recorded string
+	// Msg is the refusal as it reached the client.
+	Msg string
+}
+
+func (e *FinalError) Error() string {
+	if e.Msg == "" {
+		return ErrFinal.Error()
+	}
+	return ErrFinal.Error() + ": " + e.Msg
+}
+
+func (e *FinalError) Unwrap() error { return ErrFinal }
+
+// ErrFinalWithRecorded wraps an ALREADY_REPORTED refusal as a FinalError.
+// The recorded outcome comes from the refusal's extensions.status — the
+// server spells it there as the host sends its own reports
+// (SUCCEEDED / FAILED) so a client reads the code's extension instead of
+// parsing the message. The read tolerates case and padding, and only the
+// two outcomes are kept: anything else a server might place there reads as
+// unnamed, so no caller ever acts on an inferred outcome (#1474).
+func ErrFinalWithRecorded(msg, recorded string) *FinalError {
+	switch strings.ToUpper(strings.TrimSpace(recorded)) {
+	case "SUCCEEDED":
+		return &FinalError{Msg: msg, Recorded: Succeeded}
+	case "FAILED":
+		return &FinalError{Msg: msg, Recorded: Failed}
+	default:
+		return &FinalError{Msg: msg}
+	}
+}
+
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {

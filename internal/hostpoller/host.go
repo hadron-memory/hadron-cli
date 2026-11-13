@@ -58,6 +58,18 @@ type Agent interface {
 	ExitDetail() string
 	// PID is its process id (0 when unknown).
 	PID() int
+	// Terminate stops the agent and everything it started — the process
+	// group (Unix) or tree (Windows) the launch created — and reports
+	// whether the stop is CONFIRMED: the whole group observed gone, not
+	// only the launched process. stopped=false means it could not be
+	// confirmed (a signal failed, or the group outlived the waits), and the
+	// caller must then keep every record of the agent, or the
+	// one-agent-per-worktree guard loses a process it knows is running
+	// (#1474). A group that is already gone is a confirmed stop that
+	// signalled nothing. On Linux the launch's group number is held for the
+	// agent's whole tracked life (the unreaped leader, reapgroup_linux.go),
+	// so a stop can only ever signal this launch's group.
+	Terminate() (stopped bool, detail string)
 }
 
 // Environment variables a launched agent must never inherit: the host key's

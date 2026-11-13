@@ -540,6 +540,22 @@ func OnlyErrorCodes(err error, codes ...string) bool {
 	return true
 }
 
+// ErrorCodeExtension reads a named string extension off the GraphQL error
+// carrying code — the typed-error contract: a client reads extensions,
+// never the message text. ok is false when no error carries the code, or
+// the extension is absent or not a string.
+func ErrorCodeExtension(err error, code, key string) (string, bool) {
+	for _, e := range graphQLErrors(err) {
+		if extensionCode(e) != code {
+			continue
+		}
+		if v, ok := e.Extensions[key].(string); ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
 // FromNon200Envelope reports whether err is a GraphQL error envelope that
 // arrived inside a non-200 HTTP response of status 5xx. graphQLErrors reads
 // that envelope exactly as it reads a 200 one, but a 5xx is not proof the

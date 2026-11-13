@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1201,5 +1202,40 @@ func TestOnlyErrorCodes(t *testing.T) {
 		if got := OnlyErrorCodes(tc.err, known...); got != tc.want {
 			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// ErrorCodeExtension (the typed-error contract behind host_run's
+// ALREADY_REPORTED read, #1474): the extension comes off the error CARRYING
+// the code, not the first error in the list; a missing key, a non-string
+// value, or no error with the code reads as absent — never a guess.
+func TestErrorCodeExtension(t *testing.T) {
+	withStatus := gqlerror.List{
+		{Message: "first, unrelated", Extensions: map[string]any{"code": "OTHER_CODE"}},
+		{Message: "already reported", Extensions: map[string]any{
+			"code": "HOST_OPERATION_ALREADY_REPORTED", "status": "FAILED"}},
+	}
+	if v, ok := ErrorCodeExtension(error(withStatus), "HOST_OPERATION_ALREADY_REPORTED", "status"); !ok || v != "FAILED" {
+		t.Fatalf("the extension is read off the error carrying the code: %q %v", v, ok)
+	}
+	absent := gqlerror.List{{Message: "already reported", Extensions: map[string]any{"code": "HOST_OPERATION_ALREADY_REPORTED"}}}
+	if v, ok := ErrorCodeExtension(error(absent), "HOST_OPERATION_ALREADY_REPORTED", "status"); ok || v != "" {
+		t.Fatalf("an absent extension reads as absent: %q %v", v, ok)
+	}
+	nonString := gqlerror.List{{Message: "already reported", Extensions: map[string]any{
+		"code": "HOST_OPERATION_ALREADY_REPORTED", "status": 7}}}
+	if v, ok := ErrorCodeExtension(error(nonString), "HOST_OPERATION_ALREADY_REPORTED", "status"); ok || v != "" {
+		t.Fatalf("a non-string extension reads as absent: %q %v", v, ok)
+	}
+	mismatch := gqlerror.List{{Message: "boom", Extensions: map[string]any{"code": "SOME_OTHER_CODE", "status": "FAILED"}}}
+	if v, ok := ErrorCodeExtension(error(mismatch), "HOST_OPERATION_ALREADY_REPORTED", "status"); ok || v != "" {
+		t.Fatalf("an extension on a different code is not read: %q %v", v, ok)
+	}
+	if v, ok := ErrorCodeExtension(errors.New("not graphql"), "HOST_OPERATION_ALREADY_REPORTED", "status"); ok || v != "" {
+		t.Fatalf("a non-GraphQL error reads as absent: %q %v", v, ok)
+	}
+	wrapped := fmt.Errorf("wrapped: %w", error(withStatus))
+	if v, ok := ErrorCodeExtension(wrapped, "HOST_OPERATION_ALREADY_REPORTED", "status"); !ok || v != "FAILED" {
+		t.Fatalf("a wrapped GraphQL error is still read: %q %v", v, ok)
 	}
 }

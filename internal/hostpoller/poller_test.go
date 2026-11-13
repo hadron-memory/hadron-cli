@@ -2,11 +2,14 @@ package hostpoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -79,13 +82,35 @@ func (s *fakeServer) finalReports() []report {
 }
 
 type fakeAgent struct {
+	mu   sync.Mutex
 	done chan struct{}
 	pid  int
+	// terminated counts Terminate calls, so a failed start's cleanup is
+	// observable (#1474); stopFails makes Terminate report a stop that
+	// could not be confirmed (the records must then be kept).
+	terminated int
+	stopFails  bool
 }
 
 func (a *fakeAgent) Done() <-chan struct{} { return a.done }
 func (a *fakeAgent) ExitDetail() string    { return "exit status 1" }
 func (a *fakeAgent) PID() int              { return a.pid }
+
+func (a *fakeAgent) Terminate() (bool, string) {
+	a.mu.Lock()
+	a.terminated++
+	a.mu.Unlock()
+	if a.stopFails {
+		return false, "the launched group did not exit within the grace"
+	}
+	return true, "terminated the fake"
+}
+
+func (a *fakeAgent) terminations() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.terminated
+}
 
 type fakeHost struct {
 	mu       sync.Mutex
@@ -96,6 +121,8 @@ type fakeHost struct {
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
+	// occupantErr fails Occupied (a scan the host cannot answer).
+	occupantErr error
 	// launchErr / promptErr fail Launch / Prompt; promptEnvs records each
 	// prompt's environment.
 	launchErr  error
@@ -113,7 +140,7 @@ type fakeHost struct {
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.occupant, nil
+	return h.occupant, h.occupantErr
 }
 
 func (h *fakeHost) Alive(pid int) bool {
@@ -506,12 +533,23 @@ func TestWorkerStartAlreadyBoundIsNotRelaunched(t *testing.T) {
 }
 
 func TestWorkerStartFailsWhenNothingBindsInTheGrantLifetime(t *testing.T) {
-	p, srv, _ := testPoller(t)
+	p, srv, host := testPoller(t)
 	srv.notDone["s1"] = 1 << 20
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "no session was bound") {
 		t.Errorf("%+v", r)
+	}
+	// #1474: a start that fails stops what it launched and leaves no agents
+	// entry behind — the crash-looping wrapper of the incident must not
+	// outlive the FAILED report.
+	if host.agent == nil || host.agent.terminations() != 1 {
+		t.Error("a start whose session never binds must terminate the process group it launched")
+	}
+	if st, err := LoadState(p.cfg.StateFile); err != nil {
+		t.Fatal(err)
+	} else if len(st.Agents) != 0 {
+		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
 	}
 }
 
@@ -524,6 +562,321 @@ func TestWorkerStartFailsWhenTheAgentExitsFirst(t *testing.T) {
 	step(t, p)
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "exited before binding") {
 		t.Errorf("%+v", r)
+	}
+	// #1474: the failure still stops the group the launch created (exactly
+	// once) and drops the state entry (the process is gone; nothing may be
+	// signalled for it).
+	if host.agent == nil || host.agent.terminations() != 1 {
+		t.Error("a start whose agent exited unbound still stops the group it launched")
+	}
+	if st, err := LoadState(p.cfg.StateFile); err != nil {
+		t.Fatal(err)
+	} else if len(st.Agents) != 0 {
+		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
+	}
+}
+
+// #1474 review (Jane F2): the deadline must not act on a stale NOT_DONE
+// sample. A bind that lands at the deadline — after the last pre-deadline
+// NOT_DONE answer — is a success; the deadline only fails a start when the
+// server, asked after the deadline, still says nothing bound.
+func TestWorkerStartDeadlineHonoursABindThatLandsLate(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.BindPoll = time.Second
+	// NOT_DONE through the last pre-deadline ask; the first ask at the
+	// deadline finds the bind. The count is derived, not magic: asks issue
+	// at 0 (pre-launch), BindPoll, 2·BindPoll, …, the deadline is
+	// start+LaunchGrantTTL, and an ask at exactly the deadline already
+	// counts as past it (Before is strict) — so the pre-deadline asks are
+	// exactly LaunchGrantTTL/BindPoll = 600, the pre-launch one included,
+	// and NOT_DONE must cover precisely those (#1474 delta review P3:
+	// derive the count where the test reads it).
+	srv.notDone["s1"] = int(LaunchGrantTTL / p.BindPoll)
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind landing at the deadline is a success: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a bound start is never terminated")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("a successful start keeps its agents entry")
+	}
+}
+
+// #1474 review (Jane F2), the agent-exit half: an exited agent's bind
+// report can be delayed behind an unclear answer. The exit alone must stop
+// nothing; the server's answer decides.
+func TestWorkerStartExpiringAgentHonoursABindReportedLate(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	close(host.agent.done)
+	// The pre-launch ask answers NOT_DONE (so the start launches); the
+	// loop's first ask fails unclear; the next carries the bind.
+	srv.notDone["s1"] = 1
+	p.server = &flakyServer{fakeServer: srv, fails: 1}
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind reported behind an unclear answer is a success: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("an exited agent is not stopped before the answer is authoritative")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("a successful start keeps its agents entry")
+	}
+}
+
+// flakyServer answers the first `fails` post-launch reports (every call but
+// the pre-launch ask) with a transport error, then delegates: a delayed but
+// valid answer.
+type flakyServer struct {
+	*fakeServer
+	fails int
+	calls int
+}
+
+func (f *flakyServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	f.calls++
+	if f.calls > 1 && f.fails > 0 {
+		f.fails--
+		return Operation{}, context.DeadlineExceeded
+	}
+	return f.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// lateBindServer answers the pre-launch ask NOT_DONE (delegating); on the
+// first post-launch ask the start's session binds server-side, the local
+// clock flips past the grant's deadline — as a delayed response delivery
+// would — and the server still answers NOT_DONE: a snapshot taken before
+// the bind landed (#1474 delta review, Jane F2 refined 2ms probe).
+type lateBindServer struct {
+	*fakeServer
+	asks int
+	late func()
+}
+
+func (s *lateBindServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	s.asks++
+	if s.asks == 2 {
+		s.late()
+		return Operation{}, ErrNotDone // sampled before the bind landed
+	}
+	return s.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// #1474 delta review (Jane F2): a NOT_DONE answer that was sampled before a
+// bind landed but delivered after the local deadline is NOT evidence the
+// start failed. Only an ask issued past the deadline, still answered
+// NOT_DONE, fails the start.
+func TestWorkerStartDoesNotFailOnANotDoneAnswerThatCrossedTheDeadline(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{})} // runs until stopped
+	now := p.now()
+	var late atomic.Bool
+	p.now = func() time.Time {
+		if late.Load() {
+			return now.Add(LaunchGrantTTL + time.Millisecond)
+		}
+		return now
+	}
+	p.server = &lateBindServer{fakeServer: srv, late: func() { late.Store(true) }}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind landing inside the grant is a success even when the NOT_DONE answer crossed the deadline: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a start whose bind landed is never terminated")
+	}
+}
+
+// exitDuringAskServer answers the pre-launch ask NOT_DONE (delegating); on
+// the first post-launch ask the agent exits mid-flight and the server
+// answers with the stale NOT_DONE sampled before the exit; later asks find
+// the bind (#1474 delta review, Jane F2 exit variant).
+type exitDuringAskServer struct {
+	*fakeServer
+	agent *fakeAgent
+	asks  int
+}
+
+func (s *exitDuringAskServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	s.asks++
+	if s.asks == 2 {
+		s.agent.mu.Lock()
+		select {
+		case <-s.agent.done:
+		default:
+			close(s.agent.done)
+		}
+		s.agent.mu.Unlock()
+		return Operation{}, ErrNotDone // sampled before the exit
+	}
+	return s.fakeServer.Report(ctx, id, outcome, worktree, reason)
+}
+
+// #1474 delta review (Jane F2, exit half): an agent exit that lands while a
+// NOT_DONE answer is in flight does not make that answer authoritative —
+// the ask was issued while the agent lived. The next ask, issued after the
+// exit, decides; a bind it finds is a success.
+func TestWorkerStartDoesNotFailOnANotDoneAnswerThatCrossedTheAgentsExit(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	p.server = &exitDuringAskServer{fakeServer: srv, agent: host.agent}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("a bind that landed behind a stale NOT_DONE is a success: %+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a start whose bind landed is never terminated")
+	}
+}
+
+// #1474 delta review P2-2: a server that never answers clearly must not
+// hold the start — and its worker's whole dispatch order — forever. Past
+// the grant's deadline the asking ends on a budget: nothing is stopped,
+// nothing is reported, and every record is kept for the re-delivered start
+// and the operator.
+func TestWorkerStartStopsAskingWhenAnswersStayUnclear(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.BindPoll = time.Second // a sane pace on the fake clock
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	// The pre-launch ask answers NOT_DONE once; every ask after it fails
+	// unclear, forever (an effectively unbounded fails).
+	p.server = &flakyServer{fakeServer: srv, fails: math.MaxInt}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p) // must return: the budget ends the asking
+	if rs := srv.finalReports(); len(rs) != 0 {
+		t.Errorf("an unclear answer never reports an outcome: %+v", rs)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("an unclear answer never stops the agent")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("the agent's records are kept when the asking gives up")
+	}
+}
+
+// #1474 delta round 2 (Jonas P3-3): what a re-delivered start does after a
+// start-stuck give-up. The op left in flight is gone (the goroutine
+// returned), so the re-delivery re-enters workerStart — and is refused by
+// the one-agent-per-worktree guard BEFORE the occupied scan: the start
+// finishes FAILED on the record, nothing new launches, and the agent that
+// was deliberately left running is neither stopped nor forgotten.
+func TestWorkerStartRedeliveredAfterStartStuckRefusesWithoutStoppingTheAgent(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.BindPoll = time.Second // a sane pace on the fake clock
+	host.agent = &fakeAgent{done: make(chan struct{})}
+	p.server = &flakyServer{fakeServer: srv, fails: math.MaxInt}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p) // start-stuck: the budget ends the asking, records kept
+	if len(host.launches) != 1 {
+		t.Fatalf("the first delivery launched once: %d launches", len(host.launches))
+	}
+	agent := host.agent
+	// The server re-collects the same start once its grant has expired, and
+	// answers again (the asking is healthy this time — the pin is the
+	// re-delivery's destination, not another give-up).
+	p.server = srv
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	// An occupant is named too, to prove the tracked-agent guard — not the
+	// occupied scan — is the refuser.
+	host.occupant = "pid 999, curl https://h"
+	step(t, p)
+	r := only(t, srv)
+	if r.outcome != Failed || !strings.Contains(r.reason, "an agent this host launched is still running") {
+		t.Fatalf("the re-delivered start is refused by the tracked agent, not the occupant: %+v", r)
+	}
+	if len(host.launches) != 1 {
+		t.Errorf("the re-delivery launches nothing new: %d launches", len(host.launches))
+	}
+	if agent.terminations() != 0 {
+		t.Error("the re-delivery never stops the deliberately-left-running agent")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("the running agent's records survive the refused re-delivery")
+	}
+}
+
+// A start into a worktree another process is already working in is refused
+// before anything launches, naming the process (#1474: the /proc check
+// worktree.remove uses, which sees agents an older wrapper runs in a
+// terminal — invisible to this poller's own records).
+func TestWorkerStartRefusesAnOccupiedTreeBeforeLaunching(t *testing.T) {
+	t.Run("occupied", func(t *testing.T) {
+		p, srv, host := testPoller(t)
+		host.occupant = "pid 4242, worker-supervise --wrapper cedric"
+		srv.notDone["s1"] = 1
+		srv.batches = [][]Operation{{startOp()}}
+		step(t, p)
+		r := only(t, srv)
+		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "worker-supervise --wrapper cedric") {
+			t.Errorf("the refusal must name the pid and the argv: %+v", r)
+		}
+		if len(host.launches) != 0 {
+			t.Error("an occupied worktree must launch nothing")
+		}
+	})
+	t.Run("unreadable", func(t *testing.T) {
+		p, srv, host := testPoller(t)
+		host.occupantErr = fmt.Errorf("cannot read /proc")
+		srv.notDone["s1"] = 1
+		srv.batches = [][]Operation{{startOp()}}
+		step(t, p)
+		r := only(t, srv)
+		if r.outcome != Failed || !strings.Contains(r.reason, "could not tell") {
+			t.Errorf("an unreadable scan fails closed: %+v", r)
+		}
+		if len(host.launches) != 0 {
+			t.Error("an unreadable scan must launch nothing")
+		}
+	})
+}
+
+// The cleanup belongs to failure only: a start that binds leaves its agent
+// running and tracked.
+func TestWorkerStartSuccessKeepsTheAgentRunning(t *testing.T) {
+	p, srv, host := testPoller(t)
+	srv.notDone["s1"] = 1 // the pre-launch ask only
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Fatalf("%+v", r)
+	}
+	if host.agent == nil || host.agent.terminations() != 0 {
+		t.Error("a start whose session binds must not be terminated")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("a successful start keeps its agents entry")
 	}
 }
 
@@ -699,21 +1052,118 @@ func TestWorkerStartRefusesATreeWithALiveAgent(t *testing.T) {
 	}
 }
 
-func TestWorkerStartStopsWhenTheServerAlreadyFinishedIt(t *testing.T) {
-	p, srv, _ := testPoller(t)
-	fin := &finalServer{fakeServer: srv}
-	p.server = fin
-	srv.batches = [][]Operation{{startOp()}}
-	step(t, p)
-	if fin.asks > 3 {
-		t.Errorf("an already-finished start must not be asked again for the grant's lifetime: %d asks", fin.asks)
+// #1474 review P2-3: the stop happens only on the outcome the refusal NAMES.
+// A recorded FAILED stops what was launched; a recorded SUCCEEDED — the agent
+// IS the bound start — and a refusal naming nothing both leave it running,
+// because a kill there would rest on an inferred server contract.
+func TestWorkerStartActsOnTheOutcomeTheServerNamed(t *testing.T) {
+	for name, tc := range map[string]struct {
+		recorded string // the outcome the server's refusal names ("" = none)
+		stops    bool
+	}{
+		"recorded failed":    {Failed, true},
+		"recorded succeeded": {Succeeded, false},
+		"outcome not named":  {"", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p, srv, host := testPoller(t)
+			p.server = &finalServer{fakeServer: srv, recorded: tc.recorded}
+			srv.batches = [][]Operation{{startOp()}}
+			step(t, p)
+			if host.agent == nil {
+				t.Fatal("the agent was launched")
+			}
+			if got, want := host.agent.terminations() != 0, tc.stops; got != want {
+				t.Errorf("terminations=%d, want a stop: %v", host.agent.terminations(), tc.stops)
+			}
+			st, err := LoadState(p.cfg.StateFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.stops && len(st.Agents) != 0 {
+				t.Errorf("a confirmed stop leaves no agents entry: %+v", st.Agents)
+			}
+			if !tc.stops {
+				if _, ok := st.Agents["id-iris"]; !ok {
+					t.Error("an un-named or successful outcome keeps the agents entry")
+				}
+				if !p.agentRunningIn("repo/iris") {
+					t.Error("a kept agent must stay visible to the one-agent guard")
+				}
+			}
+		})
 	}
 }
 
-// finalServer answers NOT_DONE to the first SUCCEEDED and ErrFinal after.
+// The refusal a real server sends carries what it recorded in
+// extensions.status, spelled as the host sends its own reports
+// (server #4062); ErrFinalWithRecorded keeps exactly those two spellings
+// and nothing else — an unnamed refusal reads unnamed, so no caller ever
+// acts on an inferred outcome.
+func TestErrFinalWithRecorded(t *testing.T) {
+	for name, tc := range map[string]struct {
+		recorded string
+		want     string
+	}{
+		"failed upper":    {"FAILED", Failed},
+		"succeeded upper": {"SUCCEEDED", Succeeded},
+		"lowercase":       {"failed", Failed},
+		"padded":          {" SUCCEEDED ", Succeeded},
+		"other value":     {"PENDING", ""},
+		"empty":           {"", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := ErrFinalWithRecorded("the refusal's message", tc.recorded)
+			if e.Recorded != tc.want {
+				t.Errorf("Recorded=%q, want %q", e.Recorded, tc.want)
+			}
+			if !errors.Is(e, ErrFinal) {
+				t.Error("a FinalError is ErrFinal")
+			}
+			var fin *FinalError
+			if !errors.As(error(e), &fin) || fin.Recorded != tc.want {
+				t.Errorf("errors.As must recover the recorded outcome: %+v", fin)
+			}
+		})
+	}
+}
+
+// A stop that could not be confirmed keeps every record (#1474 review P2-2):
+// the agent stays in memory and in the state file, so the
+// one-agent-per-worktree guard can still see it.
+func TestWorkerStartKeepsTheAgentWhenTheStopIsUnconfirmed(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.agent = &fakeAgent{done: make(chan struct{}), stopFails: true}
+	srv.notDone["s1"] = 1 << 20
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "no session was bound") {
+		t.Errorf("%+v", r)
+	}
+	if host.agent.terminations() != 1 {
+		t.Fatal("the failed start still tries the stop")
+	}
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Agents["id-iris"]; !ok {
+		t.Error("an unconfirmed stop keeps the state-file entry")
+	}
+	if !p.agentRunningIn("repo/iris") {
+		t.Error("an unconfirmed stop keeps the in-memory record")
+	}
+}
+
+// finalServer answers NOT_DONE to the first SUCCEEDED and a final refusal
+// after, shaped as the server's own answer: the refusal carries what the
+// server recorded in extensions.status (the real handler; same-outcome
+// re-asks are answered with the operation, never refused). recorded ""
+// names nothing.
 type finalServer struct {
 	*fakeServer
-	asks int
+	asks     int
+	recorded string
 }
 
 func (f *finalServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
@@ -721,7 +1171,11 @@ func (f *finalServer) Report(ctx context.Context, id, outcome, worktree, reason 
 	if f.asks == 1 {
 		return Operation{}, ErrNotDone
 	}
-	return Operation{}, ErrFinal
+	msg := "This operation was already reported."
+	if f.recorded != "" {
+		msg = "This operation was already reported " + strings.ToLower(f.recorded) + "."
+	}
+	return Operation{}, ErrFinalWithRecorded(msg, f.recorded)
 }
 
 func TestWorkerEndIgnoresAnAgentThatExitedLongAgo(t *testing.T) {
