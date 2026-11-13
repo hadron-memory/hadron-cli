@@ -22,9 +22,19 @@ import (
 // way the contract every Unix platform keeps is stopped=true, silently,
 // with zero signals (#1474 delta round 3; the probe counts are asserted on
 // Linux in reapgroup_linux_test.go — this file also builds on darwin/BSD).
+//
+// #1970: on Linux a churning /proc can void the exit-time scan, so the
+// zombie is still held when this stop runs and the journey walks the
+// whole ladder truthfully — one TERM, one KILL, or records kept. The
+// Linux branch asserts that ladder (stormscan_linux_test.go); every other
+// Unix platform keeps the settled strict baseline below verbatim.
 func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
+	}
+	if journeyLadderApplies() {
+		runPostExitJourneyLadder(t)
+		return
 	}
 	signals := 0
 	realSignal, realProbe := signalGroup, probeGroup
