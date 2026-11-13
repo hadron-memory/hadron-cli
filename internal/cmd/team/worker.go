@@ -60,6 +60,7 @@ RELATED, NOT HERE:
 	}
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
+	cmd.AddCommand(newCmdWorkerHeld(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
 	cmd.AddCommand(newCmdWorkerTerminalTitle(f))
 	cmd.AddCommand(servedprompt.NewWorker(f))

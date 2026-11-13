@@ -1889,3 +1889,15 @@ query GetWorkerAvailability($ref: ID!) {
     }
   }
 }
+
+# A separate repos document can send [] to clear without changing the legacy description request.
+mutation UpdateTeamRoleRepos($appRef: ID!,
+ # @genqlient(omitempty: true)
+ $teamAgentRef: ID
+ $role: String!
+ # @genqlient(omitempty: true)
+ $description: String
+ $repos: [String!]!
+) {
+ updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description, repos: $repos) { ...TeamRoleFields repos }
+}

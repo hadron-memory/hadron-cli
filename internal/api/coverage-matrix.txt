@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 226: 183 command, 18 gap, 25 excluded
+[Query] 226: 186 command, 15 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 actionRegisterIndex  command team register
@@ -127,7 +127,7 @@ globalSearch  command find
 grant  command team grant get
 grantSigningRequest  command team grant signing-request get
 grants  command team grant list
-heldWorkers  gap #1336
+heldWorkers  command team worker held
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
 homeAssistantInstances  command ha list
@@ -192,8 +192,8 @@ recoveryNode  command node recovery get
 recoveryNodes  command node recovery list
 registerEntries  command channel register list
 registerEntry  command channel register rm
-registerRoleCandidates  gap #1336
-registerRolePick  gap #1336
+registerRoleCandidates  command team register candidates
+registerRolePick  command team register pick
 renderRunNode  gap #1010
 resendSender  command org resend-sender get
 resendSenders  command org resend-sender list
@@ -251,7 +251,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 351: 291 command, 46 gap, 14 excluded
+[Mutation] 351: 294 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -408,7 +408,7 @@ exportNodeToGoogleDoc  gap #275
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
 freezePullRequestHead  command team pr freeze
-grantApp  gap #1336
+grantApp  command team grant add
 grantAppKeyScope  command app key scope grant
 grantCredits  command billing grant
 handBackAgentTask  command team task hand-back
@@ -485,7 +485,7 @@ retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
 revokeAgentOrgGrant  gap #890
 revokeAgentSubscription  gap #890
-revokeAppGrant  gap #1336
+revokeAppGrant  command team grant rm
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
 revokeAppMemoryWriteGrant  command app memory-grant rm
@@ -516,7 +516,7 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
-setAppTickerSettings  gap #1336
+setAppTickerSettings  command team ticker settings set
 setAssetPublicLink  command asset public-link
 setAutomationReadGrant  command automation grant set
 setAutomationTeamSnapshotGrant  command automation team-snapshot-grant set
@@ -604,7 +604,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 85: 49 gap, 36 excluded
+[Arguments] 84: 48 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -648,6 +648,7 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.revokeAppGrant(instruction)  gap #1617
 Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
@@ -655,6 +656,7 @@ Mutation.setAppDeliverySettings(input.standbyEnabled)  excluded deprecated: reti
 Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
 Mutation.setAppProperties(instruction)  gap #1617
+Mutation.setAppTickerSettings(instruction)  gap #1617
 Mutation.setHostWorkerTerminals(input.reports.attempt)  gap #1947: the health sweep reports its relaunch repair
 Mutation.setHostWorkerTerminals(input.reports.repair)  gap #1947: the health sweep reports its relaunch repair
 Mutation.setModelFamilyAvailability(instruction)  gap #1617
@@ -677,11 +679,8 @@ Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: U
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
-Query.agentTasks(creator)  gap #1336
 Query.agentTeamEventsPage(alarmsInEffect)  gap #1940
-Query.attendeeRegister(agentRef)  gap #1336
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
