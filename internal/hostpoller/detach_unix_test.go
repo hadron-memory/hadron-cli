@@ -250,6 +250,16 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl --proxy-header att":       {[]string{"curl", "--proxy-header=X-Auth-Token: SYNTHETIC_1817"}, `curl --proxy-header=X-Auth-Token: <redacted>`},
 		"curl -H glued short":           {[]string{"curl", "-HAuthorization: Bearer hdr_x", "https://h"}, `curl -HAuthorization: <redacted> https://h`},
 		"curl --header attached cookie": {[]string{"curl", "--header=Cookie: session=hdr_x"}, `curl --header=Cookie: <redacted>`},
+		// Round 9, Jane D8: a header-SHAPED value on a flag the credential
+		// table knows keeps its FULL redaction — the value of --user,
+		// --cert or --proxy-user is credential material (user:pass,
+		// keyfile:password), so its prefix is not a "header name" and
+		// must not survive. All three were RED at the round-9 head, which
+		// matched the value against credentialHeader BEFORE the table and
+		// rendered --user=token_SYNTHETIC_1817: <redacted>.
+		"curl --user header-shaped":   {[]string{"curl", "--user=token_SYNTHETIC_1817:ignored"}, `curl --user=<redacted>`},
+		"curl --cert header-shaped":   {[]string{"curl", "--cert=key_SYNTHETIC_1817:ignored"}, `curl --cert=<redacted>`},
+		"curl --proxy-user hdr-shape": {[]string{"curl", "--proxy-user=auth_SYNTHETIC_1817:ignored"}, `curl --proxy-user=<redacted>`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {

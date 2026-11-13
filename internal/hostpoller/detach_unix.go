@@ -148,8 +148,10 @@ type credentialFlagValue struct {
 // --proxy-header) need no table entry — the argument itself is a header
 // line, matched by credentialHeader whatever flag carried it (the
 // '='-attached long form --header=Authorization: … through the value-side
-// match in renderArgv's default branch — the regex cannot cross '=');
-// sshpass's -p
+// match in renderArgv's default branch, which fires only when no armed
+// table claims the flag — the regex cannot cross '=', and a table flag's
+// header-shaped value is credential material that keeps its full
+// redaction); sshpass's -p
 // takes the password next or attached; mysql's -p takes the password
 // ATTACHED only — `-p db` names a database and prompts instead. ssh's -p
 // is a port and ssh takes no password on the command line, so it is not in
@@ -301,16 +303,6 @@ func renderArgv(fields []string) string {
 				out = append(out, name+"=<redacted>")
 				continue
 			}
-			// A '='-attached header value (--header=Authorization: …,
-			// --proxy-header=X-Auth-Token: …): the header regex cannot
-			// cross '=', so the whole argument never matched it above and
-			// the header flags carry no table entry — the VALUE is the
-			// header line, and only its name leaves.
-			if hasValue && credentialHeader.MatchString(value) {
-				hname, _, _ := strings.Cut(value, ":")
-				out = append(out, name+"="+hname+": <redacted>")
-				continue
-			}
 			if strings.HasPrefix(f, "-") {
 				// Only arguments AFTER the first credential-flag binary
 				// carry its flags; a wrapper's own arguments never do.
@@ -344,6 +336,22 @@ func renderArgv(fields []string) string {
 						out = append(out, quoteArg(f))
 						continue
 					}
+				}
+				// A '='-attached header value (--header=Authorization: …,
+				// --proxy-header=X-Auth-Token: …) on a flag NO armed table
+				// knows: the header regex cannot cross '=', so the whole
+				// argument never matched it above, and header flags
+				// deliberately carry no table entry — the VALUE is the
+				// header line, and only its name leaves. This runs AFTER
+				// the table: a header-SHAPED value on a known credential
+				// flag (--user=token:…, --cert=key:…) is credential
+				// material, not a header line, and keeps the table's FULL
+				// redaction — its prefix is not a header name and must
+				// not survive (round 9, Jane D8).
+				if hasValue && credentialHeader.MatchString(value) {
+					hname, _, _ := strings.Cut(value, ":")
+					out = append(out, name+"="+hname+": <redacted>")
+					continue
 				}
 				if !hasValue && credentialName.MatchString(f) {
 					out = append(out, quoteArg(f))
