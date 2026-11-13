@@ -14,21 +14,17 @@ import "errors"
 // stop on Done instead (detach_windows.go).
 const leaderHoldCapable = false
 
-func waitLeaderExit(int) error {
-	return errors.New("no leader hold on this platform")
+// waitLeaderExit and leaderZombieAlone exist only to keep the shared
+// waiter compiling here; every caller is gated on the hold
+// (holdsZombie), so they never run (Windows runs waitExit for its
+// Done/ExitDetail semantics only, through waitReaping).
+func waitLeaderExit(int) (leaderExit, error) {
+	return leaderExit{kind: unknownStatus}, errors.New("no leader hold on this platform")
 }
 
-// readLeaderExitStatus, leaderZombie and pollLeaderState exist only to
-// keep the shared waiter compiling here; every caller is gated on
-// leaderHoldCapable, so they never run (Windows runs waitExit for its
-// Done/ExitDetail semantics only, through waitReaping).
-func readLeaderExitStatus(int) leaderExit { return leaderExit{kind: unknownStatus} }
-
-func leaderZombie(int) bool { return false }
-
-func pollLeaderState(int) (byte, error) { return 0, errors.New("no /proc on this platform") }
+func leaderZombieAlone(int) bool { return false }
 
 // groupHasOtherMembers has no oracle here; the stop never asks (every call
-// site is gated on leaderHoldCapable) and the stub exists only so the
-// shared code type-checks.
+// site is gated on the hold) and the stub exists only so the shared code
+// type-checks.
 func groupHasOtherMembers(pgid, leader int) bool { return true }

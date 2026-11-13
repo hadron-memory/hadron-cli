@@ -23,86 +23,77 @@ import (
 // at the reap, so the NUMBER becomes reusable even with the fd open.
 const leaderHoldCapable = true
 
-// waitLeaderExit waits for the leader to exit WITHOUT reaping it: the
-// process stays a zombie, and a zombie still holds its pid — and with it
-// the process-group id, which is that same number — allocated, so nothing
-// can reuse the group's number from the leader's exit until the reap. A
+// The waitid answer's si_code values for a waited-out exit (the kernel's
+// stable UAPI; x/sys does not export them). Every other si_code a WEXITED
+// wait can report is not an exit at all, and reads as unknownStatus.
+const (
+	cldExited = 1
+	cldKilled = 2
+	cldDumped = 3
+)
+
+// waitLeaderExit waits for the leader to exit WITHOUT reaping it — the
+// process stays a zombie, and a zombie still holds its pid, and with it
+// the process-group id (that same number), allocated until the reap — and
+// reads the exit's STATUS from the answer itself: the kernel fills the
+// siginfo with how the leader left (si_code) and the word a reaping wait
+// would report for it (si_status: the exit code, or the signal). A
 // package var so a test can model a kernel where the hold cannot be taken.
 //
-// The exit's STATUS is not read here: the raw siginfo the waitid answer
-// fills is laid out differently per architecture (si_status sits at 24 on
-// 64-bit non-MIPS kernels, 20 on 32-bit ones, and MIPS moves si_code), so
-// reading offsets off that buffer would silently misreport the exit on
-// exactly the builds the offsets do not fit. readLeaderExitStatus reads
-// the same word the kernel would report to a reaping wait, off /proc,
-// with no layout assumption at all.
-var waitLeaderExit = func(pid int) error {
-	// The kernel insists on a siginfo pointer even though its contents are
-	// never read — the status comes from /proc (readLeaderExitStatus), not
-	// from this buffer, whose layout differs per architecture.
+// The two words are read at their per-architecture places, computed rather
+// than hardcoded: si_code through x/sys's Siginfo field, whose declaration
+// already encodes the one architecture (MIPS64) that orders the leading
+// words differently, and si_status at a pointer-aligned offset derived
+// from the build's word size — 24 on a 64-bit build, 20 on a 32-bit one —
+// because the siginfo union starts after the three leading int32 words,
+// padded up to pointer alignment, and si_status is the third word of it.
+// This is the same word for every caller with no privilege gate: the
+// /proc <pid>/stat exit_code field this read replaces is rendered as a
+// literal 0 whenever the kernel's ptrace_may_access check fails — a leader
+// running under different credentials (sudo, any setuid wrapper) — which
+// read a failed or signalled exit as an authoritative "exit status 0".
+var waitLeaderExit = func(pid int) (leaderExit, error) {
 	var raw [128]byte
 	_, _, errno := unix.Syscall6(unix.SYS_WAITID,
 		uintptr(unix.P_PID), uintptr(pid), uintptr(unsafe.Pointer(&raw[0])),
 		uintptr(unix.WEXITED|unix.WNOWAIT), 0, 0)
 	if errno != 0 {
-		return errno
+		return leaderExit{kind: unknownStatus}, errno
 	}
-	return nil
-}
-
-// readLeaderExitStatus reads the leader's exit status from
-// /proc/<pid>/stat's exit_code field — the last field of the line, the
-// same word a reaping wait would report (fs/proc/array.c renders
-// task->exit_code; WIFEXITED is code&0xff==0 with the status in code>>8,
-// a signal death is code&0x7f with WCOREDUMP in code&0x80). It works on
-// every architecture for exactly that reason: no siginfo layout is
-// involved. The leader is the unreaped zombie waitLeaderExit just waited
-// out (or that polling saw), and nothing but this process — the zombie's
-// only parent — can reap it, so the word is stable once it exists; a
-// zombie that cannot be read (no field yet, or /proc hidden) reads as
-// unknownStatus rather than guessed at.
-func readLeaderExitStatus(pid int) leaderExit {
-	state, f, err := readProcStat(fmt.Sprintf("/proc/%d/stat", pid))
-	if err != nil || state != 'Z' || len(f) < exitCodeField+1 {
-		return leaderExit{kind: unknownStatus}
-	}
-	w, err := strconv.ParseInt(f[exitCodeField], 10, 64)
-	if err != nil || w < 0 || w > 0xffffffff {
-		return leaderExit{kind: unknownStatus}
-	}
-	switch {
-	case w&0x7f == 0:
-		return leaderExit{kind: exitStatus, status: int(w>>8) & 0xff}
-	case w&0x80 != 0:
-		return leaderExit{kind: dumpStatus, status: int(w & 0x7f)}
+	// si_code comes through the x/sys struct overlay, whose declaration
+	// already encodes the one architecture (MIPS64) that orders the
+	// leading words differently. si_status sits eight bytes into the union
+	// (after its pid and uid words); the union starts at the three leading
+	// words rounded up to pointer alignment, so its offset is derived from
+	// the build's word size. The reads are unsafe.Pointer, not binary:
+	// the kernel fills the buffer in the build's native byte order.
+	union := (12 + int(unsafe.Sizeof(uintptr(0))) - 1) &^ (int(unsafe.Sizeof(uintptr(0))) - 1)
+	status := *(*int32)(unsafe.Pointer(&raw[union+8]))
+	switch (*unix.Siginfo)(unsafe.Pointer(&raw[0])).Code {
+	case cldExited:
+		return leaderExit{kind: exitStatus, status: int(status)}, nil
+	case cldKilled:
+		return leaderExit{kind: killStatus, status: int(status)}, nil
+	case cldDumped:
+		return leaderExit{kind: dumpStatus, status: int(status)}, nil
 	default:
-		return leaderExit{kind: killStatus, status: int(w & 0x7f)}
+		return leaderExit{kind: unknownStatus}, nil
 	}
 }
 
-// exitCodeField is exit_code's index among the whitespace fields after
-// comm — /proc/<pid>/stat field 52 counting pid as 1, so f[49] counting
-// state (field 3) as f[0]. It is the line's LAST field on every kernel
-// that has it; a kernel too old to render it simply leaves the line
-// shorter, which reads as unknownStatus above.
-const exitCodeField = 49
-
-// leaderZombie reports whether /proc shows pid as a zombie — the polling
-// hold's exit notice (below), and drained()'s hint that a leader whose
-// waiter has not stored exited yet is already the held zombie.
-func leaderZombie(pid int) bool {
-	state, _, err := readProcStat(fmt.Sprintf("/proc/%d/stat", pid))
-	return err == nil && state == 'Z'
-}
-
-// pollLeaderState is one poll of the polling hold below: it reports the
-// leader's /proc state, or an error when the stat cannot be read. A
-// missing entry is fs.ErrNotExist: nothing but this process can reap the
-// leader, so the leader disappearing entirely is the pathological case
-// the polling hold treats as an exit it cannot describe, not as liveness.
-func pollLeaderState(pid int) (byte, error) {
-	state, _, err := readProcStat(fmt.Sprintf("/proc/%d/stat", pid))
-	return state, err
+// leaderZombieAlone reports whether /proc shows pid as a zombie whose
+// thread group has FULLY exited — state Z with a thread count of one, the
+// shape a reap can finalize. A Z state alone is not that proof: a process
+// whose main thread exited while other threads still run shows state Z
+// with a thread count above one (#1474 — such a leader can still act, so
+// drained() must not treat it as the held zombie its scan may exclude).
+func leaderZombieAlone(pid int) bool {
+	state, f, err := readProcStat(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil || state != 'Z' {
+		return false
+	}
+	threads, _ := strconv.Atoi(f[17]) // readProcStat proved it numeric
+	return threads == 1
 }
 
 // maxGroupScanPasses bounds the scan's retries on a /proc that never holds
@@ -117,7 +108,10 @@ const maxGroupScanPasses = 8
 var readProcDir = os.ReadDir
 
 // groupHasOtherMembers reports whether /proc shows a member of process group
-// pgid, other than the leader itself, that can still RUN.
+// pgid, other than the leader itself, that can still RUN. The leader is
+// excludable only as a zombie whose thread group fully exited — the caller
+// (drained, on the hold path) has proved that, and the scan itself
+// double-checks it before excluding the entry (scanGroupOnce).
 //
 // A member in state Z is not counted while its THREAD COUNT is one: a
 // zombie cannot run, and it keeps the number allocated until whoever reaps
@@ -181,7 +175,10 @@ func groupHasOtherMembers(pgid, leader int) bool {
 // group member was read as Z that the previous pass had not also read as
 // Z (it could have forked up to its death; only a Z stable across passes
 // excludes late children); zs is this pass's set of member pids in state
-// Z, the next pass's previous set.
+// Z, the next pass's previous set. The leader is not a member for this
+// purpose, but a leader entry that still shows RUNNING THREADS — state Z
+// with a thread count above one, the exited-main-thread shape — is
+// proof the group is not drained, so it is checked before the exclusion.
 func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool) {
 	entries, err := readProcDir("/proc")
 	if err != nil {
@@ -190,10 +187,10 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 	zs = map[int]bool{}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
-		if err != nil || pid == leader {
+		if err != nil {
 			continue
 		}
-		pgrp, state, threads, err := readPgrp(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, threads, err := readGroupStat(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return true, false, nil // present but unreadable: not proof of absence
@@ -202,6 +199,12 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 			continue
 		}
 		if pgrp != pgid {
+			continue
+		}
+		if pid == leader {
+			if state == 'Z' && threads > 1 {
+				return true, false, nil // the leader's own threads still run
+			}
 			continue
 		}
 		if state != 'Z' || threads > 1 {
@@ -215,43 +218,27 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 	return false, void, zs
 }
 
-// readPgrp is /proc/<pid>/stat field 5 (the process-group id), field 3
-// (the state) and field 20 (the thread count). comm (field 2) is
-// parenthesised and may hold spaces and parens, so fields are counted
-// from the LAST ')'.
-func readPgrp(statPath string) (int, byte, int, error) {
-	b, err := os.ReadFile(statPath)
+// readGroupStat is the group scan's read of a /proc/<pid>/stat line:
+// field 5 (the process-group id), field 3 (the state) and field 20 (the
+// thread count), parsed and validated once by readProcStat.
+func readGroupStat(statPath string) (int, byte, int, error) {
+	state, f, err := readProcStat(statPath)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	stat := string(b)
-	i := strings.LastIndexByte(stat, ')')
-	if i < 0 {
-		return 0, 0, 0, fmt.Errorf("malformed stat line")
-	}
-	f := strings.Fields(stat[i+1:])
-	// f[0] is field 3 (state), f[1] is ppid; field 5 is f[2]; field 20
-	// (num_threads) is f[17].
-	if len(f) < 18 || f[0] == "" {
-		return 0, 0, 0, fmt.Errorf("malformed stat line: %d fields after comm", len(f))
-	}
-	pgrp, err := strconv.Atoi(f[2])
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("malformed process-group id %q", f[2])
-	}
-	threads, err := strconv.Atoi(f[17])
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("malformed thread count %q", f[17])
-	}
-	return pgrp, f[0][0], threads, nil
+	pgrp, _ := strconv.Atoi(f[2])
+	threads, _ := strconv.Atoi(f[17])
+	return pgrp, state, threads, nil
 }
 
-// readProcStat is readPgrp's validation plus the state, the whole field
-// slice and the read error, for readLeaderExitStatus's exit_code read at
-// the end of the line and pollLeaderState's liveness polls. The
-// process-group id and thread count are parsed only as well-formedness
-// checks: these readers key on the state and the fields, not on group
-// membership or thread counts.
+// readProcStat reads and validates one /proc/<pid>/stat line: the state
+// (field 3), the whole field slice after comm, and the read error. comm
+// (field 2) is parenthesised and may hold spaces and parens, so fields
+// are counted from the LAST ')': f[0] is field 3 (state), f[2] is field 5
+// (the process-group id), f[17] is field 20 (the thread count), and the
+// id and count are parsed here as well-formedness checks — readGroupStat
+// returns them, and leaderZombieAlone reads the count, off the same
+// validated slice.
 func readProcStat(statPath string) (byte, []string, error) {
 	b, err := os.ReadFile(statPath)
 	if err != nil {

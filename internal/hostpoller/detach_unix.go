@@ -142,8 +142,11 @@ type credentialFlagValue struct {
 // credential, because the same letters mean different things in different
 // tools: curl's -u/--user and -U/--proxy-user take user:pass as the next
 // argument or attached (-uuser:pass, --user=u:p); curl's --pass,
-// --proxy-pass and --oauth2-bearer carry a secret next or attached, and
-// its -E/--cert carries keyfile:password the same two ways; sshpass's -p
+// --proxy-pass, --oauth2-bearer and --proxy-oauth2-bearer carry a secret
+// next or attached, and its -E/--cert and --proxy-cert carry
+// keyfile:password the same two ways; header values (-H/--header,
+// --proxy-header) need no table entry — the argument itself is a header
+// line, matched by credentialHeader whatever flag carried it; sshpass's -p
 // takes the password next or attached; mysql's -p takes the password
 // ATTACHED only — `-p db` names a database and prompts instead. ssh's -p
 // is a port and ssh takes no password on the command line, so it is not in
@@ -170,8 +173,10 @@ var credentialFlagBinaries = map[string]map[string]credentialFlagValue{
 		"-u": {next: true, attached: true}, "--user": {next: true, attached: true},
 		"-U": {next: true, attached: true}, "--proxy-user": {next: true, attached: true},
 		"--pass": {next: true, attached: true}, "--proxy-pass": {next: true, attached: true},
-		"--oauth2-bearer": {next: true, attached: true},
-		"-E":              {next: true, attached: true}, "--cert": {next: true, attached: true},
+		"--oauth2-bearer":       {next: true, attached: true},
+		"--proxy-oauth2-bearer": {next: true, attached: true},
+		"-E":                    {next: true, attached: true}, "--cert": {next: true, attached: true},
+		"--proxy-cert": {next: true, attached: true},
 	},
 	"sshpass": {"-p": {next: true, attached: true}},
 	"mysql":   {"-p": {attached: true}},
@@ -407,26 +412,29 @@ func groupGone(pgid int) bool {
 // the zombie hold is what closes that). The zombie is reaped HERE, only
 // once the group has drained (or the group was already proven empty at
 // the waiter's reap — or by its drain watcher), so the number is never
-// public while the launch may still be signalled. Platforms without any
-// hold reap at the leader's exit; their stop signals only while the
-// leader is live and aborts to unconfirmed at the first sight of the
-// exit, the reuse residual documented in host_run's help. Windows gates
-// on Done instead (detach_windows.go).
+// public while the launch may still be signalled. Launches without any
+// hold — the non-Linux Unix platforms, and a Linux launch whose waitid
+// was refused — reap at the leader's exit; their stop signals only while
+// the leader is live and aborts to unconfirmed at the first sight of the
+// exit, keeping every record: the reuse residual documented in host_run's
+// help. Windows gates on Done instead (detach_windows.go).
 func (a *execAgent) stop() (bool, string) {
 	if a.confirmed.Load() {
 		return true, "" // a confirmed stop stays confirmed; a repeat signals nothing
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if leaderHoldCapable && a.exited.Load() && a.reaped.Load() {
-		// On a hold-capable platform a reap can precede a stop only after
-		// a scan found the group EMPTY (emptyAtReap): nothing of this
+	if a.holdsZombie() && a.exited.Load() && a.reaped.Load() {
+		// On a hold-keeping launch a reap can precede a stop only after a
+		// scan found the group EMPTY (emptyAtReap): nothing of this
 		// launch ran at the reap, the number became public then, and a
 		// group answering it now is not ours — confirm without touching
 		// it. A reaped launch without that proof (a reap whose wait
-		// failed on a host that also refused waitid) can claim nothing:
-		// report unconfirmed and keep the records rather than signal a
-		// number the launch may no longer own.
+		// failed) can claim nothing: report unconfirmed and keep the
+		// records rather than signal a number the launch may no longer
+		// own. A no-hold launch skips this branch entirely: its reap
+		// proves nothing about the number, and its stop below confirms
+		// only through the probe oracle an ESRCH answer closes.
 		if a.emptyAtReap.Load() {
 			a.confirmed.Store(true)
 			return true, ""
@@ -448,15 +456,16 @@ func (a *execAgent) stop() (bool, string) {
 }
 
 // stopAuthorityGone reports whether this stop may no longer signal the
-// group by number: a platform without the hold frees the number at the
-// leader's exit — unserialized with any stop — so once the exit is
-// observed, a signal by number could reach whatever took the reused
+// group by number: a launch without the hold — a no-hold platform, or a
+// hold-capable platform whose waitid was refused — frees the number at
+// the leader's exit, unserialized with any stop, so once the exit is
+// observed a signal by number could reach whatever took the reused
 // number. While the leader is live the number is bound to it and
-// signalling stays sound. Hold-capable platforms never lose authority:
-// the zombie keeps the number allocated until a reap under the stop
-// mutex, so false there is a fact, not a sample.
+// signalling stays sound. A launch keeping the zombie hold never loses
+// authority: the zombie keeps the number allocated until a reap under the
+// stop mutex, so false there is a fact, not a sample.
 func (a *execAgent) stopAuthorityGone() bool {
-	return !leaderHoldCapable && a.exited.Load()
+	return !a.holdsZombie() && a.exited.Load()
 }
 
 // terminateGroup stops the launch's process group by number and confirms
@@ -464,7 +473,7 @@ func (a *execAgent) stopAuthorityGone() bool {
 // gone: a wrapper's child can outlive its leader (#1474). A launched agent
 // runs as its own session leader (detach sets Setsid), so its group id is
 // its pid, and every signal below goes out while the leader — live, or
-// the zombie the hold keeps — owns that number. On a platform without the
+// the zombie the hold keeps — owns that number. On a launch without the
 // hold the loop re-checks stopAuthorityGone before every signal and every
 // probe answer it acts on: the leader's exit there releases the number
 // unserialized with this stop, and the first observation of it ends the
@@ -510,25 +519,29 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
 }
 
-// unconfirmedDetail is the no-hold platform's abort wording: records
-// kept, nothing signalled, the operator told why.
+// unconfirmedDetail is the no-hold launch's abort wording: records kept,
+// nothing signalled past the exit, the operator told why.
 func (a *execAgent) unconfirmedDetail() string {
-	return fmt.Sprintf("the launch (pid %d) exited while being stopped on a platform without the ownership hold; its stop is left unconfirmed and its records kept", a.pid)
+	return fmt.Sprintf("the launch (pid %d) exited while being stopped without the ownership hold (its platform or kernel policy provides none); its stop is left unconfirmed and its records kept", a.pid)
 }
 
 // drained reports whether nothing of this launch's group runs, other than
 // the held zombie leader itself. While the leader is alive the number is
 // the launch's and an ESRCH probe means the whole group — leader
-// included — is gone. Once the leader has exited, a hold-capable
-// platform's zombie answers that probe forever, so the oracle switches to
-// the /proc scan, which excludes the zombie; the zombie-state check
-// catches the exit even in the polling hold's notice lag (a TERM the stop
-// itself just sent may have killed the leader a tick before the waiter
-// stored exited). On the platforms without the hold there is no zombie
-// (the waiter reaped at the exit) and the probe keeps its meaning until
-// stopAuthorityGone ends the procedure.
+// included — is gone. Once the leader has exited, a hold-keeping launch's
+// zombie answers that probe forever, so the oracle switches to the /proc
+// scan, which excludes the zombie; the zombie-state check catches the
+// exit even in the waiter's notice lag (a TERM the stop itself just sent
+// may have killed the leader a tick before the waiter stored exited) —
+// and it requires the zombie's thread group to have FULLY exited: a
+// leader in state Z whose thread count is still above one has running
+// threads, so the group is not drained and the probe oracle below says so
+// (those threads answer it) — Z alone is not proof a leader's whole
+// thread group left (#1474). On a launch without the hold there is no
+// zombie (the waiter reaped at the exit) and the probe keeps its meaning
+// until stopAuthorityGone ends the procedure.
 func (a *execAgent) drained() bool {
-	if leaderHoldCapable && (a.exited.Load() || leaderZombie(a.pid)) {
+	if a.holdsZombie() && (a.exited.Load() || leaderZombieAlone(a.pid)) {
 		return !groupHasOtherMembers(a.pid, a.pid)
 	}
 	return groupGone(a.pid)

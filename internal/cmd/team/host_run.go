@@ -245,7 +245,9 @@ and is reaped only once the group is observed empty (or after the stop's
 KILL), so another process cannot take the group's number while the launch
 may still signal it — the stop can only ever reach this launch's group. A
 launch that provably left nothing behind (its group was empty at the exit)
-confirms a later stop without signalling anything at all. Other Unix
+confirms a later stop without signalling anything at all. A Linux kernel
+or policy that refuses waitid (an exotic environment) has no hold either:
+the stop takes the same shape as the platforms below. Other Unix
 platforms (macOS, the BSDs) reap the leader at its exit and have no such
 hold, so their stop signals the group id only while the leader is still
 live — the number is bound to a live leader and cannot be reused — and

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 // A leader-alone launch is a SILENT confirmed stop that touches nothing: the
@@ -193,20 +194,86 @@ func TestHeldZombieWithALateMemberIsStillStopped(t *testing.T) {
 	ea.waitWatchers()
 }
 
-// A kernel or policy where waitid is refused does NOT lose the hold: the
-// zombie itself is the ownership proof and /proc shows it, so the waiter
-// falls back to POLLING for the leader's state, takes the same exit
-// branch, and reaps only under the stop mutex — the launch keeps every
-// property the waitid hold gives it (#1474 delta round 6, Jane D5: the
-// old fallback reaped outside mu, racing a live stop).
-func TestWaitidRefusalStillHoldsThroughProc(t *testing.T) {
+// A kernel or policy that refuses waitid takes the NO-HOLD contract: the
+// waiter reaps the leader at its exit (outside the stop mutex), and a stop
+// of a LIVE launch signals the group only while the leader is live, then
+// reports the stop UNCONFIRMED at the first sight of the exit and keeps
+// every record — it never waits on the reap, never holds the stop mutex
+// across a blocking wait, and never reaches for a number the launch may no
+// longer own (#1474; the polling hold this replaces blocked Terminate in
+// cmd.Wait under the mutex when a Z-looking leader still had live
+// threads, and the gate does not need a confirmed stop on a host that
+// exotic — the coordinator's disposition for the round-7 delta).
+func TestLiveLaunchIsStoppableWhenTheHoldFails(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("no sleep")
+	}
+	realWait := waitLeaderExit
+	defer func() { waitLeaderExit = realWait }()
+	waitLeaderExit = func(int) (leaderExit, error) {
+		return leaderExit{kind: unknownStatus}, syscall.ENOSYS
+	}
+	signals := 0
+	realSignal := signalGroup
+	defer func() { signalGroup = realSignal }()
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		signals++
+		return realSignal(pgid, sig)
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sleep", "30"}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ea := a.(*execAgent)
+	defer stopAndWait(t, a)
+	if ea.exited.Load() {
+		t.Fatal("a live leader is not exited: the probe oracle depends on it")
+	}
+	waitReaperEntry(t, ea)
+	stopped := false
+	detail := ""
+	terminated := make(chan struct{})
+	go func() { stopped, detail = a.Terminate(); close(terminated) }()
+	select {
+	case <-terminated:
+	case <-time.After(15 * time.Second):
+		t.Fatal("Terminate never returned for a live launch whose hold failed")
+	}
+	if stopped {
+		t.Fatalf("a stop without the ownership hold is never confirmed: stopped=%v %q", stopped, detail)
+	}
+	if !strings.Contains(detail, "unconfirmed") || signals == 0 {
+		t.Fatalf("the stop signals while the leader is live and then reports unconfirmed: signals=%d %q", signals, detail)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the waiter finishes after the stop ends the launch")
+	}
+	if got := a.ExitDetail(); !strings.Contains(got, "signal: terminated") {
+		t.Fatalf("the finalized detail is the leader's real death: %q", got)
+	}
+}
+
+// The refused-waitid launch that is ALREADY GONE when the stop arrives
+// still confirms, through the one oracle that stays sound after the
+// number went public: an ESRCH probe answer means no process group holds
+// the number at all, so nothing was signalled and nothing of the launch
+// runs. This is the only confirmation a no-hold launch's stop can reach
+// (#1474) — the mid-stop authority abort in the test above owns every
+// other case.
+func TestARefusedWaitidConfirmsOnlyAnAlreadyGoneLaunch(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
 	}
 	signals, probes := 0, 0
 	realWait, realSignal, realProbe := waitLeaderExit, signalGroup, probeGroup
 	defer func() { waitLeaderExit, signalGroup, probeGroup = realWait, realSignal, realProbe }()
-	waitLeaderExit = func(int) error { return syscall.ENOSYS }
+	waitLeaderExit = func(int) (leaderExit, error) {
+		return leaderExit{kind: unknownStatus}, syscall.ENOSYS
+	}
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		signals++
 		return realSignal(pgid, sig)
@@ -219,24 +286,22 @@ func TestWaitidRefusalStillHoldsThroughProc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
-		t.Fatal("true exits at once; the polling hold notices the zombie within its interval")
+		t.Fatal("true exits at once; the reaping waiter notices within the interval")
 	}
 	ea := a.(*execAgent)
-	if !ea.reaped.Load() || !ea.emptyAtReap.Load() {
-		t.Fatal("the polling hold reaps an empty group under the mutex with the empty proof")
-	}
-	if got := a.ExitDetail(); got != "exit status 0" {
-		t.Fatalf("the polling hold reads the leader's real exit from /proc: %q", got)
+	if !ea.reaped.Load() || ea.noHold.Load() != true {
+		t.Fatal("the refused-waitid waiter reaps the leader at its exit and records the missing hold")
 	}
 	stopped, detail := a.Terminate()
 	if !stopped || detail != "" {
-		t.Fatalf("a launch held through /proc is stopped from its own proof: stopped=%v %q", stopped, detail)
+		t.Fatalf("a launch whose group is already gone confirms silently: stopped=%v %q", stopped, detail)
 	}
-	if signals != 0 || probes != 0 {
-		t.Fatalf("a number that went public at the empty reap is never touched: %d probes, %d signals", probes, signals)
+	if signals != 0 || probes != 1 {
+		t.Fatalf("the already-gone launch is probed once and never signalled: %d probes, %d signals", probes, signals)
 	}
 }
 
@@ -403,63 +468,19 @@ func procState(pid int) byte {
 // the probe oracle a real one exactly then (the live leader keeps the
 // number allocated) (#1474; delta round 6, Jane D5: the hold's reap side
 // is pinned by TestWaitidRefusalStillHoldsThroughProc).
-func TestLiveLaunchIsStoppableWhenTheHoldFails(t *testing.T) {
-	if _, err := exec.LookPath("sleep"); err != nil {
-		t.Skip("no sleep")
-	}
-	realWait := waitLeaderExit
-	defer func() { waitLeaderExit = realWait }()
-	waitLeaderExit = func(int) error { return syscall.ENOSYS }
-	signals := 0
-	realSignal := signalGroup
-	defer func() { signalGroup = realSignal }()
-	signalGroup = func(pgid int, sig syscall.Signal) error {
-		signals++
-		return realSignal(pgid, sig)
-	}
-	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
-		Argv: []string{"sleep", "30"}, Dir: t.TempDir(), Env: os.Environ(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ea := a.(*execAgent)
-	defer func() {
-		_, _ = a.Terminate()
-		// No drain watcher may outlive its test into a package var a LATER
-		// test swaps (Jonas P3-5): once the leader is reaped the watcher
-		// exits within one tick, so wait it out. The guard cannot hang: a
-		// reaped leader ends the watcher, and an unreaped one belongs to a
-		// test that is already failing.
-		if ea := a.(*execAgent); ea.reaped.Load() {
-			ea.waitWatchers()
-		}
-	}()
-	if ea.exited.Load() {
-		t.Fatal("a live leader is not exited: the probe oracle depends on it")
-	}
-	stopped := false
-	detail := ""
-	terminated := make(chan struct{})
-	go func() { stopped, detail = a.Terminate(); close(terminated) }()
+// stopAndWait terminates the launch and waits out the waiter's watcher
+// decision, so no drain watcher a test armed survives into a later test
+// that swaps the package vars it reads through. The wait is bounded: an
+// unsettled channel after a Terminate means the waiter itself never
+// finished (a leader stuck in uninterruptible IO), and no watcher can be
+// running then — holdExit arms it — so there is nothing left to leak.
+func stopAndWait(t *testing.T, a Agent) {
+	t.Helper()
+	_, _ = a.Terminate()
 	select {
-	case <-terminated:
-	case <-time.After(15 * time.Second):
-		t.Fatal("Terminate never returned for a live launch whose hold failed")
-	}
-	if !stopped || signals == 0 {
-		t.Fatalf("a live launch is stopped through the probe oracle: stopped=%v signals=%d %q", stopped, signals, detail)
-	}
-	select {
-	case <-a.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the waiter finishes after the stop ends the launch")
-	}
-	if got := a.ExitDetail(); !strings.Contains(got, "signal: terminated") {
-		t.Fatalf("the finalized detail is the leader's real death: %q", got)
-	}
-	if !ea.reaped.Load() {
-		t.Fatal("the fallback waiter reaps the leader")
+	case <-a.(*execAgent).watcherDone:
+	case <-time.After(10 * time.Second):
+		t.Log("the waiter's watcher decision did not settle; no watcher can be running")
 	}
 }
 
@@ -480,17 +501,7 @@ func TestHeldExitCarriesTheLeadersRealExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_, _ = a.Terminate()
-		// No drain watcher may outlive its test into a package var a LATER
-		// test swaps (Jonas P3-5): once the leader is reaped the watcher
-		// exits within one tick, so wait it out. The guard cannot hang: a
-		// reaped leader ends the watcher, and an unreaped one belongs to a
-		// test that is already failing.
-		if ea := a.(*execAgent); ea.reaped.Load() {
-			ea.waitWatchers()
-		}
-	}()
+	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
@@ -512,12 +523,13 @@ func TestHeldExitCarriesTheLeadersRealExit(t *testing.T) {
 	}
 }
 
-// A leader that DIES BY A SIGNAL reports the signal — the word a reaping
-// wait would report — because the status is read from /proc's exit_code,
-// which every architecture renders the same way, where the waitid siginfo
-// offsets it replaces hold only on 64-bit non-MIPS builds and would
-// silently misreport the exit elsewhere (#1474, delta round 6, Jonas
-// P2-A's requested signal-death pin).
+// A leader that DIES BY A SIGNAL reports the signal through the waitid
+// answer itself — si_code CLD_KILLED with si_status the signal — the same
+// word a reaping wait would report. The leader keeps a member alive, so
+// the zombie is still HELD when the detail is read: this pins the siginfo
+// decode (and its per-architecture si_status offset) on the shape an
+// empty-group reap would bypass, where the reap's own wait would supply
+// the wording instead of the hold's answer (#1474).
 func TestHeldExitReportsASignalDeath(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
@@ -526,29 +538,83 @@ func TestHeldExitReportsASignalDeath(t *testing.T) {
 		t.Skip("no /proc")
 	}
 	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
-		Argv: []string{"sh", "-c", `kill -9 $$`}, Dir: t.TempDir(), Env: os.Environ(),
+		Argv: []string{"sh", "-c", `sleep 30 & kill -KILL $$`}, Dir: t.TempDir(), Env: os.Environ(),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_, _ = a.Terminate()
-		// No drain watcher may outlive its test into a package var a LATER
-		// test swaps (Jonas P3-5): once the leader is reaped the watcher
-		// exits within one tick, so wait it out. The guard cannot hang: a
-		// reaped leader ends the watcher, and an unreaped one belongs to a
-		// test that is already failing.
-		if ea := a.(*execAgent); ea.reaped.Load() {
-			ea.waitWatchers()
-		}
-	}()
+	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
 		t.Fatal("the leader must kill itself at once")
 	}
-	if got := a.ExitDetail(); got != "signal: killed" {
-		t.Fatalf("ExitDetail() = %q, want the leader's signal death", got)
+	held := a.ExitDetail()
+	if held != "signal: killed" {
+		t.Fatalf("ExitDetail() = %q, want the leader's signal death read from the held answer", held)
+	}
+	// The stop's own reap must report the SAME death: the hold's decode
+	// and the reap's wait agree on the word, whatever the kernel did with
+	// the core.
+	stopped, _ := a.Terminate()
+	if !stopped {
+		t.Fatal("the member-bearing group still stops")
+	}
+	if got := a.ExitDetail(); got != held {
+		t.Fatalf("the stop's reap reports a different death than the hold's answer: %q vs %q", got, held)
+	}
+}
+
+// A core-dumping death renders with the dump marker, matching what a
+// reaping wait's own wording would say for the same death. The dump
+// marker is the kernel's decision (a host may refuse cores); the pin is
+// the AGREEMENT between the hold's decode and the reap's report, read
+// before and after the reap of the same leader (#1474).
+func TestHeldExitReportsACoreDumpingDeath(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"sh", "-c", `ulimit -c unlimited 2>/dev/null; sleep 30 & kill -ABRT $$`}, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopAndWait(t, a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the leader must kill itself at once")
+	}
+	held := a.ExitDetail()
+	if !strings.HasPrefix(held, "signal: aborted") {
+		t.Fatalf("ExitDetail() = %q, want the leader's abort death", held)
+	}
+	stopped, _ := a.Terminate()
+	if !stopped {
+		t.Fatal("the member-bearing group still stops")
+	}
+	if got := a.ExitDetail(); got != held {
+		t.Fatalf("the stop's reap reports a different death than the hold's answer: %q vs %q", got, held)
+	}
+}
+
+// The siginfo si_status offset is derived from the build's word size, not
+// hardcoded: 24 on a 64-bit build, 20 on a 32-bit one. The held-exit pins
+// above prove the derivation end to end on the running build; this pins
+// the constant the derivation must land on per word size.
+func TestSiginfoStatusOffsetIsDerivedFromWordSize(t *testing.T) {
+	ptr := int(unsafe.Sizeof(uintptr(0)))
+	want := map[int]int{4: 20, 8: 24}[ptr]
+	if want == 0 {
+		t.Skipf("no pinned offset for word size %d", ptr)
+	}
+	union := (12 + ptr - 1) &^ (ptr - 1)
+	if union+8 != want {
+		t.Fatalf("si_status offset = %d, want %d for word size %d", union+8, want, ptr)
 	}
 }
 
@@ -582,17 +648,7 @@ func TestHeldZombieIsReapedWhenTheGroupDrainsAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_, _ = a.Terminate()
-		// No drain watcher may outlive its test into a package var a LATER
-		// test swaps (Jonas P3-5): once the leader is reaped the watcher
-		// exits within one tick, so wait it out. The guard cannot hang: a
-		// reaped leader ends the watcher, and an unreaped one belongs to a
-		// test that is already failing.
-		if ea := a.(*execAgent); ea.reaped.Load() {
-			ea.waitWatchers()
-		}
-	}()
+	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
@@ -665,7 +721,7 @@ func groupMemberStates(leader int) []byte {
 		if err != nil || pid == leader {
 			continue
 		}
-		pgrp, state, _, err := readPgrp(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, _, err := readGroupStat(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil || pgrp != leader {
 			continue
 		}
@@ -767,7 +823,7 @@ func zLookingMemberWithThreads(leader int) bool {
 		if err != nil || pid == leader {
 			continue
 		}
-		pgrp, state, threads, err := readPgrp(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, threads, err := readGroupStat(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil || pgrp != leader {
 			continue
 		}
@@ -816,6 +872,139 @@ func TestAZombieLookingMultithreadedMemberKeepsTheGroupLive(t *testing.T) {
 	}
 	if !groupHasOtherMembers(lg, lg) {
 		t.Fatal("a member whose threads still run was read as drained")
+	}
+}
+
+// waitReaperEntry waits until the no-hold waiter has ENTERED its blocking
+// reap — the reaped flag flips as the waiter starts its wait, possibly
+// long before the leader exits.
+func waitReaperEntry(t *testing.T, ea *execAgent) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !ea.reaped.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("the no-hold waiter never entered its blocking reap")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// zLeaderThreadShape waits for the launch LEADER to reach the exited-main-
+// thread shape: /proc state Z with a thread count above one — the group
+// leader itself, not a member, still able to act through its threads
+// (#1474). It reports the pid it was given for the caller's assertions.
+func zLeaderThreadShape(t *testing.T, pid int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		state, f, err := readProcStat(fmt.Sprintf("/proc/%d/stat", pid))
+		if err == nil && state == 'Z' && len(f) > 17 {
+			if threads, _ := strconv.Atoi(f[17]); threads > 1 {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the Z-looking multithreaded leader never appeared")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// The LAUNCH LEADER in the Z-looking multithreaded shape is not treated
+// as the drainable held zombie either: its threads still run, so the stop
+// must SIGNAL the group (a Z leader alone is not proof its whole thread
+// group left) and may confirm only once nothing of the launch answers
+// any more (#1474 — the stop that confirmed with ZERO signals while the
+// leader's live thread kept running was the round-7 defect; the leader
+// gets the same predicate the member shape already had).
+func TestAZombieLeaderWithLiveThreadsIsSignalledAndOnlyThenConfirmed(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("no python3")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	signals := 0
+	realSignal := signalGroup
+	defer func() { signalGroup = realSignal }()
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		signals++
+		return realSignal(pgid, sig)
+	}
+	a, err := ExecHost{TerminateGrace: time.Second}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"python3", "-c",
+			"import threading,time,ctypes\n" +
+				"threading.Thread(target=lambda: time.sleep(30)).start()\n" +
+				"ctypes.pythonapi.PyThread_exit_thread()"},
+		Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopAndWait(t, a)
+	zLeaderThreadShape(t, a.PID())
+	stopped, detail := a.Terminate()
+	if signals == 0 {
+		t.Fatalf("a leader whose threads still run is never confirmed without signalling: stopped=%v %q", stopped, detail)
+	}
+	if !stopped {
+		t.Fatalf("the signalled group still stops: stopped=%v %q", stopped, detail)
+	}
+	// A confirmed stop leaves nothing of the launch: the leader is reaped
+	// (gone from /proc), not parked as a zombie with live threads.
+	if _, _, err := readProcStat(fmt.Sprintf("/proc/%d/stat", a.PID())); err == nil {
+		t.Fatal("a confirmed stop leaves the leader on the books")
+	}
+}
+
+// The same Z-looking multithreaded leader under a REFUSED waitid: the
+// stop must return PROMPTLY and unconfirmed — the no-hold contract never
+// waits on the leader's reap, and nothing holds the stop mutex across the
+// waiter's blocking wait (#1474: the polling hold this replaces called
+// the reap under the mutex and blocked Terminate until an external KILL).
+func TestARefusedWaitidDoesNotBlockOnAZombieLeader(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("no python3")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	realWait := waitLeaderExit
+	defer func() { waitLeaderExit = realWait }()
+	waitLeaderExit = func(int) (leaderExit, error) {
+		return leaderExit{kind: unknownStatus}, syscall.ENOSYS
+	}
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
+		Argv: []string{"python3", "-c",
+			"import threading,time,ctypes\n" +
+				"threading.Thread(target=lambda: time.sleep(30)).start()\n" +
+				"ctypes.pythonapi.PyThread_exit_thread()"},
+		Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = syscall.Kill(-a.PID(), syscall.SIGKILL)
+		select {
+		case <-a.Done():
+		case <-time.After(5 * time.Second):
+		}
+	}()
+	ea := a.(*execAgent)
+	waitReaperEntry(t, ea)
+	zLeaderThreadShape(t, a.PID())
+	stopped := false
+	detail := ""
+	terminated := make(chan struct{})
+	go func() { stopped, detail = a.Terminate(); close(terminated) }()
+	select {
+	case <-terminated:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Terminate blocked on a Z-looking leader whose threads still run")
+	}
+	if stopped || !strings.Contains(detail, "unconfirmed") {
+		t.Fatalf("the no-hold stop of a live-threaded leader is prompt and unconfirmed: stopped=%v %q", stopped, detail)
 	}
 }
 
@@ -947,17 +1136,7 @@ func TestADoubleForkIsNotReadAsAnEmptyGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_, _ = a.Terminate()
-		// No drain watcher may outlive its test into a package var a LATER
-		// test swaps (Jonas P3-5): once the leader is reaped the watcher
-		// exits within one tick, so wait it out. The guard cannot hang: a
-		// reaped leader ends the watcher, and an unreaped one belongs to a
-		// test that is already failing.
-		if ea := a.(*execAgent); ea.reaped.Load() {
-			ea.waitWatchers()
-		}
-	}()
+	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
