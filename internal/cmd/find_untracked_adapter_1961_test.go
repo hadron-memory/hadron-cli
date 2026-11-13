@@ -521,3 +521,39 @@ func runFindHook1961(t *testing.T, responses map[string]string, hook func(op str
 	err := root.Execute()
 	return calls, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
+
+// A failure between the create and the start (gate addendum 2): the task
+// exists and is PENDING, the CLI reports it, the mark still happens (the claim
+// stands), and a retry finds the external id held, so it creates nothing.
+func TestAdapterStartFailureAfterCreateIsReportedAndRetryDedupes1961(t *testing.T) {
+	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	r := map[string]string{
+		"IntakeTasksByExternalIds": held1961(),
+		"IntakeClaimTask":          claimed1961("t1", itemA1961, "wkr1", "Iris", ""),
+		"IntakeStartTask":          `{"errors":[{"message":"cannot start","extensions":{"code":"TASK_INVALID_TRANSITION"}}]}`,
+	}
+	_, out, errOut, err := run1961(t, path, r, "--track", "--json")
+	if err != nil {
+		t.Fatalf("the claim stands: %v", err)
+	}
+	var dto struct {
+		Tasks []struct {
+			ID, Status string
+			Marked     bool
+			StartError *string
+		}
+	}
+	_ = json.Unmarshal([]byte(out), &dto)
+	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "PENDING" || dto.Tasks[0].StartError == nil || !dto.Tasks[0].Marked {
+		t.Fatalf("got %s", out)
+	}
+	if !strings.Contains(errOut, "could not be started") || len(adapterLog1961(t, log, "mark-tracked")) != 1 {
+		t.Fatalf("the failure is reported and the claim still marked: %q", errOut)
+	}
+	// The retry: Hadron now holds the id, so nothing is created.
+	r["IntakeTasksByExternalIds"] = held1961(itemA1961)
+	calls, _, _, err := run1961(t, path, r, "--track", "--json")
+	if err != nil || len(opsOf1961(calls, "IntakeClaimTask")) != 0 {
+		t.Fatalf("a retry must not create again: %v %v", err, hadronOps1961(calls))
+	}
+}

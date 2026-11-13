@@ -64,14 +64,15 @@ becomes a task title; nothing else from the tracker reaches Hadron.
 - An unreachable server mid-create (exit 7) leaves that item's outcome unknown; the
   next run's Hadron check resolves it.
 
-## Open point raised, not decided here
+## STARTED versus PENDING (ruled: Ada #103270, gate addendum 2 on #1961)
 
-The gate addendum says a `--track` create is created STARTED. The server's
 `createAgentTask` accepts only BACKLOG|PENDING and `startAgentTask` is
-assignee-only, so a CLI-side claim can be started only when the assignee is the
-caller. As built: start after create when the caller holds it; otherwise leave
-PENDING and say so. A STARTED-at-create for every claim needs a server change
-(raised in team chat on #103268).
+assignee-only, so: create, then start only when the caller is the assignee (the
+bound-worker default); with `--for` / `--assignee` someone else the claim stays
+PENDING and the output says so. No server change. A failure between the create
+and the start leaves the task PENDING; the CLI reports it (`startError`, stderr
+note), still marks the claim, and a retry finds the external id held and creates
+nothing. All three are pinned.
 
 ## Side effects of the schema refresh
 

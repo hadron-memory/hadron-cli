@@ -67,6 +67,10 @@ type adapterClaimedDTO struct {
 	Assignee   *string `json:"assignee"`
 	Marked     bool    `json:"marked"`
 	MarkError  *string `json:"markError"`
+	// StartError is why a claim the caller holds could not be started: the
+	// task exists and is PENDING (a retry finds its external id held and does
+	// not create a second).
+	StartError *string `json:"startError"`
 }
 
 // adapterClaimDTO is the --track --json shape: the tasks this call holds, the
@@ -297,7 +301,12 @@ func (c *adapterClaim) one(it intake.Item) (claimOne, error) {
 			worker.Role, worker.Model = c.b.WorkerRole, c.b.Model
 			// The assignee is the caller, so the caller may start it (the
 			// server lets only the assignee start); anyone else's stays PENDING.
-			if st, err := gen.IntakeStartTask(c.ctx, c.client, t.Id); err == nil && st.StartAgentTask != nil {
+			st, err := gen.IntakeStartTask(c.ctx, c.client, t.Id)
+			switch {
+			case err != nil:
+				msg := output.SafeLine(mapTaskError(err).Error(), 300)
+				dto.StartError = &msg
+			case st.StartAgentTask != nil:
 				dto.Status = string(st.StartAgentTask.Status)
 			}
 		}
@@ -352,6 +361,9 @@ func writeAdapterClaim(f *cmdutil.Factory, dto adapterClaimDTO) error {
 		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: another caller claimed %s first; not counted\n", output.SafeCell(id))
 	}
 	for _, task := range dto.Tasks {
+		if task.StartError != nil {
+			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: %s exists but could not be started (%s); it is PENDING, and a retry will not create it again\n", output.SafeCell(taskRef(task.Handle, task.ID)), output.SafeCell(*task.StartError))
+		}
 		if strings.EqualFold(task.Status, "pending") && task.Assignee != nil {
 			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: %s is PENDING for %s, who starts it\n", output.SafeCell(taskRef(task.Handle, task.ID)), output.SafeCell(*task.Assignee))
 		}
