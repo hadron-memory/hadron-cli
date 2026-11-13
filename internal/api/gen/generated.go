@@ -139171,6 +139171,10 @@ mutation IntakeClaimTask ($input: CreateAgentTaskInput!) {
 // The claim: an ordinary root create naming the external id. The create IS the
 // claim (TASK_EXTERNAL_ID_TAKEN means another caller won). portalUrl is the
 // server's, printed for the adapter's mark; null when the server prints none.
+// The same omit-vs-null directives as AgentTaskCreate (agenttasks.graphql): both
+// documents bind CreateAgentTaskInput, and genqlient resolves a shared input's
+// per-field omitempty from whichever documents name it, so a document without
+// them makes the generated tags flip between runs.
 func IntakeClaimTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
