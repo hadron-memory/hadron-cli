@@ -93,7 +93,7 @@ you lost it, it does not count, and the next item is tried. A lost race exits 0.
 The winner is told to the adapter (mark-tracked) with the task, the server's
 portal link and the worker. The claim goes to --assignee, else --for, else your
 bound worker; one assigned to you is started, one for another worker stays
-PENDING for them to start. A refused create stops the walk after printing what
+PENDING for them to start (a server with hadron-server#4113 lands your own claim STARTED in the create and no start call is made; an older one answers PENDING and the CLI starts it). A refused create stops the walk after printing what
 was claimed; a failed mark leaves the claim standing and exits 1.
 
 RECONCILE (every adapter run, before the list). The CLI reads, from the server,
