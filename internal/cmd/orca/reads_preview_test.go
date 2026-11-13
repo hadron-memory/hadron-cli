@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -19,8 +20,59 @@ import (
 // The fixture models the server's documented budget distinction, not its
 // implementation: a spending read reserves one slot, withholds the second
 // worker and posts a notice. A monitoring preview must leave all three alone.
+// These counters document request-shape consequences in this synthetic model;
+// the literal-preview assertion dominates them. They do not independently prove
+// persisted server budgets. otherOps counts any operation besides DueTickWakes,
+// including acknowledgements, none of which monitoring may send.
 func TestDueTicksMonitoringPreviewNoBudgetEffects(t *testing.T) {
-	var calls, reservations, withheld, notices, acknowledgements int
+	for _, ids := range [][]string{{"w1", "w2"}, {"w2", "w1"}} {
+		t.Run(strings.Join(ids, ","), func(t *testing.T) { monitoringPreviewFixture(t, ids) })
+	}
+}
+
+// Exact count and unique members matter; ordering does not. Used on every page.
+func monitoringWorkerScope(got []any, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	remaining := make(map[string]bool, len(want))
+	for _, id := range want {
+		remaining[id] = true
+	}
+	for _, value := range got {
+		id, ok := value.(string)
+		if !ok || !remaining[id] {
+			return false
+		}
+		delete(remaining, id)
+	}
+	return len(remaining) == 0
+}
+
+func TestMonitoringWorkerScopeExactSet(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		got  []any
+		want bool
+	}{
+		{"ordered", []any{"w1", "w2"}, true},
+		{"reordered", []any{"w2", "w1"}, true},
+		{"missing", []any{"w1"}, false},
+		{"extra", []any{"w1", "w2", "w3"}, false},
+		{"duplicate", []any{"w1", "w1"}, false},
+		{"duplicate-extra", []any{"w1", "w2", "w2"}, false},
+		{"wrong-member", []any{"w1", "w3"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := monitoringWorkerScope(tc.got, []string{"w1", "w2"}); got != tc.want {
+				t.Fatalf("scope %v: got %v want %v", tc.got, got, tc.want)
+			}
+		})
+	}
+}
+
+func monitoringPreviewFixture(t *testing.T, workerIDs []string) {
+	var calls, reservations, withheld, notices, otherOps int
 	var previews []bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -35,7 +87,7 @@ func TestDueTicksMonitoringPreviewNoBudgetEffects(t *testing.T) {
 		}
 		calls++
 		if req.OperationName != "DueTickWakes" {
-			acknowledgements++
+			otherOps++
 			t.Errorf("monitoring sent unexpected operation %q", req.OperationName)
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -59,7 +111,7 @@ func TestDueTicksMonitoringPreviewNoBudgetEffects(t *testing.T) {
 			return
 		}
 		refs, ok := req.Variables["workerRefs"].([]any)
-		if !ok || len(refs) != 2 || refs[0] != "w1" || refs[1] != "w2" {
+		if !ok || !monitoringWorkerScope(refs, []string{"w1", "w2"}) {
 			t.Errorf("worker scope changed: %#v", req.Variables)
 		}
 		worker, more, cursor := "w1", true, any("next")
@@ -86,7 +138,7 @@ func TestDueTicksMonitoringPreviewNoBudgetEffects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, readErr := (graphReads{client: client, app: "app1"}).DueTicks(context.Background(), []string{"w1", "w2"})
+	got, readErr := (graphReads{client: client, app: "app1"}).DueTicks(context.Background(), workerIDs)
 	for i, preview := range previews {
 		if !preview {
 			t.Fatalf("monitoring request %d omitted literal preview:true", i+1)
@@ -98,23 +150,21 @@ func TestDueTicksMonitoringPreviewNoBudgetEffects(t *testing.T) {
 	if calls != 2 || len(got["w1"]) != 1 || len(got["w2"]) != 1 {
 		t.Fatalf("pages=%d ticks=%+v", calls, got)
 	}
-	if reservations != 0 || withheld != 0 || notices != 0 || acknowledgements != 0 {
-		t.Fatalf("monitoring effects: reservations=%d withheld=%d notices=%d acknowledgements=%d",
-			reservations, withheld, notices, acknowledgements)
+	if reservations != 0 || withheld != 0 || notices != 0 || otherOps != 0 {
+		t.Fatalf("monitoring effects: reservations=%d withheld=%d notices=%d otherOps=%d",
+			reservations, withheld, notices, otherOps)
 	}
 }
 
 // The delivering host poller must continue using the spending read.
 func TestMonitoringPreviewDoesNotChangeDeliveryReader(t *testing.T) {
-	for name, query := range map[string]string{"DueWakes": gen.DueWakes_Operation} {
-		doc, err := parser.ParseQuery(&ast.Source{Input: query})
-		if err != nil {
-			t.Fatal(err)
-		}
-		field := doc.Operations.ForName(name).SelectionSet[0].(*ast.Field)
-		if field.Arguments.ForName("preview") != nil {
-			t.Fatalf("%s changed with the monitoring-only fix", name)
-		}
+	doc, err := parser.ParseQuery(&ast.Source{Input: gen.DueWakes_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := doc.Operations.ForName("DueWakes").SelectionSet[0].(*ast.Field)
+	if field.Arguments.ForName("preview") != nil {
+		t.Fatal("host delivery DueWakes gained preview")
 	}
 }
 
@@ -171,5 +221,65 @@ func TestDueTicksPreviewValidationRefusalNoSpendingFallback(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+// Pin the real reader's branch, not just the shared envelope helper. Each
+// non-match must retain exactly api.MapError's code/message and make one read.
+func TestDueTicksPreviewHintOnlyForKnownRefusal(t *testing.T) {
+	refusal := func(message, code string) map[string]any {
+		return map[string]any{"message": message, "extensions": map[string]any{"code": code}}
+	}
+	known := `Unknown argument "preview" on field "Query.dueWakes".`
+	for _, tc := range []struct {
+		name   string
+		errors []any
+		hint   bool
+	}{
+		{"forbidden", []any{refusal("Forbidden", "FORBIDDEN")}, false},
+		{"wrong-field", []any{refusal(`Unknown argument "preview" on field "Query.workers".`, "GRAPHQL_VALIDATION_FAILED")}, false},
+		{"mixed-errors", []any{refusal(known, "GRAPHQL_VALIDATION_FAILED"), refusal("Forbidden", "FORBIDDEN")}, false},
+		{"wrong-code", []any{refusal(known, "INTERNAL_SERVER_ERROR")}, false},
+		{"bare-spelling", []any{refusal(`Unknown argument "preview" on field "dueWakes".`, "GRAPHQL_VALIDATION_FAILED")}, true},
+	} {
+		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
+			t.Run(tc.name+"/"+http.StatusText(status), func(t *testing.T) {
+				calls := 0
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls++
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_ = json.NewEncoder(w).Encode(map[string]any{"errors": tc.errors})
+				}))
+				defer srv.Close()
+				client, err := api.NewClient(srv.URL, "hdr_user_synthetic", srv.Client())
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Capture the mapped baseline using the same wire envelope/client.
+				_, raw := gen.DueTickWakes(context.Background(), client, "app1", pageSize, []string{"w1"}, nil)
+				if raw == nil {
+					t.Fatal("fixture did not refuse")
+				}
+				baseline := api.MapError(raw)
+				calls = 0
+				got, err := (graphReads{client: client, app: "app1"}).DueTicks(context.Background(), []string{"w1"})
+				if calls != 1 || got != nil || err == nil {
+					t.Fatalf("calls=%d ticks=%v err=%v", calls, got, err)
+				}
+				hasHint := strings.Contains(err.Error(), "requires a server with dueWakes(preview)")
+				if hasHint != tc.hint {
+					t.Fatalf("hint=%v want=%v: %v", hasHint, tc.hint, err)
+				}
+				if tc.hint {
+					var coded *exitcode.CodedError
+					if !errors.As(err, &coded) || coded.Code != exitcode.Usage {
+						t.Fatalf("unclean refusal: %v", err)
+					}
+				} else if !reflect.DeepEqual(err, baseline) {
+					t.Fatalf("MapError changed: got %#v want %#v", err, baseline)
+				}
+			})
+		}
 	}
 }
