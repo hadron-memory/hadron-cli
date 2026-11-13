@@ -3489,6 +3489,10 @@ type BootPromptSigningPreviewRow {
   """
   agentUrn: String
   appId: ID!
+
+  """
+  Canonical v2 URN of this row's App (#4061), like agentUrn and workerUrn; a stored form that cannot be emitted is served as stored. hrn:node:hadronmemory.com:specs:cor:urn:010:01
+  """
   appUrn: String!
   changesToRevSeq: Int
   compiledNodeId: ID!
@@ -4577,6 +4581,10 @@ input CreateAgentTaskInput {
   format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
   task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
   names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+  #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
+  claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
+  matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:08 governs the first); a backlog task still takes no assignee.
   """
   externalId: String
 
@@ -6179,6 +6187,50 @@ type Grant {
   The person whose signature activated it; null while pending, and null once their account is erased (a deleted user, hrn:node:hadronmemory.com:specs:cor:acl:140:08).
   """
   verifiedBy: ID
+}
+
+"""
+#3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02): one registered action a grant can allow. The registry is written only by a deploy; no call creates, changes or deletes an action. There is no plain-language summary here (its own slice).
+"""
+type GrantAction {
+  """
+  The enforcement level the action DECLARES: what the platform promises, not an active guarantee. It says nothing about whether a gate enforces it today (schedule.create and webhook.create are not enforced until hadron-server#3483; the boot-prompt actions are checked where the grant is spent).
+  """
+  enforcement: String!
+
+  """A closed key naming who may issue a grant of this action."""
+  issuerRule: String!
+
+  """The dotted code, unique, e.g. schedule.create."""
+  name: String!
+
+  """The parameters a grant of this action must supply."""
+  parameters: [GrantActionParameter!]!
+
+  """Where the action comes from: PLATFORM today."""
+  source: String!
+
+  """The tool that performs it, if any."""
+  tool: String
+}
+
+"""
+#3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): one parameter an action declares.
+"""
+type GrantActionParameter {
+  """The parameter's name, as a grant's values name it."""
+  name: String!
+
+  """True when a wildcard value is refused for this parameter."""
+  refusesWildcard: Boolean!
+
+  """The kind of value it takes, e.g. node-ref."""
+  type: String!
+}
+
+type GrantActionsPage {
+  items: [GrantAction!]!
+  total: Int!
 }
 
 """#1747 — whether the team-chat post for a grant use went out."""
@@ -13965,6 +14017,11 @@ type Query {
   accountUsageProjection(account: String!, appRef: ID!, family: String, host: String, whatIf: AccountUsageWhatIfInput): AccountUsageProjection!
 
   """
+  #3708: one registered action by its exact name, read under the same gate as grantActions. An unknown name and every refused caller answer null.
+  """
+  action(appRef: String!, ref: ID!): GrantAction
+
+  """
   #3287 — an App's action-register index, computed at read: every code the App's Team Agent's
   chain maps, one row per code in code order, with its task loc resolved through the asking
   Agent's chain (hrn:node:hadronmemory.com:specs:cor:agt:110:03,
@@ -15196,6 +15253,11 @@ type Query {
   Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
   """
   grant(ref: ID!): Grant
+
+  """
+  #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): the registered actions, by name, for anyone in the named App: a participating person, or a bound worker session of that App. The App is named, never inferred. Every other caller (no credential, a non-participant, an unknown, malformed or deleted App, another App's or a retired worker, an App key, a headless run, an impersonated session even of a participant) gets an empty page, never an error. Read only; limit 0 returns the count only.
+  """
+  grantActions(appRef: String!, limit: Int, offset: Int): GrantActionsPage!
 
   """
   #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it).
