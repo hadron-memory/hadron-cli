@@ -179,6 +179,9 @@ const header = `# Output-field companion coverage (cli#1646; selection pinned by
 # AppAgent.installMethod  command app agent list
 # AppAgent.importer       command app agent list
 # These output fields are documented here because the sections below enumerate roots and inputs only.
+# Monitoring argument binding (cli#1984): Query.dueWakes(preview) is reached by
+# DueTickWakes (orca terminal status / team health sweep), always as preview:true.
+# Public TeamDueWakes --preview remains a separate capability gap, cli#1833.
 # CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
 # exposes, and how the CLI reaches it. Regenerate with ` + "`make coverage-matrix`" + `; ` + "`make coverage-matrix-check`" + ` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.

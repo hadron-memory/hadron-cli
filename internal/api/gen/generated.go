@@ -137672,7 +137672,7 @@ func DryRunMemoryIdentity(
 // The query executed by DueTickWakes.
 const DueTickWakes_Operation = `
 query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $after: String) {
-	dueWakes(appRef: $appRef, first: $first, workerRefs: $workerRefs, after: $after) {
+	dueWakes(appRef: $appRef, first: $first, workerRefs: $workerRefs, after: $after, preview: true) {
 		status
 		wakes {
 			worker {
@@ -137702,7 +137702,9 @@ query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $aft
 // (the oldest reason of any kind) and never Ticker.lastTickAt (its newest
 // tick). No accepts and never acknowledged: a read only. A caller the server
 // does not let read another worker's wakes is refused, and the command fails
-// closed on it.
+// closed on it. Monitoring always previews (cli#1984), so it reserves no
+// wakes, withholds none and posts no budget notice. The host delivery query
+// above keeps its spending read; the public preview flag is separate (#1833).
 func DueTickWakes(
 	ctx_ context.Context,
 	client_ graphql.Client,

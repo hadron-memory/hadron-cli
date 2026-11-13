@@ -4211,6 +4211,9 @@ Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `p
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
 ticker the worker is subscribed to has been due and unanswered for at least the interval of **the worker's
 fastest subscribed ticker** (each tick reason's own `tickDueAt` in `dueWakes`, that ticker's oldest unacknowledged tick; never `anchorAt`, which is the oldest reason of any kind, and never `Ticker.lastTickAt`).
+The monitoring due-wake read always sends preview:true (cli#1984): it reserves no wake budget,
+withholds no due wakes and posts no budget notice. It does not acknowledge or deliver wakes.
+The host delivery poller keeps its spending read; the public team wakes due preview flag is separate.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
