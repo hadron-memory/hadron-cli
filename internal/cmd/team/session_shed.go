@@ -283,12 +283,15 @@ func shedNotesFrom(r io.Reader) (string, string) {
 	return string(data), ""
 }
 
+// shedStampPath sits beside the binding: a worktree's git dir, or a plain
+// directory's cache (cli#1391). Read mode: a shed needs a bound session, so
+// the cache already exists wherever there is one.
 func shedStampPath(ctx context.Context) (string, error) {
-	dir, err := gitDir(ctx)
+	loc, err := locateBinding(ctx, false)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, shedCooldownFile), nil
+	return filepath.Join(loc.dir, shedCooldownFile), nil
 }
 
 func readShedStamp(path string) *shedStamp {

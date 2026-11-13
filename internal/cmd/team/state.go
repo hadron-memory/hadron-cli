@@ -104,22 +104,85 @@ const bindingFileName = "hadron-team-session.json"
 // (hadron-cli#498).
 const GitDirEnv = "HADRON_TEAM_GIT_DIR"
 
-// gitDir resolves the current worktree's git dir. GitDirEnv overrides the git
-// call (tests, and environments without a git binary).
-func gitDir(ctx context.Context) (string, error) {
+// gitDirOrPlain resolves the current worktree's git dir (GitDirEnv overrides
+// the git call: tests, and environments without a git binary), and says
+// whether a failure was "this is not a git checkout" (cli#1391). Only that
+// answer — git's own "not a git repository", or no git binary at all — makes
+// a directory PLAIN. Any other
+// git failure (a dubious-ownership refusal, a corrupt repository) stays the
+// hard errNoWorktree it always was: reading a real worktree as a plain
+// directory would put its binding in the wrong place.
+func gitDirOrPlain(ctx context.Context) (dir string, plain bool, err error) {
 	if d := os.Getenv(GitDirEnv); d != "" {
-		return d, nil
+		return d, false, nil
 	}
-	out, err := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir").Output()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir")
+	// git localizes "not a git repository" (gettext): the C locale keeps the
+	// one message this classifies on in English (Gloria's BLIND F1, #1968).
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANGUAGE=C")
+	out, err := cmd.Output()
 	if err != nil {
 		detail := err.Error()
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
 			detail = strings.TrimSpace(string(exitErr.Stderr))
 		}
-		return "", exitcode.Newf(exitcode.Usage, "%w — a team session binds to one (%s)", errNoWorktree, detail)
+		// The DISCOVERY form only: git also says "not a git repository:
+		// <path>" for a worktree whose admin dir is gone or a bad GIT_DIR —
+		// a real checkout, which must stay the hard error (Rico's §10 P3,
+		// #1968). The C locale above keeps this wording stable.
+		plain = errors.Is(err, exec.ErrNotFound) || strings.Contains(strings.ToLower(detail), "not a git repository (or any of the parent directories)")
+		return "", plain, exitcode.Newf(exitcode.Usage, "%w — a team session binds to one (%s)", errNoWorktree, detail)
 	}
-	return filepath.Abs(strings.TrimSpace(string(out)))
+	d, err := filepath.Abs(strings.TrimSpace(string(out)))
+	return d, false, err
+}
+
+// plainDirCacheName is the binding cache's home in a directory that is not a
+// git checkout (cli#1391, ruling 0230 = B): a hidden directory in the
+// directory the command runs from, holding the same binding and lock files a
+// worktree keeps in its git dir. The CURRENT directory only — never a parent —
+// so a command can never pick up the binding of a directory above it.
+const plainDirCacheName = ".hadron-team"
+
+// bindingLoc is where this context's binding cache lives.
+type bindingLoc struct {
+	dir   string // the directory holding the binding and lock files
+	plain bool   // a plain directory's cache, not a git dir (cli#1391)
+}
+
+// locateBinding finds the binding cache's directory.
+//
+// In a git worktree it is the git dir, exactly as before. In a plain
+// directory it is plainDirCacheName in the current directory, and the two
+// modes differ on purpose:
+//
+//   - a READ (writable false) sees a plain directory's cache only when the
+//     binding file is already there; otherwise it gets errNoWorktree, as
+//     every reader always has, so the server fallbacks (whoami, signing,
+//     the unbound-write refusal) behave exactly as they did;
+//   - a BINDING WRITE (writable true: start, resume, shed's stamp) gets the
+//     cache directory, which withBindingLock creates.
+func locateBinding(ctx context.Context, writable bool) (bindingLoc, error) {
+	dir, plain, err := gitDirOrPlain(ctx)
+	if err == nil {
+		return bindingLoc{dir: dir}, nil
+	}
+	if !plain {
+		return bindingLoc{}, err
+	}
+	cwd, werr := os.Getwd()
+	if werr != nil {
+		return bindingLoc{}, err
+	}
+	loc := bindingLoc{dir: filepath.Join(cwd, plainDirCacheName), plain: true}
+	if writable {
+		return loc, nil
+	}
+	if _, serr := os.Stat(filepath.Join(loc.dir, bindingFileName)); serr != nil {
+		return bindingLoc{}, err // no cache here: the reader's errNoWorktree, unchanged
+	}
+	return loc, nil
 }
 
 // errNoWorktree marks "there is no git worktree here" as a DISTINCT condition
@@ -134,11 +197,11 @@ func gitDir(ctx context.Context) (string, error) {
 var errNoWorktree = errors.New("not inside a git worktree")
 
 func bindingPath(ctx context.Context) (string, error) {
-	dir, err := gitDir(ctx)
+	loc, err := locateBinding(ctx, false)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, bindingFileName), nil
+	return filepath.Join(loc.dir, bindingFileName), nil
 }
 
 // readBinding returns the worktree's binding and its path, or a nil binding
@@ -162,30 +225,75 @@ func readBindingFile(ctx context.Context) (*binding, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	data, err := os.ReadFile(path) // #nosec G304 — path is derived from the worktree's own git dir
+	b, err := readBindingAt(path)
+	return b, path, err
+}
+
+// readBindingAt reads a binding file, or nil when there is none.
+func readBindingAt(path string) (*binding, error) {
+	data, err := os.ReadFile(path) // #nosec G304 — path is derived from the worktree's git dir or the plain directory's cache
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, path, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, path, fmt.Errorf("reading session binding %s: %w", path, err)
+		return nil, fmt.Errorf("reading session binding %s: %w", path, err)
 	}
 	var b binding
 	if err := json.Unmarshal(data, &b); err != nil {
-		return nil, path, fmt.Errorf("session binding %s is corrupt (%v) — remove it and start a new session", path, err)
+		return nil, fmt.Errorf("session binding %s is corrupt (%v) — remove it and start a new session", path, err)
 	}
 	// Keep the --json contract's slice non-null even for a file written
 	// without the key.
 	if b.PRNumbers == nil {
 		b.PRNumbers = []int{}
 	}
-	return &b, path, nil
+	return &b, nil
+}
+
+// readBindingForBind reads the binding a bind is about to replace, from where
+// that bind would write it: in a plain directory with no cache yet that is
+// "no binding" (nil), not errNoWorktree, so start and resume can run there
+// (cli#1391). Plain reports which kind of directory it is.
+func readBindingForBind(ctx context.Context) (b *binding, plain bool, err error) {
+	loc, err := locateBinding(ctx, true)
+	if err != nil {
+		return nil, false, err
+	}
+	if !loc.plain {
+		b, _, err = readBinding(ctx)
+		return b, false, err
+	}
+	b, err = readBindingAt(filepath.Join(loc.dir, bindingFileName))
+	if err == nil && b != nil {
+		noteEndedBinding(ctx, b)
+	}
+	return b, true, err
+}
+
+// errDirectoryHeld refuses a second worker's bind in a plain directory that
+// already caches another worker's binding (ruling 0230): a directory holds ONE
+// worker's binding, refused rather than shared, so two workers can never read
+// each other's binding there. A worktree keeps its documented replace.
+func errDirectoryHeld(path string, held *binding) error {
+	return exitcode.Newf(exitcode.Conflict,
+		"this directory already holds worker %s's session binding (%s, session %s): a plain directory binds one worker, and another worker's binding is never shared or replaced here. Start this worker from its own directory; or, if %s's session is over, run `hadron team session end` here (or remove %s)",
+		held.WorkerName, path, held.SessionID, held.WorkerName, path)
+}
+
+// heldByOtherWorker reports whether a plain directory's cached binding may
+// name a different worker than the one being bound. A binding with no worker
+// id cannot show it is the same worker, so it counts as held — the safe
+// direction, as the start's pre-check reads it (Gloria's BLIND F2, #1968).
+func heldByOtherWorker(held *binding, workerID string) bool {
+	return held != nil && (strings.TrimSpace(held.WorkerID) == "" || held.WorkerID != workerID)
 }
 
 func writeBinding(ctx context.Context, b *binding) (string, error) {
-	path, err := bindingPath(ctx)
+	loc, err := locateBinding(ctx, true)
 	if err != nil {
 		return "", err
 	}
+	path := filepath.Join(loc.dir, bindingFileName)
 	data, err := marshalBinding(b)
 	if err != nil {
 		return "", err
@@ -198,13 +306,32 @@ func writeBinding(ctx context.Context, b *binding) (string, error) {
 	// Unconditional, and only `session start` may call it: establishing a
 	// binding REPLACES whatever was there, which is the documented behaviour
 	// of a fresh bind. Every other writer goes through updateBinding (#499).
-	if err := withBindingLock(ctx, func() error {
+	var held *binding
+	if err := withBindingLockAt(loc, func() error {
+		if loc.plain {
+			// Under the lock, against a fresh read: the backstop for a bind
+			// whose worker was only known after the server answered (a launch
+			// grant, a resume), and for two starts racing in one directory.
+			cur, rerr := readBindingAt(path)
+			if rerr != nil {
+				return rerr
+			}
+			if heldByOtherWorker(cur, b.WorkerID) {
+				held = cur
+				return errBindingHeld
+			}
+		}
 		return config.WriteFileAtomic(path, data, 0o600)
 	}); err != nil {
+		if held != nil {
+			return "", errDirectoryHeld(path, held)
+		}
 		return "", fmt.Errorf("writing session binding %s: %w", path, err)
 	}
 	return path, nil
 }
+
+var errBindingHeld = errors.New("directory holds another worker's binding")
 
 // errNoBinding is returned by updateBinding when the worktree has no binding.
 // A distinct value because the ONE thing an update must never do is create
@@ -241,12 +368,27 @@ const bindingLockFileName = "hadron-team-session.lock"
 // EVERY writer goes through here, clearBinding included: a lock three of four
 // writers respect is not a lock.
 func withBindingLock(ctx context.Context, fn func() error) error {
-	dir, err := gitDir(ctx)
+	// Read mode: an existing cache only. Only a bind creates a plain
+	// directory's cache, so an update, a clear or a check in a plain
+	// directory with none gets errNoWorktree, as it always has.
+	loc, err := locateBinding(ctx, false)
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, bindingLockFileName)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's own git dir
+	return withBindingLockAt(loc, fn)
+}
+
+// withBindingLockAt is withBindingLock at a located cache. A plain
+// directory's cache directory is created here, owner-only, and only for a
+// bind (locateBinding's writable mode is the only way to reach a missing one).
+func withBindingLockAt(loc bindingLoc, fn func() error) error {
+	if loc.plain {
+		if err := os.MkdirAll(loc.dir, 0o700); err != nil {
+			return fmt.Errorf("creating the session binding cache %s: %w", loc.dir, err)
+		}
+	}
+	path := filepath.Join(loc.dir, bindingLockFileName)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's git dir or the plain directory's cache
 	if err != nil {
 		return fmt.Errorf("opening session binding lock %s: %w", path, err)
 	}
