@@ -146,7 +146,10 @@ type credentialFlagValue struct {
 // next or attached, and its -E/--cert and --proxy-cert carry
 // keyfile:password the same two ways; header values (-H/--header,
 // --proxy-header) need no table entry — the argument itself is a header
-// line, matched by credentialHeader whatever flag carried it; sshpass's -p
+// line, matched by credentialHeader whatever flag carried it (the
+// '='-attached long form --header=Authorization: … through the value-side
+// match in renderArgv's default branch — the regex cannot cross '=');
+// sshpass's -p
 // takes the password next or attached; mysql's -p takes the password
 // ATTACHED only — `-p db` names a database and prompts instead. ssh's -p
 // is a port and ssh takes no password on the command line, so it is not in
@@ -293,9 +296,19 @@ func renderArgv(fields []string) string {
 			name, _, _ := strings.Cut(f, ":")
 			out = append(out, name+": <redacted>")
 		default:
-			name, _, hasValue := strings.Cut(f, "=")
+			name, value, hasValue := strings.Cut(f, "=")
 			if hasValue && credentialName.MatchString(name) {
 				out = append(out, name+"=<redacted>")
+				continue
+			}
+			// A '='-attached header value (--header=Authorization: …,
+			// --proxy-header=X-Auth-Token: …): the header regex cannot
+			// cross '=', so the whole argument never matched it above and
+			// the header flags carry no table entry — the VALUE is the
+			// header line, and only its name leaves.
+			if hasValue && credentialHeader.MatchString(value) {
+				hname, _, _ := strings.Cut(value, ":")
+				out = append(out, name+"="+hname+": <redacted>")
 				continue
 			}
 			if strings.HasPrefix(f, "-") {

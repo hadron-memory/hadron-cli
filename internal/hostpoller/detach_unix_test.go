@@ -238,6 +238,18 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl --oauth2-bearer att": {[]string{"curl", "--oauth2-bearer=hdr_x"}, "curl --oauth2-bearer=<redacted>"},
 		"curl -E next":             {[]string{"curl", "-E", "k.pem:secret"}, "curl -E <redacted>"},
 		"curl --cert attached":     {[]string{"curl", "--cert=k.pem:secret"}, "curl --cert=<redacted>"},
+		// '='-attached header forms (round 9): credentialHeader cannot
+		// cross '=', so the argument --header=Authorization: … never
+		// matches it as a whole, and --header carries no table entry —
+		// the value-side match in renderArgv's default branch is what
+		// redacts these. Both '='-attached cases were RED on ed16a1da
+		// (rendered verbatim) before that fix; the glued short form
+		// matched the header regex all along and pins that it keeps
+		// doing so.
+		"curl --header attached":        {[]string{"curl", "--header=Authorization: Bearer hdr_x", "https://h"}, `curl --header=Authorization: <redacted> https://h`},
+		"curl --proxy-header att":       {[]string{"curl", "--proxy-header=X-Auth-Token: SYNTHETIC_1817"}, `curl --proxy-header=X-Auth-Token: <redacted>`},
+		"curl -H glued short":           {[]string{"curl", "-HAuthorization: Bearer hdr_x", "https://h"}, `curl -HAuthorization: <redacted> https://h`},
+		"curl --header attached cookie": {[]string{"curl", "--header=Cookie: session=hdr_x"}, `curl --header=Cookie: <redacted>`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {
