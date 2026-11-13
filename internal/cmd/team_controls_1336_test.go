@@ -249,3 +249,15 @@ func TestTeamControls1336EmptyDTOArraysAndNoDecoration(t *testing.T) {
 		}
 	}
 }
+
+func TestTeamControls1336HeldCountOnlyHuman(t *testing.T) {
+	r := taskResponses()
+	r["TeamHeldWorkers"] = `{"data":{"heldWorkers":{"items":[],"total":37}}}`
+	_, out, e := runTeamTask(t, r, "team", "worker", "held", "--user", "u", "--limit", "0")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !strings.Contains(out, "total: 37") {
+		t.Fatalf("count missing: %s", out)
+	}
+}

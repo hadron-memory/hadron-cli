@@ -71,7 +71,7 @@ server values, including hasLiveSession (not availability).`, Example: "  hadron
 		}
 		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 			if len(d.Items) == 0 {
-				_, e := fmt.Fprintln(w, "No held workers returned on this page.")
+				_, e := fmt.Fprintf(w, "No held workers returned on this page.\ntotal: %d; offset: %d; limit: %d\n", d.Total, offset, limit)
 				return e
 			}
 			t := output.NewTable(w, "WORKER", "APP", "ROLE", "HELD AT")
