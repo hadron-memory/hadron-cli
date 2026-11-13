@@ -21,7 +21,8 @@ with their own credential, or a bound worker of that App through its session.
 No worker binding is required. When this worktree has a worker binding for
 this server, it takes precedence over the person credential: a bound worker
 reading another App gets the empty answer even if the person participates
-there.
+there. An empty or blank --app is absent: the App context applies, and the
+App: header names which one was used.
 
 The App is named with --app (or the App context) and goes to the server exactly
 as given; nothing resolves or looks it up first. Every refused caller (not in
@@ -149,7 +150,10 @@ count-only: the known fields, values unchanged.`, Example: "  hadron team grant 
 		}
 		dto := grantActionPage{Items: []grantActionDTO{}, Total: resp.GrantActions.Total}
 		for _, it := range resp.GrantActions.Items {
-			if it == nil { // schema says non-null; never panic on a server that breaks it
+			// A null element (schema: non-null) is skipped and total prints as
+			// sent, while a null page is an error: neither can come from a
+			// conforming server, and a null item is defensive, not a refusal path.
+			if it == nil {
 				continue
 			}
 			dto.Items = append(dto.Items, grantActionFrom(&it.GrantActionFields))
