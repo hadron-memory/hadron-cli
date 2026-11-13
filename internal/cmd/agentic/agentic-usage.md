@@ -4177,11 +4177,12 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 
 **An Orca integration command.** It reads terminals of the Orca app, so it works only on the host that
 runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
-(no output). It only lists and reads terminals: it never types and never acknowledges a wake. Its server reads are not free of effect: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
-wake against the App's daily wake budget (an already-outstanding wake is handed out again with no second slot),
-the platform may post its once-a-day budget notice to the team chat when the budget is spent. An App-key
-`dueWakes` read is recorded when the server answers it (which key, how many workers, when); a refused one is not recorded
-nothing. With `--config`, the ticker and subscription reads are each recorded as a host-key use, refusals included; the
+(no output). It only lists and reads terminals: it never types and never acknowledges a wake.
+Its monitoring due-wake read is a preview: no wake reservation, no budget withholding and no budget
+notice. It delivers no wake and cannot be acknowledged. The server must support dueWakes(preview)
+(since hadron-server#3755); rejection fails closed with a schema-version hint, without a spending retry.
+An App-key dueWakes read is recorded when the server answers it (which key, how many workers, when);
+a refused one is not recorded. With `--config`, the ticker and subscription reads are each recorded as a host-key use, refusals included; the
 `workers` read is not recorded. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
 arguments are accepted, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and
 exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says nothing about Orca. `--all` is one JSON array only with `--json`; without it, one text line per worker.

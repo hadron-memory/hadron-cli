@@ -42,3 +42,18 @@ No production host, real budget, live stack, acknowledgement or expiry test.
 Independent QA must exercise the compiled CLI. Docs#733/#734 already own the
 related warnings; none is duplicated. Vera owns the two spec Built-line
 follow-throughs after merge. Finish the parent after verified merge.
+
+## Review delta
+
+A separate red-first test commit pins the older-server rejection path for
+GraphQL HTTP 200 and HTTP 400. Both refuse with exit 2, one request, no fallback,
+and no successful ticks. The monitoring-specific hint names dueWakes(preview),
+hadron-server#3755 and upgrading the server. Other errors still use api.MapError.
+This adds no capability probe or spending fallback and sets no global CLI
+server-version floor. Xenophon confirmed this serves the gate in chat #105024;
+server#3755 is merged at ee9b31f67d3d99c2240a7463c8a97023277d6052.
+
+QA found an older warning in status --help and the start of the agent contract
+that still described monitoring reservations/notices. Both copies now describe
+preview and fail-closed compatibility, and the old help pin now tests the
+corrected behavior. Help inventory follows.
