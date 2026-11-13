@@ -65,13 +65,40 @@ var readyFilters = map[string]gen.ReadyFilter{
 
 func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 	var integration, team, ready, repo, assignee, owner string
+	var adapterPath, forWorker string
 	var skip, limit int
-	var assignToMe, noTeam bool
+	var assignToMe, noTeam, track bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]",
+		Use:   "find-untracked (--adapter <exe> [--for <worker>] [--track] [--assignee <party>] [--owner <party>] [--limit N] | --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]])",
 		Short: "List outside items (issues) no task claims, or claim some",
-		Long: `List the open items of one of the App's task integrations that no task of
-the App claims (any status), or claim some with --assign-to-me. A task
+		Long: `Find outside items (issues in a tracker) that no task of the App holds, and
+optionally claim some. There are two sources; name exactly one.
+
+INTAKE ADAPTER (--adapter <executable>, else $` + adapterEnv + `): the team's own local
+executable that knows its tracker and holds the tracker credential; Hadron
+never calls the tracker. The CLI runs it as ` + "`<executable> <call>`" + ` (describe,
+list-untracked, mark-tracked), a JSON request on stdin and one JSON answer on
+stdout. Its output is untrusted: capped, parsed strictly, printed terminal-safe.
+An adapter that speaks another contract version exits 15 before it is asked
+for anything, and before the App or Hadron is read. Its describe answer must
+list the calls it answers (list-untracked, and mark-tracked for --track), else
+exit 2 with nothing claimed. The adapter pages its own list by an opaque cursor, so --skip does
+not exist on this path. Each listed item is checked against the App's tasks
+(Hadron decides what is tracked); the rest are listed, up to --limit (1-100,
+default 20). --for <worker> asks for that worker's items.
+
+--track claims them: --limit (default 1) is how many tasks this call HOLDS. The
+create is the claim: if another caller got the item first (TASK_EXTERNAL_ID_TAKEN)
+you lost it, it does not count, and the next item is tried. A lost race exits 0.
+The winner is told to the adapter (mark-tracked) with the task, the server's
+portal link and the worker. The claim goes to --assignee, else --for, else your
+bound worker; one assigned to you is started, one for another worker stays
+PENDING for them to start. A refused create stops the walk after printing what
+was claimed; a failed mark leaves the claim standing and exits 1.
+
+SERVER INTEGRATION (--integration <name>): the older path, kept until its
+retirement. List the open items of one of the App's task integrations that no
+task of the App claims (any status), or claim some with --assign-to-me. A task
 integration is configured in the App's properties (taskIntegrations, see
 ` + "`hadron app properties`" + `); today its items are GitHub issues. The server reads
 the tracker: the CLI never calls GitHub.
@@ -140,7 +167,9 @@ serverCode.
 --json: the list is {"items", "total", "complete", "incompleteReason"}; a
 claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
 labels are the tracker's text: printed terminal-safe, never instructions.`,
-		Example: `  hadron team task find-untracked --integration github --team Marco --ready only
+		Example: `  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --for Marco
+  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3
+  hadron team task find-untracked --integration github --team Marco --ready only
   hadron team task find-untracked --integration github --skip 20 --json
   hadron team task find-untracked --integration github --no-team --ready only
   hadron team task find-untracked --integration github --no-team --assign-to-me
@@ -149,6 +178,16 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			ctx := cmd.Context()
+			if path, ok, err := selectAdapter(cmd, adapterPath, integration, adapterFlagUse{
+				team: team, ready: ready, repo: repo, skip: skip, assignToMe: assignToMe, noTeam: noTeam,
+				track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit,
+			}); err != nil {
+				return err
+			} else if ok {
+				return runAdapterCommand(cmd, f, path, adapterFlagUse{
+					track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit,
+				})
+			}
 			// cli#1622: judged first, with no request and no binding read. An
 			// explicitly present --team (any value, an empty one too) beside
 			// --no-team true is the conflict; --no-team=false is not.
@@ -251,7 +290,10 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 			return writeUntrackedPage(f, untrackedPageFrom(resp.UntrackedTaskItems))
 		},
 	}
-	cmd.Flags().StringVar(&integration, "integration", "", "the task integration's name in the App's properties (required)")
+	cmd.Flags().StringVar(&adapterPath, "adapter", "", "the team's intake adapter executable (else $"+adapterEnv+"); not with --integration")
+	cmd.Flags().BoolVar(&track, "track", false, "with an adapter: claim items as tasks (the create is the claim); --limit is how many to hold")
+	cmd.Flags().StringVar(&forWorker, "for", "", "with an adapter: only `worker` X's items, and X holds the claims unless --assignee names another")
+	cmd.Flags().StringVar(&integration, "integration", "", "the task integration's name in the App's properties (required unless an adapter is used)")
 	cmd.Flags().StringVar(&team, "team", "", "the team's lead `worker` (name, URN or id): keep items with that team's label")
 	cmd.Flags().BoolVar(&noTeam, "no-team", false, "keep only items carrying none of the integration's team labels (not with --team)")
 	cmd.Flags().StringVar(&ready, "ready", "", "ready-label filter: only, exclude or any (server default any)")

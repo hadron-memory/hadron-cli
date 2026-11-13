@@ -53401,7 +53401,7 @@ func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResu
 // HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
 // The GraphQL type's documentation follows.
 //
-// #2771 — a report not stored for one worker: WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
 type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
 	// The worker as the host named it.
 	Worker string `json:"worker"`
@@ -55412,6 +55412,203 @@ func (v *InstallTargetInput) GetAgentRef() string { return v.AgentRef }
 
 // GetAppRef returns InstallTargetInput.AppRef, and is useful for accessing the field via an interface.
 func (v *InstallTargetInput) GetAppRef() string { return v.AppRef }
+
+// IntakeClaimTaskCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeClaimTaskCreateAgentTask struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string          `json:"handle"`
+	Title  string          `json:"title"`
+	Status AgentTaskStatus `json:"status"`
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims (an issue's canonical URL), set once at creation and never edited. Unique within the App, whatever the task's state. Null when none.
+	ExternalId *string `json:"externalId"`
+	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120) — the portal page that opens this task,
+	// <FRONTEND_URL>/app/apps/<appId>/tasks/<taskId>, printed by the server so no client builds it. Null when FRONTEND_URL
+	// is unset or malformed (as Node.portalUrl).
+	PortalUrl *string `json:"portalUrl"`
+	// Null while the task is queued.
+	Assignee *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty `json:"assignee"`
+}
+
+// GetId returns IntakeClaimTaskCreateAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetId() string { return v.Id }
+
+// GetHandle returns IntakeClaimTaskCreateAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetHandle() string { return v.Handle }
+
+// GetTitle returns IntakeClaimTaskCreateAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetTitle() string { return v.Title }
+
+// GetStatus returns IntakeClaimTaskCreateAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// GetExternalId returns IntakeClaimTaskCreateAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetExternalId() *string { return v.ExternalId }
+
+// GetPortalUrl returns IntakeClaimTaskCreateAgentTask.PortalUrl, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetPortalUrl() *string { return v.PortalUrl }
+
+// GetAssignee returns IntakeClaimTaskCreateAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTask) GetAssignee() *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty {
+	return v.Assignee
+}
+
+// IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty) GetId() string { return v.Id }
+
+// GetKind returns IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty) GetName() *string { return v.Name }
+
+// GetUrn returns IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskCreateAgentTaskAssigneeAgentTaskParty) GetUrn() *string { return v.Urn }
+
+// IntakeClaimTaskResponse is returned by IntakeClaimTask on success.
+type IntakeClaimTaskResponse struct {
+	// #1705 — create an agent task (hrn:node:hadronmemory.com:specs:cor:agt:050:06 root, :07 child). Writes
+	// task.created, and task.assigned when an assignee is named. A worker acts
+	// through its session (X-Hadron-Session); a person acts as themselves.
+	// A root task's creator may name its owner at creation — any participating
+	// worker or person (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01, ruled 2026-10-11).
+	// Typed refusals: TASK_NOT_FOUND (a parent the caller cannot read, or in
+	// another App), TASK_NOT_ASSIGNEE, TASK_ENDED, TASK_CHILD_OWNER_MISMATCH,
+	// TASK_OWNER_INVALID, TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND,
+	// APP_NOT_FOUND (an App that does not exist or that you do not participate
+	// in, alike), APP_UNINSTALLED, FORBIDDEN (impersonation), BAD_USER_INPUT.
+	// Every write re-checks the caller's participation and the App's state
+	// inside its transaction.
+	// #2198 (experiment): createAgentTask, assignAgentTask, reassignAgentTask and
+	// finishAgentTask may succeed WITH warnings, in the response's
+	// `extensions.warnings` (not in `errors`): a list of
+	// { path (the mutation's response key), code, text, register? }. Codes are a
+	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
+	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.finish.open-children, from #3267 task.start.other-started,
+	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
+	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
+	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
+	// a client must tolerate unknown codes. `text` is
+	// fixed per code. `register` appears only for a caller that has an Agent:
+	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
+	// #3491 (ruling 0176): the first three are given only when the caller may read every
+	// system memory on the chains looked up (the Team Agent's and the caller's own Agent's),
+	// as for every action answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03);
+	// otherwise, or when the lookup fails or runs out of time, it is { state: withheld },
+	// which says nothing about what the chains hold. A warning filed after the request has
+	// spent its whole read budget carries no register at all (nothing was looked up). A warning never
+	// blocks and never reveals another worker's state to a caller who could not
+	// already see it on the roster.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	CreateAgentTask *IntakeClaimTaskCreateAgentTask `json:"createAgentTask"`
+}
+
+// GetCreateAgentTask returns IntakeClaimTaskResponse.CreateAgentTask, and is useful for accessing the field via an interface.
+func (v *IntakeClaimTaskResponse) GetCreateAgentTask() *IntakeClaimTaskCreateAgentTask {
+	return v.CreateAgentTask
+}
+
+// IntakeStartTaskResponse is returned by IntakeStartTask on success.
+type IntakeStartTaskResponse struct {
+	// #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+	// #3267: may succeed with warnings, in extensions.warnings (see the experiment note on createAgentTask).
+	// Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
+	// TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	StartAgentTask *IntakeStartTaskStartAgentTask `json:"startAgentTask"`
+}
+
+// GetStartAgentTask returns IntakeStartTaskResponse.StartAgentTask, and is useful for accessing the field via an interface.
+func (v *IntakeStartTaskResponse) GetStartAgentTask() *IntakeStartTaskStartAgentTask {
+	return v.StartAgentTask
+}
+
+// IntakeStartTaskStartAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeStartTaskStartAgentTask struct {
+	Id     string          `json:"id"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns IntakeStartTaskStartAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *IntakeStartTaskStartAgentTask) GetId() string { return v.Id }
+
+// GetStatus returns IntakeStartTaskStartAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *IntakeStartTaskStartAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// IntakeTasksByExternalIdsAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeTasksByExternalIdsAgentTasksAgentTask struct {
+	Id string `json:"id"`
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims (an issue's canonical URL), set once at creation and never edited. Unique within the App, whatever the task's state. Null when none.
+	ExternalId *string `json:"externalId"`
+}
+
+// GetId returns IntakeTasksByExternalIdsAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *IntakeTasksByExternalIdsAgentTasksAgentTask) GetId() string { return v.Id }
+
+// GetExternalId returns IntakeTasksByExternalIdsAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *IntakeTasksByExternalIdsAgentTasksAgentTask) GetExternalId() *string { return v.ExternalId }
+
+// IntakeTasksByExternalIdsResponse is returned by IntakeTasksByExternalIds on success.
+type IntakeTasksByExternalIdsResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*IntakeTasksByExternalIdsAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns IntakeTasksByExternalIdsResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *IntakeTasksByExternalIdsResponse) GetAgentTasks() []*IntakeTasksByExternalIdsAgentTasksAgentTask {
+	return v.AgentTasks
+}
 
 // InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
 // The GraphQL type's documentation follows.
@@ -73749,6 +73946,8 @@ type ReportHostOperationResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:agt:070:03). Only after collecting it, and only its own host's (another's is
 	// HOST_OPERATION_NOT_FOUND). The same outcome again answers the operation as it is; a different one is
 	// HOST_OPERATION_ALREADY_REPORTED. Writes host.operation.succeeded or host.operation.failed.
+	// #4062: HOST_OPERATION_ALREADY_REPORTED carries the operation id in extensions.id and the outcome already recorded in
+	// extensions.status, as a HostOperationStatus value (SUCCEEDED or FAILED); read the outcome there, not from the message.
 	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
 	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
 	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
@@ -89261,7 +89460,7 @@ func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.Allows }
 
 // TeamCreateGrantResponse is returned by TeamCreateGrant on success.
 type TeamCreateGrantResponse struct {
-	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
+	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter, or a node-typed value that does not name a node the requester can read: a missing, deleted, unreadable and malformed id are the same answer, hrn:node:hadronmemory.com:specs:cor:acl:140:07), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
 	CreateGrant *TeamCreateGrantCreateGrant `json:"createGrant"`
 }
 
@@ -106592,8 +106791,30 @@ var AllWorkerTerminalReason = []WorkerTerminalReason{
 	WorkerTerminalReasonUnrecognized,
 }
 
+// #4041 (V82, hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-12-vera-rulings-host-repair-notice;
+// hrn:node:hadronmemory.com:specs:cor:agt:070:01) — what a host's sweep did about a dark worker. A closed set, never
+// free text. The PLATFORM posts the notice, never the host key.
+type WorkerTerminalRepair string
+
+const (
+	// The host's relaunch attempt cap was reached.
+	WorkerTerminalRepairCapReached WorkerTerminalRepair = "CAP_REACHED"
+	// The worker has no launch snapshot, so the host could not relaunch it.
+	WorkerTerminalRepairNoSnapshot WorkerTerminalRepair = "NO_SNAPSHOT"
+	// The host relaunched the worker; carries attempt.
+	WorkerTerminalRepairRelaunched WorkerTerminalRepair = "RELAUNCHED"
+)
+
+var AllWorkerTerminalRepair = []WorkerTerminalRepair{
+	WorkerTerminalRepairCapReached,
+	WorkerTerminalRepairNoSnapshot,
+	WorkerTerminalRepairRelaunched,
+}
+
 // #2771 — one worker's terminal report. There is no free-text field.
 type WorkerTerminalReportInput struct {
+	// The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
 	// When the worker's last turn ended, not after checkedAt.
@@ -106601,10 +106822,16 @@ type WorkerTerminalReportInput struct {
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
 	// Required for locked and dark; refused for busy and idle.
 	Reason *WorkerTerminalReason `json:"reason,omitempty"`
+	// #4041 (V82) — the outcome of the host's repair of a dark worker. Valid only with status dark; on a busy, idle or
+	// locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
+	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
 	Status WorkerTerminalState   `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
 }
+
+// GetAttempt returns WorkerTerminalReportInput.Attempt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
@@ -106617,6 +106844,9 @@ func (v *WorkerTerminalReportInput) GetPrompt() WorkerTerminalPrompt { return v.
 
 // GetReason returns WorkerTerminalReportInput.Reason, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetRepair returns WorkerTerminalReportInput.Repair, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetRepair() *WorkerTerminalRepair { return v.Repair }
 
 // GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }
@@ -112709,6 +112939,34 @@ func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
+
+// __IntakeClaimTaskInput is used internally by genqlient
+type __IntakeClaimTaskInput struct {
+	Input *CreateAgentTaskInput `json:"input,omitempty"`
+}
+
+// GetInput returns __IntakeClaimTaskInput.Input, and is useful for accessing the field via an interface.
+func (v *__IntakeClaimTaskInput) GetInput() *CreateAgentTaskInput { return v.Input }
+
+// __IntakeStartTaskInput is used internally by genqlient
+type __IntakeStartTaskInput struct {
+	TaskId string `json:"taskId"`
+}
+
+// GetTaskId returns __IntakeStartTaskInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__IntakeStartTaskInput) GetTaskId() string { return v.TaskId }
+
+// __IntakeTasksByExternalIdsInput is used internally by genqlient
+type __IntakeTasksByExternalIdsInput struct {
+	AppRef      string   `json:"appRef"`
+	ExternalIds []string `json:"externalIds"`
+}
+
+// GetAppRef returns __IntakeTasksByExternalIdsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__IntakeTasksByExternalIdsInput) GetAppRef() string { return v.AppRef }
+
+// GetExternalIds returns __IntakeTasksByExternalIdsInput.ExternalIds, and is useful for accessing the field via an interface.
+func (v *__IntakeTasksByExternalIdsInput) GetExternalIds() []string { return v.ExternalIds }
 
 // __InviteUserInput is used internally by genqlient
 type __InviteUserInput struct {
@@ -138879,6 +139137,134 @@ func InstallMemory(
 	}
 
 	data_ = &InstallMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by IntakeClaimTask.
+const IntakeClaimTask_Operation = `
+mutation IntakeClaimTask ($input: CreateAgentTaskInput!) {
+	createAgentTask(input: $input) {
+		id
+		handle
+		title
+		status
+		externalId
+		portalUrl
+		assignee {
+			id
+			kind
+			name
+			urn
+		}
+	}
+}
+`
+
+// The claim: an ordinary root create naming the external id. The create IS the
+// claim (TASK_EXTERNAL_ID_TAKEN means another caller won). portalUrl is the
+// server's, printed for the adapter's mark; null when the server prints none.
+// The same omit-vs-null directives as AgentTaskCreate (agenttasks.graphql): both
+// documents bind CreateAgentTaskInput, and genqlient resolves a shared input's
+// per-field omitempty from whichever documents name it, so a document without
+// them makes the generated tags flip between runs.
+func IntakeClaimTask(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateAgentTaskInput,
+) (data_ *IntakeClaimTaskResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeClaimTask",
+		Query:  IntakeClaimTask_Operation,
+		Variables: &__IntakeClaimTaskInput{
+			Input: input,
+		},
+	}
+
+	data_ = &IntakeClaimTaskResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by IntakeStartTask.
+const IntakeStartTask_Operation = `
+mutation IntakeStartTask ($taskId: ID!) {
+	startAgentTask(taskId: $taskId) {
+		id
+		status
+	}
+}
+`
+
+// The claimant starts a task it assigned to itself (assignee-only).
+func IntakeStartTask(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+) (data_ *IntakeStartTaskResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeStartTask",
+		Query:  IntakeStartTask_Operation,
+		Variables: &__IntakeStartTaskInput{
+			TaskId: taskId,
+		},
+	}
+
+	data_ = &IntakeStartTaskResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by IntakeTasksByExternalIds.
+const IntakeTasksByExternalIds_Operation = `
+query IntakeTasksByExternalIds ($appRef: ID!, $externalIds: [String!]!) {
+	agentTasks(appRef: $appRef, externalIds: $externalIds) {
+		id
+		externalId
+	}
+}
+`
+
+// Which of these outside items does a task of the App already hold? Hadron's
+// check is authoritative (cor:agt:120): an item is dropped only because a task
+// holds it. 1 to 100 ids; each is compared exactly as written, in any state.
+func IntakeTasksByExternalIds(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	externalIds []string,
+) (data_ *IntakeTasksByExternalIdsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeTasksByExternalIds",
+		Query:  IntakeTasksByExternalIds_Operation,
+		Variables: &__IntakeTasksByExternalIdsInput{
+			AppRef:      appRef,
+			ExternalIds: externalIds,
+		},
+	}
+
+	data_ = &IntakeTasksByExternalIdsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
