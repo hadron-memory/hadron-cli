@@ -299,6 +299,17 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"glued -H uppercase name":          {[]string{"curl", "-HAUTHORIZATION: Bearer x"}, `curl -HAUTHORIZATION: <redacted>`},
 		// A trailing space before ':' is the same header name (N-18).
 		"header name before spaced colon": {[]string{"curl", "-H", "Authorization : x"}, `curl -H Authorization: <redacted>`},
+		// The detector runs on the rendered pieces, after classification: a
+		// known token inside a header-shaped name or a credential-named
+		// assignment must not break the keyword rules and let the value
+		// through (§10 seat, cli#1982).
+		"token-named header with prefix token": {[]string{"tool", "token_ghp_" + tok36 + ":hunter2"}, `tool <redacted>`},
+		"x-auth header with prefix token":      {[]string{"curl", "X-Auth-ghp_" + tok36 + ": hunter2"}, `curl <redacted>`},
+		"env header with prefix token":         {[]string{"env", "HDR=X-Auth-ghp_" + tok36 + ": hunter2"}, `env HDR=<redacted>`},
+		"flag header with prefix token":        {[]string{"tool", "--x=X-Token-ghp_" + tok36 + ":hunter2"}, `tool --x=<redacted>`},
+		"keyword inside token body":            {[]string{"tool", "--opt-ghp_" + tok36 + "TOKEN", "hunter2"}, `tool --opt-<redacted> <redacted>`},
+		"aws temporary key id":                 {[]string{"tool", "ASIAABCDEFGHIJKLMNOP"}, `tool <redacted>`},
+		"github oauth token letter":            {[]string{"tool", "gho_" + tok36}, `tool <redacted>`},
 		// Known credential prefixes (cli#1972 N-19): the token renders
 		// <redacted> wherever it sits; the rest of the argument stays.
 		"env prefix token colon":    {[]string{"env", "UPSTREAM=ghp_" + tok36 + ":x-oauth-basic", "curl"}, `env UPSTREAM=<redacted>:x-oauth-basic curl`},

@@ -315,7 +315,7 @@ func renderArgv(fields []string) string {
 	credFrom := -1
 	redactNext := false
 	for i, f := range fields {
-		f = redactKnownTokens(stripURLUserinfo(f))
+		f = stripURLUserinfo(f)
 		// Arm at EVERY credential-flag binary on the line, ACCUMULATING:
 		// the union of the armed tables applies to everything after the
 		// first one, and a later binary never disarms an earlier one's
@@ -418,6 +418,14 @@ func renderArgv(fields []string) string {
 			}
 			out = append(out, quoteArg(f))
 		}
+	}
+	// Known tokens are redacted on the RENDERED pieces, never before the
+	// classification above: a "<redacted>" inside a header-shaped name would
+	// break the anchored credentialHeader/credentialName matches and let the
+	// value fall through verbatim. Applied last, the output can only lose
+	// characters relative to what the rules above rendered.
+	for i := range out {
+		out[i] = redactKnownTokens(out[i])
 	}
 	line := strings.Join(out, " ")
 	if len(line) > argvDisplayLimit {
