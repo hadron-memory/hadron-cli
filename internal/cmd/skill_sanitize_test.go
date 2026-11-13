@@ -28,10 +28,10 @@ func TestSkillLintSanitizesCellsInText(t *testing.T) {
 		"NodeBatch": batchOf(
 			sanSkillNode("n1", p+hostileCellLabel, "tasks:a", props),
 			sanSkillNode("n2", p+longCellText, "tasks:b", props)),
-		"SkillPlan": skillLintPlan(
+		"SkillLintPlan": skillLintPlan(
 			skillLintEntry("n1", skillLintFinding(p+hostileCellLabel, "mem1", "skill-not-runnable", "error", "node declares a skill but isRunnable is not true — a skill is a runnable task; set it (`hadron node update <urn> --runnable`) or drop the declaration")),
 			skillLintEntry("n2", skillLintFinding(p+longCellText, "mem1", "skill-not-runnable", "error", "node declares a skill but isRunnable is not true — a skill is a runnable task; set it (`hadron node update <urn> --runnable`) or drop the declaration"))),
-		"SkillPlan:claudeSkill": skillLintPlan(
+		"SkillLintPlan:claudeSkill": skillLintPlan(
 			skillLintEntry("n1",
 				skillLintFinding(p+hostileCellLabel, "mem1", "skill-not-runnable", "error", "node declares a skill but isRunnable is not true — a skill is a runnable task; set it (`hadron node update <urn> --runnable`) or drop the declaration"),
 				skillLintFinding(p+hostileCellLabel, "mem1", "skill-legacy-key", "warning", "declared under properties.claudeSkill — move it to properties.exports.claudeSkill (D12: an object keyed by host, carrying {name, description, enable}); the old key is read as an alias only")),
