@@ -50,8 +50,8 @@ func TestTeamControls1336ReachEveryGap(t *testing.T) {
 					if _, ok := vars["minCadenceSeconds"]; ok {
 						t.Fatal("omitted ticker field sent")
 					}
-					if vars["clearWakeDailyBudget"] != false {
-						t.Fatal(vars)
+					if _, ok := vars["clearWakeDailyBudget"]; ok {
+						t.Fatalf("explicit false is the same as omitting it and must not be sent: %v", vars)
 					}
 				}
 				if !reflect.DeepEqual(vars[tc.key], tc.want) {
@@ -98,7 +98,8 @@ func TestTeamControls1336TickerPatch(t *testing.T) {
 		want map[string]any
 	}{
 		{[]string{"--wake-daily-budget", "0"}, map[string]any{"wakeDailyBudget": float64(0)}},
-		{[]string{"--clear-wake-daily-budget=false"}, map[string]any{"clearWakeDailyBudget": false}},
+		// =false next to a real field is dropped, not sent (cli#1986).
+		{[]string{"--live-cap", "7", "--clear-wake-daily-budget=false"}, map[string]any{"liveCap": float64(7)}},
 		{[]string{"--clear-wake-daily-budget"}, map[string]any{"clearWakeDailyBudget": true}},
 		{[]string{"--min-cadence-seconds", "1", "--live-cap", "101"}, map[string]any{"minCadenceSeconds": float64(1), "liveCap": float64(101)}},
 	} {
