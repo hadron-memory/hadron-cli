@@ -98,7 +98,9 @@ func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
 		if _, err := srv.Batches(ctx); err != nil {
 			return nil, postHostPreflightFailure(err, "host delivery read")
 		}
-		p.deliver = delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), cfg.DeliveryStateDir())
+		dlv := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), cfg.DeliveryStateDir())
+		dlv.Registered = func() delivery.Registered { return cfg.Registered(state) }
+		p.deliver = dlv
 		return p, nil
 	}
 }

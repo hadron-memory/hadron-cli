@@ -136,6 +136,7 @@ poller.
      not decided here.
 3. **Find the terminal**, fresh: in a registered worktree (cleaned,
    symlinks resolved), an agent and never a shell.
+   - **A plain directory (no `.git`)** is found by the handle in its `.hadron-team/terminal.json` instead of by path, after checks (a) listed, connected, writable, agent; (b) no other worker's record names it; (c) its worktree is not another worker's. Holds: `no-terminal-record`, `terminal-stale`, `terminal-claimed`, `terminal-bound-elsewhere` (cli#1989). The binding is read from the same directory's cache, only when `.git` is absent.
    - **Two agent terminals:** hold `two-agents`.
    - **None:** skipped, and no hold is invented.
    - **Disconnected, or the interface doesn't match:** hold `screen-unknown`.
