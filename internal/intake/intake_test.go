@@ -278,3 +278,12 @@ func TestCallerCancelIsNotAnAdapterRefusal(t *testing.T) {
 		t.Fatalf("an interrupt must not read as an adapter refusal: %v", err)
 	}
 }
+
+// The server counts code points, not UTF-16 units: 512 astral characters are
+// within its cap (1024 units, 2048 bytes) and must not be refused here.
+func TestExternalIDCountsCodePointsLikeTheServer(t *testing.T) {
+	r := adapter(t, `cat >/dev/null; printf '{"items":[{"externalId":"'; yes '😀' | head -n 512 | tr -d '\n'; printf '","title":"t"}]}'`)
+	if _, err := r.ListUntracked(context.Background(), "", "", 20); err != nil {
+		t.Fatalf("512 code points is within the server cap: %v", err)
+	}
+}

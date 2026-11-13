@@ -26,7 +26,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -44,7 +43,7 @@ const (
 	MaxStderrBytes      = 4096    // kept for the refusal message only
 	MaxItemsPerPage     = 100
 	MaxPages            = 50
-	ServerExternalIDMax = 512  // the server's externalId cap, in UTF-16 code units
+	ServerExternalIDMax = 512  // the server's externalId cap, counted in code points (references.ts: for..of)
 	MaxExternalIDLen    = 2048 // the server's own cap is 512; this only bounds memory
 	MaxCursorLen        = 4096
 	MaxTextLen          = 1024 // adapter-supplied display text: name, title
@@ -311,8 +310,8 @@ func (r *Runner) ListUntracked(ctx context.Context, cursor, forWorker string, li
 			return Page{}, err
 		}
 		// The server refuses a whole externalIds batch if one entry exceeds
-		// its 512-character (UTF-16 unit) rule, so enforce it here per item.
-		if n := len(utf16.Encode([]rune(it.ExternalID))); n > ServerExternalIDMax {
+		// its 512-code-point rule, so enforce it here per item.
+		if utf8.RuneCountInString(it.ExternalID) > ServerExternalIDMax {
 			return Page{}, &OutputError{Call: "list-untracked", Reason: fmt.Sprintf("item %d externalId is longer than %d characters", i, ServerExternalIDMax)}
 		}
 		if err := boundedText("list-untracked", "a title", it.Title, MaxTextLen); err != nil {
