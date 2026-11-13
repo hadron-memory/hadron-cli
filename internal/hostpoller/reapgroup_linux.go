@@ -24,8 +24,9 @@ import (
 const leaderHoldCapable = true
 
 // The waitid answer's si_code values for a waited-out exit (the kernel's
-// stable UAPI; x/sys does not export them). Every other si_code a WEXITED
-// wait can report is not an exit at all, and reads as unknownStatus.
+// stable UAPI; this x/sys pin does not export them). Every other si_code
+// a WEXITED wait can report is not an exit at all, and reads as
+// unknownStatus.
 const (
 	cldExited = 1
 	cldKilled = 2
@@ -42,8 +43,8 @@ const (
 //
 // The two words are read at their per-architecture places, computed rather
 // than hardcoded: si_code through x/sys's Siginfo field, whose declaration
-// already encodes the one architecture (MIPS64) that orders the leading
-// words differently, and si_status at a pointer-aligned offset derived
+// already encodes the MIPS word-order swap (__ARCH_HAS_SWAPPED_SIGINFO —
+// every MIPS, not only MIPS64), and si_status at a pointer-aligned offset derived
 // from the build's word size — 24 on a 64-bit build, 20 on a 32-bit one —
 // because the siginfo union starts after the three leading int32 words,
 // padded up to pointer alignment, and si_status is the third word of it.
@@ -53,23 +54,24 @@ const (
 // running under different credentials (sudo, any setuid wrapper) — which
 // read a failed or signalled exit as an authoritative "exit status 0".
 var waitLeaderExit = func(pid int) (leaderExit, error) {
-	var raw [128]byte
+	var info unix.Siginfo
 	_, _, errno := unix.Syscall6(unix.SYS_WAITID,
-		uintptr(unix.P_PID), uintptr(pid), uintptr(unsafe.Pointer(&raw[0])),
+		uintptr(unix.P_PID), uintptr(pid), uintptr(unsafe.Pointer(&info)),
 		uintptr(unix.WEXITED|unix.WNOWAIT), 0, 0)
 	if errno != 0 {
 		return leaderExit{kind: unknownStatus}, errno
 	}
-	// si_code comes through the x/sys struct overlay, whose declaration
-	// already encodes the one architecture (MIPS64) that orders the
-	// leading words differently. si_status sits eight bytes into the union
-	// (after its pid and uid words); the union starts at the three leading
-	// words rounded up to pointer alignment, so its offset is derived from
-	// the build's word size. The reads are unsafe.Pointer, not binary:
-	// the kernel fills the buffer in the build's native byte order.
+	// si_code comes through the typed x/sys struct, whose declaration
+	// already encodes the MIPS word-order swap (__ARCH_HAS_SWAPPED_SIGINFO
+	// — every MIPS, not only MIPS64). si_status sits eight bytes into the
+	// union (after its pid and uid words); the union starts at the three
+	// leading words rounded up to pointer alignment, so its offset is
+	// derived from the build's word size. The struct itself is the waitid
+	// buffer — properly aligned by its own type — and the kernel fills it
+	// in the build's native byte order.
 	union := (12 + int(unsafe.Sizeof(uintptr(0))) - 1) &^ (int(unsafe.Sizeof(uintptr(0))) - 1)
-	status := *(*int32)(unsafe.Pointer(&raw[union+8]))
-	switch (*unix.Siginfo)(unsafe.Pointer(&raw[0])).Code {
+	status := *(*int32)(unsafe.Add(unsafe.Pointer(&info), union+8))
+	switch info.Code {
 	case cldExited:
 		return leaderExit{kind: exitStatus, status: int(status)}, nil
 	case cldKilled:

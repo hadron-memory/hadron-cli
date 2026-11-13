@@ -462,12 +462,6 @@ func procState(pid int) byte {
 	return stat[i+2]
 }
 
-// A launch whose waitid hold cannot be taken must still be STOPPABLE while
-// its leader lives: the polling hold that takes over neither holds the stop
-// mutex nor blocks on the leader — it ticks on /proc — so Terminate keeps
-// the probe oracle a real one exactly then (the live leader keeps the
-// number allocated) (#1474; delta round 6, Jane D5: the hold's reap side
-// is pinned by TestWaitidRefusalStillHoldsThroughProc).
 // stopAndWait terminates the launch and waits out the waiter's watcher
 // decision, so no drain watcher a test armed survives into a later test
 // that swaps the package vars it reads through. The wait is bounded: an

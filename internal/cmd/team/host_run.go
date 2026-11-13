@@ -254,7 +254,9 @@ live — the number is bound to a live leader and cannot be reused — and
 once the leader's exit is observed there, the stop refuses to reach for
 the number (an exit frees it at a moment no mutex governs, and a process
 that took the reused number would answer a probe or take a signal): the
-stop reports it unconfirmed and keeps the records instead. The instant
+stop reports it unconfirmed and keeps the records instead. On those
+platforms a stop that signals a live launch is always reported unconfirmed,
+even when the launch did stop, and its entry is kept. The instant
 between a stop's last exit-check and its signal is those platforms'
 un-closable window — no syscall there both proves the number is bound and
 signals it. Linux is the hardened platform for this stop. On Windows the
