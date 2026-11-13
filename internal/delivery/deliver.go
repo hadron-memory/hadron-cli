@@ -138,9 +138,12 @@ type Deliverer struct {
 	// Registered lists every registered worker's directories, for the
 	// plain-directory claim checks (cli#1989). nil: only the recipient.
 	Registered func() Registered
-	Now        func() time.Time
-	Budget     time.Duration
-	Emit       func(Event)
+	// ProcessGone says no process has a pid (ESRCH and nothing else); nil is
+	// the host's real test. A seam for the claim liveness tests.
+	ProcessGone func(pid int) bool
+	Now         func() time.Time
+	Budget      time.Duration
+	Emit        func(Event)
 
 	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
 	Wakes       WakeServer
@@ -459,8 +462,18 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 		}
 	}
 	if len(plains) > 0 {
-		c := d.claims(r)
+		c, ok := d.claims(r)
+		if !ok {
+			// No view of the other workers: neither (b) nor (c) can be
+			// judged, so nothing is typed.
+			return none, nil, "", l.hold(HoldTerminalClaimed, ""), false
+		}
 		for _, dir := range plains {
+			// Every plain directory's binding names this worker, not only
+			// the first one a shared handle resolves through.
+			if d.Bound(dir) != r.WorkerID {
+				return none, nil, "", l.hold(HoldBindingMismatch, ""), false
+			}
 			t, reason, handle, ok := d.plainTerminal(terms, dir, r, c)
 			if !ok {
 				return none, nil, "", l.hold(reason, handle), false

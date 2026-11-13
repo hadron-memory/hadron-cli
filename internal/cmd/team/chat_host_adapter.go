@@ -98,11 +98,17 @@ func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
 		if _, err := srv.Batches(ctx); err != nil {
 			return nil, postHostPreflightFailure(err, "host delivery read")
 		}
-		dlv := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), cfg.DeliveryStateDir())
-		dlv.Registered = func() delivery.Registered { return cfg.Registered(state) }
-		p.deliver = dlv
+		p.deliver = newPostHostDeliverer(srv, cfg, state)
 		return p, nil
 	}
+}
+
+// newPostHostDeliverer is the C2 path's deliverer. Registered is required
+// for plain-directory workers' claim checks (cli#1989): without it they hold.
+func newPostHostDeliverer(srv delivery.Server, cfg *hostpoller.Config, state *hostpoller.State) *delivery.Deliverer {
+	d := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), cfg.DeliveryStateDir())
+	d.Registered = func() delivery.Registered { return cfg.Registered(state) }
+	return d
 }
 
 // The state/config identify this poller's registration and permitted local
