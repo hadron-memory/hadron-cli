@@ -6246,9 +6246,10 @@ dailyWakeBudget,dailyWakeBudgetDerived}. Refusals map as everywhere (FORBIDDEN 8
 
 `hadron team ticker settings set` changes only supplied flags:
 --min-cadence-seconds, --live-cap, --self-subscribe-cadence-seconds,
---wake-daily-budget, --clear-wake-daily-budget[=false]. Omitted preserves; null
-is refused. Clear=true returns to a derived budget; explicit false remains false.
-A set that names no field is refused (usage, exit 2) before any request; no standby flag or instruction.
+--wake-daily-budget, --clear-wake-daily-budget. Omitted preserves; null
+is refused. Clear=true returns to a derived budget; =false means "do not clear", the same as
+omitting it, and is not sent. A set that names no field (a lone =false included) is refused
+(usage, exit 2) before any request; no standby flag or instruction.
 Server bounds: floor>=60s, self-subscription between floor and 86400s, live cap 1–100,
 budget>=0; server also checks existing ticker/delivery conflicts. The CLI parses
 GraphQL whole-number shape only. JSON: {minCadenceSeconds,liveCap,
@@ -6266,15 +6267,12 @@ hadron team register candidates <code> [--limit N] [--offset N]
 hadron team register pick <code> [--worker <id-or-URN>]
 hadron team register attendee --agent <id-or-URN>  # or --worker (exactly one)
 
-`team register candidates <code> [--limit N] [--offset N]` and
-`team register pick <code> [--worker <id-or-URN>]` are experimental read-only
-projections. Never assign, route or deliver; never re-rank/filter the server's
+`candidates` and `pick` are experimental read-only projections. Never assign, route or deliver; never re-rank/filter the server's
 answer. candidates JSON: {appId,code,depth,taskLoc,total,candidates}; each candidate
 has depth,role,taskUrn,worker{id,kind,name,urn}; depth/taskLoc/role/name/urn may be
 null. pick JSON: {appId,code,entries:[{id,kind}]}. Empty arrays stay [].
 
-
-`team register attendee --agent <id-or-URN>` (or --worker, exactly one) reads the
+`attendee` (exactly one of --agent or --worker) reads the
 resolved Channel register, separate from the action register index printed by
 plain `team register`. JSON array rows retain attendeeUrn,namedBy,canRead,canPost,
 lastSeenSeq and channel{id,name,loc}; nullable values are not interpreted as false.

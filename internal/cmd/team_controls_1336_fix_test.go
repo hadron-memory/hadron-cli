@@ -50,6 +50,60 @@ func TestTeamControls1336FieldlessTickerSetRefusedBeforeRequest(t *testing.T) {
 	}
 }
 
+// cli#1986 item 1: clearWakeDailyBudget:false means "don't clear" on the server
+// (resolvers.ticker.ts:725), exactly like omitting it, so an explicit false on
+// its own names nothing and is refused before any request.
+func TestTeamControls1336ExplicitFalseBudgetClearRefusedBeforeRequest(t *testing.T) {
+	for _, argv := range [][]string{
+		{"team", "ticker", "settings", "set", "--clear-wake-daily-budget=false"},
+		{"team", "ticker", "settings", "set", "--clear-wake-daily-budget=false", "--json"},
+	} {
+		calls, _, err := runTeamTask(t, taskResponses(), argv...)
+		if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "nothing was sent") {
+			t.Fatalf("%v: err %v, want a usage refusal", argv, err)
+		}
+		if len(*calls) != 0 {
+			t.Fatalf("%v: requests %v", argv, *calls)
+		}
+	}
+}
+
+// cli#1986 item 3: text-mode receipt of `role update --repo`.
+func TestTeamControls1336RoleUpdateRepoTextReceipt(t *testing.T) {
+	r := taskResponses()
+	r["TeamRoles"] = teamRolesRmJSON
+	r["UpdateTeamRoleRepos"] = `{"data":{"updateTeamRole":{"role":"frontend-engineer","loc":"roles:frontend-engineer","nodeId":"role1","repos":["a/b","c/d"],"roleAgent":null}}}`
+	_, out, err := runTeamTask(t, r, "team", "role", "update", "frontend-engineer", "--repo", "a/b", "--repo", "c/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "updated role frontend-engineer; repos: a/b, c/d\n") {
+		t.Fatalf("role update --repo text: %q", out)
+	}
+}
+
+// cli#1986 item 3: text-mode attendee table, including a withheld canPost.
+func TestTeamControls1336AttendeeTableText(t *testing.T) {
+	r := taskResponses()
+	r["TeamAttendeeRegister"] = `{"data":{"attendeeRegister":[` +
+		`{"attendeeUrn":null,"namedBy":"AGENT","canRead":true,"canPost":true,"lastSeenSeq":null,"channel":{"id":"c1","name":"team-chat","loc":"chan:team"}},` +
+		`{"attendeeUrn":null,"namedBy":"WORKER","canRead":false,"canPost":null,"lastSeenSeq":null,"channel":{"id":"c2","name":"ops","loc":"chan:ops"}}]}}`
+	_, out, err := runTeamTask(t, r, "team", "register", "attendee", "--agent", "agent-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if strings.Contains(l, "team-chat") || strings.Contains(l, "ops") {
+			rows = append(rows, strings.Join(strings.Fields(l), " "))
+		}
+	}
+	want := []string{"team-chat AGENT true true", "ops WORKER false withheld"}
+	if len(rows) != 2 || rows[0] != want[0] || rows[1] != want[1] {
+		t.Fatalf("attendee rows %q, want %q\nfull: %q", rows, want, out)
+	}
+}
+
 // LOCAL P3-3 / §10 P3-1: the interactive revoke prompt was unpinned; deleting it
 // left every 1336 test green.
 func TestTeamControls1336GrantRmPromptDeclineAndAccept(t *testing.T) {
@@ -128,10 +182,18 @@ func TestTeamControls1336ClearReposFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--clear-repos=false next to --repo is not a conflict: %v", err)
 	}
+	sent := 0
 	for _, c := range *calls {
-		if c.Op == "UpdateTeamRoleRepos" && !strings.Contains(strings.ReplaceAll(toJSON1336(c.Vars["repos"]), " ", ""), `"a/b"`) {
-			t.Fatalf("repos %#v", c.Vars["repos"])
+		if c.Op != "UpdateTeamRoleRepos" {
+			continue
 		}
+		sent++
+		if got := toJSON1336(c.Vars["repos"]); got != `["a/b"]` {
+			t.Fatalf("repos %s, want [\"a/b\"]", got)
+		}
+	}
+	if sent != 1 {
+		t.Fatalf("UpdateTeamRoleRepos sent %d times, want 1: %v", sent, *calls)
 	}
 	calls, _, err = runTeamTask(t, taskResponses(), "team", "role", "update", "frontend-engineer", "--clear-repos=false")
 	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "nothing to update") || len(*calls) != 0 {
@@ -170,14 +232,19 @@ func TestTeamControls1336HeldIncludeRetiredAndBounds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		matched := 0
 		for _, c := range *calls {
 			if c.Op != "TeamHeldWorkers" {
 				continue
 			}
+			matched++
 			v, present := c.Vars["includeRetired"]
 			if present != tc.sent || (tc.sent && v != tc.want) {
 				t.Fatalf("%v: includeRetired present=%t value=%v", tc.args, present, v)
 			}
+		}
+		if matched != 1 {
+			t.Fatalf("%v: TeamHeldWorkers sent %d times, want 1", tc.args, matched)
 		}
 	}
 	for _, args := range [][]string{{"--limit", "2147483648"}, {"--offset", "2147483648"}, {"--limit", "-1"}} {
