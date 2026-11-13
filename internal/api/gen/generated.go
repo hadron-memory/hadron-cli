@@ -53401,7 +53401,7 @@ func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResu
 // HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
 // The GraphQL type's documentation follows.
 //
-// #2771 — a report not stored for one worker: WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
 type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
 	// The worker as the host named it.
 	Worker string `json:"worker"`
@@ -73749,6 +73749,8 @@ type ReportHostOperationResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:agt:070:03). Only after collecting it, and only its own host's (another's is
 	// HOST_OPERATION_NOT_FOUND). The same outcome again answers the operation as it is; a different one is
 	// HOST_OPERATION_ALREADY_REPORTED. Writes host.operation.succeeded or host.operation.failed.
+	// #4062: HOST_OPERATION_ALREADY_REPORTED carries the operation id in extensions.id and the outcome already recorded in
+	// extensions.status, as a HostOperationStatus value (SUCCEEDED or FAILED); read the outcome there, not from the message.
 	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
 	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
 	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
@@ -89261,7 +89263,7 @@ func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.Allows }
 
 // TeamCreateGrantResponse is returned by TeamCreateGrant on success.
 type TeamCreateGrantResponse struct {
-	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
+	// #3690 PR 2 (hrn:node:hadronmemory.com:specs:cor:acl:140:05) — ask for a grant. A bound worker session may call it, in its own App, for itself or its role agent (installed in the App). #3711: a PERSON who manages the App may call it too, naming the App in input.appRef, for a worker of the App or an agent installed in it; the row records that person, never a worker. Either way the row is born pending and allows nothing until it is signed (#3649). Returns the grant as grant(ref:) reads it (a manager reads it as appGrants does). Refusals, each before any write and none naming a submitted value: GRANT_REQUESTER_NOT_WORKER, GRANT_NOT_MANAGER (a person arm caller who does not manage the App, and an unknown App: the same answer), GRANT_HOLDER_NOT_ALLOWED (any other holder, or an agent not installed here), GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID (a value that does not match the action's declared parameters, or an undeclared key, or a list above 100 entries per parameter, or a node-typed value that does not name a node the requester can read: a missing, deleted, unreadable and malformed id are the same answer, hrn:node:hadronmemory.com:specs:cor:acl:140:07), GRANT_TERMS_INVALID (including a reason above 2,000 Unicode code points; hrn:node:hadronmemory.com:specs:cor:acl:140:01). These write-path limits never prevent rebuilding an existing grant's signature terms. Over MCP only the person arm exists (hadron_create_grant, ruling 0255 item 21). Present only where signing is switched on (PASSKEY_SIGNING_ENABLED).
 	CreateGrant *TeamCreateGrantCreateGrant `json:"createGrant"`
 }
 
@@ -106592,8 +106594,30 @@ var AllWorkerTerminalReason = []WorkerTerminalReason{
 	WorkerTerminalReasonUnrecognized,
 }
 
+// #4041 (V82, hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-12-vera-rulings-host-repair-notice;
+// hrn:node:hadronmemory.com:specs:cor:agt:070:01) — what a host's sweep did about a dark worker. A closed set, never
+// free text. The PLATFORM posts the notice, never the host key.
+type WorkerTerminalRepair string
+
+const (
+	// The host's relaunch attempt cap was reached.
+	WorkerTerminalRepairCapReached WorkerTerminalRepair = "CAP_REACHED"
+	// The worker has no launch snapshot, so the host could not relaunch it.
+	WorkerTerminalRepairNoSnapshot WorkerTerminalRepair = "NO_SNAPSHOT"
+	// The host relaunched the worker; carries attempt.
+	WorkerTerminalRepairRelaunched WorkerTerminalRepair = "RELAUNCHED"
+)
+
+var AllWorkerTerminalRepair = []WorkerTerminalRepair{
+	WorkerTerminalRepairCapReached,
+	WorkerTerminalRepairNoSnapshot,
+	WorkerTerminalRepairRelaunched,
+}
+
 // #2771 — one worker's terminal report. There is no free-text field.
 type WorkerTerminalReportInput struct {
+	// The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+	Attempt *int `json:"attempt"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
 	// When the worker's last turn ended, not after checkedAt.
@@ -106601,10 +106625,16 @@ type WorkerTerminalReportInput struct {
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
 	// Required for locked and dark; refused for busy and idle.
 	Reason *WorkerTerminalReason `json:"reason,omitempty"`
+	// #4041 (V82) — the outcome of the host's repair of a dark worker. Valid only with status dark; on a busy, idle or
+	// locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
+	Repair *WorkerTerminalRepair `json:"repair"`
 	Status WorkerTerminalState   `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
 }
+
+// GetAttempt returns WorkerTerminalReportInput.Attempt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
@@ -106617,6 +106647,9 @@ func (v *WorkerTerminalReportInput) GetPrompt() WorkerTerminalPrompt { return v.
 
 // GetReason returns WorkerTerminalReportInput.Reason, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetRepair returns WorkerTerminalReportInput.Repair, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetRepair() *WorkerTerminalRepair { return v.Repair }
 
 // GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }
