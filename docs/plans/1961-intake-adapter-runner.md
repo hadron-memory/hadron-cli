@@ -77,11 +77,12 @@ and the start leaves the task PENDING; the CLI reports it (`startError`, stderr
 note), still marks the claim, and a retry finds the external id held and creates
 nothing. All three are pinned.
 
-**Update (cli#1978, hadron-server#4115, cor:agt:050:02 caller-own arm):** a server that
-lands the caller's own outside-item claim STARTED in `createAgentTask` makes the
-window above disappear. When the create answers STARTED the CLI makes no
+**Update (cli#1978; hadron-server fix PR #4115, closing issue #4113;
+cor:agt:050:02 caller-own arm):** a server that lands the caller's own outside-item
+claim STARTED in `createAgentTask` makes the window above disappear. When the create answers STARTED the CLI makes no
 `startAgentTask` call and reports STARTED; when it answers PENDING (a server
-without hadron-server#4113) the start call and `startError` stay as described.
+without the hadron-server#4115 fix for issue #4113) the start call and
+`startError` stay as described.
 Another assignee's claim is unchanged: PENDING with the existing note. All pinned.
 
 ## Side effects of the schema refresh
