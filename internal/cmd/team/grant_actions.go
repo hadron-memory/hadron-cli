@@ -18,7 +18,10 @@ import (
 const grantActionsHelp = `Read an App's registered grant actions: the actions a grant can allow
 (cor:acl:140:02). Anyone in the App may read the list: a participating person
 with their own credential, or a bound worker of that App through its session.
-No worker binding is required.
+No worker binding is required. When this worktree has a worker binding for
+this server, it takes precedence over the person credential: a bound worker
+reading another App gets the empty answer even if the person participates
+there.
 
 The App is named with --app (or the App context) and goes to the server exactly
 as given; nothing resolves or looks it up first. Every refused caller (not in
@@ -73,22 +76,23 @@ func (d grantActionDTO) paramText() string {
 }
 
 // grantActionsAppRef is the App to read, as given: --app, else the configured
-// context. It is deliberately NOT canonicalized or resolved: the server answers
-// every refusal arm the same way, and a local verdict on "no such App" or
-// "malformed" would be a signal of the CLI's own (cli#1996). Only an absent
-// ref is refused here, on syntax alone.
+// context, byte for byte (cli#1999): NOT trimmed, canonicalized or resolved.
+// The server answers every refusal arm the same way, and a local verdict on
+// "no such App" or "malformed" would be a signal of the CLI's own (cli#1996).
+// Trimming only decides whether a ref is ABSENT (blank counts as absent); only
+// an absent ref is refused here, on syntax alone.
 func grantActionsAppRef(f *cmdutil.Factory) (ref, source string, err error) {
-	if ref = strings.TrimSpace(f.AppFlag); ref != "" {
-		return ref, "from --app", nil
+	if strings.TrimSpace(f.AppFlag) != "" {
+		return f.AppFlag, "from --app", nil
 	}
 	cfg, err := f.Config()
 	if err != nil {
 		return "", "", err
 	}
-	if ref = strings.TrimSpace(cfg.App()); ref == "" {
+	if strings.TrimSpace(cfg.App()) == "" {
 		return "", "", exitcode.Newf(exitcode.Usage, "an App is required: pass --app <ref> or set a default App context")
 	}
-	return ref, "from the App context", nil
+	return cfg.App(), "from the App context", nil
 }
 
 // grantActionsClient reads with the worker session when this worktree has a
@@ -112,7 +116,7 @@ func newCmdTeamGrantActions(f *cmdutil.Factory) *cobra.Command {
 
 --limit 0 prints only the total count; --offset selects the page start. The
 default page limit is 20. --json returns {items:[],total:N}, or {total:N} for
-count-only, with the server's values unchanged.`, Example: "  hadron team grant actions --app hrn:app:acme.com:team\n  hadron team grant actions --app hrn:app:acme.com:team --limit 0 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+count-only: the known fields, values unchanged.`, Example: "  hadron team grant actions --app hrn:app:acme.com:team\n  hadron team grant actions --app hrn:app:acme.com:team --limit 0 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if limit < 0 || limit > 200 || offset < 0 || offset > 2147483647 {
 			return exitcode.Newf(exitcode.Usage, "--limit takes 0..200 and --offset takes 0..2147483647")
 		}
@@ -139,13 +143,16 @@ count-only, with the server's values unchanged.`, Example: "  hadron team grant 
 			return output.Write(f.IOStreams, f.JSON, struct {
 				Total int `json:"total"`
 			}{resp.GrantActions.Total}, func(w io.Writer) error {
-				_, e := fmt.Fprintf(w, "total: %d\n", resp.GrantActions.Total)
+				_, e := fmt.Fprintf(w, "App: %s (%s)\ntotal: %d\n", ref, source, resp.GrantActions.Total)
 				return e
 			})
 		}
 		dto := grantActionPage{Items: []grantActionDTO{}, Total: resp.GrantActions.Total}
-		for i := range resp.GrantActions.Items {
-			dto.Items = append(dto.Items, grantActionFrom(&resp.GrantActions.Items[i].GrantActionFields))
+		for _, it := range resp.GrantActions.Items {
+			if it == nil { // schema says non-null; never panic on a server that breaks it
+				continue
+			}
+			dto.Items = append(dto.Items, grantActionFrom(&it.GrantActionFields))
 		}
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 			// The ref is client-composed (what the caller typed), so it prints
@@ -182,7 +189,7 @@ func newCmdTeamGrantAction(f *cmdutil.Factory) *cobra.Command {
 
 <name> is the action's exact dotted code, for example schedule.create. An
 unknown name and every refused caller get the same not-found line and exit 4.
---json returns the action's fields as the server sent them.`, Example: "  hadron team grant action schedule.create --app hrn:app:acme.com:team --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+--json returns the action: the known fields, values unchanged.`, Example: "  hadron team grant action schedule.create --app hrn:app:acme.com:team --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		ref, source, err := grantActionsAppRef(f)
 		if err != nil {
 			return err
