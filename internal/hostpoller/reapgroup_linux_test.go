@@ -204,7 +204,7 @@ func TestHeldZombieWithALateMemberIsStillStopped(t *testing.T) {
 // cmd.Wait under the mutex when a Z-looking leader still had live
 // threads, and the gate does not need a confirmed stop on a host that
 // exotic — the coordinator's disposition for the round-7 delta).
-func TestLiveLaunchIsStoppableWhenTheHoldFails(t *testing.T) {
+func TestHoldFailureStopSignalsALiveLeaderAndReportsUnconfirmed(t *testing.T) {
 	if _, err := exec.LookPath("sleep"); err != nil {
 		t.Skip("no sleep")
 	}
@@ -948,6 +948,11 @@ func TestAZombieLeaderWithLiveThreadsIsSignalledAndOnlyThenConfirmed(t *testing.
 	// (gone from /proc), not parked as a zombie with live threads.
 	if _, _, err := readProcStat(fmt.Sprintf("/proc/%d/stat", a.PID())); err == nil {
 		t.Fatal("a confirmed stop leaves the leader on the books")
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("a confirmed stop ends the launch: Done closes once the group is gone")
 	}
 }
 

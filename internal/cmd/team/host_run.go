@@ -231,6 +231,13 @@ and binds on its holder's own stored token. An agent running as the SAME OS
 user as the poller can still read key_file itself: run the poller as its own
 user, with key_file readable by that user only, to close that.
 
+THE OCCUPANT'S ARGV is redacted by keyword (token, secret, password, auth,
+cookie, key, …), by credential flags of curl, sshpass and mysql, by URL
+userinfo, and by a fixed list of known token prefixes (hdr_user_, hdr_app_,
+GitHub, GitLab, Slack, sk-, AWS access-key ids, the webhook hpt value and
+path secret). A credential with neither a keyword nor a listed prefix still
+renders verbatim: there is no entropy or general secret scanning.
+
 THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
 its exit is read as the agent's. A launcher that starts a detached session
 and returns (a tmux or wrapper script) is reported failed if no session has
@@ -255,8 +262,11 @@ once the leader's exit is observed there, the stop refuses to reach for
 the number (an exit frees it at a moment no mutex governs, and a process
 that took the reused number would answer a probe or take a signal): the
 stop reports it unconfirmed and keeps the records instead. On those
-platforms a stop that signals a live launch is always reported unconfirmed,
-even when the launch did stop, and its entry is kept. The instant
+platforms, and on a Linux host that refuses waitid (the same no-hold
+path), a stop that signals a live launch is reported unconfirmed even when
+the launch did stop, and its entry is kept (an approximation: a probe that
+lands between the kernel's reap and the exit being recorded can confirm
+soundly). The instant
 between a stop's last exit-check and its signal is those platforms'
 un-closable window — no syscall there both proves the number is bound and
 signals it. Linux is the hardened platform for this stop. On Windows the

@@ -123,22 +123,22 @@ const argvDisplayLimit = 200
 var credentialName = regexp.MustCompile(`(?i)(token|secret|password|passwd|passphrase|credential|api[-_]?key|private[-_]?key|session|authorization|cookie)`)
 
 // credentialHeader matches an argument that IS a header whose name says it
-// carries a credential ("Authorization: Bearer …", "Cookie: …",
-// "X-API-Key: …", "X-Auth-Token: …", "Proxy-Authorization: …"): any header
-// name containing auth, token, key, secret or cookie (#1474).
-// Over-matching is safe — the name alone still identifies the header; the
-// value never leaves.
+// carries a credential: any header name containing auth, token, key, secret
+// or cookie ("Authorization: Bearer …", "X-API-Key: …", "Cookie: …").
+// Invariant: a match means the VALUE never leaves; whether the name does is
+// decided by renderHeaderShaped. Over-matching is safe — the name alone
+// still identifies the header (#1474).
 var credentialHeader = regexp.MustCompile(`(?i)^[\w-]*(auth|token|key|secret|cookie)[\w-]*\s*:`)
 
-// credentialHeaderNames is the allowlist of header names whose name alone
-// is not secret material (round 12, Jonas N-13): the part before ':' in a
+// safeHeaderNames is the allowlist of header names that are safe to SHOW
+// (the name alone is not secret material): the part before ':' in a
 // header-shaped argument survives rendering only when it is one of these
-// names, case-insensitively. Anything else name-shaped that the regex
-// above accepts is presumed to be credential material — the user half of
-// a user:pass value, a token before a realm — and must not leave.
+// names, case-insensitively. Anything else name-shaped that credentialHeader
+// accepts is presumed to be credential material — the user half of a
+// user:pass value, a token before a realm — and must not leave.
 // Over-redaction is the safe direction: dropping a name loses only which
 // header it was, never which process held the tree.
-var credentialHeaderNames = map[string]bool{
+var safeHeaderNames = map[string]bool{
 	"authorization":       true,
 	"proxy-authorization": true,
 	"cookie":              true,
@@ -149,35 +149,31 @@ var credentialHeaderNames = map[string]bool{
 }
 
 // headerNameAllowed reports whether the pre-colon material of a
-// header-shaped argument is an allowlisted header name. A glued short flag
-// (-HAuthorization: …) is stripped before the check — the glue is the
-// flag, the remainder is the name — and the comparison is
-// case-insensitive (hdr=authorization: … keeps its name as written).
-// Everything else — token_SYNTHETIC_1817:pass on an unknown flag, in an
-// env assignment, or as a bare argument — is not a header name and
-// renders fully redacted.
+// header-shaped argument is an allowlisted header name (case-insensitive,
+// surrounding whitespace ignored: "Authorization :" is the same name). Only
+// curl's -H glues its value (-HAuthorization: …), so only a leading "-H" is
+// stripped; any other flag letter is not a header flag, and its glued value
+// (mysql -pcookie:rest, curl -uauthorization:pass) is credential material
+// that must not survive as a "name". Everything else — token_X:pass on an
+// unknown flag, in an env assignment, or as a bare argument — renders fully
+// redacted.
 func headerNameAllowed(name string) bool {
-	rest := strings.TrimLeft(name, "-")
-	if rest != name && len(rest) > 1 {
-		// A short flag glues as '-' plus one letter; a long flag never
-		// glues without '=', so it falls through over-redacted — safe.
-		rest = rest[1:]
+	if rest, ok := strings.CutPrefix(name, "-H"); ok {
+		name = rest
 	}
-	return credentialHeaderNames[strings.ToLower(rest)]
+	return safeHeaderNames[strings.ToLower(strings.TrimSpace(name))]
 }
 
 // renderHeaderShaped renders an argument (prefix "") or the value of an
 // assignment (prefix "NAME=") whose text credentialHeader matched: the
 // pre-colon name survives only when headerNameAllowed accepts it, and
-// otherwise the whole value is <redacted> (round 12, Jonas N-13: the old
-// rendering kept everything before ':' whenever the regex matched, and
-// the regex accepts any name-shaped prefix).
+// otherwise the whole value is <redacted>.
 func renderHeaderShaped(prefix, text string) string {
 	name, _, _ := strings.Cut(text, ":")
 	if !headerNameAllowed(name) {
 		return prefix + "<redacted>"
 	}
-	return prefix + name + ": <redacted>"
+	return prefix + strings.TrimSpace(name) + ": <redacted>"
 }
 
 // credentialFlagValue says how a binary's short flag carries a credential:
@@ -201,28 +197,28 @@ type credentialFlagValue struct {
 // match in renderArgv's default branch, which fires only when no armed
 // table claims the flag — the regex cannot cross '=', and a table flag's
 // header-shaped value is credential material that keeps its full
-// redaction); sshpass's -p
-// takes the password next or attached; mysql's -p takes the password
-// ATTACHED only — `-p db` names a database and prompts instead. ssh's -p
-// is a port and ssh takes no password on the command line, so it is not in
-// any table; python -u (unbuffered) and find -print stay readable for the
-// same reason (#1474). The tables ACCUMULATE at every argv entry whose
-// basename is in the map, not only argv[0], because wrapper launchers run
-// in front (sudo curl -u …, env curl -u …, timeout 30 sshpass -p …) and
-// argv[0]-gating leaked the credential for every wrapped form — and a
-// later table must never DISARM an earlier one: `curl -o mysql -u u:p`
-// would switch to mysql's table and leak curl's -u value, and the
+// redaction); sshpass's -p takes the password next or attached; mysql's -p
+// takes the password ATTACHED only — `-p db` names a database and prompts
+// instead. ssh's -p is a port and ssh takes no password on the command
+// line, so it is not in any table; python -u (unbuffered) and find -print
+// stay readable for the same reason (#1474). The tables ACCUMULATE at every
+// argv entry whose basename is in the map, not only argv[0], because
+// wrapper launchers run in front (sudo curl -u …, env curl -u …, timeout 30
+// sshpass -p …) and argv[0]-gating leaked the credential for every wrapped
+// form — and a later table must never DISARM an earlier one: `curl -o mysql
+// -u u:p` would switch to mysql's table and leak curl's -u value, and the
 // replacement is not knowable from the argv alone (an output FILE named
 // mysql is not the mysql binary), so the union of every armed table
 // applies, and where two tables spell the same flag differently the
 // more-redacting spec wins (next|attached beats either alone: over-
-// redaction is the safe direction under this contract) (#1474). Residuals, deliberate: a command line hidden inside ONE argument
-// (sh -c "curl -u …") is not tokenised here — it renders as one quoted
-// argument, and only its URL-shaped userinfo is stripped (stripURLUserinfo)
-// — bundled short flags (curl -su user:pass) are not unclustered into
-// their letters, and curl's unambiguous long-option abbreviations
-// (--proxy-use for --proxy-user) are not expanded: only exact spellings
-// and their '='-attached values are matched.
+// redaction is the safe direction under this contract) (#1474). Residuals,
+// deliberate: a command line hidden inside ONE argument (sh -c "curl -u …")
+// is not tokenised here — it renders as one quoted argument, and only its
+// URL-shaped userinfo is stripped (stripURLUserinfo) — bundled short flags
+// (curl -su user:pass) are not unclustered into their letters, and curl's
+// unambiguous long- option abbreviations (--proxy-use for --proxy-user) are
+// not expanded: only exact spellings and their '='-attached values are
+// matched.
 var credentialFlagBinaries = map[string]map[string]credentialFlagValue{
 	"curl": {
 		"-u": {next: true, attached: true}, "--user": {next: true, attached: true},
@@ -319,7 +315,7 @@ func renderArgv(fields []string) string {
 	credFrom := -1
 	redactNext := false
 	for i, f := range fields {
-		f = stripURLUserinfo(f)
+		f = redactKnownTokens(stripURLUserinfo(f))
 		// Arm at EVERY credential-flag binary on the line, ACCUMULATING:
 		// the union of the armed tables applies to everything after the
 		// first one, and a later binary never disarms an earlier one's
@@ -387,17 +383,17 @@ func renderArgv(fields []string) string {
 					}
 				}
 				// A '='-attached header value (--header=Authorization: …,
-				// --proxy-header=X-Auth-Token: …) on a flag NO armed table
-				// knows: the header regex cannot cross '=', so the whole
+				// --proxy-header=X-Auth-Token: …) on a flag no credential-flag
+				// table claims: the header regex cannot cross '=', so the whole
 				// argument never matched it above, and header flags
 				// deliberately carry no table entry — the VALUE is the
 				// header line, and only its ALLOWLISTED name leaves
-				// (renderHeaderShaped, round 12). This runs AFTER
+				// (renderHeaderShaped). This runs AFTER
 				// the table: a header-SHAPED value on a known credential
 				// flag (--user=token:…, --cert=key:…) is credential
 				// material, not a header line, and keeps the table's FULL
 				// redaction — its prefix is not a header name and must
-				// not survive (round 9, Jane D8).
+				// not survive.
 				if hasValue && credentialHeader.MatchString(value) {
 					out = append(out, renderHeaderShaped(name+"=", value))
 					continue
@@ -414,10 +410,9 @@ func renderArgv(fields []string) string {
 				// whole-argument header case above cannot match it (the
 				// NAME= prefix is not \w), and the dash-branch copy does
 				// not run — without this, the assignment renders verbatim
-				// (round 10, Jonas N-8; the pre-D8 position of the check
-				// caught it, and the D8 reorder into the '-' branch lost
-				// it). Only the header's ALLOWLISTED name leaves
-				// (renderHeaderShaped, round 12).
+				// (it must run for a non-dash argument as well as the
+				// dash branch above). Only the header's ALLOWLISTED name
+				// leaves (renderHeaderShaped).
 				out = append(out, renderHeaderShaped(name+"=", value))
 				continue
 			}
