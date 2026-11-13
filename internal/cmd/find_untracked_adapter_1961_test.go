@@ -658,3 +658,52 @@ func withEmptyChanges1962(responses map[string]string) map[string]string {
 	}
 	return responses
 }
+
+// cli#1978: a server with hadron-server#4113 answers the caller's own claim
+// STARTED in the create, so no startAgentTask follows and the claim is
+// reported (and marked) as STARTED. The PENDING-answer tests above pin the
+// older-server path (start call kept, startError reported).
+func TestAdapterStartedCreateMakesNoStartCall1978(t *testing.T) {
+	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	created := strings.Replace(claimed1961("t1", itemA1961, "wkr1", "Iris", ""), `"status":"PENDING"`, `"status":"STARTED"`, 1)
+	r := map[string]string{
+		"IntakeTasksByExternalIds": held1961(),
+		"IntakeClaimTask":          created,
+		// A start call would fail loudly if it were made.
+		"IntakeStartTask": `{"errors":[{"message":"This task has already started.","extensions":{"code":"TASK_INVALID_TRANSITION"}}]}`,
+	}
+	calls, out, errOut, err := run1961(t, path, r, "--track", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(opsOf1961(calls, "IntakeStartTask")); n != 0 {
+		t.Fatalf("a create that answers STARTED needs no start call: %d", n)
+	}
+	var dto struct {
+		Tasks []struct {
+			Status     string
+			Marked     bool
+			StartError *string
+		}
+	}
+	_ = json.Unmarshal([]byte(out), &dto)
+	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "STARTED" || dto.Tasks[0].StartError != nil || !dto.Tasks[0].Marked {
+		t.Fatalf("got %s", out)
+	}
+	if strings.Contains(errOut, "could not be started") || len(adapterLog1961(t, log, "mark-tracked")) != 1 {
+		t.Fatalf("no start note, claim marked once: %q", errOut)
+	}
+}
+
+// Another assignee's claim is unchanged: PENDING, no start call, the existing note.
+func TestAdapterOtherAssigneeStaysPendingAfterStartedCreate1978(t *testing.T) {
+	path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	r := map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": claimed1961("t1", itemA1961, "wkrM", "Marco", ""), "IntakeStartTask": started1961}
+	calls, _, errOut, err := run1961(t, path, r, "--track", "--for", "Marco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(opsOf1961(calls, "IntakeStartTask")) != 0 || !strings.Contains(errOut, "is PENDING for") {
+		t.Fatalf("calls %v note %q", hadronOps1961(calls), errOut)
+	}
+}
