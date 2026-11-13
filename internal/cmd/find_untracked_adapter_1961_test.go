@@ -94,6 +94,7 @@ const started1961 = `{"data":{"startAgentTask":{"id":"x","status":"STARTED"}}}`
 func run1961(t *testing.T, adapter string, responses map[string]string, argv ...string) (*[]attnCall, string, string, error) {
 	t.Helper()
 	t.Setenv(adapterEnvForTest, "")
+	responses = withEmptyChanges1962(responses)
 	return runFind1524(t, responses, append([]string{"--adapter", adapter}, argv...)...)
 }
 
@@ -486,7 +487,7 @@ func TestAdapterFlagsRefusedLocallyWithZeroRequests1961(t *testing.T) {
 func TestAdapterFromEnvironmentAndIntegrationWins1961(t *testing.T) {
 	path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 	t.Setenv(adapterEnvForTest, path)
-	calls, _, _, err := runFind1524(t, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--json")
+	calls, _, _, err := runFind1524(t, withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": held1961()}), "--json")
 	if err != nil || len(opsOf1961(calls, "IntakeTasksByExternalIds")) != 1 {
 		t.Fatalf("$HADRON_INTAKE_ADAPTER selects the adapter: %v %v", err, hadronOps1961(calls))
 	}
@@ -510,6 +511,7 @@ func TestAdapterSkewMessageNamesBothVersions1961(t *testing.T) {
 // lose the race or be refused).
 func runFindHook1961(t *testing.T, responses map[string]string, hook func(op string, restage func(string)), argv ...string) (*[]attnCall, string, string, error) {
 	t.Helper()
+	responses = withEmptyChanges1962(responses)
 	writeTeamBinding(t)
 	srv, calls := attnServerHook(t, responses, func(op string) {
 		hook(op, func(resp string) { setAttnResponse(responses, op, resp) })
@@ -640,4 +642,19 @@ func TestAdapterDescribePrecedesAppResolution1961(t *testing.T) {
 			t.Fatalf("exit = %d, calls %v: %v", exitCodeFor(err), *calls, err)
 		}
 	})
+}
+
+const emptyChanges1962 = `{"data":{"agentTaskExternalIdChanges":{"changes":[],"hasMore":false,"nextCursor":null}}}`
+
+// withEmptyChanges1962 gives a fake server the reconcile feed every run reads
+// first (cli#1962): by default nothing has changed. The map is edited in place
+// so a hook's restage still reaches it.
+func withEmptyChanges1962(responses map[string]string) map[string]string {
+	if responses == nil {
+		responses = map[string]string{}
+	}
+	if _, ok := responses["IntakeExternalIdChanges"]; !ok {
+		responses["IntakeExternalIdChanges"] = emptyChanges1962
+	}
+	return responses
 }

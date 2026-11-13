@@ -122,6 +122,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTeamTaskFinish(f))
 	cmd.AddCommand(newCmdTeamTaskHandBack(f))
 	cmd.AddCommand(newCmdTeamTaskCancel(f))
+	cmd.AddCommand(newCmdTeamTaskRelease(f))
 	cmd.AddCommand(newCmdTeamTaskPark(f))
 	cmd.AddCommand(newCmdTeamTaskReady(f))
 	cmd.AddCommand(newCmdTeamTaskGet(f))

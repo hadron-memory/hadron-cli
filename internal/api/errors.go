@@ -1580,6 +1580,10 @@ func codeForExtension(code string) int {
 		code == "TASK_BLOCKER_CYCLE" || code == "TASK_BLOCKED" ||
 		code == "ALARM_ALREADY_ACKNOWLEDGED":
 		return exitcode.Conflict
+	// cli#1962: releasing an outside item a task does not hold (a second
+	// release included) is the task's state, not the argument.
+	case code == "TASK_EXTERNAL_ID_NONE":
+		return exitcode.Conflict
 	// A party ref that names nobody valid (TASK_OWNER_INVALID /
 	// TASK_ASSIGNEE_INVALID), an owner on a child task (the rule forbids it,
 	// the caller drops the flag), or an eventId that is not an alarm — all
