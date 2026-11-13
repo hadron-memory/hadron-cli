@@ -70,7 +70,8 @@ type adapterClaimedDTO struct {
 	Marked     bool    `json:"marked"`
 	MarkError  *string `json:"markError"`
 	// StartError is why a claim the caller holds could not be started: the
-	// task exists and is PENDING (a retry finds its external id held and does
+	// task exists and is PENDING (only against a server that does not start the
+	// caller's own claim in the create, hadron-server#4113; a retry finds its external id held and does
 	// not create a second).
 	StartError *string `json:"startError"`
 }
@@ -329,13 +330,19 @@ func (c *adapterClaim) one(it intake.Item) (claimOne, error) {
 			worker.Role, worker.Model = c.b.WorkerRole, c.b.Model
 			// The assignee is the caller, so the caller may start it (the
 			// server lets only the assignee start); anyone else's stays PENDING.
-			st, err := gen.IntakeStartTask(c.ctx, c.client, t.Id)
-			switch {
-			case err != nil:
-				msg := output.SafeLine(mapTaskError(err).Error(), 300)
-				dto.StartError = &msg
-			case st.StartAgentTask != nil:
-				dto.Status = string(st.StartAgentTask.Status)
+			// A server with hadron-server#4113 lands the caller's own claim
+			// STARTED in the create (cor:agt:050:02), so the answer decides:
+			// already STARTED means no second call (cli#1978); an older server
+			// answers PENDING and keeps the start call and its startError.
+			if t.Status != gen.AgentTaskStatusStarted {
+				st, err := gen.IntakeStartTask(c.ctx, c.client, t.Id)
+				switch {
+				case err != nil:
+					msg := output.SafeLine(mapTaskError(err).Error(), 300)
+					dto.StartError = &msg
+				case st.StartAgentTask != nil:
+					dto.Status = string(st.StartAgentTask.Status)
+				}
 			}
 		}
 	}
