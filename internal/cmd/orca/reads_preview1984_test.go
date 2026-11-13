@@ -149,6 +149,27 @@ func TestDueTicksPreviewValidationRefusalNoSpendingFallback(t *testing.T) {
 			if calls != 1 || got != nil {
 				t.Fatalf("fallback or success: calls=%d got=%+v", calls, got)
 			}
+			for _, jsonOut := range []bool{false, true} {
+				r := newRig(t)
+				r.joshua(idleScreen)
+				r.env.Reads = func(context.Context, string) (Reads, error) {
+					return wireDue{r.reads, graphReads{client: client, app: "app1"}}, nil
+				}
+				before := calls
+				code, out := r.run(t, jsonOut, "Joshua")
+				if code != 0 || calls != before+1 {
+					t.Fatalf("status contract or retry changed: exit=%d calls=%d before=%d out=%s", code, calls, before, out)
+				}
+				if jsonOut {
+					m := decode(t, out)
+					if m["status"] != "locked" || m["reason"] != "unrecognized" || strings.Contains(out, "requires a server") {
+						t.Fatalf("unsafe or leaked-detail JSON: %s", out)
+					}
+				} else if !strings.Contains(out, "locked (unrecognized)") || !strings.Contains(out, "requires a server with dueWakes(preview)") {
+					t.Fatalf("not actionable/closed: %s", out)
+				}
+			}
+
 		})
 	}
 }

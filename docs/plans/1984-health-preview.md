@@ -46,8 +46,11 @@ follow-throughs after merge. Finish the parent after verified merge.
 ## Review delta
 
 A separate red-first test commit pins the older-server rejection path for
-GraphQL HTTP 200 and HTTP 400. Both refuse with exit 2, one request, no fallback,
-and no successful ticks. The monitoring-specific hint names dueWakes(preview),
+GraphQL HTTP 200 and HTTP 400. Both return an internal Usage (2) error,
+one request, no fallback and no successful ticks. Terminal status keeps its
+existing process exit behavior and classifies idle terminals locked/unrecognized.
+Text shows the actionable cause; JSON keeps detail local and omits it.
+Tests exercise both render paths through the real wire read. The monitoring-specific hint names dueWakes(preview),
 hadron-server#3755 and upgrading the server. Other errors still use api.MapError.
 This adds no capability probe or spending fallback and sets no global CLI
 server-version floor. Xenophon confirmed this serves the gate in chat #105024;
