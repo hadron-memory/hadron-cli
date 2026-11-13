@@ -6256,6 +6256,10 @@ and unreadable holds are indistinguishable. --app does not narrow this query.
 JSON is {items:[],total:N}; items retain nullable profile/live-session/hold fields.
 No hold is released and no session is changed.
 
+hadron team register candidates <code> [--limit N] [--offset N]
+hadron team register pick <code> [--worker <id-or-URN>]
+hadron team register attendee --agent <id-or-URN>  # or --worker (exactly one)
+
 `team register candidates <code> [--limit N] [--offset N]` and
 `team register pick <code> [--worker <id-or-URN>]` are experimental read-only
 projections. Never assign, route or deliver; never re-rank/filter the server's

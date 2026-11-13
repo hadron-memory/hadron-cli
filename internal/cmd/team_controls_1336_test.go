@@ -81,7 +81,7 @@ func TestTeamControls1336RefuseBeforeRequests(t *testing.T) {
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			calls, _, err := runTeamTask(t, taskResponses(), args...)
-			if exitcode.FromError(err) != exitcode.Usage {
+			if exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("err %v", err)
 			}
 			if len(*calls) != 0 {
@@ -136,7 +136,7 @@ func TestTeamControls1336RefusalMapping(t *testing.T) {
 		r := taskResponses()
 		r[tc.op] = `{"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}]}`
 		calls, out, e := runTeamTask(t, r, tc.args...)
-		if exitcode.FromError(e) != tc.exit {
+		if exitCodeFor(e) != tc.exit {
 			t.Fatalf("%s: %v", tc.code, e)
 		}
 		n := 0
