@@ -978,13 +978,16 @@ func TestARefusedWaitidDoesNotBlockOnAZombieLeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_ = syscall.Kill(-a.PID(), syscall.SIGKILL)
-		select {
-		case <-a.Done():
-		case <-time.After(5 * time.Second):
-		}
-	}()
+	// Cleanup goes through the agent's own stop, never a raw
+	// Kill(-pid): this launch takes the no-hold path (the refused-waitid
+	// waiter reaps the leader outside the stop mutex), so by defer time
+	// the reap may already have freed the group's number, and a raw
+	// group kill could then hit an unrelated, reused pgid — this PR's
+	// own hazard pointed at the host running the suite (round 9 P3-4,
+	// folded per the coordinator's ruling; Jonas's delta-7 finding).
+	// Terminate signals a group only while the launch provably holds
+	// its number, and stopAndWait bounds the wait.
+	defer stopAndWait(t, a)
 	ea := a.(*execAgent)
 	waitReaperEntry(t, ea)
 	zLeaderThreadShape(t, a.PID())
