@@ -146,9 +146,10 @@ floor above an existing ticker's cadence is refused. Delivery's stuck window
 must exceed busy delay plus the cadence floor. These are current server
 limits, not client-side authorization or validation.
 
---clear-wake-daily-budget returns to a roster-derived budget; explicit
-=false is sent as false. A set that names no field is refused before any
-request, because it would be a manager-attributed write that changes nothing.
+--clear-wake-daily-budget returns to a roster-derived budget; =false means
+"do not clear", the same as omitting it, and is not sent. A set that names no
+field (including one carrying only =false) is refused before any request,
+because it would change nothing.
 No standby switch is available.
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker settings set --live-cap 10 --app acme.com:eng\n  hadron team ticker settings set --clear-wake-daily-budget", Args: cobra.NoArgs}
@@ -158,7 +159,7 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 	for i, name := range names {
 		c.Flags().StringVar(&raw[i], name, "", "whole number; omitted preserves, server checks limits")
 	}
-	c.Flags().BoolVar(&clear, "clear-wake-daily-budget", false, "return to derived budget (explicit false is preserved)")
+	c.Flags().BoolVar(&clear, "clear-wake-daily-budget", false, "return to derived budget (=false is the same as omitting it)")
 	c.RunE = func(cmd *cobra.Command, _ []string) error {
 		var vals [4]*int
 		for i, name := range names {
@@ -175,7 +176,10 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 			}
 		}
 		var cp *bool
-		if cmd.Flags().Changed("clear-wake-daily-budget") {
+		// The server reads clearWakeDailyBudget:false as "don't clear", the same
+		// as omitting it, so an explicit false names nothing: it is treated as
+		// absent and a set carrying only it is refused below (cli#1986).
+		if cmd.Flags().Changed("clear-wake-daily-budget") && clear {
 			cp = &clear
 		}
 		// An update that names nothing is refused rather than sent, as in
