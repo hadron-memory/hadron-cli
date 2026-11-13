@@ -44,8 +44,9 @@ const (
 // The two words are read at their per-architecture places, computed rather
 // than hardcoded: si_code through x/sys's Siginfo field, whose declaration
 // already encodes the MIPS word-order swap (__ARCH_HAS_SWAPPED_SIGINFO —
-// every MIPS, not only MIPS64), and si_status at a pointer-aligned offset derived
-// from the build's word size — 24 on a 64-bit build, 20 on a 32-bit one —
+// every MIPS, not only MIPS64), and si_status at a pointer-aligned offset
+// derived from the build's word size — 24 on a 64-bit build, 20 on a
+// 32-bit one —
 // because the siginfo union starts after the three leading int32 words,
 // padded up to pointer alignment, and si_status is the third word of it.
 // This is the same word for every caller with no privilege gate: the

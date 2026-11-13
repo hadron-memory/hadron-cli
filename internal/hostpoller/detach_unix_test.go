@@ -20,7 +20,7 @@ import (
 // Unix platforms the leader was reaped at its exit and the stop's ESRCH
 // probe — the documented residual position — is the confirmation. Either
 // way the contract every Unix platform keeps is stopped=true, silently,
-// with zero signals (#1474 delta round 3; the probe counts are asserted on
+// with zero signals (the probe counts are asserted on
 // Linux in reapgroup_linux_test.go — this file also builds on darwin/BSD).
 //
 // #1970: on Linux a churning /proc can void the exit-time scan, so the
@@ -158,6 +158,7 @@ func TestTerminateGroupReportsWhatItCouldNotConfirm(t *testing.T) {
 // credentials or an unbounded tail (#1474 review P2-4; delta review D2/P3:
 // credential-shaped headers, URL userinfo, -u/-p, invalid UTF-8).
 func TestRenderArgvBoundsAndRedacts(t *testing.T) {
+	const tok36 = "abcdefghijklmnopqrstuvwxyz0123456789"
 	for name, tc := range map[string]struct {
 		argv []string
 		want string
@@ -170,10 +171,9 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"cookie":            {[]string{"curl", "-H", "Cookie: session=hdr_x"}, "curl -H Cookie: <redacted>"},
 		"api-key header":    {[]string{"curl", "-H", "X-API-Key: SYNTHETIC_SECRET_1817"}, "curl -H X-API-Key: <redacted>"},
 		"auth-token header": {[]string{"curl", "-H", "X-Auth-Token: SYNTHETIC_SECRET_1817"}, "curl -H X-Auth-Token: <redacted>"},
-		// Round 12 (Jonas N-13, Ada's ruling): Client-Secret is not an
-		// allowlisted header name, so not even the name leaves — only
-		// <redacted> does. This row kept "Client-Secret: <redacted>" before
-		// the allowlist; over-redaction is the safe direction.
+		// Client-Secret is not an allowlisted header name, so not even the
+		// name leaves — only <redacted> does; over-redaction is the safe
+		// direction.
 		"secret-named header":     {[]string{"curl", "-H", "Client-Secret: SYNTHETIC_1817"}, "curl -H <redacted>"},
 		"plain header kept":       {[]string{"curl", "-H", "Accept: application/json"}, `curl -H "Accept: application/json"`},
 		"url userinfo":            {[]string{"curl", "https://user:pass@host/path"}, "curl https://host/path"},
@@ -184,8 +184,8 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"invalid utf8 quoted":     {[]string{"a", "b\xff", "c"}, `a "b\xff" c`},
 		"spaces kept unambiguous": {[]string{"sh", "-c", "sleep 30 & wait"}, `sh -c "sleep 30 & wait"`},
 		"empty argument survives": {[]string{"a", "", "b"}, `a "" b`},
-		// #1474 delta round 2 (Jonas F5a): an unencoded @ in the password
-		// must not leak the tail after the first @.
+		// An unencoded @ in the password must not leak the tail after the
+		// first @.
 		"unencoded @ in password": {[]string{"curl", "https://u:p@ss@host/path"}, "curl https://host/path"},
 		// F5c: every URL-shaped token in one argument is stripped, not only
 		// the first.
@@ -197,7 +197,7 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl -u by name":         {[]string{"curl", "-u", "user:pass", "https://h"}, "curl -u <redacted> https://h"},
 		"curl -u by path":         {[]string{"/usr/bin/curl", "-u", "user:pass"}, "/usr/bin/curl -u <redacted>"},
 		"sshpass -p by name":      {[]string{"sshpass", "-p", "secret", "ssh", "h"}, "sshpass -p <redacted> ssh h"},
-		// Delta round 3, Jonas N3: the rules arm from the first argument
+		// The rules arm from the first argument.
 		// naming a credential-flag binary, so WRAPPERS no longer leak the
 		// value; and the flags are per-binary, so curl's -p (--proxytunnel,
 		// no value) does not swallow -u's value and mysql's -p (attached
@@ -210,13 +210,12 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"curl -U next":            {[]string{"curl", "-U", "proxy:pass", "https://h"}, "curl -U <redacted> https://h"},
 		"curl -U attached":        {[]string{"curl", "-Uproxy:pass"}, "curl -U<redacted>"},
 		"mysql -p next is a name": {[]string{"mysql", "-p", "db"}, "mysql -p db"},
-		// Round 3, Jonas P3-1: a URL-shaped prefix running into prose ends
+		// A URL-shaped prefix running into prose ends
 		// its authority at the whitespace; the prose is never cut at a
 		// later @.
 		"url into prose kept": {[]string{"sh", "-c", "curl https://h1 mail user@example.com"}, `sh -c "curl https://h1 mail user@example.com"`},
 		// F6 moved to the /proc boundary (argvFromCmdline): renderArgv
-		// renders the slots it is given, real empties included (round 3,
-		// Jane D3).
+		// renders the slots it is given, real empties included.
 		"two real trailing empties": {[]string{"agent", "", ""}, `agent "" ""`},
 		// P3-2 residual: an argument appended raw for its name is still
 		// quoted when it carries invalid UTF-8.
@@ -238,66 +237,113 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 		"mysql --password next": {[]string{"mysql", "--password", "db"}, "mysql --password <redacted>"},
 		"second binary re-arms": {[]string{"sshpass", "-p", "secret", "curl", "-u", "user:pass"}, "sshpass -p <redacted> curl -u <redacted>"},
 		"re-arm proxy-user att": {[]string{"sshpass", "-p", "s", "curl", "--proxy-user=p:q"}, "sshpass -p <redacted> curl --proxy-user=<redacted>"},
-		// Delta round 6, Jonas P2-C: a later table-binary spelling never
+		// A later table-binary spelling never
 		// DISARMS an earlier one — whether the spelling is the binary or
 		// just an argument (an output file named mysql) is not knowable
 		// from argv, so the UNION of the armed tables applies.
 		"curl -o mysql -u":  {[]string{"curl", "-o", "mysql", "-u", "user:pass", "https://h"}, "curl -o mysql -u <redacted> https://h"},
 		"mysql -u curl -p":  {[]string{"mysql", "-u", "curl", "-phunter2"}, "mysql -u curl -p<redacted>"},
 		"re-arm on a value": {[]string{"sshpass", "-p", "curl", "curl", "-u", "u:p"}, "sshpass -p <redacted> curl -u <redacted>"},
-		// Delta round 6, Jonas P3: curl's other secret-carrying flags.
+		// curl's other secret-carrying flags.
 		"curl --pass next":         {[]string{"curl", "--pass", "secret", "https://h"}, "curl --pass <redacted> https://h"},
 		"curl --pass attached":     {[]string{"curl", "--pass=secret"}, "curl --pass=<redacted>"},
 		"curl --proxy-pass next":   {[]string{"curl", "--proxy-pass", "secret"}, "curl --proxy-pass <redacted>"},
 		"curl --oauth2-bearer att": {[]string{"curl", "--oauth2-bearer=hdr_x"}, "curl --oauth2-bearer=<redacted>"},
 		"curl -E next":             {[]string{"curl", "-E", "k.pem:secret"}, "curl -E <redacted>"},
 		"curl --cert attached":     {[]string{"curl", "--cert=k.pem:secret"}, "curl --cert=<redacted>"},
-		// '='-attached header forms (round 9): credentialHeader cannot
-		// cross '=', so the argument --header=Authorization: … never
-		// matches it as a whole, and --header carries no table entry —
-		// the value-side match in renderArgv's default branch is what
-		// redacts these. Both '='-attached cases were RED on ed16a1da
-		// (rendered verbatim) before that fix; the glued short form
-		// matched the header regex all along and pins that it keeps
-		// doing so.
+		// '='-attached header forms: credentialHeader cannot cross '=', so
+		// --header=Authorization: … never matches it as a whole and
+		// --header carries no table entry — the value-side match in
+		// renderArgv's default branch is what redacts these. The glued
+		// short form (-H) matches the header regex as a whole argument;
+		// its allowlisted name must keep rendering.
 		"curl --header attached":        {[]string{"curl", "--header=Authorization: Bearer hdr_x", "https://h"}, `curl --header=Authorization: <redacted> https://h`},
 		"curl --proxy-header att":       {[]string{"curl", "--proxy-header=X-Auth-Token: SYNTHETIC_1817"}, `curl --proxy-header=X-Auth-Token: <redacted>`},
-		"curl -H glued short":           {[]string{"curl", "-HAuthorization: Bearer hdr_x", "https://h"}, `curl -HAuthorization: <redacted> https://h`},
+		"glued -H allowlisted name":     {[]string{"curl", "-HAuthorization: Bearer hdr_x", "https://h"}, `curl -HAuthorization: <redacted> https://h`},
 		"curl --header attached cookie": {[]string{"curl", "--header=Cookie: session=hdr_x"}, `curl --header=Cookie: <redacted>`},
-		// Round 9, Jane D8: a header-SHAPED value on a flag the credential
-		// table knows keeps its FULL redaction — the value of --user,
-		// --cert or --proxy-user is credential material (user:pass,
-		// keyfile:password), so its prefix is not a "header name" and
-		// must not survive. All three were RED at the round-9 head, which
-		// matched the value against credentialHeader BEFORE the table and
-		// rendered --user=token_SYNTHETIC_1817: <redacted>.
+		// A header-SHAPED value on a flag the credential table knows keeps
+		// its FULL redaction: the value of --user, --cert or --proxy-user
+		// is credential material (user:pass, keyfile:password), so its
+		// prefix is not a "header name" and must not survive.
 		"curl --user header-shaped":   {[]string{"curl", "--user=token_SYNTHETIC_1817:ignored"}, `curl --user=<redacted>`},
 		"curl --cert header-shaped":   {[]string{"curl", "--cert=key_SYNTHETIC_1817:ignored"}, `curl --cert=<redacted>`},
 		"curl --proxy-user hdr-shape": {[]string{"curl", "--proxy-user=auth_SYNTHETIC_1817:ignored"}, `curl --proxy-user=<redacted>`},
-		// Round 10, Jonas N-8: an assignment argument whose VALUE is a
-		// header line (env HDR=…, docker -e AUTH_HDR=…) is not dash-
-		// prefixed, so the D8 reorder — which moved the value-side match
-		// inside the '-' branch — stopped catching it. Both rows were RED
-		// at c89928f4 (rendered verbatim); the restored non-dash check
-		// redacts them again.
+		// An assignment argument whose VALUE is a header line (env HDR=…,
+		// docker -e AUTH_HDR=…) is not dash-prefixed, so only the
+		// non-dash value-side check catches it.
 		"env assignment header": {[]string{"env", "HDR=Authorization: Bearer tok_1817", "curl", "https://h"}, `env HDR=Authorization: <redacted> curl https://h`},
 		"docker -e assignment":  {[]string{"docker", "run", "-e", "AUTH_HDR=Authorization: Bearer tok_1817", "img"}, `docker run -e AUTH_HDR=Authorization: <redacted> img`},
-		// Round 12, Jonas N-13 (Ada's ruling): a header-SHAPED value keeps
-		// its pre-colon material only when that material is an ALLOWLISTED
-		// header name. credentialHeader accepts any name-shaped prefix
-		// containing auth/token/key/secret/cookie, so before the allowlist
-		// the token half of a non-header user:pass value survived: the three
-		// token_SYNTHETIC_1817 rows were RED at 98042ed7, rendering
-		// UPSTREAM=token_SYNTHETIC_1817: <redacted>,
-		// --foo=token_SYNTHETIC_1817: <redacted> and
-		// token_SYNTHETIC_1817: <redacted> (bare, glue included). The
-		// lowercase row pins the other side: an allowlisted name keeps
-		// rendering as written, case-insensitively.
+		// A header-SHAPED value keeps its pre-colon material only when that
+		// material is an ALLOWLISTED header name. credentialHeader accepts
+		// any name-shaped prefix containing auth/token/key/secret/cookie,
+		// so without the allowlist the token half of a non-header
+		// user:pass value (UPSTREAM=token_X:…, --foo=token_X:…, a bare
+		// token_X:…) would render as a "name". The lowercase row pins the
+		// other side: an allowlisted name renders as written,
+		// case-insensitively.
 		"env non-header token:pass":  {[]string{"env", "UPSTREAM=token_SYNTHETIC_1817:x-oauth-basic", "curl", "https://h"}, `env UPSTREAM=<redacted> curl https://h`},
 		"unknown flag token:pass":    {[]string{"curl", "--foo=token_SYNTHETIC_1817:pass", "https://h"}, `curl --foo=<redacted> https://h`},
 		"lowercase allowlisted name": {[]string{"env", "hdr=authorization: bearer tok_1817", "curl"}, `env hdr=authorization: <redacted> curl`},
 		"bare non-allowlisted":       {[]string{"curl", "-H", "token_SYNTHETIC_1817:y", "https://h"}, `curl -H <redacted> https://h`},
 		"glued non-allowlisted":      {[]string{"curl", "-Htoken_SYNTHETIC_1817:y", "https://h"}, `curl <redacted> https://h`},
+		// Only -H glues a header (-HAuthorization: …); any other short
+		// flag's glued value is credential material even when its tail
+		// spells an allowlisted name (mysql -pcookie:rest leaked "cookie",
+		// curl -uauthorization:pass leaked the user). The next-argument
+		// forms are claimed by the table, not the header allowlist.
+		"mysql -p glued cookie-shaped":     {[]string{"mysql", "-pcookie:rest"}, `mysql <redacted>`},
+		"curl -u glued allowlisted-shaped": {[]string{"curl", "-uauthorization:pass", "https://h"}, `curl <redacted> https://h`},
+		"curl -u glued token-shaped":       {[]string{"curl", "-utoken_X:pass", "https://h"}, `curl <redacted> https://h`},
+		"curl -u next token-shaped":        {[]string{"curl", "-u", "token_X:pass", "https://h"}, `curl -u <redacted> https://h`},
+		"glued -H uppercase name":          {[]string{"curl", "-HAUTHORIZATION: Bearer x"}, `curl -HAUTHORIZATION: <redacted>`},
+		// A trailing space before ':' is the same header name (N-18).
+		"header name before spaced colon": {[]string{"curl", "-H", "Authorization : x"}, `curl -H Authorization: <redacted>`},
+		// The detector runs on the rendered pieces, after classification: a
+		// known token inside a header-shaped name or a credential-named
+		// assignment must not break the keyword rules and let the value
+		// through (§10 seat, cli#1982).
+		"token-named header with prefix token": {[]string{"tool", "token_ghp_" + tok36 + ":hunter2"}, `tool <redacted>`},
+		"x-auth header with prefix token":      {[]string{"curl", "X-Auth-ghp_" + tok36 + ": hunter2"}, `curl <redacted>`},
+		"env header with prefix token":         {[]string{"env", "HDR=X-Auth-ghp_" + tok36 + ": hunter2"}, `env HDR=<redacted>`},
+		"flag header with prefix token":        {[]string{"tool", "--x=X-Token-ghp_" + tok36 + ":hunter2"}, `tool --x=<redacted>`},
+		"keyword inside token body":            {[]string{"tool", "--opt-ghp_" + tok36 + "TOKEN", "hunter2"}, `tool --opt-<redacted> <redacted>`},
+		"aws temporary key id":                 {[]string{"tool", "ASIAABCDEFGHIJKLMNOP"}, `tool <redacted>`},
+		"github oauth token letter":            {[]string{"tool", "gho_" + tok36}, `tool <redacted>`},
+		// Known credential prefixes (cli#1972 N-19): the token renders
+		// <redacted> wherever it sits; the rest of the argument stays.
+		"env prefix token colon":    {[]string{"env", "UPSTREAM=ghp_" + tok36 + ":x-oauth-basic", "curl"}, `env UPSTREAM=<redacted>:x-oauth-basic curl`},
+		"unknown flag prefix token": {[]string{"curl", "--foo=ghp_" + tok36 + ":pass"}, `curl --foo=<redacted>:pass`},
+		"bare hadron user token":    {[]string{"agent", "hdr_user_" + tok36}, `agent <redacted>`},
+		"hadron app token after =":  {[]string{"agent", "X=hdr_app_" + tok36}, `agent X=<redacted>`},
+		"url-embedded prefix token": {[]string{"git", "clone", "https://host/x?k=glpat-" + tok36}, `git clone https://host/x?k=<redacted>`},
+		"slack token":               {[]string{"tool", "xoxb-1234567890-abcdef"}, `tool <redacted>`},
+		"stripe live key":           {[]string{"tool", "sk_live_" + tok36}, `tool <redacted>`},
+		"openai style key":          {[]string{"tool", "--k", "sk-" + tok36}, `tool --k <redacted>`},
+		"aws access key id":         {[]string{"tool", "AKIAABCDEFGHIJKLMNOP"}, `tool <redacted>`},
+		"github fine-grained pat":   {[]string{"tool", "github_pat_" + tok36}, `tool <redacted>`},
+		"hpt query value":           {[]string{"curl", "https://h/hooks/abc/name?x=1&hpt=eyJhbGciOi.payload.sig"}, `curl https://h/hooks/<redacted>/name?x=1&hpt=<redacted>`},
+		"webhook path secret":       {[]string{"curl", "https://h/hooks/s3cr3tpath/deploy"}, `curl https://h/hooks/<redacted>/deploy`},
+		// A token directly after a control character is quoted as \n / \t,
+		// whose last letter would hide the boundary; the detector runs
+		// BEFORE quoting for the verbatim pieces (P3-D1).
+		"token after newline in sh -c": {[]string{"sh", "-c", "echo hi\nghp_" + tok36}, `sh -c "echo hi\n<redacted>"`},
+		"token after tab in sh -c":     {[]string{"sh", "-c", "echo hi\tghp_" + tok36}, `sh -c "echo hi\t<redacted>"`},
+		// Minimum body lengths: the shortest body fires, one less does not.
+		"ghp min body fires": {[]string{"tool", "ghp_" + strings.Repeat("a", 20)}, `tool <redacted>`},
+		"ghp below min kept": {[]string{"tool", "ghp_" + strings.Repeat("a", 19)}, `tool ghp_` + strings.Repeat("a", 19)},
+		"hdr_user min body":  {[]string{"tool", "hdr_user_" + strings.Repeat("a", 16)}, `tool <redacted>`},
+		"hdr_user below min": {[]string{"tool", "hdr_user_" + strings.Repeat("a", 15)}, `tool hdr_user_` + strings.Repeat("a", 15)},
+		"xoxb min body":      {[]string{"tool", "xoxb-" + strings.Repeat("1", 10)}, `tool <redacted>`},
+		"xoxb below min":     {[]string{"tool", "xoxb-" + strings.Repeat("1", 9)}, `tool xoxb-` + strings.Repeat("1", 9)},
+		"akia exact length":  {[]string{"tool", "AKIA" + strings.Repeat("A", 16)}, `tool <redacted>`},
+		"akia one short":     {[]string{"tool", "AKIA" + strings.Repeat("A", 15)}, `tool AKIA` + strings.Repeat("A", 15)},
+		// A long hyphenated word that merely ENDS in a prefix-alike is kept.
+		"hyphenated prefix-alike kept": {[]string{"echo", "a-very-long-desk-" + tok36}, `echo a-very-long-desk-` + tok36},
+		// Negatives: short prefix-alikes and prose stay readable.
+		"short ghp prefix kept":       {[]string{"echo", "ghp_short"}, `echo ghp_short`},
+		"path containing sk- kept":    {[]string{"ls", "/opt/sk-learn/x"}, `ls /opt/sk-learn/x`},
+		"word ending in prefix kept":  {[]string{"echo", "desk-" + tok36}, `echo desk-` + tok36},
+		"hooks path without url kept": {[]string{"ls", "/hooks/abc/name"}, `ls /hooks/abc/name`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := renderArgv(tc.argv); got != tc.want {
@@ -323,11 +369,10 @@ func TestRenderArgvBoundsAndRedacts(t *testing.T) {
 	}
 }
 
-// argvFromCmdline keeps an empty LAST argument (Jane D3), collapses a RUN of
+// argvFromCmdline keeps an empty LAST argument, collapses a RUN of
 // trailing empties — setproctitle padding (F6), now at this /proc boundary
-// rather than in renderArgv (round 3 Jane D3) — and treats an empty read as
-// no argv at all, so comm answers for kernel threads and zombies (#1474
-// delta review P3-1).
+// rather than in renderArgv — and treats an empty read as
+// no argv at all, so comm answers for kernel threads and zombies (#1474).
 func TestArgvFromCmdline(t *testing.T) {
 	for name, tc := range map[string]struct {
 		raw  []byte
