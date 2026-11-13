@@ -9,6 +9,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -21,35 +22,13 @@ const lintWarningReadTimeout = 5 * time.Second
 const lintWarningMaxRequests = 1000
 
 type lintWarningDeadlineKey struct{}
-type lintWarningUnavailableKey struct{}
 
-const lintWarningUnavailableClass = "lint warnings: unavailable (advisory read did not complete)"
+const lintWarningUnavailableClass = lintwarn.UnavailableClass
 
-// Report one fixed class per command; never expose the provider error or infer
-// why the advisory is unavailable. Diagnostic write failure cannot undo success.
-func reportLintUnavailable(cmd *cobra.Command) {
-	if cmd.Context().Value(lintWarningUnavailableKey{}) != nil {
-		return
-	}
-	cmd.SetContext(context.WithValue(cmd.Context(), lintWarningUnavailableKey{}, true))
-	cmd.PrintErrln(lintWarningUnavailableClass)
-}
+func reportLintUnavailable(cmd *cobra.Command) { lintwarn.ReportUnavailable(cmd) }
 
-type lintWarningDTO struct {
-	Kind              string  `json:"kind"`
-	Position          int     `json:"position"`
-	Text              string  `json:"text"`
-	TargetURN         *string `json:"targetUrn"`
-	PinnedRevision    *int    `json:"pinnedRevision"`
-	NewerRevision     *int    `json:"newerRevision"`
-	OverriddenNodeLoc *string `json:"overriddenNodeLoc"`
-	WorkerField       *string `json:"workerField"`
-}
-type lintWarningPageDTO struct {
-	Items      []lintWarningDTO `json:"items"`
-	Total      int              `json:"total"`
-	NextCursor *string          `json:"nextCursor"`
-}
+type lintWarningDTO = lintwarn.Warning
+type lintWarningPageDTO = lintwarn.Page
 
 func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
 	usage := "read all current source-lint warnings after success (advisory; unavailable stays null)"
@@ -105,44 +84,27 @@ func loadLintWarnings(cmd *cobra.Command, client graphql.Client, ref string) **l
 	if ctx.Err() != nil {
 		return slot
 	}
-	result := &lintWarningPageDTO{Items: []lintWarningDTO{}}
-	var after *string
-	seen := map[string]bool{}
+	requests := 0
+	allow := func() bool { requests++; return requests <= lintWarningMaxRequests }
 	// Fail the advisory read closed on pathological pagination; never return a
 	// partial page as a complete no-warning result or change mutation success.
-	for requests := 0; requests < lintWarningMaxRequests; requests++ {
+	page = lintwarn.Drain(ctx, allow, func(ctx context.Context, after *string) (*lintwarn.Raw, error) {
 		r, err := gen.GetNodeLintWarnings(ctx, client, ref, after)
 		if err != nil || r.Node == nil || r.Node.LintWarnings == nil {
-			return slot
+			return nil, err
 		}
 		p := r.Node.LintWarnings
-		if p.Items == nil || p.Total < 0 || (after != nil && p.Total != result.Total) {
-			return slot
-		}
-		result.Total = p.Total
-		for _, v := range p.Items {
-			if v == nil {
-				return slot
+		raw := &lintwarn.Raw{Total: p.Total, NextCursor: p.NextCursor}
+		if p.Items != nil {
+			raw.Items = make([]*lintwarn.Warning, len(p.Items))
+			for i, v := range p.Items {
+				if v != nil {
+					raw.Items[i] = &lintwarn.Warning{Kind: string(v.Kind), Position: v.Position, Text: v.Text, TargetURN: v.TargetUrn, PinnedRevision: v.PinnedRevision, NewerRevision: v.NewerRevision, OverriddenNodeLoc: v.OverriddenNodeLoc, WorkerField: v.WorkerField}
+				}
 			}
-			result.Items = append(result.Items, lintWarningDTO{string(v.Kind), v.Position, v.Text, v.TargetUrn, v.PinnedRevision, v.NewerRevision, v.OverriddenNodeLoc, v.WorkerField})
 		}
-		if len(result.Items) > result.Total {
-			return slot
-		}
-		if p.NextCursor == nil {
-			if len(result.Items) != result.Total {
-				return slot
-			}
-			page = result
-			return slot
-		}
-		if *p.NextCursor == "" || seen[*p.NextCursor] || len(p.Items) == 0 {
-			return slot
-		}
-		seen[*p.NextCursor] = true
-		next := *p.NextCursor
-		after = &next
-	}
+		return raw, nil
+	})
 	return slot
 }
 
