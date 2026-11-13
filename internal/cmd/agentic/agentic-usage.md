@@ -6239,7 +6239,7 @@ The JSON receipt is {id,appId,workerId,name,grantedAt,revokedAt}; revokedAt may 
 rm confirms on a terminal, or requires --yes. Refusals retain normal CLI exit codes.
 
 `hadron team ticker settings get` reads the App's ticker settings (any App
-participant; read-only, no flags beyond --app/--json). Text shows the five values and
+participant; read-only, no flags beyond --app/--json). Text prints an `app:` line, then the four numbers and
 marks the daily wake budget "derived" or "set" as the server says (the CLI never
 computes it). JSON: {minCadenceSeconds,liveCap,selfSubscribeCadenceSeconds,
 dailyWakeBudget,dailyWakeBudgetDerived}. Refusals map as everywhere (FORBIDDEN 8, not found 4).

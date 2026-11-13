@@ -248,9 +248,18 @@ dailyWakeBudget and dailyWakeBudgetDerived.`,
 			if e != nil {
 				return api.MapError(e)
 			}
+			if r == nil || r.AppTickerSettings == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no ticker settings")
+			}
 			v := r.AppTickerSettings
 			label := lazyAppLabel(cmd.Context(), f, s)
-			d := tickerSettingsDTO{v.MinCadenceSeconds, v.LiveCap, v.SelfSubscribeCadenceSeconds, v.DailyWakeBudget, v.DailyWakeBudgetDerived}
+			d := tickerSettingsDTO{
+				MinCadenceSeconds:           v.MinCadenceSeconds,
+				LiveCap:                     v.LiveCap,
+				SelfSubscribeCadenceSeconds: v.SelfSubscribeCadenceSeconds,
+				DailyWakeBudget:             v.DailyWakeBudget,
+				DailyWakeBudgetDerived:      v.DailyWakeBudgetDerived,
+			}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				if _, e := fmt.Fprintf(w, "app: %s\n", label()); e != nil {
 					return e

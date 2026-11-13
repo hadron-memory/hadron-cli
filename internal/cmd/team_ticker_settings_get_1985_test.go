@@ -59,7 +59,7 @@ func TestTeamTickerSettingsGet1985Text(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, s := range []string{"60", "10", "120", "96", want} {
+		for _, s := range []string{"minimum cadence 60s", "live cap 10;", "self-subscribe cadence 120s", "daily wake budget 96 " + want} {
 			if !strings.Contains(out, s) {
 				t.Fatalf("missing %q in %q", s, out)
 			}
@@ -82,8 +82,21 @@ func TestTeamTickerSettingsGet1985Refusals(t *testing.T) {
 }
 
 func TestTeamTickerSettingsSetHelpPointsToGet1985(t *testing.T) {
-	_, out, _ := runTeamTask(t, taskResponses(), "team", "ticker", "settings", "set", "--help")
+	_, out, err := runTeamTask(t, taskResponses(), "team", "ticker", "settings", "set", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(out, "settings get") {
 		t.Fatalf("set help does not point to get: %q", out)
+	}
+}
+
+// A null appTickerSettings with no GraphQL error is a refusal, not a panic.
+func TestTeamTickerSettingsGet1985NullPayload(t *testing.T) {
+	r := taskResponses()
+	r["TeamTickerSettingsGet"] = `{"data":{"appTickerSettings":null}}`
+	_, out, e := runTeamTask(t, r, "team", "ticker", "settings", "get")
+	if e == nil || !strings.Contains(e.Error(), "no ticker settings") {
+		t.Fatalf("err %v out %q", e, out)
 	}
 }
