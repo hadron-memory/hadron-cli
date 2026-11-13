@@ -134,10 +134,16 @@ type Deliverer struct {
 	LockDir string
 	Caps    Capabilities
 	// Bound is the worker a worktree's session binding names, or "".
-	Bound  func(worktree string) string
-	Now    func() time.Time
-	Budget time.Duration
-	Emit   func(Event)
+	Bound func(worktree string) string
+	// Registered lists every registered worker's directories, for the
+	// plain-directory claim checks (cli#1989). nil: only the recipient.
+	Registered func() Registered
+	// ProcessGone says no process has a pid (ESRCH and nothing else); nil is
+	// the host's real test. A seam for the claim liveness tests.
+	ProcessGone func(pid int) bool
+	Now         func() time.Time
+	Budget      time.Duration
+	Emit        func(Event)
 
 	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
 	Wakes       WakeServer
@@ -446,6 +452,42 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 			inTree = append(inTree, t)
 		}
 	}
+	// A plain directory (no .git) is found by the handle its own terminal
+	// recorded, never by path (cli#1989). Worktree rows are untouched.
+	plainDir := map[string]string{}
+	var plains []string
+	for _, w := range r.Worktrees {
+		if isPlainDir(w) {
+			plains = append(plains, w)
+		}
+	}
+	if len(plains) > 0 {
+		c, ok := d.claims(r)
+		if !ok {
+			// No view of the other workers: neither (b) nor (c) can be
+			// judged, so nothing is typed.
+			return none, nil, "", l.hold(HoldTerminalClaimed, ""), false
+		}
+		for _, dir := range plains {
+			// Every plain directory's binding names this worker, not only
+			// the first one a shared handle resolves through.
+			if d.Bound(dir) != r.WorkerID {
+				return none, nil, "", l.hold(HoldBindingMismatch, ""), false
+			}
+			t, reason, handle, ok := d.plainTerminal(terms, dir, r, c)
+			if !ok {
+				return none, nil, "", l.hold(reason, handle), false
+			}
+			dup := false
+			for _, e := range inTree {
+				dup = dup || e.Handle == t.Handle
+			}
+			if !dup {
+				inTree = append(inTree, t)
+				plainDir[t.Handle] = dir
+			}
+		}
+	}
 	if len(inTree) == 0 {
 		// No hold evidence: S5 judges an overdue backlog by itself.
 		return none, nil, "", l.emit(Outcome{Kind: Skipped, Reason: "no-terminal"}), false
@@ -474,7 +516,11 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 	if !a.t.Connected || !a.t.Writable {
 		return none, nil, "", l.hold(HoldScreenUnknown, a.t.Handle), false
 	}
-	if d.Bound(a.t.WorktreePath) != r.WorkerID {
+	boundAt := a.t.WorktreePath
+	if dir, ok := plainDir[a.t.Handle]; ok {
+		boundAt = dir
+	}
+	if d.Bound(boundAt) != r.WorkerID {
 		return none, nil, "", l.hold(HoldBindingMismatch, a.t.Handle), false
 	}
 	// The interface: the screen's own family, else Orca's identity (a dialog
@@ -526,6 +572,9 @@ func BoundWorker(worktree string) string {
 	gitDir := filepath.Join(worktree, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
+		if isPlainDir(worktree) {
+			return plainBoundWorker(worktree)
+		}
 		return ""
 	}
 	if !info.IsDir() {

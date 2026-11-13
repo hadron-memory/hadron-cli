@@ -66,7 +66,7 @@ Changing a live host remains the host operator's separately authorized step.
 | `coordinatorWatchMinutes`, `coordinator`, `lifecycle` | none | Retired. A coordinator's standing wake is a ticker with the `every-tick` reason (hadron-server#2068). |
 | `roster[].worker` / `.name` | a key of `workers` | A worker's name in the App, its URN or its id. The poller matches the registration by id, URN or name (names are unique per App, case-insensitively). |
 | `roster[].worktree` (absolute) | `workers.<ref>.worktrees: [<token>]` | A token is relative to `worktrees_root`. For example, `/home/orca/orca/workspaces/hadron-cli/jonas-2` with `worktrees_root: /home/orca/orca/workspaces` becomes `hadron-cli/jonas-2`. |
-| `roster[].terminal` | none | Not ported. The poller finds the one agent terminal in the worker's worktrees, fresh, each time. |
+| `roster[].terminal` | none | Not ported. The poller finds the one agent terminal in the worker's worktrees, fresh, each time. A worker in a plain directory (no checkout) is found by the handle its own terminal records instead: see "Plain-directory workers" below. |
 | none | `workers.<ref>.family` | **Required.** The model family it runs as (`claude`, `codex`, `glm`, …). |
 | none | `workers.<ref>.tui` | Optional: `claude` or `codex`, when the family doesn't name its interface (a `glm` worker runs in Claude Code). |
 | none | `workers.<ref>.launch` | **Required** by the host poller (`worker.start`), even when delivery is all you need. |
@@ -155,7 +155,11 @@ is older than 30 minutes, the row reads `HELD OVER 30m: no delivery since
 | `not-submitted` | Orca refused the send, or accepted it with no proof the agent submitted it. | Nothing to clear. No record is kept, so the next pass sends a fresh request. If the line is still in the composer, the next pass submits it with Enter alone and never retypes it. If a newer line arrives, the old one is cleared first. A worker that stays here is a terminal problem: check the screen. |
 | `screen-unknown` | The screen proves neither an empty composer nor the expected agent (a dialog, another interface, a disconnected or read-only terminal). | Fix the terminal. |
 | `two-agents` | More than one agent terminal is in the worker's worktrees. | Close the extra one. |
-| `binding-mismatch` | The worktree's session binding names another worker. | Rebind the right worker there. |
+| `binding-mismatch` | The worktree's (or plain directory's) session binding names another worker, or none. | Rebind the right worker there. |
+| `no-terminal-record` | A plain-directory worker's `.hadron-team/terminal.json` is missing, unreadable or has no handle. | Relaunch the worker through `worker-supervise`, which writes it. |
+| `terminal-stale` | The recorded terminal is not listed, not connected, not writable or not an agent. | Relaunch the worker; the launch rewrites the record. |
+| `terminal-claimed` | Another registered worker's `terminal.json` names the same terminal while that file's `wrapperPid` may still be running, or the poller has no view of the other workers' directories. | Fix the record that is wrong (a copied file); a record whose wrapper is gone stops counting by itself. |
+| `terminal-bound-elsewhere` | The recorded terminal sits in a directory registered to a different worker, or in a checkout whose session binding names one. | Relaunch the worker in its own terminal, not one started from another worker's checkout. |
 | `timing-unavailable` | A wake's timing parsed as zero (`deliverAfter`, or `busyDeadline` for a busy agent). | Server-side. The wake stays due. |
 
 A wake whose timing is missing or unparseable is not a worker hold. Both
@@ -220,3 +224,13 @@ operations too.
 
 The poller's records under `delivery/` stay. When delivery is switched on
 again, it reconciles from them and never retypes a line it confirmed.
+
+## Plain-directory workers
+
+A worker with no checkout (a plain directory, `hadron team session start` there) is never reported by Orca as a terminal's `worktreePath`, so the poller cannot find its terminal by path. Instead:
+
+- List the directory under the worker's `worktrees` in `host.yaml` (relative to `worktrees_root`). Only a registered directory is a recipient.
+- The worker's terminal records its own handle at every launch in `<dir>/.hadron-team/terminal.json` (`{"handle": ...}`, written by the host's `worker-supervise`). Nobody keeps it by hand. The poller only reads it.
+- The poller types only when the binding in `<dir>/.hadron-team/hadron-team-session.json` names the worker and the handle passes three checks: (a) `orca terminal list` shows it connected and writable with an agent identity; (b) no other registered worker's `terminal.json` names it while that file's `wrapperPid` may be alive (only proof the process does not exist, ESRCH, ends a claim; a missing pid, EPERM or any other error counts as alive, a reused pid keeps holding until the next launch rewrites the file, and the pid is checked in the poller's own PID namespace, so a worker running in a container or another namespace needs its record written from the poller's view or it reads as live); (c) the terminal's own worktree is not a directory registered to another worker, and its session binding, if it has one, does not name another worker. A terminal that reports no worktree, or an unregistered and unbound one, is admitted on the record alone: the residual risk is a wrong record, not a forged one (every worker runs as the same OS user), and a positive tie between the terminal and the worker belongs to the writer. Otherwise it holds with a code from the table above; it never falls back to matching a screen or a title.
+- Every plain directory a worker registers must resolve: one with no record holds the worker's other directories too, so do not mix an unlaunched plain directory with a working worktree.
+- A directory with a `.git` is a worktree: its `.git` binding is read and its `terminal.json` is ignored.

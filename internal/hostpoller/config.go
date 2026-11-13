@@ -89,7 +89,9 @@ type WorkerConfig struct {
 	// worker without it is never reset on this host.
 	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
-	// worktrees_root, beyond the ones this poller created.
+	// worktrees_root, beyond the ones this poller created. A plain directory
+	// (no .git) listed here is a recipient too, found by the terminal handle
+	// it records in .hadron-team/terminal.json (cli#1989).
 	Worktrees []string `yaml:"worktrees"`
 	// TUI is the agent interface its terminal shows, claude or codex, when
 	// the model family does not say (a glm worker runs in Claude Code).
