@@ -201,6 +201,9 @@ func (r *Runner) call(ctx context.Context, name string, req map[string]any, out 
 	cmd := exec.CommandContext(cctx, r.Path, name)
 	cmd.Stdin = bytes.NewReader(stdin)
 	cmd.Env = scrubbedEnv(os.Environ())
+	// After the kill (timeout, cap or interrupt) a grandchild may still hold
+	// the pipes; do not wait for it to let go.
+	cmd.WaitDelay = 2 * time.Second
 	stdout := &capWriter{max: MaxOutputBytes, cancel: cancel}
 	stderr := &capWriter{max: MaxStderrBytes, swallow: true}
 	cmd.Stdout, cmd.Stderr = stdout, stderr

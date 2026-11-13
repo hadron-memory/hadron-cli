@@ -1,9 +1,12 @@
 package team
 
 import (
+	"context"
 	"errors"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -82,7 +85,15 @@ func selectAdapter(cmd *cobra.Command, adapterFlag, integration string, u adapte
 // runAdapterCommand resolves the App and the caller's binding, parses the
 // parties, and runs the adapter flow.
 func runAdapterCommand(cmd *cobra.Command, f *cmdutil.Factory, path string, u adapterFlagUse) error {
-	ctx := cmd.Context()
+	root := cmd.Context()
+	if root == nil {
+		root = context.Background()
+	}
+	// Nothing at the CLI root turns an interrupt into a context cancel, so
+	// without this Ctrl-C kills the process by signal and never reaches the
+	// documented Cancelled exit (QA on cli#1971; same as chat wait).
+	ctx, stopSignals := signal.NotifyContext(root, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 	o := adapterOpts{path: path, forWorker: strings.TrimSpace(u.forWorker), track: u.track}
 	if cmd.Flags().Changed("limit") {
 		o.limit = u.limit

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -640,4 +641,32 @@ func TestAdapterDescribePrecedesAppResolution1961(t *testing.T) {
 			t.Fatalf("exit = %d, calls %v: %v", exitCodeFor(err), *calls, err)
 		}
 	})
+}
+
+// QA cli#1971: Ctrl-C reached the process as a signal, not a context cancel
+// (nothing at the root derives a context from it), so the binary died by
+// SIGINT instead of the documented Cancelled exit 6.
+func TestAdapterInterruptExitsCancelled1961(t *testing.T) {
+	path, log := fakeAdapter1961(t, "", `sleep 20`, "")
+	go func() {
+		// The log line is written once the adapter's list call has begun,
+		// which is after the command installed its signal handling.
+		for i := 0; i < 200; i++ {
+			if len(adapterLog1961(t, log, "list-untracked")) > 0 {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		if p, err := os.FindProcess(os.Getpid()); err == nil {
+			_ = p.Signal(os.Interrupt)
+		}
+	}()
+	start := time.Now()
+	_, _, _, err := run1961(t, path, map[string]string{})
+	if exitCodeFor(err) != exitcode.Cancelled {
+		t.Fatalf("an interrupt must exit Cancelled (6), got %v (%v)", exitCodeFor(err), err)
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatalf("the adapter must be killed on interrupt, took %s", time.Since(start))
+	}
 }
