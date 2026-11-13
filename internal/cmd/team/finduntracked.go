@@ -103,7 +103,8 @@ again for the new assignee, a release (` + "`task release`" + `) calls untrack w
 released item, a cancel calls report only if the adapter's describe lists it, and
 a finish, hand-back or first assignment call nothing. The cursor is the server's
 own opaque value, kept per server, App and adapter in a file beside the CLI's
-config (intake-cursors.json); the first run reads from the oldest change, a later
+config (intake-cursors.json); one run reconciles a feed at a time (a second
+waits up to 2 minutes, then exits 5); the first run reads from the oldest change, a later
 run only what is new, and nothing is told twice. A change the adapter refuses
 holds the cursor there so the next run retries it: the list and claim still run,
 the run exits 1, and the output's reconcile object names the refusal. An

@@ -41,6 +41,8 @@ feed exits 2 naming #4084. A run reads at most 25 pages of 200; the rest resumes
 **Output.** Both `--json` shapes gain `reconcile: {read, marked, untracked, reported, skipped, complete, error}` (additive);
 text mode prints one `note: reconcile: ...` line on stderr when it did or said something.
 
+**One run per feed.** A per-feed exclusive file lock (`intake-cursors.json.<hash>.lock`, the OS drops it if the process dies) is held across the cursor read, the adapter's effects and the cursor write, so a ticker run and a hand run cannot overlap and an older run cannot roll the cursor back over a newer one (LOCAL P2 on #1975). A second run waits up to 2 minutes, then exits 5 (busy) before reading or telling anything; Ctrl-C ends the wait (exit 6). The list/claim that follows the pass is outside the lock.
+
 **At least once.** The cursor is persisted after a page is fully answered (and on a failure), so a crash mid-page replays that
 page; `mark-tracked`, `untrack` and `report` are idempotent by contract. An adapter that does not list a call in `describe` is
 not told, and the cursor passes that change (`skipped`, visible in the output): an adapter upgraded later does not hear the

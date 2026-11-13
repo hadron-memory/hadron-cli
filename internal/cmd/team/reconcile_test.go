@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/intake"
 )
 
@@ -141,5 +143,80 @@ func TestReconcileEmptyPageWithHasMoreIsNotComplete(t *testing.T) {
 	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
 	if aerr != nil || ferr != nil || d.Complete || len(c.after) != 1 {
 		t.Fatalf("must stop incomplete without spinning: %+v %v %v reads=%d", d, aerr, ferr, len(c.after))
+	}
+}
+
+// Joost (cli#1975 LOCAL): two runs on ONE feed (a ticker and a hand run) must
+// not overlap. Without a per-feed lock the second reads the same stored cursor
+// while the first is still inside the adapter, repeats its effect, and a
+// delayed older run can roll the cursor back over a newer one's.
+func TestReconcileSameFeedRunsAreSerialized(t *testing.T) {
+	r, desc, log := scriptAdapter(t, `: > "$(dirname "$0")/inA"; while [ ! -f "$(dirname "$0")/release" ]; do sleep 0.05; done; echo '{}'`)
+	dir := filepath.Dir(r.Path)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+
+	a := &feedClient{pages: []string{page(released("https://x/1", "c1"))}}
+	aDone := make(chan struct{})
+	go func() {
+		defer close(aDone)
+		_, _, _ = reconcile(context.Background(), a, store, key, "app", r, desc)
+	}()
+	for i := 0; i < 200; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "inA")); err == nil {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	b := &feedClient{pages: []string{page()}}
+	bDone := make(chan struct{})
+	go func() {
+		defer close(bDone)
+		_, _, _ = reconcile(context.Background(), b, store, key, "app", r, desc)
+	}()
+	select {
+	case <-bDone:
+		t.Fatal("a second run on the same feed finished while the first was still in the adapter")
+	case <-time.After(400 * time.Millisecond):
+	}
+	if len(b.after) != 0 {
+		t.Fatalf("the second run must not even read the feed until the first is done: %v", b.after)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "release"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	<-aDone
+	<-bDone
+	if len(b.after) != 1 || b.after[0] != "c1" {
+		t.Fatalf("the second run starts after what the first answered: %v", b.after)
+	}
+	if n := untrackCalls(t, log); n != 1 {
+		t.Fatalf("the effect happened once: %d untrack calls", n)
+	}
+}
+
+// A run that cannot get the feed in time is busy: exit 5, nothing told, nothing read.
+func TestReconcileBusyFeedExitsConflict(t *testing.T) {
+	old := intake.FeedLockWait
+	intake.FeedLockWait = 150 * time.Millisecond
+	t.Cleanup(func() { intake.FeedLockWait = old })
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+
+	held := make(chan struct{})
+	free := make(chan struct{})
+	go func() {
+		_ = store.Serialize(context.Background(), key, func() error { close(held); <-free; return nil })
+	}()
+	<-held
+	c := &feedClient{pages: []string{page()}}
+	_, _, fatal := reconcile(context.Background(), c, store, key, "app", r, desc)
+	close(free)
+	var coded *exitcode.CodedError
+	if !errors.As(fatal, &coded) || coded.Code != exitcode.Conflict || len(c.after) != 0 {
+		t.Fatalf("want a busy Conflict with no read: %v reads=%v", fatal, c.after)
 	}
 }

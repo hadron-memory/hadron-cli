@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Khan/genqlient/graphql"
@@ -61,6 +62,27 @@ type reconcileDTO struct {
 // not depend on the write-back), then a fatal error (server, store) that ends
 // the run.
 func reconcile(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
+	dto = reconcileDTO{Complete: true}
+	// One run at a time per feed: the cursor read, the adapter's effects and the
+	// cursor write are one critical section (cli#1975, LOCAL P2).
+	serr := store.Serialize(ctx, key, func() error {
+		dto, adapterFailure, fatal = reconcileLocked(ctx, client, store, key, appRef, runner, desc)
+		return nil
+	})
+	if serr != nil {
+		var busy *intake.BusyError
+		if errors.As(serr, &busy) {
+			return dto, nil, exitcode.Newf(exitcode.Conflict, "%s", busy.Error())
+		}
+		if ctx.Err() != nil {
+			return dto, nil, adapterErr(ctx.Err())
+		}
+		return dto, nil, exitcode.Newf(exitcode.Error, "the reconcile lock: %v", serr)
+	}
+	return dto, adapterFailure, fatal
+}
+
+func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
 	dto = reconcileDTO{Complete: true}
 	cursor, err := store.Get(key)
 	if err != nil {
