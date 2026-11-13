@@ -1490,11 +1490,11 @@ Conventions:
   `skill-unknown-host-key` WARNING, with one row per key the server lists and one
   aggregate row for any remainder, all with `hosts: []` — the keys
   belong to no host — never read as aliases, and never blocking a known host
-  beside it, however malformed (cor:agt:030:06). Note
-  what cannot be checked: with no prefix source, a name's PREFIX is
-  unverifiable — `hadon-foo` lints clean. `--all` walks what the server lists for you — own-org,
-  shared-with-you and other orgs' PUBLIC memories, every class; a per-user
-  agent memory is never listed, so name it with `-m`. Errors exit 5;
+  beside it, however malformed (cor:agt:030:06). Note what cannot be checked:
+  with no prefix source, a name's PREFIX is unverifiable — `hadon-foo` lints
+  clean. `--all` walks what the server lists for you — own-org, shared-with-you
+  and other orgs' PUBLIC memories, every class; a per-user agent memory is
+  never listed, so name it with `-m`. Errors exit 5;
   warnings alone exit 0 unless `--strict` promotes them.
   `skill status` reads BOTH sides and writes nothing: it walks
   `<root>/*/SKILL.md` (`--to user` → `~/.claude/skills`, `project` →
@@ -1511,8 +1511,8 @@ Conventions:
   header verbatim, so their files carry `rev=` with no client change. Against
   a server that predates the field (it refuses `revision` as an unknown input
   field), status and export ask once more without revisions instead of
-  failing; any other refusal is still the run's error. **The class is the server's word** — the
-  vocabulary is one place so it cannot drift between the CLI, MCP and the
+  failing; any other refusal is still the run's error. **The class is the
+  server's word** — the vocabulary is one place so it cannot drift between the CLI, MCP and the
   portal — and a file that exists but does not PARSE gets `class: null` with
   `parseFailure: true`, because a parse failure is a failure and not an
   eleventh class; read the two together and never `class` alone. In the table
@@ -1529,7 +1529,8 @@ Conventions:
   the provenance header below the broken frontmatter is still readable, and
   otherwise listed locally under `unparseable` (never sent, since an
   unidentifiable file must not be claimed as an orphan). An unreadable file is
-  listed under `unreadable` with its errno, likewise never sent. A `SKILL.md` that is not a regular file (a FIFO, a device) is listed under `unreadable` WITHOUT being read, so it cannot block the walk.
+  listed under `unreadable` with its errno, likewise never sent. A `SKILL.md` that is not a regular file (a FIFO, a device) is listed
+  under `unreadable` WITHOUT being read, so it cannot block the walk.
   There is deliberately no `--node` (the orphan and collision classes are
   properties of a SET). An error finding exits 5; drift and warnings alone
   exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,
