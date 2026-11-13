@@ -24,12 +24,13 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 | --- | --- |
 | `HADRON_TEAM_GIT_DIR` set | that directory (unchanged) |
 | inside a git checkout | the worktree's git dir (unchanged) |
-| git answers "not a git repository", or there is no git binary | `<cwd>/.hadron-team/` (new) |
+| git answers "not a git repository (or any of the parent directories)", or there is no git binary | `<cwd>/.hadron-team/` (new) |
 | any other git failure | none: the hard `errNoWorktree`, as before |
 
 - `.hadron-team/` holds the same `hadron-team-session.json` and `hadron-team-session.lock` that a git dir holds. The directory is created owner-only (0700), and only by a bind.
 - Only the **current** directory is consulted, never a parent. A command run in a subdirectory therefore cannot pick up the binding of a directory above it.
 - A dubious-ownership refusal, or a corrupt repository, may sit inside a real worktree. That is why only git's own "not a git repository" makes a directory plain: reading a real worktree as plain would put its binding in the wrong place.
+- Only the discovery form, "not a git repository (or any of the parent directories)", counts. git says "not a git repository: <path>" for a worktree whose admin dir is gone, or a bad `GIT_DIR`, and that is a real checkout (Rico's §10 P3 on #1968).
 - git localizes that message, so the probe runs git under `LC_ALL=C` and `LANGUAGE=C` (Gloria's BLIND F1 on #1968). Without that, a plain directory under a German locale fell into the hard error.
 
 **Readers and writers differ on purpose:**

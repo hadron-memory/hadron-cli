@@ -127,7 +127,11 @@ func gitDirOrPlain(ctx context.Context) (dir string, plain bool, err error) {
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
 			detail = strings.TrimSpace(string(exitErr.Stderr))
 		}
-		plain = errors.Is(err, exec.ErrNotFound) || strings.Contains(strings.ToLower(detail), "not a git repository")
+		// The DISCOVERY form only: git also says "not a git repository:
+		// <path>" for a worktree whose admin dir is gone or a bad GIT_DIR —
+		// a real checkout, which must stay the hard error (Rico's §10 P3,
+		// #1968). The C locale above keeps this wording stable.
+		plain = errors.Is(err, exec.ErrNotFound) || strings.Contains(strings.ToLower(detail), "not a git repository (or any of the parent directories)")
 		return "", plain, exitcode.Newf(exitcode.Usage, "%w — a team session binds to one (%s)", errNoWorktree, detail)
 	}
 	d, err := filepath.Abs(strings.TrimSpace(string(out)))
