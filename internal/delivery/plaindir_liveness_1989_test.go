@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -13,20 +14,10 @@ func writeRecordPID(t *testing.T, dir, handle string, pid int) {
 	if err := os.MkdirAll(filepath.Join(dir, ".hadron-team"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	body := `{"handle":"` + handle + `","wrapperPid":` + itoa(pid) + `,"writtenAt":"2026-11-13T00:00:00Z"}`
+	body := `{"handle":"` + handle + `","wrapperPid":` + strconv.Itoa(pid) + `,"writtenAt":"2026-11-13T00:00:00Z"}`
 	if err := os.WriteFile(filepath.Join(dir, ".hadron-team", "terminal.json"), []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func itoa(n int) string {
-	if n < 0 {
-		return "-" + itoa(-n)
-	}
-	if n < 10 {
-		return string(rune('0' + n))
-	}
-	return itoa(n/10) + string(rune('0'+n%10))
 }
 
 // foreignClaim registers a second worker (Ruin) whose record names term_p.
@@ -215,5 +206,61 @@ func TestADanglingGitLinkIsNotAPlainDirectory(t *testing.T) {
 	}
 	if isPlainDir(d) {
 		t.Fatal("a directory with a (dangling) .git entry was read as plain")
+	}
+}
+
+// Caspian D1: the check-(c) binding guard through the PRODUCTION BoundWorker
+// (no harness seam), at checkouts registered nowhere: a git-dir checkout and
+// a linked-worktree checkout whose binding names another worker hold; one
+// naming the recipient is allowed.
+func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.T) {
+	write := func(gitDir, worker string) {
+		t.Helper()
+		if err := os.MkdirAll(gitDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(gitDir, bindingFileName), []byte(`{"workerId":"`+worker+`"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	linked := func(root, worker string) string {
+		dir := filepath.Join(root, "linked")
+		gitDir := filepath.Join(root, "gitdirs", "linked")
+		write(gitDir, worker)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ".git"), []byte("gitdir: "+gitDir+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	for name, mk := range map[string]func(root, worker string) string{
+		"gitdir": func(root, worker string) string {
+			dir := filepath.Join(root, "plain-git")
+			write(filepath.Join(dir, ".git"), worker)
+			return dir
+		},
+		"linked": linked,
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := newPlainHarness(t)
+			p.d.Bound = func(w string) string {
+				if w == p.plain {
+					return plainBoundWorker(w)
+				}
+				return BoundWorker(w)
+			}
+			other := mk(t.TempDir(), "w-other")
+			p.orca.terms[0].WorktreePath = other
+			p.wantHold(p.deliver(p.batch()), HoldTerminalBoundElsewhere)
+			p.wantNoSend()
+
+			own := mk(t.TempDir(), p.r.WorkerID)
+			p.orca.terms[0].WorktreePath = own
+			if o := p.deliver(p.batch()); o.Kind != Delivered {
+				t.Fatalf("own binding should deliver: %+v", o)
+			}
+		})
 	}
 }
