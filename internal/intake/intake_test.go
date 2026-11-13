@@ -44,21 +44,22 @@ func TestDescribeMissingVersionIsSkew(t *testing.T) {
 
 func TestHostileOutputIsRefused(t *testing.T) {
 	cases := map[string]string{
-		"oversized":          `cat >/dev/null; head -c 3000000 /dev/zero | tr '\0' 'a'`,
-		"endless":            `cat >/dev/null; yes '{"items":[]}'`,
-		"not json":           `cat >/dev/null; echo 'hello'`,
-		"array not object":   `cat >/dev/null; echo '[]'`,
-		"two documents":      `cat >/dev/null; echo '{"items":[]}{"items":[]}'`,
-		"trailing junk":      `cat >/dev/null; echo '{"items":[]} junk'`,
-		"truncated":          `cat >/dev/null; printf '{"items":[{"externalId":"u"'`,
-		"empty":              `cat >/dev/null`,
-		"invalid utf8":       `cat >/dev/null; printf '{"items":[{"externalId":"\xff\xfe","title":"t"}]}'`,
-		"empty externalId":   `cat >/dev/null; echo '{"items":[{"externalId":"","title":"t"}]}'`,
-		"missing externalId": `cat >/dev/null; echo '{"items":[{"title":"t"}]}'`,
-		"huge externalId":    `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`,
-		"huge title":         `cat >/dev/null; printf '{"items":[{"externalId":"u","title":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '"}]}'`,
-		"huge cursor":        `cat >/dev/null; printf '{"items":[],"nextCursor":"'; head -c 9000 /dev/zero | tr '\0' 'a'; printf '"}'`,
-		"too many items":     `cat >/dev/null; printf '{"items":['; i=0; while [ $i -lt 101 ]; do [ $i -gt 0 ] && printf ','; printf '{"externalId":"u%d","title":"t"}' $i; i=$((i+1)); done; printf ']}'`,
+		"oversized":            `cat >/dev/null; head -c 3000000 /dev/zero | tr '\0' 'a'`,
+		"endless":              `cat >/dev/null; yes '{"items":[]}'`,
+		"not json":             `cat >/dev/null; echo 'hello'`,
+		"array not object":     `cat >/dev/null; echo '[]'`,
+		"two documents":        `cat >/dev/null; echo '{"items":[]}{"items":[]}'`,
+		"trailing junk":        `cat >/dev/null; echo '{"items":[]} junk'`,
+		"truncated":            `cat >/dev/null; printf '{"items":[{"externalId":"u"'`,
+		"empty":                `cat >/dev/null`,
+		"invalid utf8":         `cat >/dev/null; printf '{"items":[{"externalId":"\xff\xfe","title":"t"}]}'`,
+		"empty externalId":     `cat >/dev/null; echo '{"items":[{"externalId":"","title":"t"}]}'`,
+		"missing externalId":   `cat >/dev/null; echo '{"items":[{"title":"t"}]}'`,
+		"huge externalId":      `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`,
+		"externalId 513 chars": `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 513 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`,
+		"huge title":           `cat >/dev/null; printf '{"items":[{"externalId":"u","title":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '"}]}'`,
+		"huge cursor":          `cat >/dev/null; printf '{"items":[],"nextCursor":"'; head -c 9000 /dev/zero | tr '\0' 'a'; printf '"}'`,
+		"too many items":       `cat >/dev/null; printf '{"items":['; i=0; while [ $i -lt 101 ]; do [ $i -gt 0 ] && printf ','; printf '{"externalId":"u%d","title":"t"}' $i; i=$((i+1)); done; printf ']}'`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -254,5 +255,26 @@ func TestEmptyConfiguredPathIsRefused(t *testing.T) {
 	var re *RefusedError
 	if _, err := (&Runner{}).Describe(context.Background()); !errors.As(err, &re) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestExternalIDAtServerCapIsAccepted(t *testing.T) {
+	r := adapter(t, `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 512 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`)
+	if _, err := r.ListUntracked(context.Background(), "", "", 20); err != nil {
+		t.Fatalf("512 characters is within the server cap: %v", err)
+	}
+}
+
+func TestCallerCancelIsNotAnAdapterRefusal(t *testing.T) {
+	r := adapter(t, `cat >/dev/null; sleep 5`)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(200 * time.Millisecond); cancel() }()
+	_, err := r.ListUntracked(ctx, "", "", 20)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("want context.Canceled, got %T %v", err, err)
+	}
+	var re *RefusedError
+	if errors.As(err, &re) {
+		t.Fatalf("an interrupt must not read as an adapter refusal: %v", err)
 	}
 }

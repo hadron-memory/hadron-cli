@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -39,14 +40,15 @@ const ContractVersion = 1
 // of these and the call is refused; nothing is truncated into a plausible
 // answer.
 const (
-	MaxOutputBytes   = 1 << 20 // stdout of one call
-	MaxStderrBytes   = 4096    // kept for the refusal message only
-	MaxItemsPerPage  = 100
-	MaxPages         = 50
-	MaxExternalIDLen = 2048 // the server's own cap is 512; this only bounds memory
-	MaxCursorLen     = 4096
-	MaxTextLen       = 1024 // adapter-supplied display text: name, title
-	DefaultTimeout   = 60 * time.Second
+	MaxOutputBytes      = 1 << 20 // stdout of one call
+	MaxStderrBytes      = 4096    // kept for the refusal message only
+	MaxItemsPerPage     = 100
+	MaxPages            = 50
+	ServerExternalIDMax = 512  // the server's externalId cap, in UTF-16 code units
+	MaxExternalIDLen    = 2048 // the server's own cap is 512; this only bounds memory
+	MaxCursorLen        = 4096
+	MaxTextLen          = 1024 // adapter-supplied display text: name, title
+	DefaultTimeout      = 60 * time.Second
 )
 
 // Item is one outside item the adapter says is not yet tracked.
@@ -208,6 +210,10 @@ func (r *Runner) call(ctx context.Context, name string, req map[string]any, out 
 		return &OutputError{Call: name, Reason: fmt.Sprintf("more than %d bytes on stdout", MaxOutputBytes)}
 	}
 	if runErr != nil {
+		// The caller's own cancellation (Ctrl-C) is not an adapter refusal.
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return ctx.Err()
+		}
 		if errors.Is(cctx.Err(), context.DeadlineExceeded) {
 			return &RefusedError{Call: name, Detail: fmt.Sprintf("no answer within %s", timeout)}
 		}
@@ -303,6 +309,11 @@ func (r *Runner) ListUntracked(ctx context.Context, cursor, forWorker string, li
 		}
 		if err := boundedText("list-untracked", "an externalId", it.ExternalID, MaxExternalIDLen); err != nil {
 			return Page{}, err
+		}
+		// The server refuses a whole externalIds batch if one entry exceeds
+		// its 512-character (UTF-16 unit) rule, so enforce it here per item.
+		if n := len(utf16.Encode([]rune(it.ExternalID))); n > ServerExternalIDMax {
+			return Page{}, &OutputError{Call: "list-untracked", Reason: fmt.Sprintf("item %d externalId is longer than %d characters", i, ServerExternalIDMax)}
 		}
 		if err := boundedText("list-untracked", "a title", it.Title, MaxTextLen); err != nil {
 			return Page{}, err
