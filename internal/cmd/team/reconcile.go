@@ -94,6 +94,7 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			dto.Complete = false
 			return dto, nil, nil
 		}
+		sent := cursor
 		var after *string
 		if cursor != "" {
 			after = &cursor
@@ -106,7 +107,20 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			return dto, nil, mapTaskError(err)
 		}
 		page := resp.AgentTaskExternalIdChanges
+		// A non-empty page must move the cursor. One whose resulting cursor is
+		// the `after` just sent would be replayed on every page and every run:
+		// refuse it before any effect, persist nothing (the list walk refuses a
+		// repeated cursor the same way).
+		if next := pageCursor(page.NextCursor, page.Changes); sent != "" && len(page.Changes) > 0 && next == sent {
+			msg := "the server's change feed did not advance its cursor; nothing was told for that page"
+			dto.Error, dto.Complete = &msg, false
+			return dto, exitcode.Newf(exitcode.Error, "%s", msg), nil
+		}
 		for _, ch := range page.Changes {
+			if ch == nil { // a null element cannot be told to an adapter
+				dto.Skipped++
+				continue
+			}
 			dto.Read++
 			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, &dto); ferr != nil {
 				// The cursor stays after the last answered change, so the
@@ -120,9 +134,7 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			}
 			cursor = ch.Cursor // past this change only now that it is answered
 		}
-		if page.NextCursor != nil && *page.NextCursor != "" {
-			cursor = *page.NextCursor
-		}
+		cursor = pageCursor(page.NextCursor, page.Changes)
 		if cursor != "" {
 			if err := store.Set(key, cursor); err != nil {
 				return dto, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
@@ -134,11 +146,28 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 		if len(page.Changes) == 0 {
 			// More promised, none served: do not claim to be caught up (an
 			// empty answer must not read as the end), and do not spin.
-			dto.Complete = false
-			return dto, nil, nil
+			// More promised, none served: loud, not "more next run".
+			msg := "the server's change feed promised more changes and served none"
+			dto.Error, dto.Complete = &msg, false
+			return dto, exitcode.Newf(exitcode.Error, "%s", msg), nil
 		}
 	}
 }
+
+// pageCursor is where the next read starts: the server's nextCursor, else the
+// last change's own cursor, else (an empty page) nothing, which callers read as
+// "unchanged".
+func pageCursor(next *string, changes []*feedChange) string {
+	if next != nil && *next != "" {
+		return *next
+	}
+	if len(changes) > 0 && changes[len(changes)-1] != nil {
+		return changes[len(changes)-1].Cursor
+	}
+	return ""
+}
+
+type feedChange = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChange
 
 type changeTask = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask
 
@@ -146,7 +175,8 @@ type changeTask = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTask
 func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, dto *reconcileDTO) error {
 	switch kind {
 	case gen.AgentTaskExternalIdChangeKindReassigned:
-		if t == nil || !desc.Has("mark-tracked") {
+		// A task now without an assignee names no worker to mark.
+		if t == nil || t.Assignee == nil || !desc.Has("mark-tracked") {
 			dto.Skipped++
 			return nil
 		}
@@ -219,6 +249,9 @@ func reconcileRun(ctx context.Context, f *cmdutil.Factory, client graphql.Client
 	if err != nil {
 		return reconcileDTO{Complete: true}, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
 	}
-	server, _ := f.Server()
+	server, err := f.Server()
+	if err != nil {
+		return reconcileDTO{Complete: true}, nil, err
+	}
 	return reconcile(ctx, client, store, intake.CursorKey(server, appRef, desc.Name), appRef, runner, desc)
 }

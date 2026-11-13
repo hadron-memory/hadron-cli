@@ -174,6 +174,7 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 	if o.track {
 		claim = adapterClaim{f: f, ctx: ctx, client: client, runner: runner, appRef: appRef, b: b, boundWorker: boundWorker, o: o}
 		if err := claim.assignee(); err != nil {
+			noteReconcile(f, rec) // the pass already ran: do not hide what it told the adapter
 			return err
 		}
 	}

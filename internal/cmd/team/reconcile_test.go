@@ -141,8 +141,8 @@ func TestReconcileEmptyPageWithHasMoreIsNotComplete(t *testing.T) {
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
 	c := &feedClient{pages: []string{`{"changes":[],"hasMore":true,"nextCursor":null}`}}
 	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
-	if aerr != nil || ferr != nil || d.Complete || len(c.after) != 1 {
-		t.Fatalf("must stop incomplete without spinning: %+v %v %v reads=%d", d, aerr, ferr, len(c.after))
+	if aerr == nil || ferr != nil || d.Complete || d.Error == nil || len(c.after) != 1 {
+		t.Fatalf("must fail loudly (exit 1) without spinning: %+v %v %v reads=%d", d, aerr, ferr, len(c.after))
 	}
 }
 
@@ -218,5 +218,41 @@ func TestReconcileBusyFeedExitsConflict(t *testing.T) {
 	var coded *exitcode.CodedError
 	if !errors.As(fatal, &coded) || coded.Code != exitcode.Conflict || len(c.after) != 0 {
 		t.Fatalf("want a busy Conflict with no read: %v reads=%v", fatal, c.after)
+	}
+}
+
+// Gloria (cli#1975 BLIND P2): a page that does not advance the cursor must be
+// refused before any adapter effect, not replayed 25 pages a run for ever.
+func TestReconcileRefusesANonAdvancingCursor(t *testing.T) {
+	r, desc, log := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+	if err := store.Set(key, "c0"); err != nil {
+		t.Fatal(err)
+	}
+	// hasMore, a non-empty page, and a nextCursor equal to the `after` sent.
+	stuck := `{"changes":[` + released("https://x/1", "c0") + `],"hasMore":true,"nextCursor":"c0"}`
+	c := &feedClient{pages: []string{stuck, stuck, stuck}}
+	d, aerr, ferr := reconcile(context.Background(), c, store, key, "app", r, desc)
+	if ferr != nil || aerr == nil || d.Complete || d.Error == nil {
+		t.Fatalf("a stuck cursor must fail the pass (exit 1), not read as 'more next run': %+v %v %v", d, aerr, ferr)
+	}
+	if len(c.after) != 1 || untrackCalls(t, log) != 0 {
+		t.Fatalf("refused before any effect and without paging on: reads=%v untrack=%d", c.after, untrackCalls(t, log))
+	}
+	if got, _ := store.Get(key); got != "c0" {
+		t.Fatalf("no cursor persisted: %q", got)
+	}
+}
+
+// A REASSIGNED change whose task now has no assignee names no worker to mark.
+func TestReconcileReassignedWithoutAssigneeIsSkipped(t *testing.T) {
+	r, desc, log := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	pg := `{"changes":[{"cursor":"c1","kind":"REASSIGNED","externalId":"https://x/1","task":{"id":"t","handle":"AT1","portalUrl":null,"assignee":null}}],"hasMore":false,"nextCursor":null}`
+	d, aerr, ferr := reconcile(context.Background(), &feedClient{pages: []string{pg}}, store, "k", "app", r, desc)
+	b, _ := os.ReadFile(log)
+	if aerr != nil || ferr != nil || d.Marked != 0 || d.Skipped != 1 || strings.Contains(string(b), "mark-tracked") {
+		t.Fatalf("no worker, no mark: %+v %v %v %s", d, aerr, ferr, b)
 	}
 }

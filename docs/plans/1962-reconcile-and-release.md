@@ -20,7 +20,7 @@ Runs first in every `find-untracked --adapter` run, list and `--track` alike (`r
 
 | Change kind | Adapter call |
 |---|---|
-| REASSIGNED | `mark-tracked` again: external id, task (id, handle, server portal URL), worker (id, name) |
+| REASSIGNED | `mark-tracked` again: external id, task (id, handle, server portal URL), worker (id, name); skipped when the task now has no assignee (no worker to name) |
 | RELEASED | `untrack` with the RELEASED id the feed carries (the task holds none) |
 | CANCELLED | `report` {state: CANCELLED}, only when `describe.calls` lists `report` |
 | ASSIGNED, HANDED_BACK, FINISHED | nothing in v1 |
@@ -42,6 +42,8 @@ feed exits 2 naming #4084. A run reads at most 25 pages of 200; the rest resumes
 text mode prints one `note: reconcile: ...` line on stderr when it did or said something.
 
 **One run per feed.** A per-feed exclusive file lock (`intake-cursors.json.<hash>.lock`, the OS drops it if the process dies) is held across the cursor read, the adapter's effects and the cursor write, so a ticker run and a hand run cannot overlap and an older run cannot roll the cursor back over a newer one (LOCAL P2 on #1975). A second run waits up to 2 minutes, then exits 5 (busy) before reading or telling anything; Ctrl-C ends the wait (exit 6). The list/claim that follows the pass is outside the lock.
+
+**A feed that does not advance.** A non-empty page whose next cursor equals the `after` just sent, or an empty page that still says `hasMore`, is a server fault: the pass stops before any effect, persists nothing, sets `reconcile.error` and the run exits 1 (the list walk refuses a repeated cursor the same way). The feed read failing ends the run (nothing to reconcile from); an adapter call failing does not (the list and claim do not depend on the write-back): that asymmetry is deliberate.
 
 **At least once.** The cursor is persisted after a page is fully answered (and on a failure), so a crash mid-page replays that
 page; `mark-tracked`, `untrack` and `report` are idempotent by contract. An adapter that does not list a call in `describe` is
