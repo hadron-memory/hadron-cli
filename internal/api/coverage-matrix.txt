@@ -65,7 +65,7 @@ appNodes  excluded not-a-capability: appNodesPage returns the same rows under th
 appNodesPage  command app nodes
 appRun  command run get
 appRuns  command run list
-appTickerSettings  command ticker apply-templates
+appTickerSettings  command team ticker settings get
 apps  command app list
 assetDownloadUrl  command asset get
 assets  command asset list

@@ -60,3 +60,13 @@ query TeamAttendeeRegister($appRef: ID!
  attendeeUrn namedBy canRead canPost lastSeenSeq channel { id name loc }
  }
 }
+# cli#1985: the read path for an App's ticker settings (all five fields).
+query TeamTickerSettingsGet($appRef: String!) {
+ appTickerSettings(appRef: $appRef) {
+ minCadenceSeconds
+ liveCap
+ selfSubscribeCadenceSeconds
+ dailyWakeBudget
+ dailyWakeBudgetDerived
+ }
+}

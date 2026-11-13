@@ -94891,6 +94891,51 @@ func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) __premar
 	return &retval, nil
 }
 
+// TeamTickerSettingsGetAppTickerSettings includes the requested fields of the GraphQL type AppTickerSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+type TeamTickerSettingsGetAppTickerSettings struct {
+	MinCadenceSeconds           int `json:"minCadenceSeconds"`
+	LiveCap                     int `json:"liveCap"`
+	SelfSubscribeCadenceSeconds int `json:"selfSubscribeCadenceSeconds"`
+	DailyWakeBudget             int `json:"dailyWakeBudget"`
+	// True when the budget is derived from the roster rather than set.
+	DailyWakeBudgetDerived bool `json:"dailyWakeBudgetDerived"`
+}
+
+// GetMinCadenceSeconds returns TeamTickerSettingsGetAppTickerSettings.MinCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetAppTickerSettings) GetMinCadenceSeconds() int {
+	return v.MinCadenceSeconds
+}
+
+// GetLiveCap returns TeamTickerSettingsGetAppTickerSettings.LiveCap, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetAppTickerSettings) GetLiveCap() int { return v.LiveCap }
+
+// GetSelfSubscribeCadenceSeconds returns TeamTickerSettingsGetAppTickerSettings.SelfSubscribeCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetAppTickerSettings) GetSelfSubscribeCadenceSeconds() int {
+	return v.SelfSubscribeCadenceSeconds
+}
+
+// GetDailyWakeBudget returns TeamTickerSettingsGetAppTickerSettings.DailyWakeBudget, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetAppTickerSettings) GetDailyWakeBudget() int { return v.DailyWakeBudget }
+
+// GetDailyWakeBudgetDerived returns TeamTickerSettingsGetAppTickerSettings.DailyWakeBudgetDerived, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetAppTickerSettings) GetDailyWakeBudgetDerived() bool {
+	return v.DailyWakeBudgetDerived
+}
+
+// TeamTickerSettingsGetResponse is returned by TeamTickerSettingsGet on success.
+type TeamTickerSettingsGetResponse struct {
+	// #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+	AppTickerSettings *TeamTickerSettingsGetAppTickerSettings `json:"appTickerSettings"`
+}
+
+// GetAppTickerSettings returns TeamTickerSettingsGetResponse.AppTickerSettings, and is useful for accessing the field via an interface.
+func (v *TeamTickerSettingsGetResponse) GetAppTickerSettings() *TeamTickerSettingsGetAppTickerSettings {
+	return v.AppTickerSettings
+}
+
 // TeamTickerSettingsSetResponse is returned by TeamTickerSettingsSet on success.
 type TeamTickerSettingsSetResponse struct {
 	// #1747 — change an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05, :19). Whoever manages the App only.
@@ -118295,6 +118340,14 @@ func (v *__TeamStopSignalsInput) GetFirst() *int { return v.First }
 
 // GetAfter returns __TeamStopSignalsInput.After, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalsInput) GetAfter() *string { return v.After }
+
+// __TeamTickerSettingsGetInput is used internally by genqlient
+type __TeamTickerSettingsGetInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamTickerSettingsGetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamTickerSettingsGetInput) GetAppRef() string { return v.AppRef }
 
 // __TeamTickerSettingsSetInput is used internally by genqlient
 type __TeamTickerSettingsSetInput struct {
@@ -155625,6 +155678,45 @@ func TeamStopSignals(
 	}
 
 	data_ = &TeamStopSignalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamTickerSettingsGet.
+const TeamTickerSettingsGet_Operation = `
+query TeamTickerSettingsGet ($appRef: String!) {
+	appTickerSettings(appRef: $appRef) {
+		minCadenceSeconds
+		liveCap
+		selfSubscribeCadenceSeconds
+		dailyWakeBudget
+		dailyWakeBudgetDerived
+	}
+}
+`
+
+// cli#1985: the read path for an App's ticker settings (all five fields).
+func TeamTickerSettingsGet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamTickerSettingsGetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamTickerSettingsGet",
+		Query:  TeamTickerSettingsGet_Operation,
+		Variables: &__TeamTickerSettingsGetInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamTickerSettingsGetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
