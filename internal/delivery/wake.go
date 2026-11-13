@@ -82,6 +82,10 @@ type TaskReason struct {
 	// comment-6259060238: taskId null) has neither, and none is invented.
 	ID    string
 	Title string
+	// Handle is the task's AT handle (DueTaskReason.handle, cor:agt:050:01),
+	// printed first on the TASK line ahead of the short id. Empty falls back
+	// to the full id and is never invented.
+	Handle string
 	// AlarmType is a task-less alarm's closed type code from the server
 	// (e.g. delivery.stuck), shown as given.
 	AlarmType string
@@ -312,11 +316,22 @@ func stopParts(reasons []WakeReason) []string {
 	return out
 }
 
+// shortIDRunes is how much of the hex id follows the handle on a TASK line.
+const shortIDRunes = 12
+
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
 // just that it has no task: a title without a task is never shown as one.
 func renderTask(t *TaskReason) string {
 	if t.ID != "" {
-		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), oneLine(t.ID))
+		ref := oneLine(t.ID)
+		if h := oneLine(t.Handle); h != "" {
+			short := []rune(ref)
+			if len(short) > shortIDRunes {
+				short = short[:shortIDRunes]
+			}
+			ref = h + ", " + string(short)
+		}
+		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), ref)
 	}
 	if at := oneLine(t.AlarmType); at != "" {
 		return fmt.Sprintf("%s %s: %s (no task)", TaskPrefix, oneLine(t.Event), at)

@@ -79,7 +79,7 @@ query DueWakes($appRef: String!, $first: Int!, $accepts: [WakeKind!]!,
       reasons {
         kind
         ticker { id name lastTickAt }
-        task { eventId chainIndex event id title }
+        task { eventId chainIndex event id handle title }
         action { code state taskLoc taskUrn }
         stop { eventId signalId level notice interrupt }
       }
