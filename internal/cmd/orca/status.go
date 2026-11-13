@@ -113,10 +113,11 @@ needs your usual sign-in and App.
 What it reads and writes. It types nothing and acknowledges nothing. It reads
 the terminal's screen from Orca and the App's workers from the server. When a
 terminal looks idle it also reads the server's tickers and due wakes (the dark
-rule below). That due-wake read is the one a deliverer makes, so the server may
-reserve a due wake against the App's daily wake budget, and when the budget is
-spent the platform posts its daily notice to the team chat; an App-key due-wake
-read is also recorded once the server answers it (which key, how many workers,
+rule below). That due-wake read is a preview: it reserves no wake budget,
+withholds no due wakes and posts no budget notice. It delivers no wake and
+cannot be acknowledged. The server must support dueWakes(preview), available
+since hadron-server#3755; rejection fails closed without a spending retry.
+An App-key due-wake read is recorded once the server answers it (which key, how many workers,
 when); a refused one is not recorded. With --config, the ticker and
 subscription reads are made with the host key and each is recorded as a
 host-key use, refusals included; the workers read is not recorded.

@@ -2,6 +2,9 @@
 # AppAgent.installMethod  command app agent list
 # AppAgent.importer       command app agent list
 # These output fields are documented here because the sections below enumerate roots and inputs only.
+# Monitoring argument binding (cli#1984): Query.dueWakes(preview) is reached by
+# DueTickWakes (orca terminal status / team health sweep), always as preview:true.
+# Public TeamDueWakes --preview remains a separate capability gap, cli#1833.
 # CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
 # exposes, and how the CLI reaches it. Regenerate with `make coverage-matrix`; `make coverage-matrix-check` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
@@ -606,7 +609,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 84: 48 gap, 36 excluded
+[Arguments] 83: 47 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -688,7 +691,6 @@ Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.channelMessages(teamHeadRefs)  gap #1833
 Query.dueWakes(instruction)  gap #1617
-Query.dueWakes(preview)  gap #1833
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 Query.teamChatMessages(teamHeadRefs)  gap #1833
 

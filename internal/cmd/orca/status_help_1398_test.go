@@ -236,10 +236,10 @@ func TestStatusHelpWhatItWrites(t *testing.T) {
 	long := statusLong(t)
 	mustContain(t, "status", long,
 		"It types nothing and acknowledges nothing",
-		"the one a deliverer makes",
-		"the server may reserve a due wake against the App's daily wake budget",
-		"the platform posts its daily notice to the team chat",
-		"an App-key due-wake read is also recorded",
+		"That due-wake read is a preview",
+		"it reserves no wake budget",
+		"withholds no due wakes and posts no budget notice",
+		"An App-key due-wake read is recorded",
 		"a refused one is not recorded",
 		"the workers read is not recorded",
 	)
