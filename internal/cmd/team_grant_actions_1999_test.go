@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,7 +48,7 @@ func contextApp1999(app string) func(*testing.T, string) {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte("app = \""+app+"\"\n"), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte("app = "+strconv.Quote(app)+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -64,8 +66,9 @@ func TestTeamGrantActions1999PaddedRefSentRaw(t *testing.T) {
 		t.Fatalf("padded ref must be sent as typed, calls = %+v", got)
 	}
 	// Refusal text is the unpadded arm's, apart from the echoed ref.
-	_, plain, plainErr, _ := runActions1999(t, false, nil, map[string]string{"GrantActions": emptyActions1996}, "team", "grant", "actions", "--app", "x")
-	if strings.ReplaceAll(out, padded, "<REF>") != strings.ReplaceAll(plain, "x", "<REF>") || errOut != plainErr {
+	const plainRef = "hrn:app:acme.com:plain-ref"
+	_, plain, plainStderr, _ := runActions1999(t, false, nil, map[string]string{"GrantActions": emptyActions1996}, "team", "grant", "actions", "--app", plainRef)
+	if strings.ReplaceAll(out, padded, "<REF>") != strings.ReplaceAll(plain, plainRef, "<REF>") || errOut != plainStderr {
 		t.Errorf("padded arm differs: %q vs %q", out, plain)
 	}
 	calls, _, _, err = runActions1999(t, false, nil, map[string]string{"GrantAction": `{"data":{"action":null}}`}, "team", "grant", "action", "a.b", "--app", padded)
@@ -142,6 +145,15 @@ func TestTeamGrantActions1999HelpWording(t *testing.T) {
 	if !strings.Contains(string(usage), "takes precedence over the person credential") {
 		t.Error("agentic-usage.md must state worker-binding precedence")
 	}
+	if !strings.Contains(string(usage), "--app is absent") {
+		t.Error("agentic-usage.md must say a blank --app is absent")
+	}
+	for _, path := range [][]string{{"team", "grant", "action"}, {"team", "grant", "actions"}} {
+		c, _, _ := root.Find(path)
+		if !strings.Contains(c.Long, "--app is absent") {
+			t.Errorf("%v: help must say a blank --app is absent", path)
+		}
+	}
 }
 
 // Item 4: a null element (a schema-contract violation) is skipped, not a panic.
@@ -151,8 +163,12 @@ func TestTeamGrantActions1999NilItemSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(compact1996(out), `"total":2`) || strings.Count(out, `"name": "schedule.create"`) != 1 {
-		t.Errorf("one action, total as sent: %s", out)
+	var page struct {
+		Items []map[string]any `json:"items"`
+		Total int              `json:"total"`
+	}
+	if e := json.Unmarshal([]byte(out), &page); e != nil || page.Total != 2 || len(page.Items) != 1 || page.Items[0]["name"] != "schedule.create" {
+		t.Errorf("one action, total as sent: err=%v %s", e, out)
 	}
 }
 
@@ -193,5 +209,22 @@ func TestTeamGrantActions1999NilPageIsAnError(t *testing.T) {
 	_, _, _, err := runActions1999(t, false, nil, map[string]string{"GrantActions": `{"data":{"grantActions":null}}`}, "team", "grant", "actions", "--app", "a1")
 	if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "server returned no grant actions page") {
 		t.Fatalf("nil page: %v", err)
+	}
+}
+
+// cli#2001: the precedence sentence's own scenario. A bound worker (binding for
+// this server) naming an App other than the binding's still reads with the
+// worker session; whether the person participates there is the server's call.
+func TestTeamGrantActions2001BoundWorkerOtherAppKeepsSession(t *testing.T) {
+	const other = "hrn:app:acme.com:not-the-bound-app" // the binding's appId is capp100000000000000000000
+	for _, argv := range [][]string{
+		{"team", "grant", "actions", "--app", other},
+		{"team", "grant", "action", "a.b", "--app", other},
+	} {
+		calls, _, _, _ := runActions1999(t, true, nil, map[string]string{"GrantActions": emptyActions1996, "GrantAction": `{"data":{"action":null}}`}, argv...)
+		got := actionCalls1996(calls)
+		if len(got) != 1 || got[0].Session != "s-new" || got[0].Vars["appRef"] != other {
+			t.Errorf("%v: want one call with the binding's session and the typed ref, got %+v", argv, got)
+		}
 	}
 }
