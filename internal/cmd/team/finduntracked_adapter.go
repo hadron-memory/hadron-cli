@@ -125,12 +125,25 @@ func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, 
 	return held, nil
 }
 
-func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding, appRef string, o adapterOpts) error {
-	runner := &intake.Runner{Path: o.path}
-	desc, err := runner.Describe(ctx)
-	if err != nil {
-		return adapterErr(err)
+// requireCalls refuses, before Hadron is touched, an adapter that does not
+// advertise a call this run needs: list-untracked always, mark-tracked for
+// --track (a claim the adapter cannot mark would leave a durable claim behind).
+func requireCalls(desc intake.Describe, track bool) error {
+	need := []string{"list-untracked"}
+	if track {
+		need = append(need, "mark-tracked")
 	}
+	for _, c := range need {
+		if !desc.Has(c) {
+			return exitcode.Newf(exitcode.Usage, "the intake adapter %s does not answer %s, which this command needs; nothing was claimed", output.SafeCell(desc.Name), c)
+		}
+	}
+	return nil
+}
+
+// runFindUntrackedAdapter runs the flow with the adapter already described
+// (runAdapterCommand does that first, before any App or binding resolution).
+func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding, appRef string, runner *intake.Runner, desc intake.Describe, o adapterOpts) error {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return err

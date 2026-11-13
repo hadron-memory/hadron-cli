@@ -23,9 +23,12 @@ paths are mutually exclusive and nothing is chosen silently.
   is the server path; `--adapter` with `--integration` is a usage error.
 - Environment: the CLI's own, minus `HADRON_*` credentials (token/key/secret). The
   adapter holds the team's tracker credential, never Hadron's.
-- Contract version: `describe` runs first; any version but 1 exits **15**
-  (`exitcode.AdapterSkew`) before the adapter is asked anything and before Hadron is
-  touched.
+- Contract version: `describe` runs first, before the worktree binding or the App is
+  resolved; any version but 1 exits **15** (`exitcode.AdapterSkew`) before the adapter
+  is asked anything and before Hadron is touched (LOCAL P2, Joost).
+- Capabilities: `describe.calls` lists every call the adapter answers. `list-untracked`
+  is required, and `mark-tracked` for `--track`; otherwise exit 2 before any Hadron
+  request, so no claim is ever left unmarkable. A list-only adapter still lists.
 
 ## Untrusted output (pinned)
 

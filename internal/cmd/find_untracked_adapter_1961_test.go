@@ -24,7 +24,7 @@ const (
 	itemC1961 = "https://github.com/acme/app/issues/3"
 )
 
-const describeBody1961 = `{"name":"fake-gh","contractVersion":1,"calls":[],"filters":[],"order":"oldest first"}`
+const describeBody1961 = `{"name":"fake-gh","contractVersion":1,"calls":["describe","list-untracked","mark-tracked"],"filters":[],"order":"oldest first"}`
 
 func item1961(id, title string) string {
 	return fmt.Sprintf(`{"externalId":%q,"title":%q}`, id, title)
@@ -396,7 +396,7 @@ func TestAdapterFailedMarkLeavesTheClaimStanding1961(t *testing.T) {
 // ---- the runner's refusals ------------------------------------------------
 
 func TestAdapterContractSkewIsItsOwnExitAndAsksNothing1961(t *testing.T) {
-	path, log := fakeAdapter1961(t, `{"name":"fake-gh","contractVersion":2}`, `echo '{"items":[]}'`, "")
+	path, log := fakeAdapter1961(t, `{"name":"fake-gh","contractVersion":2,"calls":["describe","list-untracked","mark-tracked"]}`, `echo '{"items":[]}'`, "")
 	calls, out, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--track")
 	if exitCodeFor(err) != exitcode.AdapterSkew || out != "" {
 		t.Fatalf("exit = %d out %q: %v", exitCodeFor(err), out, err)
@@ -498,7 +498,7 @@ func TestAdapterFromEnvironmentAndIntegrationWins1961(t *testing.T) {
 }
 
 func TestAdapterSkewMessageNamesBothVersions1961(t *testing.T) {
-	path, _ := fakeAdapter1961(t, `{"name":"fake-gh","contractVersion":7}`, `echo '{"items":[]}'`, "")
+	path, _ := fakeAdapter1961(t, `{"name":"fake-gh","contractVersion":7,"calls":["describe","list-untracked","mark-tracked"]}`, `echo '{"items":[]}'`, "")
 	_, _, _, err := run1961(t, path, map[string]string{}, "--json")
 	if err == nil || !strings.Contains(err.Error(), "version 7") || !strings.Contains(err.Error(), "version 1") {
 		t.Fatalf("%v", err)
@@ -556,4 +556,88 @@ func TestAdapterStartFailureAfterCreateIsReportedAndRetryDedupes1961(t *testing.
 	if err != nil || len(opsOf1961(calls, "IntakeClaimTask")) != 0 {
 		t.Fatalf("a retry must not create again: %v %v", err, hadronOps1961(calls))
 	}
+}
+
+// LOCAL P2 (Joost, cli#1971 e5113f89): describe.calls is the capability
+// check. An adapter that does not advertise mark-tracked is refused for
+// --track BEFORE Hadron is touched (no create, no start, no stranded claim),
+// and a list-only adapter still lists.
+func TestAdapterCapabilityPreflight1961(t *testing.T) {
+	listOnly := `{"name":"list-only","contractVersion":1,"calls":["describe","list-untracked"]}`
+	items := `echo '{"items":[` + item1961(itemA1961, "a") + `]}'`
+
+	t.Run("--track needs mark-tracked: zero Hadron requests, list never asked", func(t *testing.T) {
+		path, log := fakeAdapter1961(t, listOnly, items, "")
+		r := map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": claimed1961("t1", itemA1961, "wkr1", "Iris", ""), "IntakeStartTask": started1961}
+		calls, out, _, err := run1961(t, path, r, "--track")
+		if exitCodeFor(err) != exitcode.Usage || out != "" || !strings.Contains(err.Error(), "mark-tracked") {
+			t.Fatalf("exit = %d out %q: %v", exitCodeFor(err), out, err)
+		}
+		if len(hadronOps1961(calls)) != 0 || len(adapterLog1961(t, log, "list-untracked")) != 0 {
+			t.Fatalf("nothing is asked or written: %v", hadronOps1961(calls))
+		}
+	})
+
+	t.Run("a list-only adapter still lists", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, listOnly, items, "")
+		_, out, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--json")
+		if err != nil || !strings.Contains(out, itemA1961) {
+			t.Fatalf("%v %q", err, out)
+		}
+	})
+
+	t.Run("list-untracked is always required", func(t *testing.T) {
+		path, log := fakeAdapter1961(t, `{"name":"x","contractVersion":1,"calls":["describe","mark-tracked"]}`, items, "")
+		calls, _, _, err := run1961(t, path, map[string]string{}, "--json")
+		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 || len(adapterLog1961(t, log, "list-untracked")) != 0 {
+			t.Fatalf("exit = %d: %v", exitCodeFor(err), err)
+		}
+	})
+
+	t.Run("no calls advertised at all", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, `{"name":"x","contractVersion":1}`, items, "")
+		_, _, _, err := run1961(t, path, map[string]string{}, "--json")
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("exit = %d: %v", exitCodeFor(err), err)
+		}
+	})
+}
+
+// LOCAL P2: describe precedes binding and App resolution. A skewed adapter is
+// exit 15 even with no App at all, and with a legacy (pre-#399) binding whose
+// App would need a Hadron read; neither touches Hadron.
+func TestAdapterDescribePrecedesAppResolution1961(t *testing.T) {
+	skewed := `{"name":"fake-gh","contractVersion":7,"calls":["describe","list-untracked","mark-tracked"]}`
+	run := func(t *testing.T, binding string) (*[]attnCall, error) {
+		t.Helper()
+		t.Setenv(adapterEnvForTest, "")
+		dir := teamGitDir(t)
+		if binding != "" {
+			if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(binding), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		srv, calls := attnServer(t, map[string]string{})
+		path, log := fakeAdapter1961(t, skewed, `echo '{"items":[]}'`, "")
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--adapter", path})
+		err := root.Execute()
+		if len(adapterLog1961(t, log, "list-untracked")) != 0 {
+			t.Error("a skewed adapter is asked for nothing")
+		}
+		return calls, err
+	}
+	t.Run("no App at all", func(t *testing.T) {
+		calls, err := run(t, "")
+		if exitCodeFor(err) != exitcode.AdapterSkew || len(*calls) != 0 {
+			t.Fatalf("exit = %d, calls %v: %v", exitCodeFor(err), *calls, err)
+		}
+	})
+	t.Run("legacy binding that would read the team memory's App", func(t *testing.T) {
+		calls, err := run(t, bindingPre399Fixture)
+		if exitCodeFor(err) != exitcode.AdapterSkew || len(*calls) != 0 {
+			t.Fatalf("exit = %d, calls %v: %v", exitCodeFor(err), *calls, err)
+		}
+	})
 }

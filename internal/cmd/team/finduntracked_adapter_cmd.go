@@ -9,6 +9,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/intake"
 )
 
 // adapterFlagUse is the flag values the adapter selection judges.
@@ -97,6 +98,16 @@ func runAdapterCommand(cmd *cobra.Command, f *cmdutil.Factory, path string, u ad
 			return err
 		}
 	}
+	// The adapter is described FIRST: a skewed or incapable adapter is refused
+	// before the binding, the App or Hadron is read (cor:agt:120:04).
+	runner := &intake.Runner{Path: path}
+	desc, err := runner.Describe(ctx)
+	if err != nil {
+		return adapterErr(err)
+	}
+	if err := requireCalls(desc, o.track); err != nil {
+		return err
+	}
 	b, err := readBindingOrNilWithApp(ctx, f)
 	if err != nil && !errors.Is(err, errNoWorktree) {
 		return err
@@ -105,5 +116,5 @@ func runAdapterCommand(cmd *cobra.Command, f *cmdutil.Factory, path string, u ad
 	if err != nil {
 		return err
 	}
-	return runFindUntrackedAdapter(ctx, f, b, scope.Ref, o)
+	return runFindUntrackedAdapter(ctx, f, b, scope.Ref, runner, desc, o)
 }

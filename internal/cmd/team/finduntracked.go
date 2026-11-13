@@ -80,7 +80,9 @@ never calls the tracker. The CLI runs it as ` + "`<executable> <call>`" + ` (des
 list-untracked, mark-tracked), a JSON request on stdin and one JSON answer on
 stdout. Its output is untrusted: capped, parsed strictly, printed terminal-safe.
 An adapter that speaks another contract version exits 15 before it is asked
-for anything. The adapter pages its own list by an opaque cursor, so --skip does
+for anything, and before the App or Hadron is read. Its describe answer must
+list the calls it answers (list-untracked, and mark-tracked for --track), else
+exit 2 with nothing claimed. The adapter pages its own list by an opaque cursor, so --skip does
 not exist on this path. Each listed item is checked against the App's tasks
 (Hadron decides what is tracked); the rest are listed, up to --limit (1-100,
 default 20). --for <worker> asks for that worker's items.

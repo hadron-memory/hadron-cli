@@ -67,6 +67,17 @@ type Describe struct {
 	Order           string   `json:"order"`
 }
 
+// Has reports whether the adapter says it answers call. Calls lists every call
+// the adapter answers, the core ones included (this CLI's invocation format).
+func (d Describe) Has(call string) bool {
+	for _, c := range d.Calls {
+		if c == call {
+			return true
+		}
+	}
+	return false
+}
+
 // Task and Worker are what `mark-tracked` is given (cor:agt:120:04). Empty
 // fields are omitted: the portal URL is the server's or nothing, and a worker
 // detail the CLI does not know is left out rather than invented.
