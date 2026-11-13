@@ -275,12 +275,7 @@ func TestPlainDirTerminalCheckoutBindingThroughProductionBoundWorker(t *testing.
 	for name, mk := range checkoutShapes {
 		t.Run(name, func(t *testing.T) {
 			p := newPlainHarness(t)
-			p.d.Bound = func(w string) string {
-				if w == p.plain {
-					return plainBoundWorker(w)
-				}
-				return BoundWorker(w)
-			}
+			p.d.Bound = BoundWorker
 			p.orca.terms[0].WorktreePath = mk(t, t.TempDir(), `{"workerId":"w-other"}`)
 			p.wantHold(p.deliver(p.batch()), HoldTerminalBoundElsewhere)
 			p.wantNoSend()
@@ -338,15 +333,15 @@ func TestBoundWorkerUnreadableBindingIsNotAbsent(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".git", bindingFileName), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := BoundWorker(dir); got != unreadableBinding {
-		t.Fatalf("BoundWorker = %q, want unreadableBinding", got)
+	if got := BoundWorker(dir); got != unusableBinding {
+		t.Fatalf("BoundWorker = %q, want unusableBinding", got)
 	}
 	plain := filepath.Join(t.TempDir(), "p")
 	if err := os.MkdirAll(filepath.Join(plain, ".hadron-team", bindingFileName), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := plainBoundWorker(plain); got != unreadableBinding {
-		t.Fatalf("plainBoundWorker = %q, want unreadableBinding", got)
+	if got := plainBoundWorker(plain); got != unusableBinding {
+		t.Fatalf("plainBoundWorker = %q, want unusableBinding", got)
 	}
 }
 
@@ -370,4 +365,23 @@ func TestPlainDirMixedRegistrationHoldsWholeWorker(t *testing.T) {
 	}
 	p.wantHold(p.deliver(p.batch()), HoldNoTerminalRecord)
 	p.wantNoSend()
+}
+
+// A plain directory's binding that is a symlink is unusable, not absent
+// (the Lstat branch of plainBoundWorker), so a swap to a link cannot admit.
+func TestPlainBoundWorkerSymlinkedBindingIsNotAbsent(t *testing.T) {
+	plain := filepath.Join(t.TempDir(), "p")
+	if err := os.MkdirAll(filepath.Join(plain, ".hadron-team"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "real.json")
+	if err := os.WriteFile(target, []byte(`{"workerId":"w-x"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(plain, ".hadron-team", bindingFileName)); err != nil {
+		t.Skip("no symlinks")
+	}
+	if got := BoundWorker(plain); got != unusableBinding {
+		t.Fatalf("BoundWorker = %q, want unusableBinding", got)
+	}
 }

@@ -568,7 +568,7 @@ func canonical(p string) string {
 const bindingFileName = "hadron-team-session.json"
 
 // BoundWorker is the worker id a worktree's session binding names, "" when
-// it has none (the file does not exist), or unreadableBinding when it has one
+// it has none (the file does not exist), or unusableBinding when it has one
 // that cannot be trusted.
 func BoundWorker(worktree string) string {
 	gitDir := filepath.Join(worktree, ".git")
@@ -582,7 +582,7 @@ func BoundWorker(worktree string) string {
 	if !info.IsDir() {
 		b, err := os.ReadFile(gitDir)
 		if err != nil {
-			return unreadableBinding
+			return unusableBinding
 		}
 		pointer := trimGitdir(string(b))
 		if filepath.IsAbs(pointer) {

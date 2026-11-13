@@ -60,13 +60,13 @@ func plainBoundWorker(dir string) string {
 		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
 			return ""
 		}
-		return unreadableBinding
+		return unusableBinding
 	}
 	var binding struct {
 		WorkerID string `json:"workerId"`
 	}
 	if json.Unmarshal(b, &binding) != nil || binding.WorkerID == "" {
-		return unreadableBinding
+		return unusableBinding
 	}
 	return binding.WorkerID
 }
