@@ -230,3 +230,48 @@ func TestAiConfigOwnerListTextShowsUrnColumnOnlyWhenPresent(t *testing.T) {
 		t.Fatalf("older server must not show a URN column:\n%s", without)
 	}
 }
+
+// A hostile urn must not reach the terminal raw in any table or line (SafeCell).
+func TestAiConfigUrnIsTerminalSafeInTextOutput(t *testing.T) {
+	const esc = `hrn:aiconf:x:org:\u001b[31mred`
+	one := strings.Replace(aiURNCfgJSON, `hrn:aiconf:acme.com:org:default`, esc, 1)
+	item := `{"id":"cfg1","name":"default","ownerType":"ORGANIZATION","ownerId":"org1","provider":"glm","model":"glm-4","hasApiKey":false,"apiKeyPreview":null,"params":null,"endpoint":null,"effectiveEndpoint":null,"apiStyle":null,"effectiveApiStyle":null,"enabled":true,"createdAt":"2026-09-27T00:00:00Z","updatedAt":null,"urn":"` + esc + `"}`
+	for name, tc := range map[string]struct {
+		args []string
+		resp map[string]string
+	}{
+		"get":        {[]string{"ai-config", "get", "cfg1"}, map[string]string{"AiServiceConfigWithUrn": `{"data":{"aiServiceConfig":` + one + `}}`}},
+		"list":       {[]string{"ai-config", "list", "--app", "acme.com:juno-app", "--with-endpoints"}, map[string]string{"ResolveAiServiceConfigsWithEndpointAndUrn": `{"data":{"resolveAiServiceConfigs":[` + one + `]}}`}},
+		"owner-list": {[]string{"ai-config", "list", "--all-owners"}, map[string]string{"AiServiceConfigsMaskedWithUrn": `{"data":{"aiServiceConfigs":{"items":[` + item + `],"total":1}}}`}},
+	} {
+		gql, _ := captureGraphQL(t, tc.resp)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, tc.args...), "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.ContainsRune(out.String(), 0x1b) {
+			t.Fatalf("%s: raw escape reached the terminal: %q", name, out.String())
+		}
+	}
+}
+
+// The older-server retry must surface its own failure, not swallow it.
+func TestAiConfigOlderServerFallbackErrorSurfaces(t *testing.T) {
+	forbidden := `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}],"data":null}`
+	for _, tc := range []struct {
+		args []string
+		resp map[string]string
+	}{
+		{[]string{"ai-config", "list", "--all-owners"}, map[string]string{"AiServiceConfigsMaskedWithUrn": aiURNMissing, "AiServiceConfigsMasked": forbidden}},
+		{[]string{"ai-config", "list", "--app", "acme.com:juno-app"}, map[string]string{"ResolveAiServiceConfigsWithUrn": aiURNMissing, "ResolveAiServiceConfigs": forbidden}},
+		{[]string{"ai-config", "get", "cfg1"}, map[string]string{"AiServiceConfigWithUrn": aiURNMissing, "AiServiceConfigWithEndpoint": forbidden}},
+	} {
+		gql, _ := captureGraphQL(t, tc.resp)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, tc.args...), "--server", gql.URL))
+		wantExit(t, root.Execute(), 8)
+	}
+}
