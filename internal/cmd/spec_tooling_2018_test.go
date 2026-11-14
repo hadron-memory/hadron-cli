@@ -63,3 +63,17 @@ func TestSpecEditDryRunAuthoringLimit2018(t *testing.T) {
 		}
 	}
 }
+
+func TestSpecEditDryRunAuthoringLimitJSON2018(t *testing.T) {
+	out, _, err := runSpecEdit(t, guardMocks(""), "", "--title", "New title", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct{ AuthoringCheck string }
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(r.AuthoringCheck, "write-only") {
+		t.Fatalf("JSON preview omitted authoring limit: %s", out)
+	}
+}

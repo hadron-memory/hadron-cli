@@ -56,6 +56,7 @@ type editResultDTO struct {
 	// check. null: no re-affirmation was written (none requested, or a dry run).
 	AbstractVerification *string `json:"abstractVerification"`
 	DryRun               bool    `json:"dryRun"`
+	AuthoringCheck       string  `json:"authoringCheck,omitempty"`
 	// Changes is the proposal itself, one entry per field it writes (cli#737):
 	// the flags above say THAT a field changes, and a reviewer approving an
 	// edit needs to see WHAT. Always a list, `[]` on a no-op. Built from the
@@ -284,7 +285,9 @@ The description shown by spec list and search is edited with --description or
 default editor buffer; supply its flag to edit it alone or together with the
 body and abstract. The description is preserved when its flag is omitted.
 
-The title (the part of the spec's name after "<citation> — ") is edited with
+For a typed spec (role spec.<type>), --title is the complete literal name,
+as for spec new --role; no legacy citation prefix is added. For a legacy spec,
+the title (the part of its name after "<citation> — ") is edited with
 --title, through the same guarded write; the citation prefix is composed from
 the spec itself and kept, so pass the title text only. --title alone is a
 complete non-interactive edit (no editor opens), and a title equal to the stored
@@ -531,7 +534,11 @@ replacement over the cap is rejected.`,
 			// the write targets by immutable id; omitted --title preserves it.
 			newName := node.Name
 			if titleProvided {
-				newName = specNameAt(node.Loc, strings.TrimSpace(title))
+				if node.Role != nil && strings.HasPrefix(*node.Role, "spec.") {
+					newName = strings.TrimSpace(title)
+				} else {
+					newName = specNameAt(node.Loc, strings.TrimSpace(title))
+				}
 			}
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
@@ -592,6 +599,9 @@ replacement over the cap is rejected.`,
 				Revision:           base,
 				ProposalHash:       proposalHash,
 				Warnings:           warnings,
+			}
+			if dryRun {
+				result.AuthoringCheck = "write-only: authoring check runs only at write time (hadron-server#4168)"
 			}
 			for _, w := range warnings {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
@@ -988,7 +998,7 @@ func unsupportedGuard(err error) bool {
 		(strings.Contains(msg, "is not defined") || strings.Contains(msg, "Unknown field") || strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED"))
 }
 
-const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
+const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment. The authoring check runs only at write time: this preview has not validated the role-required task or its revision (hadron-server#4168)."
 
 func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool, checkMemory string) error {
 	verb := "✓ updated"

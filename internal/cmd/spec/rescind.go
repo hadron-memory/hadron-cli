@@ -178,7 +178,7 @@ and revision.`,
 			rev, id := node.Revision, node.Id
 			tags := rescindTags(node.Tags)
 			abstract := plan.abstractPrefixAndText
-			in := gen.UpdateNodeInput{Id: &id, ExpectedRevision: &rev, Tags: tags, Content: &newBody, Abstract: &abstract}
+			in := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Id: &id, ExpectedRevision: &rev, Tags: tags, Content: &newBody, Abstract: &abstract}
 			resp, werr := gen.UpdateSpecNode(cmd.Context(), client, &in)
 			if werr != nil {
 				switch {
