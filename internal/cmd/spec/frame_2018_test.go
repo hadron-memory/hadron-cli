@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/spf13/cobra"
 	"os"
 	"strings"
@@ -125,5 +126,39 @@ func TestFrameReadsRawTemplatesAndLinkLabels2018(t *testing.T) {
 	denied := draftReadClient(func(*graphql.Request, *graphql.Response) error { return errors.New("fixture template denied") })
 	if _, err := lintFrames(cmd, denied, "hrn:mem:hadronmemory.com:specs", []specNode{node}); err == nil {
 		t.Fatal("failed template returned clean")
+	}
+}
+
+// A successful transport with an unreadable template must not become a clean
+// verdict. These are distinct from the denied/transport-error case above.
+func TestFrameUnreadableTemplateRefuses2018(t *testing.T) {
+	_, _, node := frameFixture2018(t)
+	for _, tc := range []struct {
+		name     string
+		template *gen.GetSpecNodeRawNode
+	}{
+		{"null-node", nil},
+		{"null-content", &gen.GetSpecNodeRawNode{Id: "template", Name: "Rule template"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			client := draftReadClient(func(req *graphql.Request, resp *graphql.Response) error {
+				calls++
+				if req.OpName != "GetSpecNodeRaw" {
+					t.Fatalf("unexpected operation %s", req.OpName)
+				}
+				resp.Data.(*gen.GetSpecNodeRawResponse).Node = tc.template
+				return nil
+			})
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+			fs, err := lintFrames(cmd, client, "hrn:mem:hadronmemory.com:specs", []specNode{node})
+			if exitcode.FromError(err) != exitcode.Unavailable {
+				t.Fatalf("unreadable template must refuse Unavailable: findings=%+v err=%v", fs, err)
+			}
+			if fs != nil || calls != 1 {
+				t.Fatalf("partial findings or extra reads: findings=%+v calls=%d", fs, calls)
+			}
+		})
 	}
 }
