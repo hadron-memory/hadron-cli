@@ -19,6 +19,12 @@ type urnConfigDTO struct {
 	URN *string `json:"urn"`
 }
 
+// urnStyleConfigDTO is the --json item shape of the owner-management list.
+type urnStyleConfigDTO struct {
+	styleConfigDTO
+	URN *string `json:"urn"`
+}
+
 // urnMaskedDTO is the --json shape of the default `ai-config list`.
 type urnMaskedDTO struct {
 	aiConfigDTO

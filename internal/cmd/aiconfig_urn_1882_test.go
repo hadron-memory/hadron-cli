@@ -21,6 +21,7 @@ func TestAiConfigUrnOperationsAreSeparateDocuments(t *testing.T) {
 		gen.AiServiceConfigWithEndpoint_Operation,
 		gen.ResolveAiServiceConfigsWithEndpoint_Operation,
 		gen.ResolveAiServiceConfigs_Operation,
+		gen.AiServiceConfigsMasked_Operation,
 		gen.CreateAiServiceConfigWithEndpoint_Operation,
 		gen.UpdateAiServiceConfigWithEndpoint_Operation,
 	} {
@@ -32,6 +33,7 @@ func TestAiConfigUrnOperationsAreSeparateDocuments(t *testing.T) {
 		gen.AiServiceConfigWithUrn_Operation,
 		gen.ResolveAiServiceConfigsWithEndpointAndUrn_Operation,
 		gen.ResolveAiServiceConfigsWithUrn_Operation,
+		gen.AiServiceConfigsMaskedWithUrn_Operation,
 	} {
 		if !operationSelects(op, "urn") {
 			t.Fatalf("urn operation does not select urn:\n%s", op)
@@ -165,5 +167,41 @@ func TestAiConfigListShowsUrnColumnOnlyWhenPresent(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "URN") || !strings.Contains(out.String(), "hrn:aiconf:acme.com:org:default") {
 		t.Fatalf("list lacks the urn:\n%s", out.String())
+	}
+}
+
+func TestAiConfigOwnerListShowsUrnAndFallsBackOnOlderServer(t *testing.T) {
+	item := `{"id":"cfg1","name":"default","ownerType":"ORGANIZATION","ownerId":"org1","provider":"glm","model":"glm-4","hasApiKey":false,"apiKeyPreview":null,"params":null,"endpoint":null,"effectiveEndpoint":null,"apiStyle":null,"effectiveApiStyle":null,"enabled":true,"createdAt":"2026-09-27T00:00:00Z","updatedAt":null`
+	page := func(extra string) string {
+		return `{"data":{"aiServiceConfigs":{"items":[` + item + extra + `}],"total":1}}}`
+	}
+	for _, args := range [][]string{
+		{"ai-config", "list", "--owner-type", "ORGANIZATION", "--owner-id", "org1"},
+		{"ai-config", "list", "--all-owners"},
+	} {
+		gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigsMaskedWithUrn": page(`,"urn":"hrn:aiconf:acme.com:org:default"`)})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, args...), "--json", "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if !strings.Contains(out.String(), "hrn:aiconf:acme.com:org:default") {
+			t.Fatalf("%v: urn missing:\n%s", args, out.String())
+		}
+
+		gql2, _ := captureGraphQL(t, map[string]string{
+			"AiServiceConfigsMaskedWithUrn": aiURNMissing,
+			"AiServiceConfigsMasked":        page(""),
+		})
+		f2, out2 := testFactory(t)
+		root2 := NewRootCmd(f2)
+		root2.SetArgs(append(append([]string{}, args...), "--json", "--server", gql2.URL))
+		if err := root2.Execute(); err != nil {
+			t.Fatalf("%v older: %v", args, err)
+		}
+		if !strings.Contains(out2.String(), `"urn": null`) && !strings.Contains(out2.String(), `"urn":null`) {
+			t.Fatalf("%v older: want urn:null:\n%s", args, out2.String())
+		}
 	}
 }

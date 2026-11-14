@@ -43,9 +43,9 @@ id ref the server's answer, including Forbidden, is shown as it is.`,
 			case isMissingURNField(err):
 				// Older server: no urn field. Ask without it; a URN ref reaches the
 				// id lookup there and comes back null, i.e. not found.
-				old, err := gen.AiServiceConfigWithEndpoint(cmd.Context(), client, args[0])
-				if err != nil {
-					return mapEndpointError(err)
+				old, oldErr := gen.AiServiceConfigWithEndpoint(cmd.Context(), client, args[0])
+				if oldErr != nil {
+					return mapEndpointError(oldErr)
 				}
 				if old.AiServiceConfig == nil {
 					return notFoundConfig(args[0])

@@ -93,9 +93,9 @@ Both views are masked: only hasApiKey and apiKeyPreview, never the key.`,
 						}
 					}
 				case isMissingURNField(err):
-					old, err := gen.ResolveAiServiceConfigsWithEndpoint(cmd.Context(), client, optional(appCtx), optional(agent))
-					if err != nil {
-						return mapEndpointError(err)
+					old, oldErr := gen.ResolveAiServiceConfigsWithEndpoint(cmd.Context(), client, optional(appCtx), optional(agent))
+					if oldErr != nil {
+						return mapEndpointError(oldErr)
 					}
 					for _, c := range old.ResolveAiServiceConfigs {
 						if c != nil {
@@ -136,6 +136,9 @@ Both views are masked: only hasApiKey and apiKeyPreview, never the key.`,
 			switch {
 			case err == nil:
 				for _, c := range resp.ResolveAiServiceConfigs {
+					if c == nil {
+						continue
+					}
 					configs = append(configs, urnMaskedDTO{aiConfigDTO: aiConfigDTO{
 						ID: c.Id, Name: c.Name, OwnerType: string(c.OwnerType), OwnerID: c.OwnerId,
 						Provider: c.Provider, Model: c.Model, HasAPIKey: c.HasApiKey,
@@ -144,11 +147,14 @@ Both views are masked: only hasApiKey and apiKeyPreview, never the key.`,
 					}, URN: c.Urn})
 				}
 			case isMissingURNField(err):
-				old, err := gen.ResolveAiServiceConfigs(cmd.Context(), client, optional(appCtx), optional(agent))
-				if err != nil {
-					return api.MapError(err)
+				old, oldErr := gen.ResolveAiServiceConfigs(cmd.Context(), client, optional(appCtx), optional(agent))
+				if oldErr != nil {
+					return api.MapError(oldErr)
 				}
 				for _, c := range old.ResolveAiServiceConfigs {
+					if c == nil {
+						continue
+					}
 					configs = append(configs, urnMaskedDTO{aiConfigDTO: aiConfigDTO{
 						ID: c.Id, Name: c.Name, OwnerType: string(c.OwnerType), OwnerID: c.OwnerId,
 						Provider: c.Provider, Model: c.Model, HasAPIKey: c.HasApiKey,
