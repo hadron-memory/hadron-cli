@@ -122,7 +122,7 @@ re-detects. Non-Linux: no `/proc` census ⇒ no stops (same platform limit as
 
 `--json` (additive keys on the existing receipt): `dryRun`, `fixes[]`
 (`worker`, `action` `stop-agent|close-tab`, `subject`, `applied`), `alerts[]`
-(`worker`, `code`, `count`), `skipped[]` (`worker`, `code`); alert codes are
+(`worker`, `code`, `count`), `skips[]` (`worker`, `code`); alert codes are
 `unsupervised-agents`, `multiple-supervised`, and the per-fix failures
 `stop-failed`/`close-failed`; skip codes are `resetting`, `team-paused` and
 `pause-unreadable` (a pause read that cannot be proven fails closed to

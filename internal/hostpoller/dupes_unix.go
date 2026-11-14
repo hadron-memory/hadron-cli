@@ -182,7 +182,7 @@ func collapseChains(found []rawAgents, root string) []WorktreeAgent {
 	}
 	out := []WorktreeAgent{}
 	for _, r := range found {
-		if root := rootOf(r); root != r.agent.PID {
+		if top := rootOf(r); top != r.agent.PID {
 			continue // a descendant of another match: the same logical agent
 		}
 		r.agent.Supervised = supervisedChain(r.agent.PID, root)
