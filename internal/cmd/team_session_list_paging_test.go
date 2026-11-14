@@ -192,22 +192,42 @@ func TestSessionListUnmetTotalOnTerminalPageFails(t *testing.T) {
 	}
 }
 
-// cli#2030: a row inserted at the top between page reads shifts the offsets
-// (cor:api:120:05), so the newest row lands before the offset and the first
-// pass ends one short of the total. The scan restarts and returns the whole,
-// current list rather than exit 7.
-func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
-	src := &pagedSource{rows: sessionRows(45), serve: 20}
+// datedSessionRows gives sessionRows strictly descending startedAt values (one
+// minute apart, newest first), so a test can tell the order from the contents.
+func datedSessionRows(n int) []string {
+	rows := sessionRows(n)
+	for i := range rows {
+		rows[i] = strings.Replace(rows[i], `"startedAt":"2026-08-11T09:00:00Z"`, fmt.Sprintf(`"startedAt":"2026-08-11T08:%02d:00Z"`, 59-i), 1)
+	}
+	return rows
+}
+
+// insertingSource serves 45 dated sessions and, right after the first response,
+// inserts an ACTIVE session newer than all of them: the cli#2030 interleaving.
+func insertingSource() *pagedSource {
+	src := &pagedSource{rows: datedSessionRows(45), serve: 20}
 	inserted := false
 	src.wrapAt = func(page []string, total, offset int) string {
 		body := sessionsPageAt(page, total, offset)
 		if !inserted {
 			inserted = true
-			src.rows = append([]string{strings.Replace(sessionRows(1)[0], `"s000"`, `"snew"`, 1)}, src.rows...)
+			newest := strings.Replace(sessionRows(1)[0], `"s000"`, `"snew"`, 1)
+			newest = strings.Replace(newest, `"startedAt":"2026-08-11T09:00:00Z"`, `"startedAt":"2026-08-11T09:30:00Z"`, 1)
+			newest = strings.Replace(newest, `"endedAt":"2026-08-11T10:00:00Z"`, `"endedAt":null`, 1)
+			src.rows = append([]string{newest}, src.rows...)
 		}
 		return body
 	}
-	ids, _, err := runSessionList(t, src)
+	return src
+}
+
+// cli#2030: a row inserted at the top between page reads shifts the offsets
+// (cor:api:120:05), so the newest row lands before the offset and the first
+// pass ends one short of the total. The scan restarts and returns the whole,
+// current list rather than exit 7 — and in the documented newest-first order,
+// not with the late insert appended last.
+func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
+	ids, _, err := runSessionList(t, insertingSource())
 	if err != nil {
 		t.Fatalf("an insert between pages must not fail the read: %v", err)
 	}
@@ -217,6 +237,21 @@ func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
 	}
 	if len(ids) != 46 || len(seen) != 46 || seen["snew"] != 1 {
 		t.Fatalf("want all 46 sessions once including the inserted one, got %d rows (%d unique)", len(ids), len(seen))
+	}
+	if ids[0] != "snew" || ids[1] != "s000" || ids[45] != "s044" {
+		t.Fatalf("want newest first (snew, s000 … s044), got first %q, second %q, last %q", ids[0], ids[1], ids[45])
+	}
+}
+
+// cli#2030 (LOCAL F1): the recovered order feeds the --active slice, so the
+// newest active session must be the one `--limit 1` returns.
+func TestSessionListActiveLimitPicksTheNewestAfterAnInsert(t *testing.T) {
+	ids, _, err := runSessionList(t, insertingSource(), "--active", "--limit", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "snew" {
+		t.Fatalf("want the inserted newest active session, got %v", ids)
 	}
 }
 

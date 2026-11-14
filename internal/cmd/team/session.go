@@ -10,7 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -225,7 +227,11 @@ const sessionScanRestarts = 3
 // skips or repeats rows on a changing list), so the newest row can land before
 // the offset and the scan ends one short of the total (cli#2030). That is not a
 // server fault: the scan restarts from offset 0, keeping what it has seen so no
-// session is visited twice, up to sessionScanRestarts times. It stays
+// session is visited twice, up to sessionScanRestarts times. Rows are collected
+// and visited only once the list is complete: a restart finds the concurrent
+// insert after the older rows, so the recovered list is put back in the
+// documented newest-first order (startedAt desc, id desc) before any caller
+// sees it — callers slice and pick "the newest" from that order. It stays
 // fail-closed (cor:api:120:04) — when the restarts run out the read fails and
 // never reports a partial list as complete, or as "unbound".
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
@@ -234,7 +240,19 @@ func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *s
 func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
+	var rows []gen.TeamSessionFields
 	restarts := 0
+	finish := func() error {
+		if restarts > 0 {
+			sortNewestFirst(rows)
+		}
+		for _, r := range rows {
+			if !visit(r) {
+				return nil
+			}
+		}
+		return nil
+	}
 	for offset := 0; ; {
 		off := offset
 		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
@@ -249,13 +267,11 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			}
 			seen[s.Id] = true
 			fresh++
-			if !visit(s.TeamSessionFields) {
-				return nil
-			}
+			rows = append(rows, s.TeamSessionFields)
 		}
 		offset += len(page.Items)
 		if !page.HasMore && len(seen) >= page.Total {
-			return nil
+			return finish()
 		}
 		if fresh == 0 && len(seen) >= page.Total && len(page.Items) > 0 && offset < page.Total {
 			// A restarted pass re-walking pages it has already read: every row the
@@ -276,6 +292,28 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts): this is not an answer about your binding; retry the command", len(seen), page.Total, restarts)
 		}
 	}
+}
+
+// sortNewestFirst restores the server's session order (startedAt desc, id desc)
+// after a restarted scan appended a concurrent insert last (cli#2030). The
+// timestamps are the server's RFC 3339 strings; an unparsable one sorts by its
+// text, which is the same order for the server's fixed-width UTC form.
+func sortNewestFirst(rows []gen.TeamSessionFields) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if a.StartedAt != b.StartedAt {
+			ta, ea := time.Parse(time.RFC3339Nano, a.StartedAt)
+			tb, eb := time.Parse(time.RFC3339Nano, b.StartedAt)
+			if ea == nil && eb == nil {
+				if !ta.Equal(tb) {
+					return ta.After(tb)
+				}
+			} else {
+				return a.StartedAt > b.StartedAt
+			}
+		}
+		return a.Id > b.Id
+	})
 }
 
 // workerActivity reads the worker's most recent session and its most recent
