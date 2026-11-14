@@ -15649,7 +15649,7 @@ type AiServiceConfigEndpointFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -15721,7 +15721,7 @@ type AiServiceConfigFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -76218,7 +76218,7 @@ type ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -114196,11 +114196,11 @@ func (v *__ContextResetInput) GetResetId() string { return v.ResetId }
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name                  string           `json:"name"`
-	OrgId                 *string          `json:"orgId,omitempty"`
+	OrgRef                *string          `json:"orgRef,omitempty"`
 	Description           *string          `json:"description,omitempty"`
 	AgentType             *AgentType       `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string          `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string         `json:"surfaces,omitempty"`
 	PersonaRole           *string          `json:"personaRole,omitempty"`
 	MemberRoles           []string         `json:"memberRoles,omitempty"`
@@ -114211,8 +114211,8 @@ type __CreateAgentInput struct {
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetName() string { return v.Name }
 
-// GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateAgentInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
@@ -114223,8 +114223,8 @@ func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 // GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __CreateAgentInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
@@ -120790,7 +120790,7 @@ type __UpdateAgentInput struct {
 	Description           *string                         `json:"description,omitempty"`
 	AgentType             *AgentType                      `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
-	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string                         `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string                        `json:"surfaces,omitempty"`
 	Urn                   *string                         `json:"urn,omitempty"`
 	PersonaRole           *string                         `json:"personaRole,omitempty"`
@@ -120816,8 +120816,8 @@ func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 // GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __UpdateAgentInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __UpdateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetSurfaces() []string { return v.Surfaces }
@@ -121251,7 +121251,7 @@ func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
-	Id                             string            `json:"id"`
+	Ref                            string            `json:"ref"`
 	Name                           *string           `json:"name,omitempty"`
 	ShortDescription               *string           `json:"shortDescription,omitempty"`
 	Description                    *string           `json:"description,omitempty"`
@@ -121280,8 +121280,8 @@ type __UpdateMemoryInput struct {
 	ForceFixedSize                 *bool             `json:"forceFixedSize,omitempty"`
 }
 
-// GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryInput) GetId() string { return v.Id }
+// GetRef returns __UpdateMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetRef() string { return v.Ref }
 
 // GetName returns __UpdateMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetName() *string { return v.Name }
@@ -121815,15 +121815,15 @@ func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
 
 // __UpdateOrganizationInput is used internally by genqlient
 type __UpdateOrganizationInput struct {
-	Id                  string           `json:"id"`
+	Ref                 string           `json:"ref"`
 	Name                *string          `json:"name,omitempty"`
 	Urn                 *string          `json:"urn,omitempty"`
 	ListedOnMarketplace *bool            `json:"listedOnMarketplace,omitempty"`
 	Policy              *json.RawMessage `json:"policy,omitempty"`
 }
 
-// GetId returns __UpdateOrganizationInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateOrganizationInput) GetId() string { return v.Id }
+// GetRef returns __UpdateOrganizationInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetRef() string { return v.Ref }
 
 // GetName returns __UpdateOrganizationInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetName() *string { return v.Name }
@@ -134679,8 +134679,8 @@ func ContextReset(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+mutation CreateAgent ($name: String!, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 	}
 }
@@ -134720,11 +134720,11 @@ func CreateAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	name string,
-	orgId *string,
+	orgRef *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
@@ -134736,11 +134736,11 @@ func CreateAgent(
 		Query:  CreateAgent_Operation,
 		Variables: &__CreateAgentInput{
 			Name:                  name,
-			OrgId:                 orgId,
+			OrgRef:                orgRef,
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			PersonaRole:           personaRole,
 			MemberRoles:           memberRoles,
@@ -159513,8 +159513,8 @@ func UntrackedTaskItemsNoTeam(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 	}
 }
@@ -159558,7 +159558,7 @@ func UpdateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	urn *string,
 	personaRole *string,
@@ -159577,7 +159577,7 @@ func UpdateAgent(
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			Urn:                   urn,
 			PersonaRole:           personaRole,
@@ -160359,8 +160359,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean, $category0: String, $category1: String, $category2: String, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $acknowledgeVectorInversionRisk: Boolean, $chunkTokens: Int, $chunkOverlap: Int, $forceFixedSize: Boolean) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace, category0: $category0, category1: $category1, category2: $category2, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk, chunkTokens: $chunkTokens, chunkOverlap: $chunkOverlap, forceFixedSize: $forceFixedSize) {
+mutation UpdateMemory ($ref: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean, $category0: String, $category1: String, $category2: String, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $acknowledgeVectorInversionRisk: Boolean, $chunkTokens: Int, $chunkOverlap: Int, $forceFixedSize: Boolean) {
+	updateMemory(ref: $ref, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace, category0: $category0, category1: $category1, category2: $category2, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk, chunkTokens: $chunkTokens, chunkOverlap: $chunkOverlap, forceFixedSize: $forceFixedSize) {
 		id
 		urn
 		name
@@ -160381,7 +160381,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 func UpdateMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	name *string,
 	shortDescription *string,
 	description *string,
@@ -160413,7 +160413,7 @@ func UpdateMemory(
 		OpName: "UpdateMemory",
 		Query:  UpdateMemory_Operation,
 		Variables: &__UpdateMemoryInput{
-			Id:                             id,
+			Ref:                            ref,
 			Name:                           name,
 			ShortDescription:               shortDescription,
 			Description:                    description,
@@ -161621,8 +161621,8 @@ func UpdateOrgMember(
 
 // The mutation executed by UpdateOrganization.
 const UpdateOrganization_Operation = `
-mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean, $policy: JSON) {
-	updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
+mutation UpdateOrganization ($ref: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean, $policy: JSON) {
+	updateOrganization(ref: $ref, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
 		... OrgFields
 	}
 }
@@ -161639,7 +161639,7 @@ fragment OrgFields on Organization {
 func UpdateOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	name *string,
 	urn *string,
 	listedOnMarketplace *bool,
@@ -161649,7 +161649,7 @@ func UpdateOrganization(
 		OpName: "UpdateOrganization",
 		Query:  UpdateOrganization_Operation,
 		Variables: &__UpdateOrganizationInput{
-			Id:                  id,
+			Ref:                 ref,
 			Name:                name,
 			Urn:                 urn,
 			ListedOnMarketplace: listedOnMarketplace,

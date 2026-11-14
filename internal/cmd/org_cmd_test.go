@@ -147,7 +147,7 @@ func TestOrgUpdatePreservesUnset(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateOrganization"], &vars)
-	if vars["id"] != "org1" || vars["name"] != "Acme Inc" {
+	if vars["ref"] != "org1" || vars["name"] != "Acme Inc" {
 		t.Errorf("update vars: %v", vars)
 	}
 	for _, k := range []string{"urn", "listedOnMarketplace"} {

@@ -1885,7 +1885,7 @@ type AiServiceConfig {
   params: JSON
 
   """
-  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
   """
   provider: String!
   updatedAt: DateTime
@@ -8734,11 +8734,11 @@ type Mutation {
     """
     memberRoles: [String!]
     name: String!
-    orgId: ID
+    orgRef: ID
     personaRole: String
     resetContextAfterTask: Boolean
     surfaces: [String!]
-    systemMemoryId: String
+    systemMemoryRef: ID
     type: AgentType
     usesTasks: Boolean
     visibility: AgentVisibility
@@ -11714,7 +11714,7 @@ type Mutation {
     registerDefaults: RegisterDefaultsInput
     resetContextAfterTask: Boolean
     surfaces: [String!]
-    systemMemoryId: String
+    systemMemoryRef: ID
     type: AgentType
     urn: String
     usesTasks: Boolean
@@ -11884,7 +11884,7 @@ type Mutation {
   truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
   non-encrypted memory the flag is a no-op.
   """
-  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, orgRef: ID, readBranch: String, ref: ID!, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
 
   """
   #1325 part (c) — change a template by its id. With expectedRevision, a
@@ -12102,7 +12102,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrganization(id: ID!, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
+  updateOrganization(listedOnMarketplace: Boolean, name: String, policy: JSON, ref: ID!, urn: String): Organization!
 
   """
   Spec 049 Phase 5 — change a row's role / mentionOnly / description (the owner's gate).

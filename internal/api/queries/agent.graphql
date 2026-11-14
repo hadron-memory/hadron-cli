@@ -113,7 +113,7 @@ query PublicAgents(
 mutation CreateAgent(
   $name: String!
   # @genqlient(omitempty: true)
-  $orgId: ID
+  $orgRef: ID
   # @genqlient(omitempty: true)
   $description: String
   # @genqlient(omitempty: true)
@@ -121,7 +121,7 @@ mutation CreateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemMemoryId: String
+  $systemMemoryRef: ID
   # @genqlient(omitempty: true)
   $surfaces: [String!]
   # @genqlient(omitempty: true)
@@ -137,11 +137,11 @@ mutation CreateAgent(
 ) {
   createAgent(
     name: $name
-    orgId: $orgId
+    orgRef: $orgRef
     description: $description
     type: $agentType
     visibility: $visibility
-    systemMemoryId: $systemMemoryId
+    systemMemoryRef: $systemMemoryRef
     surfaces: $surfaces
     personaRole: $personaRole
     memberRoles: $memberRoles
@@ -163,7 +163,7 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemMemoryId: String
+  $systemMemoryRef: ID
   # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
   # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
   # "empty slice gets omitted" case is unreachable here; explicit clear-the-set
@@ -198,7 +198,7 @@ mutation UpdateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemMemoryId: $systemMemoryId
+    systemMemoryRef: $systemMemoryRef
     surfaces: $surfaces
     urn: $urn
     personaRole: $personaRole
