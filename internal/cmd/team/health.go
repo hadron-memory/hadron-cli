@@ -43,7 +43,7 @@ type healthReceipt struct {
 	DryRun bool        `json:"dryRun"`
 	Fixes  []dupeFix   `json:"fixes"`
 	Alerts []dupeAlert `json:"alerts"`
-	Skips  []dupeSkip  `json:"skipped"`
+	Skips  []dupeSkip  `json:"skips"`
 }
 
 // Decode only the versioned wire contract. Detail, terminal text and unknown

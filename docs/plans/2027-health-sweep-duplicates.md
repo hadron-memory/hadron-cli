@@ -180,3 +180,63 @@ unbound posts nothing, bound posts once).
   those is future work, noted on the issue.
 - Windows/macOS hosts detect nothing (no `/proc`); the sweep remains
   report-only there, as today.
+- **Unbound sweeps alert into the journal only** (review, #2037): the timer
+  runs unbound, and gate edge 2 forbids an unbound sweep from posting — so
+  alerts (`unsupervised-agents`, `multiple-supervised`, `stop-failed`,
+  `close-failed`) and applying-sweep notices reach no chat on their own. They
+  surface in the receipt the scheduler captures and repeat each run until the
+  condition clears; that is the gated posture, stated here so nobody expects
+  a push.
+- **A newest reset the server will not show keeps the worker skipped**
+  (review, #2037): `workerResetting` treats a null reset read (masked or
+  reaped — indistinguishable) as in flight, fail closed. The skip row repeats
+  in every receipt until the state file clears the reset; the sweep never
+  guesses a reaped record ended.
+
+## Review delta (post-seat fixes, #2037)
+
+Findings from the BLIND (Jane) and LOCAL (Joran) seats at 4f9bcbc9, and what
+became of them:
+
+- **P1 layered chains (BLIND) / supervised descendants (LOCAL), FIXED:** the
+  census now collapses process chains into one logical agent — a census
+  match whose ancestry (walked through any intermediary: shims, `sg`, the
+  agent's own tool shells) reaches another census match is that match, not a
+  second agent. Supervision is decided by an ANY-ancestor walk up to the
+  WORKTREE BOUNDARY (the walk continues only through ancestors whose cwd is
+  inside the worktree): the wrapper's tree stays inside, a typed stray's
+  chain leaves through the terminal emulator, and a nested one-shot of the
+  supervised agent merges into it instead of dying as a "duplicate". The
+  sweep also never counts its own ancestor chain (a hand-run sweep cannot
+  find its own parent as a subject). A process cannot gain
+  worker-supervise above it (orphan re-parenting goes to init or a
+  subreaper), so a supervision read can only be stale toward keeping an
+  agent — that is the stop-time answer to the LOCAL P3.
+- **P2 stale tab listing before close (BLIND), FIXED:** the pre-close
+  recheck now re-LISTS (not only re-reads): the tab is regrouped from the
+  fresh listing, every terminal of it as it is NOW must classify bare, and
+  the close handle comes from that same fresh listing. A pane split into the
+  tab since the sweep's first listing is never closed unread.
+- **P2 null reset read (BLIND), FIXED (fail-closed):** see Limits. Only the
+  newest reset per worker is asked (resets run one at a time), so stale
+  records cost at most one call.
+- **P2 cross-platform build (BLIND), ANSWERED:** `GOOS=darwin` and
+  `GOOS=windows` builds are clean — the census stops live in
+  `dupes_unix.go`/`dupes_windows.go` and `LinuxProcessControl` has a
+  `procctl_other.go` variant.
+- **P2 cron matcher (BLIND), ANSWERED:** `ownedCronRE` already tolerated
+  extra words between the job words and the marker before this change; the
+  new `TestOwnedCronLineClaimsOldAndNewEntries` locks that pre-existing
+  tolerance in. No matcher change was needed, and old entries stay owned.
+- **P3 batch, FIXED:** duplicate worktree path guard in `worktreesOf`; the
+  receipt's skip rows key is `skips` (was `skipped`; one spelling per
+  concept); `appliedActions` naming; agentic-usage wording (the sweep
+  computes no alarm and installs no cadence — the install entry does; the
+  upgrade note: an old timer keeps running dry until reinstalled).
+- **Answered with evidence, unchanged:** `Mode.Applying` unread by `Decide`
+  is the tested dry/wet parity contract; `StartTicks` is consumed by the
+  pidfd identity check; an unreadable tab counts as non-bare (positive
+  evidence only) and always keeps the worktree non-empty; the notification
+  post is verified server-side against the app (sessionRef ↔ app, PR #473)
+  and posts from the sweep's own binding as gated; supervision is anchored
+  on the wrapper, the binding is not pid-attached.

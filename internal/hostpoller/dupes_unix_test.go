@@ -94,3 +94,85 @@ func TestProcStatCountsAfterTheLastParen(t *testing.T) {
 		t.Fatal("a truncated stat line must not parse")
 	}
 }
+
+// hadron-cli#2027 review (P1): one logical agent can run as a CHAIN — the
+// supervisor wrapper launches a shim, the shim runs the real binary as a
+// child. Counting the chain's members as separate agents made the REAL agent
+// (the child, whose parent is the shim, not the wrapper) a stop subject of a
+// perfectly healthy worker. The census must answer ONE supervised agent.
+func TestScanWorktreeAgentsCollapsesAChainToOneSupervisedAgent(t *testing.T) {
+	root := t.TempDir()
+	shim := filepath.Join(root, "claude")       // interpreter-wrapped match
+	child := filepath.Join(root, "codex-child") // interpreter-wrapped match
+	if err := os.WriteFile(child, []byte("#!/bin/sh\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wrap := filepath.Join(root, "worker-supervise")
+	if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\""+shim+"\" &\nwait\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c := exec.Command(wrap)
+	c.Dir = root
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+	found := []WorktreeAgent{}
+	for i := 0; i < 100 && len(found) == 0; i++ {
+		time.Sleep(20 * time.Millisecond)
+		found = ScanWorktreeAgents(root)
+	}
+	if len(found) != 1 {
+		t.Fatalf("census counted %d agents for one chain: %+v", len(found), found)
+	}
+	if !found[0].Supervised {
+		t.Fatalf("the chain's agent must be supervised through its shim: %+v", found[0])
+	}
+	if found[0].Base != "claude" || !strings.Contains(found[0].Display, string(os.PathSeparator)+"claude") {
+		t.Fatalf("the logical agent is the chain's oldest census member (the shim): %+v", found[0])
+	}
+}
+
+// An agent's own nested one-shot (behind a tool shell that stays in the
+// worktree) is the SAME logical agent, not a duplicate: without the merge the
+// worker's own tooling would be stopped as an unsupervised second agent.
+func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
+	root := t.TempDir()
+	// The main agent runs its own tool shell; the tool shell runs a nested
+	// one-shot as ITS child — one logical agent, three processes.
+	nested := filepath.Join(root, "codex")
+	if err := os.WriteFile(nested, []byte("#!/bin/sh\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tool := filepath.Join(root, "tool-shell")
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\n\""+nested+"\" &\nwait\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent := filepath.Join(root, "claude")
+	if err := os.WriteFile(agent, []byte("#!/bin/sh\n\""+tool+"\" &\nwait\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c := exec.Command(agent)
+	c.Dir = root
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+	found := []WorktreeAgent{}
+	for i := 0; i < 100 && len(found) == 0; i++ {
+		time.Sleep(20 * time.Millisecond)
+		found = ScanWorktreeAgents(root)
+	}
+	if len(found) != 1 {
+		t.Fatalf("census counted %d agents for one agent with its own one-shot: %+v", len(found), found)
+	}
+	if found[0].Base != "claude" {
+		t.Fatalf("the logical agent is the chain's oldest member: %+v", found[0])
+	}
+	if found[0].Supervised {
+		t.Fatalf("no worker-supervise anywhere in this chain: %+v", found[0])
+	}
+}

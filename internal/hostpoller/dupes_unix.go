@@ -6,15 +6,17 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
 
-// WorktreeAgent is one agent process found working in a worktree (#2027):
-// its pid, the redacted #1474 display line (the operator's way to tell WHICH
-// process it is), its executable's basename, whether its parent is
+// WorktreeAgent is one LOGICAL agent found working in a worktree (#2027):
+// its pid (the chain's oldest member when a shim or nested one-shot runs
+// under it), the redacted #1474 display line (the operator's way to tell
+// WHICH process it is), its executable's basename, whether any ancestor names
 // worker-supervise (the codebase's supervision anchor; comm is truncated to
-// worker-supervis, so the parent is matched on its cmdline), and /proc's
+// worker-supervis, so ancestors are matched on their cmdline), and /proc's
 // start-time ticks — bigger means started later, the keep-oldest key.
 type WorktreeAgent struct {
 	PID        int
@@ -66,10 +68,19 @@ func agentBase(argv []string) string {
 	return ""
 }
 
-// ScanWorktreeAgents lists every process, other than the caller, whose cwd is
-// root or under it and whose executable is an agent binary. Where the host
-// cannot tell (no /proc), it reports none: detection degrades, never the
-// report. A process that cannot be read is skipped, not guessed at.
+// ScanWorktreeAgents lists every LOGICAL agent process, other than the caller
+// and its own ancestors, whose cwd is root or under it and whose executable is
+// an agent binary. One logical agent is one process chain: a shim that runs
+// the binary as a child, or an agent's own nested one-shot behind a tool
+// shell, is the SAME agent as the chain's top (#2037 review: counting the
+// chain twice made the real agent of a single healthy worker a stop subject).
+// A chain member's descendants merge into the chain's oldest member; an agent
+// is supervised when ANY ancestor up to the worktree boundary names
+// worker-supervise — the wrapper may sit several layers out (sg, shims) and
+// its tree stays inside the worktree, while the typed stray's chain leaves
+// through the terminal emulator. Where the host cannot tell
+// (no /proc), it reports none: detection degrades, never the report. A
+// process that cannot be read is skipped, not guessed at.
 func ScanWorktreeAgents(root string) []WorktreeAgent {
 	real, err := filepath.EvalSymlinks(root)
 	if err != nil {
@@ -80,11 +91,12 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 		return nil
 	}
 	self := os.Getpid()
-	out := []WorktreeAgent{}
+	mine := ownAncestry()
+	found := []rawAgents{}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
-		if err != nil || pid == self {
-			continue
+		if err != nil || pid == self || mine[pid] {
+			continue // the caller, or the tree the caller runs in: never subjects
 		}
 		cwd, err := os.Readlink(filepath.Join("/proc", e.Name(), "cwd"))
 		if err != nil {
@@ -102,15 +114,130 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 		if !ok {
 			continue // the process left between the reads; not ours to name
 		}
-		out = append(out, WorktreeAgent{
+		found = append(found, rawAgents{agent: WorktreeAgent{
 			PID:        pid,
 			Display:    processArgv(e.Name()),
 			Base:       base,
-			Supervised: supervisedParent(ppid),
 			StartTicks: start,
-		})
+		}, ppid: ppid})
+	}
+	return collapseChains(found, real)
+}
+
+// chainWalkBound caps every ancestry walk (merge and supervision): deep
+// chains exist (agent → tool shell → one-shot → …), pid cycles from reuse do
+// not, but a bound makes the walk terminate regardless.
+const chainWalkBound = 64
+
+// ownAncestry is the set of the caller's ancestors: the sweep never counts —
+// so never stops — the process tree it runs in. A hand-run sweep inside a
+// live agent must not find its own parent as an unsupervised duplicate.
+func ownAncestry() map[int]bool {
+	out := map[int]bool{}
+	for pid := os.Getppid(); pid > 1 && len(out) < chainWalkBound; {
+		out[pid] = true
+		next, _, ok := procStat(pid)
+		if !ok {
+			break
+		}
+		if next == pid {
+			break
+		}
+		pid = next
 	}
 	return out
+}
+
+// collapseChains merges every raw match that is a descendant of another match
+// (through any intermediary — a shim above the binary, a tool shell between
+// an agent and its one-shot) into that match, keeping the chain's oldest
+// member as the logical agent, and marks the survivor supervised when any
+// ancestor up to the worktree boundary names worker-supervise.
+func collapseChains(found []rawAgents, root string) []WorktreeAgent {
+	byPid := map[int]rawAgents{}
+	for _, r := range found {
+		byPid[r.agent.PID] = r
+	}
+	// rootOf walks r's live ancestry (bounded, worktree-bounded): the first
+	// census member it reaches is r's logical agent; r itself when the chain
+	// has none above the boundary.
+	rootOf := func(r rawAgents) int {
+		pid := r.agent.PID
+		for p, hops := r.ppid, 0; p > 1 && hops < chainWalkBound; hops++ {
+			if up, ok := byPid[p]; ok {
+				pid = up.agent.PID
+				p = up.ppid
+				continue // walk the member's own parent next
+			}
+			if !withinRoot(p, root) {
+				break // the chain left the worktree: no member can be above
+			}
+			next, _, ok := procStat(p)
+			if !ok || next == p {
+				break
+			}
+			p = next
+		}
+		return pid
+	}
+	out := []WorktreeAgent{}
+	for _, r := range found {
+		if root := rootOf(r); root != r.agent.PID {
+			continue // a descendant of another match: the same logical agent
+		}
+		r.agent.Supervised = supervisedChain(r.agent.PID, root)
+		out = append(out, r.agent)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PID < out[j].PID })
+	return out
+}
+
+// rawAgents is one /proc match before the chain collapse (#2027).
+type rawAgents struct {
+	agent WorktreeAgent
+	ppid  int
+}
+
+// supervisedChain reports whether any ancestor of pid, up to the worktree
+// boundary, names worker-supervise: the wrapper may launch through sg or a
+// shim, so the immediate parent alone under-detects supervision, and the
+// wrapper's own tree stays inside the worktree — a typed stray's chain leaves
+// through the terminal emulator, so the boundary is what tells the worker's
+// own process tree from a shell someone typed into. The walk reads live
+// parentage; a process never GAINS worker-supervise above it (orphan
+// re-parenting goes to init or a subreaper, never to a fresh wrapper), so a
+// supervision read at census time can only be stale toward KEEPING an agent.
+func supervisedChain(pid int, root string) bool {
+	ppid, _, ok := procStat(pid)
+	if !ok {
+		return false
+	}
+	for p, hops := ppid, 0; p > 1 && hops < chainWalkBound; hops++ {
+		if supervisedParent(p) {
+			return true
+		}
+		if !withinRoot(p, root) {
+			break // past the worktree boundary: nobody's supervision anchor
+		}
+		next, _, ok := procStat(p)
+		if !ok || next == p {
+			break
+		}
+		p = next
+	}
+	return false
+}
+
+// withinRoot reports whether pid's current working directory is root or under
+// it — the walk boundary of #2027's census: the worktree's own process tree
+// stays within it, and any chain that leaves it (a terminal emulator, the
+// test runner above a fixture) is somebody else's.
+func withinRoot(pid int, root string) bool {
+	cwd, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "cwd"))
+	if err != nil {
+		return false
+	}
+	return cwd == root || strings.HasPrefix(cwd, root+string(os.PathSeparator))
 }
 
 // readProcFile is one bounded /proc read; errors answer nil.

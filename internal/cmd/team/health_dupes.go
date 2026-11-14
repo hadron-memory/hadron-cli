@@ -49,6 +49,10 @@ type dupeSkip struct {
 	Code   string `json:"code"`
 }
 
+// The receipt's skip rows key is "skips", matching the Go field and the
+// fixes/alerts pair beside it (#2037 review: the first draft keyed it
+// "skipped"; one spelling per concept).
+
 // dupesResult is the whole phase's output. Every slice is non-nil so the
 // --json contract renders [] and never null.
 type dupesResult struct {
@@ -98,7 +102,7 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	}
 	mode := healthfix.Mode{Applying: applying, Paused: paused}
 	apply := applying && !paused
-	var line []string
+	var appliedActions []string
 	for _, w := range sortedPaths(candidates) {
 		observation := healthfix.Worktree{WorkerID: wt[w].workerID, WorkerName: wt[w].workerName, Path: w, Agents: toFixAgents(census[w]), Tabs: tabs[w]}
 		if apply {
@@ -131,8 +135,13 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 				}
 				row.Applied = true
 			case fix.Action == healthfix.CloseTab:
-				handle := tabHandle(terms, w, fix.Subject)
-				if handle == "" || !tabStillBare(ctx, client, terms, w, fix.Subject) {
+				// The recheck re-LISTS, then re-reads: the initial List is
+				// minutes stale by now, and a pane added to the tab since
+				// would be closed unread (#2037 review). The close needs
+				// every terminal of the tab as it is NOW to classify bare,
+				// and a live handle from that same fresh listing.
+				handle, stillBare := tabBareNow(ctx, client, w, fix.Subject)
+				if handle == "" || !stillBare {
 					continue // gone or no longer provably bare: next sweep rechecks
 				}
 				if err := client.CloseTab(ctx, handle); err != nil {
@@ -144,12 +153,12 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 			res.Fixes = append(res.Fixes, row)
 			if row.Applied {
 				res.applied++
-				line = append(line, fmt.Sprintf("%s: %s", wt[w].workerName, fix.Action))
+				appliedActions = append(appliedActions, fmt.Sprintf("%s: %s", wt[w].workerName, fix.Action))
 			}
 		}
 	}
 	if res.applied > 0 {
-		postSweepNotice(ctx, f, cfg.App, res.applied, line, errOut)
+		postSweepNotice(ctx, f, cfg.App, res.applied, appliedActions, errOut)
 	}
 	return res
 }
@@ -175,6 +184,7 @@ type dupeWorktree struct {
 func worktreesOf(cfg *hostpoller.Config, workers []dupeWorker) []dupeWorktree {
 	ctx := context.Background()
 	out := []dupeWorktree{}
+	seen := map[string]bool{}
 	for _, w := range workers {
 		ref := cfg.RefFor(w.workerID, w.urn, w.workerName)
 		if ref == "" {
@@ -186,10 +196,15 @@ func worktreesOf(cfg *hostpoller.Config, workers []dupeWorker) []dupeWorktree {
 		}
 		for _, token := range wc.Worktrees {
 			path := filepath.Join(cfg.WorktreesRoot, token)
+			if seen[path] {
+				continue // two workers naming one worktree: the later is a config
+				// mistake; the first claim wins, the sweep never double-walks it
+			}
 			b, ok := orca.BoundAt(ctx, path)
 			if !ok || b.WorkerID != w.workerID {
 				continue // unbound, or bound to someone else: not ours to touch
 			}
+			seen[path] = true
 			out = append(out, dupeWorktree{path: path, workerID: w.workerID, workerName: w.workerName})
 		}
 	}
@@ -296,35 +311,38 @@ func hasResetRecord(state *hostpoller.State, workerID string) bool {
 	return false
 }
 
-// workerResetting reports whether one of the worker's resets is still in
+// workerResetting reports whether the worker's newest reset is still in
 // flight (gate edge 3: a sweep landing in the reset window would see old and
 // new side by side, and could stop the relaunch). The state file only says a
-// reset was collected; the server's endedAt decides whether it ended. A read
-// that fails counts as in flight — fail closed, rechecked next sweep.
+// reset was collected; the server's endedAt decides whether it ended. Only
+// the NEWEST reset is asked — resets run one at a time per worker, so any
+// in-flight one is the newest. A read that fails counts as in flight, and so
+// does a reset the query cannot see (null): a permission mask and a reaped
+// record are indistinguishable here, and of the two, refusing to act is the
+// one the gate allows. The cost is that a reaped-but-never-pruned newest
+// reset keeps the worker in this skip until the state clears — visible in
+// every receipt, and the operator's to clear; never the sweep's to guess.
 func workerResetting(ctx context.Context, server *hostServer, appRef string, state *hostpoller.State, workerID string) bool {
 	if state == nil {
 		return false
 	}
-	ids := []string{}
+	newest := ""
 	for _, r := range state.Resets {
-		if r.WorkerID == workerID {
-			ids = append(ids, r.ResetID)
+		if r.WorkerID == workerID && r.ResetID > newest {
+			newest = r.ResetID
 		}
 	}
-	sort.Strings(ids)
-	for _, id := range ids {
-		resp, err := gen.ContextReset(ctx, server.client, appRef, id)
-		if err != nil {
-			return true
-		}
-		if resp == nil || resp.ContextReset == nil {
-			continue // gone: ended and reaped
-		}
-		if resp.ContextReset.EndedAt == nil {
-			return true
-		}
+	if newest == "" {
+		return false
 	}
-	return false
+	resp, err := gen.ContextReset(ctx, server.client, appRef, newest)
+	if err != nil {
+		return true // unreadable: in flight
+	}
+	if resp == nil || resp.ContextReset == nil {
+		return true // invisible (masked or reaped): in flight, fail closed
+	}
+	return resp.ContextReset.EndedAt == nil
 }
 
 // stopAgent sends one SIGTERM to the duplicate agent, pinned: the pidfd holds
@@ -370,38 +388,27 @@ func startTicksOf(census []hostpoller.WorktreeAgent, pid int) int64 {
 	return 0
 }
 
-// tabHandle is any live terminal of the tab a close-tab fix names.
-func tabHandle(terms []orcaterm.Terminal, worktree, subject string) string {
+// tabBareNow is the read-adjacent recheck before a close: it re-LISTS the
+// terminals (the sweep's first listing is stale by now — a pane split into
+// the tab since would be closed unread), groups the named tab from that
+// FRESH listing, re-reads every terminal of it, and requires the bare-shell
+// classification to hold NOW. It answers a live handle of the tab from the
+// same fresh listing ("" when the tab is gone) and whether the tab is still
+// provably bare — a tab that turned mid-turn, or grew a pane, stays this
+// sweep's hands off.
+func tabBareNow(ctx context.Context, client *orcaterm.Client, worktree, subject string) (handle string, bare bool) {
 	const prefix = "tab "
 	if !strings.HasPrefix(subject, prefix) {
-		return ""
+		return "", false
 	}
 	id := strings.TrimPrefix(subject, prefix)
 	real, err := filepath.EvalSymlinks(worktree)
 	if err != nil {
-		return ""
+		return "", false
 	}
-	for i := range terms {
-		treal, err := filepath.EvalSymlinks(terms[i].WorktreePath)
-		if err == nil && treal == real && terms[i].TabID == id {
-			return terms[i].Handle
-		}
-	}
-	return ""
-}
-
-// tabStillBare re-reads every terminal of the tab and requires the bare-shell
-// classification to hold NOW, immediately before the close — the read-adjacent
-// recheck that keeps a tab that turned mid-turn out of this sweep's hands.
-func tabStillBare(ctx context.Context, client *orcaterm.Client, terms []orcaterm.Terminal, worktree, subject string) bool {
-	const prefix = "tab "
-	if !strings.HasPrefix(subject, prefix) {
-		return false
-	}
-	id := strings.TrimPrefix(subject, prefix)
-	real, err := filepath.EvalSymlinks(worktree)
+	terms, err := client.List(ctx)
 	if err != nil {
-		return false
+		return "", false
 	}
 	now := time.Now()
 	seen := 0
@@ -413,10 +420,16 @@ func tabStillBare(ctx context.Context, client *orcaterm.Client, terms []orcaterm
 		}
 		seen++
 		if orcaterm.Classify(*t, client.ReadScreen(ctx, t.Handle), now).Reason != ts.BareShell {
-			return false
+			return "", false
+		}
+		if handle == "" {
+			handle = t.Handle
 		}
 	}
-	return seen > 0
+	if seen == 0 {
+		return "", false
+	}
+	return handle, true
 }
 
 // postSweepNotice posts the ONE notification line an applying sweep with

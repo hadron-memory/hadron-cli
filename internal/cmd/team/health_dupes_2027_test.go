@@ -53,10 +53,10 @@ type health2027Skip struct {
 	Code   string `json:"code"`
 }
 type health2027DTO struct {
-	DryRun  bool              `json:"dryRun"`
-	Fixes   []health2027Fix   `json:"fixes"`
-	Alerts  []health2027Alert `json:"alerts"`
-	Skipped []health2027Skip  `json:"skipped"`
+	DryRun bool              `json:"dryRun"`
+	Fixes  []health2027Fix   `json:"fixes"`
+	Alerts []health2027Alert `json:"alerts"`
+	Skips  []health2027Skip  `json:"skips"`
 }
 
 // health2027World is one sweep run's surroundings.
@@ -384,6 +384,85 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 	}
 }
 
+// spawnChain starts the layered launch of one logical agent (#2027 review
+// P1): a worker-supervise wrapper whose shim runs the real (trapped) agent as
+// a CHILD — the shape that used to count twice, dooming the real agent. The
+// shim and the child both record their names when signalled, so "the chain
+// was left alone" is observable member by member.
+func (w *health2027World) spawnChain(t *testing.T) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(w.dir, "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	child := filepath.Join(w.dir, "bin", "claude-child")
+	if err := os.WriteFile(child, []byte("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	shim := filepath.Join(w.dir, "bin", "claude")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wrap := filepath.Join(w.dir, "bin", "worker-supervise")
+	if _, err := os.Stat(wrap); err != nil {
+		if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := exec.Command(wrap, shim)
+	c.Dir = w.worktree
+	if err := c.Start(); err != nil {
+		t.Fatalf("spawn chain: %v", err)
+	}
+	w.agents = append(w.agents, c)
+	time.Sleep(50 * time.Millisecond) // let /proc settle
+}
+
+// #2027 review P1: one logical agent running as a CHAIN (wrapper → shim →
+// child) beside a typed stray is ONE supervised agent plus one duplicate —
+// the sweep stops the stray and lays a finger on no member of the chain.
+// The pre-fix census read this as two agents with exactly one supervised and
+// stopped the chain's real agent.
+func TestHealth2027LayeredChainIsOneAgentAndTheStrayIsStopped(t *testing.T) {
+	w := health2027Setup(t)
+	w.spawnChain(t)
+	w.spawnAgent(t, "codex", false)
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	fix := health2027Find(dto.Fixes, func(f health2027Fix) bool { return f.Action == "stop-agent" })
+	if fix == nil || !fix.Applied || !strings.Contains(fix.Subject, "codex") {
+		t.Fatalf("the stray, and only the stray, must be the stop subject: %+v", dto.Fixes)
+	}
+	if !w.settle(t, func() bool { return strings.Contains(w.terms(), "term codex") }) {
+		t.Fatalf("the stray was not signalled: %q", w.terms())
+	}
+	terms, _ := w.records()
+	if strings.Contains(terms, "chain-shim") || strings.Contains(terms, "chain-child") {
+		t.Fatalf("a member of the supervised chain was signalled: %q", terms)
+	}
+}
+
+// #2027 review: the pidfd identity re-verification. A census decision is a
+// (pid, start-time) pair; a stop whose process no longer matches the pair is
+// refused, so a reused pid is skipped, not killed.
+func TestHealth2027StopRefusedWhenIdentityDoesNotMatch(t *testing.T) {
+	w := health2027Setup(t)
+	sleeper := exec.Command("sh", "-c", "while :; do sleep 1; done")
+	sleeper.Dir = w.worktree
+	if err := sleeper.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sleeper.Process.Kill(); _, _ = sleeper.Process.Wait() })
+	time.Sleep(50 * time.Millisecond)
+	if err := stopAgent(sleeper.Process.Pid, 1); err == nil {
+		t.Fatal("a start-time mismatch must refuse the stop")
+	}
+	if !w.alive(sleeper.Process.Pid) {
+		t.Fatal("a refused stop must leave the process alive")
+	}
+}
+
 // Acceptance: "Two unsupervised agents: nothing stopped, one alert."
 func TestHealth2027TwoUnsupervisedAgentsAlertOnly(t *testing.T) {
 	w := health2027Setup(t)
@@ -494,9 +573,9 @@ func TestHealth2027ResettingWorkerSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sweep failed: %v", err)
 	}
-	skip := health2027Find(dto.Skipped, func(s health2027Skip) bool { return s.Code == "resetting" })
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
 	if skip == nil || skip.Worker != "w1" {
-		t.Fatalf("missing resetting skip: %+v", dto.Skipped)
+		t.Fatalf("missing resetting skip: %+v", dto.Skips)
 	}
 	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
 		t.Fatalf("a resetting worker was acted on: %+v %q", dto.Fixes, terms)
@@ -517,9 +596,9 @@ func TestHealth2027TeamPauseReportsOnly(t *testing.T) {
 	if fix == nil || fix.Applied {
 		t.Fatalf("a paused sweep must report the fix without applying it: %+v", dto.Fixes)
 	}
-	skip := health2027Find(dto.Skipped, func(s health2027Skip) bool { return s.Code == "team-paused" })
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "team-paused" })
 	if skip == nil {
-		t.Fatalf("missing team-paused skip: %+v", dto.Skipped)
+		t.Fatalf("missing team-paused skip: %+v", dto.Skips)
 	}
 	if terms, _ := w.records(); terms != "" {
 		t.Fatalf("a paused sweep signalled a process: %q", terms)
@@ -567,10 +646,10 @@ func TestHealth2027CleanWorktreeSilent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !dto2.DryRun || len(dto2.Fixes) != 0 || len(dto2.Alerts) != 0 || len(dto2.Skipped) != 0 {
+	if !dto2.DryRun || len(dto2.Fixes) != 0 || len(dto2.Alerts) != 0 || len(dto2.Skips) != 0 {
 		t.Fatalf("clean sweep reported something: %+v", dto2)
 	}
-	if dto2.Fixes == nil || dto2.Alerts == nil || dto2.Skipped == nil {
+	if dto2.Fixes == nil || dto2.Alerts == nil || dto2.Skips == nil {
 		t.Fatalf("JSON contract must carry empty arrays, not null: %+v", dto2)
 	}
 }
