@@ -33813,6 +33813,9 @@ func (v *ContextResetContextReset) GetStopGrantedAt() *string {
 // GetStopLeaseMs returns ContextResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopLeaseMs() *int { return v.ContextResetFields.StopLeaseMs }
 
+// GetEndedAt returns ContextResetContextReset.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetEndedAt() *string { return v.ContextResetFields.EndedAt }
+
 // GetCheckpointNode returns ContextResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetCheckpointNode() *string {
 	return v.ContextResetFields.CheckpointNode
@@ -33862,6 +33865,8 @@ type __premarshalContextResetContextReset struct {
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
 
+	EndedAt *string `json:"endedAt"`
+
 	CheckpointNode *string `json:"checkpointNode"`
 }
 
@@ -33885,13 +33890,16 @@ func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextReset
 	retval.TaskId = v.ContextResetFields.TaskId
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.EndedAt = v.ContextResetFields.EndedAt
 	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
 
 // #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
 // Every step answers ContextResetStep; refused/replayed are read by the
-// handler, and a refusal ends the reset server-side.
+// handler, and a refusal ends the reset server-side. endedAt (#2027) is null
+// while the reset is in flight: the health sweep skips a worker whose reset
+// has not ended, so it never stops a relaunch mid-window.
 type ContextResetFields struct {
 	Id        string  `json:"id"`
 	Epoch     int     `json:"epoch"`
@@ -33903,6 +33911,7 @@ type ContextResetFields struct {
 	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
 	StopGrantedAt *string `json:"stopGrantedAt"`
 	StopLeaseMs   *int    `json:"stopLeaseMs"`
+	EndedAt       *string `json:"endedAt"`
 	// #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
 	CheckpointNode *string `json:"checkpointNode"`
 }
@@ -33933,6 +33942,9 @@ func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt
 
 // GetStopLeaseMs returns ContextResetFields.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopLeaseMs() *int { return v.StopLeaseMs }
+
+// GetEndedAt returns ContextResetFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetEndedAt() *string { return v.EndedAt }
 
 // GetCheckpointNode returns ContextResetFields.CheckpointNode, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetCheckpointNode() *string { return v.CheckpointNode }
@@ -34026,6 +34038,11 @@ func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int {
 	return v.ContextResetFields.StopLeaseMs
 }
 
+// GetEndedAt returns ContextResetStepFieldsResetContextReset.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetEndedAt() *string {
+	return v.ContextResetFields.EndedAt
+}
+
 // GetCheckpointNode returns ContextResetStepFieldsResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
 func (v *ContextResetStepFieldsResetContextReset) GetCheckpointNode() *string {
 	return v.ContextResetFields.CheckpointNode
@@ -34075,6 +34092,8 @@ type __premarshalContextResetStepFieldsResetContextReset struct {
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
 
+	EndedAt *string `json:"endedAt"`
+
 	CheckpointNode *string `json:"checkpointNode"`
 }
 
@@ -34098,6 +34117,7 @@ func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premars
 	retval.TaskId = v.ContextResetFields.TaskId
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.EndedAt = v.ContextResetFields.EndedAt
 	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
@@ -54950,6 +54970,78 @@ var AllGrantSigningRequestState = []GrantSigningRequestState{
 	GrantSigningRequestStateOpen,
 	GrantSigningRequestStateStale,
 	GrantSigningRequestStateWithdrawn,
+}
+
+// HealthSweepPauseResponse is returned by HealthSweepPause on success.
+type HealthSweepPauseResponse struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *HealthSweepPauseWorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns HealthSweepPauseResponse.Workers, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseResponse) GetWorkers() *HealthSweepPauseWorkersWorkersPage { return v.Workers }
+
+// HealthSweepPauseWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type HealthSweepPauseWorkersWorkersPage struct {
+	Items []*HealthSweepPauseWorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetItems returns HealthSweepPauseWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPage) GetItems() []*HealthSweepPauseWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// HealthSweepPauseWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HealthSweepPauseWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+	// #2138 §3.4 (experimental) — whether this worker is checking its team
+	// channel as expected, derived at read time. Masked to null on the same read
+	// gate as hasLiveSession.
+	CheckStatus *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus `json:"checkStatus"`
+}
+
+// GetId returns HealthSweepPauseWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorker) GetId() string { return v.Id }
+
+// GetCheckStatus returns HealthSweepPauseWorkersWorkersPageItemsWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorker) GetCheckStatus() *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus {
+	return v.CheckStatus
+}
+
+// HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
+// The GraphQL type's documentation follows.
+//
+// #2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+// assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+// the latest of lastCheckedAt, its newest open assignment, its live session's
+// start and the end of its own pause.
+type HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus struct {
+	Status WorkerCheckState `json:"status"`
+	// Set only when status is PENDING.
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+}
+
+// GetStatus returns HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus.Status, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus) GetStatus() WorkerCheckState {
+	return v.Status
+}
+
+// GetPendingReason returns HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
+	return v.PendingReason
 }
 
 // HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
@@ -116699,6 +116791,14 @@ type __GrantCreditsInput struct {
 // GetInput returns __GrantCreditsInput.Input, and is useful for accessing the field via an interface.
 func (v *__GrantCreditsInput) GetInput() *GrantCreditsInput { return v.Input }
 
+// __HealthSweepPauseInput is used internally by genqlient
+type __HealthSweepPauseInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __HealthSweepPauseInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HealthSweepPauseInput) GetAppRef() string { return v.AppRef }
+
 // __HealthSweepSetTerminalsInput is used internally by genqlient
 type __HealthSweepSetTerminalsInput struct {
 	Input *SetHostWorkerTerminalsInput `json:"input,omitempty"`
@@ -130368,6 +130468,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -132915,6 +133016,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -134644,6 +134746,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -143352,6 +143455,51 @@ func GrantCredits(
 	return data_, err_
 }
 
+// The query executed by HealthSweepPause.
+const HealthSweepPause_Operation = `
+query HealthSweepPause ($appRef: ID!) {
+	workers(appRef: $appRef) {
+		items {
+			id
+			checkStatus {
+				status
+				pendingReason
+			}
+		}
+	}
+}
+`
+
+// #2027 — the sweep's team-pause check. A pendingReason of TEAM_PAUSED on any
+// of the App's workers means a team pause is in force, and the sweep detects
+// and reports only (gate edge 4). Read with the host key, which shares the
+// worker read's authorization; checkStatus is null where a read gate withholds
+// it, and null is simply not a pause.
+func HealthSweepPause(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *HealthSweepPauseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HealthSweepPause",
+		Query:  HealthSweepPause_Operation,
+		Variables: &__HealthSweepPauseInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &HealthSweepPauseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by HealthSweepSetTerminals.
 const HealthSweepSetTerminals_Operation = `
 mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
@@ -149874,6 +150022,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -150704,6 +150853,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -150758,6 +150908,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -150811,6 +150962,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `

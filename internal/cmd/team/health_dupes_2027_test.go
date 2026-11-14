@@ -90,6 +90,15 @@ func health2027Setup(t *testing.T) *health2027World {
 	t.Helper()
 	dir := t.TempDir()
 	w := &health2027World{dir: dir, state: `{"hostId":"own"}`}
+	// The sweep reads its notification binding from the process's ambient
+	// worktree: run from a plain directory, not this repo (whose own live
+	// binding would otherwise leak into every test) and not the fixture
+	// worktree (only the posting test binds there).
+	ambient := filepath.Join(dir, "ambient")
+	if err := os.MkdirAll(ambient, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(ambient)
 	w.worktree = filepath.Join(dir, "wt-root", "wt")
 	if err := os.MkdirAll(w.worktree, 0o755); err != nil {
 		t.Fatal(err)
@@ -109,7 +118,7 @@ func health2027Setup(t *testing.T) *health2027World {
 	orcaBin := filepath.Join(dir, "fake-orca")
 	script := "#!/bin/sh\ncase \"$1 $2\" in\n" +
 		"  \"terminal list\") cat \"" + listPath + "\";;\n" +
-		"  \"terminal read\") printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"" + screens + "/$4.json\"; printf '%s' ',\"draft\":null}}}'};;\n" +
+		"  \"terminal read\") printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"" + screens + "/$4.json\"; printf '%s' ',\"draft\":null}}}';;\n" +
 		"  \"terminal close\") echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
 	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
@@ -279,7 +288,7 @@ func (w *health2027World) run(t *testing.T, text bool, args ...string) (health20
 	err := c.Execute()
 	var dto health2027DTO
 	if !text {
-		_ = json.Unmarshal([]byte(out.String()), &dto)
+		_ = json.Unmarshal(out.Bytes(), &dto)
 	}
 	all := out.String() + errOut.String()
 	if strings.Contains(all, "SYNTHETIC_HOST_KEY_2027") {
@@ -293,6 +302,28 @@ func (w *health2027World) serverURL() string { return w.srv.URL }
 func (w *health2027World) terms() string {
 	b, _ := os.ReadFile(w.agentTerms)
 	return string(b)
+}
+
+// settle polls cond for up to 3s: a SIGTERM the sweep has sent is still
+// travelling when the command returns, so a positive assertion on its record
+// waits for it instead of racing it.
+func (w *health2027World) settle(t *testing.T, cond func() bool) bool {
+	t.Helper()
+	for i := 0; i < 150; i++ {
+		if cond() {
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return cond()
+}
+
+// records reads the signal and close records after a quiesce, so a negative
+// assertion ("nothing was touched") cannot pass by reading before a signal
+// lands.
+func (w *health2027World) records() (string, string) {
+	time.Sleep(200 * time.Millisecond)
+	return w.terms(), w.closes()
 }
 
 func (w *health2027World) closes() string {
@@ -334,8 +365,11 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 	if fix == nil || !fix.Applied || !strings.Contains(fix.Subject, "claude") {
 		t.Fatalf("no applied stop-agent fix for the claude duplicate: %+v", dto.Fixes)
 	}
-	if !strings.Contains(w.terms(), "term claude") || strings.Contains(w.terms(), "term codex") {
-		t.Fatalf("wrong process signalled: %q", w.terms())
+	if !w.settle(t, func() bool { return strings.Contains(w.terms(), "term claude") }) {
+		t.Fatalf("the claude duplicate was not signalled: %q", w.terms())
+	}
+	if strings.Contains(w.terms(), "term codex") {
+		t.Fatalf("the supervised agent was signalled: %q", w.terms())
 	}
 	for _, c := range w.agents {
 		if filepath.Base(c.Path) == "worker-supervise" {
@@ -366,8 +400,8 @@ func TestHealth2027TwoUnsupervisedAgentsAlertOnly(t *testing.T) {
 	if alert == nil || alert.Count != 2 || alert.Worker != "w1" {
 		t.Fatalf("missing one unsupervised-agents alert: %+v", dto.Alerts)
 	}
-	if w.terms() != "" {
-		t.Fatalf("something was signalled: %q", w.terms())
+	if terms, _ := w.records(); terms != "" {
+		t.Fatalf("something was signalled: %q", terms)
 	}
 	if dto.DryRun {
 		t.Fatal("an applying sweep reported dryRun")
@@ -385,8 +419,8 @@ func TestHealth2027OnlyAgentNeverStopped(t *testing.T) {
 	if len(dto.Fixes) != 0 || len(dto.Alerts) != 0 {
 		t.Fatalf("a lone agent produced output: %+v %+v", dto.Fixes, dto.Alerts)
 	}
-	if !w.alive(pid) || w.terms() != "" {
-		t.Fatal("the only agent was touched")
+	if terms, _ := w.records(); !w.alive(pid) || terms != "" {
+		t.Fatalf("the only agent was touched: %q", terms)
 	}
 }
 
@@ -403,8 +437,8 @@ func TestHealth2027UnboundWorktreeUntouched(t *testing.T) {
 	if len(dto.Fixes) != 0 || len(dto.Alerts) != 0 {
 		t.Fatalf("an unbound worktree was acted on: %+v %+v", dto.Fixes, dto.Alerts)
 	}
-	if w.terms() != "" || w.closes() != "" {
-		t.Fatalf("an unbound worktree was touched: %q %q", w.terms(), w.closes())
+	if terms, closes := w.records(); terms != "" || closes != "" {
+		t.Fatalf("an unbound worktree was touched: %q %q", terms, closes)
 	}
 }
 
@@ -424,8 +458,11 @@ func TestHealth2027BareShellTabClosedAgentTabKept(t *testing.T) {
 	if fix == nil || !fix.Applied || !strings.Contains(fix.Subject, "tab-bare") {
 		t.Fatalf("no applied close-tab fix for the bare shell: %+v", dto.Fixes)
 	}
-	if strings.Contains(w.closes(), "term_agent") || !strings.Contains(w.closes(), "term_bare") {
-		t.Fatalf("wrong terminal closed: %q", w.closes())
+	if !w.settle(t, func() bool { return strings.Contains(w.closes(), "term_bare") }) {
+		t.Fatalf("the bare tab was not closed: %q", w.closes())
+	}
+	if strings.Contains(w.closes(), "term_agent") {
+		t.Fatalf("the agent tab was closed: %q", w.closes())
 	}
 }
 
@@ -440,8 +477,8 @@ func TestHealth2027MidTurnTabLeftForNextSweep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sweep failed: %v", err)
 	}
-	if len(dto.Fixes) != 0 || w.closes() != "" {
-		t.Fatalf("a mid-turn tab was closed: %+v %q", dto.Fixes, w.closes())
+	if _, closes := w.records(); len(dto.Fixes) != 0 || closes != "" {
+		t.Fatalf("a mid-turn tab was closed: %+v %q", dto.Fixes, closes)
 	}
 }
 
@@ -461,8 +498,8 @@ func TestHealth2027ResettingWorkerSkipped(t *testing.T) {
 	if skip == nil || skip.Worker != "w1" {
 		t.Fatalf("missing resetting skip: %+v", dto.Skipped)
 	}
-	if len(dto.Fixes) != 0 || w.terms() != "" {
-		t.Fatalf("a resetting worker was acted on: %+v %q", dto.Fixes, w.terms())
+	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
+		t.Fatalf("a resetting worker was acted on: %+v %q", dto.Fixes, terms)
 	}
 }
 
@@ -484,8 +521,8 @@ func TestHealth2027TeamPauseReportsOnly(t *testing.T) {
 	if skip == nil {
 		t.Fatalf("missing team-paused skip: %+v", dto.Skipped)
 	}
-	if w.terms() != "" {
-		t.Fatalf("a paused sweep signalled a process: %q", w.terms())
+	if terms, _ := w.records(); terms != "" {
+		t.Fatalf("a paused sweep signalled a process: %q", terms)
 	}
 }
 
@@ -505,8 +542,8 @@ func TestHealth2027DryRunIsTheDefault(t *testing.T) {
 	if fix == nil || fix.Applied {
 		t.Fatalf("a dry run must list the fix unapplied: %+v", dto.Fixes)
 	}
-	if w.terms() != "" {
-		t.Fatalf("a dry run signalled a process: %q", w.terms())
+	if terms, _ := w.records(); terms != "" {
+		t.Fatalf("a dry run signalled a process: %q", terms)
 	}
 	if w.chatPosts() != 0 {
 		t.Fatal("a dry run posted to the chat")
@@ -516,22 +553,22 @@ func TestHealth2027DryRunIsTheDefault(t *testing.T) {
 // Acceptance: "A clean worktree produces no output and no action."
 func TestHealth2027CleanWorktreeSilent(t *testing.T) {
 	w := health2027Setup(t)
-	dto, text, err := w.run(t, true)
+	_, text, err := w.run(t, true)
 	if err != nil {
 		t.Fatalf("sweep failed: %v", err)
 	}
 	if text != "Iris  idle  -\n" {
 		t.Fatalf("text output gained lines: %q", text)
 	}
-	if !dto.DryRun || len(dto.Fixes) != 0 || len(dto.Alerts) != 0 || len(dto.Skipped) != 0 {
-		t.Fatalf("clean sweep reported something: %+v", dto)
-	}
-	if w.terms() != "" || w.closes() != "" || w.chatPosts() != 0 {
-		t.Fatalf("clean sweep acted: %q %q posts=%d", w.terms(), w.closes(), w.chatPosts())
+	if terms, closes := w.records(); terms != "" || closes != "" || w.chatPosts() != 0 {
+		t.Fatalf("clean sweep acted: %q %q posts=%d", terms, closes, w.chatPosts())
 	}
 	dto2, _, err := w.run(t, false)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !dto2.DryRun || len(dto2.Fixes) != 0 || len(dto2.Alerts) != 0 || len(dto2.Skipped) != 0 {
+		t.Fatalf("clean sweep reported something: %+v", dto2)
 	}
 	if dto2.Fixes == nil || dto2.Alerts == nil || dto2.Skipped == nil {
 		t.Fatalf("JSON contract must carry empty arrays, not null: %+v", dto2)
