@@ -1115,8 +1115,10 @@ func TestAZFirstSeenInAPassVoidsItUntilStable(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	realRead := readProcDir
-	defer func() { readProcDir = realRead }()
+	realRead, realWait := readProcDir, waitGroupScanRetry
+	defer func() { readProcDir, waitGroupScanRetry = realRead, realWait }()
+	waits := 0
+	waitGroupScanRetry = func() { waits++ }
 	calls := 0
 	readProcDir = func(dir string) ([]os.DirEntry, error) {
 		calls++
@@ -1130,6 +1132,9 @@ func TestAZFirstSeenInAPassVoidsItUntilStable(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Fatalf("a pass whose only member Z is new is voided and retried exactly once: %d listings", calls)
+	}
+	if waits != 1 {
+		t.Fatalf("first-seen Z invalidates exactly one pass: got %d retry waits, want 1", waits)
 	}
 }
 
