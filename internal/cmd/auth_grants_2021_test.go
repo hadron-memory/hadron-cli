@@ -202,3 +202,78 @@ func TestAuthGrantsHumanCellsSafe2021(t *testing.T) {
 		t.Fatalf("unsafe cell: %q", out)
 	}
 }
+
+// Both boolean directions and a nonzero count must survive the public JSON and
+// human columns. Zero-only fixtures cannot distinguish a dropped server fact.
+func TestAuthGrantsRawDecisionFactsJSONAndTable2021(t *testing.T) {
+	for _, state := range []string{"CURRENT", "PENDING", "EARLIER", "CANCELLED", ""} {
+		allows, problems := false, 0
+		if state == "CURRENT" {
+			allows, problems = true, 7
+		}
+		stateJSON, stateCell := "null", "—"
+		if state != "" {
+			b, err := json.Marshal(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stateJSON, stateCell = string(b), state
+		}
+		row := strings.Replace(personalGrant2021, `"EARLIER"`, stateJSON, 1)
+		if allows {
+			row = strings.Replace(row, `"allows":false`, `"allows":true`, 1)
+			row = strings.Replace(row, `"integrityProblems":0`, `"integrityProblems":7`, 1)
+			row = strings.Replace(row, `"useCount":2`, `"useCount":0`, 1)
+			row = strings.Replace(row, "2026-11-01T00:00:00Z", "2030-11-01T00:00:00Z", 1)
+		}
+		for _, jsonOut := range []bool{true, false} {
+			t.Run(fmt.Sprintf("state=%s/json=%v", stateCell, jsonOut), func(t *testing.T) {
+				args := []string{"auth", "grants"}
+				if jsonOut {
+					args = append(args, "--json")
+				}
+				calls, out, err := runTeamTask(t, map[string]string{"MyGrants": `{"data":{"myGrants":{"items":[` + row + `],"total":1}}}`}, args...)
+				if err != nil || len(*calls) != 1 {
+					t.Fatalf("err=%v calls=%+v output=%s", err, *calls, out)
+				}
+				if jsonOut {
+					var dto struct {
+						Items []struct {
+							Allows          bool
+							SignatureStatus struct {
+								State             json.RawMessage
+								IntegrityProblems int
+							}
+						}
+					}
+					if err := json.Unmarshal([]byte(out), &dto); err != nil {
+						t.Fatal(err)
+					}
+					if len(dto.Items) != 1 || dto.Items[0].Allows != allows ||
+						dto.Items[0].SignatureStatus.IntegrityProblems != problems ||
+						string(dto.Items[0].SignatureStatus.State) != stateJSON {
+						t.Fatalf("raw decision facts changed: %s", out)
+					}
+					return
+				}
+				if !strings.Contains(out, "ALLOWS") || !strings.Contains(out, "SIGNATURE STATE") || !strings.Contains(out, "INTEGRITY PROBLEMS") {
+					t.Fatalf("missing public columns: %s", out)
+				}
+				var cells []string
+				for _, line := range strings.Split(out, "\n") {
+					fields := strings.Fields(line)
+					if len(fields) > 0 && fields[0] == "g1" {
+						cells = fields
+						break
+					}
+				}
+				// The final three columns are ALLOWS, SIGNATURE STATE and
+				// INTEGRITY PROBLEMS; a reason can itself contain spaces.
+				if len(cells) < 3 || cells[len(cells)-3] != fmt.Sprint(allows) ||
+					cells[len(cells)-2] != stateCell || cells[len(cells)-1] != fmt.Sprint(problems) {
+					t.Fatalf("raw human decision cells changed: %v; output=%s", cells, out)
+				}
+			})
+		}
+	}
+}
