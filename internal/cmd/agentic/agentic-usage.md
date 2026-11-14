@@ -2007,7 +2007,8 @@ Conventions:
   to change the description shown in spec lists and search through the same
   guarded write. The description is not in the editor buffer. `--title <text>`
   (cli#810) retitles the spec through the same guarded write: it sets
-  `Node.name` to `<citation> — <text>` (pass the text only; a value starting with
+  `Node.name` to the complete literal text for a typed `spec.<type>` role,
+  as `spec new --role` does. Legacy specs keep `<citation> — <text>` (pass the text only; a value starting with
   the citation prefix, a blank one or a multi-line one is refused, exit 2), alone
   it opens no editor, and a title equal to the stored one writes nothing. The
   title is an approval-hash field (`cor:dmo:120:01`), so a retitle supersedes an
@@ -2031,6 +2032,10 @@ Conventions:
   `changes: []`, and a no-op dry run still closes with the not-an-approval line. The
   same `changes[]` is reported by a real edit, built from the one proposal the
   write sends: the changes a run reports are exactly what that run writes.
+  Authoring requirements are still checked only at write time, pending the
+  non-writing server check (#4168). Dry-run text says so; its JSON adds
+  `authoringCheck: "write-only: ..."`. A missing or supplied authoring claim
+  is not validated by the preview. No role-to-task map or probing write is used.
   A preview is **not an approval**: applying it is a separate run without
   `--dry-run`, which recomputes against the spec as stored then.
   **Every save is guarded (cli#738):** the write targets the immutable node ID
@@ -2135,11 +2140,12 @@ Conventions:
   `spec list` and `replacedRules[]` per feature in `spec register` (`[]` when
   none; every existing key unchanged). It is not the approval state SUPERSEDED,
   and no "withdrawn" state exists; `spec lint` is
-  STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
+  STRUCTURAL: since #708 its generic checks enforce no old content rubric (no missing
   abstract, "what invalidates", `data.version`, scaffold-body or
   placeholder-contract finding), because the sections a spec needs depend on
   its type — each corpus's own authoring framework (its review checks and
-  review tasks) checks those. It takes `--product`/`--module`/`--all`,
+  review tasks) checks those. The platform-frame checks below additionally
+  enforce that framework's structure and abstract bounds. It takes `--product`/`--module`/`--all`,
   warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
@@ -2160,7 +2166,18 @@ Conventions:
   table-of-contents edge to its parent, the inheritance edge to its contract,
   when that target exists), and the message carries the exact `spec link`
   that adds it (`edge create` when the target is not a spec); lint writes
-  nothing. `spec lint` also
+  nothing. For `hadronmemory.com:specs`, `spec lint` additionally checks the
+  platform frame; `--frame` opts another memory (or a memory id) into the same
+  framework. It reads raw type templates from
+  `hrn:mem:hadronmemory.com:specs-engineer-system` at invocation time. Template
+  section order, optionality, defining caps and Built lines are not copied into
+  the CLI. Missing, denied or malformed templates fail instead of reporting a
+  clean partial check. Frame names/tags/sections/caps, abstracts and corpus
+  wikilink labels produce errors (exit 5). Retired and pre-frame specs are
+  exempt from structure checks only; corpus link checks still apply. Invalid
+  type names are per-node findings and do not abort checks of the other nodes.
+  This checks mechanics, not factual
+  correctness or approval. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). A corpus-scope lint also
@@ -6145,7 +6162,7 @@ worker command JSON DTOs and `worker get` text stay unchanged.
 
 `node create` (`add`), `node update` (including `--data` and `--data-merge`),
 `node set-properties`, `node merge`, `replace text`, `spec new`, `spec edit`,
-`spec replace`, `spec supersede` and `spec extract` accept
+`spec replace`, `spec rescind`, `spec supersede` and `spec extract` accept
 `--authored-with <task URN or id> --authored-revision <n>`. Pass both or neither;
 one alone exits 2 before any request. Neither sends no `authoredWith` key.
 For this slice the CLI never infers the task from a binding, role or content.
