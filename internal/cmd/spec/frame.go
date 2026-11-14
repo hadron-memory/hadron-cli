@@ -212,6 +212,7 @@ func lintFrames(cmd *cobra.Command, client graphql.Client, mem string, nodes []s
 		if !retired && !legacy && typed {
 			typ := strings.TrimPrefix(*n.Role, "spec.")
 			if !frameType.MatchString(typ) {
+				// An invalid type has no resolvable frame; report frame-role and skip type-dependent basics, while continuing corpus-wide link checks.
 				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-role", Severity: sevError, Message: fmt.Sprintf("invalid spec type %q; expected a lowercase type name", typ)})
 			} else {
 				t, ok := templates[typ]

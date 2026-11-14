@@ -68,6 +68,9 @@ No signature records, signer identities or manager-only end details are read.
 The default page size is 20. The server caps pages at 200 rows, rather than
 refusing a larger request. --offset selects the start. Use nextOffset as
 the next --offset when hasMore is true. No page is fetched automatically.
+Limit 0 returns the total matching and no rows.
+Offset pages are not a snapshot; grants added or removed between calls can
+shift later pages.
 
 This command only reads. Signing a grant requires the person's passkey on
 the server's browser ceremony page; the CLI does not activate grants.
@@ -96,7 +99,7 @@ flows; this personal listing offers neither action.`,
 				return output.Write(f.IOStreams, f.JSON, struct {
 					Total int `json:"total"`
 				}{resp.MyGrants.Total}, func(w io.Writer) error {
-					_, err := fmt.Fprintf(w, "total returned: %d\n", resp.MyGrants.Total)
+					_, err := fmt.Fprintf(w, "total matching: %d\n", resp.MyGrants.Total)
 					return err
 				})
 			}
@@ -146,7 +149,7 @@ flows; this personal listing offers neither action.`,
 						if g.MaxUses != nil {
 							max = strconv.Itoa(*g.MaxUses)
 						}
-						cells := []string{g.ID, g.AppID, g.Action, values, g.HolderKind, g.HolderID, personalTime(g.StartsAt), personalTime(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, personalTime(g.ActivatedAt), personalTime(g.RevokedAt), strconv.FormatBool(g.Allows), personalTime(g.SignatureStatus.State), strconv.Itoa(g.SignatureStatus.IntegrityProblems)}
+						cells := []string{g.ID, g.AppID, g.Action, values, g.HolderKind, g.HolderID, personalCell(g.StartsAt), personalCell(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, personalCell(g.ActivatedAt), personalCell(g.RevokedAt), strconv.FormatBool(g.Allows), personalCell(g.SignatureStatus.State), strconv.Itoa(g.SignatureStatus.IntegrityProblems)}
 						for i := range cells {
 							cells[i] = output.SafeCell(cells[i])
 						}
@@ -161,7 +164,7 @@ flows; this personal listing offers neither action.`,
 						return err
 					}
 				}
-				_, err := fmt.Fprintf(w, "total returned: %d; offset: %d; requested limit: %d; has more: %t\n", dto.Total, offset, limit, dto.HasMore)
+				_, err := fmt.Fprintf(w, "total matching: %d; rows on this page: %d; offset: %d; requested limit: %d; has more: %t\n", dto.Total, len(dto.Items), offset, limit, dto.HasMore)
 				return err
 			})
 		},
@@ -171,7 +174,7 @@ flows; this personal listing offers neither action.`,
 	return cmd
 }
 
-func personalTime(s *string) string {
+func personalCell(s *string) string {
 	if s == nil {
 		return "—"
 	}
