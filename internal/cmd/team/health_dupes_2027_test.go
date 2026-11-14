@@ -68,6 +68,9 @@ type health2027World struct {
 	pause string
 	// reset is the ContextReset answer body; empty means contextReset null.
 	reset string
+	// resetsByID, when set, answers ContextReset per resetId (a JSON body
+	// with the {"data":… wrapper); a resetId missing from it reads as null.
+	resetsByID map[string]string
 	// state is the poller state file's content (hostId or a resets map).
 	state string
 	// chatBodies records every CreateTeamChatMessage body that arrived.
@@ -78,6 +81,11 @@ type health2027World struct {
 	unbound bool
 
 	orcaCloses string // file the fake orca appends closes to
+	// list2Path, when it exists, replaces the listing from the SECOND
+	// `terminal list` call on — the shape the N3 recheck reads.
+	list2Path string
+	// failList2, when it exists, fails the SECOND `terminal list` call.
+	failList2  string
 	agentTerms string // file the fake agents append SIGTERM traps to
 	agents     []*exec.Cmd
 
@@ -108,17 +116,37 @@ func health2027Setup(t *testing.T) *health2027World {
 	}
 
 	// The fake orca: list reads a JSON file, read answers a per-handle screen
-	// file, close appends the handle to a record.
+	// file, close appends the handle to a record. The N3 recheck variants —
+	// a second listing, a second screen per handle, a failing second list —
+	// are opt-in per test through the files the counters branch on: the
+	// sweep's recheck is exactly the second list and the second read of the
+	// tab's handles.
 	listPath := filepath.Join(dir, "orca-list.json")
+	w.list2Path = filepath.Join(dir, "orca-list-2.json")
+	w.failList2 = filepath.Join(dir, "orca-list-2.fail")
+	counts := filepath.Join(dir, "call-counts")
 	w.orcaCloses = filepath.Join(dir, "orca-closes.txt")
 	screens := filepath.Join(dir, "screens")
-	if err := os.MkdirAll(screens, 0o755); err != nil {
-		t.Fatal(err)
+	for _, d := range []string{counts, screens} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	orcaBin := filepath.Join(dir, "fake-orca")
+	incr := filepath.Join(dir, "incr")
+	if err := os.WriteFile(incr, []byte("#!/bin/sh\nf=\"$1\"; n=0; [ -f \"$f\" ] && n=$(cat \"$f\"); n=$((n+1)); echo $n > \"$f\"; echo $n\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	script := "#!/bin/sh\ncase \"$1 $2\" in\n" +
-		"  \"terminal list\") cat \"" + listPath + "\";;\n" +
-		"  \"terminal read\") printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"" + screens + "/$4.json\"; printf '%s' ',\"draft\":null}}}';;\n" +
+		"  \"terminal list\")\n" +
+		"    n=$(\"" + incr + "\" \"" + counts + "/list\")\n" +
+		"    if [ \"$n\" -ge 2 ] && [ -f \"" + w.failList2 + "\" ]; then exit 1; fi\n" +
+		"    if [ \"$n\" -ge 2 ] && [ -f \"" + w.list2Path + "\" ]; then cat \"" + w.list2Path + "\"; else cat \"" + listPath + "\"; fi;;\n" +
+		"  \"terminal read\")\n" +
+		"    n=$(\"" + incr + "\" \"" + counts + "/read-$4\")\n" +
+		"    f=\"" + screens + "/$4.json\"\n" +
+		"    if [ \"$n\" -ge 2 ] && [ -f \"" + screens + "/$4.json.2\" ]; then f=\"" + screens + "/$4.json.2\"; fi\n" +
+		"    printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"$f\"; printf '%s' ',\"draft\":null}}}';;\n" +
 		"  \"terminal close\") echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
 	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
@@ -147,6 +175,15 @@ func health2027Setup(t *testing.T) *health2027World {
 			}
 			_, _ = io.WriteString(rw, w.pause)
 		case "ContextReset":
+			if w.resetsByID != nil {
+				body, ok := w.resetsByID[fmt.Sprint(q.Variables["resetId"])]
+				if !ok {
+					_, _ = io.WriteString(rw, `{"data":{"contextReset":null}}`)
+					return
+				}
+				_, _ = io.WriteString(rw, body)
+				return
+			}
 			if w.reset == "" {
 				_, _ = io.WriteString(rw, `{"data":{"contextReset":null}}`)
 				return
@@ -204,16 +241,61 @@ type health2027Term struct {
 // setTerminals rewrites the fake orca's terminal list and per-handle screens.
 func (w *health2027World) setTerminals(t *testing.T, terms []health2027Term) {
 	t.Helper()
-	rows := make([]string, 0, len(terms))
+	w.writeList(t, filepath.Join(w.dir, "orca-list.json"), terms)
 	for _, tm := range terms {
-		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"connected":true,"writable":true}`, tm.Handle, w.worktree, tm.Tab))
 		tail, _ := json.Marshal(tm.Screen)
 		if err := os.WriteFile(filepath.Join(w.dir, "screens", tm.Handle+".json"), tail, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
+}
+
+// writeList renders terms as one `terminal list --json` answer body at path.
+func (w *health2027World) writeList(t *testing.T, path string, terms []health2027Term) {
+	t.Helper()
+	rows := make([]string, 0, len(terms))
+	for _, tm := range terms {
+		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"connected":true,"writable":true}`, tm.Handle, w.worktree, tm.Tab))
+	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
-	if err := os.WriteFile(filepath.Join(w.dir, "orca-list.json"), []byte(list), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// setRecheckList makes every `terminal list` call after the FIRST answer
+// terms instead (#2037 N3): the sweep's pre-close recheck re-lists, and the
+// world it then sees is this one. A handle with no screen file yet gets one,
+// so the recheck can read it.
+func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
+	t.Helper()
+	w.writeList(t, w.list2Path, terms)
+	for _, tm := range terms {
+		if _, err := os.Stat(filepath.Join(w.dir, "screens", tm.Handle+".json")); err != nil {
+			tail, _ := json.Marshal(tm.Screen)
+			if err := os.WriteFile(filepath.Join(w.dir, "screens", tm.Handle+".json"), tail, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// failRecheckList makes every `terminal list` call after the FIRST fail
+// (#2037 N3): the recheck cannot verify the tab and must decline.
+func (w *health2027World) failRecheckList(t *testing.T) {
+	t.Helper()
+	if err := os.WriteFile(w.failList2, []byte(""), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// flipRecheckScreen makes the SECOND `terminal read` of handle answer screen
+// instead (#2037 N3): the tab classified bare on the first read and turns
+// before the close.
+func (w *health2027World) flipRecheckScreen(t *testing.T, handle string, screen []string) {
+	t.Helper()
+	tail, _ := json.Marshal(screen)
+	if err := os.WriteFile(filepath.Join(w.dir, "screens", handle+".json.2"), tail, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -561,6 +643,115 @@ func TestHealth2027MidTurnTabLeftForNextSweep(t *testing.T) {
 	}
 }
 
+// #2037 N3: a tab that classified bare on the sweep's first read and turns
+// BEFORE the close must be declined by the read-adjacent recheck — and the
+// decline must leave its skip row in the receipt, not a silent continue.
+func TestHealth2027FlippedScreenDeclinesCloseAndReportsIt(t *testing.T) {
+	w := health2027Setup(t)
+	w.setTerminals(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+		{Handle: "term_bare", Tab: "tab-bare", Screen: []string{"orca@orca1:~$"}},
+	})
+	w.flipRecheckScreen(t, "term_bare", []string{"running tests…", "  ok  internal/cmd/team"})
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if fix := health2027Find(dto.Fixes, func(f health2027Fix) bool { return f.Action == "close-tab" }); fix != nil {
+		t.Fatalf("a tab that turned before the close was acted on: %+v", dto.Fixes)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "close-not-bare" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("the declined close left no trace: %+v", dto.Skips)
+	}
+	if _, closes := w.records(); closes != "" {
+		t.Fatalf("a turned tab was closed: %q", closes)
+	}
+}
+
+// #2037 N3: a pane SPLIT into the tab after the sweep's first listing must
+// be read before any close — the recheck re-lists, so the added pane is part
+// of the tab it judges, and a live pane declines the close visibly.
+func TestHealth2027AddedPaneDeclinesCloseAndReportsIt(t *testing.T) {
+	w := health2027Setup(t)
+	w.setTerminals(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+		{Handle: "term_bare", Tab: "tab-bare", Screen: []string{"orca@orca1:~$"}},
+	})
+	// The recheck's fresh listing carries a second pane in tab-bare.
+	w.setRecheckList(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+		{Handle: "term_bare", Tab: "tab-bare", Screen: []string{"orca@orca1:~$"}},
+		{Handle: "term_split", Tab: "tab-bare", Screen: []string{"✻ Thinking…", "  reviewing the delta"}},
+	})
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if fix := health2027Find(dto.Fixes, func(f health2027Fix) bool { return f.Action == "close-tab" }); fix != nil {
+		t.Fatalf("a tab that grew a live pane was acted on: %+v", dto.Fixes)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "close-not-bare" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("the declined close left no trace: %+v", dto.Skips)
+	}
+	if _, closes := w.records(); closes != "" {
+		t.Fatalf("a tab with an added pane was closed: %q", closes)
+	}
+}
+
+// #2037 N3: a recheck whose re-LIST fails can prove nothing — the close
+// declines fail-closed, and the receipt says so instead of falling silent.
+func TestHealth2027FailingRecheckListDeclinesAndReportsIt(t *testing.T) {
+	w := health2027Setup(t)
+	w.setTerminals(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+		{Handle: "term_bare", Tab: "tab-bare", Screen: []string{"orca@orca1:~$"}},
+	})
+	w.failRecheckList(t)
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if fix := health2027Find(dto.Fixes, func(f health2027Fix) bool { return f.Action == "close-tab" }); fix != nil {
+		t.Fatalf("an unverifiable tab was acted on: %+v", dto.Fixes)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "close-recheck-failed" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("the unverifiable close left no trace: %+v", dto.Skips)
+	}
+	if _, closes := w.records(); closes != "" {
+		t.Fatalf("an unverifiable tab was closed: %q", closes)
+	}
+}
+
+// #2037 N3: a tab already gone from the recheck's fresh listing has nothing
+// to close — the decline lands as a close-gone skip row, never silently.
+func TestHealth2027GoneTabDeclinesAndReportsIt(t *testing.T) {
+	w := health2027Setup(t)
+	w.setTerminals(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+		{Handle: "term_bare", Tab: "tab-bare", Screen: []string{"orca@orca1:~$"}},
+	})
+	w.setRecheckList(t, []health2027Term{
+		{Handle: "term_agent", Tab: "tab-agent", Screen: []string{"✻ Compiling…", "  go build ./..."}},
+	})
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if fix := health2027Find(dto.Fixes, func(f health2027Fix) bool { return f.Action == "close-tab" }); fix != nil {
+		t.Fatalf("a gone tab was acted on: %+v", dto.Fixes)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "close-gone" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("the gone tab left no trace: %+v", dto.Skips)
+	}
+	if _, closes := w.records(); closes != "" {
+		t.Fatalf("a close was attempted on a gone tab: %q", closes)
+	}
+}
+
 // Gate edge 3: resetting workers are skipped and rechecked next sweep.
 func TestHealth2027ResettingWorkerSkipped(t *testing.T) {
 	w := health2027Setup(t)
@@ -579,6 +770,56 @@ func TestHealth2027ResettingWorkerSkipped(t *testing.T) {
 	}
 	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
 		t.Fatalf("a resetting worker was acted on: %+v %q", dto.Fixes, terms)
+	}
+}
+
+// Gate edge 3, #2037 N2: an in-flight reset whose id sorts BELOW an older,
+// ended one must still skip the worker — resetIds carry no ordering contract,
+// so "newest by string max" could read the ended one and act mid-reset.
+func TestHealth2027InFlightResetBelowEndedMaxStillSkips(t *testing.T) {
+	w := health2027Setup(t)
+	w.state = `{"hostId":"own","resets":{"a1":{"resetId":"a1","workerId":"w1"},"zz9":{"resetId":"zz9","workerId":"w1"}}}`
+	w.stateFileWrite(t, w.state)
+	w.resetsByID = map[string]string{
+		"a1":  `{"data":{"contextReset":{"id":"a1","endedAt":null,"phase":"claimed"}}}`,
+		"zz9": `{"data":{"contextReset":{"id":"zz9","endedAt":"2026-11-14T00:00:00Z","phase":"succeeded"}}}`,
+	}
+	w.spawnAgent(t, "codex", true)
+	w.spawnAgent(t, "claude", false)
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("missing resetting skip: %+v", dto.Skips)
+	}
+	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
+		t.Fatalf("acted inside a reset window: %+v %q", dto.Fixes, terms)
+	}
+}
+
+// Gate edge 3, #2037 N2: a worker whose recorded resets all read ended is
+// not resetting — ended resets must not wedge the skip on.
+func TestHealth2027AllEndedResetsLeaveWorkerActionable(t *testing.T) {
+	w := health2027Setup(t)
+	w.state = `{"hostId":"own","resets":{"a1":{"resetId":"a1","workerId":"w1"},"zz9":{"resetId":"zz9","workerId":"w1"}}}`
+	w.stateFileWrite(t, w.state)
+	w.resetsByID = map[string]string{
+		"a1":  `{"data":{"contextReset":{"id":"a1","endedAt":"2026-11-14T00:00:00Z","phase":"succeeded"}}}`,
+		"zz9": `{"data":{"contextReset":{"id":"zz9","endedAt":"2026-11-14T01:00:00Z","phase":"succeeded"}}}`,
+	}
+	w.spawnAgent(t, "codex", true)
+	w.spawnAgent(t, "claude", false)
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" }); skip != nil {
+		t.Fatalf("ended resets still skipped the worker: %+v", dto.Skips)
+	}
+	if len(dto.Fixes) == 0 {
+		t.Fatalf("ended resets left the duplicate unhandled: %+v", dto.Fixes)
 	}
 }
 

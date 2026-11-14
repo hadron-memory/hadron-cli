@@ -92,7 +92,7 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 	}
 	self := os.Getpid()
 	mine := ownAncestry()
-	found := []rawAgents{}
+	found := []rawAgent{}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil || pid == self || mine[pid] {
@@ -114,7 +114,7 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 		if !ok {
 			continue // the process left between the reads; not ours to name
 		}
-		found = append(found, rawAgents{agent: WorktreeAgent{
+		found = append(found, rawAgent{agent: WorktreeAgent{
 			PID:        pid,
 			Display:    processArgv(e.Name()),
 			Base:       base,
@@ -124,9 +124,10 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 	return collapseChains(found, real)
 }
 
-// chainWalkBound caps every ancestry walk (merge and supervision): deep
-// chains exist (agent → tool shell → one-shot → …), pid cycles from reuse do
-// not, but a bound makes the walk terminate regardless.
+// chainWalkBound caps every ancestry walk (own, merge and supervision) in
+// HOPS: deep chains exist (agent → tool shell → one-shot → …), and a pid
+// cycle from a reuse race must cost one bounded walk, not a hang — a map-size
+// bound would not fire there, its key set stops growing (#2037 review).
 const chainWalkBound = 64
 
 // ownAncestry is the set of the caller's ancestors: the sweep never counts —
@@ -134,7 +135,7 @@ const chainWalkBound = 64
 // live agent must not find its own parent as an unsupervised duplicate.
 func ownAncestry() map[int]bool {
 	out := map[int]bool{}
-	for pid := os.Getppid(); pid > 1 && len(out) < chainWalkBound; {
+	for pid, hops := os.Getppid(), 0; pid > 1 && hops < chainWalkBound; hops++ {
 		out[pid] = true
 		next, _, ok := procStat(pid)
 		if !ok {
@@ -153,15 +154,15 @@ func ownAncestry() map[int]bool {
 // an agent and its one-shot) into that match, keeping the chain's oldest
 // member as the logical agent, and marks the survivor supervised when any
 // ancestor up to the worktree boundary names worker-supervise.
-func collapseChains(found []rawAgents, root string) []WorktreeAgent {
-	byPid := map[int]rawAgents{}
+func collapseChains(found []rawAgent, root string) []WorktreeAgent {
+	byPid := map[int]rawAgent{}
 	for _, r := range found {
 		byPid[r.agent.PID] = r
 	}
 	// rootOf walks r's live ancestry (bounded, worktree-bounded): the first
 	// census member it reaches is r's logical agent; r itself when the chain
 	// has none above the boundary.
-	rootOf := func(r rawAgents) int {
+	rootOf := func(r rawAgent) int {
 		pid := r.agent.PID
 		for p, hops := r.ppid, 0; p > 1 && hops < chainWalkBound; hops++ {
 			if up, ok := byPid[p]; ok {
@@ -192,8 +193,8 @@ func collapseChains(found []rawAgents, root string) []WorktreeAgent {
 	return out
 }
 
-// rawAgents is one /proc match before the chain collapse (#2027).
-type rawAgents struct {
+// rawAgent is one /proc match before the chain collapse (#2027).
+type rawAgent struct {
 	agent WorktreeAgent
 	ppid  int
 }

@@ -126,7 +126,11 @@ re-detects. Non-Linux: no `/proc` census ⇒ no stops (same platform limit as
 `unsupervised-agents`, `multiple-supervised`, and the per-fix failures
 `stop-failed`/`close-failed`; skip codes are `resetting`, `team-paused` and
 `pause-unreadable` (a pause read that cannot be proven fails closed to
-report-only, marked with worker `*`). Subjects are codes,
+report-only, marked with worker `*`), and — added with the #2037 N3 trace —
+`close-gone`/`close-not-bare`/`close-recheck-failed`, one row per close the
+read-adjacent recheck declined (the tab left, turned or grew a live pane, or
+could not be re-verified): a planned close never evaporates silently. Subjects
+are codes,
 pids, kinds and tab ids — never screen text; the agent display line is the
 redacted, bounded `processArgv` form the host poller already ships (#1474).
 Text mode prints one line per fix/alert/skip, nothing when all
@@ -184,14 +188,19 @@ unbound posts nothing, bound posts once).
   runs unbound, and gate edge 2 forbids an unbound sweep from posting — so
   alerts (`unsupervised-agents`, `multiple-supervised`, `stop-failed`,
   `close-failed`) and applying-sweep notices reach no chat on their own. They
-  surface in the receipt the scheduler captures and repeat each run until the
+  surface in the receipt the scheduler captures — the journal under systemd;
+  under cron there is no journal, so the output is mailed or dropped, and
+  `status` reports lastRun `unknown` — and repeat each run until the
   condition clears; that is the gated posture, stated here so nobody expects
   a push.
-- **A newest reset the server will not show keeps the worker skipped**
-  (review, #2037): `workerResetting` treats a null reset read (masked or
-  reaped — indistinguishable) as in flight, fail closed. The skip row repeats
-  in every receipt until the state file clears the reset; the sweep never
-  guesses a reaped record ended.
+- **A recorded reset the server will not show keeps the worker skipped**
+  (review, #2037): `workerResetting` asks EVERY recorded reset of the worker
+  (reset ids are server-minted with no ordering the CLI may lean on, #2037
+  N2) and treats a null read (masked or reaped — indistinguishable) as in
+  flight, fail closed. The skip row repeats in every receipt until the state
+  file drops the reset — which reset recovery does once the outcome is
+  reported (`dropReset`), so a healthy host carries few records; a reaped,
+  never-reported one is the operator's to clear, never the sweep's to guess.
 
 ## Review delta (post-seat fixes, #2037)
 
@@ -217,9 +226,10 @@ became of them:
   fresh listing, every terminal of it as it is NOW must classify bare, and
   the close handle comes from that same fresh listing. A pane split into the
   tab since the sweep's first listing is never closed unread.
-- **P2 null reset read (BLIND), FIXED (fail-closed):** see Limits. Only the
-  newest reset per worker is asked (resets run one at a time), so stale
-  records cost at most one call.
+- **P2 null reset read (BLIND), FIXED (fail-closed):** see Limits. Every
+  recorded reset of the worker is asked (reset ids carry no ordering
+  contract, #2037 N2), so a stale record costs one call and an in-flight
+  reset is found wherever it sorts.
 - **P2 cross-platform build (BLIND), ANSWERED:** `GOOS=darwin` and
   `GOOS=windows` builds are clean — the census stops live in
   `dupes_unix.go`/`dupes_windows.go` and `LinuxProcessControl` has a
@@ -240,3 +250,34 @@ became of them:
   post is verified server-side against the app (sessionRef ↔ app, PR #473)
   and posts from the sweep's own binding as gated; supervision is anchored
   on the wrapper, the binding is not pid-attached.
+
+## Review delta 2 (Jane's BLIND delta at 75a2a7c7, #2037)
+
+- **N1 (P2) vacuous chain tests, FIXED:** the chain tests now synchronize on
+  a ready file the chain's leaf writes once it runs, then answer ONE scan —
+  the first poll can no longer pass on the top process alone — and both
+  chain members carry census-matchable basenames so the raw census provably
+  holds two members to merge. `collapseChains` also gained a direct,
+  process-free unit test (chain + stray, oldest member survives), and the
+  own-ancestry exclusion gained a re-exec test whose fake parent is a census
+  match by name: a scan inside that tree never reports its own ancestor.
+  Verified non-vacuous by mutation: breaking the collapse turns all three
+  red.
+- **N2 (P2) "newest by max id" reset read, FIXED:** see Limits above — every
+  recorded reset of the worker is asked, fail-closed on any unreadable or
+  invisible one; pinned by the below-max in-flight test and the all-ended
+  actionable test.
+- **N3 (P2) untested `tabBareNow` + silent declines, FIXED:** the recheck is
+  pinned branch by branch (turned screen, added pane, failing re-list, gone
+  tab, unresolvable worktree, non-tab subject, unreadable pane, live-handle
+  answer) and end to end for the flip/pane/list-fail/gone worlds; a declined
+  close now leaves a `close-*` skip row in the receipt instead of a silent
+  continue (agentic-usage updated).
+- **N4 (P2) cross-builds, ANSWERED:** `GOOS=darwin` and `GOOS=windows`
+  `go build ./...` both exit 0; nothing references the deleted
+  `tabHandle`/`tabStillBare`; `sort` is still used (`sortedPaths`).
+- **P3 batch:** every ancestry walk is hop-bounded, `ownAncestry` included
+  (a pid cycle from a reuse race costs one bounded walk, not a hang — its
+  map-size bound could not fire there); `rawAgents` renamed `rawAgent`; the
+  skip-key comment moved onto the field it documents; the help-inventory pin
+  regenerated on a clean tree at the final head.
