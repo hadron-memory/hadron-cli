@@ -87,7 +87,7 @@ func TestSecretSetShowsNoVersionForAnOrgSecretAndNeverTakesArgv(t *testing.T) {
 	if err == nil || exitCodeFor(err) != exitcode.Usage || cap["UpdateSecret"] != nil {
 		t.Fatalf("set without --value-file: %v %v", err, cap)
 	}
-	if _, _, err = runSecret(t, "", nil, "set", "s", "positional-value"); err == nil {
+	if _, _, err = runSecret(t, "v\n", nil, "set", "s", "positional-value", "--value-file", "-"); err == nil {
 		t.Fatal("a positional value must be refused")
 	}
 }
@@ -327,5 +327,35 @@ func TestSecretCountOnlyPageIsNotNoneAtAll(t *testing.T) {
 	out, _, err = runSecret(t, "", map[string]string{"SecretEvents": e}, "events", "s", "--limit", "0")
 	if err != nil || strings.Contains(out, "no events") || !strings.Contains(out, "4 events") {
 		t.Fatalf("%v %q", err, out)
+	}
+}
+
+// Rook P3-1: currentVersion is the server's field, never the newest listed version.
+func TestSecretVersionsCurrentVersionIsTheFieldNotTheList(t *testing.T) {
+	r := `{"data":{"secret":{"id":"s","name":"n","currentVersion":7,"protected":false,"versions":{"total":1,"hasMore":false,"items":[
+	 {"versionNo":3,"sizeBytes":1,"writtenAt":"2026-11-14T03:00:00Z","supersededAt":null,"writtenByUserId":null,"writtenByWorkerId":null}]}}}}`
+	out, _, err := runSecret(t, "", map[string]string{"SecretVersions": r}, "versions", "s")
+	if err != nil || !strings.Contains(out, "current version: 7") {
+		t.Fatalf("%v %q", err, out)
+	}
+}
+
+// Rook P3-2 (cor:sec:020:01): help never says a run can read an App secret.
+func TestSecretHelpSaysARunNeverReadsAnAppSecret(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"create", "--help"}} {
+		out, _, _ := runSecret(t, "", nil, args...)
+		if !strings.Contains(out, "never resolve") && !strings.Contains(out, "never resolves") {
+			t.Fatalf("secret %v help must say a run never resolves an App secret:\n%s", args, out)
+		}
+		if strings.Contains(out, "run can read an App secret") {
+			t.Fatalf("help suggests a run reads an App secret")
+		}
+	}
+}
+
+func TestSecretEventsAllRefusesLimitAndOffset(t *testing.T) {
+	_, _, err := runSecret(t, "", nil, "events", "s", "--all", "--offset", "2")
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("%v", err)
 	}
 }
