@@ -166,3 +166,59 @@ func TestTickerListTotalLoweredMidReadSucceeds(t *testing.T) {
 		t.Fatalf("want 200 rows, got %d (%v)", len(rows), err)
 	}
 }
+
+// cli#2030: the twin of the session-scan race. A ticker inserted at the top
+// between page reads shifts the offsets, so the first pass ends one short of
+// the total; the list restarts and prints the whole, current census.
+func TestTickerListSurvivesAnInsertBetweenPages(t *testing.T) {
+	mk := func(i int) string {
+		return strings.Replace(tickerFixture, "cticker000000000000000000", fmt.Sprintf("ctk%023d", i), 1)
+	}
+	rows := []string{}
+	for i := 0; i < 250; i++ {
+		rows = append(rows, mk(i+1))
+	}
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "TickerSubscribers" {
+			_, _ = w.Write([]byte(`{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`))
+			return
+		}
+		if body.OperationName != "ListTickersPage" {
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`))
+			return
+		}
+		off := 0
+		if body.Variables.Offset != nil {
+			off = *body.Variables.Offset
+		}
+		end := min(off+200, len(rows))
+		page := []string{}
+		if off < len(rows) {
+			page = rows[off:end]
+		}
+		_, _ = fmt.Fprintf(w, `{"data":{"tickersPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, len(rows), end < len(rows), strings.Join(page, ","))
+		if calls++; calls == 1 {
+			rows = append([]string{mk(0)}, rows...)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ticker", "list", "--app", "acme.com:ops", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an insert between pages must not fail the list: %v", err)
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil || len(got) != 251 {
+		t.Fatalf("want all 251 tickers, got %d (%v)", len(got), err)
+	}
+}
