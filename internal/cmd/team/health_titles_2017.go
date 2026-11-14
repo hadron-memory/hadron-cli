@@ -16,7 +16,8 @@ var healthBoundWorker = delivery.BoundWorker
 
 // healthRename is one tab the title pass renamed, or would rename.
 type healthRename struct {
-	Worker   string  `json:"worker"`
+	Worker   string  `json:"worker"` // the worker id, as in reports and refused
+	Name     string  `json:"name"`
 	Terminal string  `json:"terminal"`
 	From     string  `json:"from"`
 	To       string  `json:"to"`
@@ -64,7 +65,7 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 			}
 			seenTab[t.TabID] = true
 		}
-		r := healthRename{Worker: name, Terminal: t.Handle, From: t.Title, To: want}
+		r := healthRename{Worker: id, Name: name, Terminal: t.Handle, From: t.Title, To: want}
 		if apply {
 			if orcaterm.RenameTab(ctx, run, t.Handle, want) != nil {
 				code := "rename_failed"
@@ -76,7 +77,7 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 		}
 		out = append(out, r)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Worker < out[j].Worker })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	if failed {
 		return out, exitcode.Newf(exitcode.Error, "some tab titles were not renamed")
 	}

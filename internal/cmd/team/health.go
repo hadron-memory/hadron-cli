@@ -144,6 +144,15 @@ status command cannot reach Orca. The status read is allowed 5 seconds per
 registered worker (at least 2 minutes); --status-timeout overrides that, and a
 read that runs out of time says "terminal status timed out after <duration>"
 (exit 1, nothing written). No scheduling or recovery is installed.
+
+Tab titles. After the batch is stored, the sweep sets the title of every Orca
+tab in a registered worker's worktree to the worker's bare name
+("hadron team worker terminal-title"), when it differs; a second sweep changes
+nothing. A tab is matched by its worktree's session binding, so a plain shell
+or a worktree with no registered worker is never touched. --dry-run is on by
+default: a manual run lists the renames it would make and changes nothing; the
+installed timer passes --dry-run=false. A tab that fails to rename is listed
+with its error, the rest still go ahead, and the sweep then exits 1.
 --json contains the sent reports (including refused items) and per-worker
 refusals; never screen text. A report in this list is not a storage receipt.`,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -294,7 +303,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 					case r.Applied:
 						verb = "renamed"
 					}
-					if _, e := fmt.Fprintf(w, "title  %s  %s  %q -> %q\n", output.SafeCell(r.Worker), verb, output.SafeCell(r.From), output.SafeCell(r.To)); e != nil {
+					if _, e := fmt.Fprintf(w, "title  %s  %s  %q -> %q\n", output.SafeCell(r.Name), verb, output.SafeCell(r.From), output.SafeCell(r.To)); e != nil {
 						return e
 					}
 				}

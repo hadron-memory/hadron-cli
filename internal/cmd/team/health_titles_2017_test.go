@@ -194,7 +194,7 @@ func TestHealthTitlesManualRunIsDryRun2017(t *testing.T) {
 		t.Fatalf("receipt: %+v", r)
 	}
 	for _, x := range r.Renames {
-		if x.Applied || x.To != "Iris" || x.Worker != "Iris" || x.Error != nil {
+		if x.Applied || x.To != "Iris" || x.Name != "Iris" || x.Worker != "w1" || x.Error != nil {
 			t.Fatalf("rename entry: %+v", x)
 		}
 	}

@@ -76,7 +76,9 @@ func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
 		Use:   "install --config <host.yaml> --interval <duration> [--bin <path>]",
 		Short: "Run the team health sweep on a schedule on this host",
 		Long: `Install a user-level scheduler entry that runs
-"<hadron> team health sweep --config <host.yaml>" every --interval: a systemd
+"<hadron> team health sweep --config <host.yaml> --dry-run=false" every
+--interval (the flag makes the scheduled sweep apply tab titles; a manual
+sweep only lists them): a systemd
 user timer on Linux (a crontab line where systemd user units are not
 available) or a launchd agent on macOS. There is no default interval; give
 whole minutes, at least 1m (cron needs one that divides an hour or a day
