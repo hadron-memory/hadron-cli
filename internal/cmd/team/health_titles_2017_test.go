@@ -143,7 +143,7 @@ func title2017Run(t *testing.T, o *fakeOrca2017, irisName string, args ...string
 	f.IOStreams = streams
 	f.JSON = true
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
-		return []byte(title2017Status), 0, nil
+		return []byte(strings.Replace(title2017Status, `"worker":"Iris"`, `"worker":"`+irisName+`"`, 1)), 0, nil
 	})
 	c.SetArgs(append([]string{"sweep", "--config", path}, args...))
 	err := c.Execute()
@@ -275,4 +275,17 @@ func TestHealthTitlesListFailureFailsSweep2017(t *testing.T) {
 	if exitcode.FromError(err) != exitcode.Error || writes != 1 {
 		t.Fatalf("err=%v writes=%d", err, writes)
 	}
+}
+
+// stubNoTabs gives a sweep test an Orca with no terminals, so the title pass
+// has nothing to do and does not reach for a real Orca.
+func stubNoTabs(t *testing.T) {
+	t.Helper()
+	old := orcaRunner
+	orcaRunner = func(string) orcaterm.Runner {
+		return func(context.Context, []string) orcaterm.Result {
+			return orcaterm.Result{Stdout: `{"ok":true,"result":{"terminals":[]}}`}
+		}
+	}
+	t.Cleanup(func() { orcaRunner = old })
 }

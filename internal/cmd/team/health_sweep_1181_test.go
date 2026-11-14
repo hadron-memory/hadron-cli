@@ -109,6 +109,7 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 	streams, out, stderr := output.Test()
 	f.IOStreams = streams
 	f.JSON = jsonMode
+	stubNoTabs(t)
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
 		return []byte(status), statusCode, nil
 	})
@@ -141,7 +142,7 @@ func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 			t.Fatalf("legacy verdict changes output %q != %q", out, first)
 		}
 		var got map[string]any
-		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 2 || got["reports"] == nil || got["refused"] == nil {
+		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 4 || got["reports"] == nil || got["refused"] == nil || got["renames"] == nil || got["dryRun"] != true {
 			t.Fatalf("bad DTO %s", out)
 		}
 	}
@@ -201,7 +202,9 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
       "checkedAt": "2026-10-31T02:00:00Z"
     }
   ],
-  "refused": []
+  "refused": [],
+  "renames": [],
+  "dryRun": true
 }
 `
 	if out != golden {

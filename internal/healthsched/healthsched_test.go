@@ -45,9 +45,11 @@ func TestGoldens(t *testing.T) {
 	golden(t, "com.hadronmemory.team-health.plist", Plist(spec))
 }
 
-// The exact argv the entry runs is the one #1181 pins.
+// The exact argv the entry runs is the one #1181 pins, plus the one flag that
+// makes the scheduled sweep apply tab titles (cli#2017): a manual sweep is a
+// dry run, the entry is not.
 func TestArgvIsTheSweepWithConfig(t *testing.T) {
-	want := []string{"/usr/local/bin/hadron", "team", "health", "sweep", "--config", spec.Config}
+	want := []string{"/usr/local/bin/hadron", "team", "health", "sweep", "--config", spec.Config, "--dry-run=false"}
 	if got := spec.Argv(); strings.Join(got, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("argv = %q", got)
 	}
@@ -927,5 +929,17 @@ func TestUsageJobHasItsOwnIdentity(t *testing.T) {
 	}
 	if !strings.Contains(Plist(us), "com.hadronmemory.team-usage") || !strings.Contains(SystemdTimer(us), "Unit=hadron-team-usage.service") {
 		t.Error("usage plist/timer must carry the usage identity")
+	}
+}
+
+// Only the health sweep carries --dry-run=false: another job's argv is
+// untouched (cli#2017).
+func TestOtherJobsCarryNoDryRunFlag(t *testing.T) {
+	u := spec
+	u.Job = Usage
+	for _, w := range u.Argv() {
+		if strings.HasPrefix(w, "--dry-run") {
+			t.Fatalf("usage argv = %q", u.Argv())
+		}
 	}
 }
