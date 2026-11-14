@@ -2173,7 +2173,10 @@ Conventions:
   section order, optionality, defining caps and Built lines are not copied into
   the CLI. Missing, denied or malformed templates fail instead of reporting a
   clean partial check. Frame names/tags/sections/caps, abstracts and corpus
-  wikilink labels produce errors (exit 5). This checks mechanics, not factual
+  wikilink labels produce errors (exit 5). Retired and pre-frame specs are
+  exempt from structure checks only; corpus link checks still apply. Invalid
+  type names are per-node findings and do not abort checks of the other nodes.
+  This checks mechanics, not factual
   correctness or approval. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`

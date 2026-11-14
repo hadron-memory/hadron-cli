@@ -212,31 +212,32 @@ func lintFrames(cmd *cobra.Command, client graphql.Client, mem string, nodes []s
 		if !retired && !legacy && typed {
 			typ := strings.TrimPrefix(*n.Role, "spec.")
 			if !frameType.MatchString(typ) {
-				return nil, exitcode.Newf(exitcode.Usage, "invalid spec type %q", typ)
+				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-role", Severity: sevError, Message: fmt.Sprintf("invalid spec type %q; expected a lowercase type name", typ)})
+			} else {
+				t, ok := templates[typ]
+				if !ok {
+					ref := cmdutil.NodeURN(platformTemplates, "authoring:"+typ+":template")
+					got, err := gen.GetSpecNodeRaw(cmd.Context(), client, ref)
+					if err != nil {
+						return nil, api.MapError(err)
+					}
+					if got.Node == nil || got.Node.Content == nil {
+						return nil, exitcode.Newf(exitcode.Unavailable, "authoring template %s is unavailable; frame checks did not complete", ref)
+					}
+					t, err = parseFrameTemplate(*got.Node.Content)
+					if err != nil {
+						return nil, exitcode.Newf(exitcode.Error, "cannot read authoring template %s: %v", ref, err)
+					}
+					if strings.ToLower(t.kind) != typ {
+						return nil, exitcode.Newf(exitcode.Error, "authoring template %s describes %s", ref, t.kind)
+					}
+					templates[typ] = t
+				}
+				if cmdutil.CanonicalMemoryRef(mem) != "hrn:mem:hadronmemory.com:specs" {
+					fs = append(fs, frameBasics(n)...)
+				}
+				fs = append(fs, lintFrame(n, t)...)
 			}
-			t, ok := templates[typ]
-			if !ok {
-				ref := cmdutil.NodeURN(platformTemplates, "authoring:"+typ+":template")
-				got, err := gen.GetSpecNodeRaw(cmd.Context(), client, ref)
-				if err != nil {
-					return nil, api.MapError(err)
-				}
-				if got.Node == nil || got.Node.Content == nil {
-					return nil, exitcode.Newf(exitcode.Unavailable, "authoring template %s is unavailable; frame checks did not complete", ref)
-				}
-				t, err = parseFrameTemplate(*got.Node.Content)
-				if err != nil {
-					return nil, exitcode.Newf(exitcode.Error, "cannot read authoring template %s: %v", ref, err)
-				}
-				if strings.ToLower(t.kind) != typ {
-					return nil, exitcode.Newf(exitcode.Error, "authoring template %s describes %s", ref, t.kind)
-				}
-				templates[typ] = t
-			}
-			if cmdutil.CanonicalMemoryRef(mem) != "hrn:mem:hadronmemory.com:specs" {
-				fs = append(fs, frameBasics(n)...)
-			}
-			fs = append(fs, lintFrame(n, t)...)
 		}
 		for _, u := range regexp.MustCompile(`\]\((https?://[^)\s]*/hrn:node:[^)\s]+)\)`).FindAllStringSubmatch(derefStr(n.Content)+"\n"+derefStr(n.Abstract), -1) {
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-link", Severity: sevError, Message: "host-specific portal URL; use a corpus wikilink: " + u[1]})

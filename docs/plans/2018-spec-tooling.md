@@ -28,8 +28,9 @@ citation suffix. Link checks read raw nodes and cache targets within the call.
 The legacy lint findings remain. Frame findings are errors (exit 5), even
 without --strict; generic abstract-length remains advisory on its own.
 Other corpora keep their existing checks unless --frame is requested.
-Retired specs and pre-frame legacy bodies retain the framework's historical
-exemption; a clean mechanical check is not factual verification or approval.
+The historical exemption covers structure only. Link rules remain corpus-wide,
+including retired and pre-frame specs, matching speccheck.py links(). A clean
+mechanical check is not factual verification or approval.
 
 The committed Rule template is a test fixture copied from the authoring node
 (version 1.2.0); production always reads Hadron. Tests change its sections to
@@ -74,3 +75,9 @@ there is no cross-request snapshot guarantee and no claim Part 2 is clean.
 Focused command/spec tests run with synthetic HTTP; no live governed write
 was attempted. Cross-family LOCAL, BLIND and compiled-CLI QA are required by
 this issue's T1 stamp before readiness. UX waived and security n/a by stamp.
+
+Review correction: malformed type names are per-node frame-role errors; the
+remaining corpus is still checked. Unavailable template evidence remains a
+command-level failure. The help inventory indexes command pages, not flags or
+Long prose: no new page is added by --frame, and help-inventory-check verifies
+the unchanged row set as well as the version pin.
