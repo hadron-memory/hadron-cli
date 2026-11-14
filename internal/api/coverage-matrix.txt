@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 228: 188 command, 15 gap, 25 excluded
+[Query] 231: 189 command, 17 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -92,8 +92,10 @@ channelMessages  command channel read
 channelReadState  command channel read-state
 channels  command channel list
 chatAiConfigChoices  command app chatbot-ai-config list
+chatEffectiveToolChoice  gap #2020: decision-only read of a chat's effective tool choice (server#4042)
 chatHistory  gap #64
 chatServedPrompts  command chat served-prompts
+chatToolChoiceFor  gap #2020: decision-only read for an unsaved provider+model pair (server#4042)
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
@@ -209,6 +211,7 @@ scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
 secret  command secret get
+secretEvents  command secret events
 secrets  command secret list
 selectedSkillFilePlan  command skill export
 serverInfo  command server-info
