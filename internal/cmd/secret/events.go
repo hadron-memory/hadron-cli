@@ -65,7 +65,7 @@ versionNo, actorUserId, workerId, sessionId); an empty list is [].`,
 			fetch := func(l, o *int) ([]eventDTO, int, error) {
 				resp, err := gen.SecretEvents(cmd.Context(), client, args[0], l, o)
 				if err != nil {
-					return nil, 0, api.MapError(err)
+					return nil, 0, api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.SecretEvents == nil {
 					return []eventDTO{}, 0, nil
@@ -95,6 +95,10 @@ versionNo, actorUserId, workerId, sessionId); an empty list is [].`,
 			}
 			return output.Write(f.IOStreams, f.JSON, out, func(w io.Writer) error {
 				if len(out.Events) == 0 {
+					if out.Total > 0 {
+						_, err := fmt.Fprintf(w, "%d events (none shown on this page; --limit 0 counts only)\n", out.Total)
+						return err
+					}
 					_, err := fmt.Fprintln(w, "no events")
 					return err
 				}

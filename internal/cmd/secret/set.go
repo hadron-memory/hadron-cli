@@ -66,7 +66,7 @@ one. --json gives the secret fields, including currentVersion and protected.`,
 			}
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], nil, &v)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

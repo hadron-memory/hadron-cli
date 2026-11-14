@@ -44,7 +44,7 @@ is [].`,
 			items, err := api.CollectAll(func(limit, offset int) ([]*gen.SecretsSecretsSecretsPageItemsSecret, int, error) {
 				resp, err := gen.Secrets(cmd.Context(), client, ownerType, ownerRef, &limit, &offset)
 				if err != nil {
-					return nil, 0, api.MapError(err)
+					return nil, 0, api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.Secrets == nil {
 					return nil, 0, nil

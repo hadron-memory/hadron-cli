@@ -44,7 +44,7 @@ refuses with exit 2.`,
 			}
 			resp, err := gen.DeleteSecret(cmd.Context(), client, ref)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || !resp.DeleteSecret {
 				return exitcode.Newf(exitcode.NotFound, "secret %q not found", ref)

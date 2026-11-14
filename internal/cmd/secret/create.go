@@ -87,7 +87,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			}
 			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.CreateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

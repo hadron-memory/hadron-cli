@@ -69,7 +69,7 @@ writtenByWorkerId); an empty list is [].`,
 			fetch := func(l, o *int) ([]versionDTO, int, error) {
 				resp, err := gen.SecretVersions(cmd.Context(), client, args[0], l, o)
 				if err != nil {
-					return nil, 0, api.MapError(err)
+					return nil, 0, api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.Secret == nil {
 					return nil, 0, exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
@@ -104,6 +104,10 @@ writtenByWorkerId); an empty list is [].`,
 					return err
 				}
 				if len(out.Versions) == 0 {
+					if out.Total > 0 {
+						_, err := fmt.Fprintf(w, "%d kept versions (none shown on this page; --limit 0 counts only)\n", out.Total)
+						return err
+					}
 					_, err := fmt.Fprintln(w, "no versions")
 					return err
 				}

@@ -40,7 +40,7 @@ secrets) and protected.`,
 			}
 			resp, err := gen.Secret(cmd.Context(), client, args[0])
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.Secret == nil {
 				return exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
@@ -63,7 +63,7 @@ secrets) and protected.`,
 					{"updated", dto.UpdatedAt + " by " + output.Dash(dto.UpdatedBy)},
 				}
 				for _, r := range rows {
-					if _, err := fmt.Fprintf(w, "%-9s %s\n", r[0]+":", output.SafeCell(r[1])); err != nil {
+					if _, err := fmt.Fprintf(w, "%-11s %s\n", r[0]+":", output.SafeCell(r[1])); err != nil {
 						return err
 					}
 				}

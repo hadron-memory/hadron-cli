@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -210,5 +211,40 @@ func TestSecretEventsAllWalksPagesToTheTotal(t *testing.T) {
 	out, _, err := runSecret(t, "", map[string]string{"SecretEvents": eventsResp}, "events", "s", "--all", "--json")
 	if err != nil || !strings.Contains(out, "VERSION_ADDED") {
 		t.Fatalf("%v %s", err, out)
+	}
+}
+
+// QA F1: a server refusal keeps its extensions.code (SECRET_PROTECTED) for the
+// --json envelope on every secret command that can draw it.
+func TestSecretRefusalsKeepServerCode(t *testing.T) {
+	refusal := `{"errors":[{"message":"This secret is protected: it changes only through a change request.","extensions":{"code":"SECRET_PROTECTED"}}]}`
+	for _, tc := range []struct {
+		op    string
+		stdin string
+		args  []string
+	}{
+		{"UpdateSecret", "v\n", []string{"set", "s", "--value-file", "-"}},
+		{"UpdateSecret", "v\n", []string{"update", "s", "--value-file", "-"}},
+		{"DeleteSecret", "", []string{"rm", "s", "--yes"}},
+	} {
+		_, _, err := runSecret(t, tc.stdin, map[string]string{tc.op: refusal}, tc.args...)
+		var coded interface{ ServerCode() string }
+		if err == nil || !errors.As(err, &coded) || coded.ServerCode() != "SECRET_PROTECTED" {
+			t.Fatalf("%v: err=%v must carry serverCode SECRET_PROTECTED", tc.args, err)
+		}
+	}
+}
+
+// QA F2: a count-only page (--limit 0) with a non-zero total is not "none".
+func TestSecretCountOnlyPageIsNotNoneAtAll(t *testing.T) {
+	v := `{"data":{"secret":{"id":"s","name":"n","currentVersion":3,"protected":false,"versions":{"total":3,"hasMore":true,"items":[]}}}}`
+	out, _, err := runSecret(t, "", map[string]string{"SecretVersions": v}, "versions", "s", "--limit", "0")
+	if err != nil || strings.Contains(out, "no versions") || !strings.Contains(out, "3 kept versions") {
+		t.Fatalf("%v %q", err, out)
+	}
+	e := `{"data":{"secretEvents":{"total":4,"items":[]}}}`
+	out, _, err = runSecret(t, "", map[string]string{"SecretEvents": e}, "events", "s", "--limit", "0")
+	if err != nil || strings.Contains(out, "no events") || !strings.Contains(out, "4 events") {
+		t.Fatalf("%v %q", err, out)
 	}
 }

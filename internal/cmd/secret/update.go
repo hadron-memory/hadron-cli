@@ -127,7 +127,7 @@ the same fields as hadron secret get.`,
 			}
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
