@@ -27091,6 +27091,129 @@ func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetSeq() int { return v.S
 // GetUrn returns ChatSearchPageFieldsItemsTeamChatSearchMatch.Urn, and is useful for accessing the field via an interface.
 func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetUrn() *string { return v.Urn }
 
+// ChatServedPromptLintAtChatServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type ChatServedPromptLintAtChatServedPromptsServedPromptsPage struct {
+	Total int                                                                          `json:"total"`
+	Items []*ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns ChatServedPromptLintAtChatServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChatServedPromptLintAtChatServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPage) GetItems() []*ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.Id
+}
+
+// GetCurrentLint returns ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt) GetCurrentLint() *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
+// ChatServedPromptLintAtResponse is returned by ChatServedPromptLintAt on success.
+type ChatServedPromptLintAtResponse struct {
+	// #2862 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: a chatbot chat's served-prompt records, by chat id, and nothing
+	// else about the chat. The same read as Chat.servedPrompts (newest first, default 50, cap 200): readable only by
+	// whoever manages the App named by the chat's first record, and only that App's records. Everyone else, an unknown
+	// chat id and serving switched off all get an empty page, never an error. Never returns a Chat.
+	ChatServedPrompts *ChatServedPromptLintAtChatServedPromptsServedPromptsPage `json:"chatServedPrompts"`
+}
+
+// GetChatServedPrompts returns ChatServedPromptLintAtResponse.ChatServedPrompts, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptLintAtResponse) GetChatServedPrompts() *ChatServedPromptLintAtChatServedPromptsServedPromptsPage {
+	return v.ChatServedPrompts
+}
+
 // ChatServedPromptsChatServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
 type ChatServedPromptsChatServedPromptsServedPromptsPage struct {
 	Total int                                                                     `json:"total"`
@@ -27250,6 +27373,129 @@ func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) _
 	retval.Pruned = v.ServedPromptRecord.Pruned
 	retval.Provenance = v.ServedPromptRecord.Provenance
 	return &retval, nil
+}
+
+// ChatServedPromptsLintChatServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type ChatServedPromptsLintChatServedPromptsServedPromptsPage struct {
+	Total int                                                                         `json:"total"`
+	Items []*ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns ChatServedPromptsLintChatServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChatServedPromptsLintChatServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPage) GetItems() []*ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.Id
+}
+
+// GetCurrentLint returns ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt) GetCurrentLint() *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
+// ChatServedPromptsLintResponse is returned by ChatServedPromptsLint on success.
+type ChatServedPromptsLintResponse struct {
+	// #2862 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: a chatbot chat's served-prompt records, by chat id, and nothing
+	// else about the chat. The same read as Chat.servedPrompts (newest first, default 50, cap 200): readable only by
+	// whoever manages the App named by the chat's first record, and only that App's records. Everyone else, an unknown
+	// chat id and serving switched off all get an empty page, never an error. Never returns a Chat.
+	ChatServedPrompts *ChatServedPromptsLintChatServedPromptsServedPromptsPage `json:"chatServedPrompts"`
+}
+
+// GetChatServedPrompts returns ChatServedPromptsLintResponse.ChatServedPrompts, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsLintResponse) GetChatServedPrompts() *ChatServedPromptsLintChatServedPromptsServedPromptsPage {
+	return v.ChatServedPrompts
 }
 
 // ChatServedPromptsResponse is returned by ChatServedPrompts on success.
@@ -52967,6 +53213,159 @@ func (v *GetWorkerProfileWorker) GetOwnerName() *string { return v.OwnerName }
 // GetAppUrn returns GetWorkerProfileWorker.AppUrn, and is useful for accessing the field via an interface.
 func (v *GetWorkerProfileWorker) GetAppUrn() *string { return v.AppUrn }
 
+// GetWorkerPromptLintResponse is returned by GetWorkerPromptLint on success.
+type GetWorkerPromptLintResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerPromptLintWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerPromptLintResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintResponse) GetWorker() *GetWorkerPromptLintWorker { return v.Worker }
+
+// GetWorkerPromptLintWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerPromptLintWorker struct {
+	Id string `json:"id"`
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
+	// internals; null for anyone else, and when no session is open.
+	ServedPrompt *GetWorkerPromptLintWorkerServedPrompt `json:"servedPrompt"`
+	// Current lint of the compiled revision recorded for the open session; null when unavailable.
+	PromptLintWarnings *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage `json:"promptLintWarnings"`
+}
+
+// GetId returns GetWorkerPromptLintWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorker) GetId() string { return v.Id }
+
+// GetServedPrompt returns GetWorkerPromptLintWorker.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorker) GetServedPrompt() *GetWorkerPromptLintWorkerServedPrompt {
+	return v.ServedPrompt
+}
+
+// GetPromptLintWarnings returns GetWorkerPromptLintWorker.PromptLintWarnings, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorker) GetPromptLintWarnings() *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage {
+	return v.PromptLintWarnings
+}
+
+// GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage) __premarshalJSON() (*__premarshalGetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage, error) {
+	var retval __premarshalGetWorkerPromptLintWorkerPromptLintWarningsLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
+// GetWorkerPromptLintWorkerServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type GetWorkerPromptLintWorkerServedPrompt struct {
+	Id string `json:"id"`
+	// The compile revision that owns the provenance.
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+}
+
+// GetId returns GetWorkerPromptLintWorkerServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorkerServedPrompt) GetId() string { return v.Id }
+
+// GetProvenanceRevSeq returns GetWorkerPromptLintWorkerServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *GetWorkerPromptLintWorkerServedPrompt) GetProvenanceRevSeq() int { return v.ProvenanceRevSeq }
+
 // GetWorkerRenderedResponse is returned by GetWorkerRendered on success.
 type GetWorkerRenderedResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -53150,6 +53549,135 @@ func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetLoc() string { r
 // GetCreatedAt returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetCreatedAt() string {
 	return v.CreatedAt
+}
+
+// GetWorkerSignatureLintResponse is returned by GetWorkerSignatureLint on success.
+type GetWorkerSignatureLintResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerSignatureLintWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerSignatureLintResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintResponse) GetWorker() *GetWorkerSignatureLintWorker { return v.Worker }
+
+// GetWorkerSignatureLintWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerSignatureLintWorker struct {
+	Id string `json:"id"`
+	// #2048 — whether the signature and trailer above carry the worker link, as they hold now (hrn:node:hadronmemory.com:specs:cor:agt:040:13). Same
+	// gate as signature and trailer: null (unavailable, not "no warnings") for a caller who may not see them, and on a
+	// fault. A warning never blocks an edit.
+	SignatureLint *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage `json:"signatureLint"`
+}
+
+// GetId returns GetWorkerSignatureLintWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintWorker) GetId() string { return v.Id }
+
+// GetSignatureLint returns GetWorkerSignatureLintWorker.SignatureLint, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintWorker) GetSignatureLint() *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage {
+	return v.SignatureLint
+}
+
+// GetWorkerSignatureLintWorkerSignatureLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type GetWorkerSignatureLintWorkerSignatureLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns GetWorkerSignatureLintWorkerSignatureLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns GetWorkerSignatureLintWorkerSignatureLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns GetWorkerSignatureLintWorkerSignatureLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerSignatureLintWorkerSignatureLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerSignatureLintWorkerSignatureLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerSignatureLintWorkerSignatureLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerSignatureLintWorkerSignatureLintLintWarningPage) __premarshalJSON() (*__premarshalGetWorkerSignatureLintWorkerSignatureLintLintWarningPage, error) {
+	var retval __premarshalGetWorkerSignatureLintWorkerSignatureLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
 }
 
 // GetWorkerTerminalResponse is returned by GetWorkerTerminal on success.
@@ -57786,6 +58314,76 @@ var AllLintKind = []LintKind{
 	LintKindSigningNotChecked,
 	LintKindWorkerLinkMissing,
 }
+
+// Advisory lint reads (cli#2007, cor:agt:040:13). Each is its own operation, never
+// part of WorkerFields or the ServedPromptRecord fragment: an older server that
+// lacks a field rejects only this operation, so the main read is unaffected and
+// the lint degrades to "unavailable". Every op sends first: 20 explicitly
+// (cor:api:120:04: a client does not ask for more than 20 unless its user did)
+// and the caller follows nextCursor to the end.
+type LintWarningPageFields struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+	// All warnings that hold, not just this page.
+	Total int `json:"total"`
+	// Pass as after for the next page; null on the last.
+	NextCursor *string `json:"nextCursor"`
+}
+
+// GetItems returns LintWarningPageFields.Items, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFields) GetItems() []*LintWarningPageFieldsItemsLintWarning { return v.Items }
+
+// GetTotal returns LintWarningPageFields.Total, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFields) GetTotal() int { return v.Total }
+
+// GetNextCursor returns LintWarningPageFields.NextCursor, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFields) GetNextCursor() *string { return v.NextCursor }
+
+// LintWarningPageFieldsItemsLintWarning includes the requested fields of the GraphQL type LintWarning.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
+type LintWarningPageFieldsItemsLintWarning struct {
+	Kind LintKind `json:"kind"`
+	// 0-based source-tag offset, or immutable occurrence ordinal for compiled-revision lint.
+	Position int    `json:"position"`
+	Text     string `json:"text"`
+	// The target's URN, only for a target the caller can read; null for BROKEN_INCLUDE.
+	TargetUrn *string `json:"targetUrn"`
+	// The revision the include pins, when it pins one.
+	PinnedRevision *int `json:"pinnedRevision"`
+	// The newest approved revision, for PINNED_NEWER_APPROVED.
+	NewerRevision *int `json:"newerRevision"`
+	// Reserved for the policy-agent override notice; null for source lint.
+	OverriddenNodeLoc *string `json:"overriddenNodeLoc"`
+	// For WORKER_LINK_MISSING, which stored field lacks the worker link: signature or trailer. Null otherwise.
+	WorkerField *string `json:"workerField"`
+}
+
+// GetKind returns LintWarningPageFieldsItemsLintWarning.Kind, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetKind() LintKind { return v.Kind }
+
+// GetPosition returns LintWarningPageFieldsItemsLintWarning.Position, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetPosition() int { return v.Position }
+
+// GetText returns LintWarningPageFieldsItemsLintWarning.Text, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetText() string { return v.Text }
+
+// GetTargetUrn returns LintWarningPageFieldsItemsLintWarning.TargetUrn, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetTargetUrn() *string { return v.TargetUrn }
+
+// GetPinnedRevision returns LintWarningPageFieldsItemsLintWarning.PinnedRevision, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetPinnedRevision() *int { return v.PinnedRevision }
+
+// GetNewerRevision returns LintWarningPageFieldsItemsLintWarning.NewerRevision, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetNewerRevision() *int { return v.NewerRevision }
+
+// GetOverriddenNodeLoc returns LintWarningPageFieldsItemsLintWarning.OverriddenNodeLoc, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetOverriddenNodeLoc() *string {
+	return v.OverriddenNodeLoc
+}
+
+// GetWorkerField returns LintWarningPageFieldsItemsLintWarning.WorkerField, and is useful for accessing the field via an interface.
+func (v *LintWarningPageFieldsItemsLintWarning) GetWorkerField() *string { return v.WorkerField }
 
 // ListAssetsAssetsAssetsPage includes the requested fields of the GraphQL type AssetsPage.
 // The GraphQL type's documentation follows.
@@ -78497,6 +79095,135 @@ func (v *RunServedPromptAppRunServedPrompt) __premarshalJSON() (*__premarshalRun
 	return &retval, nil
 }
 
+// RunServedPromptLintAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
+type RunServedPromptLintAppRun struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this run was served. Readable by whoever may read the run; null for anyone
+	// else.
+	ServedPrompt *RunServedPromptLintAppRunServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns RunServedPromptLintAppRun.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRun) GetServedPrompt() *RunServedPromptLintAppRunServedPrompt {
+	return v.ServedPrompt
+}
+
+// RunServedPromptLintAppRunServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type RunServedPromptLintAppRunServedPrompt struct {
+	Id string `json:"id"`
+	// The compile revision that owns the provenance.
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns RunServedPromptLintAppRunServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPrompt) GetId() string { return v.Id }
+
+// GetProvenanceRevSeq returns RunServedPromptLintAppRunServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPrompt) GetProvenanceRevSeq() int { return v.ProvenanceRevSeq }
+
+// GetCurrentLint returns RunServedPromptLintAppRunServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPrompt) GetCurrentLint() *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalRunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalRunServedPromptLintAppRunServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
+// RunServedPromptLintResponse is returned by RunServedPromptLint on success.
+type RunServedPromptLintResponse struct {
+	// One run (cor:agt:010:02). ref is an AppRun ID or an
+	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
+	// a READER of the run's organization, the run's own App key, or a user with a
+	// live App relationship for a run on their behalf or a MANUAL run they
+	// started. A run the caller may not read returns null, exactly like a
+	// missing one (#1577: no existence oracle).
+	AppRun *RunServedPromptLintAppRun `json:"appRun"`
+}
+
+// GetAppRun returns RunServedPromptLintResponse.AppRun, and is useful for accessing the field via an interface.
+func (v *RunServedPromptLintResponse) GetAppRun() *RunServedPromptLintAppRun { return v.AppRun }
+
 // RunServedPromptResponse is returned by RunServedPrompt on success.
 type RunServedPromptResponse struct {
 	// One run (cor:agt:010:02). ref is an AppRun ID or an
@@ -81269,6 +81996,318 @@ func (v *SessionInput) GetType() *string { return v.Type }
 
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
+
+// SessionServedPromptLintAtResponse is returned by SessionServedPromptLintAt on success.
+type SessionServedPromptLintAtResponse struct {
+	Session *SessionServedPromptLintAtSession `json:"session"`
+}
+
+// GetSession returns SessionServedPromptLintAtResponse.Session, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtResponse) GetSession() *SessionServedPromptLintAtSession {
+	return v.Session
+}
+
+// SessionServedPromptLintAtSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type SessionServedPromptLintAtSession struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this session was served at its bind. Readable by whoever may read the
+	// worker's internals; an empty page for anyone else.
+	ServedPrompts *SessionServedPromptLintAtSessionServedPromptsServedPromptsPage `json:"servedPrompts"`
+}
+
+// GetServedPrompts returns SessionServedPromptLintAtSession.ServedPrompts, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSession) GetServedPrompts() *SessionServedPromptLintAtSessionServedPromptsServedPromptsPage {
+	return v.ServedPrompts
+}
+
+// SessionServedPromptLintAtSessionServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type SessionServedPromptLintAtSessionServedPromptsServedPromptsPage struct {
+	Total int                                                                                `json:"total"`
+	Items []*SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPage) GetItems() []*SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.Id
+}
+
+// GetCurrentLint returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPrompt) GetCurrentLint() *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalSessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalSessionServedPromptLintAtSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
+// SessionServedPromptsLintResponse is returned by SessionServedPromptsLint on success.
+type SessionServedPromptsLintResponse struct {
+	Session *SessionServedPromptsLintSession `json:"session"`
+}
+
+// GetSession returns SessionServedPromptsLintResponse.Session, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintResponse) GetSession() *SessionServedPromptsLintSession {
+	return v.Session
+}
+
+// SessionServedPromptsLintSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type SessionServedPromptsLintSession struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this session was served at its bind. Readable by whoever may read the
+	// worker's internals; an empty page for anyone else.
+	ServedPrompts *SessionServedPromptsLintSessionServedPromptsServedPromptsPage `json:"servedPrompts"`
+}
+
+// GetServedPrompts returns SessionServedPromptsLintSession.ServedPrompts, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSession) GetServedPrompts() *SessionServedPromptsLintSessionServedPromptsServedPromptsPage {
+	return v.ServedPrompts
+}
+
+// SessionServedPromptsLintSessionServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type SessionServedPromptsLintSessionServedPromptsServedPromptsPage struct {
+	Total int                                                                               `json:"total"`
+	Items []*SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns SessionServedPromptsLintSessionServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns SessionServedPromptsLintSessionServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPage) GetItems() []*SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.Id
+}
+
+// GetCurrentLint returns SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPrompt) GetCurrentLint() *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalSessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalSessionServedPromptsLintSessionServedPromptsServedPromptsPageItemsServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
 
 // SessionServedPromptsResponse is returned by SessionServedPrompts on success.
 type SessionServedPromptsResponse struct {
@@ -108578,6 +109617,157 @@ func (v *WorkerRosterFieldsReportsToWorker) __premarshalJSON() (*__premarshalWor
 	return &retval, nil
 }
 
+// WorkerServedPromptLintResponse is returned by WorkerServedPromptLint on success.
+type WorkerServedPromptLintResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *WorkerServedPromptLintWorker `json:"worker"`
+}
+
+// GetWorker returns WorkerServedPromptLintResponse.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintResponse) GetWorker() *WorkerServedPromptLintWorker { return v.Worker }
+
+// WorkerServedPromptLintWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerServedPromptLintWorker struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
+	// internals; null for anyone else, and when no session is open.
+	ServedPrompt *WorkerServedPromptLintWorkerServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns WorkerServedPromptLintWorker.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorker) GetServedPrompt() *WorkerServedPromptLintWorkerServedPrompt {
+	return v.ServedPrompt
+}
+
+// WorkerServedPromptLintWorkerServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type WorkerServedPromptLintWorkerServedPrompt struct {
+	Id string `json:"id"`
+	// The compile revision that owns the provenance.
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+	// Current warnings for this record's provenanceRevSeq, never the newest compile.
+	CurrentLint *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage `json:"currentLint"`
+}
+
+// GetId returns WorkerServedPromptLintWorkerServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPrompt) GetId() string { return v.Id }
+
+// GetProvenanceRevSeq returns WorkerServedPromptLintWorkerServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPrompt) GetProvenanceRevSeq() int {
+	return v.ProvenanceRevSeq
+}
+
+// GetCurrentLint returns WorkerServedPromptLintWorkerServedPrompt.CurrentLint, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPrompt) GetCurrentLint() *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage {
+	return v.CurrentLint
+}
+
+// WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage struct {
+	LintWarningPageFields `json:"-"`
+}
+
+// GetItems returns WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) GetItems() []*LintWarningPageFieldsItemsLintWarning {
+	return v.LintWarningPageFields.Items
+}
+
+// GetTotal returns WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) GetTotal() int {
+	return v.LintWarningPageFields.Total
+}
+
+// GetNextCursor returns WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) GetNextCursor() *string {
+	return v.LintWarningPageFields.NextCursor
+}
+
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.LintWarningPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage struct {
+	Items []*LintWarningPageFieldsItemsLintWarning `json:"items"`
+
+	Total int `json:"total"`
+
+	NextCursor *string `json:"nextCursor"`
+}
+
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage) __premarshalJSON() (*__premarshalWorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage, error) {
+	var retval __premarshalWorkerServedPromptLintWorkerServedPromptCurrentLintLintWarningPage
+
+	retval.Items = v.LintWarningPageFields.Items
+	retval.Total = v.LintWarningPageFields.Total
+	retval.NextCursor = v.LintWarningPageFields.NextCursor
+	return &retval, nil
+}
+
 // WorkerServedPromptResponse is returned by WorkerServedPrompt on success.
 type WorkerServedPromptResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -111995,6 +113185,22 @@ func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
 
+// __ChatServedPromptLintAtInput is used internally by genqlient
+type __ChatServedPromptLintAtInput struct {
+	ChatId string  `json:"chatId"`
+	Offset int     `json:"offset"`
+	After  *string `json:"after"`
+}
+
+// GetChatId returns __ChatServedPromptLintAtInput.ChatId, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptLintAtInput) GetChatId() string { return v.ChatId }
+
+// GetOffset returns __ChatServedPromptLintAtInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptLintAtInput) GetOffset() int { return v.Offset }
+
+// GetAfter returns __ChatServedPromptLintAtInput.After, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptLintAtInput) GetAfter() *string { return v.After }
+
 // __ChatServedPromptsInput is used internally by genqlient
 type __ChatServedPromptsInput struct {
 	ChatId        string `json:"chatId"`
@@ -112018,6 +113224,22 @@ func (v *__ChatServedPromptsInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __ChatServedPromptsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatServedPromptsInput) GetOffset() int { return v.Offset }
+
+// __ChatServedPromptsLintInput is used internally by genqlient
+type __ChatServedPromptsLintInput struct {
+	ChatId string `json:"chatId"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetChatId returns __ChatServedPromptsLintInput.ChatId, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsLintInput) GetChatId() string { return v.ChatId }
+
+// GetLimit returns __ChatServedPromptsLintInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsLintInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __ChatServedPromptsLintInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsLintInput) GetOffset() int { return v.Offset }
 
 // __CheckChatCursorInput is used internally by genqlient
 type __CheckChatCursorInput struct {
@@ -114905,6 +116127,18 @@ type __GetWorkerProfileInput struct {
 // GetRef returns __GetWorkerProfileInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerProfileInput) GetRef() string { return v.Ref }
 
+// __GetWorkerPromptLintInput is used internally by genqlient
+type __GetWorkerPromptLintInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __GetWorkerPromptLintInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerPromptLintInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __GetWorkerPromptLintInput.After, and is useful for accessing the field via an interface.
+func (v *__GetWorkerPromptLintInput) GetAfter() *string { return v.After }
+
 // __GetWorkerRenderedInput is used internally by genqlient
 type __GetWorkerRenderedInput struct {
 	Ref string `json:"ref"`
@@ -114920,6 +116154,18 @@ type __GetWorkerRetireAdvisoryInput struct {
 
 // GetRef returns __GetWorkerRetireAdvisoryInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerRetireAdvisoryInput) GetRef() string { return v.Ref }
+
+// __GetWorkerSignatureLintInput is used internally by genqlient
+type __GetWorkerSignatureLintInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __GetWorkerSignatureLintInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerSignatureLintInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __GetWorkerSignatureLintInput.After, and is useful for accessing the field via an interface.
+func (v *__GetWorkerSignatureLintInput) GetAfter() *string { return v.After }
 
 // __GetWorkerTerminalInput is used internally by genqlient
 type __GetWorkerTerminalInput struct {
@@ -117113,6 +118359,18 @@ func (v *__RunServedPromptInput) GetLimit() int { return v.Limit }
 // GetOffset returns __RunServedPromptInput.Offset, and is useful for accessing the field via an interface.
 func (v *__RunServedPromptInput) GetOffset() int { return v.Offset }
 
+// __RunServedPromptLintInput is used internally by genqlient
+type __RunServedPromptLintInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __RunServedPromptLintInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptLintInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __RunServedPromptLintInput.After, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptLintInput) GetAfter() *string { return v.After }
+
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
 	NodeRef   string           `json:"nodeRef"`
@@ -117345,6 +118603,22 @@ func (v *__SessionInboxInput) GetWorkerRefs() []string { return v.WorkerRefs }
 // GetAfter returns __SessionInboxInput.After, and is useful for accessing the field via an interface.
 func (v *__SessionInboxInput) GetAfter() *string { return v.After }
 
+// __SessionServedPromptLintAtInput is used internally by genqlient
+type __SessionServedPromptLintAtInput struct {
+	Id     string  `json:"id"`
+	Offset int     `json:"offset"`
+	After  *string `json:"after"`
+}
+
+// GetId returns __SessionServedPromptLintAtInput.Id, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptLintAtInput) GetId() string { return v.Id }
+
+// GetOffset returns __SessionServedPromptLintAtInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptLintAtInput) GetOffset() int { return v.Offset }
+
+// GetAfter returns __SessionServedPromptLintAtInput.After, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptLintAtInput) GetAfter() *string { return v.After }
+
 // __SessionServedPromptsInput is used internally by genqlient
 type __SessionServedPromptsInput struct {
 	Id            string `json:"id"`
@@ -117368,6 +118642,22 @@ func (v *__SessionServedPromptsInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __SessionServedPromptsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SessionServedPromptsInput) GetOffset() int { return v.Offset }
+
+// __SessionServedPromptsLintInput is used internally by genqlient
+type __SessionServedPromptsLintInput struct {
+	Id     string `json:"id"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetId returns __SessionServedPromptsLintInput.Id, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsLintInput) GetId() string { return v.Id }
+
+// GetLimit returns __SessionServedPromptsLintInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsLintInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __SessionServedPromptsLintInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsLintInput) GetOffset() int { return v.Offset }
 
 // __SetAgentAssetUploadEnabledInput is used internally by genqlient
 type __SetAgentAssetUploadEnabledInput struct {
@@ -121078,6 +122368,18 @@ func (v *__WorkerServedPromptInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __WorkerServedPromptInput.Offset, and is useful for accessing the field via an interface.
 func (v *__WorkerServedPromptInput) GetOffset() int { return v.Offset }
+
+// __WorkerServedPromptLintInput is used internally by genqlient
+type __WorkerServedPromptLintInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __WorkerServedPromptLintInput.Ref, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptLintInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __WorkerServedPromptLintInput.After, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptLintInput) GetAfter() *string { return v.After }
 
 // __WorkerWakeSettingsInput is used internally by genqlient
 type __WorkerWakeSettingsInput struct {
@@ -130633,6 +131935,64 @@ func ChatMessages(
 	return data_, err_
 }
 
+// The query executed by ChatServedPromptLintAt.
+const ChatServedPromptLintAt_Operation = `
+query ChatServedPromptLintAt ($chatId: ID!, $offset: Int!, $after: String) {
+	chatServedPrompts(chatId: $chatId, limit: 1, offset: $offset) {
+		total
+		items {
+			id
+			currentLint(first: 20, after: $after) {
+				... LintWarningPageFields
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func ChatServedPromptLintAt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chatId string,
+	offset int,
+	after *string,
+) (data_ *ChatServedPromptLintAtResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatServedPromptLintAt",
+		Query:  ChatServedPromptLintAt_Operation,
+		Variables: &__ChatServedPromptLintAtInput{
+			ChatId: chatId,
+			Offset: offset,
+			After:  after,
+		},
+	}
+
+	data_ = &ChatServedPromptLintAtResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatServedPrompts.
 const ChatServedPrompts_Operation = `
 query ChatServedPrompts ($chatId: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
@@ -130690,6 +132050,64 @@ func ChatServedPrompts(
 	}
 
 	data_ = &ChatServedPromptsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChatServedPromptsLint.
+const ChatServedPromptsLint_Operation = `
+query ChatServedPromptsLint ($chatId: ID!, $limit: Int!, $offset: Int!) {
+	chatServedPrompts(chatId: $chatId, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			currentLint(first: 20) {
+				... LintWarningPageFields
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func ChatServedPromptsLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chatId string,
+	limit int,
+	offset int,
+) (data_ *ChatServedPromptsLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatServedPromptsLint",
+		Query:  ChatServedPromptsLint_Operation,
+		Variables: &__ChatServedPromptsLintInput{
+			ChatId: chatId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ChatServedPromptsLintResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -140927,6 +142345,66 @@ func GetWorkerProfile(
 	return data_, err_
 }
 
+// The query executed by GetWorkerPromptLint.
+const GetWorkerPromptLint_Operation = `
+query GetWorkerPromptLint ($ref: ID!, $after: String) {
+	worker(ref: $ref) {
+		id
+		servedPrompt {
+			id
+			provenanceRevSeq
+		}
+		promptLintWarnings(first: 20, after: $after) {
+			... LintWarningPageFields
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+// servedPrompt { id provenanceRevSeq } rides along so "nothing served" is told
+// from "unavailable" without hasLiveSession (an idle but open session still has
+// a record), and so output can name the provenance revision, never the newest compile.
+func GetWorkerPromptLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *GetWorkerPromptLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerPromptLint",
+		Query:  GetWorkerPromptLint_Operation,
+		Variables: &__GetWorkerPromptLintInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &GetWorkerPromptLintResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetWorkerRendered.
 const GetWorkerRendered_Operation = `
 query GetWorkerRendered ($ref: ID!) {
@@ -141004,6 +142482,59 @@ func GetWorkerRetireAdvisory(
 	}
 
 	data_ = &GetWorkerRetireAdvisoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerSignatureLint.
+const GetWorkerSignatureLint_Operation = `
+query GetWorkerSignatureLint ($ref: ID!, $after: String) {
+	worker(ref: $ref) {
+		id
+		signatureLint(first: 20, after: $after) {
+			... LintWarningPageFields
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func GetWorkerSignatureLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *GetWorkerSignatureLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerSignatureLint",
+		Query:  GetWorkerSignatureLint_Operation,
+		Variables: &__GetWorkerSignatureLintInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &GetWorkerSignatureLintResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -150432,6 +151963,62 @@ func RunServedPrompt(
 	return data_, err_
 }
 
+// The query executed by RunServedPromptLint.
+const RunServedPromptLint_Operation = `
+query RunServedPromptLint ($ref: ID!, $after: String) {
+	appRun(ref: $ref) {
+		servedPrompt {
+			id
+			provenanceRevSeq
+			currentLint(first: 20, after: $after) {
+				... LintWarningPageFields
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func RunServedPromptLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *RunServedPromptLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RunServedPromptLint",
+		Query:  RunServedPromptLint_Operation,
+		Variables: &__RunServedPromptLintInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &RunServedPromptLintResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RunTask.
 const RunTask_Operation = `
 mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean) {
@@ -151234,6 +152821,66 @@ func SessionInbox(
 	return data_, err_
 }
 
+// The query executed by SessionServedPromptLintAt.
+const SessionServedPromptLintAt_Operation = `
+query SessionServedPromptLintAt ($id: ID!, $offset: Int!, $after: String) {
+	session(id: $id) {
+		servedPrompts(limit: 1, offset: $offset) {
+			total
+			items {
+				id
+				currentLint(first: 20, after: $after) {
+					... LintWarningPageFields
+				}
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func SessionServedPromptLintAt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	offset int,
+	after *string,
+) (data_ *SessionServedPromptLintAtResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SessionServedPromptLintAt",
+		Query:  SessionServedPromptLintAt_Operation,
+		Variables: &__SessionServedPromptLintAtInput{
+			Id:     id,
+			Offset: offset,
+			After:  after,
+		},
+	}
+
+	data_ = &SessionServedPromptLintAtResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SessionServedPrompts.
 const SessionServedPrompts_Operation = `
 query SessionServedPrompts ($id: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
@@ -151293,6 +152940,68 @@ func SessionServedPrompts(
 	}
 
 	data_ = &SessionServedPromptsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SessionServedPromptsLint.
+const SessionServedPromptsLint_Operation = `
+query SessionServedPromptsLint ($id: ID!, $limit: Int!, $offset: Int!) {
+	session(id: $id) {
+		servedPrompts(limit: $limit, offset: $offset) {
+			total
+			items {
+				id
+				currentLint(first: 20) {
+					... LintWarningPageFields
+				}
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+// History: the shown page's own limit/offset, first lint page inline; a record
+// whose nextCursor is set is re-read alone by offset (…At) with id/total checks.
+func SessionServedPromptsLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	limit int,
+	offset int,
+) (data_ *SessionServedPromptsLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SessionServedPromptsLint",
+		Query:  SessionServedPromptsLint_Operation,
+		Variables: &__SessionServedPromptsLintInput{
+			Id:     id,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &SessionServedPromptsLintResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -161576,6 +163285,62 @@ func WorkerServedPrompt(
 	}
 
 	data_ = &WorkerServedPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WorkerServedPromptLint.
+const WorkerServedPromptLint_Operation = `
+query WorkerServedPromptLint ($ref: ID!, $after: String) {
+	worker(ref: $ref) {
+		servedPrompt {
+			id
+			provenanceRevSeq
+			currentLint(first: 20, after: $after) {
+				... LintWarningPageFields
+			}
+		}
+	}
+}
+fragment LintWarningPageFields on LintWarningPage {
+	items {
+		kind
+		position
+		text
+		targetUrn
+		pinnedRevision
+		newerRevision
+		overriddenNodeLoc
+		workerField
+	}
+	total
+	nextCursor
+}
+`
+
+func WorkerServedPromptLint(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *WorkerServedPromptLintResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerServedPromptLint",
+		Query:  WorkerServedPromptLint_Operation,
+		Variables: &__WorkerServedPromptLintInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &WorkerServedPromptLintResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

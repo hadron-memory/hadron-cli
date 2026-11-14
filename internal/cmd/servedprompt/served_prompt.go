@@ -3,7 +3,9 @@
 package servedprompt
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -42,6 +45,11 @@ type recordDTO struct {
 	Variables           json.RawMessage `json:"variables"`
 	Pruned              bool            `json:"pruned"`
 	Provenance          provenanceDTO   `json:"provenance"`
+	// CurrentLint is the advisory lint of THIS record's provenance revision
+	// (cli#2007, cor:agt:040:13), never the Agent's newest compile. A nil outer
+	// pointer omits the key (not requested); a non-nil pointer to nil is null:
+	// UNAVAILABLE, never "no warnings". It is output-only, so identity() ignores it.
+	CurrentLint **lintwarn.Page `json:"currentLint,omitempty"`
 }
 type envelopeDTO struct {
 	ServedPrompt *recordDTO `json:"servedPrompt"`
@@ -89,7 +97,7 @@ func servedExample(worker bool) string {
 
 func newCommand(f *cmdutil.Factory, worker bool) *cobra.Command {
 	var limit, offset int
-	var all bool
+	var all, lintFlag bool
 	owner := "run"
 	if worker {
 		owner = "worker"
@@ -116,7 +124,8 @@ provenance page. --all buffers every provenance page before output and refuses
 an inconsistent record or failed page without printing a partial result. It
 cannot guarantee one database snapshot across requests. With --all,
 provenance.items holds every page, while provenance.limit and .offset still
-describe the requests: the page size each one asked for, and offset 0.`,
+describe the requests: the page size each one asked for, and offset 0.
+` + currentLintHelp(worker),
 		Example: servedExample(worker),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -186,24 +195,89 @@ describe the requests: the page size each one asked for, and offset 0.`,
 				}
 				at += count
 			}
+			// The advisory lint starts its own budget now that the main read
+			// succeeded; it never changes the result or the exit code (cli#2007).
+			if result != nil && (worker || lintFlag) {
+				budget := lintwarn.NewBudget(cmd.Context())
+				defer budget.Close()
+				page := lintwarn.ReadRecordLint(budget, result.ID, func(ctx context.Context, after *string) (string, *gen.LintWarningPageFields, error) {
+					if worker {
+						r, e := gen.WorkerServedPromptLint(ctx, client, ref, after)
+						if e != nil || r == nil || r.Worker == nil || r.Worker.ServedPrompt == nil || r.Worker.ServedPrompt.CurrentLint == nil {
+							return "", nil, errLintUnavailable
+						}
+						return r.Worker.ServedPrompt.Id, &r.Worker.ServedPrompt.CurrentLint.LintWarningPageFields, nil
+					}
+					r, e := gen.RunServedPromptLint(ctx, client, ref, after)
+					if e != nil || r == nil || r.AppRun == nil || r.AppRun.ServedPrompt == nil || r.AppRun.ServedPrompt.CurrentLint == nil {
+						return "", nil, errLintUnavailable
+					}
+					return r.AppRun.ServedPrompt.Id, &r.AppRun.ServedPrompt.CurrentLint.LintWarningPageFields, nil
+				})
+				if page == nil {
+					lintwarn.ReportUnavailable(cmd)
+				}
+				result.CurrentLint = &page
+			}
 			return output.Write(f.IOStreams, f.JSON, envelopeDTO{ServedPrompt: result}, func(w io.Writer) error {
 				if result == nil {
 					_, e := fmt.Fprintln(w, "served prompt: unavailable (unrecorded, unreadable or serving off)")
 					return e
 				}
-				return writeRecord(w, result)
+				if e := writeRecord(w, result); e != nil {
+					return e
+				}
+				return writeCurrentLint(w, result)
 			})
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 50, "provenance entries per page (0 counts only, maximum 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "provenance entries to skip")
 	cmd.Flags().BoolVar(&all, "all", false, "read all provenance pages before output")
+	if !worker {
+		addLintFlag(cmd, &lintFlag)
+	}
 	return cmd
+}
+
+var errLintUnavailable = errors.New("lint unavailable")
+
+// currentLintHelp documents the advisory lint read (cli#2007).
+func currentLintHelp(worker bool) string {
+	when := "Always shown here."
+	if !worker {
+		when = "Shown with --lint-warnings; without it the key is absent and no lint is read."
+	}
+	return `
+CURRENT LINT: a warning means the compiled prompt behind this record has a
+defect; fix its template, or recompile the Agent. After the record is read, its
+current lint warnings are read in their own operation, 20 per request to the
+end, within a 5-second budget shared by the command. ` + when + ` They describe the
+compiled revision recorded for this served prompt, not the Agent's newest
+compile. With --json, "currentLint" is {items, total, nextCursor} or null.
+null means unavailable (an older server, a record or lint the server would not
+answer, a lint page that changed while reading, or the budget ran out), never
+"no warnings": items [] with total 0 is the one clean answer. An unavailable
+read prints one fixed advisory line on stderr; rerun to retry. The record, its
+exit code and its provenance paging are unaffected. See cor:agt:040:13.`
+}
+
+func addLintFlag(cmd *cobra.Command, v *bool) {
+	cmd.Flags().BoolVar(v, "lint-warnings", false, "also read each record's current lint warnings (advisory; unavailable stays null)")
+}
+
+// writeCurrentLint prints the record's lint section when it was read.
+func writeCurrentLint(w io.Writer, r *recordDTO) error {
+	if r.CurrentLint == nil {
+		return nil
+	}
+	return lintwarn.WriteSection(w, "current lint", lintwarn.PromptSubject("the compiled revision recorded for this served prompt", r.ProvenanceRevSeq), *r.CurrentLint, true)
 }
 
 func identity(r *recordDTO) string {
 	rec := *r
 	rec.Provenance = provenanceDTO{}
+	rec.CurrentLint = nil
 	b, _ := json.Marshal(rec)
 	return string(b)
 }
@@ -233,4 +307,35 @@ func writeRecord(w io.Writer, r *recordDTO) error {
 		t.Row(output.SafeCell(p.NodeID), fmt.Sprint(p.RevSeq), output.SafeCell(p.Hash), fmt.Sprint(p.Pruned))
 	}
 	return t.Flush()
+}
+
+const historyLintHelp = `
+CURRENT LINT (--lint-warnings): a warning means the compiled prompt behind a
+record has a defect; fix its template, or recompile the Agent. With the flag,
+each record's current lint warnings are also read in their own operation, 20
+per request, within a 5-second budget shared by the whole command. They
+describe the compiled revision recorded for that record, not the Agent's
+newest compile. With --json each record gains "currentLint": {items, total,
+nextCursor} or null; without the flag the key is absent. null means
+unavailable for THAT record, never "no warnings" (items [] with total 0 is the
+one clean answer): an older server, a record or lint the server would not
+answer, a history or lint page that changed while reading, or the budget ran
+out. A record is whole or null, never partial and never another record's
+warnings. One fixed advisory line on stderr marks an unavailable read; rerun
+to retry. The history and its exit code are unaffected. See cor:agt:040:13.`
+
+// readHistoryLint fills CurrentLint on every shown record: each is whole or null.
+func readHistoryLint(cmd *cobra.Command, budget *lintwarn.Budget, result *historyDTO, offset int, first lintwarn.HistFetch, at lintwarn.HistFetchAt) {
+	ids := make([]string, len(result.Items))
+	for i := range result.Items {
+		ids[i] = result.Items[i].ID
+	}
+	pages := lintwarn.ReadHistoryLint(budget, ids, offset, result.Total, first, at)
+	for i := range result.Items {
+		p := pages[i]
+		result.Items[i].CurrentLint = &p
+		if p == nil {
+			lintwarn.ReportUnavailable(cmd)
+		}
+	}
 }

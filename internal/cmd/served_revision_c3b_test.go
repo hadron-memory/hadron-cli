@@ -41,8 +41,8 @@ func TestC3bRecordedFieldsAndNoSourceReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(*calls) != 1 {
-		t.Fatalf("extra reads: %v", *calls)
+	if got := withoutLint2007(calls); len(got) != 1 {
+		t.Fatalf("extra reads: %v", got)
 	}
 	for _, s := range []string{`"servedRevSeq": 7`, `"provenanceRevSeq": 5`, `"pruned": true`, `"pruned": false`, `"compiledContentHash": "recorded-hash"`, `"worker.signature": "recorded signature"`} {
 		if !strings.Contains(out, s) {
@@ -93,6 +93,9 @@ func TestC3bAllProvenanceBuffersAndChecksRecord(t *testing.T) {
 			responses := map[string]string{}
 			count := 0
 			srv, calls := attnServerHook(t, responses, func(op string) {
+				if op == "WorkerServedPromptLint" { // advisory lint (cli#2007) is its own read
+					return
+				}
 				if op != "WorkerServedPrompt" {
 					t.Errorf("unexpected operation %s", op)
 					return
@@ -116,7 +119,7 @@ func TestC3bAllProvenanceBuffersAndChecksRecord(t *testing.T) {
 			if exitCodeFor(err) != tc.wantCode {
 				t.Fatalf("got %v", err)
 			}
-			if count != 2 || len(*calls) != 2 || (*calls)[1].Vars["offset"] != float64(1) {
+			if got := withoutLint2007(calls); count != 2 || len(got) != 2 || got[1].Vars["offset"] != float64(1) {
 				t.Fatalf("bad paging: %v", *calls)
 			}
 			if tc.wantCode != 0 && strings.Contains(out.String(), "recorded-hash") {
@@ -196,6 +199,9 @@ func TestC3bAllHumanPrintsCompletedProvenance(t *testing.T) {
 	responses := map[string]string{}
 	requests := 0
 	srv, calls := attnServerHook(t, responses, func(op string) {
+		if op == "WorkerServedPromptLint" { // advisory lint (cli#2007) is its own read
+			return
+		}
 		requests++
 		if requests > 2 {
 			setAttnResponse(responses, op, gqlErrorJSON("FORBIDDEN"))
@@ -212,7 +218,19 @@ func TestC3bAllHumanPrintsCompletedProvenance(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"--server", srv.URL, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris", "--all", "--limit", "1"})
 	err := root.Execute()
-	if err != nil || len(*calls) != 2 || !strings.Contains(out.String(), "source1") || !strings.Contains(out.String(), "source2") || !strings.Contains(out.String(), "provenance: 2 of 2") {
+	if err != nil || len(withoutLint2007(calls)) != 2 || !strings.Contains(out.String(), "source1") || !strings.Contains(out.String(), "source2") || !strings.Contains(out.String(), "provenance: 2 of 2") {
 		t.Fatalf("wrong human all output: %v %s %v", err, out, *calls)
 	}
+}
+
+// withoutLint2007 drops the advisory lint reads (cli#2007), which are their own
+// operations: these tests pin the main read's paging, not the lint's.
+func withoutLint2007(calls *[]attnCall) []attnCall {
+	var got []attnCall
+	for _, c := range *calls {
+		if !strings.HasSuffix(c.Op, "Lint") && !strings.HasSuffix(c.Op, "LintAt") && !strings.HasSuffix(c.Op, "PromptsLint") {
+			got = append(got, c)
+		}
+	}
+	return got
 }

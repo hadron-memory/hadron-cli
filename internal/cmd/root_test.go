@@ -205,6 +205,12 @@ func unstubbedDefault(op string) (string, bool) {
 		// (cli#1525). An older server does not know Worker.renderedSignature;
 		// the ordinary lookup must work and shows no rendered lines.
 		return `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerSignatureLint", "GetWorkerPromptLint", "WorkerServedPromptLint", "RunServedPromptLint", "SessionServedPromptsLint", "SessionServedPromptLintAt", "ChatServedPromptsLint", "ChatServedPromptLintAt":
+		// `team worker get`'s advisory lint reads (cli#2007), answered as a server
+		// that predates Worker.signatureLint / promptLintWarnings: the lint is
+		// unavailable and the ordinary read is unaffected. Their own tests stub
+		// the modern answers.
+		return `{"errors":[{"message":"Cannot query field \"signatureLint\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerModelGroups":
 		// `team worker get`'s separate model-group read (cli#1485 S3): answered
 		// as a real [] so existing worker-get tests see no group line. It has no

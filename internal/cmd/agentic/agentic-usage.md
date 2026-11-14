@@ -2826,6 +2826,15 @@ Conventions:
   --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   **`worker update <name-or-id>`** edits signature and trailer templates.
+  Its receipt carries `signatureLint` (cli#2007, cor:agt:040:13/:04): the CURRENT
+  check for a missing worker link, read after the write with the write's own
+  session; `{items,total,nextCursor}` or `null` (unavailable or masked, never "no
+  warnings"). `worker get` always carries `signatureLint` and `promptLintWarnings`
+  (the lint of the compiled revision recorded for the open session, named by its
+  provenance revision): `items: []` with `total: 0` is the one clean answer; null
+  is unavailable, masked, or (prompt) nothing served. 20 per request to the end,
+  one 5 s / 1000-request budget started after the main read, no exit-code effect,
+  one fixed stderr line when unavailable.
   For boot customisation use the worker source and compile workflow above.
   **`--signature` / `--trailer`** (cli#916 C4, `cor:agt:040:04`) replace the
   worker's raw signature and commit-trailer TEMPLATES (`{{worker.name}}`-style
@@ -4758,6 +4767,7 @@ the server.
 ## Recorded served boot prompts (#916 C3b)
 
 `hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which, and exits 0 (unlike `node provenance`, whose unavailable revision exits 4). With `--all`, `provenance.items` aggregates every page while `provenance.limit`/`offset` stay the request paging (page size, offset 0). No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
+Served-record lint (cli#2007, cor:agt:040:13): `team worker served-prompt` always adds `currentLint`; `run served-prompt`, `team session served-prompts` and `chat served-prompts` add it with `--lint-warnings` (key absent without it). It is the current lint of that record's provenance revision (never the newest compile), `{items,total,nextCursor}` or `null`; null is unavailable for that record, never "no warnings". A history record is whole or null (record-id and total checked), 20 per request, one shared 5 s / 1000-request budget; an unavailable read prints one fixed stderr line and changes neither the result nor the exit code.
 
 `hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. For chatbot chat records, use `chat served-prompts <chat-id>` (below); this is separate from team-chat Channels.
 
@@ -4958,9 +4968,9 @@ encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8
 
 `skill lint` reports the server's LINT-plan findings, including `skill-include-broken` warnings, using the explicit selected memories and filtering exact selected node IDs. The server judges the memory-wide corpus, so a selected node can carry a collision finding caused by an unselected node. Warnings preserve the server message and remain exit 0 (`--strict` promotes them to 5); error findings exit 5. Row order is documented, not sorted: hosted findings in host declaration order and then server entry/finding order (the Nth identical finding under another host merges into the Nth row with more hosts, so repeated neutral messages within one host still count separately), host-free unknown-key rows, node-scoped `skill-node-not-judged` warnings, then unavailable-node rows. Literal notice text alone is never interpreted as a broken include. A failed, unavailable, or malformed plan returns an error, never a clean result and never a local fallback; there is no offline mode. If a syntactically valid plan returns no judgment for a selected declaration to a host this CLI supports, the CLI preserves the other server findings and adds a `skill-node-not-judged` warning whose `hosts` names that host and whose `memory` is the selected memory URN, rather than reporting that declaration clean. An unknown-host warning does not cover a known declaration beside it. Retry once if the corpus may have changed between host plans; if the omission persists, report a server `skillPlan` defect with the node and host. Unknown exports keys use the structured `keys`/`keyCount` fields. When the list is untruncated, a node with any locally-unknown key absent from it produces ONE host-free, non-blocking `skill-node-not-judged` warning (per node, not per key; exit 0 unless `--strict`), so it is not reported clean. A missing entry or one with no findings produces the same warning; truncated lists retain their own aggregate warning and are not over-interpreted. Host-free consistency checks cover selected nodes only. Unknown-key and not-judged findings remain warnings under `cor:agt:030:06`; local/server declaration-scope disagreements never become blocking synthetic errors. `scanned` is also memory-wide and includes intentional `exports: {}` gaps, so it is not treated as selected-node proof. The server must provide `SkillPlan.unrecognized` with its `keys` and `keyCount` fields; an older server without them fails through normal GraphQL error mapping. No rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
-hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
+hadron team session served-prompts <session-id> [--lint-warnings] [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
 hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]
-hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
+hadron run served-prompt <run-ref> [--lint-warnings] [--limit N] [--offset N | --all]
 hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 
 # Editing a task (cli#1137)
