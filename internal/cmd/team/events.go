@@ -39,7 +39,7 @@ type teamEventsPageDTO struct {
 }
 
 func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
-	var alarms bool
+	var alarms, alarmsInEffect bool
 	var since, after, before, task, codePrefix string
 	var newest bool
 	var types []string
@@ -74,7 +74,17 @@ and app.manager-act; only app.<slug>. is App-only. No prefix is added when
 omitted. App-defined action payloads may contain participant-readable values;
 keep secrets out of them.
 
---alarms keeps alarm events only; --task and --type filter further. Task-less
+--alarms keeps alarm events only; --task and --type filter further.
+--alarms-in-effect keeps only the alarms still in effect: unacknowledged and with
+no recorded escalation end. The server decides that, never worked out here, and
+it already means alarms only, so it returns the same rows with or without
+--alarms. An alarm that has left effect is not acknowledged and not hidden:
+read without this flag to see it, and its end time in the ESCALATION ENDED
+column (cor:agt:050:20). That column is when the server recorded the end; it
+is blank while an alarm is in effect and on every event that is not an alarm.
+The recorded end can lag by up to one evaluator pass (about a minute), and the
+alarm reads as in effect until it is written, so the column is not a real-time
+value. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
 reason or evidence is added. A missing subject stays —.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
@@ -111,7 +121,7 @@ reason or evidence is added. A missing subject stays —.
 			if cmd.Flags().Changed("code-prefix") {
 				prefix = &codePrefix
 			}
-			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), &limit, optStr(since), optStr(task), types)
+			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), optBool(alarmsInEffect), &limit, optStr(since), optStr(task), types)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -128,7 +138,7 @@ reason or evidence is added. A missing subject stays —.
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "ID", "AT", "TYPE", "ACTOR", "TASK", "ACK")
+				t := output.NewTable(w, "ID", "AT", "TYPE", "ACTOR", "TASK", "ACK", "ESCALATION ENDED")
 				for _, e := range events {
 					ack := ""
 					if e.Severity != nil {
@@ -144,7 +154,13 @@ reason or evidence is added. A missing subject stays —.
 					} else {
 						task = tasklessAlarmCell(e)
 					}
-					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack))
+					// Blank when the server recorded no end: no placeholder,
+					// and never the acknowledgement time (cor:agt:050:20).
+					ended := ""
+					if e.EscalationEndedAt != nil {
+						ended = output.SafeCell(*e.EscalationEndedAt)
+					}
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack), ended)
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -171,6 +187,7 @@ reason or evidence is added. A missing subject stays —.
 	}
 	cmd.Flags().StringVar(&codePrefix, "code-prefix", "", "server-side event code prefix (app.<slug>. for App-only)")
 	cmd.Flags().BoolVar(&alarms, "alarms", false, "alarm events only")
+	cmd.Flags().BoolVar(&alarmsInEffect, "alarms-in-effect", false, "only alarms still in effect (the server's filter; implies alarms only)")
 	cmd.Flags().StringVar(&since, "since", "", "RFC 3339 time; events strictly after it")
 	cmd.Flags().StringVar(&after, "after", "", "event id; the page continues strictly after it")
 	cmd.Flags().BoolVar(&newest, "newest", false, "read from the newest end, newest events first")

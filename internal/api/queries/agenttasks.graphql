@@ -388,6 +388,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
     ...AgentTaskPartyFields
   }
   episodeStart
+  escalationEndedAt
   chain
   wakes {
     chainIndex
@@ -402,7 +403,8 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 # Page-aware read of the team event stream (cor:api:120:04, server#3933): the
 # server says whether more rows exist (hasMore) and hands the continuation
 # (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
-# before and newestFirst are sent only when set.
+# before, newestFirst and alarmsInEffect are sent only when set (#3934: the
+# server's own "in effect" filter; the CLI never works it out itself).
 query AgentTeamEventsPage(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -415,6 +417,8 @@ query AgentTeamEventsPage(
   $codePrefix: String
   # @genqlient(omitempty: true)
   $alarmsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $alarmsInEffect: Boolean
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
@@ -431,6 +435,7 @@ query AgentTeamEventsPage(
     newestFirst: $newestFirst
     codePrefix: $codePrefix
     alarmsOnly: $alarmsOnly
+    alarmsInEffect: $alarmsInEffect
     limit: $limit
     since: $since
     taskId: $taskId

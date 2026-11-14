@@ -151,20 +151,24 @@ func TestTeamEvents1940TextShowsTheEndOrBlank(t *testing.T) {
 	if !strings.Contains(header, "ESCALATION ENDED") {
 		t.Fatalf("no ESCALATION ENDED column: %q", out)
 	}
+	// The ESCALATION ENDED cell is whatever sits under its header.
+	cell := func(row string) string {
+		at := strings.Index(header, "ESCALATION ENDED")
+		if at < 0 || at >= len(row) {
+			return ""
+		}
+		return strings.TrimSpace(row[at:])
+	}
 	// Condition C: an alarm that left effect is NOT labelled acknowledged:
 	// ACK still says open, and the end is its own column.
-	if l := rows["ended"]; !strings.Contains(l, "2026-10-01T00:30:00Z") || !strings.Contains(l, "open") {
+	if l := rows["ended"]; cell(l) != "2026-10-01T00:30:00Z" || !strings.Contains(l, "open") {
 		t.Fatalf("ended row: %q", l)
 	}
-	// Condition B: absent is blank — no placeholder, no acknowledgement time.
+	// Condition B: absent is blank: no placeholder, no acknowledgement time.
 	for _, id := range []string{"in-effect", "acked"} {
-		l := rows[id]
-		if strings.Contains(l, "2026-10-01T00:30:00Z") || strings.Contains(l, "—") || strings.Contains(l, "n/a") || strings.Contains(l, "null") || strings.Contains(l, "none") {
-			t.Fatalf("%s: a placeholder or foreign time in the ESCALATION ENDED cell: %q", id, l)
+		if c := cell(rows[id]); c != "" {
+			t.Fatalf("%s: the ESCALATION ENDED cell must be blank, got %q (row %q)", id, c, rows[id])
 		}
-	}
-	if strings.Contains(rows["acked"], "2026-10-01T01:00:00Z") {
-		t.Fatalf("the acknowledgement time leaked into the table: %q", rows["acked"])
 	}
 }
 
