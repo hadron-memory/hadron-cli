@@ -12,6 +12,7 @@
 		<string>sweep</string>
 		<string>--config</string>
 		<string>/home/u/my hosts/host 100%.yaml</string>
+		<string>--dry-run=false</string>
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>

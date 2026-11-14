@@ -27,12 +27,13 @@ type Job struct {
 	Name         string   // systemd unit base name and the cron marker
 	LaunchdLabel string   // launchd agent label
 	Sub          []string // words after the binary, before --config
+	Args         []string // words after --config: flags the scheduled run needs and a manual run must not
 	Describes    string   // what the unit does, for its Description=
 	UninstallCmd string   // the command a refusal tells the operator to run
 }
 
 // Health is the team health sweep job (the zero Job).
-var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
+var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Args: []string{"--dry-run=false"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
 
 // Usage is the account-usage collector job (cli#1472).
 var Usage = Job{Name: "hadron-team-usage", LaunchdLabel: "com.hadronmemory.team-usage", Sub: []string{"team", "usage", "collect"}, Describes: "team usage collection", UninstallCmd: "hadron team usage uninstall"}
@@ -66,7 +67,8 @@ type Spec struct {
 
 // Argv is the command the entry runs.
 func (s Spec) Argv() []string {
-	return append(append([]string{s.Bin}, s.Job.orHealth().Sub...), "--config", s.Config)
+	j := s.Job.orHealth()
+	return append(append(append([]string{s.Bin}, j.Sub...), "--config", s.Config), j.Args...)
 }
 
 // ValidatePath refuses a path that cannot be quoted safely in every scheduler.
