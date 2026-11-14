@@ -59,3 +59,10 @@ T1 cross-family LOCAL and BLIND, different engineers, not change managers.
 QA is not a separate seat by the gate's explicit test-only deviation: CI and
 causal mutation kills verify this artifact. UX waived; security n/a. Exact
 green head and independently recorded seat receipts belong on the PR.
+
+Final measured result: all seven non-equivalent mutations are killed with
+the new controls; equivalent cache assignment survives. The five newly
+discriminated failures name the intended new test (template cache, unresolved
+cache, mismatch refusal, retired role and one-copy basics). Existing tests
+continue to kill portal/cutoff removal. Focused 2018/2023 race pass 1.114 s;
+full spec package race pass 1.277 s; scoped lint zero issues.
