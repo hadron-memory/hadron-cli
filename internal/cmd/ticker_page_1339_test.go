@@ -233,7 +233,7 @@ func TestTickerListSurvivesAnInsertBetweenPages(t *testing.T) {
 	}
 }
 
-// cli#2030 (BLIND P3): the ticker twin of the session fail-closed pins. A list
+// The ticker twin of the session fail-closed pins. A list
 // that keeps growing past every restart still fails, saying the list changed;
 // a server that ignores the offset keeps the "not advancing" diagnosis.
 func TestTickerListFailsClosedWhenRestartsRunOut(t *testing.T) {
@@ -286,5 +286,61 @@ func TestTickerListFailsClosedWhenRestartsRunOut(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "changed while it was being read") || strings.Contains(err.Error(), "not advancing") {
 		t.Errorf("churn must read as a changing list to retry, got %v", err)
+	}
+}
+
+// The ticker twin of the session lying-total pin: 250 reported, 249 served on
+// honest pages. Nothing changes between passes, so the diagnosis is "not
+// advancing" with no retry hint, stdout stays empty and the requests stay bounded.
+func TestTickerListLyingTotalFailsAsNotAdvancing(t *testing.T) {
+	mk := func(i int) string {
+		return strings.Replace(tickerFixture, "cticker000000000000000000", fmt.Sprintf("ctk%023d", i), 1)
+	}
+	rows := []string{}
+	for i := 0; i < 249; i++ {
+		rows = append(rows, mk(i+1))
+	}
+	pages := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "TickerSubscribers":
+			_, _ = w.Write([]byte(`{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`))
+		case "ListTickersPage":
+			pages++
+			off := 0
+			if body.Variables.Offset != nil {
+				off = *body.Variables.Offset
+			}
+			end := min(off+200, len(rows))
+			page := []string{}
+			if off < len(rows) {
+				page = rows[off:end]
+			}
+			_, _ = fmt.Fprintf(w, `{"data":{"tickersPage":{"total":250,"hasMore":%v,"items":[%s]}}}`, end < len(rows), strings.Join(page, ","))
+		default:
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ticker", "list", "--app", "acme.com:ops", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
+	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a lying total must read as not advancing, not as churn to retry: %v", err)
+	}
+	if pages > 12 {
+		t.Errorf("a lying total must stop after one restarted pass, made %d page requests", pages)
 	}
 }
