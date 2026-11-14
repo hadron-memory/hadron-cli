@@ -277,3 +277,80 @@ func TestAuthGrantsRawDecisionFactsJSONAndTable2021(t *testing.T) {
 		}
 	}
 }
+
+// Fixture edits must fail at setup if the wire spelling changes, rather than
+// quietly exercising a different server row.
+func grantReplace2028(t *testing.T, row, old, replacement string) string {
+	t.Helper()
+	if n := strings.Count(row, old); n != 1 {
+		t.Fatalf("fixture fragment %q: expected one match, got %d", old, n)
+	}
+	return strings.Replace(row, old, replacement, 1)
+}
+
+func TestAuthGrantsCountWording2028(t *testing.T) {
+	calls, out, err := runTeamTask(t, map[string]string{"MyGrants": `{"data":{"myGrants":{"items":[],"total":41}}}`},
+		"auth", "grants", "--limit", "0", "--offset", "17")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "total matching: 41\n" || len(*calls) != 1 ||
+		(*calls)[0].Vars["limit"] != float64(0) || (*calls)[0].Vars["offset"] != float64(17) {
+		t.Fatalf("count wording or forwarded offset: %q calls=%+v", out, *calls)
+	}
+}
+
+func TestAuthGrantsContinuationText2028(t *testing.T) {
+	second := grantReplace2028(t, personalGrant2021, `"id":"g1"`, `"id":"g2"`)
+	page := `{"data":{"myGrants":{"items":[` + personalGrant2021 + "," + second + `],"total":10}}}`
+	for _, jsonOut := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%v", jsonOut), func(t *testing.T) {
+			args := []string{"auth", "grants", "--limit", "2", "--offset", "7"}
+			if jsonOut {
+				args = append(args, "--json")
+			}
+			calls, out, err := runTeamTask(t, map[string]string{"MyGrants": page}, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(*calls) != 1 || (*calls)[0].Vars["limit"] != float64(2) || (*calls)[0].Vars["offset"] != float64(7) {
+				t.Fatalf("paging request changed: %+v", *calls)
+			}
+			if jsonOut {
+				var result struct {
+					Items      []json.RawMessage
+					Total      int
+					HasMore    bool
+					NextOffset *int
+				}
+				if err := json.Unmarshal([]byte(out), &result); err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Items) != 2 || result.Total != 10 || !result.HasMore || result.NextOffset == nil || *result.NextOffset != 9 {
+					t.Fatalf("continuation changed: %s", out)
+				}
+			} else if !strings.Contains(out, "g1") || !strings.Contains(out, "g2") ||
+				!strings.Contains(out, "next offset: 9\n") ||
+				!strings.HasSuffix(out, "total matching: 10; rows on this page: 2; offset: 7; requested limit: 2; has more: true\n") {
+				t.Fatalf("row/continuation/footer wording: %s", out)
+			}
+		})
+	}
+}
+
+func TestAuthGrantsHelpPaging2028(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "grants", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, sentence := range []string{
+		"Limit 0 returns the total matching and no rows.",
+		"Offset pages are not a snapshot; grants added or removed between calls can shift later pages.",
+	} {
+		if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), sentence) {
+			t.Fatalf("missing help sentence %q: %s", sentence, out)
+		}
+	}
+}
