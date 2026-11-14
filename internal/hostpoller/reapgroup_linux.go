@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -109,6 +110,10 @@ const maxGroupScanPasses = 8
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir
+
+// waitGroupScanRetry lets a short-lived churn burst settle before another
+// complete snapshot. Tests replace the wait with a deterministic clock.
+var waitGroupScanRetry = func() { time.Sleep(2 * time.Millisecond) }
 
 // groupHasOtherMembers reports whether /proc shows a member of process group
 // pgid, other than the leader itself, that can still RUN. The leader is

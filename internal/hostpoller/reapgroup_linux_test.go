@@ -1156,3 +1156,48 @@ func TestADoubleForkIsNotReadAsAnEmptyGroup(t *testing.T) {
 		t.Fatalf("the escaped grandchild is still stopped: stopped=%v %q", stopped, detail)
 	}
 }
+
+// A burst may invalidate every back-to-back snapshot. Retrying must give
+// that burst time to settle, without mistaking exhaustion for proof of drain.
+func TestGroupScanWaitsOutAChurnBurst2042(t *testing.T) {
+	realRead, realWait := readProcDir, waitGroupScanRetry
+	defer func() { readProcDir, waitGroupScanRetry = realRead, realWait }()
+	waits, reads := 0, 0
+	waitGroupScanRetry = func() { waits++ }
+	readProcDir = func(string) ([]os.DirEntry, error) {
+		reads++
+		if waits < 2 {
+			return []os.DirEntry{fakeDirEntry{name: "99999999"}}, nil
+		}
+		return nil, nil
+	}
+	if groupHasOtherMembers(99999998, 99999998) {
+		t.Fatalf("settled burst must permit a clean empty snapshot: reads=%d waits=%d", reads, waits)
+	}
+	if reads != 3 || waits != 2 {
+		t.Fatalf("retry only void passes: reads=%d waits=%d", reads, waits)
+	}
+}
+
+func TestGroupScanSustainedChurnStaysUnproven2042(t *testing.T) {
+	realRead, realWait := readProcDir, waitGroupScanRetry
+	defer func() { readProcDir, waitGroupScanRetry = realRead, realWait }()
+	reads, waits := 0, 0
+	waitGroupScanRetry = func() { waits++ }
+	readProcDir = func(string) ([]os.DirEntry, error) {
+		reads++
+		return []os.DirEntry{fakeDirEntry{name: "99999999"}}, nil
+	}
+	if !groupHasOtherMembers(99999998, 99999998) {
+		t.Fatal("exhaustion cannot prove drain")
+	}
+	if reads != maxGroupScanPasses || waits != maxGroupScanPasses-1 {
+		t.Fatalf("bounded retries, no wait after last pass: reads=%d waits=%d", reads, waits)
+	}
+	// A subsequent clean snapshot must recover, rather than retaining a
+	// sticky exhausted state across watcher ticks.
+	readProcDir = func(string) ([]os.DirEntry, error) { return nil, nil }
+	if groupHasOtherMembers(99999998, 99999998) {
+		t.Fatal("clean scan after churn proves drain")
+	}
+}
