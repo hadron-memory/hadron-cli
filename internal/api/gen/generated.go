@@ -39669,12 +39669,15 @@ func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return 
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -39696,6 +39699,12 @@ func (v *CreateSecretCreateSecret) GetKind() string { return v.SecretFields.Kind
 
 // GetMetadata returns CreateSecretCreateSecret.Metadata, and is useful for accessing the field via an interface.
 func (v *CreateSecretCreateSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCurrentVersion returns CreateSecretCreateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetCurrentVersion() *int { return v.SecretFields.CurrentVersion }
+
+// GetProtected returns CreateSecretCreateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetProtected() bool { return v.SecretFields.Protected }
 
 // GetCreatedAt returns CreateSecretCreateSecret.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateSecretCreateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
@@ -39747,6 +39756,10 @@ type __premarshalCreateSecretCreateSecret struct {
 
 	Metadata *json.RawMessage `json:"metadata"`
 
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
 	CreatedAt string `json:"createdAt"`
 
 	CreatedBy *string `json:"createdBy"`
@@ -39773,6 +39786,8 @@ func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecret
 	retval.Name = v.SecretFields.Name
 	retval.Kind = v.SecretFields.Kind
 	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
 	retval.CreatedAt = v.SecretFields.CreatedAt
 	retval.CreatedBy = v.SecretFields.CreatedBy
 	retval.UpdatedAt = v.SecretFields.UpdatedAt
@@ -39784,12 +39799,15 @@ func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecret
 type CreateSecretResponse struct {
 	// Create a named, owner-scoped secret (#677). Gate per owner scope:
 	// user -> that user (ownerRef optional, defaults to the caller); org ->
-	// org ADMIN; app -> app owner / org ADMIN; memory -> memory WRITE.
-	// value is the secret payload — encrypted at rest, write-only, never
-	// returned. kind selects validation: generic (opaque JSON) or
+	// org ADMIN; app -> any member of the App, as a person (an App key, an
+	// impersonated session and a run are refused; the value is stored as
+	// version 1). value is the secret payload — encrypted at rest,
+	// write-only, never returned; at most 32 KiB of stored JSON, counted in
+	// bytes. kind selects validation: generic (opaque JSON) or
 	// webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
 	// origin binding). A run resolves the name via the CSS cascade
-	// (memory -> app -> user -> org) at entitled scopes only.
+	// (user -> org) at entitled scopes only; an App secret is never resolved
+	// by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
 	CreateSecret *CreateSecretCreateSecret `json:"createSecret"`
 }
 
@@ -44848,7 +44866,7 @@ func (v *DeleteScopeResponse) GetDeleteScope() bool { return v.DeleteScope }
 
 // DeleteSecretResponse is returned by DeleteSecret on success.
 type DeleteSecretResponse struct {
-	// Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
+	// Hard-delete a secret, every version with it; referencing runs fail their resolution loud (or fall through the cascade) afterwards. An unprotected App secret is deleted by its creator or whoever manages the App, each as a person.
 	DeleteSecret bool `json:"deleteSecret"`
 }
 
@@ -80789,19 +80807,110 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 	return &retval, nil
 }
 
+// SecretEventsResponse is returned by SecretEvents on success.
+type SecretEventsResponse struct {
+	// The audit events of ONE App secret, newest first, for any member of the App (hrn:node:hadronmemory.com:specs:cor:sec:010:05).
+	// A non-member, an App key, a run and an impersonated session get an empty page, the same as a missing secret. Never a value.
+	SecretEvents *SecretEventsSecretEventsSecretEventsPage `json:"secretEvents"`
+}
+
+// GetSecretEvents returns SecretEventsResponse.SecretEvents, and is useful for accessing the field via an interface.
+func (v *SecretEventsResponse) GetSecretEvents() *SecretEventsSecretEventsSecretEventsPage {
+	return v.SecretEvents
+}
+
+// SecretEventsSecretEventsSecretEventsPage includes the requested fields of the GraphQL type SecretEventsPage.
+type SecretEventsSecretEventsSecretEventsPage struct {
+	Items []*SecretEventsSecretEventsSecretEventsPageItemsSecretEvent `json:"items"`
+	Total int                                                         `json:"total"`
+}
+
+// GetItems returns SecretEventsSecretEventsSecretEventsPage.Items, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPage) GetItems() []*SecretEventsSecretEventsSecretEventsPageItemsSecretEvent {
+	return v.Items
+}
+
+// GetTotal returns SecretEventsSecretEventsSecretEventsPage.Total, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPage) GetTotal() int { return v.Total }
+
+// SecretEventsSecretEventsSecretEventsPageItemsSecretEvent includes the requested fields of the GraphQL type SecretEvent.
+// The GraphQL type's documentation follows.
+//
+// One audit event of an App secret: who did what, when, with what outcome. Never a value.
+type SecretEventsSecretEventsSecretEventsPageItemsSecretEvent struct {
+	Id string `json:"id"`
+	At string `json:"at"`
+	// STORE | VERSION | METADATA | DELETE.
+	Kind        string  `json:"kind"`
+	Outcome     string  `json:"outcome"`
+	SecretId    string  `json:"secretId"`
+	SecretName  string  `json:"secretName"`
+	VersionNo   *int    `json:"versionNo"`
+	ActorUserId *string `json:"actorUserId"`
+	WorkerId    *string `json:"workerId"`
+	SessionId   *string `json:"sessionId"`
+}
+
+// GetId returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.Id, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetId() string { return v.Id }
+
+// GetAt returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.At, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetAt() string { return v.At }
+
+// GetKind returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.Kind, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetKind() string { return v.Kind }
+
+// GetOutcome returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.Outcome, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetOutcome() string {
+	return v.Outcome
+}
+
+// GetSecretId returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.SecretId, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetSecretId() string {
+	return v.SecretId
+}
+
+// GetSecretName returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.SecretName, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetVersionNo returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.VersionNo, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetVersionNo() *int {
+	return v.VersionNo
+}
+
+// GetActorUserId returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.ActorUserId, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetActorUserId() *string {
+	return v.ActorUserId
+}
+
+// GetWorkerId returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.WorkerId, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetWorkerId() *string {
+	return v.WorkerId
+}
+
+// GetSessionId returns SecretEventsSecretEventsSecretEventsPageItemsSecretEvent.SessionId, and is useful for accessing the field via an interface.
+func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetSessionId() *string {
+	return v.SessionId
+}
+
 // SecretFields includes the GraphQL fields of Secret requested by the fragment SecretFields.
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretFields struct {
 	Id string `json:"id"`
-	// Owner scope: user | org | app | memory.
+	// Owner scope: user | org | app.
 	OwnerType string `json:"ownerType"`
 	OwnerId   string `json:"ownerId"`
 	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
@@ -80809,11 +80918,15 @@ type SecretFields struct {
 	// Extensible kind; v1: generic | webfetch-auth.
 	Kind string `json:"kind"`
 	// The NON-secret, inspectable half (webfetch-auth: { type, urlPrefix }).
-	Metadata  *json.RawMessage `json:"metadata"`
-	CreatedAt string           `json:"createdAt"`
-	CreatedBy *string          `json:"createdBy"`
-	UpdatedAt string           `json:"updatedAt"`
-	UpdatedBy *string          `json:"updatedBy"`
+	Metadata *json.RawMessage `json:"metadata"`
+	// The newest version's number. App secrets only; null for org and user secrets (they have no versions).
+	CurrentVersion *int `json:"currentVersion"`
+	// Whether changes need a person's change request. App secrets only; always false for org and user secrets.
+	Protected bool    `json:"protected"`
+	CreatedAt string  `json:"createdAt"`
+	CreatedBy *string `json:"createdBy"`
+	UpdatedAt string  `json:"updatedAt"`
+	UpdatedBy *string `json:"updatedBy"`
 }
 
 // GetId returns SecretFields.Id, and is useful for accessing the field via an interface.
@@ -80834,6 +80947,12 @@ func (v *SecretFields) GetKind() string { return v.Kind }
 // GetMetadata returns SecretFields.Metadata, and is useful for accessing the field via an interface.
 func (v *SecretFields) GetMetadata() *json.RawMessage { return v.Metadata }
 
+// GetCurrentVersion returns SecretFields.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetCurrentVersion() *int { return v.CurrentVersion }
+
+// GetProtected returns SecretFields.Protected, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetProtected() bool { return v.Protected }
+
 // GetCreatedAt returns SecretFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SecretFields) GetCreatedAt() string { return v.CreatedAt }
 
@@ -80851,7 +80970,8 @@ type SecretResponse struct {
 	// Fetch one secret's inspectable half (never the value). Null when the
 	// row does not exist OR the caller is not entitled to its owner scope —
 	// no existence disclosure. Entitlement: user -> that user; org -> org
-	// member; app -> app owner or org member; memory -> memory READ.
+	// member; app -> a member of the App (a person acting as themselves;
+	// an App key and an impersonated session get null).
 	Secret *SecretSecret `json:"secret"`
 }
 
@@ -80862,12 +80982,15 @@ func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretSecret struct {
 	SecretFields `json:"-"`
 }
@@ -80889,6 +81012,12 @@ func (v *SecretSecret) GetKind() string { return v.SecretFields.Kind }
 
 // GetMetadata returns SecretSecret.Metadata, and is useful for accessing the field via an interface.
 func (v *SecretSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCurrentVersion returns SecretSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetCurrentVersion() *int { return v.SecretFields.CurrentVersion }
+
+// GetProtected returns SecretSecret.Protected, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetProtected() bool { return v.SecretFields.Protected }
 
 // GetCreatedAt returns SecretSecret.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SecretSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
@@ -80940,6 +81069,10 @@ type __premarshalSecretSecret struct {
 
 	Metadata *json.RawMessage `json:"metadata"`
 
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
 	CreatedAt string `json:"createdAt"`
 
 	CreatedBy *string `json:"createdBy"`
@@ -80966,6 +81099,8 @@ func (v *SecretSecret) __premarshalJSON() (*__premarshalSecretSecret, error) {
 	retval.Name = v.SecretFields.Name
 	retval.Kind = v.SecretFields.Kind
 	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
 	retval.CreatedAt = v.SecretFields.CreatedAt
 	retval.CreatedBy = v.SecretFields.CreatedBy
 	retval.UpdatedAt = v.SecretFields.UpdatedAt
@@ -80973,12 +81108,132 @@ func (v *SecretSecret) __premarshalJSON() (*__premarshalSecretSecret, error) {
 	return &retval, nil
 }
 
+// SecretVersionsResponse is returned by SecretVersions on success.
+type SecretVersionsResponse struct {
+	// Fetch one secret's inspectable half (never the value). Null when the
+	// row does not exist OR the caller is not entitled to its owner scope —
+	// no existence disclosure. Entitlement: user -> that user; org -> org
+	// member; app -> a member of the App (a person acting as themselves;
+	// an App key and an impersonated session get null).
+	Secret *SecretVersionsSecret `json:"secret"`
+}
+
+// GetSecret returns SecretVersionsResponse.Secret, and is useful for accessing the field via an interface.
+func (v *SecretVersionsResponse) GetSecret() *SecretVersionsSecret { return v.Secret }
+
+// SecretVersionsSecret includes the requested fields of the GraphQL type Secret.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
+type SecretVersionsSecret struct {
+	Id string `json:"id"`
+	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
+	Name string `json:"name"`
+	// The newest version's number. App secrets only; null for org and user secrets (they have no versions).
+	CurrentVersion *int `json:"currentVersion"`
+	// Whether changes need a person's change request. App secrets only; always false for org and user secrets.
+	Protected bool `json:"protected"`
+	// An App secret's kept versions, newest first: numbers, sizes and authorship, never a value. Paged (hrn:node:hadronmemory.com:specs:cor:api:120:04): default 20, cap 200, limit 0 counts only. Empty for org and user secrets.
+	Versions *SecretVersionsSecretVersionsSecretVersionsPage `json:"versions"`
+}
+
+// GetId returns SecretVersionsSecret.Id, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecret) GetId() string { return v.Id }
+
+// GetName returns SecretVersionsSecret.Name, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecret) GetName() string { return v.Name }
+
+// GetCurrentVersion returns SecretVersionsSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecret) GetCurrentVersion() *int { return v.CurrentVersion }
+
+// GetProtected returns SecretVersionsSecret.Protected, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecret) GetProtected() bool { return v.Protected }
+
+// GetVersions returns SecretVersionsSecret.Versions, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecret) GetVersions() *SecretVersionsSecretVersionsSecretVersionsPage {
+	return v.Versions
+}
+
+// SecretVersionsSecretVersionsSecretVersionsPage includes the requested fields of the GraphQL type SecretVersionsPage.
+type SecretVersionsSecretVersionsSecretVersionsPage struct {
+	Items []*SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion `json:"items"`
+	Total int                                                                 `json:"total"`
+	// Whether versions remain past this page.
+	HasMore bool `json:"hasMore"`
+}
+
+// GetItems returns SecretVersionsSecretVersionsSecretVersionsPage.Items, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPage) GetItems() []*SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion {
+	return v.Items
+}
+
+// GetTotal returns SecretVersionsSecretVersionsSecretVersionsPage.Total, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns SecretVersionsSecretVersionsSecretVersionsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPage) GetHasMore() bool { return v.HasMore }
+
+// SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion includes the requested fields of the GraphQL type SecretVersion.
+// The GraphQL type's documentation follows.
+//
+// One stored value of an App-owned secret, as metadata only: there is no field that returns the value or its ciphertext.
+type SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion struct {
+	VersionNo int `json:"versionNo"`
+	// Bytes of the stored value.
+	SizeBytes int    `json:"sizeBytes"`
+	WrittenAt string `json:"writtenAt"`
+	// Set when a newer version was stored; null on the current version.
+	SupersededAt      *string `json:"supersededAt"`
+	WrittenByUserId   *string `json:"writtenByUserId"`
+	WrittenByWorkerId *string `json:"writtenByWorkerId"`
+}
+
+// GetVersionNo returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.VersionNo, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetVersionNo() int {
+	return v.VersionNo
+}
+
+// GetSizeBytes returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.SizeBytes, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetSizeBytes() int {
+	return v.SizeBytes
+}
+
+// GetWrittenAt returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.WrittenAt, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetWrittenAt() string {
+	return v.WrittenAt
+}
+
+// GetSupersededAt returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.SupersededAt, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetSupersededAt() *string {
+	return v.SupersededAt
+}
+
+// GetWrittenByUserId returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.WrittenByUserId, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetWrittenByUserId() *string {
+	return v.WrittenByUserId
+}
+
+// GetWrittenByWorkerId returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.WrittenByWorkerId, and is useful for accessing the field via an interface.
+func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetWrittenByWorkerId() *string {
+	return v.WrittenByWorkerId
+}
+
 // SecretsResponse is returned by Secrets on success.
 type SecretsResponse struct {
 	// Paginated secret list for ONE owner scope (the hadron secret ls
 	// surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
 	// caller for ownerType user. An unresolvable ref or a non-entitled owner
-	// yields an empty page — no disclosure. Name-ascending order (id
+	// (for an App: anyone who is neither a member nor a manager of it, an App
+	// key and an impersonated session) yields an empty page — no disclosure. Name-ascending order (id
 	// tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Secrets *SecretsSecretsSecretsPage `json:"secrets"`
 }
@@ -81007,12 +81262,15 @@ func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretsSecretsSecretsPageItemsSecret struct {
 	SecretFields `json:"-"`
 }
@@ -81036,6 +81294,14 @@ func (v *SecretsSecretsSecretsPageItemsSecret) GetKind() string { return v.Secre
 func (v *SecretsSecretsSecretsPageItemsSecret) GetMetadata() *json.RawMessage {
 	return v.SecretFields.Metadata
 }
+
+// GetCurrentVersion returns SecretsSecretsSecretsPageItemsSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns SecretsSecretsSecretsPageItemsSecret.Protected, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetProtected() bool { return v.SecretFields.Protected }
 
 // GetCreatedAt returns SecretsSecretsSecretsPageItemsSecret.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SecretsSecretsSecretsPageItemsSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
@@ -81091,6 +81357,10 @@ type __premarshalSecretsSecretsSecretsPageItemsSecret struct {
 
 	Metadata *json.RawMessage `json:"metadata"`
 
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
 	CreatedAt string `json:"createdAt"`
 
 	CreatedBy *string `json:"createdBy"`
@@ -81117,6 +81387,8 @@ func (v *SecretsSecretsSecretsPageItemsSecret) __premarshalJSON() (*__premarshal
 	retval.Name = v.SecretFields.Name
 	retval.Kind = v.SecretFields.Kind
 	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
 	retval.CreatedAt = v.SecretFields.CreatedAt
 	retval.CreatedBy = v.SecretFields.CreatedBy
 	retval.UpdatedAt = v.SecretFields.UpdatedAt
@@ -105095,10 +105367,12 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 
 // UpdateSecretResponse is returned by UpdateSecret on success.
 type UpdateSecretResponse struct {
-	// Overwrite a secret's value and/or metadata (v1 rotation — no
-	// versioning). Name, kind, and owner are immutable — the cascade and
-	// flow config reference the name; create a new name instead. The
-	// effective (metadata, value) pair is re-validated per kind.
+	// Change a secret's value and/or metadata. For an org or user secret a
+	// value OVERWRITES (no versions). For an App secret a value ADDS the next
+	// version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+	// any member of the App may store. Name, kind, and owner are immutable —
+	// the cascade and flow config reference the name; create a new name
+	// instead. The effective (metadata, value) pair is re-validated per kind.
 	UpdateSecret *UpdateSecretUpdateSecret `json:"updateSecret"`
 }
 
@@ -105109,12 +105383,15 @@ func (v *UpdateSecretResponse) GetUpdateSecret() *UpdateSecretUpdateSecret { ret
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type UpdateSecretUpdateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -105136,6 +105413,12 @@ func (v *UpdateSecretUpdateSecret) GetKind() string { return v.SecretFields.Kind
 
 // GetMetadata returns UpdateSecretUpdateSecret.Metadata, and is useful for accessing the field via an interface.
 func (v *UpdateSecretUpdateSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCurrentVersion returns UpdateSecretUpdateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetCurrentVersion() *int { return v.SecretFields.CurrentVersion }
+
+// GetProtected returns UpdateSecretUpdateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetProtected() bool { return v.SecretFields.Protected }
 
 // GetCreatedAt returns UpdateSecretUpdateSecret.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateSecretUpdateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
@@ -105187,6 +105470,10 @@ type __premarshalUpdateSecretUpdateSecret struct {
 
 	Metadata *json.RawMessage `json:"metadata"`
 
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
 	CreatedAt string `json:"createdAt"`
 
 	CreatedBy *string `json:"createdBy"`
@@ -105213,6 +105500,8 @@ func (v *UpdateSecretUpdateSecret) __premarshalJSON() (*__premarshalUpdateSecret
 	retval.Name = v.SecretFields.Name
 	retval.Kind = v.SecretFields.Kind
 	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
 	retval.CreatedAt = v.SecretFields.CreatedAt
 	retval.CreatedBy = v.SecretFields.CreatedBy
 	retval.UpdatedAt = v.SecretFields.UpdatedAt
@@ -118551,6 +118840,22 @@ func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
 
+// __SecretEventsInput is used internally by genqlient
+type __SecretEventsInput struct {
+	Ref    string `json:"ref"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetRef returns __SecretEventsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SecretEventsInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __SecretEventsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SecretEventsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __SecretEventsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SecretEventsInput) GetOffset() *int { return v.Offset }
+
 // __SecretInput is used internally by genqlient
 type __SecretInput struct {
 	Ref string `json:"ref"`
@@ -118558,6 +118863,22 @@ type __SecretInput struct {
 
 // GetRef returns __SecretInput.Ref, and is useful for accessing the field via an interface.
 func (v *__SecretInput) GetRef() string { return v.Ref }
+
+// __SecretVersionsInput is used internally by genqlient
+type __SecretVersionsInput struct {
+	Ref    string `json:"ref"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetRef returns __SecretVersionsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SecretVersionsInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __SecretVersionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SecretVersionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __SecretVersionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SecretVersionsInput) GetOffset() *int { return v.Offset }
 
 // __SecretsInput is used internally by genqlient
 type __SecretsInput struct {
@@ -136520,6 +136841,8 @@ fragment SecretFields on Secret {
 	name
 	kind
 	metadata
+	currentVersion
+	protected
 	createdAt
 	createdBy
 	updatedAt
@@ -152547,6 +152870,8 @@ fragment SecretFields on Secret {
 	name
 	kind
 	metadata
+	currentVersion
+	protected
 	createdAt
 	createdBy
 	updatedAt
@@ -152581,6 +152906,113 @@ func Secret(
 	return data_, err_
 }
 
+// The query executed by SecretEvents.
+const SecretEvents_Operation = `
+query SecretEvents ($ref: ID!, $limit: Int, $offset: Int) {
+	secretEvents(ref: $ref, limit: $limit, offset: $offset) {
+		items {
+			id
+			at
+			kind
+			outcome
+			secretId
+			secretName
+			versionNo
+			actorUserId
+			workerId
+			sessionId
+		}
+		total
+	}
+}
+`
+
+// One App secret's audit events, newest first. A caller the server excludes
+// gets an empty page (no existence oracle).
+func SecretEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit *int,
+	offset *int,
+) (data_ *SecretEventsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SecretEvents",
+		Query:  SecretEvents_Operation,
+		Variables: &__SecretEventsInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &SecretEventsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SecretVersions.
+const SecretVersions_Operation = `
+query SecretVersions ($ref: ID!, $limit: Int, $offset: Int) {
+	secret(ref: $ref) {
+		id
+		name
+		currentVersion
+		protected
+		versions(limit: $limit, offset: $offset) {
+			items {
+				versionNo
+				sizeBytes
+				writtenAt
+				supersededAt
+				writtenByUserId
+				writtenByWorkerId
+			}
+			total
+			hasMore
+		}
+	}
+}
+`
+
+// An App secret's kept versions, newest first (metadata only, never a value).
+// Null secret = missing or not visible, same as `secret`.
+func SecretVersions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit *int,
+	offset *int,
+) (data_ *SecretVersionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SecretVersions",
+		Query:  SecretVersions_Operation,
+		Variables: &__SecretVersionsInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &SecretVersionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Secrets.
 const Secrets_Operation = `
 query Secrets ($ownerType: String!, $ownerRef: ID, $limit: Int, $offset: Int) {
@@ -152598,6 +153030,8 @@ fragment SecretFields on Secret {
 	name
 	kind
 	metadata
+	currentVersion
+	protected
 	createdAt
 	createdBy
 	updatedAt
@@ -161424,6 +161858,8 @@ fragment SecretFields on Secret {
 	name
 	kind
 	metadata
+	currentVersion
+	protected
 	createdAt
 	createdBy
 	updatedAt
