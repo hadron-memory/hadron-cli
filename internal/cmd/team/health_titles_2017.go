@@ -25,7 +25,18 @@ type healthRename struct {
 	Error    *string `json:"error"`
 }
 
-// healthTitles is the sweep's title pass (cli#2017): every live tab whose
+// healthOrcaBin is the orca the title pass runs: the host configuration's
+// delivery.orca_bin, else "orca" found on PATH. `team health install` accepts
+// either (it refuses only when neither resolves), so a health-only host with
+// no delivery section must not fail its sweep on an empty binary name.
+func healthOrcaBin(cfg *hostpoller.Config) string {
+	if cfg.Delivery.OrcaBin != "" {
+		return cfg.Delivery.OrcaBin
+	}
+	return "orca"
+}
+
+// healthTitles is the sweep's title pass (cli#2017): every tab whose
 // worktree is bound to a worker registered on this host gets that worker's
 // bare name as its title, when it differs. workers maps worker id to name.
 //
@@ -38,14 +49,21 @@ type healthRename struct {
 // reported in its entry and the others still go ahead; the returned error is
 // an exit-1 refusal when the list failed or any rename did.
 func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[string]string, apply bool) ([]healthRename, error) {
-	run := orcaRunner(cfg.Delivery.OrcaBin)
+	if len(workers) == 0 {
+		return []healthRename{}, nil // nothing registered: no Orca call to fail
+	}
+	run := orcaRunner(healthOrcaBin(cfg))
 	terminals, err := orcaterm.NewClient(run).List(ctx)
 	if err != nil {
 		return []healthRename{}, exitcode.Newf(exitcode.Error, "tab titles were not checked: the terminal list failed")
 	}
 	out := []healthRename{}
-	seenTab := map[string]bool{}
-	failed := false
+	// doneTab: the tab is handled (renamed, or listed in a dry run), so its
+	// other panes are skipped. A pane that fails leaves the tab open, so a
+	// sibling pane with a working handle is still tried; failedTab holds the
+	// tabs that no pane managed to rename.
+	doneTab := map[string]bool{}
+	failedTab := map[string]bool{}
 	for _, t := range terminals {
 		if t.WorktreePath == "" || t.Handle == "" {
 			continue
@@ -59,26 +77,31 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 		if t.Title == want {
 			continue
 		}
-		if t.TabID != "" {
-			if seenTab[t.TabID] {
-				continue
-			}
-			seenTab[t.TabID] = true
+		tab := t.TabID
+		if tab == "" {
+			tab = t.Handle
+		}
+		if doneTab[tab] {
+			continue
 		}
 		r := healthRename{Worker: id, Name: name, Terminal: t.Handle, From: t.Title, To: want}
 		if apply {
 			if orcaterm.RenameTab(ctx, run, t.Handle, want) != nil {
 				code := "rename_failed"
 				r.Error = &code
-				failed = true
+				failedTab[tab] = true
 			} else {
 				r.Applied = true
+				doneTab[tab] = true
+				delete(failedTab, tab)
 			}
+		} else {
+			doneTab[tab] = true
 		}
 		out = append(out, r)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	if failed {
+	if len(failedTab) > 0 {
 		return out, exitcode.Newf(exitcode.Error, "some tab titles were not renamed")
 	}
 	return out, nil

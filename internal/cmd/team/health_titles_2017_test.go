@@ -60,7 +60,7 @@ func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 				title = strings.TrimPrefix(a, "--title=")
 			}
 		}
-		if handle == o.failOn {
+		if strings.Contains(","+o.failOn+",", ","+handle+",") {
 			return orcaterm.Result{Stdout: `{"ok":false,"error":{"code":"terminal_handle_stale"}}`}
 		}
 		for _, t := range o.terminals {
@@ -252,17 +252,59 @@ func TestHealthTitlesUseScrubbedName2017(t *testing.T) {
 // One tab failing to rename does not stop the others, and the sweep says so.
 func TestHealthTitlesRenameFailureIsReported2017(t *testing.T) {
 	o := newOrca2017()
-	o.failOn = "h1"
+	o.failOn = "h1,h1b" // both panes of tab1 are stale
 	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
 	if exitcode.FromError(err) != exitcode.Error {
 		t.Fatalf("want exit 1, got %v", err)
 	}
-	if len(o.renames) != 2 {
+	if len(o.renames) != 3 {
 		t.Fatalf("later tab skipped after a failure: %v", o.renames)
 	}
 	r := decodeTitleReceipt(t, out)
-	if len(r.Renames) != 2 || r.Renames[0].Error == nil || r.Renames[0].Applied || r.Renames[1].Error != nil || !r.Renames[1].Applied {
+	if len(r.Renames) != 3 || r.Renames[0].Error == nil || r.Renames[1].Error == nil || r.Renames[0].Applied || r.Renames[2].Error != nil || !r.Renames[2].Applied {
 		t.Fatalf("receipt: %+v", r)
+	}
+}
+
+// One stale pane handle must not hide the tab: the sibling pane's working
+// handle is tried, and a tab that ended up renamed is not a failed sweep.
+func TestHealthTitlesFailedPaneFallsThroughToSibling2017(t *testing.T) {
+	o := newOrca2017()
+	o.failOn = "h1"
+	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+	if err != nil {
+		t.Fatalf("tab1 was renamed through h1b, want exit 0, got %v", err)
+	}
+	r := decodeTitleReceipt(t, out)
+	if len(r.Renames) != 3 || r.Renames[0].Error == nil || !r.Renames[1].Applied || r.Renames[1].Terminal != "h1b" {
+		t.Fatalf("receipt: %+v", r)
+	}
+}
+
+// A host with no delivery section still has orca on PATH (install accepts
+// either), so an empty delivery.orca_bin runs "orca", never an empty name.
+func TestHealthOrcaBinFallsBackToPath2017(t *testing.T) {
+	if got := healthOrcaBin(&hostpoller.Config{}); got != "orca" {
+		t.Fatalf("empty orca_bin -> %q", got)
+	}
+	cfg := &hostpoller.Config{}
+	cfg.Delivery.OrcaBin = "/opt/orca/bin/orca"
+	if got := healthOrcaBin(cfg); got != "/opt/orca/bin/orca" {
+		t.Fatalf("configured orca_bin -> %q", got)
+	}
+}
+
+// No registered worker means nothing to retitle and no Orca call to fail.
+func TestHealthTitlesNoWorkersMakesNoOrcaCall2017(t *testing.T) {
+	old := orcaRunner
+	orcaRunner = func(string) orcaterm.Runner {
+		t.Error("orca was reached with no registered workers")
+		return func(context.Context, []string) orcaterm.Result { return orcaterm.Result{Code: 1} }
+	}
+	t.Cleanup(func() { orcaRunner = old })
+	got, err := healthTitles(context.Background(), &hostpoller.Config{}, map[string]string{}, true)
+	if err != nil || got == nil || len(got) != 0 {
+		t.Fatalf("got %v, %v", got, err)
 	}
 }
 

@@ -5176,8 +5176,8 @@ are the sent reports, including any refused by the server; read refused too.
 per-user entry that runs `<abs hadron> team health sweep --config <abs host.yaml> --dry-run=false`:
 a systemd user timer (crontab line where user units are unavailable) or a launchd
 agent. The entry carries the installing shell's PATH; install refuses (exit 2) when
-neither delivery.orca_bin nor PATH resolves `orca`. Installing twice changes nothing,
-a changed interval updates the entry, a different --config refuses until
+neither delivery.orca_bin nor PATH resolves `orca`. Installing twice with the same arguments changes nothing,
+a changed interval or a changed command line (as cli#2017 added `--dry-run=false`) rewrites the entry, a different --config refuses until
 `uninstall`, which removes exactly what install wrote, also after a failed install.
 `status` is read-only (exit 0 even when not installed) and reads the last run from
 the scheduler; under cron it prints `unknown`. The host key never enters a generated

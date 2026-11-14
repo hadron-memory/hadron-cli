@@ -489,6 +489,35 @@ func TestSystemdReinstallRepairsAFailedActivation(t *testing.T) {
 	}
 }
 
+// A host installed before cli#2017 holds an entry without --dry-run=false.
+// Installing again with the same config rewrites it (not refused, not a
+// no-op), which is what the release note tells the owner to do.
+func TestSystemdReinstallRewritesAnOlderEntry2017(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.ReadFile(e.servicePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.ReplaceAll(string(old), " \"--dry-run=false\"", "")
+	if stale == string(old) {
+		t.Fatal("the entry never carried --dry-run=false")
+	}
+	if err := os.WriteFile(e.servicePath(), []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.Install(spec)
+	if err != nil || !res.Changed {
+		t.Fatalf("reinstall over an older entry: changed=%v err=%v", res.Changed, err)
+	}
+	if got, _ := os.ReadFile(e.servicePath()); !strings.Contains(string(got), "--dry-run=false") {
+		t.Fatalf("the older entry was not rewritten:\n%s", got)
+	}
+}
+
 func TestLaunchdReinstallRepairsAFailedBootstrap(t *testing.T) {
 	f := &fake{fail: map[string]bool{"launchctl bootstrap": true, "launchctl print": true}}
 	e := f.env(t, "darwin", "launchctl")

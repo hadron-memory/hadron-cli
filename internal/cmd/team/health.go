@@ -315,7 +315,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 		}}
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
-	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and change nothing (default; the installed timer passes --dry-run=false)")
+	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and rename none (default; the status batch is still stored; the installed timer passes --dry-run=false)")
 	c.Flags().DurationVar(&statusTimeout, "status-timeout", 0, "time allowed for the terminal status read (default: 5s per registered worker, at least 2m)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
