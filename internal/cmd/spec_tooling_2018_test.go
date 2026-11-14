@@ -90,16 +90,20 @@ func TestSpecLintFrameCommand2018(t *testing.T) {
 	oldBody, _ := json.Marshal(specBatchContent)
 	newBody, _ := json.Marshal(body)
 	for _, tc := range []struct {
-		name, memory string
-		flag         bool
+		name, memory  string
+		flag, tagOnly bool
 	}{
-		{"platform-default", "hrn:mem:hadronmemory.com:specs", false},
-		{"explicit-framework", specMem, true},
+		{"platform-default", "hrn:mem:hadronmemory.com:specs", false, false},
+		{"explicit-framework", specMem, true, false},
+		{"tag-only-frame", specMem, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			responses := unwiredCorpus(t)
 			responses["NodeBatch"] = strings.ReplaceAll(responses["NodeBatch"], string(oldBody), string(newBody))
 			responses["NodeBatch"] = strings.ReplaceAll(responses["NodeBatch"], `"role":"spec"`, `"role":"spec.rule"`)
+			if tc.tagOnly {
+				responses["NodeBatch"] = strings.ReplaceAll(responses["NodeBatch"], `"role":"spec.rule"`, `"role":null`)
+			}
 			template, _ := json.Marshal(source)
 			responses["GetSpecNodeRaw"] = `{"data":{"node":{"id":"template","content":` + string(template) + `}}}`
 			srv, calls := captureGraphQL(t, responses)
@@ -113,6 +117,12 @@ func TestSpecLintFrameCommand2018(t *testing.T) {
 			err := root.Execute()
 			if exitCodeFor(err) != 5 {
 				t.Fatalf("exit=%d err=%v output=%s", exitCodeFor(err), err, out.String())
+			}
+			if tc.tagOnly {
+				if !strings.Contains(out.String(), `"frame-role"`) {
+					t.Fatalf("missing role error: %s", out.String())
+				}
+				return
 			}
 			if !strings.Contains(out.String(), `"frame-name"`) || !strings.Contains(out.String(), `"frame-tags"`) {
 				t.Fatalf("missing frame mechanics: %s", out.String())

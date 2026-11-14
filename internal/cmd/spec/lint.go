@@ -283,10 +283,14 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			}
 			// Report tag-only candidates, but never run spec/corpus/draft rules on them.
 			ungovernedFindings := []lintFindingDTO{}
+			frameUngoverned := []specNode{}
 			governedOrMalformed := make([]specNode, 0, len(nodes))
 			for _, n := range nodes {
 				if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
 					ungovernedFindings = append(ungovernedFindings, lintReadNode(n, memURN)...)
+					if frameH1.MatchString(derefStr(n.Content)) {
+						frameUngoverned = append(frameUngoverned, n)
+					}
 					continue
 				}
 				governedOrMalformed = append(governedOrMalformed, n)
@@ -322,7 +326,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				findings = append(findings, *vw)
 			}
 			if frame || cmdutil.CanonicalMemoryRef(memURN) == "hrn:mem:hadronmemory.com:specs" {
-				extra, err := lintFrames(cmd, client, memURN, nodes)
+				extra, err := lintFrames(cmd, client, memURN, append(append([]specNode{}, nodes...), frameUngoverned...))
 				if err != nil {
 					return err
 				}
