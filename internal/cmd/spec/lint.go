@@ -77,7 +77,7 @@ reading type templates from hrn:mem:hadronmemory.com:specs-engineer-system.
 Unreadable or malformed templates fail the check; no template lists are cached
 or copied into the CLI. Other corpora retain their own structural checks. It
 does not judge factual correctness or replace the independent spec review.
-Outside --frame, it does not check a spec's content sections, which depend on its type.
+Outside the platform corpus or explicit --frame, it does not check a spec's content sections, which depend on its type.
 Content checks live in each corpus's own authoring framework — its review
 checks and review tasks (for the Hadron platform corpus,
 hrn:mem:hadronmemory.com:specs-engineer-system).
@@ -123,7 +123,9 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 (parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed. So is
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
-placeholder-contract exemption are no longer findings, at any loc.
+placeholder-contract exemption are no longer generic findings, at any loc.
+The platform frame adds its own abstract requirement and 1,600-character
+ceiling as errors, without restoring the old generic rubric.
 
 --unwired is the repair report for specs whose edges were never written (a
 create that failed half way, #687). It looks only at legacy-grammar citations

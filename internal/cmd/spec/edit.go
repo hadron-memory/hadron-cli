@@ -34,7 +34,8 @@ type editResultDTO struct {
 	AbstractChanged    bool   `json:"abstractChanged"`
 	DescriptionChanged bool   `json:"descriptionChanged"`
 	// TitleChanged reports a --title edit (cli#810): Node.name is rewritten as
-	// "<citation> — <title>". Additive; counted into Changed.
+	// a literal name for spec.<type>, or "<citation> — <title>" for legacy specs.
+	// Additive; counted into Changed.
 	TitleChanged bool `json:"titleChanged"`
 	// ApprovalStatus is the server's approval state for the spec AFTER a title
 	// write, read back from the provider (the title is an approval-hash field,

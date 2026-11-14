@@ -199,42 +199,45 @@ func lintFrames(cmd *cobra.Command, client graphql.Client, mem string, nodes []s
 		byLoc[n.Loc] = n
 	}
 	for _, n := range nodes {
-		if n.Unavailable || hasTag(n.Tags, supersededTag) {
+		if n.Unavailable {
 			continue
 		}
-		if n.Role == nil || !strings.HasPrefix(*n.Role, "spec.") {
-			if frameH1.MatchString(derefStr(n.Content)) {
-				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-role", Severity: sevError, Message: "a framed spec needs its spec.<type> role"})
-			}
-			continue
+		retired := hasTag(n.Tags, supersededTag)
+		framed := frameH1.MatchString(derefStr(n.Content))
+		typed := n.Role != nil && strings.HasPrefix(*n.Role, "spec.")
+		legacy := !framed && n.UpdatedAt != "" && n.UpdatedAt < "2026-10-04"
+		if !retired && framed && !typed {
+			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-role", Severity: sevError, Message: "a framed spec needs its spec.<type> role"})
 		}
-		if !frameH1.MatchString(derefStr(n.Content)) && n.UpdatedAt != "" && n.UpdatedAt < "2026-10-04" {
-			continue
+		if !retired && !legacy && typed {
+			typ := strings.TrimPrefix(*n.Role, "spec.")
+			if !frameType.MatchString(typ) {
+				return nil, exitcode.Newf(exitcode.Usage, "invalid spec type %q", typ)
+			}
+			t, ok := templates[typ]
+			if !ok {
+				ref := cmdutil.NodeURN(platformTemplates, "authoring:"+typ+":template")
+				got, err := gen.GetSpecNodeRaw(cmd.Context(), client, ref)
+				if err != nil {
+					return nil, api.MapError(err)
+				}
+				if got.Node == nil || got.Node.Content == nil {
+					return nil, exitcode.Newf(exitcode.Unavailable, "authoring template %s is unavailable; frame checks did not complete", ref)
+				}
+				t, err = parseFrameTemplate(*got.Node.Content)
+				if err != nil {
+					return nil, exitcode.Newf(exitcode.Error, "cannot read authoring template %s: %v", ref, err)
+				}
+				if strings.ToLower(t.kind) != typ {
+					return nil, exitcode.Newf(exitcode.Error, "authoring template %s describes %s", ref, t.kind)
+				}
+				templates[typ] = t
+			}
+			if cmdutil.CanonicalMemoryRef(mem) != "hrn:mem:hadronmemory.com:specs" {
+				fs = append(fs, frameBasics(n)...)
+			}
+			fs = append(fs, lintFrame(n, t)...)
 		}
-		typ := strings.TrimPrefix(*n.Role, "spec.")
-		if !frameType.MatchString(typ) {
-			return nil, exitcode.Newf(exitcode.Usage, "invalid spec type %q", typ)
-		}
-		t, ok := templates[typ]
-		if !ok {
-			ref := cmdutil.NodeURN(platformTemplates, "authoring:"+typ+":template")
-			got, err := gen.GetSpecNodeRaw(cmd.Context(), client, ref)
-			if err != nil {
-				return nil, api.MapError(err)
-			}
-			if got.Node == nil || got.Node.Content == nil {
-				return nil, exitcode.Newf(exitcode.Unavailable, "authoring template %s is unavailable; frame checks did not complete", ref)
-			}
-			t, err = parseFrameTemplate(*got.Node.Content)
-			if err != nil {
-				return nil, exitcode.Newf(exitcode.Error, "cannot read authoring template %s: %v", ref, err)
-			}
-			if strings.ToLower(t.kind) != typ {
-				return nil, exitcode.Newf(exitcode.Error, "authoring template %s describes %s", ref, t.kind)
-			}
-			templates[typ] = t
-		}
-		fs = append(fs, lintFrame(n, t)...)
 		for _, u := range regexp.MustCompile(`\]\((https?://[^)\s]*/hrn:node:[^)\s]+)\)`).FindAllStringSubmatch(derefStr(n.Content)+"\n"+derefStr(n.Abstract), -1) {
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-link", Severity: sevError, Message: "host-specific portal URL; use a corpus wikilink: " + u[1]})
 		}
@@ -245,7 +248,7 @@ func lintFrames(cmd *cobra.Command, client graphql.Client, mem string, nodes []s
 			if prefix != "" && strings.HasPrefix(target, prefix) {
 				target = strings.TrimPrefix(target, prefix)
 			}
-			if target != "cor" && !strings.HasPrefix(target, "cor:") {
+			if !regexp.MustCompile(`^cor(?::[0-9a-z]+)*$`).MatchString(target) {
 				continue
 			}
 			dest, ok := byLoc[target]
@@ -255,11 +258,16 @@ func lintFrames(cmd *cobra.Command, client graphql.Client, mem string, nodes []s
 					return nil, api.MapError(err)
 				}
 				if got.Node == nil {
+					byLoc[target] = specNode{Unavailable: true}
 					fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-link", Severity: sevError, Message: "unresolved link: " + target})
 					continue
 				}
 				dest = specNode{Name: got.Node.Name}
 				byLoc[target] = dest
+			}
+			if dest.Unavailable {
+				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "frame-link", Severity: sevError, Message: "unresolved link: " + target})
+				continue
 			}
 			want := frameSuffix.ReplaceAllString(dest.Name, "")
 			if m[2] != want {

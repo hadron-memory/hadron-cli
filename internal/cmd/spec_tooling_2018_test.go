@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -75,5 +76,50 @@ func TestSpecEditDryRunAuthoringLimitJSON2018(t *testing.T) {
 	}
 	if !strings.Contains(r.AuthoringCheck, "write-only") {
 		t.Fatalf("JSON preview omitted authoring limit: %s", out)
+	}
+}
+
+func TestSpecLintFrameCommand2018(t *testing.T) {
+	raw, err := os.ReadFile("spec/testdata/rule-template-2018.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	_, body, _ := strings.Cut(source, "```markdown\n")
+	body, _, _ = strings.Cut(body, "```")
+	oldBody, _ := json.Marshal(specBatchContent)
+	newBody, _ := json.Marshal(body)
+	for _, tc := range []struct {
+		name, memory string
+		flag         bool
+	}{
+		{"platform-default", "hrn:mem:hadronmemory.com:specs", false},
+		{"explicit-framework", specMem, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := unwiredCorpus(t)
+			responses["NodeBatch"] = strings.ReplaceAll(responses["NodeBatch"], string(oldBody), string(newBody))
+			responses["NodeBatch"] = strings.ReplaceAll(responses["NodeBatch"], `"role":"spec"`, `"role":"spec.rule"`)
+			template, _ := json.Marshal(source)
+			responses["GetSpecNodeRaw"] = `{"data":{"node":{"id":"template","content":` + string(template) + `}}}`
+			srv, calls := captureGraphQL(t, responses)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"spec", "lint", "--prefix", "msg:010", "-m", tc.memory, "--json", "--server", srv.URL}
+			if tc.flag {
+				args = append(args, "--frame")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if exitCodeFor(err) != 5 {
+				t.Fatalf("exit=%d err=%v output=%s", exitCodeFor(err), err, out.String())
+			}
+			if !strings.Contains(out.String(), `"frame-name"`) || !strings.Contains(out.String(), `"frame-tags"`) {
+				t.Fatalf("missing frame mechanics: %s", out.String())
+			}
+			if _, ok := calls["GetSpecNodeRaw"]; !ok {
+				t.Fatal("template never read")
+			}
+		})
 	}
 }
