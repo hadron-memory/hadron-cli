@@ -50,68 +50,61 @@ func terminalTitleFromWorker(w gen.WorkerFields) terminalTitleDTO {
 		Parts:       terminalTitlePartsDTO{Name: w.Name, Role: w.Role, Model: w.Model, Family: w.Family},
 		ModelSource: "none", TeamPlacement: placementString(w.TeamPlacement), ReportsToRetired: w.ReportsToRetired,
 	}
-	role := terminalTitleElement(titleRaw(w.Role))
-	if role == "" {
-		role = "role unavailable"
-	}
-	model := terminalTitleElement(titleRaw(w.Model))
-	if model != "" {
+	if terminalTitleElement(titleRaw(w.Model)) != "" {
 		dto.ModelSource = "reported-by-session"
-	} else {
-		model = terminalTitleElement(titleRaw(w.Family))
-		if model != "" {
-			dto.ModelSource = "family-fallback"
-		} else {
-			model = "model unavailable"
-		}
+	} else if terminalTitleElement(titleRaw(w.Family)) != "" {
+		dto.ModelSource = "family-fallback"
 	}
-	elements := []string{role, model}
 	if w.ReportsTo != nil {
 		dto.Parts.ReportsTo = &terminalTitleWorkerDTO{ID: w.ReportsTo.Id, Name: w.ReportsTo.Name, URN: w.ReportsTo.Urn}
-		if leader := terminalTitleElement(w.ReportsTo.Name); leader != "" {
-			elements = append(elements, leader)
-		}
 	}
-	name := terminalTitleElement(w.Name)
-	if name == "" {
-		name = "worker unavailable"
+	dto.Title = capTerminalTitle(terminalTitleName(w.Name))
+	return dto
+}
+
+// terminalTitleName is a worker's name as a tab title: scrubbed, and
+// "worker unavailable" when nothing is left of it.
+func terminalTitleName(raw string) string {
+	if name := terminalTitleElement(raw); name != "" {
+		return name
 	}
-	title := name + " [" + strings.Join(elements, ", ") + "]"
+	return "worker unavailable"
+}
+
+// capTerminalTitle holds the title to 256 Unicode runes, ending in an
+// ellipsis when it had to be cut.
+func capTerminalTitle(title string) string {
 	runes := []rune(title)
 	if len(runes) > 256 {
-		title = string(runes[:254]) + "…]"
+		return string(runes[:255]) + "…"
 	}
-	dto.Title = title
-	return dto
+	return title
 }
 
 func newCmdWorkerTerminalTitle(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "terminal-title <name-or-id>",
 		Short: "Print a worker's current terminal title",
-		Long: `Print one display label: <Name> [<role>, <model>, <leader>].
-The leader element is omitted when reportsTo is null or its name scrubs to empty.
-A worker name that scrubs to empty becomes "worker unavailable". A retired leader's name
-is kept. References and retired workers resolve as in worker get; a name uses
---app, App context or the worktree binding, while an id or worker URN needs no App.
+		Long: `Print one display label: the worker's bare <Name>, the string every
+terminal-tab creator and the "team health sweep" title pass use. A worker name
+that scrubs to empty becomes "worker unavailable". References and retired
+workers resolve as in worker get; a name uses --app, App context or the
+worktree binding, while an id or worker URN needs no App.
 
-The model is the raw session-reported value, then its family, then "model
-unavailable"; it is self-reported and advisory, never verified identity or
-authorization. A missing or blank role becomes "role unavailable". A masked
-model or leader does not prove an unbound worker or withheld reporting.
-
-Each element replaces controls, format/bidi characters, line/paragraph
-separators and literal brackets/commas with spaces, then collapses whitespace.
-The title is capped at 256 Unicode runes, with an ellipsis inside the closing
-bracket when truncated. Text stdout is only the title and a newline.
---json retains original strings/nulls in worker and parts, with model_source
-(reported-by-session, family-fallback or none), raw nullable teamPlacement and
-reportsToRetired, alongside the sanitized title.
+The name replaces controls, format/bidi characters, line/paragraph separators
+and literal brackets/commas with spaces, then collapses whitespace. The title
+is capped at 256 Unicode runes, ending in an ellipsis when truncated. Text
+stdout is only the title and a newline. --json retains original strings/nulls
+in worker and parts (role, model, family and leader are still reported there,
+but are no longer part of the title), with model_source (reported-by-session,
+family-fallback or none), raw nullable teamPlacement and reportsToRetired,
+alongside the sanitized title.
 
 One worker query, no mutation. This command does not set or refresh terminal
-titles: host callers apply its output separately. The title is a display label,
-not a parseable identity. Requires the existing Worker.model server field;
-an older provider's schema refusal is returned, with no fallback query.`,
+titles: host callers apply its output separately (the health sweep does, on a
+timer). The title is a display label, not a parseable identity: nothing may
+identify a worker by its tab title. Requires the existing Worker.model server
+field; an older provider's schema refusal is returned, with no fallback query.`,
 		Example: "  hadron team worker terminal-title Jane --app hadronmemory.com:hadron-dev-team",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
