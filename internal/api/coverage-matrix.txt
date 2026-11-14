@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 231: 189 command, 17 gap, 25 excluded
+[Query] 231: 190 command, 16 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -167,7 +167,7 @@ myAgentSubscriptionsPage  gap #890: subscription list command not yet implemente
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
-myGrants  gap #1832: a worker's own grants read not yet implemented
+myGrants  command auth grants
 myPasskeys  command auth passkey list
 myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
 myUserApiKeysPage  command auth token list
