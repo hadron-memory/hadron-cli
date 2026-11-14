@@ -184,7 +184,7 @@ section between the markers.
 | `admin impersonation get` |  |  | y | #1052 |  | unread |  |
 | `admin impersonation list` | ls |  | y | #1052 |  | unread |  |
 | `auth` |  |  | n | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth grants` |  |  | y | #1052 |  | unread |  |
+| `auth grants` |  |  | y | #2021 |  | unread |  |
 | `auth impersonate` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth login` |  |  | y | #1052 | Cameron | fail | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): wording passes; NOT example-verified. Examples 1-3 (browser OAuth) unrun under the scoped exception (Patrick #51131, accepted by gate owner Xabat #51143); example 4 run. Follow-up #1309 carries the browser leg |
 | `auth logout` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |

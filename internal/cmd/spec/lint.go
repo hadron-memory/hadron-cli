@@ -65,14 +65,19 @@ const abstractTightHeadroom = 150
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, product, module, prefixFlag string
-	var all, strict, unwired bool
+	var all, strict, unwired, frame bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Check specs' structure and stability rules",
 		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
 corpus against the structural and stability rules. Lint is structural: it
-does not check a spec's content sections, which depend on the spec's type.
+checks content sections for the Hadron platform corpus (or with --frame),
+reading type templates from hrn:mem:hadronmemory.com:specs-engineer-system.
+Unreadable or malformed templates fail the check; no template lists are cached
+or copied into the CLI. Other corpora retain their own structural checks. It
+does not judge factual correctness or replace the independent spec review.
+Outside the platform corpus or explicit --frame, it does not check a spec's content sections, which depend on its type.
 Content checks live in each corpus's own authoring framework — its review
 checks and review tasks (for the Hadron platform corpus,
 hrn:mem:hadronmemory.com:specs-engineer-system).
@@ -118,7 +123,9 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 (parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed. So is
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
-placeholder-contract exemption are no longer findings, at any loc.
+placeholder-contract exemption are no longer generic findings, at any loc.
+The platform frame adds its own abstract requirement and 1,600-character
+ceiling as errors, without restoring the old generic rubric.
 
 --unwired is the repair report for specs whose edges were never written (a
 create that failed half way, #687). It looks only at legacy-grammar citations
@@ -276,10 +283,14 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			}
 			// Report tag-only candidates, but never run spec/corpus/draft rules on them.
 			ungovernedFindings := []lintFindingDTO{}
+			frameUngoverned := []specNode{}
 			governedOrMalformed := make([]specNode, 0, len(nodes))
 			for _, n := range nodes {
 				if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
 					ungovernedFindings = append(ungovernedFindings, lintReadNode(n, memURN)...)
+					if frameH1.MatchString(derefStr(n.Content)) {
+						frameUngoverned = append(frameUngoverned, n)
+					}
 					continue
 				}
 				governedOrMalformed = append(governedOrMalformed, n)
@@ -313,6 +324,13 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			// `spec find`; warn once if the memory has no vector index (#42).
 			if vw := vectorIndexWarning(cmd, client, memURN); vw != nil {
 				findings = append(findings, *vw)
+			}
+			if frame || cmdutil.CanonicalMemoryRef(memURN) == "hrn:mem:hadronmemory.com:specs" {
+				extra, err := lintFrames(cmd, client, memURN, append(append([]specNode{}, nodes...), frameUngoverned...))
+				if err != nil {
+					return err
+				}
+				findings = append(findings, extra...)
 			}
 			findings = append(findings, ungovernedFindings...)
 			findings = append(findings, placeholders...)
@@ -374,6 +392,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&frame, "frame", false, "also check the platform authoring frame, reading type templates from specs-engineer-system (automatic for hadronmemory.com:specs)")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
@@ -438,6 +457,9 @@ func lintReadNode(n specNode, memURN string) []lintFindingDTO {
 // abstract-length advisory is the only check still tiered by legacy depth.
 func lintNode(n specNode, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
+	if cmdutil.CanonicalMemoryRef(memURN) == "hrn:mem:hadronmemory.com:specs" {
+		fs = append(fs, frameBasics(n)...)
+	}
 	add := func(rule, sev, msg string) {
 		fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: rule, Severity: sev, Message: msg})
 	}
