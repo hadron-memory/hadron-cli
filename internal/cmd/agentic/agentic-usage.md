@@ -631,7 +631,7 @@ hadron ha create --org <ref> --slug <s> --name <n> --url <u> [--token-file -|@pa
 hadron ha update <id> [--name] [--url] [--token-file ...] [--allow-op <op>]... | [--clear-allow-ops] [--enabled|--disabled]   # only the named fields are sent; omitted = kept. No flags = exit 2, nothing sent. Without --token-file stdin is never read and the token stays. --clear-allow-ops sends [] = EVERY catalog op (not none; use --disabled to stop use). --allow-op/--clear-allow-ops and --enabled/--disabled are mutually exclusive. No slug flag.
 hadron ha rm <id> [--yes]   # hard delete; TTY prompts, non-interactive needs --yes (else exit 2, nothing sent). --json {id, status:"deleted"}; false from the server is exit 1, never success. Nodes naming ha__<slug>__<op> then fail at run time; nothing is repaired.
   ha create/update/rm: server refusals keep their exit code and --json serverCode (not admin exit 8, missing or another org's instance exit 4 NOT_FOUND, invalid input exit 2). A lost response is exit 7 "outcome unknown": sent once, never retried; read back with `ha get`/`ha list` before retrying.
-hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | get <id|urn> | update <id|urn> [--value-file -|@file] [--meta k=v...|--meta-json <obj>] [--type bearer|basic|header [--username <u>|--header-name <h>]] [--url-prefix <u>] | rm <id> --yes
+hadron secret create --name <n> --scope user|org|app [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org|app [--owner <ref>] | get <id|urn> | update <id|urn> [--value-file -|@file] [--meta k=v...|--meta-json <obj>] [--type bearer|basic|header [--username <u>|--header-name <h>]] [--url-prefix <u>] | set <id|urn> --value-file -|@file [--type bearer|basic|header [--username <u>|--header-name <h>]] | versions <id|urn> [--limit N --offset N|--all] | events <id|urn> [--limit N --offset N|--all] | rm <id> --yes
 hadron config get <key> | set <key> <value> (an empty value removes the key; server then returns to its default) | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -2418,6 +2418,18 @@ Conventions:
   `webfetch-auth` secrets use `--type bearer|basic|header` plus `--url-prefix`;
   the server derives `metadata.type`. `rm <id>` requires `--yes`
   non-interactively.
+  App secrets (cli#2013, server#3997): `--scope app --owner <app ref>` on
+  `create|list`; `secret set <ref> --value-file -|@file` is the value path (the
+  server overwrites an org/user secret and ADDS a version to an App secret;
+  prints `currentVersion`, `-`/null for org and user secrets; `update
+  --value-file` is the same operation). `secret versions <ref>` lists the KEPT
+  versions newest first (metadata only; `--json` {id,name,currentVersion,
+  protected,total,hasMore,versions[]}); `secret events <ref>` the audit events
+  (`--json` {total,events[]}); both pass `--limit/--offset` through, `--all`
+  walks pages, and an unset flag is omitted. An excluded caller's events page
+  is empty, printed as empty (never "forbidden"). `protected` is display only
+  (`SECRET_PROTECTED` is the server's refusal). No CLI-side size/count checks.
+  A run never resolves an App secret.
 - `org` manages organizations, their members, and invitations. `org list`
   lists organizations (`--mine` restricts to your memberships; unscoped spans
   every org you can see); `org create --name --urn`, `org get <id>`,
