@@ -174,6 +174,7 @@ func groupHasOtherMembers(pgid, leader int) bool {
 			return true // /proc never held still: not proof of an empty group
 		}
 		prevZ = zs
+		waitGroupScanRetry()
 	}
 }
 

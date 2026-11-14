@@ -765,6 +765,19 @@ func TestZombieMemberDoesNotKeepAGroupUndrained(t *testing.T) {
 		}
 	}()
 	lg := leader.Process.Pid
+	// This test is about real kernel zombie/thread states, not whether the
+	// entire shared host supplies a churn-free snapshot. Keep the complete
+	// owned fixture in each listing; stat still reads the actual processes.
+	// Vanish, exhaustion and watcher recovery have separate 2042 controls.
+	realRead := readProcDir
+	readProcDir = func(string) ([]os.DirEntry, error) {
+		return []os.DirEntry{
+			fakeDirEntry{name: strconv.Itoa(lg)},
+			fakeDirEntry{name: strconv.Itoa(runner.Process.Pid)},
+			fakeDirEntry{name: strconv.Itoa(dead.Process.Pid)},
+		}, nil
+	}
+	defer func() { readProcDir = realRead }()
 	deadline := time.Now().Add(5 * time.Second)
 	for !hasState(groupMemberStates(lg), 'Z') {
 		if time.Now().After(deadline) {
@@ -1199,5 +1212,80 @@ func TestGroupScanSustainedChurnStaysUnproven2042(t *testing.T) {
 	readProcDir = func(string) ([]os.DirEntry, error) { return nil, nil }
 	if groupHasOtherMembers(99999998, 99999998) {
 		t.Fatal("clean scan after churn proves drain")
+	}
+}
+
+// The watcher must keep the leader unreaped when every pass is void, then
+// release it when a later tick obtains a complete empty snapshot.
+func TestDrainWatcherHoldsThroughChurnThenRecovers2042(t *testing.T) {
+	cmd := exec.Command("true")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	// This test owns an actual unreaped child; no group-number signals are
+	// needed for cleanup, and no reused group can be touched.
+	defer func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() }()
+	exit, err := waitLeaderExit(cmd.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &execAgent{cmd: cmd, pid: cmd.Process.Pid, watcherDone: make(chan struct{})}
+	a.exited.Store(true)
+	a.detail = exit.describe()
+	realRead, realWait, realInterval := readProcDir, waitGroupScanRetry, drainWatchInterval
+	defer func() { readProcDir, waitGroupScanRetry, drainWatchInterval = realRead, realWait, realInterval }()
+	reads := 0
+	held := false
+	waitGroupScanRetry = func() {}
+	drainWatchInterval = time.Millisecond
+	readProcDir = func(string) ([]os.DirEntry, error) {
+		reads++
+		if reads <= maxGroupScanPasses {
+			return []os.DirEntry{fakeDirEntry{name: "99999999"}}, nil
+		}
+		held = !a.reaped.Load() && !a.emptyAtReap.Load()
+		return nil, nil
+	}
+	a.startWatchDrain()
+	// Join before restoring package seams, including on a broken watcher.
+	select {
+	case <-a.watcherDone:
+	case <-time.After(5 * time.Second):
+		a.reaped.Store(true) // stop the watcher; the defer waits the child
+		a.waitWatchers()
+		t.Fatal("watcher did not recover after the fixture cleared")
+	}
+	if !held {
+		t.Fatal("exhaustion must retain the leader and its allocated number")
+	}
+	if reads != maxGroupScanPasses+1 || !a.reaped.Load() || !a.emptyAtReap.Load() {
+		t.Fatalf("later clean snapshot must reap: reads=%d reaped=%v empty=%v", reads, a.reaped.Load(), a.emptyAtReap.Load())
+	}
+}
+
+func TestGroupScanDoesNotWaitOnDecisivePass2042(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		entries []os.DirEntry
+		err     error
+		want    bool
+	}{
+		{name: "empty"},
+		{name: "unreadable", err: fs.ErrPermission, want: true},
+		{name: "live", entries: []os.DirEntry{fakeDirEntry{name: strconv.Itoa(os.Getpid())}}, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			realRead, realWait := readProcDir, waitGroupScanRetry
+			defer func() { readProcDir, waitGroupScanRetry = realRead, realWait }()
+			reads, waits := 0, 0
+			readProcDir = func(string) ([]os.DirEntry, error) { reads++; return tc.entries, tc.err }
+			waitGroupScanRetry = func() { waits++ }
+			if got := groupHasOtherMembers(syscall.Getpgrp(), 0); got != tc.want {
+				t.Fatalf("members=%v want=%v", got, tc.want)
+			}
+			if reads != 1 || waits != 0 {
+				t.Fatalf("decisive answer needs no retry: reads=%d waits=%d", reads, waits)
+			}
+		})
 	}
 }
