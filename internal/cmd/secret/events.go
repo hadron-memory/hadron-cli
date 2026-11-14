@@ -99,7 +99,7 @@ versionNo, actorUserId, workerId, sessionId); an empty list is [].`,
 			return output.Write(f.IOStreams, f.JSON, out, func(w io.Writer) error {
 				if len(out.Events) == 0 {
 					if out.Total > 0 {
-						_, err := fmt.Fprintf(w, "%d events (none shown on this page; --limit 0 counts only)\n", out.Total)
+						_, err := fmt.Fprintf(w, "%d events (no rows on this page; --limit 0 counts only, and --offset may be past the end)\n", out.Total)
 						return err
 					}
 					_, err := fmt.Fprintln(w, "no events")

@@ -128,3 +128,23 @@ func TestSecretCreateGetListRefusalCodes2024(t *testing.T) {
 }
 
 func mustAtoi2024(s string) int { n, _ := strconv.Atoi(s); return n }
+
+// Item 4 (get): a missing secret and one the caller may not see answer
+// identically (null): same exit, same message, no code that tells them apart.
+func TestSecretGetMissingAndUnseenAreIndistinguishable2024(t *testing.T) {
+	var msgs []string
+	for _, ref := range []string{"missing", "unseen"} {
+		out, _, err := runSecret(t, "", map[string]string{"Secret": `{"data":{"secret":null}}`}, "get", ref, "--json")
+		if err == nil || exitCodeFor(err) != 4 || out != "" {
+			t.Fatalf("%s: %v %q", ref, err, out)
+		}
+		var coded interface{ ServerCode() string }
+		if errors.As(err, &coded) {
+			t.Fatalf("%s: a null answer must carry no server code", ref)
+		}
+		msgs = append(msgs, strings.ReplaceAll(err.Error(), ref, "REF"))
+	}
+	if msgs[0] != msgs[1] {
+		t.Fatalf("messages differ: %q vs %q", msgs[0], msgs[1])
+	}
+}
