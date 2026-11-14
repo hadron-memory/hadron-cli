@@ -38,6 +38,10 @@ type healthRefusal struct {
 type healthReceipt struct {
 	Reports []healthReport  `json:"reports"`
 	Refused []healthRefusal `json:"refused"`
+	// Renames is the title pass (cli#2017): one entry per tab renamed, or that
+	// a dry run would rename. Always a list.
+	Renames []healthRename `json:"renames"`
+	DryRun  bool           `json:"dryRun"`
 }
 
 // Decode only the versioned wire contract. Detail, terminal text and unknown
@@ -118,6 +122,7 @@ func newCmdTeamHealthWithReader(f *cmdutil.Factory, read healthStatusReader) *co
 	group := &cobra.Command{Use: "health", Short: "Report this host's workers' terminal health"}
 	var configPath string
 	var statusTimeout time.Duration
+	var dryRun bool
 	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Read terminal status and store code-only reports for this host", Args: cobra.NoArgs,
 		Long: `Read terminal-status@1 JSON from "hadron orca terminal status --all --json"
 and store the status of this host's registered workers in one batch. The status
@@ -205,7 +210,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 			if err != nil {
 				return err
 			}
-			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}}
+			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}, Renames: []healthRename{}, DryRun: dryRun}
 			inputs := []*gen.WorkerTerminalReportInput{}
 			matched := map[string]bool{}
 			display := map[string]string{}
@@ -257,7 +262,13 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 					return exitcode.Newf(exitcode.Error, "server did not confirm every health report")
 				}
 			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			workerNames := make(map[string]string, len(names))
+			for name, id := range names {
+				workerNames[id] = name
+			}
+			renames, titleErr := healthTitles(c.Context(), cfg, workerNames, !dryRun)
+			dto.Renames = append(dto.Renames, renames...)
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				refused := map[string]string{}
 				for _, r := range dto.Refused {
 					refused[r.Worker] = r.Code
@@ -275,11 +286,27 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 						return e
 					}
 				}
+				for _, r := range dto.Renames {
+					verb := "would rename"
+					switch {
+					case r.Error != nil:
+						verb = "rename failed (" + *r.Error + ")"
+					case r.Applied:
+						verb = "renamed"
+					}
+					if _, e := fmt.Fprintf(w, "title  %s  %s  %q -> %q\n", output.SafeCell(r.Worker), verb, output.SafeCell(r.From), output.SafeCell(r.To)); e != nil {
+						return e
+					}
+				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			return titleErr
 		}}
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
+	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and change nothing (default; the installed timer passes --dry-run=false)")
 	c.Flags().DurationVar(&statusTimeout, "status-timeout", 0, "time allowed for the terminal status read (default: 5s per registered worker, at least 2m)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
