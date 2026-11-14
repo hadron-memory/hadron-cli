@@ -310,18 +310,19 @@ func writeRecord(w io.Writer, r *recordDTO) error {
 }
 
 const historyLintHelp = `
-CURRENT LINT (--lint-warnings): also read each record's current lint warnings
-(cor:agt:040:13) in their own operation, 20 per request, within a 5-second
-budget shared by the whole command. They describe the compiled revision recorded
-for that record (provenance revision), never the Agent's newest compile, and a
-missing recompile notice proves nothing. With --json each record gains
-"currentLint": {items, total, nextCursor} or null; without the flag the key is
-absent. null means unavailable for THAT record, never "no warnings" (items []
-with total 0 is the one clean answer): an older server, a record or lint the
-server would not answer, a history or lint page that changed while reading, or
-the budget ran out. A record is whole or null, never partial and never another
-record's warnings. One fixed advisory line on stderr marks an unavailable read;
-the history and its exit code are unaffected.`
+CURRENT LINT (--lint-warnings): a warning means the compiled prompt behind a
+record has a defect; fix its template, or recompile the Agent. With the flag,
+each record's current lint warnings are also read in their own operation, 20
+per request, within a 5-second budget shared by the whole command. They
+describe the compiled revision recorded for that record, not the Agent's
+newest compile. With --json each record gains "currentLint": {items, total,
+nextCursor} or null; without the flag the key is absent. null means
+unavailable for THAT record, never "no warnings" (items [] with total 0 is the
+one clean answer): an older server, a record or lint the server would not
+answer, a history or lint page that changed while reading, or the budget ran
+out. A record is whole or null, never partial and never another record's
+warnings. One fixed advisory line on stderr marks an unavailable read; rerun
+to retry. The history and its exit code are unaffected. See cor:agt:040:13.`
 
 // readHistoryLint fills CurrentLint on every shown record: each is whole or null.
 func readHistoryLint(cmd *cobra.Command, budget *lintwarn.Budget, result *historyDTO, offset int, first lintwarn.HistFetch, at lintwarn.HistFetchAt) {
