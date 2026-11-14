@@ -59,9 +59,19 @@ Additional root/HTTP controls cover:
 - Cleaned unsafe reason present as well as controls absent; empty arrays
   discriminate [] from null and missing.
 
-Author focused race passes. Causal mutants and independent exact-head
-LOCAL/FULL BLIND/compiled-fixture QA evidence are recorded on the PR and in
-the author's Hadron node before readiness; no live server proof is claimed.
+Author checks: command/API race suites pass (root command package 156.743s),
+lint reports 0 issues, generated client stays clean, coverage matrix and
+help inventory checks pass. The inventory refresh changes only its revision pin.
+All three help examples execute against a compiled CLI and isolated loopback
+fixture; extra count/footer and past-end cases pass, one request each.
+
+Causal controls: 22 precise compiling non-equivalent mutants fail their
+intended assertions; an equivalent helper rewrite survives. The driver checks
+one exact source match, records each diff and named failing test, separates
+build errors, and restores source bytes. Diffs, failure sets and output hashes
+are in hrn:node:hadronmemory.com:hadron-dev-team-jane:work:cli-2028:author-checks.
+Independent exact-head LOCAL/FULL BLIND/compiled-fixture QA is required before
+readiness. No live server proof is claimed.
 
 ## Preserved boundaries
 
