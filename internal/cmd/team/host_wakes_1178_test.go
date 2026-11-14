@@ -26,14 +26,14 @@ const wakePage1 = `{"data":{"dueWakes":{"status":"OK","withheld":0,
   "channels":[{"channel":{"id":"ch1"}}],
   "reasons":[
    {"kind":"TICK","ticker":{"id":"tk1","name":"Base tick","lastTickAt":"2026-10-19T11:55:00Z"},"task":null},
-   {"kind":"TASK","ticker":null,"task":{"eventId":"ev1","chainIndex":0,"event":"ASSIGNED","id":"t1","title":"Fix it"}},
+   {"kind":"TASK","ticker":null,"task":{"eventId":"ev1","chainIndex":0,"event":"ASSIGNED","id":"t1","handle":"AT1.1","title":"Fix it"}},
    {"kind":"MENTION","ticker":null,"task":null}]}],
  "pageInfo":{"hasNextPage":true,"endCursor":"c1"}}}}`
 
 const wakePage2 = `{"data":{"dueWakes":{"status":"OK","withheld":3,"dormant":[],
  "wakes":[{"proof":"WAKE-PROOF-2-SECRET","worker":{"id":"wkr2"},
   "deliverAfter":"2026-10-19T11:59:00Z","busyDeadline":"2026-10-19T12:09:00Z","channels":[],
-  "reasons":[{"kind":"TASK","ticker":null,"task":{"eventId":"ev2","chainIndex":3,"event":"CHILD_FINISHED","id":"t2","title":"Child"}}]}],
+  "reasons":[{"kind":"TASK","ticker":null,"task":{"eventId":"ev2","chainIndex":3,"event":"CHILD_FINISHED","id":"t2","handle":"AT1.1.2","title":"Child"}}]}],
  "pageInfo":{"hasNextPage":false,"endCursor":"c2"}}}}`
 
 func TestWakesPageToExhaustionWithTheHostKeyAndMapReasons(t *testing.T) {
@@ -56,7 +56,7 @@ func TestWakesPageToExhaustionWithTheHostKeyAndMapReasons(t *testing.T) {
 	if tick.Kind != delivery.WakeTick || tick.TickerID != "tk1" || tick.TickerName != "Base tick" || !tick.LastTickAt.Equal(time.Date(2026, 10, 19, 11, 55, 0, 0, time.UTC)) {
 		t.Fatalf("tick %+v", tick)
 	}
-	if task.Kind != delivery.WakeTask || task.Task == nil || *task.Task != (delivery.TaskReason{EventID: "ev1", ChainIndex: 0, Event: "assigned", ID: "t1", Title: "Fix it"}) {
+	if task.Kind != delivery.WakeTask || task.Task == nil || *task.Task != (delivery.TaskReason{EventID: "ev1", ChainIndex: 0, Event: "assigned", ID: "t1", Title: "Fix it", Handle: "AT1.1"}) {
 		t.Fatalf("task %+v", task)
 	}
 	if mention.Kind != delivery.WakeMention {

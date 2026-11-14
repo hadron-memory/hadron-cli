@@ -46327,6 +46327,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason s
 	Event      TaskWakeEvent `json:"event"`
 	// The task's id (for CHILD_FINISHED, the child's).
 	Id string `json:"id"`
+	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
+	Handle string `json:"handle"`
 	// The task's title, for the nudge text.
 	Title string `json:"title"`
 }
@@ -46349,6 +46351,11 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReas
 // GetId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Id, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetId() string {
 	return v.Id
+}
+
+// GetHandle returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Handle, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetHandle() string {
+	return v.Handle
 }
 
 // GetTitle returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
@@ -139190,6 +139197,7 @@ query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: 
 					chainIndex
 					event
 					id
+					handle
 					title
 				}
 				action {

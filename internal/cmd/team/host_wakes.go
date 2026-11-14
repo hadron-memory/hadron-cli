@@ -119,7 +119,7 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 		}
 	}
 	if t := r.Task; t != nil {
-		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title}
+		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title, Handle: t.Handle}
 	}
 	// WakeReason.action as the server answered (cor:agt:080:23): code, state,
 	// loc and URN verbatim, never resolved or rendered here. WITHHELD stays
