@@ -28,11 +28,36 @@ func TestSecretURN1994(t *testing.T) {
 		"hrn:secret:acme.com:a:b",
 		"hrn:secret:acme.com:memory:eng:key",
 		"hrn:secret:acme.com:org:eng:key",
+		"hrn:secret:acme.com:agent:eng:key",
+		"hrn:secret:acme.com:user:eng:key",
 		"hrn:secret:acme.com::app:eng::key",
 		"hrn:secret:acme.com::memory:eng::key",
 	} {
 		if _, err := urnlib.ParseUrnV2(bad); err == nil {
 			t.Errorf("%s: want refused", bad)
 		}
+	}
+}
+
+// The App shape must parse as the App owner kind with its segments and
+// round-trip byte-exact through the compose entry point (gate item 3).
+func TestSecretURN1994AppRoundTrip(t *testing.T) {
+	const urn = "hrn:secret:acme.com:app:eng-team:openai-key"
+	p, err := urnlib.ParseSecretUrnV2(urn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.OwnerKind != urnlib.SecretOwnerApp {
+		t.Errorf("owner kind %v", p.OwnerKind)
+	}
+	if p.Root != "acme.com" || p.AppSlug != "eng-team" || p.Name != "openai-key" {
+		t.Errorf("components root=%q app=%q name=%q", p.Root, p.AppSlug, p.Name)
+	}
+	got, err := urnlib.ComposeAppSecretUrnV2("acme.com", "eng-team", "openai-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != urn {
+		t.Errorf("compose %q, want %q", got, urn)
 	}
 }
