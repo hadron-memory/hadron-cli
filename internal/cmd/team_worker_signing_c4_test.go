@@ -145,8 +145,10 @@ func TestC4BoundWorktreeAttachesSessionForSigningOnly(t *testing.T) {
 				t.Fatalf("%s session = %+v, want %q", tc.op, got, tc.want)
 			}
 			for _, c := range *calls {
-				if c.Op != tc.op && c.Session != "" {
-					t.Errorf("only the write may carry the session: %+v", c)
+				// The advisory lint read after the write carries the write's own
+				// session (cli#2007 §6); pinned in team_worker_lint_2007_test.go.
+				if c.Op != tc.op && c.Op != "GetWorkerSignatureLint" && c.Session != "" {
+					t.Errorf("only the write (and its lint read) may carry the session: %+v", c)
 				}
 			}
 		})

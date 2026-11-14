@@ -1,0 +1,63 @@
+# Advisory lint reads (cli#2007, cor:agt:040:13). Each is its own operation, never
+# part of WorkerFields or the ServedPromptRecord fragment: an older server that
+# lacks a field rejects only this operation, so the main read is unaffected and
+# the lint degrades to "unavailable". Every op sends first: 20 explicitly
+# (cor:api:120:04: a client does not ask for more than 20 unless its user did)
+# and the caller follows nextCursor to the end.
+fragment LintWarningPageFields on LintWarningPage {
+ items { kind position text targetUrn pinnedRevision newerRevision overriddenNodeLoc workerField }
+ total nextCursor
+}
+
+query GetWorkerSignatureLint($ref: ID!, $after: String) {
+ worker(ref: $ref) { id signatureLint(first: 20, after: $after) { ...LintWarningPageFields } }
+}
+
+# servedPrompt { id provenanceRevSeq } rides along so "nothing served" is told
+# from "unavailable" without hasLiveSession (an idle but open session still has
+# a record), and so output can name the provenance revision, never the newest compile.
+query GetWorkerPromptLint($ref: ID!, $after: String) {
+ worker(ref: $ref) {
+  id
+  servedPrompt { id provenanceRevSeq }
+  promptLintWarnings(first: 20, after: $after) { ...LintWarningPageFields }
+ }
+}
+
+query WorkerServedPromptLint($ref: ID!, $after: String) {
+ worker(ref: $ref) { servedPrompt { id provenanceRevSeq currentLint(first: 20, after: $after) { ...LintWarningPageFields } } }
+}
+
+query RunServedPromptLint($ref: ID!, $after: String) {
+ appRun(ref: $ref) { servedPrompt { id provenanceRevSeq currentLint(first: 20, after: $after) { ...LintWarningPageFields } } }
+}
+
+# History: the shown page's own limit/offset, first lint page inline; a record
+# whose nextCursor is set is re-read alone by offset (…At) with id/total checks.
+query SessionServedPromptsLint($id: ID!, $limit: Int!, $offset: Int!) {
+ session(id: $id) {
+  servedPrompts(limit: $limit, offset: $offset) {
+   total items { id currentLint(first: 20) { ...LintWarningPageFields } }
+  }
+ }
+}
+
+query SessionServedPromptLintAt($id: ID!, $offset: Int!, $after: String) {
+ session(id: $id) {
+  servedPrompts(limit: 1, offset: $offset) {
+   total items { id currentLint(first: 20, after: $after) { ...LintWarningPageFields } }
+  }
+ }
+}
+
+query ChatServedPromptsLint($chatId: ID!, $limit: Int!, $offset: Int!) {
+ chatServedPrompts(chatId: $chatId, limit: $limit, offset: $offset) {
+  total items { id currentLint(first: 20) { ...LintWarningPageFields } }
+ }
+}
+
+query ChatServedPromptLintAt($chatId: ID!, $offset: Int!, $after: String) {
+ chatServedPrompts(chatId: $chatId, limit: 1, offset: $offset) {
+  total items { id currentLint(first: 20, after: $after) { ...LintWarningPageFields } }
+ }
+}

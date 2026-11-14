@@ -16,6 +16,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/bootpreview"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -592,6 +593,12 @@ type workerGetDTO struct {
 	// withheld from this caller OR no record, which the CLI cannot tell apart,
 	// so it never claims either.
 	Availability *workerGetAvailabilityDTO `json:"availability"`
+	// SignatureLint and PromptLintWarnings are the advisory lint reads
+	// (cli#2007, cor:agt:040:13), each its own operation. Always present; null
+	// means UNAVAILABLE, masked or nothing served, never "no warnings":
+	// items: [] with total 0 is the one clean answer.
+	SignatureLint      *lintwarn.Page `json:"signatureLint"`
+	PromptLintWarnings *lintwarn.Page `json:"promptLintWarnings"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -697,12 +704,21 @@ type workerGetExtras struct {
 	previewResp                *gen.GetWorkerBootPromptServeResponse
 	previewErr                 error
 	previewMissingField        bool
+	// lint reads (cli#2007): both skipped when the template is masked.
+	signatureLint *lintwarn.Page
+	promptLint    lintwarn.PromptLint
+	lintMasked    bool
 }
 
 // readWorkerGetExtras runs the profile, terminal, model-group, rendered and
 // boot-preview reads concurrently and waits for all of them.
-func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session string) *workerGetExtras {
-	r := &workerGetExtras{}
+//
+// masked is true when the worker row's signature is null (the caller may not see
+// the worker's internals): neither lint read is sent then (cli#2007). The two
+// lint reads join the others and share one advisory budget that starts now, the
+// moment the worker row is in hand; they carry no session header.
+func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session string, masked bool) *workerGetExtras {
+	r := &workerGetExtras{lintMasked: masked}
 	var wg sync.WaitGroup
 	run := func(fn func()) {
 		wg.Add(1)
@@ -725,6 +741,12 @@ func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session
 			r.previewMissingField = guard.MissingField(r.previewErr, "GetWorkerBootPromptServe", "Worker")
 		}
 	})
+	if !masked {
+		budget := lintwarn.NewBudget(ctx)
+		defer budget.Close()
+		run(func() { r.signatureLint = lintwarn.ReadSignatureLint(budget, client, id) })
+		run(func() { r.promptLint = lintwarn.ReadPromptLint(budget, client, id) })
+	}
 	wg.Wait()
 	return r
 }
@@ -783,6 +805,22 @@ App you participate in.
 --json adds appName and ownerName (nullable: null means unavailable — masked,
 an older server that predates them, or an App URN of the old shape — never
 "no such App" or "no owner"). The masked working-state keys stay null as ever.
+
+LINT (advisory, cli#2007, cor:agt:040:13): signature lint says whether the stored
+signature or trailer is missing the worker link; prompt lint is the current
+lint of the compiled revision recorded for the worker's open session (named by
+its provenance revision, never the Agent's newest compile). Each is read in its
+own operation, 20 per request to the end, within one 5-second budget that starts
+once the worker is read; they carry no session header and never change the exit
+code. --json always carries "signatureLint" and "promptLintWarnings":
+{items, total, nextCursor} or null. items [] with total 0 is the one clean
+answer. null is never "no warnings": it is unavailable (an older server, a
+lint page that changed while reading, the budget), or masked (you may not see
+the worker's signature, so nothing is read or printed), or, for prompt lint,
+nothing served (no open session, or it has no record: one neutral line).
+An unavailable read prints one fixed advisory line on stderr. A quiet but open
+session still has a record, so its warnings show. A missing recompile notice
+proves nothing: the server raises it only for a caller who may compile.
 
 THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
@@ -879,7 +917,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 			// its own operation, so the per-operation old-server fallbacks are
 			// untouched. Errors are then taken in the order the sequential
 			// code took them, so the first failure a caller sees is unchanged.
-			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
+			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id), w.Signature == nil)
 			if reads.profileErr != nil {
 				return reads.profileErr
 			}
@@ -921,7 +959,13 @@ and every worker's state in ` + "`team roster`" + `.`,
 				preview = &p
 			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
-				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, Availability: reads.availability, appURN: appURN}
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, Availability: reads.availability, appURN: appURN,
+				SignatureLint: reads.signatureLint, PromptLintWarnings: reads.promptLint.Page}
+			// One fixed stderr class when a lint that should have answered did not.
+			// Masked and nothing-served say nothing: no read, or nothing to lint.
+			if !reads.lintMasked && (reads.signatureLint == nil || reads.promptLint.State == lintwarn.PromptUnavailable) {
+				lintwarn.ReportUnavailable(cmd)
+			}
 			if preview != nil {
 				dto.Fields = preview.Fields
 			}
@@ -1084,6 +1128,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// reading a dash as the value.
 				writeRenderedSigning(out, dto.RenderedSignature, dto.RenderedTrailer)
 				writeSigningTemplates(out, dto.Signature, dto.Trailer)
+				if err := writeWorkerLint(out, reads); err != nil {
+					return err
+				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
@@ -1092,6 +1139,26 @@ and every worker's state in ` + "`team roster`" + `.`,
 		},
 	}
 	return cmd
+}
+
+// writeWorkerLint prints the two advisory lint sections of `worker get`
+// (cli#2007). Masked prints nothing; nothing served says so; a null page is
+// unavailable, never "none".
+func writeWorkerLint(out io.Writer, r *workerGetExtras) error {
+	if r.lintMasked {
+		return nil
+	}
+	if err := lintwarn.WriteSection(out, "  signature lint", "the signature and trailer", r.signatureLint, false); err != nil {
+		return err
+	}
+	switch r.promptLint.State {
+	case lintwarn.PromptNothingServed:
+		_, err := fmt.Fprintln(out, "  prompt lint: nothing served to this worker's open session")
+		return err
+	case lintwarn.PromptOK:
+		return lintwarn.WriteSection(out, "  prompt lint", lintwarn.PromptSubject("the compiled revision recorded for the open session", r.promptLint.ProvenanceRevSeq), r.promptLint.Page, true)
+	}
+	return lintwarn.WriteSection(out, "  prompt lint", "", nil, true)
 }
 
 // writeRenderedSigning prints the server-rendered signature and trailer
@@ -2265,7 +2332,12 @@ func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Set signature and trailer templates for the next briefing. Omitted fields
 keep their stored value; an explicit empty string stores an empty template.
 They are filled in when the worker's session is bound (the briefing prints the
-filled result), not when you run this.
+filled result), not when you run this. After the save the receipt also shows
+the CURRENT signature lint (a missing worker link; cor:agt:040:04), read once
+more with the write's own session, as a check made now, not a snapshot taken at
+write time. "signatureLint" in --json is {items, total, nextCursor} or null;
+null (unavailable, or a template you may not see) is never "no warnings". A
+failed lint read never fails or undoes the edit: exit 0, one advisory stderr line.
 
 TEMPLATE VARIABLES, written {{name}} — anything else stays literal text:
   {{worker.name}}  {{worker.role}}  {{worker.url}}  {{agent.name}}

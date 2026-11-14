@@ -23,11 +23,8 @@ const lintWarningMaxRequests = 1000
 
 type lintWarningDeadlineKey struct{}
 
-const lintWarningUnavailableClass = lintwarn.UnavailableClass
-
 func reportLintUnavailable(cmd *cobra.Command) { lintwarn.ReportUnavailable(cmd) }
 
-type lintWarningDTO = lintwarn.Warning
 type lintWarningPageDTO = lintwarn.Page
 
 func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
