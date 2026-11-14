@@ -55109,6 +55109,27 @@ var AllGrantHolderKind = []GrantHolderKind{
 	GrantHolderKindWorker,
 }
 
+// #3649 slice D (hrn:node:hadronmemory.com:specs:cor:acl:140:07; hrn:node:hadronmemory.com:specs:cor:dmo:130:04 mirrored) — a grant signature's state, derived on every read and never stored. A record that does not verify is never a signature: it is counted in GrantSignatureStatus.integrityProblems instead. This is the signature's state, not the grant's: whether the grant allows anything is Grant.allows.
+type GrantSignatureState string
+
+const (
+	// Made by a first passkey revoked inside its window; never counts.
+	GrantSignatureStateCancelled GrantSignatureState = "CANCELLED"
+	// Verifies, and was made over the grant's present record version and terms.
+	GrantSignatureStateCurrent GrantSignatureState = "CURRENT"
+	// Verifies, but the grant's record version or terms no longer match what was signed.
+	GrantSignatureStateEarlier GrantSignatureState = "EARLIER"
+	// Made by a first passkey still in its cooling-off window (hrn:node:hadronmemory.com:specs:cor:aut:040:07); never counts until the window ends normally.
+	GrantSignatureStatePending GrantSignatureState = "PENDING"
+)
+
+var AllGrantSignatureState = []GrantSignatureState{
+	GrantSignatureStateCancelled,
+	GrantSignatureStateCurrent,
+	GrantSignatureStateEarlier,
+	GrantSignatureStatePending,
+}
+
 // #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — a grant signing request: open, then ends exactly once.
 type GrantSigningRequestState string
 
@@ -64226,6 +64247,132 @@ type MyAppResponse struct {
 
 // GetMyApp returns MyAppResponse.MyApp, and is useful for accessing the field via an interface.
 func (v *MyAppResponse) GetMyApp() *MyAppMyApp { return v.MyApp }
+
+// MyGrantsMyGrantsGrantsPage includes the requested fields of the GraphQL type GrantsPage.
+type MyGrantsMyGrantsGrantsPage struct {
+	Total int                                     `json:"total"`
+	Items []*MyGrantsMyGrantsGrantsPageItemsGrant `json:"items"`
+}
+
+// GetTotal returns MyGrantsMyGrantsGrantsPage.Total, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPage) GetTotal() int { return v.Total }
+
+// GetItems returns MyGrantsMyGrantsGrantsPage.Items, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPage) GetItems() []*MyGrantsMyGrantsGrantsPageItemsGrant {
+	return v.Items
+}
+
+// MyGrantsMyGrantsGrantsPageItemsGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
+// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+type MyGrantsMyGrantsGrantsPageItemsGrant struct {
+	Id    string `json:"id"`
+	AppId string `json:"appId"`
+	// The registered action this grant allows.
+	Action string `json:"action"`
+	// The values it allows (a single value, a list or a wildcard); never a secret.
+	Values     *json.RawMessage `json:"values"`
+	HolderKind GrantHolderKind  `json:"holderKind"`
+	HolderId   string           `json:"holderId"`
+	StartsAt   *string          `json:"startsAt"`
+	ExpiresAt  *string          `json:"expiresAt"`
+	MaxUses    *int             `json:"maxUses"`
+	UseCount   int              `json:"useCount"`
+	Reason     string           `json:"reason"`
+	CreatedAt  string           `json:"createdAt"`
+	// Null while the grant is pending (a pending grant allows nothing).
+	ActivatedAt *string `json:"activatedAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows bool `json:"allows"`
+	// #3649 slice D (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — its signatures, each re-verified on this read from the stored assertion. Readable by exactly those who may read the grant; it adds no reach.
+	SignatureStatus *MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus `json:"signatureStatus"`
+}
+
+// GetId returns MyGrantsMyGrantsGrantsPageItemsGrant.Id, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetId() string { return v.Id }
+
+// GetAppId returns MyGrantsMyGrantsGrantsPageItemsGrant.AppId, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetAppId() string { return v.AppId }
+
+// GetAction returns MyGrantsMyGrantsGrantsPageItemsGrant.Action, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetAction() string { return v.Action }
+
+// GetValues returns MyGrantsMyGrantsGrantsPageItemsGrant.Values, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetValues() *json.RawMessage { return v.Values }
+
+// GetHolderKind returns MyGrantsMyGrantsGrantsPageItemsGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderId returns MyGrantsMyGrantsGrantsPageItemsGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetHolderId() string { return v.HolderId }
+
+// GetStartsAt returns MyGrantsMyGrantsGrantsPageItemsGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetStartsAt() *string { return v.StartsAt }
+
+// GetExpiresAt returns MyGrantsMyGrantsGrantsPageItemsGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetMaxUses returns MyGrantsMyGrantsGrantsPageItemsGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetMaxUses() *int { return v.MaxUses }
+
+// GetUseCount returns MyGrantsMyGrantsGrantsPageItemsGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetUseCount() int { return v.UseCount }
+
+// GetReason returns MyGrantsMyGrantsGrantsPageItemsGrant.Reason, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetReason() string { return v.Reason }
+
+// GetCreatedAt returns MyGrantsMyGrantsGrantsPageItemsGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns MyGrantsMyGrantsGrantsPageItemsGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetRevokedAt returns MyGrantsMyGrantsGrantsPageItemsGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns MyGrantsMyGrantsGrantsPageItemsGrant.Allows, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetAllows() bool { return v.Allows }
+
+// GetSignatureStatus returns MyGrantsMyGrantsGrantsPageItemsGrant.SignatureStatus, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrant) GetSignatureStatus() *MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus {
+	return v.SignatureStatus
+}
+
+// MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus includes the requested fields of the GraphQL type GrantSignatureStatus.
+// The GraphQL type's documentation follows.
+//
+// #3649 slice D — a grant's signatures. No grant state label is derived here.
+type MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus struct {
+	// CURRENT if any signature is current, else the best of PENDING, EARLIER, CANCELLED; null with no signatures.
+	State *GrantSignatureState `json:"state"`
+	// Records that fail re-verification or are inconsistent with the grant: reported, never listed as signatures.
+	IntegrityProblems int `json:"integrityProblems"`
+}
+
+// GetState returns MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus.State, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus) GetState() *GrantSignatureState {
+	return v.State
+}
+
+// GetIntegrityProblems returns MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus.IntegrityProblems, and is useful for accessing the field via an interface.
+func (v *MyGrantsMyGrantsGrantsPageItemsGrantSignatureStatus) GetIntegrityProblems() int {
+	return v.IntegrityProblems
+}
+
+// MyGrantsResponse is returned by MyGrants on success.
+type MyGrantsResponse struct {
+	// The caller's own grants across every App (#3800, hrn:node:hadronmemory.com:specs:cor:acl:140:05, ruling 0255 item 8): the rows naming the signed-in person directly as holder, in every state, newest first.
+	// Never another holder's, and never a row the person only issued or requested for someone else. Leaving an Org does not hide a grant. A soft-deleted App conceals its grants. There is no state label; allows is the one live function.
+	// An App key, a run, an impersonated session and a worker session get an empty page, never an error. limit 0 returns the count only.
+	MyGrants *MyGrantsMyGrantsGrantsPage `json:"myGrants"`
+}
+
+// GetMyGrants returns MyGrantsResponse.MyGrants, and is useful for accessing the field via an interface.
+func (v *MyGrantsResponse) GetMyGrants() *MyGrantsMyGrantsGrantsPage { return v.MyGrants }
 
 // MyPasskeysMyPasskeysPasskeyCredential includes the requested fields of the GraphQL type PasskeyCredential.
 // The GraphQL type's documentation follows.
@@ -117869,6 +118016,18 @@ type __MovePreviewSourceInput struct {
 // GetRef returns __MovePreviewSourceInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MovePreviewSourceInput) GetRef() string { return v.Ref }
 
+// __MyGrantsInput is used internally by genqlient
+type __MyGrantsInput struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// GetLimit returns __MyGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MyGrantsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MyGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MyGrantsInput) GetOffset() int { return v.Offset }
+
 // __MyUserApiKeysInput is used internally by genqlient
 type __MyUserApiKeysInput struct {
 	Limit         int   `json:"limit"`
@@ -147045,6 +147204,65 @@ func MyApp(
 	}
 
 	data_ = &MyAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MyGrants.
+const MyGrants_Operation = `
+query MyGrants ($limit: Int!, $offset: Int!) {
+	myGrants(limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			appId
+			action
+			values
+			holderKind
+			holderId
+			startsAt
+			expiresAt
+			maxUses
+			useCount
+			reason
+			createdAt
+			activatedAt
+			revokedAt
+			allows
+			signatureStatus {
+				state
+				integrityProblems
+			}
+		}
+	}
+}
+`
+
+// Signed-in person's own grants across Apps, never a worker-bound read.
+// No signature records, signer identity or manager-only departure/revoker fields.
+func MyGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit int,
+	offset int,
+) (data_ *MyGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MyGrants",
+		Query:  MyGrants_Operation,
+		Variables: &__MyGrantsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MyGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
