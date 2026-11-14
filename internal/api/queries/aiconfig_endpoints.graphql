@@ -107,3 +107,28 @@ mutation UpdateAiServiceConfigWithEndpoint(
     ...AiServiceConfigEndpointFields
   }
 }
+
+# cli#1882 / hadron-server#3857: the server-computed AiServiceConfig URN. These
+# are their OWN documents, so the operations above keep today's selection and an
+# older server (no `urn` field) only fails validation when one of these is sent;
+# the aiconfig package then falls back to the operation above. `ref` accepts an
+# id or the URN form; on the URN path a config the caller cannot read answers
+# null, exactly as a missing one does (cor:api:120:01).
+query AiServiceConfigWithUrn($ref: ID!) {
+  aiServiceConfig(ref: $ref) {
+    ...AiServiceConfigEndpointFields
+    urn
+  }
+}
+
+query ResolveAiServiceConfigsWithEndpointAndUrn(
+  # @genqlient(omitempty: true)
+  $appRef: ID
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+) {
+  resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
+    ...AiServiceConfigEndpointFields
+    urn
+  }
+}

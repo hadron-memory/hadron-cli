@@ -102,3 +102,29 @@ mutation UpdateAiServiceConfig(
 mutation DeleteAiServiceConfig($id: ID!) {
   deleteAiServiceConfig(id: $id)
 }
+
+# cli#1882: ResolveAiServiceConfigs plus the server-computed `urn`. A separate
+# document so an older server without the field keeps working (the command
+# falls back to ResolveAiServiceConfigs on a missing-`urn` validation error).
+query ResolveAiServiceConfigsWithUrn(
+  # @genqlient(omitempty: true)
+  $appRef: ID
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+) {
+  resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
+    id
+    name
+    ownerType
+    ownerId
+    provider
+    model
+    hasApiKey
+    apiKeyPreview
+    params
+    enabled
+    createdAt
+    updatedAt
+    urn
+  }
+}

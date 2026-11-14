@@ -83,55 +83,93 @@ Both views are masked: only hasApiKey and apiKeyPreview, never the key.`,
 				return err
 			}
 			if withEndpoints {
-				resp, err := gen.ResolveAiServiceConfigsWithEndpoint(cmd.Context(), client, optional(appCtx), optional(agent))
-				if err != nil {
+				configs := make([]urnConfigDTO, 0)
+				resp, err := gen.ResolveAiServiceConfigsWithEndpointAndUrn(cmd.Context(), client, optional(appCtx), optional(agent))
+				switch {
+				case err == nil:
+					for _, c := range resp.ResolveAiServiceConfigs {
+						if c != nil {
+							configs = append(configs, urnConfigDTO{endpointConfigDTO: dtoFromEndpointFields(c.AiServiceConfigEndpointFields), URN: c.Urn})
+						}
+					}
+				case isMissingURNField(err):
+					old, err := gen.ResolveAiServiceConfigsWithEndpoint(cmd.Context(), client, optional(appCtx), optional(agent))
+					if err != nil {
+						return mapEndpointError(err)
+					}
+					for _, c := range old.ResolveAiServiceConfigs {
+						if c != nil {
+							configs = append(configs, urnConfigDTO{endpointConfigDTO: dtoFromEndpointFields(c.AiServiceConfigEndpointFields)})
+						}
+					}
+				default:
 					return mapEndpointError(err)
 				}
-				configs := make([]endpointConfigDTO, 0, len(resp.ResolveAiServiceConfigs))
-				for _, c := range resp.ResolveAiServiceConfigs {
-					if c != nil {
-						configs = append(configs, dtoFromEndpointFields(c.AiServiceConfigEndpointFields))
-					}
-				}
 				return output.Write(f.IOStreams, f.JSON, configs, func(w io.Writer) error {
-					t := output.NewTable(w, "NAME", "OWNER", "PROVIDER", "MODEL", "ENABLED", "KEY", "STORED ENDPOINT", "EFFECTIVE ENDPOINT")
+					showURN := false
+					for _, c := range configs {
+						showURN = showURN || hasURN(c.URN)
+					}
+					header := []string{"NAME", "OWNER", "PROVIDER", "MODEL", "ENABLED", "KEY", "STORED ENDPOINT", "EFFECTIVE ENDPOINT"}
+					if showURN {
+						header = append(header, "URN")
+					}
+					t := output.NewTable(w, header...)
 					for _, c := range configs {
 						key := endpointDisplay(c.APIKeyPreview, "—")
 						enabled := "false"
 						if c.Enabled {
 							enabled = "true"
 						}
-						t.Row(output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key),
-							output.SafeCell(endpointDisplay(c.Endpoint, "provider default")), output.SafeCell(endpointDisplay(c.EffectiveEndpoint, "server-derived")))
+						row := []string{output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key),
+							output.SafeCell(endpointDisplay(c.Endpoint, "provider default")), output.SafeCell(endpointDisplay(c.EffectiveEndpoint, "server-derived"))}
+						if showURN {
+							row = append(row, output.SafeCell(urnCell(c.URN)))
+						}
+						t.Row(row...)
 					}
 					return t.Flush()
 				})
 			}
-			resp, err := gen.ResolveAiServiceConfigs(cmd.Context(), client, optional(appCtx), optional(agent))
-			if err != nil {
+			configs := make([]urnMaskedDTO, 0)
+			resp, err := gen.ResolveAiServiceConfigsWithUrn(cmd.Context(), client, optional(appCtx), optional(agent))
+			switch {
+			case err == nil:
+				for _, c := range resp.ResolveAiServiceConfigs {
+					configs = append(configs, urnMaskedDTO{aiConfigDTO: aiConfigDTO{
+						ID: c.Id, Name: c.Name, OwnerType: string(c.OwnerType), OwnerID: c.OwnerId,
+						Provider: c.Provider, Model: c.Model, HasAPIKey: c.HasApiKey,
+						APIKeyPreview: c.ApiKeyPreview, Params: c.Params, Enabled: c.Enabled,
+						CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+					}, URN: c.Urn})
+				}
+			case isMissingURNField(err):
+				old, err := gen.ResolveAiServiceConfigs(cmd.Context(), client, optional(appCtx), optional(agent))
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, c := range old.ResolveAiServiceConfigs {
+					configs = append(configs, urnMaskedDTO{aiConfigDTO: aiConfigDTO{
+						ID: c.Id, Name: c.Name, OwnerType: string(c.OwnerType), OwnerID: c.OwnerId,
+						Provider: c.Provider, Model: c.Model, HasAPIKey: c.HasApiKey,
+						APIKeyPreview: c.ApiKeyPreview, Params: c.Params, Enabled: c.Enabled,
+						CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+					}})
+				}
+			default:
 				return api.MapError(err)
 			}
 
-			configs := make([]aiConfigDTO, 0, len(resp.ResolveAiServiceConfigs))
-			for _, c := range resp.ResolveAiServiceConfigs {
-				configs = append(configs, aiConfigDTO{
-					ID:            c.Id,
-					Name:          c.Name,
-					OwnerType:     string(c.OwnerType),
-					OwnerID:       c.OwnerId,
-					Provider:      c.Provider,
-					Model:         c.Model,
-					HasAPIKey:     c.HasApiKey,
-					APIKeyPreview: c.ApiKeyPreview,
-					Params:        c.Params,
-					Enabled:       c.Enabled,
-					CreatedAt:     c.CreatedAt,
-					UpdatedAt:     c.UpdatedAt,
-				})
-			}
-
 			return output.Write(f.IOStreams, f.JSON, configs, func(w io.Writer) error {
-				t := output.NewTable(w, "NAME", "OWNER", "PROVIDER", "MODEL", "ENABLED", "KEY")
+				showURN := false
+				for _, c := range configs {
+					showURN = showURN || hasURN(c.URN)
+				}
+				header := []string{"NAME", "OWNER", "PROVIDER", "MODEL", "ENABLED", "KEY"}
+				if showURN {
+					header = append(header, "URN")
+				}
+				t := output.NewTable(w, header...)
 				for _, c := range configs {
 					key := "—"
 					if c.APIKeyPreview != nil && *c.APIKeyPreview != "" {
@@ -141,7 +179,11 @@ Both views are masked: only hasApiKey and apiKeyPreview, never the key.`,
 					if c.Enabled {
 						enabled = "true"
 					}
-					t.Row(output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key))
+					row := []string{output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key)}
+					if showURN {
+						row = append(row, output.SafeCell(urnCell(c.URN)))
+					}
+					t.Row(row...)
 				}
 				return t.Flush()
 			})
