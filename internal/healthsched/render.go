@@ -54,7 +54,7 @@ func (e *UsageError) Error() string { return e.Msg }
 
 func usagef(format string, a ...any) error { return &UsageError{fmt.Sprintf(format, a...)} }
 
-// Spec is what an entry runs: exactly `<Bin> <job words> --config <Config>`
+// Spec is what an entry runs: `<Bin> <job words> [Extra] --config <Config>`
 // (`team health sweep` for the zero Job).
 type Spec struct {
 	Job      Job           // zero value is the health sweep
@@ -62,11 +62,19 @@ type Spec struct {
 	Config   string        // absolute path of the host config
 	Interval time.Duration // whole minutes, at least one
 	Path     string        // PATH the entry runs with (the installing shell's)
+	// Extra is words between the job's own and --config (#2027): the health
+	// sweep's scheduled entry carries --dry-run=false, so the unattended run
+	// applies duplicate fixes while a manual run stays dry by default. The
+	// owned-line matcher tolerates extra words, so an entry an older CLI
+	// wrote is still recognized as owned and replaced on reinstall.
+	Extra []string
 }
 
 // Argv is the command the entry runs.
 func (s Spec) Argv() []string {
-	return append(append([]string{s.Bin}, s.Job.orHealth().Sub...), "--config", s.Config)
+	argv := append([]string{s.Bin}, s.Job.orHealth().Sub...)
+	argv = append(argv, s.Extra...)
+	return append(argv, "--config", s.Config)
 }
 
 // ValidatePath refuses a path that cannot be quoted safely in every scheduler.

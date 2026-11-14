@@ -13,8 +13,11 @@ type Terminal struct {
 	Handle        string  `json:"handle"`
 	WorktreePath  string  `json:"worktreePath"`
 	AgentIdentity *string `json:"agentIdentity"`
-	Connected     bool    `json:"connected"`
-	Writable      bool    `json:"writable"`
+	// TabID is the tab the terminal lives in (#2027). Empty when Orca says
+	// none: tabs cannot then be counted, and no tab is ever closed.
+	TabID     string `json:"tabId"`
+	Connected bool   `json:"connected"`
+	Writable  bool   `json:"writable"`
 }
 
 // UnmarshalJSON reads Orca's row with router.ts's defaults: connected and
@@ -24,13 +27,14 @@ func (t *Terminal) UnmarshalJSON(b []byte) error {
 		Handle        string  `json:"handle"`
 		WorktreePath  string  `json:"worktreePath"`
 		AgentIdentity *string `json:"agentIdentity"`
+		TabID         string  `json:"tabId"`
 		Connected     *bool   `json:"connected"`
 		Writable      *bool   `json:"writable"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity,
+	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity, TabID: raw.TabID,
 		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable}
 	return nil
 }
@@ -72,6 +76,10 @@ type Client struct {
 
 // NewClient wraps run in Guard.
 func NewClient(run Runner) *Client { return &Client{run: Guard(run)} }
+
+// NewSweepClient wraps run in SweepGuard: the team health sweep's client,
+// whose close verb delivery's Guard refuses on purpose (#2027).
+func NewSweepClient(run Runner) *Client { return &Client{run: SweepGuard(run)} }
 
 // List is every live terminal, looked up fresh: delivery never caches one.
 func (c *Client) List(ctx context.Context) ([]Terminal, error) {
@@ -130,6 +138,19 @@ func (c *Client) ReadScreen(ctx context.Context, handle string) *Screen {
 		sc.Draft = s
 	}
 	return sc
+}
+
+// CloseTab closes the whole tab the terminal lives in, and waits for Orca's
+// durable persistence (`--tab`). Sweep-only (#2027): the caller has
+// positively classified the tab a bare shell first, and re-read it
+// immediately before, so nothing mid-turn is ever closed. The answer is
+// acceptance only, never screen text.
+func (c *Client) CloseTab(ctx context.Context, handle string) error {
+	env, ok := parse(c.run(ctx, []string{"terminal", "close", "--terminal", handle, "--tab", "--json"}))
+	if !ok || !env.OK {
+		return ErrOrca
+	}
+	return nil
 }
 
 // Receipt is what a send established. It carries Orca's stages and an error

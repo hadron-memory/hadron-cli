@@ -3,10 +3,11 @@ package team
 // `team health install|uninstall|status` (hadron-cli#1374, slice C2b of the
 // team health sweep): put the sweep on a schedule on the Orca host without a
 // separate app. The entry is exactly
-//   <abs hadron> team health sweep --config <abs host.yaml>
-// in a systemd user timer, a crontab line or a launchd agent. The host key is
-// never read, written or passed on argv: it stays in the 0600 key file the
-// sweep reads. Scheduler calls go through healthsched's injected Runner.
+//   <abs hadron> team health sweep --dry-run=false --config <abs host.yaml>
+// in a systemd user timer, a crontab line or a launchd agent — the scheduled
+// sweep applies the duplicate fixes (#2027). The host key is never read,
+// written or passed on argv: it stays in the 0600 key file the sweep reads.
+// Scheduler calls go through healthsched's injected Runner.
 
 import (
 	"errors"
@@ -76,9 +77,11 @@ func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
 		Use:   "install --config <host.yaml> --interval <duration> [--bin <path>]",
 		Short: "Run the team health sweep on a schedule on this host",
 		Long: `Install a user-level scheduler entry that runs
-"<hadron> team health sweep --config <host.yaml>" every --interval: a systemd
-user timer on Linux (a crontab line where systemd user units are not
-available) or a launchd agent on macOS. There is no default interval; give
+"<hadron> team health sweep --dry-run=false --config <host.yaml>" every
+--interval: a systemd user timer on Linux (a crontab line where systemd user
+units are not available) or a launchd agent on macOS. The scheduled sweep
+APPLIES the duplicate fixes it finds (#2027); a manual run lists them dry
+unless it passes --dry-run=false itself. There is no default interval; give
 whole minutes, at least 1m (cron needs one that divides an hour or a day
 evenly, such as 5m, 15m, 1h or 6h).
 
@@ -141,7 +144,10 @@ written (uninstall removes them).`,
 			if err != nil {
 				return mapSched(err)
 			}
-			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path}
+			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path,
+				// The scheduled sweep applies (#2027); a manual run stays dry
+				// by default.
+				Extra: []string{"--dry-run=false"}}
 			res, err := healthEnv(f).Install(spec)
 			if err != nil {
 				return mapSched(err)
@@ -155,7 +161,7 @@ written (uninstall removes them).`,
 				if !res.Changed {
 					verb = "already installed, unchanged"
 				}
-				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
+				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --dry-run=false --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
 				return e
 			})
 		},

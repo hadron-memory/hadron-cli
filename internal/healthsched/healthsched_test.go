@@ -929,3 +929,32 @@ func TestUsageJobHasItsOwnIdentity(t *testing.T) {
 		t.Error("usage plist/timer must carry the usage identity")
 	}
 }
+
+// #2027: the scheduled sweep applies, so new entries carry --dry-run=false —
+// but an entry an older CLI wrote (no extra words) is still OWNED: the
+// matcher must claim it, or a reinstall would orphan it and install a second
+// sweep beside it.
+func TestOwnedCronLineClaimsOldAndNewEntries(t *testing.T) {
+	old := Spec{Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"}
+	applying := old
+	applying.Extra = []string{"--dry-run=false"}
+	ol, err := CronLine(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nl, err := CronLine(applying)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{ol, nl} {
+		if !IsOwnedCronLine(line) {
+			t.Errorf("entry not owned:\n%s", line)
+		}
+	}
+	if !strings.Contains(nl, `'sweep' '--dry-run=false' '--config'`) {
+		t.Errorf("new entry does not apply: %s", nl)
+	}
+	if strings.Contains(ol, "--dry-run=false") {
+		t.Errorf("old entry changed shape: %s", ol)
+	}
+}

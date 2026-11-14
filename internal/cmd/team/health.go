@@ -38,6 +38,12 @@ type healthRefusal struct {
 type healthReceipt struct {
 	Reports []healthReport  `json:"reports"`
 	Refused []healthRefusal `json:"refused"`
+	// DryRun is the #2027 posture: true unless the run passed
+	// --dry-run=false (the scheduled entry always does).
+	DryRun bool        `json:"dryRun"`
+	Fixes  []dupeFix   `json:"fixes"`
+	Alerts []dupeAlert `json:"alerts"`
+	Skips  []dupeSkip  `json:"skipped"`
 }
 
 // Decode only the versioned wire contract. Detail, terminal text and unknown
@@ -118,11 +124,23 @@ func newCmdTeamHealthWithReader(f *cmdutil.Factory, read healthStatusReader) *co
 	group := &cobra.Command{Use: "health", Short: "Report this host's workers' terminal health"}
 	var configPath string
 	var statusTimeout time.Duration
+	var dryRun bool
 	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Read terminal status and store code-only reports for this host", Args: cobra.NoArgs,
 		Long: `Read terminal-status@1 JSON from "hadron orca terminal status --all --json"
 and store the status of this host's registered workers in one batch. The status
-command alone classifies terminals; this binary runs its own status command,
-and the sweep never reads screens or types.
+command alone classifies terminals; this binary runs its own status command.
+Screen text is read only to classify, never kept: it reaches no report, log or
+API payload, and the sweep never types into any terminal.
+
+After the reports are stored, the sweep also detects duplicates (#2027): more
+than one agent process in a bound worker's worktree, and more than one terminal
+tab for it. A manual run is DRY (--dry-run, the default): it lists what it
+found and changes nothing. --dry-run=false stops the unsupervised duplicates —
+a SIGTERM to exactly those processes, never to a supervised agent, never to a
+lone agent, never to a worktree whose worker has no session binding — and
+closes extra bare-shell tabs, one notification line posted to the team chat
+from the sweep's own bound session. A team pause in force, or a worker whose
+context reset has not ended, means detect and report only.
 
 Use the same --config host YAML and 0600 key_file as "team host run". The host
 key is never supplied as an argument or environment variable. Orca is resolved
@@ -133,14 +151,16 @@ writing (exit 1). A missing or non-live host registration is exit 8.
 Status rows for workers not registered on this host are ignored.
 
 Exit 0 after a successful write, including per-worker refusals (printed, not
-retried); 1 for a failed write or malformed status contract, 3 for a missing or
+retried) and duplicate findings that could not be acted on (they become alerts);
+1 for a failed write or malformed status contract, 3 for a missing or
 rejected key, 7 when the server is unreachable, 8 for forbidden and 10 when the
 status command cannot reach Orca. The status read is allowed 5 seconds per
 registered worker (at least 2 minutes); --status-timeout overrides that, and a
 read that runs out of time says "terminal status timed out after <duration>"
 (exit 1, nothing written). No scheduling or recovery is installed.
---json contains the sent reports (including refused items) and per-worker
-refusals; never screen text. A report in this list is not a storage receipt.`,
+--json contains the sent reports (including refused items), per-worker
+refusals, dryRun, and the fixes, alerts and skips of the duplicate phase;
+never screen text. A report in this list is not a storage receipt.`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if statusTimeout < 0 {
 				return exitcode.Newf(exitcode.Usage, "--status-timeout must not be negative; nothing written")
@@ -161,6 +181,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 				return healthSafeError(err)
 			}
 			names := map[string]string{}
+			dupesWorkers := []dupeWorker{}
 			live := false
 			if regs != nil {
 				for _, reg := range regs.HostRegistrations {
@@ -176,6 +197,11 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 							}
 							ids[w.WorkerId] = true
 							names[w.Worker.Name] = w.WorkerId
+							urn := ""
+							if w.Worker.Urn != nil {
+								urn = *w.Worker.Urn
+							}
+							dupesWorkers = append(dupesWorkers, dupeWorker{workerID: w.WorkerId, workerName: w.Worker.Name, urn: urn})
 						}
 					}
 				}
@@ -205,7 +231,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 			if err != nil {
 				return err
 			}
-			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}}
+			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}, DryRun: dryRun, Fixes: []dupeFix{}, Alerts: []dupeAlert{}, Skips: []dupeSkip{}}
 			inputs := []*gen.WorkerTerminalReportInput{}
 			matched := map[string]bool{}
 			display := map[string]string{}
@@ -257,6 +283,10 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 					return exitcode.Newf(exitcode.Error, "server did not confirm every health report")
 				}
 			}
+			// The #2027 duplicate phase: after the reports are stored. It
+			// never fails the sweep — its failures surface as alerts.
+			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
+			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				refused := map[string]string{}
 				for _, r := range dto.Refused {
@@ -275,12 +305,46 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 						return e
 					}
 				}
+				who := func(id string) string {
+					if n := display[id]; n != "" {
+						return n
+					}
+					return id
+				}
+				for _, fx := range dto.Fixes {
+					how := "dry-run"
+					if fx.Applied {
+						how = "applied"
+					}
+					// SafeCell on fx.Subject is deliberate defense-in-depth on
+					// /proc-derived text, not a server-text wrapper by
+					// proximity: renderArgv (#1474) already %q-quotes control
+					// runes and bounds the display at 200 bytes, so with the
+					// short "pid N (base): " prefix the cell can never reach
+					// the 256-rune cut — the wrap only re-neutralizes.
+					if _, e := fmt.Fprintf(w, "%s  %s  %s  (%s)\n", output.SafeCell(who(fx.Worker)), fx.Action, output.SafeCell(fx.Subject), how); e != nil {
+						return e
+					}
+				}
+				for _, a := range dto.Alerts {
+					if _, e := fmt.Fprintf(w, "%s  alert  %s  x%d\n", output.SafeCell(who(a.Worker)), a.Code, a.Count); e != nil {
+						return e
+					}
+				}
+				for _, s := range dto.Skips {
+					if _, e := fmt.Fprintf(w, "%s  skip  %s\n", output.SafeCell(who(s.Worker)), s.Code); e != nil {
+						return e
+					}
+				}
 				return nil
 			})
 		}}
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
 	c.Flags().DurationVar(&statusTimeout, "status-timeout", 0, "time allowed for the terminal status read (default: 5s per registered worker, at least 2m)")
+	// The dry default is the #2027 posture: a manual sweep reports, the
+	// scheduled entry (health install) passes --dry-run=false to apply.
+	c.Flags().BoolVar(&dryRun, "dry-run", true, "list duplicate agents and tabs without acting; --dry-run=false stops the unsupervised duplicates and closes extra bare-shell tabs (#2027)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
 	return group

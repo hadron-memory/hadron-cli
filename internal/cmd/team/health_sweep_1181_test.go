@@ -141,7 +141,8 @@ func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 			t.Fatalf("legacy verdict changes output %q != %q", out, first)
 		}
 		var got map[string]any
-		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 2 || got["reports"] == nil || got["refused"] == nil {
+		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 6 || got["reports"] == nil || got["refused"] == nil ||
+			got["dryRun"] != true || got["fixes"] == nil || got["alerts"] == nil || got["skipped"] == nil {
 			t.Fatalf("bad DTO %s", out)
 		}
 	}
@@ -201,7 +202,11 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
       "checkedAt": "2026-10-31T02:00:00Z"
     }
   ],
-  "refused": []
+  "refused": [],
+  "dryRun": true,
+  "fixes": [],
+  "alerts": [],
+  "skipped": []
 }
 `
 	if out != golden {
