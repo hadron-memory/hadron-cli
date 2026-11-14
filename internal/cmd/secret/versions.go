@@ -111,7 +111,7 @@ writtenByWorkerId); an empty list is [].`,
 				}
 				if len(out.Versions) == 0 {
 					if out.Total > 0 {
-						_, err := fmt.Fprintf(w, "%d kept versions (none shown on this page; --limit 0 counts only)\n", out.Total)
+						_, err := fmt.Fprintf(w, "%d kept versions (no rows on this page; --limit 0 counts only, and --offset may be past the end)\n", out.Total)
 						return err
 					}
 					_, err := fmt.Fprintln(w, "no versions")
