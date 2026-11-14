@@ -69,6 +69,26 @@ const (
 	// was asked of it. Distinct from 1/2 so a script tells "upgrade the adapter
 	// or the CLI" from a usage slip or an adapter failure.
 	AdapterSkew = 15
+	// The `hadron orca terminal recover|recreate` refusals (cli#2015). Each
+	// is a different next action for a human or a script, and each means
+	// nothing was created:
+	//
+	// RecoverRefused: a live agent (or one that cannot be shown gone) is in
+	// the worktree and the command was not allowed to end it; the safe reading
+	// of "never two agents".
+	RecoverRefused = 16
+	// RecoverNoLaunch: host.yaml has no launch entry (or no worktree) for the
+	// worker: provisioning is incomplete, not a runtime fault.
+	RecoverNoLaunch = 17
+	// RecoverUnsupported: the worker is not a Claude worker; v1 resumes only
+	// Claude (`--resume <id>`).
+	RecoverUnsupported = 18
+	// RecoverNoTranscript: no transcript at or before the death time to resume
+	// (and, with --fresh, no staged recovery prompt either).
+	RecoverNoTranscript = 19
+	// RecoverUnverified: the terminal was created but exactly one agent could
+	// not be shown running in the worktree afterwards.
+	RecoverUnverified = 20
 )
 
 // CodedError carries an exit code alongside an error. The root

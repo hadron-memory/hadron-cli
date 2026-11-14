@@ -33,12 +33,19 @@ type fakeOrca struct {
 	terms    []map[string]any
 	screens  map[string][]string
 	commands []string
+	// hook answers a call before the built-in list/read, for create and close.
+	hook func(argv []string) (orcaterm.Result, bool)
 }
 
 func (o *fakeOrca) run(_ context.Context, argv []string) orcaterm.Result {
 	o.commands = append(o.commands, strings.Join(argv, " "))
 	if o.down {
 		return orcaterm.Result{Code: 1, Stderr: "call failed: executable file not found"}
+	}
+	if o.hook != nil {
+		if res, ok := o.hook(argv); ok {
+			return res
+		}
 	}
 	switch argv[0] + " " + argv[1] {
 	case "terminal list":

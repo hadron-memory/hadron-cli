@@ -270,3 +270,63 @@ func RenameTab(ctx context.Context, run Runner, handle, title string) error {
 	}
 	return nil
 }
+
+// CreateTerminal opens a titled terminal in the worktree at path and types
+// command into it (`orca terminal create`), through run, the raw runner: like a
+// rename it is not one of the four delivery calls, so Guard would refuse it.
+// It returns the new terminal's handle. title and command must be non-empty;
+// both are passed as --flag=value so a leading "-" is never read as a flag. The
+// error is a code, never Orca's output.
+func CreateTerminal(ctx context.Context, run Runner, path, title, command string) (string, error) {
+	if path == "" || title == "" || command == "" {
+		return "", ErrOrca
+	}
+	env, ok := parse(run(ctx, []string{"terminal", "create", "--worktree", "path:" + path, "--title=" + title, "--command=" + command, "--json"}))
+	if !ok || !env.OK {
+		return "", ErrOrca
+	}
+	var generic any
+	if json.Unmarshal(env.Result, &generic) != nil {
+		return "", ErrOrca
+	}
+	if h := findHandle(generic); h != "" {
+		return h, nil
+	}
+	return "", ErrOrca
+}
+
+// findHandle is the first string "handle" anywhere in a result.
+func findHandle(node any) string {
+	switch v := node.(type) {
+	case []any:
+		for _, e := range v {
+			if h := findHandle(e); h != "" {
+				return h
+			}
+		}
+	case map[string]any:
+		if h, ok := v["handle"].(string); ok && h != "" {
+			return h
+		}
+		for _, e := range v {
+			if h := findHandle(e); h != "" {
+				return h
+			}
+		}
+	}
+	return ""
+}
+
+// CloseTab closes one terminal's whole tab (`orca terminal close --tab`),
+// which stops its processes, through run (the raw runner, see CreateTerminal).
+// The error is a code, never Orca's output.
+func CloseTab(ctx context.Context, run Runner, handle string) error {
+	if handle == "" {
+		return ErrOrca
+	}
+	env, ok := parse(run(ctx, []string{"terminal", "close", "--terminal", handle, "--tab", "--json"}))
+	if !ok || !env.OK {
+		return ErrOrca
+	}
+	return nil
+}

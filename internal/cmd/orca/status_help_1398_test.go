@@ -293,7 +293,8 @@ func TestOrcaGroupHelp(t *testing.T) {
 			term = c.Long
 		}
 	}
-	mustContain(t, "orca terminal", term, "status", "Orca is", "reads only")
+	// cli#2015: the group is no longer read-only; only `status` is.
+	mustContain(t, "orca terminal", term, "status", "Orca is", "Reads only", "recover", "recreate")
 }
 
 // George's P2-2: every agentic-usage mention of the --all array must say it is

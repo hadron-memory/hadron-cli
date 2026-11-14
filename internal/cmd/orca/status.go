@@ -45,6 +45,9 @@ type Env struct {
 	// HostReads builds the reads for --config: the host key's own client,
 	// never the factory's ambient one. Nil means the real one.
 	HostReads func(f *cmdutil.Factory, cfg *hostpoller.Config, key string) (Reads, error)
+	// Recover is `terminal recover|recreate`'s process scan, transcripts and
+	// waits; the zero value is the real ones.
+	Recover RecoverEnv
 }
 
 func defaultEnv(f *cmdutil.Factory) Env {
