@@ -27,12 +27,13 @@ type Job struct {
 	Name         string   // systemd unit base name and the cron marker
 	LaunchdLabel string   // launchd agent label
 	Sub          []string // words after the binary, before --config
+	Args         []string // words after --config: flags the scheduled run needs and a manual run must not
 	Describes    string   // what the unit does, for its Description=
 	UninstallCmd string   // the command a refusal tells the operator to run
 }
 
 // Health is the team health sweep job (the zero Job).
-var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
+var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Args: []string{"--dry-run=false"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
 
 // Usage is the account-usage collector job (cli#1472).
 var Usage = Job{Name: "hadron-team-usage", LaunchdLabel: "com.hadronmemory.team-usage", Sub: []string{"team", "usage", "collect"}, Describes: "team usage collection", UninstallCmd: "hadron team usage uninstall"}
@@ -54,27 +55,21 @@ func (e *UsageError) Error() string { return e.Msg }
 
 func usagef(format string, a ...any) error { return &UsageError{fmt.Sprintf(format, a...)} }
 
-// Spec is what an entry runs: `<Bin> <job words> [Extra] --config <Config>`
-// (`team health sweep` for the zero Job).
+// Spec is what an entry runs: exactly `<Bin> <job words> --config <Config>
+// <job args>` (`team health sweep … --dry-run=false` for the zero Job — the
+// #2017/#2036 Job.Args mechanism this change adopts for #2027 too).
 type Spec struct {
 	Job      Job           // zero value is the health sweep
 	Bin      string        // absolute path of hadron
 	Config   string        // absolute path of the host config
 	Interval time.Duration // whole minutes, at least one
 	Path     string        // PATH the entry runs with (the installing shell's)
-	// Extra is words between the job's own and --config (#2027): the health
-	// sweep's scheduled entry carries --dry-run=false, so the unattended run
-	// applies duplicate fixes while a manual run stays dry by default. The
-	// owned-line matcher tolerates extra words, so an entry an older CLI
-	// wrote is still recognized as owned and replaced on reinstall.
-	Extra []string
 }
 
 // Argv is the command the entry runs.
 func (s Spec) Argv() []string {
-	argv := append([]string{s.Bin}, s.Job.orHealth().Sub...)
-	argv = append(argv, s.Extra...)
-	return append(argv, "--config", s.Config)
+	j := s.Job.orHealth()
+	return append(append(append([]string{s.Bin}, j.Sub...), "--config", s.Config), j.Args...)
 }
 
 // ValidatePath refuses a path that cannot be quoted safely in every scheduler.

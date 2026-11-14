@@ -77,11 +77,11 @@ func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
 		Use:   "install --config <host.yaml> --interval <duration> [--bin <path>]",
 		Short: "Run the team health sweep on a schedule on this host",
 		Long: `Install a user-level scheduler entry that runs
-"<hadron> team health sweep --dry-run=false --config <host.yaml>" every
---interval: a systemd user timer on Linux (a crontab line where systemd user
-units are not available) or a launchd agent on macOS. The scheduled sweep
-APPLIES the duplicate fixes it finds (#2027); a manual run lists them dry
-unless it passes --dry-run=false itself. There is no default interval; give
+"<hadron> team health sweep --config <host.yaml> --dry-run=false" every
+--interval (the flag makes the scheduled sweep apply tab titles and the
+duplicate fixes; a manual sweep only lists them): a systemd
+user timer on Linux (a crontab line where systemd user units are not
+available) or a launchd agent on macOS. There is no default interval; give
 whole minutes, at least 1m (cron needs one that divides an hour or a day
 evenly, such as 5m, 15m, 1h or 6h).
 
@@ -144,10 +144,10 @@ written (uninstall removes them).`,
 			if err != nil {
 				return mapSched(err)
 			}
-			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path,
-				// The scheduled sweep applies (#2027); a manual run stays dry
-				// by default.
-				Extra: []string{"--dry-run=false"}}
+			// The zero Job already carries --dry-run=false in its Args
+			// (#2017): the scheduled sweep applies tab titles and duplicate
+			// fixes (#2027); a manual run stays dry by default.
+			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path}
 			res, err := healthEnv(f).Install(spec)
 			if err != nil {
 				return mapSched(err)

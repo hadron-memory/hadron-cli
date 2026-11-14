@@ -121,11 +121,13 @@ func health2027Setup(t *testing.T) *health2027World {
 	}
 
 	// The fake orca: list reads a JSON file, read answers a per-handle screen
-	// file, close appends the handle to a record. The N3 recheck variants —
-	// a second listing, a second screen per handle, a failing second list —
-	// are opt-in per test through the files the counters branch on: the
-	// sweep's recheck is exactly the second list and the second read of the
-	// tab's handles.
+	// file, close appends the handle to a record, rename answers ok. The N3
+	// recheck variants — a later listing, a second screen per handle, a
+	// failing recheck list — are opt-in per test through the files the
+	// counters branch on. One sweep Lists three times (the #2017 title pass,
+	// the sweep's own first listing, then the recheck), so the variants arm
+	// from the THIRD list; the title pass reads no screens, so the recheck
+	// stays the SECOND read of a handle.
 	listPath := filepath.Join(dir, "orca-list.json")
 	w.list2Path = filepath.Join(dir, "orca-list-2.json")
 	w.failList2 = filepath.Join(dir, "orca-list-2.fail")
@@ -145,14 +147,15 @@ func health2027Setup(t *testing.T) *health2027World {
 	script := "#!/bin/sh\ncase \"$1 $2\" in\n" +
 		"  \"terminal list\")\n" +
 		"    n=$(\"" + incr + "\" \"" + counts + "/list\")\n" +
-		"    if [ \"$n\" -ge 2 ] && [ -f \"" + w.failList2 + "\" ]; then exit 1; fi\n" +
-		"    if [ \"$n\" -ge 2 ] && [ -f \"" + w.list2Path + "\" ]; then cat \"" + w.list2Path + "\"; else cat \"" + listPath + "\"; fi;;\n" +
+		"    if [ \"$n\" -ge 3 ] && [ -f \"" + w.failList2 + "\" ]; then exit 1; fi\n" +
+		"    if [ \"$n\" -ge 3 ] && [ -f \"" + w.list2Path + "\" ]; then cat \"" + w.list2Path + "\"; else cat \"" + listPath + "\"; fi;;\n" +
 		"  \"terminal read\")\n" +
 		"    n=$(\"" + incr + "\" \"" + counts + "/read-$4\")\n" +
 		"    f=\"" + screens + "/$4.json\"\n" +
 		"    if [ \"$n\" -ge 2 ] && [ -f \"" + screens + "/$4.json.2\" ]; then f=\"" + screens + "/$4.json.2\"; fi\n" +
 		"    printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"$f\"; printf '%s' ',\"draft\":null}}}';;\n" +
 		"  \"terminal close\") echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
+		"  \"terminal rename\") printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
 	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
@@ -261,11 +264,14 @@ func (w *health2027World) setTerminals(t *testing.T, terms []health2027Term) {
 }
 
 // writeList renders terms as one `terminal list --json` answer body at path.
+// Every row's title is the worker's name ("Iris"): the merged #2017 title
+// pass then finds nothing to rename, so its lines stay out of these tests'
+// receipts (the title pass has its own tests).
 func (w *health2027World) writeList(t *testing.T, path string, terms []health2027Term) {
 	t.Helper()
 	rows := make([]string, 0, len(terms))
 	for _, tm := range terms {
-		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"connected":true,"writable":true}`, tm.Handle, w.worktree, tm.Tab))
+		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":"Iris","connected":true,"writable":true}`, tm.Handle, w.worktree, tm.Tab))
 	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
 	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
@@ -273,7 +279,7 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 	}
 }
 
-// setRecheckList makes every `terminal list` call after the FIRST answer
+// setRecheckList makes every `terminal list` call from the RECHECK on answer
 // terms instead (#2037 N3): the sweep's pre-close recheck re-lists, and the
 // world it then sees is this one. A handle with no screen file yet gets one,
 // so the recheck can read it.
@@ -290,8 +296,8 @@ func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
 	}
 }
 
-// failRecheckList makes every `terminal list` call after the FIRST fail
-// (#2037 N3): the recheck cannot verify the tab and must decline.
+// failRecheckList makes the recheck's `terminal list` call fail (#2037 N3):
+// the recheck cannot verify the tab and must decline.
 func (w *health2027World) failRecheckList(t *testing.T) {
 	t.Helper()
 	if err := os.WriteFile(w.failList2, []byte(""), 0o600); err != nil {

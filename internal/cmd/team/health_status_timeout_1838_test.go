@@ -118,6 +118,7 @@ func sweep1838(t *testing.T, n int, extra []string, readErr error) (time.Duratio
 	streams, _, _ := output.Test()
 	f.IOStreams = streams
 	var got time.Duration
+	stubNoTabs(t)
 	c := newCmdTeamHealthWithReader(f, func(ctx context.Context, _ string, _ *hostpoller.Config) ([]byte, int, error) {
 		got = healthStatusTimeout(ctx)
 		return nil, 1, readErr
@@ -300,6 +301,7 @@ func sweepStoresN(t *testing.T, n int, mk func(rows, dir string) healthStatusRea
 	f.IOStreams = streams
 	var deadline time.Duration
 	inner := mk("["+strings.Join(rows, ",")+"]", dir)
+	stubNoTabs(t)
 	c := newCmdTeamHealthWithReader(f, func(ctx context.Context, p string, cfg *hostpoller.Config) ([]byte, int, error) {
 		deadline = healthStatusTimeout(ctx)
 		return inner(ctx, p, cfg)

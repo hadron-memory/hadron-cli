@@ -13,11 +13,14 @@ type Terminal struct {
 	Handle        string  `json:"handle"`
 	WorktreePath  string  `json:"worktreePath"`
 	AgentIdentity *string `json:"agentIdentity"`
-	// TabID is the tab the terminal lives in (#2027). Empty when Orca says
-	// none: tabs cannot then be counted, and no tab is ever closed.
-	TabID     string `json:"tabId"`
-	Connected bool   `json:"connected"`
-	Writable  bool   `json:"writable"`
+	Connected     bool    `json:"connected"`
+	Writable      bool    `json:"writable"`
+	// TabID names the tab a terminal pane sits in; a tab's title is shared
+	// by its panes (#2027: empty when Orca says none — tabs cannot then be
+	// counted, and no tab is ever closed). Title is the tab's current
+	// title, as the list reports it (#2017).
+	TabID string `json:"tabId"`
+	Title string `json:"title"`
 }
 
 // UnmarshalJSON reads Orca's row with router.ts's defaults: connected and
@@ -27,15 +30,17 @@ func (t *Terminal) UnmarshalJSON(b []byte) error {
 		Handle        string  `json:"handle"`
 		WorktreePath  string  `json:"worktreePath"`
 		AgentIdentity *string `json:"agentIdentity"`
-		TabID         string  `json:"tabId"`
 		Connected     *bool   `json:"connected"`
 		Writable      *bool   `json:"writable"`
+		TabID         string  `json:"tabId"`
+		Title         string  `json:"title"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity, TabID: raw.TabID,
-		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable}
+	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity,
+		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable,
+		TabID: raw.TabID, Title: raw.Title}
 	return nil
 }
 
@@ -266,4 +271,21 @@ func findRequestID(node any) string {
 		}
 	}
 	return ""
+}
+
+// RenameTab sets one terminal tab's title through run, which is the raw runner:
+// the delivery Guard allows only the four delivery calls, and a rename is not
+// one of them, so the title pass owns this single extra call. title must be
+// non-empty (an empty title would reset the tab to its automatic one). It is
+// passed as --title=<text> so a name starting with "-" is never read as a flag.
+// The error is a code, never Orca's output.
+func RenameTab(ctx context.Context, run Runner, handle, title string) error {
+	if handle == "" || title == "" {
+		return ErrOrca
+	}
+	env, ok := parse(run(ctx, []string{"terminal", "rename", "--terminal", handle, "--title=" + title, "--json"}))
+	if !ok || !env.OK {
+		return ErrOrca
+	}
+	return nil
 }

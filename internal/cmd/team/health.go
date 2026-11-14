@@ -38,7 +38,10 @@ type healthRefusal struct {
 type healthReceipt struct {
 	Reports []healthReport  `json:"reports"`
 	Refused []healthRefusal `json:"refused"`
-	// DryRun is the #2027 posture: true unless the run passed
+	// Renames is the title pass (cli#2017): one entry per tab renamed, or that
+	// a dry run would rename. Always a list.
+	Renames []healthRename `json:"renames"`
+	// DryRun is the shared #2017/#2027 posture: true unless the run passed
 	// --dry-run=false (the scheduled entry always does).
 	DryRun bool        `json:"dryRun"`
 	Fixes  []dupeFix   `json:"fixes"`
@@ -158,9 +161,25 @@ status command cannot reach Orca. The status read is allowed 5 seconds per
 registered worker (at least 2 minutes); --status-timeout overrides that, and a
 read that runs out of time says "terminal status timed out after <duration>"
 (exit 1, nothing written). No scheduling or recovery is installed.
+Tab titles. After the batch is stored, the sweep sets the title of every Orca
+tab in a registered worker's worktree to the worker's bare name
+("hadron team worker terminal-title"), when it differs; a second sweep changes
+nothing. A tab is matched by its worktree's session binding, so a plain shell
+or a worktree with no registered worker is never touched. --dry-run is on by
+default: a manual run lists the renames it would make and changes nothing; the
+installed timer passes --dry-run=false. A tab that fails to rename is listed
+with its error, the rest still go ahead, and the sweep then exits 1.
+
+Duplicate agents and tabs. Also after the batch is stored, the sweep detects
+more than one agent process and more than one terminal tab per bound-worker
+worktree: the same --dry-run posture lists the duplicate agents it would stop
+(the unsupervised ones, a pidfd-pinned SIGTERM) and the extra bare-shell tabs
+it would close, and --dry-run=false applies them; a team pause or an unfinished
+context reset means report only. Duplicate findings that could not be acted on
+become alerts and never fail the sweep.
 --json contains the sent reports (including refused items), per-worker
-refusals, dryRun, and the fixes, alerts and skips of the duplicate phase;
-never screen text. A report in this list is not a storage receipt.`,
+refusals, dryRun, renames, and the fixes, alerts and skips of the duplicate
+phase; never screen text. A report in this list is not a storage receipt.`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if statusTimeout < 0 {
 				return exitcode.Newf(exitcode.Usage, "--status-timeout must not be negative; nothing written")
@@ -231,7 +250,7 @@ never screen text. A report in this list is not a storage receipt.`,
 			if err != nil {
 				return err
 			}
-			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}, DryRun: dryRun, Fixes: []dupeFix{}, Alerts: []dupeAlert{}, Skips: []dupeSkip{}}
+			dto := healthReceipt{Reports: []healthReport{}, Refused: []healthRefusal{}, Renames: []healthRename{}, DryRun: dryRun, Fixes: []dupeFix{}, Alerts: []dupeAlert{}, Skips: []dupeSkip{}}
 			inputs := []*gen.WorkerTerminalReportInput{}
 			matched := map[string]bool{}
 			display := map[string]string{}
@@ -283,11 +302,20 @@ never screen text. A report in this list is not a storage receipt.`,
 					return exitcode.Newf(exitcode.Error, "server did not confirm every health report")
 				}
 			}
-			// The #2027 duplicate phase: after the reports are stored. It
-			// never fails the sweep — its failures surface as alerts.
+			// The #2017 title pass, then the #2027 duplicate phase: both run
+			// after the reports are stored. Neither types into a terminal;
+			// the duplicate phase never fails the sweep — its failures
+			// surface as alerts — and the title pass's error, if any, is the
+			// sweep's exit after the receipt is written.
+			workerNames := make(map[string]string, len(names))
+			for name, id := range names {
+				workerNames[id] = name
+			}
+			renames, titleErr := healthTitles(c.Context(), cfg, workerNames, !dryRun)
+			dto.Renames = append(dto.Renames, renames...)
 			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
 			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				refused := map[string]string{}
 				for _, r := range dto.Refused {
 					refused[r.Worker] = r.Code
@@ -302,6 +330,18 @@ never screen text. A report in this list is not a storage receipt.`,
 						suffix = " (refused: " + code + ")"
 					}
 					if _, e := fmt.Fprintf(w, "%s  %s  %s%s\n", output.SafeCell(display[r.Worker]), r.Status, reason, suffix); e != nil {
+						return e
+					}
+				}
+				for _, r := range dto.Renames {
+					verb := "would rename"
+					switch {
+					case r.Error != nil:
+						verb = "rename failed (" + *r.Error + ")"
+					case r.Applied:
+						verb = "renamed"
+					}
+					if _, e := fmt.Fprintf(w, "title  %s  %s  %q -> %q\n", output.SafeCell(r.Name), verb, output.SafeCell(r.From), output.SafeCell(r.To)); e != nil {
 						return e
 					}
 				}
@@ -337,14 +377,18 @@ never screen text. A report in this list is not a storage receipt.`,
 					}
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			return titleErr
 		}}
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
 	c.Flags().DurationVar(&statusTimeout, "status-timeout", 0, "time allowed for the terminal status read (default: 5s per registered worker, at least 2m)")
-	// The dry default is the #2027 posture: a manual sweep reports, the
-	// scheduled entry (health install) passes --dry-run=false to apply.
-	c.Flags().BoolVar(&dryRun, "dry-run", true, "list duplicate agents and tabs without acting; --dry-run=false stops the unsupervised duplicates and closes extra bare-shell tabs (#2027)")
+	// The dry default is the shared #2017/#2027 posture: a manual sweep
+	// lists what it would do, the scheduled entry (health install) passes
+	// --dry-run=false to do it.
+	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and the duplicate agents it would stop and bare-shell tabs it would close, and do none of them (default; the status batch is still stored; the installed timer passes --dry-run=false)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
 	return group
