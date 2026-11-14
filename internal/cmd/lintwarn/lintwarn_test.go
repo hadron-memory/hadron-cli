@@ -100,7 +100,9 @@ func TestBudgetRequestCapAndDeadline(t *testing.T) {
 	if late.Allow() {
 		t.Error("a spent deadline refuses every further request")
 	}
-	if dl, ok := NewBudget(context.Background()).Ctx().Deadline(); !ok || time.Until(dl) > ReadTimeout {
+	nb := NewBudget(context.Background())
+	defer nb.Close()
+	if dl, ok := nb.Ctx().Deadline(); !ok || time.Until(dl) > ReadTimeout {
 		t.Errorf("the budget's deadline is %v from the start, got %v", ReadTimeout, dl)
 	}
 }

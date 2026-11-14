@@ -46,7 +46,7 @@ func WriteSection(out io.Writer, label, subject string, page *Page, compiled boo
 		return err
 	}
 	if page.Total == 0 {
-		_, err := fmt.Fprintf(out, "%s: none hold for %s\n", label, subject)
+		_, err := fmt.Fprintf(out, "%s: no warnings for %s\n", label, subject)
 		return err
 	}
 	if _, err := fmt.Fprintf(out, "%s: %d (%s)\n", label, page.Total, subject); err != nil {

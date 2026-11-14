@@ -159,7 +159,10 @@ type workerUpdateReceiptDTO struct {
 // command and never changes its exit code.
 func writeSigningReceipt(cmd *cobra.Command, ctx context.Context, f *cmdutil.Factory, client graphql.Client, e signingEdit, fields gen.WorkerFields) error {
 	dto := workerUpdateReceiptDTO{workerDTO: workerDTOFromFields(fields)}
-	masked := dto.Signature == nil // the caller may not see the worker's internals
+	// signature is NOT NULL in the store, so null means the caller may not see
+	// the worker's internals (maySeeWorkerInternals), never "unset" (contract,
+	// cli#2007); revisit if the server ever nulls an unset template.
+	masked := dto.Signature == nil
 	if !masked {
 		budget := lintwarn.NewBudget(ctx)
 		defer budget.Close()

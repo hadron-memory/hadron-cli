@@ -806,21 +806,23 @@ App you participate in.
 an older server that predates them, or an App URN of the old shape — never
 "no such App" or "no owner"). The masked working-state keys stay null as ever.
 
-LINT (advisory, cli#2007, cor:agt:040:13): signature lint says whether the stored
-signature or trailer is missing the worker link; prompt lint is the current
-lint of the compiled revision recorded for the worker's open session (named by
-its provenance revision, never the Agent's newest compile). Each is read in its
-own operation, 20 per request to the end, within one 5-second budget that starts
-once the worker is read; they carry no session header and never change the exit
-code. --json always carries "signatureLint" and "promptLintWarnings":
+LINT (advisory): a lint warning means a template or compiled prompt has a
+defect, for example a signature or trailer without the worker link. Fix the
+template with "team worker update", or recompile the Agent; nothing here
+changes the exit code. Two reads follow the worker, 20 per request to the end,
+within one 5-second budget:
+  signature lint  the stored signature and trailer
+  prompt lint     the compiled prompt recorded for the worker's open session
+                  (that recorded revision, not the Agent's newest compile)
+Text mode prints a "Lint (advisory):" block. It prints nothing when you may not
+see the worker's signature (masked), says "nothing served" when the worker has
+no open session or the session has no record, and prints "unavailable" plus one
+fixed line on stderr when a read failed; an unavailable read says nothing about
+warnings, so rerun the command. A quiet but open session still has a record, so
+its warnings show.
+--json always carries "signatureLint" and "promptLintWarnings":
 {items, total, nextCursor} or null. items [] with total 0 is the one clean
-answer. null is never "no warnings": it is unavailable (an older server, a
-lint page that changed while reading, the budget), or masked (you may not see
-the worker's signature, so nothing is read or printed), or, for prompt lint,
-nothing served (no open session, or it has no record: one neutral line).
-An unavailable read prints one fixed advisory line on stderr. A quiet but open
-session still has a record, so its warnings show. A missing recompile notice
-proves nothing: the server raises it only for a caller who may compile.
+answer; null is never "no warnings". See cor:agt:040:13.
 
 THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
@@ -917,6 +919,8 @@ and every worker's state in ` + "`team roster`" + `.`,
 			// its own operation, so the per-operation old-server fallbacks are
 			// untouched. Errors are then taken in the order the sequential
 			// code took them, so the first failure a caller sees is unchanged.
+			// w.Signature == nil is the mask signal: the column is NOT NULL, so null
+			// means masked, never unset (contract, cli#2007).
 			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id), w.Signature == nil)
 			if reads.profileErr != nil {
 				return reads.profileErr
@@ -1147,6 +1151,11 @@ and every worker's state in ` + "`team roster`" + `.`,
 func writeWorkerLint(out io.Writer, r *workerGetExtras) error {
 	if r.lintMasked {
 		return nil
+	}
+	// A blank line and a heading, so the lines do not read as part of the
+	// template body printed above them (UX seat, cli#2012).
+	if _, err := fmt.Fprint(out, "\nLint (advisory):\n"); err != nil {
+		return err
 	}
 	if err := lintwarn.WriteSection(out, "  signature lint", "the signature and trailer", r.signatureLint, false); err != nil {
 		return err

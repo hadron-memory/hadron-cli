@@ -249,17 +249,17 @@ func currentLintHelp(worker bool) string {
 		when = "Shown with --lint-warnings; without it the key is absent and no lint is read."
 	}
 	return `
-CURRENT LINT: after the record is read, its current lint warnings (cor:agt:040:13)
-are read in their own operation, 20 per request to the end, within a 5-second
-budget shared by the command. ` + when + ` They describe the compiled revision recorded
-for this served prompt (provenance revision), never the Agent's newest compile,
-and a missing recompile notice proves nothing: the server raises it only for a
-caller who may compile. With --json, "currentLint" is {items, total, nextCursor}
-or null. null means unavailable (an older server, a record or lint the server
-would not answer, a lint page that changed while reading, or the budget ran
-out), never "no warnings": items [] with total 0 is the one clean answer. An
-unavailable read prints one fixed advisory line on stderr. The record, its
-exit code and its provenance paging are unaffected.`
+CURRENT LINT: a warning means the compiled prompt behind this record has a
+defect; fix its template, or recompile the Agent. After the record is read, its
+current lint warnings are read in their own operation, 20 per request to the
+end, within a 5-second budget shared by the command. ` + when + ` They describe the
+compiled revision recorded for this served prompt, not the Agent's newest
+compile. With --json, "currentLint" is {items, total, nextCursor} or null.
+null means unavailable (an older server, a record or lint the server would not
+answer, a lint page that changed while reading, or the budget ran out), never
+"no warnings": items [] with total 0 is the one clean answer. An unavailable
+read prints one fixed advisory line on stderr; rerun to retry. The record, its
+exit code and its provenance paging are unaffected. See cor:agt:040:13.`
 }
 
 func addLintFlag(cmd *cobra.Command, v *bool) {

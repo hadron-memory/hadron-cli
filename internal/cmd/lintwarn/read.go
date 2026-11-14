@@ -19,11 +19,6 @@ const (
 	MaxRequests = 1000
 )
 
-// FirstPage is the page size every new lint operation asks for (cor:api:120:04:
-// a client does not ask for more than 20 unless its user did); the cursor is
-// followed to the end.
-const FirstPage = 20
-
 // Budget is the one advisory budget of a command. It is safe for concurrent use.
 type Budget struct {
 	ctx    context.Context

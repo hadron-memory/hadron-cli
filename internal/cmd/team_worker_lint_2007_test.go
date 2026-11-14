@@ -242,7 +242,7 @@ func TestWorkerGetLint2007EmptyIsAnswerNotNull(t *testing.T) {
 		}
 	}
 	_, out, _, _ := runWorkerGet2007(t, visibleWorker2007, h)
-	if !strings.Contains(out, "signature lint: none hold for the signature and trailer") || !strings.Contains(out, "prompt lint: none hold for the compiled revision recorded for the open session, provenance r5") {
+	if !strings.Contains(out, "signature lint: no warnings for the signature and trailer") || !strings.Contains(out, "prompt lint: no warnings for the compiled revision recorded for the open session, provenance r5") {
 		t.Errorf("clean text:\n%s", out)
 	}
 }
@@ -270,7 +270,7 @@ func TestWorkerGetLint2007StatesAreDistinct(t *testing.T) {
 			}
 			return ""
 		}, `{"items":[],"total":0,"nextCursor":null}`, "null",
-			[]string{"prompt lint: nothing served to this worker's open session"}, []string{"prompt lint: unavailable", "none hold for the compiled"}, false, 2},
+			[]string{"prompt lint: nothing served to this worker's open session"}, []string{"prompt lint: unavailable", "no warnings for the compiled"}, false, 2},
 		{"served but lint null: unavailable plus the stderr class", visibleWorker2007, func(op string, v map[string]any) string {
 			switch op {
 			case "GetWorkerSignatureLint":
@@ -280,7 +280,7 @@ func TestWorkerGetLint2007StatesAreDistinct(t *testing.T) {
 			}
 			return ""
 		}, `{"items":[],"total":0,"nextCursor":null}`, "null",
-			[]string{"prompt lint: unavailable (no conclusion about warnings)"}, []string{"none hold for the compiled", "nothing served"}, true, 2},
+			[]string{"prompt lint: unavailable (no conclusion about warnings)"}, []string{"no warnings for the compiled", "nothing served"}, true, 2},
 		{"signature lint null on a visible template: unavailable", visibleWorker2007, func(op string, v map[string]any) string {
 			switch op {
 			case "GetWorkerSignatureLint":
@@ -289,15 +289,15 @@ func TestWorkerGetLint2007StatesAreDistinct(t *testing.T) {
 				return promptLint2007("", 0, "null")
 			}
 			return ""
-		}, "null", "null", []string{"signature lint: unavailable (no conclusion about warnings)"}, []string{"none hold for the signature"}, true, 2},
+		}, "null", "null", []string{"signature lint: unavailable (no conclusion about warnings)"}, []string{"no warnings for the signature"}, true, 2},
 		{"older server: validation error is unavailable, the command works", visibleWorker2007, func(string, map[string]any) string { return "" },
-			"null", "null", []string{"signature lint: unavailable", "prompt lint: unavailable"}, []string{"none hold"}, true, 2},
+			"null", "null", []string{"signature lint: unavailable", "prompt lint: unavailable"}, []string{"no warnings for"}, true, 2},
 		{"graphql error: unavailable, exit 0", visibleWorker2007, func(op string, v map[string]any) string {
 			if strings.Contains(op, "Lint") {
 				return gqlErrorJSON("INTERNAL_SERVER_ERROR")
 			}
 			return ""
-		}, "null", "null", []string{"signature lint: unavailable", "prompt lint: unavailable"}, []string{"none hold"}, true, 2},
+		}, "null", "null", []string{"signature lint: unavailable", "prompt lint: unavailable"}, []string{"no warnings for"}, true, 2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
