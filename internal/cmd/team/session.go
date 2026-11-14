@@ -208,6 +208,10 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 
 const sessionPageSize = 200
 
+// sessionScanRestarts bounds how often a scan that fell short of the total
+// starts over from offset 0 (cli#2030).
+const sessionScanRestarts = 3
+
 // scanSessions pages sessionsPage (cli#1339; ordered startedAt desc; the server
 // has no active filter) and calls visit per session until visit returns false
 // or the list is exhausted. workerRef narrows server-side to one worker's
@@ -216,12 +220,21 @@ const sessionPageSize = 200
 // exist means the list is not advancing (a server ignoring the offset), which
 // fails the read rather than looping or returning a partial list; a row shifted
 // onto the next page by a concurrent insert is skipped as the duplicate it is.
+//
+// An insert between page reads shifts the offsets (cor:api:120:05: offset paging
+// skips or repeats rows on a changing list), so the newest row can land before
+// the offset and the scan ends one short of the total (cli#2030). That is not a
+// server fault: the scan restarts from offset 0, keeping what it has seen so no
+// session is visited twice, up to sessionScanRestarts times. It stays
+// fail-closed (cor:api:120:04) — when the restarts run out the read fails and
+// never reports a partial list as complete, or as "unbound".
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	return scanSessionsFiltered(ctx, client, repo, workerRef, nil, nil, visit)
 }
 func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
+	restarts := 0
 	for offset := 0; ; {
 		off := offset
 		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
@@ -244,10 +257,23 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 		if !page.HasMore && len(seen) >= page.Total {
 			return nil
 		}
+		if fresh == 0 && len(seen) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages it has already read: every row the
+			// server counts is in hand, so keep paging to the end. Bounded by the
+			// offset reaching the total, and an empty page still fails below, so a
+			// server that ignores the offset or claims more forever cannot loop.
+			continue
+		}
 		if fresh == 0 {
 			// Nothing new while the total is still unmet is a partial list, whatever
-			// hasMore says: fail rather than return it.
-			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			// hasMore says. A concurrent insert is the usual cause: start over
+			// (bounded) rather than return it; out of restarts, fail.
+			if restarts < sessionScanRestarts {
+				restarts++
+				offset = 0
+				continue
+			}
+			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts): this is not an answer about your binding; retry the command", len(seen), page.Total, restarts)
 		}
 	}
 }

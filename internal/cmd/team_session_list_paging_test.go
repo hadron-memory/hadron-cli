@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // sessionRows builds n sessions, newest first; every third one has ended.
@@ -187,5 +189,62 @@ func TestSessionListUnmetTotalOnTerminalPageFails(t *testing.T) {
 	err := root.Execute()
 	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
 		t.Fatalf("want exit 7 and no partial list, got %v out %.80q", err, out.String())
+	}
+}
+
+// cli#2030: a row inserted at the top between page reads shifts the offsets
+// (cor:api:120:05), so the newest row lands before the offset and the first
+// pass ends one short of the total. The scan restarts and returns the whole,
+// current list rather than exit 7.
+func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(45), serve: 20}
+	inserted := false
+	src.wrapAt = func(page []string, total, offset int) string {
+		body := sessionsPageAt(page, total, offset)
+		if !inserted {
+			inserted = true
+			src.rows = append([]string{strings.Replace(sessionRows(1)[0], `"s000"`, `"snew"`, 1)}, src.rows...)
+		}
+		return body
+	}
+	ids, _, err := runSessionList(t, src)
+	if err != nil {
+		t.Fatalf("an insert between pages must not fail the read: %v", err)
+	}
+	seen := map[string]int{}
+	for _, id := range ids {
+		seen[id]++
+	}
+	if len(ids) != 46 || len(seen) != 46 || seen["snew"] != 1 {
+		t.Fatalf("want all 46 sessions once including the inserted one, got %d rows (%d unique)", len(ids), len(seen))
+	}
+}
+
+// cli#2030, fail-closed (cor:api:120:04): a list that never completes still
+// fails once the restarts run out — a partial list is never returned as
+// complete — and the message says the list changed, not that anything is
+// unbound or a server fault.
+func TestSessionListFailsClosedWhenRestartsRunOut(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(45), serve: 20}
+	src.wrapAt = func(page []string, total, offset int) string {
+		// Every pass loses its newest row to a fresh insert: the total keeps
+		// outrunning what the scan has read.
+		src.rows = append([]string{strings.Replace(sessionRows(1)[0], `"s000"`, fmt.Sprintf(`"n%d"`, len(src.rows)), 1)}, src.rows...)
+		return sessionsPageAt(page, total+1, offset)
+	}
+	_, _, err := runSessionList(t, src)
+	if err == nil {
+		t.Fatal("a list that never completes must fail, not return a partial list")
+	}
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Errorf("exit code = %d, want %d (Unavailable, distinct from an unbound answer)", exitCodeFor(err), exitcode.Unavailable)
+	}
+	for _, want := range []string{"changed while it was being read", "retry"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should contain %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "unbound") {
+		t.Errorf("error %q must not read as a server fault or as unbound", err)
 	}
 }
