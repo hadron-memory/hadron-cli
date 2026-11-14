@@ -283,3 +283,23 @@ func TestSessionListFailsClosedWhenRestartsRunOut(t *testing.T) {
 		t.Errorf("error %q must not read as a server fault or as unbound", err)
 	}
 }
+
+// cli#2030 (BLIND P2): churn and a stuck server must not share a diagnosis. A
+// server that ignores the offset reads nothing new on a restarted pass, so the
+// "not advancing" signal survives and the message does not tell anyone to retry.
+func TestSessionListStuckServerKeepsTheNotAdvancingDiagnosis(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(45), serve: 20}
+	src.wrapAt = func(page []string, total, _ int) string {
+		return sessionsPageAt(sessionRows(20), total, 0) // always the first page
+	}
+	_, calls, err := runSessionList(t, src)
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("want exit 7, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a stuck server must read as not advancing, not as churn to retry: %v", err)
+	}
+	if len(calls) > 8 {
+		t.Errorf("a stuck server must stop after one restarted pass, made %d requests", len(calls))
+	}
+}

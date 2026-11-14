@@ -692,7 +692,7 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 	rows := []gen.TickerFields{}
 	seen := map[string]bool{}
 	limit := tickerPageSize
-	restarts := 0
+	restarts, readAtRestart := 0, -1
 	for offset := 0; ; {
 		off := offset
 		r, err := gen.ListTickersPage(ctx, client, app, &limit, &off)
@@ -725,8 +725,15 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 			// hasMore says. A concurrent insert shifts offset pages (cor:api:120:05):
 			// start over, bounded, rather than print a partial census; out of
 			// restarts, fail (cor:api:120:04).
+			//
+			// A restarted pass that reads nothing new means a stuck server, not
+			// churn (see scanSessionsFiltered): retrying cannot help it.
+			if len(rows) == readAtRestart {
+				return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
+			}
 			if restarts < tickerScanRestarts {
 				restarts++
+				readAtRestart = len(rows)
 				offset = 0
 				continue
 			}

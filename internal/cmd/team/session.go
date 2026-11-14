@@ -241,7 +241,7 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 	limit := sessionPageSize
 	seen := map[string]bool{}
 	var rows []gen.TeamSessionFields
-	restarts := 0
+	restarts, readAtRestart := 0, -1
 	finish := func() error {
 		if restarts > 0 {
 			sortNewestFirst(rows)
@@ -284,12 +284,22 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			// Nothing new while the total is still unmet is a partial list, whatever
 			// hasMore says. A concurrent insert is the usual cause: start over
 			// (bounded) rather than return it; out of restarts, fail.
+			//
+			// Churn and a stuck server look alike on one page, but not across
+			// passes: churn leaves each restarted pass with a row it had not read,
+			// a stuck server (offset ignored, or a total that never matches) leaves
+			// it exactly where the last pass stopped. Retrying cannot help the
+			// second, so it keeps the "not advancing" diagnosis.
+			if len(seen) == readAtRestart {
+				return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			}
 			if restarts < sessionScanRestarts {
 				restarts++
+				readAtRestart = len(seen)
 				offset = 0
 				continue
 			}
-			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts): this is not an answer about your binding; retry the command", len(seen), page.Total, restarts)
+			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts); retry the command", len(seen), page.Total, restarts)
 		}
 	}
 }
