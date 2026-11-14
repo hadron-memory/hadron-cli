@@ -1072,7 +1072,7 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
 	}
 	for pages := 1; ; pages++ {
-		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
+		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, boolPtr(true), nil, &alarmPageSize, nil, nil, nil)
 		if err != nil {
 			return nil, nil, mapTaskError(err)
 		}
