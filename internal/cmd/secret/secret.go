@@ -20,6 +20,7 @@ import (
 const (
 	scopeUser = "user"
 	scopeOrg  = "org"
+	scopeApp  = "app"
 
 	kindGeneric      = "generic"
 	kindWebFetchAuth = "webfetch-auth"
@@ -42,26 +43,37 @@ Each secret belongs to one owner:
   user  your own; only you can create, list or delete it (no admin override)
   org   an organization's; an org ADMIN or OWNER creates and deletes it, and
         any member of the org can list its metadata
+  app   an App's (--scope app --owner <app ref>); the server decides who may
+        store, list and delete it, and keeps every stored value as a version
+        (secret set adds one; secret versions lists them; secret events is
+        the App secret's audit log). An App secret is never resolved by a
+        run: nothing a run does can read it
 
 When a run needs a secret it looks it up by name, in the user's secrets first,
-then the org's. A generic secret's value can be read by the agent's model; a
+then the org's (never an App's). A generic secret's value can be read by the agent's model; a
 webfetch-auth secret is only injected into matching web requests and the model
 never sees it.
 
 Values are write-only: secret create and secret update send the value, and
 no command ever prints it (secret get shows only the metadata). Pass it on
 stdin, from a file or at a no-echo prompt, never as an argument. Typical flow:
-secret create, then secret list to see what exists, secret update to rotate
-the value (it overwrites; there are no versions), and secret rm when it is no
-longer needed.`,
+secret create, then secret list to see what exists, secret set to store a new
+value (an org or user secret is overwritten in place; an App secret gets a new
+version), secret update for metadata, and secret rm when it is no longer needed.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
-  hadron secret list --scope user`,
+  hadron secret list --scope user
+  printf '%s' "$TOKEN" | hadron secret create --name deploy-token --scope app --owner hrn:app:acme.com:ops --kind generic --value-file -
+  printf '%s' "$NEW" | hadron secret set <id> --value-file -
+  hadron secret versions <id>`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdSet(f))
+	cmd.AddCommand(newCmdVersions(f))
+	cmd.AddCommand(newCmdEvents(f))
 	return cmd
 }
 
@@ -74,24 +86,30 @@ type secretDTO struct {
 	Name      string           `json:"name"`
 	Kind      string           `json:"kind"`
 	Metadata  *json.RawMessage `json:"metadata"`
-	CreatedAt string           `json:"createdAt"`
-	CreatedBy *string          `json:"createdBy"`
-	UpdatedAt string           `json:"updatedAt"`
-	UpdatedBy *string          `json:"updatedBy"`
+	// CurrentVersion and Protected are the server's answer, shown as given
+	// (cor:api:240:01): null / false for org and user secrets.
+	CurrentVersion *int    `json:"currentVersion"`
+	Protected      bool    `json:"protected"`
+	CreatedAt      string  `json:"createdAt"`
+	CreatedBy      *string `json:"createdBy"`
+	UpdatedAt      string  `json:"updatedAt"`
+	UpdatedBy      *string `json:"updatedBy"`
 }
 
 func dtoFromFields(s gen.SecretFields) secretDTO {
 	return secretDTO{
-		ID:        s.Id,
-		OwnerType: s.OwnerType,
-		OwnerID:   s.OwnerId,
-		Name:      s.Name,
-		Kind:      s.Kind,
-		Metadata:  s.Metadata,
-		CreatedAt: s.CreatedAt,
-		CreatedBy: s.CreatedBy,
-		UpdatedAt: s.UpdatedAt,
-		UpdatedBy: s.UpdatedBy,
+		ID:             s.Id,
+		OwnerType:      s.OwnerType,
+		OwnerID:        s.OwnerId,
+		Name:           s.Name,
+		Kind:           s.Kind,
+		Metadata:       s.Metadata,
+		CurrentVersion: s.CurrentVersion,
+		Protected:      s.Protected,
+		CreatedAt:      s.CreatedAt,
+		CreatedBy:      s.CreatedBy,
+		UpdatedAt:      s.UpdatedAt,
+		UpdatedBy:      s.UpdatedBy,
 	}
 }
 
@@ -101,12 +119,12 @@ func validateOwner(scope, owner string) (string, *string, error) {
 		if owner == "" {
 			return scope, nil, nil
 		}
-	case scopeOrg:
+	case scopeOrg, scopeApp:
 		if owner == "" {
 			return "", nil, exitcode.Newf(exitcode.Usage, "--owner is required for --scope %s", scope)
 		}
 	default:
-		return "", nil, exitcode.Newf(exitcode.Usage, "--scope must be one of user, org")
+		return "", nil, exitcode.Newf(exitcode.Usage, "--scope must be one of user, org, app")
 	}
 	return scope, &owner, nil
 }
