@@ -33,6 +33,13 @@ func dtoFromEndpointFields(f gen.AiServiceConfigEndpointFields) endpointConfigDT
 	}
 }
 
+func isMissingSchemaField(message string) bool {
+	return strings.Contains(message, "Cannot query field") ||
+		strings.Contains(message, "Unknown argument") ||
+		strings.Contains(message, "Unknown field") ||
+		strings.Contains(message, "not defined by type")
+}
+
 func mapEndpointError(err error) error {
 	for _, message := range api.ServerMessages(err) {
 		// A validation failure can also mean that some unrelated selection is
@@ -40,11 +47,7 @@ func mapEndpointError(err error) error {
 		missingEndpoint := strings.Contains(message, `"endpoint"`) ||
 			strings.Contains(message, `"effectiveEndpoint"`) ||
 			strings.Contains(message, `"aiProviderEndpoints"`)
-		missingSchemaField := strings.Contains(message, "Cannot query field") ||
-			strings.Contains(message, "Unknown argument") ||
-			strings.Contains(message, "Unknown field") ||
-			strings.Contains(message, "not defined by type")
-		if missingEndpoint && missingSchemaField {
+		if missingEndpoint && isMissingSchemaField(message) {
 			return exitcode.Newf(exitcode.Usage, "this hadron-server does not support AI config endpoints; upgrade the server (%s)", message)
 		}
 	}

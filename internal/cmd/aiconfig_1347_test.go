@@ -9,14 +9,14 @@ import (
 )
 
 func TestAiConfig1347UniformList(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AiServiceConfigsMasked": `{"data":{"aiServiceConfigs":{"items":[],"total":7}}}`})
+	gql, captured := captureGraphQL(t, map[string]string{"AiServiceConfigsMaskedWithUrn": `{"data":{"aiServiceConfigs":{"items":[],"total":7}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "list", "--owner-type", "APP", "--owner-id", "app1", "--limit", "0", "--offset", "3", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	vars := unmarshalVars(t, captured["AiServiceConfigsMasked"])
+	vars := unmarshalVars(t, captured["AiServiceConfigsMaskedWithUrn"])
 	filter, ok := vars["filter"].(map[string]any)
 	if !ok || filter["ownerType"] != "APP" || filter["ownerId"] != "app1" || vars["limit"] != float64(0) || vars["offset"] != float64(3) {
 		t.Fatalf("variables: %+v", vars)
@@ -34,14 +34,14 @@ func TestAiConfig1347UniformList(t *testing.T) {
 }
 
 func TestAiConfig1347AllOwnersOmitsFilter(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AiServiceConfigsMasked": `{"data":{"aiServiceConfigs":{"items":[],"total":0}}}`})
+	gql, captured := captureGraphQL(t, map[string]string{"AiServiceConfigsMaskedWithUrn": `{"data":{"aiServiceConfigs":{"items":[],"total":0}}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "list", "--all-owners", "--app", "acme.com:context", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	v := unmarshalVars(t, captured["AiServiceConfigsMasked"])
+	v := unmarshalVars(t, captured["AiServiceConfigsMaskedWithUrn"])
 	if _, ok := v["filter"]; ok {
 		t.Fatalf("all-owner view gained filter: %+v", v)
 	}

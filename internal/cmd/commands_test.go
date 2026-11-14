@@ -2635,7 +2635,7 @@ const aiConfigsJSON = `{"data":{"resolveAiServiceConfigs":[
 
 func TestAiConfigLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2656,7 +2656,7 @@ func TestAiConfigLs(t *testing.T) {
 
 	// --app and --agent map to the appRef/agentRef variables (ID or URN, verbatim).
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
@@ -2664,7 +2664,7 @@ func TestAiConfigLs(t *testing.T) {
 
 func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2694,7 +2694,7 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	}
 
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("appRef should map from --app, got %v", vars["appRef"])
 	}

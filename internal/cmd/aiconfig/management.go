@@ -105,26 +105,56 @@ func (o *maskedListFlags) run(cmd *cobra.Command, f *cmdutil.Factory) error {
 	if err != nil {
 		return err
 	}
-	r, err := gen.AiServiceConfigsMasked(cmd.Context(), client, filter, limit, offset)
-	if err != nil {
+	dto := struct {
+		Items []urnStyleConfigDTO `json:"items"`
+		Total int                 `json:"total"`
+	}{Items: []urnStyleConfigDTO{}}
+	r, err := gen.AiServiceConfigsMaskedWithUrn(cmd.Context(), client, filter, limit, offset)
+	switch {
+	case err == nil:
+		if r.AiServiceConfigs == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no AI config page")
+		}
+		dto.Total = r.AiServiceConfigs.Total
+		for _, item := range r.AiServiceConfigs.Items {
+			if item != nil {
+				dto.Items = append(dto.Items, urnStyleConfigDTO{styleConfigDTO: dtoFromStyleFields(item.AiServiceConfigStyleFields), URN: item.Urn})
+			}
+		}
+	case isMissingURNField(err):
+		// Older server: no urn field. Ask without it.
+		old, oldErr := gen.AiServiceConfigsMasked(cmd.Context(), client, filter, limit, offset)
+		if oldErr != nil {
+			return api.MapError(oldErr)
+		}
+		if old.AiServiceConfigs == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no AI config page")
+		}
+		dto.Total = old.AiServiceConfigs.Total
+		for _, item := range old.AiServiceConfigs.Items {
+			if item != nil {
+				dto.Items = append(dto.Items, urnStyleConfigDTO{styleConfigDTO: dtoFromStyleFields(item.AiServiceConfigStyleFields)})
+			}
+		}
+	default:
 		return api.MapError(err)
 	}
-	if r.AiServiceConfigs == nil {
-		return exitcode.Newf(exitcode.Error, "server returned no AI config page")
-	}
-	dto := struct {
-		Items []styleConfigDTO `json:"items"`
-		Total int              `json:"total"`
-	}{Items: make([]styleConfigDTO, 0, len(r.AiServiceConfigs.Items)), Total: r.AiServiceConfigs.Total}
-	for _, item := range r.AiServiceConfigs.Items {
-		if item != nil {
-			dto.Items = append(dto.Items, dtoFromStyleFields(item.AiServiceConfigStyleFields))
-		}
-	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		t := output.NewTable(w, "ID", "NAME", "OWNER", "OWNER ID", "PROVIDER", "MODEL", "ENABLED", "KEY", "API STYLE")
+		showURN := false
 		for _, c := range dto.Items {
-			t.Row(output.SafeCell(c.ID), output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.OwnerID), output.SafeCell(c.Provider), output.SafeCell(c.Model), fmt.Sprint(c.Enabled), output.SafeCell(endpointDisplay(c.APIKeyPreview, "—")), output.SafeCell(endpointDisplay(c.APIStyle, "provider default")))
+			showURN = showURN || hasURN(c.URN)
+		}
+		header := []string{"ID", "NAME", "OWNER", "OWNER ID", "PROVIDER", "MODEL", "ENABLED", "KEY", "API STYLE"}
+		if showURN {
+			header = append(header, "URN")
+		}
+		t := output.NewTable(w, header...)
+		for _, c := range dto.Items {
+			row := []string{output.SafeCell(c.ID), output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.OwnerID), output.SafeCell(c.Provider), output.SafeCell(c.Model), fmt.Sprint(c.Enabled), output.SafeCell(endpointDisplay(c.APIKeyPreview, "—")), output.SafeCell(endpointDisplay(c.APIStyle, "provider default"))}
+			if showURN {
+				row = append(row, output.SafeCell(urnCell(c.URN)))
+			}
+			t.Row(row...)
 		}
 		if err := t.Flush(); err != nil {
 			return err
