@@ -10,6 +10,12 @@ on:
     branches: [main]
   pull_request:
 
+# Non-PR runs need unique groups: GitHub replaces pending runs even when
+# cancel-in-progress is false, so grouping main pushes by ref would lose runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
