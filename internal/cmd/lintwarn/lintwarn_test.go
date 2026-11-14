@@ -202,3 +202,13 @@ func TestLineNamesTheLocatorAndAddsNothing(t *testing.T) {
 		t.Error("a broken include shows its position only (cor:dmo:150:05)")
 	}
 }
+
+// SafeCell guards every server-supplied string of a warning line, so a control
+// character cannot reach the terminal (security seat P3, cli#2012).
+func TestLineNeutralisesControlCharacters(t *testing.T) {
+	urn := "hrn:node:a:b:c\x1b[31m"
+	got := Line(Warning{Kind: "BROKEN_INCLUDE\x1b[1m", Position: 0, Text: "x\x1b[2Jy", TargetURN: &urn}, true)
+	if strings.ContainsRune(got, 0x1b) {
+		t.Errorf("an escape byte reached the line: %q", got)
+	}
+}

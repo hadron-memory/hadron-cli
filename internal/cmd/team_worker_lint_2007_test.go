@@ -456,6 +456,15 @@ func TestWorkerGetLint2007IdentityAndTotalShiftsAreUnavailable(t *testing.T) {
 			}
 			return ""
 		}},
+		{"prompt: another worker's lint", func(op string, v map[string]any) string {
+			switch op {
+			case "GetWorkerSignatureLint":
+				return sigLint2007(lintPage2007(0, 0, "", false))
+			case "GetWorkerPromptLint":
+				return `{"data":{"worker":{"id":"someone-else","servedPrompt":{"id":"rec9","provenanceRevSeq":5},"promptLintWarnings":` + lintPage2007(1, 1, "", true) + `}}}`
+			}
+			return ""
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
