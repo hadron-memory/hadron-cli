@@ -61,6 +61,9 @@ writtenByWorkerId); an empty list is [].`,
 			if all && (cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")) {
 				return exitcode.Newf(exitcode.Usage, "--all cannot be combined with --limit/--offset")
 			}
+			if limit < 0 || offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "--limit and --offset cannot be negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -75,6 +78,9 @@ writtenByWorkerId); an empty list is [].`,
 					return nil, 0, exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
 				}
 				s := resp.Secret
+				if s.Versions == nil {
+					return nil, 0, exitcode.Newf(exitcode.Error, "server returned no versions page for secret %q", args[0])
+				}
 				out.ID, out.Name, out.CurrentVersion, out.Protected = s.Id, s.Name, s.CurrentVersion, s.Protected
 				out.Total, out.HasMore = s.Versions.Total, s.Versions.HasMore
 				page := make([]versionDTO, 0, len(s.Versions.Items))

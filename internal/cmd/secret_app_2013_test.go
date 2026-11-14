@@ -3,7 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -161,7 +165,7 @@ func TestSecretVersionsNotFoundAndPassThroughPaging(t *testing.T) {
 }
 
 const eventsResp = `{"data":{"secretEvents":{"total":1,"items":[
- {"id":"e1","at":"2026-11-14T03:00:00Z","kind":"VERSION_ADDED","outcome":"OK","secretId":"s","secretName":"n","versionNo":3,"actorUserId":"u1","workerId":null,"sessionId":null}]}}}`
+ {"id":"e1","at":"2026-11-14T03:00:00Z","kind":"VERSION","outcome":"OK","secretId":"s","secretName":"n","versionNo":3,"actorUserId":"u1","workerId":null,"sessionId":null}]}}}`
 
 func TestSecretEventsShowsItemsAndPassesPagingThrough(t *testing.T) {
 	out, cap, err := runSecret(t, "", map[string]string{"SecretEvents": eventsResp}, "events", "s", "--limit", "7", "--offset", "2", "--json")
@@ -172,7 +176,7 @@ func TestSecretEventsShowsItemsAndPassesPagingThrough(t *testing.T) {
 		Total  int
 		Events []struct{ Kind string }
 	}
-	if json.Unmarshal([]byte(out), &d) != nil || d.Total != 1 || len(d.Events) != 1 || d.Events[0].Kind != "VERSION_ADDED" {
+	if json.Unmarshal([]byte(out), &d) != nil || d.Total != 1 || len(d.Events) != 1 || d.Events[0].Kind != "VERSION" {
 		t.Fatalf("%s", out)
 	}
 	var v struct{ Limit, Offset int }
@@ -200,17 +204,94 @@ func TestSecretEventsEmptyPageIsEmptyNotForbidden(t *testing.T) {
 	}
 }
 
-func TestSecretEventsAllWalksPagesToTheTotal(t *testing.T) {
-	calls := 0
-	gql, _ := captureGraphQLFunc(t, func(op string) string {
-		calls++
-		return eventsResp
-	})
-	_ = gql
-	// total 1 and one item: a single page ends the walk.
-	out, _, err := runSecret(t, "", map[string]string{"SecretEvents": eventsResp}, "events", "s", "--all", "--json")
-	if err != nil || !strings.Contains(out, "VERSION_ADDED") {
-		t.Fatalf("%v %s", err, out)
+// pagedServer answers SecretVersions / SecretEvents by the request's offset
+// from one logical list of `total` rows, recording each (limit, offset).
+func pagedServer(t *testing.T, total, pageSize int) (*httptest.Server, *[][2]int) {
+	t.Helper()
+	var mu sync.Mutex
+	seen := &[][2]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct{ Limit, Offset *int }
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		off := 0
+		if body.Variables.Offset != nil {
+			off = *body.Variables.Offset
+		}
+		lim := 0
+		if body.Variables.Limit != nil {
+			lim = *body.Variables.Limit
+		}
+		mu.Lock()
+		*seen = append(*seen, [2]int{lim, off})
+		mu.Unlock()
+		n := min(pageSize, total-off)
+		var items []string
+		for k := 0; k < n; k++ {
+			if body.OperationName == "SecretEvents" {
+				items = append(items, fmt.Sprintf(`{"id":"e%d","at":"2026-11-14T03:00:00Z","kind":"VERSION","outcome":"OK","secretId":"s","secretName":"n","versionNo":%d,"actorUserId":null,"workerId":null,"sessionId":null}`, off+k, off+k))
+			} else {
+				items = append(items, fmt.Sprintf(`{"versionNo":%d,"sizeBytes":1,"writtenAt":"2026-11-14T03:00:00Z","supersededAt":null,"writtenByUserId":null,"writtenByWorkerId":null}`, total-off-k))
+			}
+		}
+		list := strings.Join(items, ",")
+		if body.OperationName == "SecretEvents" {
+			fmt.Fprintf(w, `{"data":{"secretEvents":{"total":%d,"items":[%s]}}}`, total, list)
+		} else {
+			fmt.Fprintf(w, `{"data":{"secret":{"id":"s","name":"n","currentVersion":%d,"protected":false,"versions":{"total":%d,"hasMore":%t,"items":[%s]}}}}`, total, total, off+n < total, list)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, seen
+}
+
+// F1: --all walks offset pages until total, with increasing offsets, no
+// duplicates, and stops at total.
+func TestSecretAllWalksEveryPageForVersionsAndEvents(t *testing.T) {
+	for _, sub := range []string{"versions", "events"} {
+		srv, seen := pagedServer(t, 450, 200)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"secret", sub, "s", "--all", "--json", "--server", srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v", sub, err)
+		}
+		want := [][2]int{{200, 0}, {200, 200}, {200, 400}}
+		if fmt.Sprint(*seen) != fmt.Sprint(want) {
+			t.Fatalf("%s requests (limit, offset) = %v, want %v", sub, *seen, want)
+		}
+		var d struct {
+			Total    int
+			Versions []struct{ VersionNo int }
+			Events   []struct{ ID string }
+		}
+		if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
+			t.Fatal(err)
+		}
+		ids := map[string]bool{}
+		for _, e := range d.Events {
+			ids[e.ID] = true
+		}
+		if d.Total != 450 || len(d.Versions)+len(d.Events) != 450 || (sub == "events" && len(ids) != 450) {
+			t.Fatalf("%s: total %d, %d versions, %d events, %d distinct", sub, d.Total, len(d.Versions), len(d.Events), len(ids))
+		}
+	}
+}
+
+func TestSecretNegativePagingIsRefusedLocally(t *testing.T) {
+	for _, sub := range []string{"versions", "events"} {
+		for _, flag := range []string{"--limit", "--offset"} {
+			_, cap, err := runSecret(t, "", nil, sub, "s", flag, "-1")
+			if err == nil || exitCodeFor(err) != exitcode.Usage || len(cap) != 0 {
+				t.Fatalf("%s %s -1: %v %v", sub, flag, err, cap)
+			}
+		}
 	}
 }
 

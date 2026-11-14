@@ -57,6 +57,9 @@ versionNo, actorUserId, workerId, sessionId); an empty list is [].`,
 			if all && (cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")) {
 				return exitcode.Newf(exitcode.Usage, "--all cannot be combined with --limit/--offset")
 			}
+			if limit < 0 || offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "--limit and --offset cannot be negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

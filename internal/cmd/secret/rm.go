@@ -20,9 +20,11 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"delete"},
 		Short:   "Delete a secret",
 		Long: `Delete a secret permanently; the value cannot be recovered. Name it by the
-id from hadron secret list, or by URN: hrn:secret:<org or user handle>:<name>.
+id from hadron secret list, or by URN: hrn:secret:<org or user handle>:<name> (an App secret by its id).
 You can delete your own user secrets, and an org's if you are its ADMIN or
-OWNER. An unknown or already-deleted secret exits 4.
+OWNER. An App secret is deleted with every version it keeps, by whoever the
+server allows (a protected one refuses with SECRET_PROTECTED). An unknown or
+already-deleted secret exits 4.
 
 Nothing checks whether a secret is still in use. Runs that need it fail from
 then on, or pick up a secret of the same name from the org instead of the user.
