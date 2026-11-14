@@ -128,8 +128,9 @@ func newCmdTeamHealthWithReader(f *cmdutil.Factory, read healthStatusReader) *co
 	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Read terminal status and store code-only reports for this host", Args: cobra.NoArgs,
 		Long: `Read terminal-status@1 JSON from "hadron orca terminal status --all --json"
 and store the status of this host's registered workers in one batch. The status
-command alone classifies terminals; this binary runs its own status command,
-and the sweep never reads screens or types.
+command alone classifies terminals; this binary runs its own status command.
+Screen text is read only to classify, never kept: it reaches no report, log or
+API payload, and the sweep never types into any terminal.
 
 After the reports are stored, the sweep also detects duplicates (#2027): more
 than one agent process in a bound worker's worktree, and more than one terminal
@@ -315,6 +316,12 @@ never screen text. A report in this list is not a storage receipt.`,
 					if fx.Applied {
 						how = "applied"
 					}
+					// SafeCell on fx.Subject is deliberate defense-in-depth on
+					// /proc-derived text, not a server-text wrapper by
+					// proximity: renderArgv (#1474) already %q-quotes control
+					// runes and bounds the display at 200 bytes, so with the
+					// short "pid N (base): " prefix the cell can never reach
+					// the 256-rune cut — the wrap only re-neutralizes.
 					if _, e := fmt.Fprintf(w, "%s  %s  %s  (%s)\n", output.SafeCell(who(fx.Worker)), fx.Action, output.SafeCell(fx.Subject), how); e != nil {
 						return e
 					}
