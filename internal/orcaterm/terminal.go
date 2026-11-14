@@ -15,6 +15,10 @@ type Terminal struct {
 	AgentIdentity *string `json:"agentIdentity"`
 	Connected     bool    `json:"connected"`
 	Writable      bool    `json:"writable"`
+	// TabID names the tab a terminal pane sits in; a tab's title is shared by
+	// its panes. Title is the tab's current title, as the list reports it.
+	TabID string `json:"tabId"`
+	Title string `json:"title"`
 }
 
 // UnmarshalJSON reads Orca's row with router.ts's defaults: connected and
@@ -26,12 +30,15 @@ func (t *Terminal) UnmarshalJSON(b []byte) error {
 		AgentIdentity *string `json:"agentIdentity"`
 		Connected     *bool   `json:"connected"`
 		Writable      *bool   `json:"writable"`
+		TabID         string  `json:"tabId"`
+		Title         string  `json:"title"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
 	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity,
-		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable}
+		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable,
+		TabID: raw.TabID, Title: raw.Title}
 	return nil
 }
 
@@ -245,4 +252,21 @@ func findRequestID(node any) string {
 		}
 	}
 	return ""
+}
+
+// RenameTab sets one terminal tab's title through run, which is the raw runner:
+// the delivery Guard allows only the four delivery calls, and a rename is not
+// one of them, so the title pass owns this single extra call. title must be
+// non-empty (an empty title would reset the tab to its automatic one). It is
+// passed as --title=<text> so a name starting with "-" is never read as a flag.
+// The error is a code, never Orca's output.
+func RenameTab(ctx context.Context, run Runner, handle, title string) error {
+	if handle == "" || title == "" {
+		return ErrOrca
+	}
+	env, ok := parse(run(ctx, []string{"terminal", "rename", "--terminal", handle, "--title=" + title, "--json"}))
+	if !ok || !env.OK {
+		return ErrOrca
+	}
+	return nil
 }
