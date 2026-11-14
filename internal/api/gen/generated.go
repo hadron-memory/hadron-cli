@@ -13510,6 +13510,13 @@ type AgentTeamEventFields struct {
 	// the instant of the move that began the condition. One alarm per task,
 	// rule and episodeStart.
 	EpisodeStart *string `json:"episodeStart"`
+	// #3934 — alarms only: when this alarm's escalation ended, the earlier of its acknowledgement and its RECORDED end
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:20); null while the alarm is in effect, and on any ordinary event. The
+	// recorded end is written once, by the evaluator pass (every minute) or by the acknowledgement, from the earliest end the
+	// available history supports for any kind of alarm: it is at most one pass late and never moves once written. Until it is
+	// written the alarm reads as still in effect. Ending changes nothing on the alarm: it is not acknowledged, deleted or
+	// hidden, and an owner may still acknowledge it.
+	EscalationEndedAt *string `json:"escalationEndedAt"`
 	// Alarms only: the owner chain when the alarm was raised, nearest first.
 	Chain *json.RawMessage `json:"chain"`
 	// #1706 — alarms only: who the alarm wakes and when, nearest owner first (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Null for an ordinary event.
@@ -13558,6 +13565,9 @@ func (v *AgentTeamEventFields) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowle
 
 // GetEpisodeStart returns AgentTeamEventFields.EpisodeStart, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetEpisodeStart() *string { return v.EpisodeStart }
+
+// GetEscalationEndedAt returns AgentTeamEventFields.EscalationEndedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventFields) GetEscalationEndedAt() *string { return v.EscalationEndedAt }
 
 // GetChain returns AgentTeamEventFields.Chain, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetChain() *json.RawMessage { return v.Chain }
@@ -14035,6 +14045,11 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetEpisodeS
 	return v.AgentTeamEventFields.EpisodeStart
 }
 
+// GetEscalationEndedAt returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.EscalationEndedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetEscalationEndedAt() *string {
+	return v.AgentTeamEventFields.EscalationEndedAt
+}
+
 // GetChain returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetChain() *json.RawMessage {
 	return v.AgentTeamEventFields.Chain
@@ -14097,6 +14112,8 @@ type __premarshalAgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent stru
 
 	EpisodeStart *string `json:"episodeStart"`
 
+	EscalationEndedAt *string `json:"escalationEndedAt"`
+
 	Chain *json.RawMessage `json:"chain"`
 
 	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
@@ -14126,6 +14143,7 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
 	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
 	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
+	retval.EscalationEndedAt = v.AgentTeamEventFields.EscalationEndedAt
 	retval.Chain = v.AgentTeamEventFields.Chain
 	retval.Wakes = v.AgentTeamEventFields.Wakes
 	return &retval, nil
@@ -16448,6 +16466,11 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetEpisodeStart() *stri
 	return v.AgentTeamEventFields.EpisodeStart
 }
 
+// GetEscalationEndedAt returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.EscalationEndedAt, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetEscalationEndedAt() *string {
+	return v.AgentTeamEventFields.EscalationEndedAt
+}
+
 // GetChain returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
 func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetChain() *json.RawMessage {
 	return v.AgentTeamEventFields.Chain
@@ -16510,6 +16533,8 @@ type __premarshalAlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent struct {
 
 	EpisodeStart *string `json:"episodeStart"`
 
+	EscalationEndedAt *string `json:"escalationEndedAt"`
+
 	Chain *json.RawMessage `json:"chain"`
 
 	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
@@ -16539,6 +16564,7 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
 	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
 	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
+	retval.EscalationEndedAt = v.AgentTeamEventFields.EscalationEndedAt
 	retval.Chain = v.AgentTeamEventFields.Chain
 	retval.Wakes = v.AgentTeamEventFields.Wakes
 	return &retval, nil
@@ -112265,16 +112291,17 @@ func (v *__AgentTaskUpdateInput) GetInput() *UpdateAgentTaskInput { return v.Inp
 
 // __AgentTeamEventsPageInput is used internally by genqlient
 type __AgentTeamEventsPageInput struct {
-	AppRef      string   `json:"appRef"`
-	After       *string  `json:"after,omitempty"`
-	Before      *string  `json:"before,omitempty"`
-	NewestFirst *bool    `json:"newestFirst,omitempty"`
-	CodePrefix  *string  `json:"codePrefix,omitempty"`
-	AlarmsOnly  *bool    `json:"alarmsOnly,omitempty"`
-	Limit       *int     `json:"limit,omitempty"`
-	Since       *string  `json:"since,omitempty"`
-	TaskId      *string  `json:"taskId,omitempty"`
-	Types       []string `json:"types,omitempty"`
+	AppRef         string   `json:"appRef"`
+	After          *string  `json:"after,omitempty"`
+	Before         *string  `json:"before,omitempty"`
+	NewestFirst    *bool    `json:"newestFirst,omitempty"`
+	CodePrefix     *string  `json:"codePrefix,omitempty"`
+	AlarmsOnly     *bool    `json:"alarmsOnly,omitempty"`
+	AlarmsInEffect *bool    `json:"alarmsInEffect,omitempty"`
+	Limit          *int     `json:"limit,omitempty"`
+	Since          *string  `json:"since,omitempty"`
+	TaskId         *string  `json:"taskId,omitempty"`
+	Types          []string `json:"types,omitempty"`
 }
 
 // GetAppRef returns __AgentTeamEventsPageInput.AppRef, and is useful for accessing the field via an interface.
@@ -112294,6 +112321,9 @@ func (v *__AgentTeamEventsPageInput) GetCodePrefix() *string { return v.CodePref
 
 // GetAlarmsOnly returns __AgentTeamEventsPageInput.AlarmsOnly, and is useful for accessing the field via an interface.
 func (v *__AgentTeamEventsPageInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
+
+// GetAlarmsInEffect returns __AgentTeamEventsPageInput.AlarmsInEffect, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsPageInput) GetAlarmsInEffect() *bool { return v.AlarmsInEffect }
 
 // GetLimit returns __AgentTeamEventsPageInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentTeamEventsPageInput) GetLimit() *int { return v.Limit }
@@ -127566,8 +127596,8 @@ func AgentTaskUpdate(
 
 // The query executed by AgentTeamEventsPage.
 const AgentTeamEventsPage_Operation = `
-query AgentTeamEventsPage ($appRef: ID!, $after: ID, $before: ID, $newestFirst: Boolean, $codePrefix: String, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
-	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+query AgentTeamEventsPage ($appRef: ID!, $after: ID, $before: ID, $newestFirst: Boolean, $codePrefix: String, $alarmsOnly: Boolean, $alarmsInEffect: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
+	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, alarmsInEffect: $alarmsInEffect, limit: $limit, since: $since, taskId: $taskId, types: $types) {
 		events {
 			... AgentTeamEventFields
 		}
@@ -127595,6 +127625,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 		... AgentTaskPartyFields
 	}
 	episodeStart
+	escalationEndedAt
 	chain
 	wakes {
 		chainIndex
@@ -127616,7 +127647,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // Page-aware read of the team event stream (cor:api:120:04, server#3933): the
 // server says whether more rows exist (hasMore) and hands the continuation
 // (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
-// before and newestFirst are sent only when set.
+// before, newestFirst and alarmsInEffect are sent only when set (#3934: the
+// server's own "in effect" filter; the CLI never works it out itself).
 func AgentTeamEventsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -127626,6 +127658,7 @@ func AgentTeamEventsPage(
 	newestFirst *bool,
 	codePrefix *string,
 	alarmsOnly *bool,
+	alarmsInEffect *bool,
 	limit *int,
 	since *string,
 	taskId *string,
@@ -127635,16 +127668,17 @@ func AgentTeamEventsPage(
 		OpName: "AgentTeamEventsPage",
 		Query:  AgentTeamEventsPage_Operation,
 		Variables: &__AgentTeamEventsPageInput{
-			AppRef:      appRef,
-			After:       after,
-			Before:      before,
-			NewestFirst: newestFirst,
-			CodePrefix:  codePrefix,
-			AlarmsOnly:  alarmsOnly,
-			Limit:       limit,
-			Since:       since,
-			TaskId:      taskId,
-			Types:       types,
+			AppRef:         appRef,
+			After:          after,
+			Before:         before,
+			NewestFirst:    newestFirst,
+			CodePrefix:     codePrefix,
+			AlarmsOnly:     alarmsOnly,
+			AlarmsInEffect: alarmsInEffect,
+			Limit:          limit,
+			Since:          since,
+			TaskId:         taskId,
+			Types:          types,
 		},
 	}
 
@@ -128128,6 +128162,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 		... AgentTaskPartyFields
 	}
 	episodeStart
+	escalationEndedAt
 	chain
 	wakes {
 		chainIndex

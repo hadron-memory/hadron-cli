@@ -293,26 +293,31 @@ type teamEventDTO struct {
 	AcknowledgedAt *string         `json:"acknowledgedAt"`
 	AcknowledgedBy *taskPartyDTO   `json:"acknowledgedBy"`
 	EpisodeStart   *string         `json:"episodeStart"`
-	Chain          json.RawMessage `json:"chain"`
-	Wakes          []alarmWakeDTO  `json:"wakes"`
+	// EscalationEndedAt is when the SERVER recorded the end of an alarm's
+	// escalation (#3934, cor:agt:050:20): null while the alarm is in effect and
+	// on every ordinary event. Never derived or filled in here.
+	EscalationEndedAt *string         `json:"escalationEndedAt"`
+	Chain             json.RawMessage `json:"chain"`
+	Wakes             []alarmWakeDTO  `json:"wakes"`
 }
 
 func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 	dto := teamEventDTO{
-		ID:             e.Id,
-		AppID:          e.AppId,
-		TaskID:         e.TaskId,
-		Type:           e.Type,
-		CreatedAt:      e.CreatedAt,
-		Actor:          partyDTO(e.Actor),
-		ActorRunID:     e.ActorRunId,
-		SubjectWorker:  partyDTO(e.SubjectWorker),
-		Payload:        json.RawMessage("null"),
-		AcknowledgedAt: e.AcknowledgedAt,
-		AcknowledgedBy: partyDTO(e.AcknowledgedBy),
-		EpisodeStart:   e.EpisodeStart,
-		Chain:          json.RawMessage("null"),
-		Wakes:          []alarmWakeDTO{},
+		ID:                e.Id,
+		AppID:             e.AppId,
+		TaskID:            e.TaskId,
+		Type:              e.Type,
+		CreatedAt:         e.CreatedAt,
+		Actor:             partyDTO(e.Actor),
+		ActorRunID:        e.ActorRunId,
+		SubjectWorker:     partyDTO(e.SubjectWorker),
+		Payload:           json.RawMessage("null"),
+		AcknowledgedAt:    e.AcknowledgedAt,
+		AcknowledgedBy:    partyDTO(e.AcknowledgedBy),
+		EpisodeStart:      e.EpisodeStart,
+		EscalationEndedAt: e.EscalationEndedAt,
+		Chain:             json.RawMessage("null"),
+		Wakes:             []alarmWakeDTO{},
 	}
 	if e.Severity != nil {
 		s := string(*e.Severity)
