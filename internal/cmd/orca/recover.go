@@ -2,6 +2,8 @@ package orca
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
@@ -171,7 +174,7 @@ func newRecoverLike(f *cmdutil.Factory, env Env, recreate bool) *cobra.Command {
 	var o recoverOpts
 	cmd := &cobra.Command{Args: cobra.ExactArgs(1), SilenceUsage: true}
 	if recreate {
-		cmd.Use = "recreate <worker> --config <host.yaml> [--dry-run]"
+		cmd.Use = "recreate <worker> --config <host.yaml> [--dry-run] [--fresh] [--worktree <path>]"
 		cmd.Short = "Replace a worker's terminals with one fresh, supervised, resumed one"
 		cmd.Long = recreateLong
 		cmd.Example = "  hadron orca terminal recreate Bill --config ~/.config/hadron-host/host.yaml --dry-run\n  hadron orca terminal recreate Bill --config ~/.config/hadron-host/host.yaml --json"
@@ -395,6 +398,9 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 	for i := range workers {
 		w := workers[i]
 		if strings.EqualFold(w.Name, strings.TrimSpace(arg)) || w.ID == arg || (w.URN != "" && w.URN == arg) {
+			if worker != nil {
+				return nil, exitcode.Newf(exitcode.Usage, "%q names more than one active worker: pass the worker's URN or id", arg)
+			}
 			worker = &workers[i]
 		}
 	}
@@ -419,6 +425,18 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 		return dto, err
 	}
 	dto.Worktree = wt
+	// /proc reports kernel-canonical cwds: compare against the canonical path,
+	// or a symlinked worktrees_root makes every agent invisible to the scan.
+	cwt := canonicalPath(wt)
+	// One recover or recreate per worktree at a time, from before anything is
+	// observed until it has verified: two overlapping runs could each pass the
+	// "no agent" proof and then both create.
+	lock := flock.New(recoverLockPath(host.cfg.StateFile, wt))
+	got, lerr := lock.TryLock()
+	if lerr != nil || !got {
+		return dto, refuse(exitcode.RecoverRefused, "already_running", "another recover or recreate is already running for %s on this host (or its lock could not be taken): nothing was changed", wt)
+	}
+	defer func() { _ = lock.Unlock() }()
 	_, hasBinding := henv.BoundAt(ctx, wt)
 	session := "none"
 	if hasBinding {
@@ -448,7 +466,7 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 		dto.Found.Terminal = &h
 	}
 
-	inWt := terminalsIn(terms, wt)
+	inWt := terminalsIn(terms, cwt)
 	type seenTerm struct {
 		t   orcaterm.Terminal
 		obs orcaterm.Observation
@@ -465,7 +483,7 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 		if recreate {
 			closeSet = append(closeSet, s.t.Handle)
 		}
-		if s.obs.Reason != ts.BareShell {
+		if s.obs.Reason != ts.BareShell && s.obs.Reason != ts.NoAgent {
 			agentTerms = append(agentTerms, s)
 			if !recreate {
 				closeSet = append(closeSet, s.t.Handle)
@@ -486,10 +504,10 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 	if err != nil {
 		return dto, refuse(exitcode.RecoverRefused, "cannot_scan", "cannot prove no agent is running in %s: the process scan failed (%v)", wt, err)
 	}
-	if hit := ancestorInWorktree(procs, rec.Ancestors(), wt); hit != 0 && len(closeSet) > 0 {
+	if hit := ancestorInWorktree(procs, rec.Ancestors(), cwt); hit != 0 && len(closeSet) > 0 {
 		return dto, refuse(exitcode.RecoverRefused, "inside_target", "this command is running inside the worktree it would close (pid %d is its ancestor): run it from outside %s", hit, wt)
 	}
-	if orphan := agentsIn(procs, wt, wc.Launch); !live && len(orphan) > 0 {
+	if orphan := agentsIn(procs, cwt, wc.Launch); !live && len(orphan) > 0 {
 		return dto, refuse(exitcode.RecoverRefused, "agent_without_terminal", "an agent process (pid %d) is running in %s but no Orca terminal shows it; end it yourself first — recover never signals a process", orphan[0].PID, wt)
 	}
 
@@ -530,17 +548,19 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 		"create one terminal titled "+worker.Name+" running: "+command,
 		"verify exactly one agent runs in the worktree and the new terminal shows it")
 	if live {
-		dto.Interrupted = &interruptedDTO{Terminal: st.Terminal, Status: string(st.Status), Prompt: string(st.Prompt)}
-		if len(agentTerms) > 0 {
+		if len(agentTerms) == 0 {
+			dto.Interrupted = &interruptedDTO{Terminal: st.Terminal, Status: string(st.Status), Prompt: string(st.Prompt)}
+			if st.Reason != nil {
+				r := string(*st.Reason)
+				dto.Interrupted.Reason = &r
+			}
+		} else {
 			a := agentTerms[0]
 			dto.Interrupted = &interruptedDTO{Terminal: a.t.Handle, Status: string(a.obs.Status), Prompt: string(a.obs.Prompt)}
 			if a.obs.Reason != "" {
 				r := string(a.obs.Reason)
 				dto.Interrupted.Reason = &r
 			}
-		} else if st.Reason != nil {
-			r := string(*st.Reason)
-			dto.Interrupted.Reason = &r
 		}
 		for _, s := range agentTerms {
 			if s.obs.Status == ts.Locked && s.scr != nil {
@@ -564,15 +584,15 @@ func runRecover(ctx context.Context, f *cmdutil.Factory, env Env, cmd *cobra.Com
 		}
 		dto.Closed = append(dto.Closed, h)
 	}
-	if err := waitNoAgents(rec, wt, wc.Launch); err != nil {
+	if err := waitNoAgents(rec, cwt, wc.Launch); err != nil {
 		return dto, refuse(exitcode.RecoverRefused, "agent_not_gone", "%s: the old agent could not be shown gone after closing its terminal, so no terminal was created (that would be a second agent)", err)
 	}
 	handle, err := orcaterm.CreateTerminal(ctx, henv.Orca, wt, worker.Name, command)
 	if err != nil {
-		return dto, exitcode.Newf(exitcode.Error, "Orca refused to create the terminal; the worker has no agent now (closed: %s)", strings.Join(dto.Closed, ", "))
+		return dto, refuse(exitcode.Error, "create_failed", "Orca refused to create the terminal; the worker has no agent now (closed: %s)", strings.Join(dto.Closed, ", "))
 	}
 	dto.Created = &handle
-	dto.Verification = verify(ctx, client, henv, rec, wt, handle)
+	dto.Verification = verify(ctx, client, henv, rec, cwt, handle)
 	if !dto.Verification.Verified {
 		return dto, refuse(exitcode.RecoverUnverified, "unverified", "the terminal %s was created but exactly one agent was not shown running in %s (saw %d): check it with `hadron orca terminal status %s`", handle, wt, dto.Verification.Agents, worker.Name)
 	}
@@ -599,10 +619,18 @@ func pendingLines(sc *orcaterm.Screen) []string {
 	return out
 }
 
+// canonicalPath is p with symlinks resolved, or p cleaned when it cannot be.
+func canonicalPath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return filepath.Clean(r)
+	}
+	return filepath.Clean(p)
+}
+
 func terminalsIn(terms []orcaterm.Terminal, wt string) []orcaterm.Terminal {
 	var out []orcaterm.Terminal
 	for _, t := range terms {
-		if filepath.Clean(t.WorktreePath) == wt {
+		if canonicalPath(t.WorktreePath) == wt {
 			out = append(out, t)
 		}
 	}
@@ -664,7 +692,7 @@ func chooseTranscript(all []Transcript, died time.Time) (*Transcript, *transcrip
 	if best == nil {
 		return nil, nil
 	}
-	why := fmt.Sprintf("the newest of %d, last written %s before the death time %s", len(all), died.Sub(best.ModTime).Round(time.Second), died.UTC().Format(time.RFC3339))
+	why := fmt.Sprintf("the newest of %d written by then, last written %s before the death time %s", len(all)-newer, died.Sub(best.ModTime).Round(time.Second), died.UTC().Format(time.RFC3339))
 	if newer > 0 {
 		why += fmt.Sprintf("; %d written after it were skipped", newer)
 	}
@@ -674,7 +702,7 @@ func chooseTranscript(all []Transcript, died time.Time) (*Transcript, *transcrip
 // --- the never-two-agents scan ---
 
 var agentBins = map[string]bool{"claude": true, "codex": true}
-var shells = map[string]bool{"bash": true, "sh": true, "dash": true, "zsh": true}
+var shells = map[string]bool{"bash": true, "sh": true, "dash": true, "zsh": true, "fish": true, "ksh": true, "csh": true, "tcsh": true}
 
 func under(cwd, wt string) bool {
 	cwd = filepath.Clean(cwd)
@@ -690,7 +718,30 @@ func isAgent(p Proc) bool {
 // isSupervisor: the host's relaunch wrapper, a shell running the launch
 // line's own first word. Left alive it would start a second agent.
 func isSupervisor(p Proc, launch []string) bool {
-	return len(p.Argv) > 1 && len(launch) > 0 && shells[filepath.Base(p.Argv[0])] && filepath.Base(p.Argv[1]) == filepath.Base(launch[0])
+	if len(p.Argv) == 0 || len(launch) == 0 {
+		return false
+	}
+	want := filepath.Base(launch[0])
+	if filepath.Base(p.Argv[0]) == want { // exec'd directly
+		return true
+	}
+	if !shells[filepath.Base(p.Argv[0])] {
+		return false
+	}
+	for i, a := range p.Argv[1:] {
+		if filepath.Base(a) == want { // sh /path/worker-supervise ...
+			return true
+		}
+		// sh -c "<command line that runs it>": the word must stand alone.
+		if i > 0 && p.Argv[i] == "-c" {
+			for _, w := range strings.Fields(a) {
+				if filepath.Base(w) == want {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func agentsIn(procs []Proc, wt string, launch []string) []Proc {
@@ -744,9 +795,12 @@ func verify(ctx context.Context, client *orcaterm.Client, env Env, rec RecoverEn
 		steps = 1
 	}
 	for i := 0; i <= steps; i++ {
-		procs, err := rec.Procs()
-		if err == nil {
-			v.Agents = 0
+		// Evidence is judged within one iteration: a failed scan or an
+		// unreadable screen clears what an earlier pass saw.
+		v.Verified, v.OnScreen, v.Agents = false, nil, 0
+		scanned := false
+		if procs, err := rec.Procs(); err == nil {
+			scanned = true
 			for _, p := range procs {
 				if under(p.Cwd, wt) && isAgent(p) {
 					v.Agents++
@@ -762,7 +816,9 @@ func verify(ctx context.Context, client *orcaterm.Client, env Env, rec RecoverEn
 					obs := orcaterm.Classify(t, client.ReadScreen(ctx, handle), env.Now())
 					s := string(obs.Status)
 					v.OnScreen = &s
-					v.Verified = err == nil && v.Agents == 1 && obs.Reason != ts.BareShell && obs.Reason != ts.NoAgent
+					// Positive evidence only: the screen (or Orca's identity) must
+					// name an agent. An unreadable or unrecognized screen is not one.
+					v.Verified = scanned && v.Agents == 1 && obs.Family != "" && obs.Reason != ts.BareShell && obs.Reason != ts.NoAgent
 				}
 			}
 		}
@@ -774,6 +830,12 @@ func verify(ctx context.Context, client *orcaterm.Client, env Env, rec RecoverEn
 		}
 	}
 	return v
+}
+
+// recoverLockPath is the per-worktree lock file, beside the host's state file.
+func recoverLockPath(stateFile, wt string) string {
+	sum := sha256.Sum256([]byte(filepath.Clean(wt)))
+	return filepath.Join(filepath.Dir(stateFile), "recover-"+hex.EncodeToString(sum[:6])+".lock")
 }
 
 // --- shell quoting for `orca terminal create --command` ---

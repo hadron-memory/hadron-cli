@@ -3,12 +3,14 @@ package orca
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/spf13/cobra"
@@ -29,6 +31,10 @@ type recoverWorld struct {
 	stuck       bool // a closed agent's process never exits
 	keepWrapper bool // closing kills the agent but its supervising wrapper stays
 	noAgent     bool // a created terminal shows a shell and starts no agent
+	noScreen    bool // a created terminal's screen cannot be read
+	oddScreen   bool // a created terminal shows text no rule recognizes, and no identity
+	flipScreen  bool // the created terminal shows a shell on first read, an agent after; scans fail after the first
+	reads       int
 	shellScreen bool // a created terminal starts an agent but its screen shows a shell
 	twoAgents   bool // a created terminal starts two agents
 	staged      bool
@@ -77,7 +83,12 @@ func newRecoverWorld(t *testing.T) (*recoverWorld, string) {
 	}
 	h.orca.hook = w.hook
 	h.env.Recover = RecoverEnv{
-		Procs:        func() ([]Proc, error) { return append([]Proc(nil), w.procs...), nil },
+		Procs: func() ([]Proc, error) {
+			if w.flipScreen && w.reads > 0 {
+				return nil, errors.New("scan failed")
+			}
+			return append([]Proc(nil), w.procs...), nil
+		},
 		Transcripts:  func(string, []string) ([]Transcript, error) { return w.transcripts, nil },
 		PromptStaged: func(string) bool { return w.staged },
 		Ancestors:    func() []int { return w.ancestors },
@@ -141,6 +152,15 @@ func (w *recoverWorld) hook(argv []string) (orcaterm.Result, bool) {
 			w.procs = left
 		}
 		return ok, true
+	case "terminal read":
+		if w.flipScreen && flag(argv, "--terminal") == "term_new" {
+			w.reads++
+			if w.reads == 1 {
+				b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"source": "screen", "tail": []string{"orca@box:~/jack$"}}}})
+				return orcaterm.Result{Stdout: string(b)}, true
+			}
+		}
+		return orcaterm.Result{}, false
 	case "terminal create":
 		h := "term_new"
 		if w.noAgent {
@@ -153,6 +173,15 @@ func (w *recoverWorld) hook(argv []string) (orcaterm.Result, bool) {
 		if w.shellScreen {
 			w.orca.terms[len(w.orca.terms)-1] = term(h, w.wt, "")
 			w.orca.screens[h] = []string{"orca@box:~/jack$"}
+		}
+		switch {
+		case w.noScreen:
+			delete(w.orca.screens, h)
+		case w.flipScreen:
+			w.orca.terms[len(w.orca.terms)-1] = term(h, w.wt, "")
+		case w.oddScreen:
+			w.orca.terms[len(w.orca.terms)-1] = term(h, w.wt, "")
+			w.orca.screens[h] = []string{"something nothing recognizes"}
 		}
 		w.procs = append(w.procs, Proc{PID: w.newPID(), Cwd: w.wt, Argv: []string{claudeBin, "--resume", "x"}})
 		if w.twoAgents {
@@ -575,5 +604,121 @@ func TestRecoverEmptyFlagsAreUsageNotDefaults(t *testing.T) {
 		if code, out := w.exec(t, recoverCmd, false, "Jack", "--config", cfg, fl); code != exitcode.Usage || len(w.orca.commands) != 0 {
 			t.Fatalf("%s: exit %d, orca calls %v\n%s", fl, code, w.orca.commands, out)
 		}
+	}
+}
+
+func TestRecoverUnverifiedWithoutPositiveScreenEvidence(t *testing.T) {
+	for name, set := range map[string]func(*recoverWorld){
+		"unreadable screen":     func(w *recoverWorld) { w.noScreen = true },
+		"unrecognized screen":   func(w *recoverWorld) { w.oddScreen = true },
+		"stale evidence reused": func(w *recoverWorld) { w.flipScreen = true },
+	} {
+		t.Run(name, func(t *testing.T) {
+			w, cfg := newRecoverWorld(t)
+			w.shell("term_old")
+			w.transcripts = []Transcript{tr("bbb", time.Hour)}
+			set(w)
+			code, out := w.exec(t, recoverCmd, true, "Jack", "--config", cfg)
+			if code != exitcode.RecoverUnverified {
+				t.Fatalf("exit %d want %d\n%s", code, exitcode.RecoverUnverified, out)
+			}
+		})
+	}
+}
+
+func TestRecoverOneRunPerWorktree(t *testing.T) {
+	w, cfg := newRecoverWorld(t)
+	w.shell("term_old")
+	w.transcripts = []Transcript{tr("bbb", time.Hour)}
+	held := flock.New(recoverLockPath(filepath.Join(filepath.Dir(cfg), "hadron-host-state.json"), w.wt))
+	if ok, err := held.TryLock(); err != nil || !ok {
+		t.Fatal("test could not take the lock", err)
+	}
+	defer func() { _ = held.Unlock() }()
+	for _, build := range []func(*recoverWorld) *cobra.Command{recoverCmd, recreateCmd} {
+		code, out := w.exec(t, build, false, "Jack", "--config", cfg)
+		if code != exitcode.RecoverRefused || len(w.calls("terminal create"))+len(w.calls("terminal close")) != 0 {
+			t.Fatalf("a competing run must refuse and change nothing: exit %d, %v\n%s", code, w.orca.commands, out)
+		}
+	}
+}
+
+func TestRecoverSeesAgentsThroughASymlinkedWorktreesRoot(t *testing.T) {
+	// /proc reports the canonical cwd; the configured path goes through a symlink.
+	w, _ := newRecoverWorld(t)
+	cfg, root := recoverCfg(t, jackWorker)
+	real := root + "-real"
+	realWT := filepath.Join(real, "hadron-cli", "jack")
+	if err := os.MkdirAll(realWT, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, root); err != nil {
+		t.Fatal(err)
+	}
+	w.wt = filepath.Join(root, "hadron-cli", "jack")
+	w.shell("term_old")
+	w.procs = append(w.procs, Proc{PID: 7001, Cwd: realWT, Argv: []string{claudeBin}})
+	w.transcripts = []Transcript{tr("bbb", time.Hour)}
+	code, out := w.exec(t, recoverCmd, false, "Jack", "--config", cfg)
+	if code != exitcode.RecoverRefused || len(w.calls("terminal create")) != 0 {
+		t.Fatalf("an agent behind a symlinked root must be seen: exit %d, %v\n%s", code, w.orca.commands, out)
+	}
+}
+
+func TestSupervisorShapes(t *testing.T) {
+	launch := []string{"/home/orca/.local/bin/worker-supervise", "claude-holger"}
+	yes := [][]string{
+		{"/bin/bash", "/home/orca/.local/bin/worker-supervise", "claude-holger"},
+		{"/bin/sh", "-c", "exec /home/orca/.local/bin/worker-supervise claude-holger --model sonnet"},
+		{"/home/orca/.local/bin/worker-supervise", "claude-holger"},
+		{"/usr/bin/fish", "/home/orca/.local/bin/worker-supervise"},
+	}
+	no := [][]string{
+		{"/usr/bin/vim", "worker-supervise"},
+		{"/bin/bash", "-c", "echo not-worker-supervise-really"},
+		{"/bin/bash", "--rcfile", "/x/rcfile"},
+	}
+	for _, a := range yes {
+		if !isSupervisor(Proc{Argv: a}, launch) {
+			t.Errorf("%v must be a supervisor", a)
+		}
+	}
+	for _, a := range no {
+		if isSupervisor(Proc{Argv: a}, launch) {
+			t.Errorf("%v must not be a supervisor", a)
+		}
+	}
+}
+
+func TestShellJoinQuotesWhatOrcaWillExecute(t *testing.T) {
+	got := shellJoin([]string{"/bin/x", "--model", "so net", "it's", "a;b", "--resume", "id-1"})
+	want := `/bin/x --model 'so net' 'it'\''s' 'a;b' --resume id-1`
+	if got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+}
+
+func TestClaudeTranscriptsDerivedFromTheLauncherAndWorktree(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfgDir := filepath.Join(home, ".claude-acct")
+	wt := "/srv/work trees/jack.1"
+	proj := filepath.Join(cfgDir, "projects", "-srv-work-trees-jack-1")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const id = "0a1b2c3d-0000-4000-8000-0000000000aa"
+	for name, body := range map[string]string{id + ".jsonl": "{}\n", "notes.jsonl": "{}\n", id + "-empty.jsonl": ""} {
+		if err := os.WriteFile(filepath.Join(proj, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	launcher := filepath.Join(home, "claude-acct")
+	if err := os.WriteFile(launcher, []byte("#!/bin/bash\nexport CLAUDE_CONFIG_DIR=\"$HOME/.claude-acct\"\nexec claude \"$@\"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	got, err := claudeTranscripts(wt, []string{"/bin/worker-supervise", launcher, "--model", "sonnet"})
+	if err != nil || len(got) != 1 || got[0].ID != id {
+		t.Fatalf("got %v, %v", got, err)
 	}
 }

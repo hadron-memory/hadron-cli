@@ -308,8 +308,13 @@ func findHandle(node any) string {
 		if h, ok := v["handle"].(string); ok && h != "" {
 			return h
 		}
-		for _, e := range v {
-			if h := findHandle(e); h != "" {
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			if h := findHandle(v[k]); h != "" {
 				return h
 			}
 		}

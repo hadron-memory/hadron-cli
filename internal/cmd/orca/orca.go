@@ -16,9 +16,10 @@ func NewCmdOrca(f *cmdutil.Factory) *cobra.Command {
 		Use:   "orca",
 		Short: "Orca integration: inspect and repair this host's Orca terminals",
 		Long: `Orca integration commands. Orca is the terminal app this team runs its workers
-in. These commands read its terminals, so they work only on the host that runs
-Orca and need the Orca CLI (` + "`orca`" + `) on PATH; off that host they exit 10. They
-never type into a terminal.
+in. These commands work with its terminals, so they work only on the host that
+runs Orca and need the Orca CLI (` + "`orca`" + `) on PATH; off that host they exit 10.
+` + "`terminal status` and `host plan`" + ` only read. ` + "`terminal recover` and `terminal recreate`" + `
+create and close terminals. None of them types into a terminal.
 
 To check that Orca is reachable from this host, run
   hadron orca terminal status no-such-worker
