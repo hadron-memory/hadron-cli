@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -158,6 +159,73 @@ func TestFrameUnreadableTemplateRefuses2018(t *testing.T) {
 			}
 			if fs != nil || calls != 1 {
 				t.Fatalf("partial findings or extra reads: findings=%+v calls=%d", fs, calls)
+			}
+		})
+	}
+}
+
+func TestFrameInvalidRoleDoesNotAbort2018(t *testing.T) {
+	source, _, good := frameFixture2018(t)
+	for _, role := range []string{"spec.", "spec.Rule", "spec.api-v2"} {
+		t.Run(role, func(t *testing.T) {
+			bad := good
+			bad.Loc = "cor:acl:140:99"
+			bad.Role = &role
+			goodBody := strings.Replace(*good.Content, "- **Status:**", "Status:", 1)
+			next := good
+			next.Content = &goodBody
+			client := draftReadClient(func(req *graphql.Request, resp *graphql.Response) error {
+				resp.Data.(*gen.GetSpecNodeRawResponse).Node = &gen.GetSpecNodeRawNode{Content: &source}
+				return nil
+			})
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+			fs, err := lintFrames(cmd, client, "hrn:mem:hadronmemory.com:specs", []specNode{bad, next})
+			if err != nil {
+				t.Fatalf("one bad role aborted corpus: %v", err)
+			}
+			var invalid, continued bool
+			for _, f := range fs {
+				invalid = invalid || (f.Citation == bad.Loc && f.Rule == "frame-role" && f.Severity == sevError)
+				continued = continued || (f.Citation == next.Loc && f.Rule == "frame-status")
+			}
+			if !invalid || !continued {
+				t.Fatalf("bad role or later-node finding missing: %+v", fs)
+			}
+		})
+	}
+}
+
+// speccheck's legacy/retired exemption is structural. Link integrity remains
+// corpus-wide; the historical body must not become a clean link verdict.
+func TestFrameHistoricalLinksStillChecked2018(t *testing.T) {
+	for _, retired := range []bool{false, true} {
+		t.Run(fmt.Sprintf("retired=%v", retired), func(t *testing.T) {
+			role := "spec.rule"
+			body := "Legacy body. [[cor:acl:140:05|wrong]] [link](https://example.test/app/u/hrn:node:hadronmemory.com:specs:cor:acl:140:05)"
+			n := specNode{Loc: "cor:acl:140:04", Role: &role, Content: &body, UpdatedAt: "2026-10-03T12:00:00Z"}
+			if retired {
+				n.Tags = []string{supersededTag}
+				n.UpdatedAt = "2026-11-14T12:00:00Z"
+			}
+			target := specNode{Loc: "cor:acl:140:05", Name: "Rule: Other [cor:acl:140:05]"}
+			client := draftReadClient(func(*graphql.Request, *graphql.Response) error {
+				t.Fatal("historical structure requested a template")
+				return nil
+			})
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+			fs, err := lintFrames(cmd, client, "hrn:mem:hadronmemory.com:specs", []specNode{n, target})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(fs) != 2 {
+				t.Fatalf("historical link checks lost: %+v", fs)
+			}
+			for _, f := range fs {
+				if f.Citation != n.Loc || f.Rule != "frame-link" || f.Severity != sevError {
+					t.Fatalf("unexpected historical shape finding: %+v", f)
+				}
 			}
 		})
 	}
