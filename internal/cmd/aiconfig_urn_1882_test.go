@@ -205,3 +205,28 @@ func TestAiConfigOwnerListShowsUrnAndFallsBackOnOlderServer(t *testing.T) {
 		}
 	}
 }
+
+func TestAiConfigOwnerListTextShowsUrnColumnOnlyWhenPresent(t *testing.T) {
+	item := `{"id":"cfg1","name":"default","ownerType":"ORGANIZATION","ownerId":"org1","provider":"glm","model":"glm-4","hasApiKey":false,"apiKeyPreview":null,"params":null,"endpoint":null,"effectiveEndpoint":null,"apiStyle":null,"effectiveApiStyle":null,"enabled":true,"createdAt":"2026-09-27T00:00:00Z","updatedAt":null`
+	page := func(extra string) string {
+		return `{"data":{"aiServiceConfigs":{"items":[` + item + extra + `}],"total":1}}}`
+	}
+	run := func(responses map[string]string) string {
+		gql, _ := captureGraphQL(t, responses)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"ai-config", "list", "--all-owners", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	with := run(map[string]string{"AiServiceConfigsMaskedWithUrn": page(`,"urn":"hrn:aiconf:acme.com:org:default"`)})
+	if !strings.Contains(with, "URN") || !strings.Contains(with, "hrn:aiconf:acme.com:org:default") {
+		t.Fatalf("URN column missing:\n%s", with)
+	}
+	without := run(map[string]string{"AiServiceConfigsMaskedWithUrn": aiURNMissing, "AiServiceConfigsMasked": page("")})
+	if strings.Contains(without, "URN") {
+		t.Fatalf("older server must not show a URN column:\n%s", without)
+	}
+}

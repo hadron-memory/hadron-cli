@@ -116,6 +116,7 @@ func (o *maskedListFlags) run(cmd *cobra.Command, f *cmdutil.Factory) error {
 			return exitcode.Newf(exitcode.Error, "server returned no AI config page")
 		}
 		dto.Total = r.AiServiceConfigs.Total
+		dto.Items = make([]urnStyleConfigDTO, 0, len(r.AiServiceConfigs.Items))
 		for _, item := range r.AiServiceConfigs.Items {
 			if item != nil {
 				dto.Items = append(dto.Items, urnStyleConfigDTO{styleConfigDTO: dtoFromStyleFields(item.AiServiceConfigStyleFields), URN: item.Urn})
@@ -131,6 +132,7 @@ func (o *maskedListFlags) run(cmd *cobra.Command, f *cmdutil.Factory) error {
 			return exitcode.Newf(exitcode.Error, "server returned no AI config page")
 		}
 		dto.Total = old.AiServiceConfigs.Total
+		dto.Items = make([]urnStyleConfigDTO, 0, len(old.AiServiceConfigs.Items))
 		for _, item := range old.AiServiceConfigs.Items {
 			if item != nil {
 				dto.Items = append(dto.Items, urnStyleConfigDTO{styleConfigDTO: dtoFromStyleFields(item.AiServiceConfigStyleFields)})
