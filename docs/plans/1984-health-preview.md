@@ -1,7 +1,7 @@
 # Monitoring wake reads are previews
 
 Issue #1984; CHECKED 6851769160, FIT 6851534446. Task AT0.7231 was initially
-misnumbered #1833; Eden corrected it in team chat104968. This fixes only the
+misnumbered #1833; Eden corrected it in team chat #104968. This fixes only the
 DueTickWakes read used by orca terminal status and its team health sweep caller.
 
 ## Change
@@ -18,16 +18,16 @@ would restore the defect, so there is no spending fallback.
 
 ## Evidence and limits
 
-Separate red test commit2aedb274 fails on main1d27c47b with
+Separate red test commit 2aedb274 fails on main 1d27c47b with
 "monitoring request 1 omitted literal preview:true". The recording HTTP fixture
 parses the actual operation, exercises two pages/two workers against a one-slot
 budget model, and asserts zero reservations, withheld wakes, notices and
-acknowledgements. This is a synthetic model of the documented server semantics,
+unexpected operations (including acknowledgements). This is a synthetic model of the documented server semantics,
 not proof of server-side persistence. Existing non-OK and cursor tests remain.
 A separate operation pin protects the delivering host poller's spending read.
 
-Expected request count is unchanged: one DueTickWakes per page, page size200,
-with the same workerRefs and cursor. For100 workers fitting one page this is
+Expected request count is unchanged: one DueTickWakes per page, page size 200,
+with the same workerRefs and cursor. For 100 workers fitting one page this is
 one due-wake request, plus the existing worker/ticker/subscriber reads. Response
 fields and per-row payload are unchanged; preview can return more rows because
 it withholds none, still bounded by paging. QA records bytes and wall time for
@@ -60,3 +60,44 @@ QA found an older warning in status --help and the start of the agent contract
 that still described monitoring reservations/notices. Both copies now describe
 preview and fail-closed compatibility, and the old help pin now tests the
 corrected behavior. Help inventory follows.
+
+
+## Test and plan follow-up (#2006)
+
+Gate 6867649103 and FIT 6867585130 bound this follow-up to tests and this
+internal plan. Production queries, matcher, errors, exit codes and public JSON
+remain unchanged. The preview clauses remain **Proposed**; #1833 remains
+unimplemented by this change. No docs#733/#734 warning removal is included.
+
+The recording monitoring fixture runs both worker orders. Every page must
+carry exactly the two expected unique worker IDs: missing, extra, duplicate
+or substituted IDs are rejected. The request still carries literal
+preview:true, uses only DueTickWakes and sends no acknowledgement. Synthetic
+budget counters describe this fixture's request-shape consequences; their
+zero values follow from the literal-preview assertion, not independent
+persisted-budget evidence. The otherOps counter names any unexpected operation.
+The host DueWakes operation remains pinned without preview.
+
+A real `team wakes due` invocation without a preview flag pins its effective
+wire value: absent preview, an omitted variable, or false are acceptable;
+effective true is rejected. Test controls cover literals, variables and their
+defaults. This permits a future explicit flag/variable without deciding
+#1833's future default; it records only today's spending default.
+
+The refusal table drives the real DueTicks reader through synthetic HTTP 200
+and 400 envelopes. Forbidden, a different field, mixed errors and a wrong
+validation code preserve exactly api.MapError's result, with one request and
+no successful ticks. Both known field spellings are covered: Query.dueWakes
+and bare dueWakes. The shared matcher requires parsed GraphQL errors, the
+known unknown-argument message prefix for every error, and either no extension
+code or GRAPHQL_VALIDATION_FAILED. Other spellings/codes keep MapError; the
+helper does not infer arbitrary schema versions or make a capability probe.
+No real older server was exercised, and the test-only assertions do not widen
+the matcher's contract or alter sanitized cause handling.
+
+Current terminal-status@1 JSON cannot distinguish unsupported-preview errors
+from other unavailable idle-terminal evidence: both are locked/unrecognized,
+with process exit 0 and no local-detail field. Text exposes the upgrade hint.
+A new machine-readable reason, matcher change, user-facing error wording or
+cause wrapping is excluded by this gate and needs a separately gated proposal.
+The agentic-usage contract is unchanged by this follow-up.
