@@ -266,7 +266,11 @@ became of them:
 - **N2 (P2) "newest by max id" reset read, FIXED:** see Limits above — every
   recorded reset of the worker is asked, fail-closed on any unreadable or
   invisible one; pinned by the below-max in-flight test and the all-ended
-  actionable test.
+  actionable test. The snapshot note ("state read once at sweep start") is
+  closed the same way: the fixing loop re-reads the state file before it
+  judges resets, so a reset recorded mid-sweep — records are written before
+  their claim is sent — still gates the stop (pinned by
+  `TestHealth2027MidSweepResetRecordStillSkips`, red without the re-read).
 - **N3 (P2) untested `tabBareNow` + silent declines, FIXED:** the recheck is
   pinned branch by branch (turned screen, added pane, failing re-list, gone
   tab, unresolvable worktree, non-tab subject, unreadable pane, live-handle

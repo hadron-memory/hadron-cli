@@ -101,6 +101,16 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	}
 	mode := healthfix.Mode{Applying: applying, Paused: paused}
 	apply := applying && !paused
+	// A reset recorded since the sweep's initial state read must still gate
+	// the stop (#2037 N2 note: the state is a snapshot, the gate is not): a
+	// reset record is written before its claim is sent, so a fresh read at
+	// fix time sees every reset the server has already accepted, and the
+	// window where a mid-sweep reset goes unseen shrinks to the fixing loop.
+	// A read that fails keeps the older snapshot — every reset it names is
+	// still asked, fail closed.
+	if fresh, err := hostpoller.LoadState(cfg.StateFile); err == nil {
+		state = fresh
+	}
 	var appliedActions []string
 	for _, w := range sortedPaths(candidates) {
 		observation := healthfix.Worktree{WorkerID: wt[w].workerID, WorkerName: wt[w].workerName, Path: w, Agents: toFixAgents(census[w]), Tabs: tabs[w]}

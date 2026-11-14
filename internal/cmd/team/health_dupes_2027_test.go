@@ -73,6 +73,11 @@ type health2027World struct {
 	resetsByID map[string]string
 	// state is the poller state file's content (hostId or a resets map).
 	state string
+	// midSweepReset, when set, is written to the state file by the pause
+	// handler — strictly after the sweep loaded its state snapshot and
+	// before its fix loop reads the file back (#2037 N2 note: the gate is
+	// not the snapshot).
+	midSweepReset string
 	// chatBodies records every CreateTeamChatMessage body that arrived.
 	chatBodies []string
 	chatRefs   []*string
@@ -169,6 +174,11 @@ func health2027Setup(t *testing.T) *health2027World {
 		case "HealthSweepSetTerminals":
 			_, _ = io.WriteString(rw, health2027SetTerminals)
 		case "HealthSweepPause":
+			if w.midSweepReset != "" {
+				if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(w.midSweepReset), 0o600); err != nil {
+					t.Errorf("mid-sweep reset write: %v", err)
+				}
+			}
 			if w.pause == "" {
 				_, _ = io.WriteString(rw, `{"data":{"workers":{"items":[{"id":"w1","name":"Iris","checkStatus":null}],"total":1}}}`)
 				return
@@ -820,6 +830,31 @@ func TestHealth2027AllEndedResetsLeaveWorkerActionable(t *testing.T) {
 	}
 	if len(dto.Fixes) == 0 {
 		t.Fatalf("ended resets left the duplicate unhandled: %+v", dto.Fixes)
+	}
+}
+
+// Gate edge 3, #2037 N2 note: a reset recorded AFTER the sweep's initial
+// state read must still skip the worker — the pause handler below rewrites
+// the state file mid-sweep, and the fixing loop re-reads it, so the reset
+// gate is not frozen at the sweep's start-of-run snapshot.
+func TestHealth2027MidSweepResetRecordStillSkips(t *testing.T) {
+	w := health2027Setup(t)
+	w.spawnAgent(t, "codex", true)
+	w.spawnAgent(t, "claude", false)
+	w.midSweepReset = `{"hostId":"own","resets":{"r2":{"resetId":"r2","workerId":"w1"}}}`
+	w.resetsByID = map[string]string{
+		"r2": `{"data":{"contextReset":{"id":"r2","endedAt":null,"phase":"claimed"}}}`,
+	}
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("a mid-sweep reset record went unseen: %+v", dto.Skips)
+	}
+	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
+		t.Fatalf("acted on a reset recorded mid-sweep: %+v %q", dto.Fixes, terms)
 	}
 }
 
