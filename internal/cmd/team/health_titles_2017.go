@@ -23,6 +23,11 @@ type healthRename struct {
 	To       string  `json:"to"`
 	Applied  bool    `json:"applied"`
 	Error    *string `json:"error"`
+	// OrcaCode is the error code Orca answered with, passed through as an
+	// opaque string (cli#2040); null when the rename succeeded, or Orca gave
+	// no code (an unparsable answer, a missing binary). Error keeps its
+	// value, so a consumer testing error == "rename_failed" is unaffected.
+	OrcaCode *string `json:"orcaCode"`
 }
 
 // healthOrcaBin is the orca the title pass runs: the host configuration's
@@ -86,9 +91,12 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 		}
 		r := healthRename{Worker: id, Name: name, Terminal: t.Handle, From: t.Title, To: want}
 		if apply {
-			if orcaterm.RenameTab(ctx, run, t.Handle, want) != nil {
+			if err := orcaterm.RenameTab(ctx, run, t.Handle, want); err != nil {
 				code := "rename_failed"
 				r.Error = &code
+				if oc := orcaterm.ErrorCode(err); oc != "" {
+					r.OrcaCode = &oc
+				}
 				failedTab[tab] = true
 			} else {
 				r.Applied = true
