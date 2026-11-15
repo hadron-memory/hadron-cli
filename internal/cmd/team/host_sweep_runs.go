@@ -153,7 +153,7 @@ func newCmdTeamHostSweepRuns(f *cmdutil.Factory) *cobra.Command {
 		if strings.TrimSpace(host) == "" || limit < 1 || limit > 100 {
 			return exitcode.Newf(exitcode.Usage, "--host is required; --limit must be 1..100")
 		}
-		ctx := cmd.Context()
+		ctx := api.WithoutSession(cmd.Context())
 		b, err := readBindingOrNilWithApp(ctx, f)
 		if err != nil {
 			return err
@@ -188,6 +188,9 @@ func newCmdTeamHostSweepRuns(f *cmdutil.Factory) *cobra.Command {
 			runs = append(runs, d)
 		}
 		return output.Write(f.IOStreams, f.JSON, runs, func(w io.Writer) error {
+			if _, err := fmt.Fprintf(w, "app: %s\n", lazyAppLabel(ctx, f, scope)()); err != nil {
+				return err
+			}
 			t := output.NewTable(w, "RUN", "STARTED", "MODE", "PLANNED", "APPLIED", "SKIPPED", "FAILED")
 			for _, r := range runs {
 				t.Row(output.SafeCell(r.RunID), output.SafeCell(r.StartedAt), output.SafeCell(r.Mode), fmt.Sprint(r.Planned), fmt.Sprint(r.Applied), fmt.Sprint(r.Skipped), fmt.Sprint(r.Failed))
