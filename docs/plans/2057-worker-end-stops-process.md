@@ -81,6 +81,7 @@ the server ending a session whose process was stopped (S2), a spec change
   relative to a descriptor for its directory (`O_NOFOLLOW|O_DIRECTORY`, then
   `openat(..., O_NOFOLLOW)`), so a directory swapped for a link after the check is
   refused. On Windows each open uses `FILE_FLAG_OPEN_REPARSE_POINT` and the handle's
-  attributes are checked; Windows has no `openat`, so a directory swapped between its
-  open and the file's open is the one residual there, and the stop path does not run
-  on Windows (`StopAgents` needs Linux).
+  attributes are checked, and the directory handle stays open (no delete-sharing) until
+  the file is open and checked, so the directory cannot be renamed or replaced between
+  the two opens. Not run on a Windows host (none available): it builds and vets clean,
+  and the reparse-attribute rule is pinned as a platform-neutral unit.
