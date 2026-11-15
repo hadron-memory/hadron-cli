@@ -711,6 +711,18 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 // resets are enabled. An unreaped child keeps its pid, so an identity read
 // while Done is still open, checked after the read, is the agent's own.
 func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
+	if agent, ok := a.(*OrcaAgent); ok && agent.h != nil {
+		select {
+		case <-agent.Done():
+			return ProcessIdentity{}, false
+		default:
+		}
+		identity := agent.h.Identity()
+		if identity.PID > 0 && identity.StartTime != "" {
+			return identity, true
+		}
+	}
+
 	if p.resetDeps.Proc == nil || a.PID() <= 0 {
 		return ProcessIdentity{}, false
 	}

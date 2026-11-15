@@ -19,13 +19,14 @@ import (
 // use the host key; only the poller may invoke this path. Ready proves the
 // daemon is reachable before any launch budget is spent.
 type RelaunchDependencies struct {
-	Source      RelaunchSource
-	Ready       func(context.Context) error
-	OpenJournal func() (hostrelaunch.Journal, uint64, func(), error)
-	Binding     func(hostrelaunch.Target) (hostrelaunch.Binding, error)
-	Probe       func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
-	Verify      func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
-	Notice      func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
+	PostLaunchWait time.Duration
+	Source         RelaunchSource
+	Ready          func(context.Context) error
+	OpenJournal    func() (hostrelaunch.Journal, uint64, func(), error)
+	Binding        func(hostrelaunch.Target) (hostrelaunch.Binding, error)
+	Probe          func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
+	Verify         func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
+	Notice         func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
 }
 
 func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
@@ -48,7 +49,14 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 	}
 	if d.Probe == nil {
 		d.Probe = probeRelaunchWorktree
+		if d.PostLaunchWait == 0 {
+			d.PostLaunchWait = 30 * time.Second
+		}
 	}
+	if d.PostLaunchWait < 0 || d.PostLaunchWait > time.Minute {
+		return errors.New("post-launch proof wait is outside its bound")
+	}
+
 	if d.Verify == nil {
 		d.Verify = verifyRelaunchProcess
 	}
@@ -82,6 +90,9 @@ func (p *Poller) relaunchStep(ctx context.Context) {
 		return
 	}
 	defer closeJournal()
+	if initial.SweepMode != "APPLY" || len(initial.Workers) == 0 {
+		return
+	}
 	// Even an unavailable-daemon sweep consumes a generation, so it cannot
 	// bridge absence observations across an outage. It consumes no attempt.
 	if err := d.Ready(ctx); err != nil {
@@ -140,7 +151,7 @@ func (p *Poller) relaunchStep(ctx context.Context) {
 						return hostrelaunch.Observation{Proven: true, PIDs: []int{old.PID()}}, nil
 					}
 				}
-				return d.Probe(ctx, t)
+				return postLaunchObservation(ctx, d, launched, t)
 			},
 			Prepare: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Prepared, error) {
 				if !w.launchesViaOrca() {
@@ -258,7 +269,7 @@ func (p *Poller) logRelaunch(t hostrelaunch.Target, r hostrelaunch.Result) {
 	if p.emit == nil {
 		return
 	}
-	p.emit(Event{Time: p.now().UTC(), Kind: "relaunch", Type: "worker.relaunch", Outcome: r.Status, Detail: r.Reason, WorkerID: t.WorkerID, SessionID: t.SessionID, TerminalHandle: r.Reference, Reason: r.Reason, Attempt: r.Attempt, CheckedAt: r.AbsentObservedAt, NoticeFailed: r.NoticeFailed})
+	p.emit(Event{Time: p.now().UTC(), Kind: "relaunch", Type: "worker.relaunch", Outcome: r.Status, Detail: r.Reason, WorkerID: t.WorkerID, SessionID: t.SessionID, TerminalHandle: r.Reference, Reason: r.Reason, Attempt: r.Attempt, CheckedAt: r.AbsentObservedAt, NoticeFailed: r.NoticeFailed, FailureReason: r.FailureReason, LocalCause: p.relaunchCause(r.LocalCause), NoticeCause: p.relaunchCause(r.NoticeCause)})
 }
 
 func newRelaunchEpoch() (string, error) {
@@ -267,4 +278,48 @@ func newRelaunchEpoch() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes[:]), nil
+}
+
+// Only a new, already-counted launch may wait for its exec transition. Errors,
+// unknown observations, extra/foreign agents and cancellation never become
+// absence, and there is no second launch inside this window.
+func postLaunchObservation(ctx context.Context, d *RelaunchDependencies, a Agent, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	observation, err := d.Probe(ctx, t)
+	if a == nil || d.PostLaunchWait <= 0 {
+		return observation, err
+	}
+	deadline := time.NewTimer(d.PostLaunchWait)
+	defer deadline.Stop()
+	tick := time.NewTicker(25 * time.Millisecond)
+	defer tick.Stop()
+	for err == nil && observation.Proven && len(observation.PIDs) == 0 {
+		select {
+		case <-ctx.Done():
+			return hostrelaunch.Observation{}, ctx.Err()
+		case <-a.Done():
+			return observation, nil
+		case <-deadline.C:
+			return hostrelaunch.Observation{}, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: errors.New("new agent did not become observable within its proof window")}
+		case <-tick.C:
+			observation, err = d.Probe(ctx, t)
+		}
+	}
+	return observation, err
+}
+
+func (p *Poller) relaunchCause(raw string) string {
+	if p.key != "" {
+		raw = strings.ReplaceAll(raw, p.key, "[redacted]")
+	}
+	raw = strings.Map(func(r rune) rune {
+		if r < ' ' || r == 127 {
+			return ' '
+		}
+		return r
+	}, raw)
+	runes := []rune(raw)
+	if len(runes) > 512 {
+		raw = string(runes[:512]) + "…"
+	}
+	return raw
 }

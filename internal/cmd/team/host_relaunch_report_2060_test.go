@@ -30,7 +30,7 @@ func TestRelaunchRepairWireUsesOnlyHonestClosedOutcomes2060(t *testing.T) {
 		{name: "cap", status: hostrelaunch.Skipped, reason: hostrelaunch.RateLimited, repair: "CAP_REACHED"},
 		{name: "success", status: hostrelaunch.Applied, reason: "TERMINAL_MISSING", repair: "RELAUNCHED", attempt: 1},
 		{name: "unproven", status: hostrelaunch.Skipped, reason: hostrelaunch.Unproven},
-		{name: "unclassified failure", status: hostrelaunch.Failed, reason: hostrelaunch.VerifyFailed},
+		{name: "unclassified failure", status: hostrelaunch.Failed, reason: hostrelaunch.VerifyFailed, reject: true},
 		{name: "server refusal", status: hostrelaunch.Skipped, reason: hostrelaunch.NoProfile, repair: "RELAUNCH_REFUSED", repairReason: "NO_LAUNCHER_PROFILE", attempt: 1, reject: true},
 	}
 	for _, test := range cases {

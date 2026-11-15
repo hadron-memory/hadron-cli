@@ -85,7 +85,9 @@ type Journal interface {
 
 // Result has closed codes, never raw launcher output, prompts or environment.
 type Result struct {
+	LocalCause, NoticeCause   string
 	Status, Reason, Reference string
+	FailureReason             string
 	Attempt                   int
 	NoticeFailed              bool
 	AbsentObservedAt          time.Time
@@ -185,6 +187,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	}
 	// Nothing logged or notified by a dry run, including failures.
 	defer func() {
+		if err != nil {
+			out.LocalCause = err.Error()
+		}
 		if err != nil && out.Reason == StateUnavailable {
 			out.Status = Failed
 		}
@@ -286,6 +291,8 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	a, e := prepared.Launch(ctx)
 	if e != nil || a == nil {
 		out.Status, out.Reason = Failed, LaunchFailed
+		out.FailureReason = observedFailureReason(e)
+
 		if a != nil {
 			out.Reference = a.Reference()
 			if stopErr := a.Rollback(ctx); stopErr != nil {
@@ -329,6 +336,7 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	}
 	if e != nil {
 		out.Status, out.Reason = Failed, VerifyFailed
+		out.FailureReason = observedFailureReason(e)
 		if stopErr := a.Rollback(ctx); stopErr != nil {
 			out.Reason = RollbackFailed
 		}
@@ -351,6 +359,7 @@ func (r Runner) notifyResult(ctx context.Context, t Target, out *Result, rec *Re
 		return
 	}
 	if err := r.Notice(ctx, t, *out); err != nil {
+		out.NoticeCause = err.Error()
 		out.NoticeFailed = true
 		return
 	}
@@ -358,6 +367,7 @@ func (r Runner) notifyResult(ctx context.Context, t Target, out *Result, rec *Re
 	// retried later; a failed transport is never marked as delivered locally.
 	rec.Notice = code
 	if err := r.Journal.Save(t.WorkerID, *rec); err != nil {
+		out.NoticeCause = err.Error()
 		out.NoticeFailed = true
 	}
 }
@@ -367,6 +377,7 @@ func (r Runner) earlyProfileNotice(ctx context.Context, t Target, out *Result) {
 	}
 	rec, err := r.Journal.Load(t.WorkerID)
 	if err != nil {
+		out.NoticeCause = err.Error()
 		out.NoticeFailed = true
 		return
 	}
@@ -383,4 +394,18 @@ func (r Runner) earlyProfileNotice(ctx context.Context, t Target, out *Result) {
 		}
 	}
 	r.notifyResult(ctx, t, out, &rec, "REFUSED:"+NoProfile+":"+t.SessionID)
+}
+
+func observedFailureReason(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return FailureTimeout
+	}
+	var classified interface{ RelaunchFailureReason() string }
+	if errors.As(err, &classified) {
+		switch reason := classified.RelaunchFailureReason(); reason {
+		case FailureTimeout, FailureTerminalCreateRefused, FailureLaunchExitNonzero:
+			return reason
+		}
+	}
+	return ""
 }

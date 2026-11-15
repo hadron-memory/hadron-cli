@@ -51,3 +51,14 @@ func TestWorkerStartCannotBypassRelaunchReservation2060(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestRelaunchLocalCauseScrubsHostKeyAndControls2060(t *testing.T) {
+	p := New(nil, nil, nil, nil, "private-host-key", nil)
+	got := p.relaunchCause("failed private-host-key\nnext\x00line")
+	if strings.Contains(got, "private-host-key") || strings.ContainsAny(got, "\n\x00") || !strings.Contains(got, "[redacted]") {
+		t.Fatal("host key or control leaked")
+	}
+	if len([]rune(p.relaunchCause(strings.Repeat("x", 1000)))) > 513 {
+		t.Fatal("cause is unbounded")
+	}
+}

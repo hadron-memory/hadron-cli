@@ -477,6 +477,9 @@ per line; --json prints each as a JSON object.`,
 			if err := wireOrcaLaunch(p, cfg); err != nil {
 				return err
 			}
+			if err := wireRelaunch(p, cfg, srv); err != nil {
+				return err
+			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
 			p.Fatal = func(err error) bool {
@@ -519,6 +522,9 @@ func hostStepError(err error) error {
 // hostEventDTO is one --json event line: every key always present, "" when
 // it does not apply.
 type hostEventDTO struct {
+	LocalCause     string `json:"localCause,omitempty"`
+	NoticeCause    string `json:"noticeCause,omitempty"`
+	FailureReason  string `json:"failureReason,omitempty"`
 	WorkerID       string `json:"workerId,omitempty"`
 	SessionID      string `json:"sessionId,omitempty"`
 	TerminalHandle string `json:"terminalHandle,omitempty"`
@@ -547,7 +553,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
 			}
 			b, _ := json.Marshal(hostEventDTO{
-				WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
+				LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})

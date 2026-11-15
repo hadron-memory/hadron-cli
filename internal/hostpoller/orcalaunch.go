@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -227,14 +228,25 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if spec.Title != "" {
 		argv = append(argv[:len(argv)-1], "--title", spec.Title, "--json")
 	}
-	code, out, errOut := l.Run(ctx, argv)
+	callCtx, cancelCall := context.WithTimeout(ctx, time.Minute)
+	code, out, errOut := l.Run(callCtx, argv)
+	callErr := callCtx.Err()
+	cancelCall()
 	var created orcaCreated
-	if json.Unmarshal([]byte(out), &created) != nil || code != 0 || !created.OK || created.Result.Terminal.Handle == "" {
+	decodeErr := json.Unmarshal([]byte(out), &created)
+	if decodeErr != nil || code != 0 || !created.OK || created.Result.Terminal.Handle == "" {
 		why := strings.TrimSpace(errOut)
 		if created.Error != nil && created.Error.Code != "" {
 			why = created.Error.Code
 		}
-		return nil, fmt.Errorf("orca did not create the terminal (%s)", firstNonEmpty(why, "no usable reply"))
+		cause := fmt.Errorf("orca did not create the terminal (%s)", firstNonEmpty(why, "no usable reply"))
+		if errors.Is(callErr, context.DeadlineExceeded) {
+			return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: cause}
+		}
+		if decodeErr == nil && created.Error != nil && (code != 0 || !created.OK) {
+			return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTerminalCreateRefused, Err: cause}
+		}
+		return nil, cause
 	}
 	handle, opid := created.Result.Terminal.Handle, created.Result.Terminal.ProcessID
 	fail := func(format string, a ...any) (*OrcaAgent, error) {
@@ -252,7 +264,15 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {
-		return fail("%v", err)
+		agent, finalErr := fail("%v", err)
+		var classified interface{ RelaunchFailureReason() string }
+		if errors.As(err, &classified) {
+			return agent, &hostrelaunch.LaunchError{Code: classified.RelaunchFailureReason(), Err: finalErr}
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: finalErr}
+		}
+		return agent, finalErr
 	}
 	if l.onMarker != nil {
 		l.onMarker(envFile)
@@ -365,7 +385,7 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 			return parseMarker(string(b))
 		}
 		if !time.Now().Before(deadline) {
-			return 0, "", fmt.Errorf("the launched command did not start within %s (no marker)", wait)
+			return 0, "", &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: fmt.Errorf("the launched command did not start within %s (no marker)", wait)}
 		}
 		select {
 		case <-ctx.Done():
