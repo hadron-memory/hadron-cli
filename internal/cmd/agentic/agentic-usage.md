@@ -6538,7 +6538,7 @@ Agent's desired worker process lifetime, with the same server permission as
 `unknown (server before #4242)` and JSON `lifecycle: null`; other read errors
 remain errors. Shared Agent fields and omitted-flag create/update documents
 stay unchanged, so unrelated commands keep working on older servers.
-Lifecycle write receipts include the returned value; unrelated Agent DTOs omit it.
+Lifecycle write receipts include the returned value in JSON (`lifecycle`) and as a text line `  lifecycle: <VALUE>` under the `✓ created|updated agent` line (also with `--install-into`); a write that sent no `--lifecycle` prints no lifecycle text and omits the JSON key, while `agent get` always carries the key (a value, or null on a server before #4242). Unrelated Agent DTOs omit it.
 LONG_LIVED is the server default; SHORT_LIVED runs while assigned a runnable
 task. Recording the value launches or stops no process.
 
