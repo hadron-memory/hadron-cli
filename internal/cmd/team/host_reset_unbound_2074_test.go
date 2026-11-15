@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,21 +23,49 @@ import (
 func TestResetIdleProofRefusesUnboundNoTTY2074(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "claude")
-	// Launch the native fixture directly. A shebang wrapper returns from
-	// Start before its later exec, racing the process-census positive control.
-	// Start's exec handshake now establishes the final agent image itself.
-	image, err := os.ReadFile("/bin/sleep")
+	// Use a native helper that signals after its runtime has started. A
+	// successful exec alone does not tell this test that its census control
+	// is ready. The production validator below is still called only once.
+	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(bin, image, 0755); err != nil {
-		t.Fatal(err)
+	if err := os.Link(exe, bin); err != nil {
+		image, err := os.ReadFile(exe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(bin, image, 0700); err != nil {
+			t.Fatal(err)
+		}
 	}
-	agent, err := (hostpoller.ExecHost{TerminateGrace: 50 * time.Millisecond}).Launch(context.Background(), hostpoller.LaunchSpec{Argv: []string{bin, "300"}, Dir: dir, Env: []string{"PATH=/usr/bin:/bin"}})
+	ready := filepath.Join(dir, "ready")
+	agent, err := (hostpoller.ExecHost{TerminateGrace: 50 * time.Millisecond}).Launch(context.Background(), hostpoller.LaunchSpec{
+		Argv: []string{bin, "-test.run=^TestResetNoTTYAgentFixture2074$", "-test.timeout=2m"},
+		Dir:  dir, Env: []string{"PATH=/usr/bin:/bin", "HADRON_C2C_TEST_READY=" + ready},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = agent.Terminate() })
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		b, err := os.ReadFile(ready)
+		if err == nil {
+			if string(b) != strconv.Itoa(agent.PID()) {
+				t.Fatal("readiness came from another process")
+			}
+			break
+		}
+		if !os.IsNotExist(err) || time.Now().After(deadline) {
+			t.Fatalf("native fixture did not become ready: %v", err)
+		}
+		select {
+		case <-agent.Done():
+			t.Fatal("native fixture exited before readiness")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 	h, err := (hostpoller.LinuxProcessControl{}).Observe(agent.PID())
 	if err != nil {
 		t.Fatal(err)
@@ -66,4 +95,17 @@ func TestResetIdleProofRefusesUnboundNoTTY2074(t *testing.T) {
 	if err := resetIdleProof(reader, binding, hostpoller.ValidateResetTarget)(context.Background(), target); err == nil {
 		t.Fatal("non-tty target accepted an unrelated idle screen")
 	}
+}
+
+// Subprocess-only native agent: argv[0] is claude, with no exec transition or
+// descendants after readiness. The parent owns and terminates its group.
+func TestResetNoTTYAgentFixture2074(t *testing.T) {
+	ready := os.Getenv("HADRON_C2C_TEST_READY")
+	if ready == "" {
+		t.Skip("subprocess fixture")
+	}
+	if err := os.WriteFile(ready, []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Minute)
 }
