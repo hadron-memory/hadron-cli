@@ -661,6 +661,10 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 	p.mu.Lock()
 	p.agents[workerID] = a
 	p.agentTrees[workerID] = token
+	// A new launch starts with no recorded session: an earlier run that
+	// exited on its own leaves its session behind, and this launch must not
+	// inherit it (its own start or reset records the one it serves).
+	delete(p.agentSessions, workerID)
 	if hasID {
 		p.agentIDs[workerID] = id
 	} else {

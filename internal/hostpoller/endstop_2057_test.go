@@ -359,3 +359,25 @@ func TestWorkerEndDeclinesAnAgentThatCannotStopUnderTheLock(t *testing.T) {
 		t.Fatalf("%q", r.reason)
 	}
 }
+
+// Jill's local P2 on 7a7aa948: a run that exited on its own leaves its session
+// recorded, and the next launch must not inherit it.
+func TestTrackAgentDoesNotInheritAnEarlierRunsSession(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	first := &fakeAgent{done: make(chan struct{}), pid: 4100}
+	p.trackAgent("id-iris", "repo/iris", first)
+	p.agentSessions["id-iris"] = "sess-old"
+	close(first.done) // exited on its own
+	second := &fakeAgent{done: make(chan struct{}), pid: 4200}
+	p.trackAgent("id-iris", "repo/iris", second) // a launch whose session is not recorded
+	p.bound = func(string) delivery.Binding { return delivery.Binding{WorkerID: "id-iris", SessionID: "sess1"} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if second.terminations() != 1 {
+		t.Fatalf("the second run was declined by the first run's session (terminations=%d): identification by binding never ran", second.terminations())
+	}
+	if _, left := p.agentSessions["id-iris"]; left {
+		t.Error("a stale session survived the new launch")
+	}
+}
