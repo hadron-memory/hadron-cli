@@ -331,7 +331,7 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	io.ErrOut = errOut
 	f := &cmdutil.Factory{
 		IOStreams:    io,
-		HTTPClient:   loopbackOnlyClient(func(h string) { t.Errorf("a command test reached %s: pass --server <fake> (cli#2144)", h) }),
+		HTTPClient:   loopbackOnlyClient(func(d string) { t.Errorf("a command test tried to reach %s: pass --server <fake> (cli#2144)", d) }, nil),
 		ConfigFn:     config.Load,
 		TokenStoreFn: func() store.Store { return memStore{} },
 	}

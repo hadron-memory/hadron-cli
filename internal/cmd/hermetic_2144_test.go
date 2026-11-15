@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -8,51 +9,122 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // cli#2144 (Julius's P3 on #2140): a command test must never reach a real
-// server. testFactory's client only dials loopback; anything else is refused
-// and reported, so a regression (or a red replay) that falls through to the
-// default hosted endpoint fails loudly instead of sending a fixture key there.
-type loopbackOnlyTransport struct {
-	next   http.RoundTripper
-	report func(host string)
-}
+// server. testFactory's client only CONNECTS to loopback: the check is on the
+// address actually dialled, after resolution (Jibril's P2 on #2146), not on
+// the URL's host name. Proxies are off, and a redirect goes through the same
+// dialer. Anything else is refused and reported, so a regression (or a red
+// replay) that falls through to the default hosted endpoint fails loudly
+// instead of sending a fixture key there.
+var errNotLoopbackInTest = errors.New("a command test tried to reach a non-loopback address")
 
-var errNotLoopbackInTest = errors.New("a command test tried to reach a non-loopback server")
-
-func (l loopbackOnlyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	host := r.URL.Hostname()
-	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-		l.report(r.URL.Host)
-		return nil, fmt.Errorf("%w: %s", errNotLoopbackInTest, r.URL.Host)
+// loopbackOnlyClient builds a dedicated transport (never the shared
+// DefaultTransport). lookup resolves a host name; nil is the system resolver.
+func loopbackOnlyClient(report func(dest string), lookup func(ctx context.Context, host string) ([]net.IPAddr, error)) *http.Client {
+	if lookup == nil {
+		lookup = net.DefaultResolver.LookupIPAddr
 	}
-	return l.next.RoundTrip(r)
+	refuse := func(dest string) error {
+		report(dest)
+		return fmt.Errorf("%w: %s", errNotLoopbackInTest, dest)
+	}
+	d := &net.Dialer{
+		Timeout: 10 * time.Second,
+		// The last word: the address the socket is about to connect to.
+		Control: func(_, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if ip := net.ParseIP(host); err != nil || ip == nil || !ip.IsLoopback() {
+				return refuse(address)
+			}
+			return nil
+		},
+	}
+	tr := &http.Transport{
+		Proxy: nil, // no HTTP(S)_PROXY: a proxy would be the real destination
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, refuse(addr)
+			}
+			ips := []net.IPAddr{{IP: net.ParseIP(host)}}
+			if ips[0].IP == nil {
+				if ips, err = lookup(ctx, host); err != nil || len(ips) == 0 {
+					return nil, refuse(addr)
+				}
+			}
+			for _, ip := range ips {
+				if !ip.IP.IsLoopback() {
+					return nil, refuse(net.JoinHostPort(ip.IP.String(), port) + " (" + host + ")")
+				}
+			}
+			return d.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	}
+	return &http.Client{Transport: tr}
 }
 
-func loopbackOnlyClient(report func(host string)) *http.Client {
-	return &http.Client{Transport: loopbackOnlyTransport{next: http.DefaultTransport, report: report}}
-}
-
-func TestTestClientNeverLeavesLoopback2144(t *testing.T) {
+func TestTestClientOnlyConnectsToLoopback2144(t *testing.T) {
 	var mu sync.Mutex
 	var seen []string
-	c := loopbackOnlyClient(func(h string) { mu.Lock(); seen = append(seen, h); mu.Unlock() })
-	if _, err := c.Get("https://hadronmemory.com/graphql"); !errors.Is(err, errNotLoopbackInTest) {
-		t.Fatalf("a hosted URL was not refused: %v", err)
+	report := func(d string) { mu.Lock(); seen = append(seen, d); mu.Unlock() }
+	reported := func() int { mu.Lock(); defer mu.Unlock(); return len(seen) }
+	// localhost that resolves elsewhere is refused before connecting.
+	lookup := func(_ context.Context, host string) ([]net.IPAddr, error) {
+		if host == "localhost" {
+			return []net.IPAddr{{IP: net.ParseIP("192.0.2.1")}}, nil
+		}
+		return net.DefaultResolver.LookupIPAddr(context.Background(), host)
 	}
-	if len(seen) != 1 || !strings.Contains(seen[0], "hadronmemory.com") {
-		t.Fatalf("not reported: %v", seen)
+	c := loopbackOnlyClient(report, lookup)
+	for _, u := range []string{
+		"http://localhost:9/graphql", // resolves (here) to a non-loopback address
+		"http://192.0.2.1/graphql",   // an external IPv4 literal
+		"http://[2001:db8::1]/graphql",
+	} {
+		before := reported()
+		if _, err := c.Get(u); !errors.Is(err, errNotLoopbackInTest) {
+			t.Fatalf("%s was not refused: %v", u, err)
+		}
+		if reported() != before+1 {
+			t.Fatalf("%s was not reported", u)
+		}
 	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }))
+	ok := func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }
+	// An IPv4 loopback server is reached.
+	srv := httptest.NewServer(http.HandlerFunc(ok))
 	defer srv.Close()
 	resp, err := c.Get(srv.URL)
 	if err != nil {
 		t.Fatalf("a loopback server was refused: %v", err)
 	}
 	_ = resp.Body.Close()
-	if len(seen) != 1 {
-		t.Fatalf("loopback reported: %v", seen)
+	// An IPv6 loopback server is reached, where the host has ::1.
+	if l, lerr := net.Listen("tcp", "[::1]:0"); lerr == nil {
+		s6 := &httptest.Server{Listener: l, Config: &http.Server{Handler: http.HandlerFunc(ok)}}
+		s6.Start()
+		defer s6.Close()
+		resp, err := c.Get(s6.URL)
+		if err != nil {
+			t.Fatalf("an IPv6 loopback server was refused: %v", err)
+		}
+		_ = resp.Body.Close()
+	}
+	// A loopback server redirecting outside: the redirect is refused and
+	// reported.
+	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://192.0.2.1/graphql", http.StatusFound)
+	}))
+	defer redir.Close()
+	before := reported()
+	if _, err := c.Get(redir.URL); !errors.Is(err, errNotLoopbackInTest) {
+		t.Fatalf("a redirect outside was followed: %v", err)
+	}
+	if reported() != before+1 || !strings.Contains(seen[len(seen)-1], "192.0.2.1") {
+		t.Fatalf("the redirect was not reported: %v", seen)
 	}
 }
