@@ -4375,8 +4375,10 @@ inside the poller, never a new direct host-up launch. C5 now reports closed reco
 is added. Typed Orca-launch hosts share C5's managed-daemon readiness gate;
 exec-launch hosts use ordinary host-up readiness. Both select the same Orca
 binary. Expected unavailable observations exit0 and wait for the next timer
-tick; lock conflicts exit5 without service restart (RestartPreventExitStatus=5).
-The failure logger is resolved from PATH at install time. Missing scope/unreachable
+tick; lock conflicts exit5 without service restart (RestartPreventExitStatus=2 5).
+Exec-host preflight Usage exit2 records nothing and waits for the next tick
+instead of service-restarting; missing records remain visible to the stale
+alarm. The failure logger is resolved from PATH at install time. Missing scope/unreachable
 list is ORCA_DOWN; unreadable or ambiguous proof is RELAUNCH_UNPROVEN. The sweep
 queues nothing in either case and records skipped metadata. The poller owns the
 first failed outage report and persistent replay token. Only applied/failed

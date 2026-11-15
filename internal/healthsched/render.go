@@ -237,7 +237,7 @@ func SweepFailureService(s Spec) string {
 
 func sweepRestart(s Spec) string {
 	if s.Job.orHealth().Name == Sweep.Name {
-		return "\nRestart=on-failure\nRestartSec=10s\nRestartPreventExitStatus=5"
+		return "\nRestart=on-failure\nRestartSec=10s\nRestartPreventExitStatus=2 5"
 	}
 	return ""
 }

@@ -60,8 +60,11 @@ C5's systemd daemon scope. Both readiness and reconciliation select the same
 configured Orca binary. Maintenance calls strip worker-session attribution.
 An expected ORCA_DOWN/RELAUNCH_UNPROVEN observation exits zero after writing its
 result; the next timer tick retries it. Lock contention still exits5 immediately,
-but RestartPreventExitStatus=5 prevents service restarts for that result.
-Actual crashes retain bounded Restart=on-failure behavior. The failure logger
+but RestartPreventExitStatus=2 5 prevents service restarts for that result.
+Exec-launch preflight failures retain the ordinary Usage exit2 before a report;
+they also wait for the next timer tick instead of restarting. Missing records
+remain visible to the server stale-sweep alarm. Actual crashes retain bounded
+Restart=on-failure behavior. The failure logger
 is resolved through the install environment and its absolute path is saved.
 
 C5's first applying ORCA_DOWN observation for an eligible should-run worker

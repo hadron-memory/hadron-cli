@@ -44,7 +44,8 @@ and replays its persisted token until confirmed. C5 records only applied/failed
 passes; routine empty/observe/skipped passes do not refresh the stale-sweep
 clock. This one-minute command records the quiet passes. An expected unavailable
 observation exits 0 and waits for the next timer tick. Lock contention exits 5
-without a service restart. A failed record does not change
+without a service restart. Exec-host preflight refusals keep exit 2, record
+nothing and wait for the next timer tick without service restart. A failed record does not change
 the reconciliation result. Default recovery target assumes 30s poll cadence and
 two proven absence observations; a slow custom cadence can miss two minutes.
 This command requests no daemon start, kill or restart; the service manager owns it.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
