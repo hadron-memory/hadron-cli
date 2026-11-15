@@ -523,3 +523,29 @@ func TestTeamHostImport2061ApplySuccessLineNamesWhatWasWritten(t *testing.T) {
 		t.Fatalf("the success line must name host, workdir and family:\n%s", out)
 	}
 }
+
+// Jibril P3: the MATCHING case through the command. The file names the very
+// server the client uses (f.Server()), so there is no warning and the apply goes through.
+func TestTeamHostImport2061MatchingServerNeitherWarnsNorBlocksTheApply(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, applyResponses2061())
+	setTeamBindingServer(t, srv.URL)
+	dir := t.TempDir()
+	y := "server: " + srv.URL + "/\napp: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n  Jonas:\n    family: openai\n    launch: [codex]\n    worktrees: [jonas-1]\n"
+	p := filepath.Join(dir, "host.yaml")
+	if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "host", "import", "--from", p, "--host", "orca1", "--apply", "--yes", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a matching server must not block the apply: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "the file names server") {
+		t.Fatalf("a matching server warned:\n%s", out.String())
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 2 {
+		t.Fatalf("the apply must have written: %v", got)
+	}
+}

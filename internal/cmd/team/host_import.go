@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"path"
 	"sort"
@@ -414,7 +415,8 @@ func importDestinationWarnings(ctx context.Context, client graphql.Client, fileS
 }
 
 // importServerWarning compares the file's server with the one read, by origin
-// (scheme, host, port), so "https://h/" and "https://H:443" are the same. A file
+// and path (scheme, host, port, path prefix), so "https://h/" and "https://H:443"
+// are the same. A file
 // that names no server uses the usual resolution and has nothing to compare.
 func importServerWarning(fileServer, activeServer string) string {
 	if strings.TrimSpace(fileServer) == "" {
@@ -437,10 +439,25 @@ func serverOrigin(raw string) (string, bool) {
 		return "", false
 	}
 	scheme, host, port := strings.ToLower(u.Scheme), strings.ToLower(u.Hostname()), u.Port()
-	if port == "" || (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
-		return scheme + "://" + host, true
+	if port == "" {
+		switch scheme {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		}
 	}
-	return scheme + "://" + host + ":" + port, true
+	// JoinHostPort brackets an IPv6 host, so [2001:db8::1]:8080 and
+	// [2001:db8::1:8080] stay different destinations (cli#2125). The path is part
+	// of the destination too: a prefix can select another backend.
+	hostport := net.JoinHostPort(host, port)
+	if port == "" {
+		hostport = host
+		if strings.Contains(host, ":") {
+			hostport = "[" + host + "]"
+		}
+	}
+	return scheme + "://" + hostport + strings.TrimRight(u.EscapedPath(), "/"), true
 }
 
 // importAppWarning says so when the App the file names is not the App being

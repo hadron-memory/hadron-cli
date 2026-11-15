@@ -211,6 +211,17 @@ func TestImportServerWarningComparesOrigins(t *testing.T) {
 		"file names none":       {"", "https://hadron.example", false},
 		"file unparsable":       {"not a url", "https://hadron.example", true},
 		"active unknown":        {"https://hadron.example", "", true},
+		// cli#2125 (Joaquin, Jibril): brackets matter, so distinct IPv6 hosts stay distinct.
+		"ipv6 host vs host:port": {"http://[2001:db8::1]:8080", "http://[2001:db8::1:8080]", true},
+		"ipv6 loopback pair":     {"http://[::1]:8080", "http://[::1:8080]", true},
+		"ipv6 same":              {"http://[::1]:8080", "http://[::1]:8080", false},
+		"ipv6 default port":      {"http://[::1]", "http://[::1]:80", false},
+		"ipv6 https default":     {"https://[2001:db8::1]/", "https://[2001:db8::1]:443", false},
+		"ipv6 other port":        {"http://[::1]:8080", "http://[::1]:8081", true},
+		// A path prefix can select another backend.
+		"another path prefix":  {"https://hadron.example/staging", "https://hadron.example/prod", true},
+		"same path trailing /": {"https://hadron.example/api/", "https://hadron.example/api", false},
+		"file path vs none":    {"https://hadron.example/api", "https://hadron.example", true},
 	} {
 		if got := importServerWarning(tc.file, tc.active) != ""; got != tc.warn {
 			t.Errorf("%s: warned=%v, want %v", name, got, tc.warn)
