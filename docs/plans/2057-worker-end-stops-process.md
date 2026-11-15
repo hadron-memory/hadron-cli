@@ -181,3 +181,13 @@ The list kept growing (hooks, filters, uploadpack, includes, TLS, the pre-reset 
 - The denylist (per-driver overrides, refusal classes) is gone: everything it caught is outside the set. What stays is
   the fixed hardening (`core.hooksPath`, `core.fsmonitor`, ssh and askpass cleared, the transport allowlist and
   remote-URL check), as defence in depth for what git reads from global and system config and from `.gitattributes`.
+
+### C2b residuals (Wolfgang's ruling on Jamir's P1 and P3 at df95c30b)
+- The allowlist is check-then-run: the repository config is read, then git reads it again when it runs. The reset runs
+  inside `worker.start` before the agent launches, so only another process of the SAME user could change the config
+  in between, and that process can already read the poller's environment and config; the real boundary would be
+  separate uids, an epic-level question, recorded. Narrowed, not closed: the config is re-read right before the
+  fetch's follow-up steps and right before the checkout (a key planted after the first read refuses there), and every
+  host git call re-reads it.
+- The occupancy check and the checkout are not one atomic step (the window the launch has always had).
+- #2095 (contextsize, from merged C8) is not this PR's.

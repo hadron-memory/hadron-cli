@@ -682,3 +682,32 @@ func TestResetWorktreeFailsClosedOnAnUnreadableWorktreeScope(t *testing.T) {
 		t.Fatalf("an unreadable config.worktree must refuse: out=%+v err=%v", out, err)
 	}
 }
+
+// Jamir's P1 as far as it can be closed: a filter planted AFTER the first config
+// read (during the fetch, or just before the checkout) is caught by the re-reads
+// right before the commands that would run it. Deterministic: the seams plant it.
+func TestResetWorktreeRechecksTheConfigBeforeTheCommandsThatMatter(t *testing.T) {
+	for name, set := range map[string]func(fn func()){
+		"after the fetch":     func(fn func()) { resetAfterFetch = fn },
+		"before the checkout": func(fn func()) { resetBeforeCheckout = fn },
+	} {
+		_, clone, script, marker := filterRepo(t)
+		before := gitIn(t, clone, "rev-parse", "HEAD")
+		set(func() {
+			gitIn(t, clone, "config", "filter.evil.smudge", script)
+			gitIn(t, clone, "config", "filter.evil.clean", script)
+		})
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		resetAfterFetch, resetBeforeCheckout = nil, nil
+		if err != nil || out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "filter.evil") {
+			t.Fatalf("%s: out=%+v err=%v", name, out, err)
+		}
+		if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
+			t.Errorf("%s: HEAD moved", name)
+		}
+		if _, err := os.Stat(filepath.Join(clone, "x.dat")); err == nil {
+			t.Errorf("%s: the filtered file was materialized", name)
+		}
+		mustNotHaveRun(t, marker, "a filter planted "+name)
+	}
+}

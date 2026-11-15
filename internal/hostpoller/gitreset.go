@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-// resetAfterFetch is a test seam, called right after the fetch.
-var resetAfterFetch func()
+// resetAfterFetch and resetBeforeCheckout are test seams, called right after the
+// fetch and right before the checkout's final config check.
+var resetAfterFetch, resetBeforeCheckout func()
 
 // resetFetchTimeout bounds the fetch: a stalled remote must not hold a start.
 const resetFetchTimeout = 2 * time.Minute
@@ -82,6 +83,12 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	if resetAfterFetch != nil {
 		resetAfterFetch() // test seam: what a ref moved between the fetch and the read would look like
 	}
+	// The config is read again right before the commands that matter: a key a
+	// same-user actor planted after the first read (or during the fetch) refuses
+	// here, not after the checkout has run its filters.
+	if why := untrustedRepoConfig(ctx, dir); why != "" {
+		return refuse(CodeResetFailed, why), nil
+	}
 	rescued, err := recordRescueRefs(ctx, dir, now)
 	if err != nil {
 		return refuse(CodeResetFailed, err.Error()), nil
@@ -101,6 +108,14 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	base, sha, err := resetBase(ctx, dir, remote)
 	if err != nil {
 		return refuse(CodeResetFailed, err.Error()), nil
+	}
+	if resetBeforeCheckout != nil {
+		resetBeforeCheckout() // test seam: a config change after the last check
+	}
+	if why := untrustedRepoConfig(ctx, dir); why != "" {
+		o := refuse(CodeResetFailed, why)
+		o.Rescued = rescued
+		return o, nil
 	}
 	// By commit id, never by a name: a local branch called origin/main cannot
 	// be taken for the remote one.
