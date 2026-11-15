@@ -1553,6 +1553,17 @@ func codeForExtension(code string) int {
 	case code == "HOST_OPERATION_TYPE_UNKNOWN" || code == "HOST_OPERATION_NOT_ISSUABLE" ||
 		code == "BAD_HOST_OPERATION_ARGS":
 		return exitcode.Usage
+	// The platform's record of which workers each host runs (hadron-cli#2080
+	// over hadron-server#4241). A field that is not its token shape is an input
+	// the caller changes; who may write is the server's rule, a permission; an
+	// existing assignment needs --replace (state), like WORKER_RETIRED above.
+	// WORKER_NOT_FOUND is NotFound where it is mapped.
+	case code == "BAD_HOST_ASSIGNMENT_ARGS":
+		return exitcode.Usage
+	case code == "HOST_ASSIGNMENT_NOT_PERMITTED":
+		return exitcode.Forbidden
+	case code == "HOST_ASSIGNMENT_EXISTS":
+		return exitcode.Conflict
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
 		return exitcode.Conflict
 	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed
