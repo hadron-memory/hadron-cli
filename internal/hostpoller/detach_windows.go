@@ -50,20 +50,7 @@ func occupied(string) (string, error) { return "", nil }
 // exit; a Job Object assigned at launch would close that — left for later,
 // documented here.
 func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
-	select {
-	case <-a.done:
-		return true, ""
-	default:
-	}
-	if authorize != nil {
-		// One forceful action here, so one authorization, held through it.
-		release, ok := authorize()
-		if !ok {
-			return false, declinedDetail(a.pid)
-		}
-		defer release()
-	}
-	return terminateGroup(a.pid, 0)
+	return a.stopProcessTree(authorize, func() (bool, string) { return terminateGroup(a.pid, 0) })
 }
 
 // runTaskkill is the process-tree kill terminateGroup uses, as a package var
