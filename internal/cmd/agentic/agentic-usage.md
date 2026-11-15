@@ -4369,7 +4369,7 @@ reason and never acted on, whatever `wouldBe` says; a null `desired` under any
 other reason is `UNKNOWN_DESIRED`. The App's switch decides where a worker's
 setup comes from (cli#2085; `hostSetup(appRef, hostId)`, hadron-server#4241,
 read without the worker session, one read per run). Under `HOST`, or on a server
-that predates `hostSetup` (a schema-skew refusal; `--json` `hostSetupSource` is
+that predates `hostSetup` (a validation refusal naming only that missing field; `--json` `hostSetupSource` is
 then null), the registration names it: exactly one registered worktree is the
 one acted on, while none, several or a value that is not a host name token is
 `SETUP_INVALID` (reported before the host is read for that worker). Under
@@ -4402,7 +4402,32 @@ Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
 `SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
 worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
 session is never started again: with its agent terminal gone it is reported
-`RELAUNCH_UNAVAILABLE` until the host-local relaunch ships (hadron-cli#2060).
+`RELAUNCH_UNPROVEN`. The current CLI has no adapter proving a live poller
+association, so it does not report `RELAUNCH_PENDING_POLLER` or trigger a
+recovery. Only the periodic poller relaunches an agent; reconciliation reports.
+
+With typed `launch_via: orca` profiles, the Linux poller's periodic pass may
+recover that same open session after two consecutive proven-absent sweeps.
+It requires matching App/server/worker/session/worktree bindings, fresh
+RUNNING desired state under APPLY, a strict process census, and exactly one
+running own-user `orca-daemon-*.scope` plus a successful terminal list.
+Missing systemd proof, a failed list, or zero/multiple scopes refuses
+`RELAUNCH_UNPROVEN`, spending no launch attempt. The daemon is checked again
+before each attempt. At most three attempts per worker per rolling hour are
+persisted before launch, including failed attempts; restart preserves that
+budget and requires two fresh absence observations. The launch uses a fresh
+recover prompt, never a new bind or `--resume`, then verifies its own pinned
+process and rechecks desired state and binding. Failed verification stops
+only that launch. Plain worktree bindings need no Git.
+
+Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
+`attempt` and the absence observation's `checkedAt`, plus a terminal handle
+when known. `noticeFailed` with `localCause` or `noticeCause` means a local
+failure could not be represented or delivered as a typed server repair.
+Setup/disk failures and unproven post-launch identity currently have no honest
+generic server reason; they remain local, never a false `CAP_REACHED` or a
+borrowed failure code. No daemon controls or separate relaunch RPC are added.
+
 An identical operation still in flight is adopted, never issued twice, and
 followed to its outcome; a finished one is not reused; a conflicting one in
 flight fails that worker's step (`ACTION_FAILED`). Every operation is issued
@@ -4427,7 +4452,7 @@ failed; exit 4 when `--worker` names a worker the host is not meant to run
 Reason codes, which are added to and never repurposed:
 - planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
 - skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
-  `RELAUNCH_UNAVAILABLE`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `RELAUNCH_UNPROVEN`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
   `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
   `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
 - failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`

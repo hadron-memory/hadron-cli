@@ -56888,6 +56888,114 @@ func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsH
 	return v.HostRegistrations
 }
 
+// HostRelaunchSnapshotHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostRelaunchSnapshotHostDesiredState struct {
+	HostId    string                                                           `json:"hostId"`
+	SweepMode SweepMode                                                        `json:"sweepMode"`
+	Workers   []*HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostRelaunchSnapshotHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostRelaunchSnapshotHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostRelaunchSnapshotHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetWorkers() []*HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetFamily returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetDesired returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetOpenSessionId returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetWorktrees returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRelaunchSnapshotMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostRelaunchSnapshotMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostRelaunchSnapshotMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotMyApp) GetId() string { return v.Id }
+
+// HostRelaunchSnapshotResponse is returned by HostRelaunchSnapshot on success.
+type HostRelaunchSnapshotResponse struct {
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostRelaunchSnapshotMyApp `json:"myApp"`
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostRelaunchSnapshotHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetMyApp returns HostRelaunchSnapshotResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotResponse) GetMyApp() *HostRelaunchSnapshotMyApp { return v.MyApp }
+
+// GetHostDesiredState returns HostRelaunchSnapshotResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapshotHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
 // The GraphQL type's documentation follows.
 //
@@ -119052,6 +119160,18 @@ type __HostRegistrationsInput struct {
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
 
+// __HostRelaunchSnapshotInput is used internally by genqlient
+type __HostRelaunchSnapshotInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostRelaunchSnapshotInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSnapshotInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostRelaunchSnapshotInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSnapshotInput) GetHostId() string { return v.HostId }
+
 // __HostUpWorkerReposInput is used internally by genqlient
 type __HostUpWorkerReposInput struct {
 	Ref string `json:"ref"`
@@ -146494,6 +146614,57 @@ func HostRegistrations(
 	}
 
 	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRelaunchSnapshot.
+const HostRelaunchSnapshot_Operation = `
+query HostRelaunchSnapshot ($appRef: String!, $hostId: String!) {
+	myApp {
+		id
+	}
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			family
+			desired
+			reason
+			openSessionId
+			worktrees
+		}
+	}
+}
+`
+
+// C5: canonical App identity and desired state from one host-key read.
+// myApp identifies the authenticated App key; app(ref) has a user/org gate.
+// The desired-state read independently checks the configured App and host.
+func HostRelaunchSnapshot(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostRelaunchSnapshotResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchSnapshot",
+		Query:  HostRelaunchSnapshot_Operation,
+		Variables: &__HostRelaunchSnapshotInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostRelaunchSnapshotResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
