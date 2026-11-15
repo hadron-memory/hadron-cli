@@ -140,11 +140,20 @@ type fakeHost struct {
 	stopped []string
 	stops   []AgentStop
 	stopErr error
+	// betweenCheckAndStop runs inside StopAgents, before its still check:
+	// the window in which a replacement session can bind.
+	betweenCheckAndStop func()
 }
 
-func (h *fakeHost) StopAgents(_ context.Context, path string) ([]AgentStop, error) {
+func (h *fakeHost) StopAgents(_ context.Context, path string, still func() bool) ([]AgentStop, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.betweenCheckAndStop != nil {
+		h.betweenCheckAndStop()
+	}
+	if still != nil && !still() {
+		return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+	}
 	h.stopped = append(h.stopped, path)
 	return h.stops, h.stopErr
 }

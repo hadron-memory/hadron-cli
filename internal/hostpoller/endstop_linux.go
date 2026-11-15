@@ -21,12 +21,12 @@ import (
 // The agents are the /proc census the duplicate sweep uses
 // (ScanWorktreeAgents, #2027): one entry per logical agent whose working
 // directory is in the tree.
-func (h ExecHost) StopAgents(_ context.Context, path string) ([]AgentStop, error) {
+func (h ExecHost) StopAgents(_ context.Context, path string, still func() bool) ([]AgentStop, error) {
 	grace := h.TerminateGrace
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	return stopWorktreeAgents(path, grace)
+	return stopWorktreeAgents(path, grace, still)
 }
 
 // stopSignalLease is the pinned-signal window ProcessHandle wants. A stop
@@ -34,7 +34,7 @@ func (h ExecHost) StopAgents(_ context.Context, path string) ([]AgentStop, error
 // procedure.
 const stopSignalLease = time.Hour
 
-func stopWorktreeAgents(path string, grace time.Duration) ([]AgentStop, error) {
+func stopWorktreeAgents(path string, grace time.Duration, still func() bool) ([]AgentStop, error) {
 	root, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func stopWorktreeAgents(path string, grace time.Duration) ([]AgentStop, error) {
 	}
 	out := []AgentStop{}
 	for _, a := range ScanWorktreeAgents(root) {
-		out = append(out, stopAgentGroup(a, root, grace))
+		out = append(out, stopAgentGroup(a, root, grace, still))
 	}
 	return out, nil
 }
@@ -56,12 +56,15 @@ type pinned struct {
 	h   ProcessHandle
 }
 
-// gone reports whether the pinned process no longer runs: its pidfd answers
-// no such process, its /proc entry is missing or is another process's (the
-// number was reaped and retaken), or it is a zombie, which cannot run.
+// gone reports whether the pinned process no longer runs, and only on a
+// DEFINITIVE answer: its pidfd says no such process, its /proc entry is
+// missing or is another process's (the number was reaped and retaken), or it
+// is a zombie, which cannot run. Any other failure of the liveness probe
+// (a permission error, a clock fault) is not evidence of an exit: it reads as
+// still running, so the stop is reported unconfirmed, never as done.
 func (m pinned) gone(ctrl LinuxProcessControl, t0 time.Duration) bool {
 	if _, err := m.h.SignalWithin(syscall.Signal(0), t0, stopSignalLease, ctrl.Now); err != nil {
-		return true
+		return errors.Is(err, syscall.ESRCH)
 	}
 	st, ok := readStat(m.pid)
 	return !ok || st.start != m.h.Identity().StartTime || st.state == "Z"
@@ -153,16 +156,27 @@ func pinGroup(ctrl LinuxProcessControl, pgid int, root string, skip map[int]bool
 // signal goes through a pidfd, so a number that was reaped and reused is
 // never signalled. When the agent's group is not the worker's alone, only
 // the agent process itself is signalled and the detail says so.
-func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration) AgentStop {
+func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration, still func() bool) AgentStop {
+	return stopAgentGroupWith(a, root, grace, still, LinuxProcessControl{}.Observe)
+}
+
+// stopAgentGroupWith is stopAgentGroup with the process pin injectable.
+func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, still func() bool, observe func(int) (ProcessHandle, error)) AgentStop {
 	name := fmt.Sprintf("pid %d (%s)", a.PID, a.Display)
 	ctrl := LinuxProcessControl{}
 	t0, err := ctrl.Now()
 	if err != nil {
 		return AgentStop{PID: a.PID, Detail: fmt.Sprintf("%s was not touched: %v", name, err)}
 	}
-	lead, err := ctrl.Observe(a.PID)
+	lead, err := observe(a.PID)
 	if err != nil {
-		return AgentStop{PID: a.PID, Stopped: true, Detail: name + " had already exited"}
+		// Only a process that is gone has exited. Any other failure to pin it
+		// (another user's process, no free descriptors, an unreadable /proc
+		// entry) means nothing was signalled and nothing is known.
+		if errors.Is(err, syscall.ESRCH) || errors.Is(err, os.ErrNotExist) {
+			return AgentStop{PID: a.PID, Stopped: true, Detail: name + " had already exited"}
+		}
+		return AgentStop{PID: a.PID, Detail: fmt.Sprintf("%s was not touched: it could not be pinned: %v", name, err)}
 	}
 	if lead.Identity().StartTime != strconv.FormatInt(a.StartTicks, 10) {
 		lead.Close()
@@ -174,6 +188,11 @@ func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration) AgentStop
 			m.h.Close()
 		}
 	}()
+	// The agent may have moved since the census: its CURRENT directory must
+	// still be inside the worktree before it is a signal target.
+	if !withinRoot(a.PID, root) {
+		return AgentStop{PID: a.PID, Detail: name + " was not touched: it is no longer working inside the worktree"}
+	}
 	pinnedPIDs := map[int]bool{a.PID: true}
 	scope := "its process group"
 	pgid, err := unix.Getpgid(a.PID)
@@ -222,6 +241,9 @@ func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration) AgentStop
 			}
 			time.Sleep(groupPollInterval)
 		}
+	}
+	if still != nil && !still() {
+		return AgentStop{PID: a.PID, Detail: name + " was not touched: the worktree's session binding changed while this end was running"}
 	}
 	if err := signal(syscall.SIGTERM); err != nil && !allGone(0) {
 		return AgentStop{PID: a.PID, Detail: fmt.Sprintf("%s could not be stopped: %v", name, err)}

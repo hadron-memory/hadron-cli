@@ -30,8 +30,12 @@ type Host interface {
 	// a terminal is not the poller's child), each with its process group:
 	// SIGTERM, a grace, then SIGKILL. One entry per agent found; none when
 	// no agent works there. An error means the host cannot tell (no /proc,
-	// no pidfd) and nothing was signalled.
-	StopAgents(ctx context.Context, path string) ([]AgentStop, error)
+	// no pidfd) and nothing was signalled. still is asked once per agent,
+	// after the agent is pinned and immediately before its first signal: it
+	// answers whether the stop is still authorized (the worktree's session
+	// binding has not moved on to another session). A false answer
+	// signals nothing and says so; a nil still always allows.
+	StopAgents(ctx context.Context, path string, still func() bool) ([]AgentStop, error)
 }
 
 // AgentStop is one agent process StopAgents handled.

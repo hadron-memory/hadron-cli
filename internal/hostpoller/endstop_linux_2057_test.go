@@ -3,9 +3,11 @@
 package hostpoller
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -41,7 +43,7 @@ func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\nsleep 300 &\nwait\n")
 	done := reaped(c)
-	stops, err := stopWorktreeAgents(root, 2*time.Second)
+	stops, err := stopWorktreeAgents(root, 2*time.Second, nil)
 	if err != nil || len(stops) != 1 || !stops[0].Stopped || stops[0].PID != c.Process.Pid {
 		t.Fatalf("stops = %+v err = %v", stops, err)
 	}
@@ -60,7 +62,7 @@ func TestStopWorktreeAgentsKillsAnAgentThatIgnoresSIGTERM(t *testing.T) {
 	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
 	done := reaped(c)
 	start := time.Now()
-	stops, err := stopWorktreeAgents(root, 300*time.Millisecond)
+	stops, err := stopWorktreeAgents(root, 300*time.Millisecond, nil)
 	if err != nil || len(stops) != 1 || !stops[0].Stopped || !strings.Contains(stops[0].Detail, "killed") {
 		t.Fatalf("stops = %+v err = %v", stops, err)
 	}
@@ -79,7 +81,7 @@ func TestStopWorktreeAgentsLeavesAnotherWorktreesAgentAlone(t *testing.T) {
 	mine := spawnAgent(t, root, "#!/bin/sh\nwhile :; do sleep 1; done\n")
 	theirs := spawnAgent(t, other, "#!/bin/sh\nwhile :; do sleep 1; done\n")
 	_ = reaped(mine)
-	if _, err := stopWorktreeAgents(root, time.Second); err != nil {
+	if _, err := stopWorktreeAgents(root, time.Second, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := syscall.Kill(theirs.Process.Pid, 0); err != nil {
@@ -105,7 +107,7 @@ func TestStopWorktreeAgentsSignalsOnlyTheAgentWhenItsGroupIsShared(t *testing.T)
 	t.Cleanup(func() { _ = syscall.Kill(-lead.Process.Pid, syscall.SIGKILL); _, _ = lead.Process.Wait() })
 	time.Sleep(200 * time.Millisecond)
 	_ = reaped(lead)
-	stops, err := stopWorktreeAgents(root, time.Second)
+	stops, err := stopWorktreeAgents(root, time.Second, nil)
 	if err != nil || len(stops) != 1 || !stops[0].Stopped || !strings.Contains(stops[0].Detail, "agent process only") {
 		t.Fatalf("stops = %+v err = %v", stops, err)
 	}
@@ -119,11 +121,100 @@ func TestStopWorktreeAgentsSignalsOnlyTheAgentWhenItsGroupIsShared(t *testing.T)
 func TestStopAgentGroupRefusesAReusedPid(t *testing.T) {
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\nwhile :; do sleep 1; done\n")
-	stop := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: 1}, root, time.Second)
+	stop := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: 1}, root, time.Second, nil)
 	if stop.Stopped || !strings.Contains(stop.Detail, "not touched") {
 		t.Fatalf("stop = %+v", stop)
 	}
 	if err := syscall.Kill(c.Process.Pid, 0); err != nil {
 		t.Fatalf("the process was signalled: %v", err)
 	}
+}
+
+type stopHandle struct {
+	id  ProcessIdentity
+	err error
+}
+
+func (f stopHandle) Identity() ProcessIdentity { return f.id }
+func (f stopHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() (time.Duration, error)) (time.Duration, error) {
+	return 0, f.err
+}
+func (f stopHandle) Close() {}
+
+// Local P2: a process that could not be pinned for any reason but its being
+// gone was not signalled and is not reported stopped.
+func TestStopAgentGroupDoesNotReportStoppedWhenItCouldNotPinTheProcess(t *testing.T) {
+	root := t.TempDir()
+	c := spawnAgent(t, root, "#!/bin/sh\nwhile :; do sleep 1; done\n")
+	a := WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: 1}
+	deny := func(int) (ProcessHandle, error) { return nil, syscall.EPERM }
+	if s := stopAgentGroupWith(a, root, time.Second, nil, deny); s.Stopped || !strings.Contains(s.Detail, "not touched") {
+		t.Fatalf("stop = %+v", s)
+	}
+	gone := func(int) (ProcessHandle, error) { return nil, syscall.ESRCH }
+	if s := stopAgentGroupWith(a, root, time.Second, nil, gone); !s.Stopped {
+		t.Fatalf("a process that is gone is a stopped one: %+v", s)
+	}
+}
+
+// Blind P2: a failed liveness probe is not proof of an exit.
+func TestPinnedGoneOnlyOnADefinitiveAbsence(t *testing.T) {
+	ctrl := LinuxProcessControl{}
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"no such process": {syscall.ESRCH, true},
+		"permission":      {syscall.EPERM, false},
+		"clock":           {ErrClock, false},
+		"lease":           {errors.New("odd"), false},
+	} {
+		m := pinned{pid: os.Getpid(), h: stopHandle{id: ProcessIdentity{PID: os.Getpid()}, err: tc.err}}
+		if got := m.gone(ctrl, 0); got != tc.want {
+			t.Errorf("%s: gone = %v, want %v", name, got, tc.want)
+		}
+	}
+}
+
+// Blind P2 (second): the lead process is re-checked against the worktree
+// before it becomes a signal target.
+func TestStopAgentGroupDeclinesAnAgentThatLeftTheWorktree(t *testing.T) {
+	root, elsewhere := t.TempDir(), t.TempDir()
+	c := spawnAgent(t, elsewhere, "#!/bin/sh\nwhile :; do sleep 1; done\n")
+	// The census saw it under root; it now works in elsewhere.
+	ticks := startTicks(t, c.Process.Pid)
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, time.Second, nil)
+	if s.Stopped || !strings.Contains(s.Detail, "no longer working inside") {
+		t.Fatalf("stop = %+v", s)
+	}
+	if err := syscall.Kill(c.Process.Pid, 0); err != nil {
+		t.Fatalf("an agent outside the worktree was signalled: %v", err)
+	}
+}
+
+// The binding guard is the last thing asked before the first signal.
+func TestStopAgentGroupSignalsNothingWhenTheGuardSaysNo(t *testing.T) {
+	root := t.TempDir()
+	c := spawnAgent(t, root, "#!/bin/sh\nwhile :; do sleep 1; done\n")
+	ticks := startTicks(t, c.Process.Pid)
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, time.Second, func() bool { return false })
+	if s.Stopped || !strings.Contains(s.Detail, "binding changed") {
+		t.Fatalf("stop = %+v", s)
+	}
+	if err := syscall.Kill(c.Process.Pid, 0); err != nil {
+		t.Fatalf("signalled despite the guard: %v", err)
+	}
+}
+
+func startTicks(t *testing.T, pid int) int64 {
+	t.Helper()
+	st, ok := readStat(pid)
+	if !ok {
+		t.Fatal("no stat")
+	}
+	n, err := strconv.ParseInt(st.start, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }

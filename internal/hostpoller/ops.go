@@ -508,9 +508,37 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 // which clears it: the tree is then the worker's by this host's own
 // configuration, where a worktree belongs to one worker.
 func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string, w WorkerConfig, session string, agent Agent) string {
+	// allowed answers whether the tree's session binding still leaves its
+	// processes to this end: not another worker's, not another session of
+	// this worker than the one being ended, readable. It is asked before any
+	// process is looked for AND again right before a signal goes out, so a
+	// replacement session that binds in between is not stopped by the older
+	// session's end (the window cannot be closed against a separate process
+	// writing the binding, only made as short as the signal itself).
+	allowed := func(t string) (bool, string) {
+		b := p.bound(p.cfg.WorktreePath(t))
+		switch {
+		case b.Unusable:
+			return false, fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t)
+		case b.WorkerID != "" && b.WorkerID != op.WorkerID:
+			return false, fmt.Sprintf("worktree %s is bound to another worker, so its processes were not touched", t)
+		case b.WorkerID != "" && b.SessionID != "" && b.SessionID != session:
+			return false, fmt.Sprintf("worktree %s is bound to another session of this worker than the one being ended, so its processes were not touched", t)
+		}
+		return true, ""
+	}
 	if agent != nil {
+		said := ""
+		// The launched agent runs in the tree it was started in; the same
+		// binding rules decide whether this end may stop it.
+		if t, ok := p.agentWorktree(op.WorkerID); ok {
+			if ok, why := allowed(t); !ok {
+				p.log("stop-skipped", op.ID, op.Type, "", why)
+				return why
+			}
+		}
 		stopped, detail := agent.Terminate()
-		said := fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
+		said = fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
 		if !stopped {
 			said = fmt.Sprintf("the agent this host launched (pid %d) could not be confirmed stopped and its records are kept", agent.PID())
 		}
@@ -540,19 +568,11 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 		parts = append(parts, text)
 	}
 	for _, t := range trees {
-		b := p.bound(p.cfg.WorktreePath(t))
-		switch {
-		case b.Unusable:
-			say("stop-skipped", fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t))
-			continue
-		case b.WorkerID != "" && b.WorkerID != op.WorkerID:
-			say("stop-skipped", fmt.Sprintf("worktree %s is bound to another worker, so its processes were not touched", t))
-			continue
-		case b.WorkerID != "" && b.SessionID != "" && b.SessionID != session:
-			say("stop-skipped", fmt.Sprintf("worktree %s is bound to another session of this worker than the one being ended, so its processes were not touched", t))
+		if ok, why := allowed(t); !ok {
+			say("stop-skipped", why)
 			continue
 		}
-		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t))
+		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t), func() bool { ok, _ := allowed(t); return ok })
 		if err != nil {
 			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
 			continue

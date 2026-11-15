@@ -84,8 +84,8 @@ type WorkerConfig struct {
 	EndWait string `yaml:"end_wait"`
 	// StopOnEnd says whether worker.end also stops the worker's agent
 	// process on this host (hadron-cli#2057 C2a): never (the default: the
-	// end only prompts, as before), manager (stop only when a person or
-	// worker who manages the App issued the end, never the platform's own),
+	// end only prompts, as before), manager (stop only when a person who
+	// manages the App issued the end, never the platform's own or a worker's),
 	// or always (a short-lived worker: every end stops it).
 	StopOnEnd string `yaml:"stop_on_end"`
 	// StopWait bounds how long a stopping worker.end gives a delivered end
@@ -384,7 +384,9 @@ func (w WorkerConfig) stopsOnEnd(issuedBy string) bool {
 	case StopOnEndAlways:
 		return true
 	case StopOnEndManager:
-		return issuedBy == IssuedByUser || issuedBy == IssuedByWorker
+		// A WORKER issuer is a bound reports-to worker, which never manages
+		// the App (cor:agt:050:09): only a person's end is a manager's.
+		return issuedBy == IssuedByUser
 	}
 	return false
 }

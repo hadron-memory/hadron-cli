@@ -80,7 +80,7 @@ func TestWorkerEndStopOnlyWaitsForADeliveredPrompt(t *testing.T) {
 }
 
 func TestWorkerEndManagerModeIgnoresThePlatformsOwnEnd(t *testing.T) {
-	for issuer, want := range map[string]int{IssuedByPlatform: 0, "": 0, IssuedByUser: 1, IssuedByWorker: 1} {
+	for issuer, want := range map[string]int{IssuedByPlatform: 0, "": 0, IssuedByUser: 1, IssuedByWorker: 0} {
 		p, srv, host := testPoller(t)
 		withStop(p, StopOnEndManager)
 		p.bound = func(string) delivery.Binding { return delivery.Binding{} }
@@ -154,5 +154,47 @@ func TestConfigRefusesABadStopSwitch(t *testing.T) {
 	c.Workers["iris"] = WorkerConfig{Family: "claude", Launch: []string{"x"}, StopWait: "soon"}
 	if err := c.validate(); err == nil || !strings.Contains(err.Error(), "stop_wait") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// Blind P1: a LAUNCHED agent is held to the same binding rules as a scanned one.
+func TestWorkerEndNeverStopsALaunchedAgentOfAnotherSession(t *testing.T) {
+	for name, b := range map[string]delivery.Binding{
+		"another worker":                {WorkerID: "id-other", SessionID: "sess1"},
+		"another session of the worker": {WorkerID: "id-iris", SessionID: "sess2"},
+		"an unreadable binding":         {Unusable: true},
+	} {
+		p, srv, _ := testPoller(t)
+		withStop(p, StopOnEndAlways)
+		agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+		p.trackAgent("id-iris", "repo/iris", agent)
+		p.bound = func(string) delivery.Binding { return b }
+		srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+		step(t, p)
+		if agent.terminations() != 0 {
+			t.Errorf("%s: an end for an older session stopped the launched agent", name)
+		}
+		if r := only(t, srv); !strings.Contains(r.reason, "not touched") {
+			t.Errorf("%s: %q", name, r.reason)
+		}
+	}
+}
+
+// Blind P1 (second): the binding is asked again right before the signal, so a
+// replacement session that binds between discovery and the stop is left alone.
+func TestWorkerEndRechecksTheBindingRightBeforeTheSignal(t *testing.T) {
+	p, srv, host := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	b := delivery.Binding{WorkerID: "id-iris", SessionID: "sess1"}
+	p.bound = func(string) delivery.Binding { return b }
+	host.stops = []AgentStop{{PID: 7, Stopped: true, Detail: "pid 7"}}
+	host.betweenCheckAndStop = func() { b = delivery.Binding{WorkerID: "id-iris", SessionID: "sess2"} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if len(host.stopped) != 0 {
+		t.Fatalf("a session that bound after the first check was stopped: %v", host.stopped)
+	}
+	if r := only(t, srv); !strings.Contains(r.reason, "binding moved on") {
+		t.Fatalf("%q", r.reason)
 	}
 }

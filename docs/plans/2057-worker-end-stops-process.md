@@ -8,8 +8,8 @@ touched the process. With the per-worker host-config field `stop_on_end` it now
 also stops the worker's agent.
 
 - `stop_on_end: never` (default, today's behaviour) | `manager` (only when the
-  operation's issuer is a USER or WORKER, i.e. someone who manages the App, not
-  the PLATFORM's own) | `always` (a short-lived worker). `WorkerConfig.stopsOnEnd`
+  operation's issuer is a USER: a person who manages the App, not the
+  PLATFORM's own and not a bound reports-to WORKER) | `always` (a short-lived worker). `WorkerConfig.stopsOnEnd`
   is the only lookup: **transitional**, removed with `host.yaml` (C4); S3's
   `Agent.lifecycle` replaces it. Decision recorded by Wolfgang (#107617).
 - Wait: after a *delivered* end prompt, `stop_wait` (default 60 s) instead of
@@ -24,7 +24,7 @@ also stops the worker's agent.
 
 ## Which process
 1. The agent this poller launched: `Agent.Terminate()` (its own launch group;
-   records dropped only on a confirmed stop).
+   records dropped only on a confirmed stop), after the same binding check.
 2. Otherwise (a `worker-supervise` terminal agent, or a launch from before a
    restart): `ScanWorktreeAgents` (#2027's /proc cwd census, not a second
    implementation) over the worker's registered worktrees. A tree is skipped
@@ -44,3 +44,13 @@ says so. SIGTERM, `TerminateGrace` (5 s), SIGKILL, 2 s. Other platforms: no
 C2b (workspace reset inside `worker.start`), C2c (wire `worker.reset-context`),
 the server ending a session whose process was stopped (S2), a spec change
 (client-only host config; the rule it serves, cor:agt:050:10, is unchanged).
+
+## Review round 1 (at 3a46c23a)
+- A launched agent is held to the same binding rules as a scanned one.
+- The binding is asked again immediately before the first signal (`still`
+  guard into `StopAgents`). A separate process writes the binding, so the
+  window cannot be closed, only made as short as the signal.
+- "Gone" is a definitive absence only (ESRCH / no /proc entry); a failed pin or
+  probe is "not touched" / unconfirmed, never "stopped".
+- The lead process's current directory is re-checked against the worktree.
+- `manager` admits USER only.
