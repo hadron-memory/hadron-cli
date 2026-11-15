@@ -411,6 +411,16 @@ type onboardQueue struct {
 	client            graphql.Client
 	app, host, worker string
 	last              *gen.HostOperationFields
+	// activeOnly (cli#1389) reuses an identical operation only while it is
+	// still in flight. Onboard runs once per worker, so an identical finished
+	// operation is its own earlier run and is reused. `host up` reconciles
+	// over and over: last week's succeeded worker.start says nothing about a
+	// worker that has died since, and must not stand in for a new one.
+	activeOnly bool
+	// polling is the operation ensure has adopted or issued and now waits
+	// on. It is found in every status, so its own completion is never
+	// filtered out as "not active" (cli#2064 local P1).
+	polling string
 }
 
 // Find every page: an older matching operation must not be re-issued merely
@@ -438,12 +448,18 @@ func (q *onboardQueue) find(ctx context.Context, step onboardStep) (*gen.HostOpe
 				return nil, exitcode.Newf(exitcode.Error, "cannot interpret existing host operation %s", op.Id)
 			}
 			delete(args, "workerId")
+			active := op.Status == gen.HostOperationStatusIssued || op.Status == gen.HostOperationStatusCollected
+			if q.activeOnly && !active && op.Id != q.polling {
+				continue
+			}
 			if reflect.DeepEqual(args, step.Args) {
-				if found == nil {
+				// While polling, the polled operation itself is the answer,
+				// whatever newer identical one a page lists first.
+				if found == nil || q.polling != "" && op.Id == q.polling {
 					copied := op
 					found = &copied
 				}
-			} else if op.Status == gen.HostOperationStatusIssued || op.Status == gen.HostOperationStatusCollected {
+			} else if active {
 				return nil, exitcode.Newf(exitcode.Usage, "conflicting active %s operation %s; inspect team host ops", step.Type, op.Id)
 			}
 		}
@@ -460,6 +476,7 @@ func (q *onboardQueue) find(ctx context.Context, step onboardStep) (*gen.HostOpe
 
 func (q *onboardQueue) ensure(ctx context.Context, step onboardStep, timeout time.Duration) error {
 	q.last = nil
+	q.polling = ""
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	op, err := q.find(ctx, step)
@@ -483,6 +500,7 @@ func (q *onboardQueue) ensure(ctx context.Context, step onboardStep, timeout tim
 		return exitcode.Newf(exitcode.Error, "queue returned an unexpected operation; inspect team host ops before retrying")
 	}
 	id := op.Id
+	q.polling = id
 	return onboardWait(ctx, timeout, func() (bool, error) {
 		if op.Status == gen.HostOperationStatusFailed {
 			return false, exitcode.Newf(exitcode.Error, "%s %s failed; inspect team host ops before retrying", step.Type, id)
