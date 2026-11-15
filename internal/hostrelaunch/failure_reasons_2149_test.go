@@ -72,3 +72,22 @@ func TestFinalGuardCensusErrorIsNotProcessVerification2149(t *testing.T) {
 		t.Fatalf("prelaunch observation mislabeled: %+v %v starts=%d", out, err, f.starts)
 	}
 }
+
+func TestPartialLaunchCannotClaimSetupFailure2149(t *testing.T) {
+	f := newFixture(t)
+	prepare := f.runner.Prepare
+	f.runner.Prepare = func(ctx context.Context, target Target) (Prepared, error) {
+		p, err := prepare(ctx, target)
+		p.Launch = func(context.Context) (Agent, error) {
+			f.starts++
+			return &fakeAgent{f: f, ref: "partial-terminal"}, &LaunchError{Code: FailureSetupFailed, Err: errors.New("agent already returned")}
+		}
+		return p, err
+	}
+	f.run(t, 1)
+	f.runner.Sweep = 2
+	out, err := f.runner.Execute(context.Background(), f.target)
+	if err == nil || out.Status != Failed || out.FailureReason != "" || f.rolledBack != 1 || len(f.store.rows[f.target.WorkerID].Attempts) != 1 {
+		t.Fatalf("partial launch mislabeled or not cleaned: %+v error=%v rollback=%d", out, err, f.rolledBack)
+	}
+}
