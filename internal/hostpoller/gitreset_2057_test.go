@@ -816,3 +816,40 @@ func TestExecHostInspectOfAPlainChildOfARepositoryIsNotAWorktreeAndNotRefused(t 
 		t.Fatalf("st=%+v err=%v", st, err)
 	}
 }
+
+// §10 (Rook, a4e836e8): the root is decided by the directory's own .git entry, not
+// by `rev-parse --show-toplevel`, which honours the repository's core.worktree. A
+// dirty root whose config redirects its work tree elsewhere used to read as "not a
+// root": silently not reset, not refused. It is a root with a config outside the
+// allowlist, so it is refused, naming the key, and nothing moves.
+func TestResetWorktreeRefusesARootWhoseConfigRedirectsItsWorkTree(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	_ = os.WriteFile(filepath.Join(clone, "a.txt"), []byte("dirty\n"), 0o644)
+	before := gitIn(t, clone, "rev-parse", "HEAD")
+	gitIn(t, clone, "config", "core.worktree", t.TempDir())
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "core.worktree") {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if got, e := exec.Command("git", "--git-dir", filepath.Join(clone, ".git"), "rev-parse", "HEAD").Output(); e != nil || strings.TrimSpace(string(got)) != before {
+		t.Fatal("a refused reset moved HEAD")
+	}
+	if b, _ := os.ReadFile(filepath.Join(clone, "a.txt")); string(b) != "dirty\n" {
+		t.Fatal("the dirty file was touched")
+	}
+}
+
+// A directory with a .git entry but a repository git cannot read is a root that
+// fails closed, never a worker without Git (Jamir's P3 at a4e836e8).
+func TestResetWorktreeRefusesARootWhoseRepositoryCannotBeRead(t *testing.T) {
+	_, clone := resetRepo(t)
+	_ = os.WriteFile(filepath.Join(clone, ".git", "config"), []byte("[core\n"), 0o644)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err == nil && (out.Reset || out.Code == "") {
+		t.Fatalf("a broken repository was taken for a worker without Git: out=%+v", out)
+	}
+	if st, e := (ExecHost{}).Inspect(context.Background(), clone); e == nil && st.IsWorktree {
+		t.Fatalf("Inspect took a broken repository for a healthy worktree: %+v", st)
+	}
+}

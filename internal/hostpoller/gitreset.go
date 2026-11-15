@@ -3,6 +3,8 @@ package hostpoller
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -293,19 +295,15 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 	return remote + "/" + branch, sha, nil
 }
 
-// isWorktreeRoot reports whether dir is, or might be, the top level of a git
-// work tree. It is false only when git DEFINITELY says otherwise: dir is not in
-// a repository at all, or it is a plain directory or a subdirectory inside one
-// (the enclosing repository's top level is somewhere else). An answer that cannot
-// be read (a broken config, say) is "might be", so the config gate that follows
-// refuses it instead of the directory being taken for a worker without Git.
-func isWorktreeRoot(ctx context.Context, dir string) bool {
-	top, errOut, err := runGitTree(ctx, dir, "rev-parse", "--show-toplevel")
-	switch {
-	case err == nil:
-		return top != "" && samePath(top, dir)
-	case strings.Contains(strings.ToLower(errOut), "not a git repository"):
-		return false
-	}
-	return true
+// isWorktreeRoot reports whether dir is the top level of a git work tree: it has
+// a .git entry of its own (the directory of a repository's own work tree, or the
+// pointer file of a linked worktree). A plain directory, or a subdirectory, inside
+// some enclosing repository has none, so it is a worker without Git. The root is
+// decided by this entry, not by `rev-parse --show-toplevel`, which honours the
+// repository's own core.worktree: a tree whose config redirects its work tree
+// elsewhere would read as "not a root" and slip past silently; with the entry
+// present it goes through the config allowlist, which refuses core.worktree.
+func isWorktreeRoot(_ context.Context, dir string) bool {
+	_, err := os.Lstat(filepath.Join(dir, ".git"))
+	return err == nil
 }

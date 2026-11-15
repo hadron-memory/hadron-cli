@@ -94,11 +94,12 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 	if !isWorktreeRoot(ctx, path) {
 		return st, nil
 	}
-	if _, err := git(ctx, path, "rev-parse", "--show-toplevel"); err != nil {
-		var untrusted *UntrustedConfigError
-		if errors.As(err, &untrusted) {
-			return st, err // refused, not "not a worktree": no command ran
-		}
+	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
+	var untrusted *UntrustedConfigError
+	if errors.As(err, &untrusted) {
+		return st, err // refused, not "not a worktree": no command ran
+	}
+	if err != nil || !samePath(top, path) {
 		return st, nil
 	}
 	st.IsWorktree = true

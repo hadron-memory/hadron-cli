@@ -200,3 +200,10 @@ and the enclosing repository's state, branch, rescue refs and config are not tou
 same rule (such a directory is not a worktree and the enclosing repository's config is not refused). Only a definite
 "not a repository" or a different top level means "no tree"; an answer that cannot be read falls through to the config
 gate, which refuses.
+
+Correction after §10 (Rook, a4e836e8): the root is decided by the directory's own `.git` entry (a repository's `.git`
+directory or a linked worktree's `.git` pointer file), not by `rev-parse --show-toplevel`, which honours the
+repository's own `core.worktree`: a root whose config redirects its work tree elsewhere read as "not a root" and slipped
+past silently. With the entry present the tree goes through the config allowlist, which refuses `core.worktree` by name;
+a plain directory or a subdirectory of a work tree has no entry of its own and stays a worker without Git. A root whose
+repository cannot be read fails closed (the allowlist read refuses), never a worker without Git.
