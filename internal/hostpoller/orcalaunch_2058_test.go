@@ -791,3 +791,31 @@ func TestOrcaLaunchRefusesAReplacementPinnedInsteadOfTheAgent2088(t *testing.T) 
 		t.Fatalf("a replacement pinned in the agent's place: agent=%v err=%v closed=%v", a, err, f.closed)
 	}
 }
+
+// Holger's ruling (2026-11-15, relayed by Wolfgang #108664): stay as
+// Orca-conform as possible, so no per-agent PID namespace. A default launcher
+// types the agent's argv plainly after the marker, and the pinned pid is the
+// agent's own pid, the one it sees as $$.
+func TestOrcaLaunchRunsTheAgentPlainlyInOrcasScope2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	bin := filepath.Join(tools, "agent")
+	if err := os.WriteFile(bin, []byte("#!/bin/bash\necho \"$$\" > "+shq(out)+"\nexec sleep 60\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakeOrca(t)
+	l := OrcaLauncher{Run: f.run, StateDir: t.TempDir(), Proc: LinuxProcessControl{}, MarkerWait: 3 * time.Second, StopWait: 3 * time.Second}
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.typed) != 1 || strings.Contains(f.typed[0], "unshare") || !strings.Contains(f.typed[0], "&& exec "+shq(bin)+` "$HADRON_FIRST_PROMPT"`) {
+		t.Fatalf("the agent is not run plainly in the terminal: %q", f.typed)
+	}
+	if got := strings.TrimSpace(waitFile(t, out)); got != strconv.Itoa(a.PID()) {
+		t.Fatalf("the agent sees itself as pid %s, the launcher pinned %d", got, a.PID())
+	}
+	if stopped, detail := a.TerminateWith(nil); !stopped {
+		t.Fatalf("closing the terminal did not end the agent: %s", detail)
+	}
+}
