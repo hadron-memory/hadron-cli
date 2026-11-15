@@ -105,3 +105,24 @@ func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
 		t.Fatalf("the start did not report Orca's refusal: %+v", calls())
 	}
 }
+
+// cli#2121: orca_launch.group would run the command under sg, and a process
+// started through sg cannot be read through /proc by the poller whatever the
+// group (probed on orca1), so it could never pass the launch proof. The
+// config refuses it at load, saying why, with or without an Orca worker.
+func TestTeamHostRunRefusesOrcaLaunchGroup2121(t *testing.T) {
+	for name, cfg := range map[string]string{
+		"with an Orca worker": orcaWorkerConfig(t, orcaProfile, orcaTop+"  group: incus\n"),
+		"with no Orca worker": writeHostConfig(t, "orca_launch:\n  orca_bin: /usr/bin/orca\n  group: incus\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "ORCA_GROUP_UNPROVABLE") || !strings.Contains(err.Error(), "orca_launch.group") || !strings.Contains(err.Error(), "/proc") {
+				t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
+			}
+		})
+	}
+}

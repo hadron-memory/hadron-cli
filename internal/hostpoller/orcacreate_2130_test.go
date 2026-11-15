@@ -43,21 +43,38 @@ func TestOrcaLaunchStartsNoAgentWhenTheCreateReplyIsLostOrMalformed2130(t *testi
 			old := gateTries
 			gateTries = 10
 			t.Cleanup(func() { gateTries = old })
-			a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go", Env: []string{"HADRON_LAUNCH_GRANT=hlg_secret"}})
+			l := orcaLauncherFor(t, f)
+			a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go", Env: []string{"HADRON_LAUNCH_GRANT=hlg_secret"}})
 			if err == nil || a != nil {
 				t.Fatalf("an ambiguous create must fail with no agent: agent=%v err=%v", a, err)
 			}
-			// Past the whole gate wait (10 x 0.1s after the shell starts).
-			time.Sleep(2500 * time.Millisecond)
-			if _, serr := os.Stat(out); serr == nil {
-				b, _ := os.ReadFile(out)
-				t.Fatalf("the agent started although the create reply was %s: it runs untracked\n%s", mode, b)
+			if !c.noCleanup {
+				// Rook's P3 (cli#2136): the launch file holds the grant and the
+				// prompt; it and any gate are gone when Launch returns.
+				left, _ := filepath.Glob(filepath.Join(l.StateDir, "launch", "*"))
+				if len(left) != 0 {
+					t.Fatalf("launch files left behind: %v", left)
+				}
 			}
+			// Past the whole gate wait (10 x 0.1s after the shell starts).
+			noAgentAfter(t, out, 2500*time.Millisecond)
 			if len(f.typed) != 1 {
 				t.Fatalf("creates %d, want 1", len(f.typed))
 			}
 		})
 	}
+}
+
+// countGates counts the gate writes (cli#2136, Jibril's P3): a late or
+// cancelled launch must never write one, which a closed terminal and the
+// cleanup could otherwise hide.
+func countGates(t *testing.T) *int {
+	t.Helper()
+	n := new(int)
+	old := writeGateFile
+	writeGateFile = func(g string) error { *n++; return old(g) }
+	t.Cleanup(func() { writeGateFile = old })
+	return n
 }
 
 func shortGate(t *testing.T) {
@@ -70,9 +87,13 @@ func shortGate(t *testing.T) {
 func noAgentAfter(t *testing.T, out string, d time.Duration) {
 	t.Helper()
 	time.Sleep(d)
-	if _, err := os.Stat(out); err == nil {
+	_, err := os.Stat(out)
+	if err == nil {
 		b, _ := os.ReadFile(out)
 		t.Fatalf("an agent started:\n%s", b)
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("could not tell whether an agent started: %v", err) // never a pass (cli#2136)
 	}
 }
 
@@ -81,6 +102,7 @@ func noAgentAfter(t *testing.T, out string, d time.Duration) {
 // terminal, which held only an empty shell.
 func TestOrcaLaunchWritesNoGateForALateCreateReply2130(t *testing.T) {
 	shortGate(t)
+	gates := countGates(t)
 	wt, tools := t.TempDir(), t.TempDir()
 	out := filepath.Join(tools, "agent.out")
 	agentBin := fakeAgentScript(t, tools, out, true)
@@ -90,11 +112,15 @@ func TestOrcaLaunchWritesNoGateForALateCreateReply2130(t *testing.T) {
 	if err == nil || a != nil || !strings.Contains(err.Error(), "too late") || !strings.Contains(err.Error(), "nothing was started") || len(f.closed) != 1 {
 		t.Fatalf("a late reply: agent=%v err=%v closed=%v", a, err, f.closed)
 	}
+	if *gates != 0 {
+		t.Fatalf("a late reply wrote the gate %d time(s)", *gates)
+	}
 	noAgentAfter(t, out, 1500*time.Millisecond)
 }
 
 // Rook's (2): a launch cancelled after a good reply writes no gate.
 func TestOrcaLaunchWritesNoGateOnceCancelled2130(t *testing.T) {
+	gates := countGates(t)
 	wt, tools := t.TempDir(), t.TempDir()
 	out := filepath.Join(tools, "agent.out")
 	agentBin := fakeAgentScript(t, tools, out, true)
@@ -105,6 +131,9 @@ func TestOrcaLaunchWritesNoGateOnceCancelled2130(t *testing.T) {
 	a, err := orcaLauncherFor(t, f).Launch(ctx, OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
 	if err == nil || a != nil || !strings.Contains(err.Error(), "cancelled") || len(f.closed) != 1 {
 		t.Fatalf("a cancelled launch: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+	if *gates != 0 {
+		t.Fatalf("a cancelled launch wrote the gate %d time(s)", *gates)
 	}
 	noAgentAfter(t, out, 1200*time.Millisecond)
 }
