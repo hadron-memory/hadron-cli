@@ -131,3 +131,23 @@ func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
 		t.Fatalf("err=%v writes=%d (an unmeasured batch must not be retried)", err, n)
 	}
 }
+
+// Julius P2 / Rook F2: only the exact pre-execution refusal is retried. A
+// resolver or auth error may follow a write, so a measured batch is sent once.
+func TestHealth2063ExecutionErrorsAreNeverRetried(t *testing.T) {
+	old := healthContextMeasurer
+	defer func() { healthContextMeasurer = old }()
+	healthContextMeasurer = func(string, []string) *contextsize.Measurement {
+		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
+	}
+	for name, wire := range map[string]string{
+		"resolver text": `RAW:{"data":null,"errors":[{"message":"contextTokens: unknown field in storage result","path":["setHostWorkerTerminals"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		"forbidden":     `RAW:{"data":null,"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+		"mixed":         `RAW:{"data":null,"errors":[{"message":"Field \"contextTokens\" is not defined by type \"WorkerTerminalReportInput\"."},{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+	} {
+		_, n, _, err := health1181RunFixture(t, wire, 0, true, "", health2063Idle, `{"hostId":"own"}`)
+		if err == nil || n != 1 {
+			t.Errorf("%s: err=%v attempts=%d, want one failed attempt", name, err, n)
+		}
+	}
+}

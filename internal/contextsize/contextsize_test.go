@@ -166,3 +166,23 @@ func TestCodexZeroTurnFallsBackToPreviousNeverZero(t *testing.T) {
 		t.Fatalf("got %+v %v", m, ok)
 	}
 }
+
+func TestOverRangeReadingIsNeverReported(t *testing.T) {
+	wt := t.TempDir()
+	d := t.TempDir()
+	p := filepath.Join(d, "c.jsonl")
+	write(t, p, claudeRec(wt, "2026-11-15T10:00:00Z", 2147483648, 0, 0, ""))
+	if m, ok := ClaudeFromFile(p, wt, now); ok || m != nil {
+		t.Fatalf("claude over int32: %+v", m)
+	}
+	q := filepath.Join(d, "x.jsonl")
+	write(t, q, codexTok("2026-11-15T10:00:00Z", 2147483648, 1))
+	if m, ok := CodexFromFile(q, now); ok || m != nil {
+		t.Fatalf("codex over int32: %+v", m)
+	}
+	r := filepath.Join(d, "ok.jsonl")
+	write(t, r, claudeRec(wt, "2026-11-15T10:00:00Z", 2147483647, 0, 0, ""))
+	if m, ok := ClaudeFromFile(r, wt, now); !ok || m.Tokens != 2147483647 {
+		t.Fatalf("the bound itself is valid: %+v", m)
+	}
+}

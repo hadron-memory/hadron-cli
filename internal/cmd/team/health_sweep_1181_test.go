@@ -94,6 +94,10 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 				_, _ = io.WriteString(w, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"u"}],"refused":[]}}}`)
 				return
 			}
+			if strings.HasPrefix(wire, "RAW:") {
+				_, _ = io.WriteString(w, strings.TrimPrefix(wire, "RAW:"))
+				return
+			}
 			if wire == "DROP" {
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				_ = conn.Close()
