@@ -56890,7 +56890,6 @@ func (v *HostRelaunchSnapshotHostDesiredState) GetWorkers() []*HostRelaunchSnaps
 // #4224: one worker's desired state on one host, with the setup the host needs to start it.
 type HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState struct {
 	WorkerId string `json:"workerId"`
-	Name     string `json:"name"`
 	// The model family the host registered the worker to run as.
 	Family string `json:"family"`
 	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
@@ -56905,11 +56904,6 @@ type HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState struct {
 // GetWorkerId returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
 func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
 	return v.WorkerId
-}
-
-// GetName returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Name, and is useful for accessing the field via an interface.
-func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetName() string {
-	return v.Name
 }
 
 // GetFamily returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
@@ -146594,7 +146588,6 @@ query HostRelaunchSnapshot ($appRef: String!, $hostId: String!) {
 		sweepMode
 		workers {
 			workerId
-			name
 			family
 			desired
 			reason

@@ -72,7 +72,7 @@ func newLoopFixture2060(t *testing.T) *loopFixture2060 {
 		f.agent = &loopAgent2060{done: make(chan struct{})}
 		return f.agent, nil
 	}, ConfigProfiles{Cfg: p.cfg})
-	f.source = &loopSource2060{snapshot: RelaunchSnapshot{AppID: "app-id", HostID: "h1", Server: "https://private.invalid", SweepMode: "APPLY", Workers: []RelaunchWorker{{WorkerID: "id-iris", Name: "iris", Family: "claude", Desired: "RUNNING", Reason: "HOLDS_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}}}}}
+	f.source = &loopSource2060{snapshot: RelaunchSnapshot{AppID: "app-id", HostID: "h1", Server: "https://private.invalid", SweepMode: "APPLY", Workers: []RelaunchWorker{{WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "HOLDS_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}}}}}
 	deps := RelaunchDependencies{Source: f.source,
 		OpenJournal: func() (hostrelaunch.Journal, uint64, func(), error) {
 			f.generation++

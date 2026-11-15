@@ -29,7 +29,7 @@ func (s *hostServer) RelaunchSnapshot(ctx context.Context, hostID string) (hostp
 			return hostpoller.RelaunchSnapshot{}, errors.New("relaunch source returned an invalid or duplicate worker")
 		}
 		seen[row.WorkerId] = true
-		worker := hostpoller.RelaunchWorker{WorkerID: row.WorkerId, Name: row.Name, Family: row.Family, Reason: string(row.Reason), Worktrees: append([]string{}, row.Worktrees...)}
+		worker := hostpoller.RelaunchWorker{WorkerID: row.WorkerId, Family: row.Family, Reason: string(row.Reason), Worktrees: append([]string{}, row.Worktrees...)}
 		if row.Desired != nil {
 			worker.Desired = string(*row.Desired)
 		}

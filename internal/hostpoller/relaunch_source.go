@@ -12,6 +12,6 @@ type RelaunchSnapshot struct {
 	Workers                          []RelaunchWorker
 }
 type RelaunchWorker struct {
-	WorkerID, Name, Family, Desired, Reason, SessionID string
-	Worktrees                                          []string
+	WorkerID, Family, Desired, Reason, SessionID string
+	Worktrees                                    []string
 }
