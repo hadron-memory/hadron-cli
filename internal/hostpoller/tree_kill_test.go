@@ -13,7 +13,7 @@ import (
 // taskkill runner is still active. Only its return ends that authority window.
 func TestTreeKillDeadlineKeepsAuthorizationUntilRunnerReturns(t *testing.T) {
 	a := &execAgent{done: make(chan struct{}), pid: 4242}
-	var held atomic.Bool
+	var held, runnerReturned, releasedEarly atomic.Bool
 	cancelled, finishRunner := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	finish := func() { once.Do(func() { close(finishRunner) }) }
@@ -26,9 +26,15 @@ func TestTreeKillDeadlineKeepsAuthorizationUntilRunnerReturns(t *testing.T) {
 	go func() {
 		stopped, detail := a.stopTreeAuthorized(func() (func(), bool) {
 			held.Store(true)
-			return func() { held.Store(false) }, true
+			return func() {
+				if !runnerReturned.Load() {
+					releasedEarly.Store(true)
+				}
+				held.Store(false)
+			}, true
 		}, func() (bool, string) {
 			return runTreeKill(a.pid, 20*time.Millisecond, func(ctx context.Context, pid int) ([]byte, error) {
+				defer runnerReturned.Store(true)
 				if pid != 4242 || !held.Load() {
 					t.Error("runner entered without this launch's authorization")
 				}
@@ -57,11 +63,16 @@ func TestTreeKillDeadlineKeepsAuthorizationUntilRunnerReturns(t *testing.T) {
 	select {
 	case got := <-finished:
 		t.Fatalf("stop returned before the runner: %+v", got)
-	default:
+	case <-time.After(100 * time.Millisecond):
+		// Keep the runner blocked while an incorrectly abandoned stop has
+		// time to return; an instantaneous default check races its scheduler.
 	}
 	finish()
 	select {
 	case got := <-finished:
+		if releasedEarly.Load() {
+			t.Error("authorization release ran before the runner returned")
+		}
 		if got.stopped || held.Load() || !strings.Contains(got.detail, "not confirmed") || !strings.Contains(got.detail, "4242") {
 			t.Fatalf("deadline must report unconfirmed only after releasing authority: %+v held=%v", got, held.Load())
 		}
