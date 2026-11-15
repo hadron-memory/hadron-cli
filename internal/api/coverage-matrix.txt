@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 231: 190 command, 16 gap, 25 excluded
+[Query] 232: 191 command, 16 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -140,6 +140,7 @@ homeAssistantInstanceOps  command ha ops
 homeAssistantInstances  command ha list
 hostOperations  command team host ops
 hostRegistrations  command team host list
+hostSetup  command team host setup
 impersonationSession  command admin impersonation get
 impersonationSessions  command admin impersonation list
 installMemory  command node list
@@ -259,7 +260,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 351: 294 command, 43 gap, 14 excluded
+[Mutation] 354: 297 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -282,6 +283,7 @@ approveMergeUsersConsent  gap #1304
 approveNode  command node approve
 askDecision  command decision ask
 assignAgentTask  command team task assign
+assignHostWorker  command team host assign
 assignReviewSeat  command team pr seat
 attachMemoryToApp  command memory attach
 authorizeContextResetStop  command team host run
@@ -530,6 +532,7 @@ setAutomationReadGrant  command automation grant set
 setAutomationTeamSnapshotGrant  command automation team-snapshot-grant set
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  command decision log set-deciders
+setHostSetupSource  command team host setup
 setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
@@ -559,6 +562,7 @@ testAiServiceConfig  command ai-config test
 testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
+unassignHostWorker  command team host unassign
 uninstallAgentFromApp  command app agent remove
 uninstallApp  command app uninstall
 unlinkGithubApp  gap #60
