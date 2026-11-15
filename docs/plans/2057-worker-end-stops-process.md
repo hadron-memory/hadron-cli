@@ -252,3 +252,13 @@ repository's own `core.worktree`: a root whose config redirects its work tree el
 past silently. With the entry present the tree goes through the config allowlist, which refuses `core.worktree` by name;
 a plain directory or a subdirectory of a work tree has no entry of its own and stays a worker without Git. A root whose
 repository cannot be read fails closed (the allowlist read refuses), never a worker without Git.
+
+### A broken .git is not a worker without Git (hadron-cli#2119)
+The root check decides by the directory's own `.git` entry; an entry that is there must also work. An EMPTY `.git`
+directory (no HEAD, config or objects) is skipped by git's repository discovery: standalone, git answered "not a
+repository" and the reset took the no-Git branch (the agent launched into an un-reset tree); inside an enclosing
+repository, git resolved the OUTER one and the reset fetched and checked out that (QA's reproduction over verified
+HTTPS). Now, after the config allowlist, `ownRepoProblem` requires `rev-parse --show-toplevel` to succeed and to equal
+the directory (symlinks resolved); otherwise `ResetWorktree` refuses `WORKTREE_RESET_FAILED` and `Inspect` returns
+`BrokenRepoError`, never "not a worktree". A plain child with no `.git` of its own is still a worker without Git; valid
+roots, linked worktrees and symlinked roots are unchanged; an invalid `.git` FILE already refused.

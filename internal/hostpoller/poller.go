@@ -229,7 +229,12 @@ type Poller struct {
 	// server reported it (in memory only): worker.end stops a launched agent
 	// only for that session (#2057).
 	agentSessions map[string]string
-	wg            sync.WaitGroup
+	// orcaLaunch and profiles start a launch_via: orca worker through Orca
+	// (hadron-cli#2058 C3); nil until EnableOrcaLaunch, and such a worker's
+	// start then refuses rather than falling back to the exec path.
+	orcaLaunch OrcaLaunchFunc
+	profiles   ProfileSource
+	wg         sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
