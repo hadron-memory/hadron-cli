@@ -55,8 +55,9 @@ func (e *UsageError) Error() string { return e.Msg }
 
 func usagef(format string, a ...any) error { return &UsageError{fmt.Sprintf(format, a...)} }
 
-// Spec is what an entry runs: exactly `<Bin> <job words> --config <Config>`
-// (`team health sweep` for the zero Job).
+// Spec is what an entry runs: exactly `<Bin> <job words> --config <Config>
+// <job args>` (`team health sweep … --dry-run=false` for the zero Job — the
+// #2017/#2036 Job.Args mechanism this change adopts for #2027 too).
 type Spec struct {
 	Job      Job           // zero value is the health sweep
 	Bin      string        // absolute path of hadron

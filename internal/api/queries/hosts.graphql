@@ -174,7 +174,9 @@ mutation ReportHostOperation(
 
 # #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
 # Every step answers ContextResetStep; refused/replayed are read by the
-# handler, and a refusal ends the reset server-side.
+# handler, and a refusal ends the reset server-side. endedAt (#2027) is null
+# while the reset is in flight: the health sweep skips a worker whose reset
+# has not ended, so it never stops a relaunch mid-window.
 fragment ContextResetFields on ContextReset {
   id
   epoch
@@ -185,6 +187,7 @@ fragment ContextResetFields on ContextReset {
   taskId
   stopGrantedAt
   stopLeaseMs
+  endedAt
   # #3300: the registered checkpoint's v2 URN, null until registered.
   checkpointNode
 }
