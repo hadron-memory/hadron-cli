@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -50,4 +51,18 @@ func TestHostUpRejectsDuplicateSameHostAssignments2115(t *testing.T) {
 	if len(fx.mutations()) != 0 || len(fx.issued) != 0 {
 		t.Fatalf("duplicate setup issued operations: %v", fx.mutations())
 	}
+}
+
+func TestHostUpIgnoresOtherHostDuplicateAssignments2115(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.present("Jonas", 0)
+	fx.serverState("APPLY", serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "HOLDS_TASK", "", "hadron-cli/jonas"))
+	a := assignment2085("hadron-cli/jonas", "claude")
+	other := strings.ReplaceAll(a, `"hostId":"orca1"`, `"hostId":"orca2"`)
+	fx.setup2085("SERVER", a, other, other)
+	dto, raw, err := fx.run("--apply")
+	if err != nil {
+		t.Fatalf("other-host rows changed this host: %v %s", err, raw)
+	}
+	wantItems1389(t, "applied", dto.Applied, "Jonas worker.start NO_SESSION")
 }

@@ -437,7 +437,7 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 				case err != nil:
 					return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the worker's repos could not be read: "+err.Error())
 				case len(repos) != 1:
-					return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the worker's role names "+itoa(len(repos))+" repos, so none is chosen for it")
+					return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the worker's role names "+strconv.Itoa(len(repos))+" repos, so none is chosen for it")
 				}
 				s.Repo = repos[0]
 			}
@@ -468,8 +468,6 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	}
 	return steps, nil, nil
 }
-
-func itoa(n int) string { return strconv.Itoa(n) }
 
 func orNone(s string) string {
 	if s == "" {
