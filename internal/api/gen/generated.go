@@ -2137,6 +2137,21 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
 
+// #4224 (S3 of #4229): how long an Agent's workers run.
+type AgentLifecycle string
+
+const (
+	// The worker's process should always run (the default, and the behaviour before this field existed).
+	AgentLifecycleLongLived AgentLifecycle = "LONG_LIVED"
+	// The worker's process should run only while it is the assignee of a pending or started task that is not waiting on child tasks.
+	AgentLifecycleShortLived AgentLifecycle = "SHORT_LIVED"
+)
+
+var AllAgentLifecycle = []AgentLifecycle{
+	AgentLifecycleLongLived,
+	AgentLifecycleShortLived,
+}
+
 // AgentModelGroupsAgentModelGroupsModelGroup includes the requested fields of the GraphQL type ModelGroup.
 // The GraphQL type's documentation follows.
 //
@@ -2390,11 +2405,14 @@ const (
 	AgentSchedulePreviewOutcomeAdoptable AgentSchedulePreviewOutcome = "ADOPTABLE"
 	// Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
 	AgentSchedulePreviewOutcomeCannotBeAdopted AgentSchedulePreviewOutcome = "CANNOT_BE_ADOPTED"
+	// #3483: the caller is a worker-bound session and create would be refused with TRIGGER_GRANT_REQUIRED: it holds no live, signed schedule.create grant for this entry node in this App (hrn:node:hadronmemory.com:specs:cor:agt:010:01). Summary, hash and reason are null. Only while the grant check is on.
+	AgentSchedulePreviewOutcomeGrantRequired AgentSchedulePreviewOutcome = "GRANT_REQUIRED"
 )
 
 var AllAgentSchedulePreviewOutcome = []AgentSchedulePreviewOutcome{
 	AgentSchedulePreviewOutcomeAdoptable,
 	AgentSchedulePreviewOutcomeCannotBeAdopted,
+	AgentSchedulePreviewOutcomeGrantRequired,
 }
 
 type AgentSchedulePreviewReason string
@@ -15667,7 +15685,7 @@ type AiServiceConfigEndpointFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -15739,7 +15757,7 @@ type AiServiceConfigFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -45375,6 +45393,64 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// #4224: whether a worker's agent process should be running.
+type DesiredRunState string
+
+const (
+	DesiredRunStateRunning DesiredRunState = "RUNNING"
+	DesiredRunStateStopped DesiredRunState = "STOPPED"
+)
+
+var AllDesiredRunState = []DesiredRunState{
+	DesiredRunStateRunning,
+	DesiredRunStateStopped,
+}
+
+// #4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first four come from the
+// Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
+// and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
+// is desired (desired is null) and wouldBe says what the state would otherwise be.
+type DesiredStateReason string
+
+const (
+	// A live halt stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01).
+	DesiredStateReasonHalted DesiredStateReason = "HALTED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of a pending task, or of a started task with no open child: RUNNING.
+	DesiredStateReasonHoldsTask DesiredStateReason = "HOLDS_TASK"
+	// The worker is marked leave-alone (Worker.leaveAlone).
+	DesiredStateReasonLeaveAlone DesiredStateReason = "LEAVE_ALONE"
+	// A worker of a LONG_LIVED Agent: RUNNING.
+	DesiredStateReasonLongLived DesiredStateReason = "LONG_LIVED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of no pending or started task: STOPPED.
+	DesiredStateReasonNoOpenTask DesiredStateReason = "NO_OPEN_TASK"
+	// A live pause stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01). A pause-dispatch signal stops assignment only and is not a reason here.
+	DesiredStateReasonPaused DesiredStateReason = "PAUSED"
+	// A context reset holds the worker (hrn:node:hadronmemory.com:specs:cor:agt:050:27): its host is relaunching it.
+	DesiredStateReasonResetting DesiredStateReason = "RESETTING"
+	// The worker is retired.
+	DesiredStateReasonRetired DesiredStateReason = "RETIRED"
+	// The App's sweep mode is OFF.
+	DesiredStateReasonSweepOff DesiredStateReason = "SWEEP_OFF"
+	// The App is under a team pause (App.teamPausedAt).
+	DesiredStateReasonTeamPaused DesiredStateReason = "TEAM_PAUSED"
+	// A worker of a SHORT_LIVED Agent whose every open task is started and waiting on an open child task (hrn:node:hadronmemory.com:specs:cor:agt:050:04): STOPPED.
+	DesiredStateReasonWaitingOnChildren DesiredStateReason = "WAITING_ON_CHILDREN"
+)
+
+var AllDesiredStateReason = []DesiredStateReason{
+	DesiredStateReasonHalted,
+	DesiredStateReasonHoldsTask,
+	DesiredStateReasonLeaveAlone,
+	DesiredStateReasonLongLived,
+	DesiredStateReasonNoOpenTask,
+	DesiredStateReasonPaused,
+	DesiredStateReasonResetting,
+	DesiredStateReasonRetired,
+	DesiredStateReasonSweepOff,
+	DesiredStateReasonTeamPaused,
+	DesiredStateReasonWaitingOnChildren,
+}
+
 // Only the public flat reference, never members or nested resource details.
 type DiscoveryPublicRef struct {
 	Id          string  `json:"id"`
@@ -55582,6 +55658,117 @@ func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssist
 	return v.HomeAssistantInstances
 }
 
+// HostDesiredStateHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostDesiredStateHostDesiredState struct {
+	HostId    string                                                       `json:"hostId"`
+	SweepMode SweepMode                                                    `json:"sweepMode"`
+	Workers   []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostDesiredStateHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostDesiredStateHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostDesiredStateHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetWorkers() []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostDesiredStateHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostDesiredStateHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	Name     string `json:"name"`
+	// The lifecycle of the worker's Agent.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// Set exactly when desired is null: the state the worker would have without the marker, or with the sweep on.
+	WouldBe *DesiredRunState `json:"wouldBe"`
+	// The reason for wouldBe; never LEAVE_ALONE or SWEEP_OFF. Null when wouldBe is.
+	WouldBeReason *DesiredStateReason `json:"wouldBeReason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetName returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Name, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetName() string { return v.Name }
+
+// GetLifecycle returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Lifecycle, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetLifecycle() AgentLifecycle {
+	return v.Lifecycle
+}
+
+// GetDesired returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetWouldBe returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBe, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBe() *DesiredRunState {
+	return v.WouldBe
+}
+
+// GetWouldBeReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBeReason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBeReason() *DesiredStateReason {
+	return v.WouldBeReason
+}
+
+// GetOpenSessionId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetFamily returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetWorktrees returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostDesiredStateResponse is returned by HostDesiredState on success.
+type HostDesiredStateResponse struct {
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. Until the platform holds which workers
+	// a host runs (#4222), those are the workers the host's registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or
+	// lapsed, with the family and worktrees it registered. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostDesiredStateHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetHostDesiredState returns HostDesiredStateResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateResponse) GetHostDesiredState() *HostDesiredStateHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
 // The GraphQL type's documentation follows.
 //
@@ -57378,8 +57565,9 @@ type IntakeExternalIdChangesResponse struct {
 	// external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
 	// cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
-	// the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
-	// it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+	// the release cleared (its task no longer holds it); a change before the release in this read's own order — the
+	// (tx_id, created_at, id) key the page is served by, not wall-clock time — carries that id too, and a change after it in
+	// that order (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
 	// oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
 	// appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
 	// to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
@@ -76411,7 +76599,7 @@ type ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -89266,6 +89454,24 @@ func (v *SubscribeTickerSubscribeWorkerSubscribeResultSubscriptionTickerSubscrip
 	retval.EndedAt = v.TickerSubscriptionFields.EndedAt
 	retval.EndedReason = v.TickerSubscriptionFields.EndedReason
 	return &retval, nil
+}
+
+// #4224 (S3 of #4229): the App's sweep switch.
+type SweepMode string
+
+const (
+	// The sweep also repairs what it can.
+	SweepModeApply SweepMode = "APPLY"
+	// The sweep compares desired state with what it sees and reports; it repairs nothing.
+	SweepModeObserve SweepMode = "OBSERVE"
+	// The sweep acts on no worker: every hostDesiredState row says SWEEP_OFF. The default.
+	SweepModeOff SweepMode = "OFF"
+)
+
+var AllSweepMode = []SweepMode{
+	SweepModeApply,
+	SweepModeObserve,
+	SweepModeOff,
 }
 
 // SyncMemoryResponse is returned by SyncMemory on success.
@@ -116944,6 +117150,18 @@ func (v *__HomeAssistantInstancesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __HomeAssistantInstancesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__HomeAssistantInstancesInput) GetOffset() *int { return v.Offset }
 
+// __HostDesiredStateInput is used internally by genqlient
+type __HostDesiredStateInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostDesiredStateInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostDesiredStateInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetHostId() string { return v.HostId }
+
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
 	AppRef string               `json:"appRef"`
@@ -143791,6 +144009,58 @@ func HomeAssistantInstances(
 	}
 
 	data_ = &HomeAssistantInstancesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostDesiredState.
+const HostDesiredState_Operation = `
+query HostDesiredState ($appRef: String!, $hostId: String!) {
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			name
+			lifecycle
+			desired
+			reason
+			wouldBe
+			wouldBeReason
+			openSessionId
+			family
+			worktrees
+		}
+	}
+}
+`
+
+// hadron-cli#1389 server adapter over hadron-server#4242 (S3 of #4229): a
+// host's desired state, the source `team host up` reconciles against. A read:
+// it is sent without the worker session (no X-Hadron-Session).
+func HostDesiredState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostDesiredStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostDesiredState",
+		Query:  HostDesiredState_Operation,
+		Variables: &__HostDesiredStateInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostDesiredStateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
