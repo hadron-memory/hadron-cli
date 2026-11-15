@@ -24,7 +24,7 @@ func TestTreeKillDeadlineKeepsAuthorizationUntilRunnerReturns(t *testing.T) {
 	}
 	finished := make(chan result, 1)
 	go func() {
-		stopped, detail := a.stopProcessTree(func() (func(), bool) {
+		stopped, detail := a.stopTreeAuthorized(func() (func(), bool) {
 			held.Store(true)
 			return func() { held.Store(false) }, true
 		}, func() (bool, string) {
