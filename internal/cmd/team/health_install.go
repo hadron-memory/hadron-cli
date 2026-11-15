@@ -72,6 +72,10 @@ type installDTO struct {
 }
 
 func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledInstall(f, healthsched.Health)
+}
+
+func newScheduledInstall(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	var config, interval, bin string
 	c := &cobra.Command{
 		Use:   "install --config <host.yaml> --interval <duration> [--bin <path>]",
@@ -148,7 +152,9 @@ written (uninstall removes them).`,
 			// (#2017): the scheduled sweep applies tab titles and duplicate
 			// fixes (#2027); a manual run stays dry by default.
 			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path}
-			res, err := healthEnv(f).Install(spec)
+			env := healthEnv(f)
+			env.Job = job
+			res, err := env.Install(spec)
 			if err != nil {
 				return mapSched(err)
 			}
@@ -161,7 +167,7 @@ written (uninstall removes them).`,
 				if !res.Changed {
 					verb = "already installed, unchanged"
 				}
-				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --dry-run=false --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
+				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s %s --config %s %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, strings.Join(job.Sub, " "), abs, strings.Join(job.Args, " "), orca)
 				return e
 			})
 		},
@@ -179,6 +185,10 @@ type uninstallDTO struct {
 }
 
 func newHealthUninstall(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledUninstall(f, healthsched.Health)
+}
+
+func newScheduledUninstall(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	return &cobra.Command{
 		Use:   "uninstall",
 		Short: "Remove the scheduled team health sweep from this host",
@@ -188,7 +198,9 @@ midway. Other crontab lines are left alone. Nothing installed is success.`,
 		Example: "  hadron team health uninstall",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			res, err := healthEnv(f).Uninstall()
+			env := healthEnv(f)
+			env.Job = job
+			res, err := env.Uninstall()
 			if err != nil {
 				return mapSched(err)
 			}
@@ -231,6 +243,10 @@ func nz(s string) *string {
 }
 
 func newHealthStatus(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledStatus(f, healthsched.Health)
+}
+
+func newScheduledStatus(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show whether the team health sweep is scheduled on this host",
@@ -249,6 +265,7 @@ Details:
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			e := healthEnv(f)
+			e.Job = job
 			st := e.ReadStatus()
 			dto := healthStatusDTO{Installed: st.Installed, Active: st.Active, Files: append([]string{}, st.Files...), Notes: append([]string{}, st.Notes...)}
 			if st.Installed {

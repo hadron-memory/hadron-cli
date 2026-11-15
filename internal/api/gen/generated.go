@@ -56943,6 +56943,29 @@ var AllHostSetupSource = []HostSetupSource{
 	HostSetupSourceServer,
 }
 
+// HostSweepIdentityHostRegistrationsHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type HostSweepIdentityHostRegistrationsHostRegistration struct {
+	// The host's id within its App: the one its key's host:operate scope names.
+	HostId string `json:"hostId"`
+}
+
+// GetHostId returns HostSweepIdentityHostRegistrationsHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityHostRegistrationsHostRegistration) GetHostId() string { return v.HostId }
+
+// HostSweepIdentityResponse is returned by HostSweepIdentity on success.
+type HostSweepIdentityResponse struct {
+	// #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
+	HostRegistrations []*HostSweepIdentityHostRegistrationsHostRegistration `json:"hostRegistrations"`
+}
+
+// GetHostRegistrations returns HostSweepIdentityResponse.HostRegistrations, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityResponse) GetHostRegistrations() []*HostSweepIdentityHostRegistrationsHostRegistration {
+	return v.HostRegistrations
+}
+
 type HostSweepRunLineInput struct {
 	Outcome SweepRunOutcome `json:"outcome"`
 	Reason  string          `json:"reason"`
@@ -112854,7 +112877,7 @@ type WorkerTerminalReportInput struct {
 	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
 	// #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
 	// outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
-	RepairReason *WorkerTerminalRepairReason `json:"repairReason"`
+	RepairReason *WorkerTerminalRepairReason `json:"repairReason,omitempty"`
 	Status       WorkerTerminalState         `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
@@ -119222,6 +119245,14 @@ type __HostRegistrationsInput struct {
 
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
+
+// __HostSweepIdentityInput is used internally by genqlient
+type __HostSweepIdentityInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __HostSweepIdentityInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostSweepIdentityInput) GetAppRef() string { return v.AppRef }
 
 // __HostSweepRunsInput is used internally by genqlient
 type __HostSweepRunsInput struct {
@@ -146687,6 +146718,41 @@ func HostRegistrations(
 	}
 
 	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostSweepIdentity.
+const HostSweepIdentity_Operation = `
+query HostSweepIdentity ($appRef: String!) {
+	hostRegistrations(appRef: $appRef) {
+		hostId
+	}
+}
+`
+
+// Separate from the S10 write, so schema fallback never changes reconciliation.
+func HostSweepIdentity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *HostSweepIdentityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostSweepIdentity",
+		Query:  HostSweepIdentity_Operation,
+		Variables: &__HostSweepIdentityInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &HostSweepIdentityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

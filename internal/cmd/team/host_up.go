@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/google/uuid"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -44,15 +45,17 @@ import (
 
 type hostUpOptions struct {
 	host, worker, desiredFile, root, orcaBin string
+	configPath, runID                        string
 	apply, dryRun                            bool
 	timeout                                  time.Duration
 }
 
 // hostUpDTO is the --json shape. Every list is always present.
 type hostUpDTO struct {
-	AppRef string `json:"appRef"`
-	HostID string `json:"hostId"`
-	DryRun bool   `json:"dryRun"`
+	SweepRun sweepRecordDTO `json:"sweepRun"`
+	AppRef   string         `json:"appRef"`
+	HostID   string         `json:"hostId"`
+	DryRun   bool           `json:"dryRun"`
 	// SweepMode is the App's sweep mode as the desired state reported it;
 	// null when the desired state could not be read.
 	SweepMode *string `json:"sweepMode"`
@@ -90,9 +93,22 @@ func newCmdTeamHostUp(f *cmdutil.Factory) *cobra.Command {
 		Long: `Reconcile one host: for every worker the host should run, check its host
 registration, its worktree, its agent terminal and its worker session, and
 plan only what is missing. The default is a dry run: it prints the plan and
-issues nothing. --apply carries the plan out through the typed host-operation
+issues no worker operation. --apply carries the plan out through the typed host-operation
 queue (cor:agt:070:05): worktree.create when the worktree is missing, then
 worker.start. There is no direct Orca create or launch call.
+
+SWEEP RUN RECORDS (S10):
+  --config supplies a separate host key for recording this run. It never
+  replaces the manager credential used to reconcile. Each completed engine
+  pass in OBSERVE or APPLY reports one run token, times, counts and up to 50
+  worker outcome/reason-code lines; no free-text detail is sent. OFF records
+  nothing. --run-id replays the same host token (default: a fresh UUID).
+  No --config: prints "sweep run not recorded: no host key (pass --config)";
+  JSON includes sweepRun.recorded=false and reason NO_HOST_KEY. An old server
+  without S10 reports S10_UNAVAILABLE. Other record errors are codes only.
+  Recording failures never change the reconcile exit code. The server owns
+  summary posts and stale-sweep alarms; this command posts nothing itself.
+  Read server history with "team host sweep-runs --host <id>".
 
 WHERE THE DESIRED STATE COMES FROM:
   By default, the server: hostDesiredState for the App and --host (S3,
@@ -158,6 +174,8 @@ run holds the lock.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}
+	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate S10 reporting key")
+	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for S10 replay (default: fresh UUID)")
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
 	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "read the desired state from this JSON file instead of the server")
@@ -178,6 +196,13 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	if !filepath.IsAbs(o.root) || o.timeout < time.Second || o.timeout > 30*time.Minute {
 		return exitcode.Newf(exitcode.Usage, "--worktrees-root must be absolute; --timeout must be 1s to 30m")
+	}
+	started := time.Now()
+	if o.runID == "" {
+		o.runID = uuid.NewString()
+	}
+	if !sweepRunToken.MatchString(o.runID) {
+		return exitcode.Newf(exitcode.Usage, "--run-id must be a 1..64 character host run token")
 	}
 	ctx := cmd.Context()
 	var source hostup.Source
@@ -229,7 +254,8 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	res, runErr := engine.Run(ctx, hostup.Options{HostID: o.host, Apply: o.apply, Only: o.worker})
 
-	dto := hostUpDTO{AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
+	record := recordSweepRun(ctx, f, o.configPath, scope.Ref, o.host, o.runID, started, o.apply, res)
+	dto := hostUpDTO{SweepRun: record, AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
 		Planned: hostUpItems(res.Planned), Applied: hostUpItems(res.Applied), Skipped: hostUpItems(res.Skipped), Failed: hostUpItems(res.Failed)}
 	if res.SetupSource != "" {
 		dto.SetupSource = &res.SetupSource
@@ -276,7 +302,16 @@ func hostUpItems(items []hostup.Item) []hostUpItemDTO {
 
 func writeHostUp(f *cmdutil.Factory, dto hostUpDTO, appLabel func() string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		mode := "dry-run (nothing issued or changed)"
+		if !dto.SweepRun.Recorded {
+			reason := dto.SweepRun.Reason
+			if reason == "NO_HOST_KEY" {
+				reason = "no host key (pass --config)"
+			}
+			if _, err := fmt.Fprintln(w, "sweep run not recorded:", reason); err != nil {
+				return err
+			}
+		}
+		mode := "dry-run (no worker operation issued)"
 		if !dto.DryRun {
 			mode = "apply"
 		}

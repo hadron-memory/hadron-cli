@@ -35,6 +35,10 @@ type Job struct {
 // Health is the team health sweep job (the zero Job).
 var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Args: []string{"--dry-run=false"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
 
+// Sweep is C1's one-minute reconcile/report job. Systemd only: crash limits
+// and an OnFailure journal unit are part of its installation contract.
+var Sweep = Job{Name: "hadron-team-sweep", Sub: []string{"team", "host", "sweep"}, Describes: "team sweep", UninstallCmd: "hadron team host sweep uninstall"}
+
 // Usage is the account-usage collector job (cli#1472).
 var Usage = Job{Name: "hadron-team-usage", LaunchdLabel: "com.hadronmemory.team-usage", Sub: []string{"team", "usage", "collect"}, Describes: "team usage collection", UninstallCmd: "hadron team usage uninstall"}
 
@@ -131,14 +135,18 @@ func SystemdService(s Spec) string {
 	for _, w := range s.Argv() {
 		words = append(words, systemdQuote(w))
 	}
+	limits := ""
+	if s.Job.orHealth().Name == Sweep.Name {
+		limits = "StartLimitIntervalSec=60\nStartLimitBurst=3\nOnFailure=hadron-team-sweep-failed.service\n"
+	}
 	return headerComment(s) + `
 [Unit]
-Description=Hadron ` + s.Job.orHealth().Describes + `
+` + limits + `Description=Hadron ` + s.Job.orHealth().Describes + `
 
 [Service]
 Type=oneshot
 Environment="PATH=` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "%", "%%", "$", "$$").Replace(s.Path) + `"
-ExecStart=` + strings.Join(words, " ") + "\n"
+ExecStart=` + strings.Join(words, " ") + sweepRestart(s) + "\n"
 }
 
 // SystemdTimer fires the service every interval.
@@ -218,4 +226,17 @@ func Plist(s Spec) string {
 </dict>
 </plist>
 `
+}
+
+// SweepFailureService writes a fixed reason code to the journal, never run
+// output or credentials. It has no schedule or worker action.
+func SweepFailureService(s Spec) string {
+	return headerComment(s) + "\n[Unit]\nDescription=Log failed Hadron sweep\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/logger --tag hadron-team-sweep SWEEP_FAILED_check_hadron-team-sweep.service_journal\n"
+}
+
+func sweepRestart(s Spec) string {
+	if s.Job.orHealth().Name == Sweep.Name {
+		return "\nRestart=on-failure\nRestartSec=10s"
+	}
+	return ""
 }

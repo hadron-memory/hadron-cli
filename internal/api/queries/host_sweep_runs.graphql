@@ -8,3 +8,7 @@ query HostSweepRuns($appRef: String!, $hostId: String!, $limit: Int) {
     lines { worker outcome reason }
   }
 }
+# Separate from the S10 write, so schema fallback never changes reconciliation.
+query HostSweepIdentity($appRef: String!) {
+  hostRegistrations(appRef: $appRef) { hostId }
+}
