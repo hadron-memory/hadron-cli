@@ -97,7 +97,9 @@ func TestRunContinuesCollectingDuringBlockedRecovery2120(t *testing.T) {
 	case <-progress:
 		cancel()
 	case <-ctx.Done():
-		<-done
+		if err := <-done; err != nil {
+			t.Fatalf("Run blocked in Step instead of collecting during the recovery launch: %v", err)
+		}
 		t.Fatal("Run blocked in Step instead of collecting during the recovery launch")
 	}
 	if err := <-done; err != nil {
