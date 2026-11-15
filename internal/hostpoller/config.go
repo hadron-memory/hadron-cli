@@ -83,8 +83,10 @@ func (c *Config) ResetContextEnabled() bool {
 type OrcaLaunchConfig struct {
 	// OrcaBin is the absolute Orca CLI path.
 	OrcaBin string `yaml:"orca_bin"`
-	// Group, when set, runs the launched command under `sg <group>`, for an
-	// Orca daemon started without that supplementary group (incus).
+	// Group is refused (cli#2121): it ran the command under `sg <group>`,
+	// and a process started through sg cannot be read through /proc by the
+	// poller, whatever the group, so it could never pass the launch proof.
+	// Kept only so the config names the reason instead of "unknown key".
 	Group string `yaml:"group"`
 }
 
@@ -131,9 +133,6 @@ func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
 	}
 	if !filepath.IsAbs(c.OrcaLaunch.OrcaBin) {
 		errs = append(errs, "orca_launch.orca_bin must be an absolute path when a worker launches via orca")
-	}
-	if g := c.OrcaLaunch.Group; g != "" && !familyRE.MatchString(g) {
-		errs = append(errs, fmt.Sprintf("orca_launch.group %q is not a group name", g))
 	}
 	if a.CodexHome != "" && !filepath.IsAbs(a.CodexHome) {
 		errs = append(errs, fmt.Sprintf("account profile %q: codex_home must be an absolute path", w.Profile.Account))
@@ -367,6 +366,9 @@ func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(
 
 func (c *Config) validate() error {
 	var errs []string
+	if c.OrcaLaunch.Group != "" {
+		errs = append(errs, "orca_launch.group is not supported: a process started through sg cannot be read through /proc by the poller (whatever the group), so the launch could never prove its process (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
+	}
 	if strings.TrimSpace(c.App) == "" {
 		errs = append(errs, "app is required")
 	}

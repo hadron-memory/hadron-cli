@@ -65,6 +65,18 @@ func TestOrcaLaunchStartsNoAgentWhenTheCreateReplyIsLostOrMalformed2130(t *testi
 	}
 }
 
+// countGates counts the gate writes (cli#2136, Jibril's P3): a late or
+// cancelled launch must never write one, which a closed terminal and the
+// cleanup could otherwise hide.
+func countGates(t *testing.T) *int {
+	t.Helper()
+	n := new(int)
+	old := writeGateFile
+	writeGateFile = func(g string) error { *n++; return old(g) }
+	t.Cleanup(func() { writeGateFile = old })
+	return n
+}
+
 func shortGate(t *testing.T) {
 	t.Helper()
 	old := gateTries
@@ -90,6 +102,7 @@ func noAgentAfter(t *testing.T, out string, d time.Duration) {
 // terminal, which held only an empty shell.
 func TestOrcaLaunchWritesNoGateForALateCreateReply2130(t *testing.T) {
 	shortGate(t)
+	gates := countGates(t)
 	wt, tools := t.TempDir(), t.TempDir()
 	out := filepath.Join(tools, "agent.out")
 	agentBin := fakeAgentScript(t, tools, out, true)
@@ -99,11 +112,15 @@ func TestOrcaLaunchWritesNoGateForALateCreateReply2130(t *testing.T) {
 	if err == nil || a != nil || !strings.Contains(err.Error(), "too late") || !strings.Contains(err.Error(), "nothing was started") || len(f.closed) != 1 {
 		t.Fatalf("a late reply: agent=%v err=%v closed=%v", a, err, f.closed)
 	}
+	if *gates != 0 {
+		t.Fatalf("a late reply wrote the gate %d time(s)", *gates)
+	}
 	noAgentAfter(t, out, 1500*time.Millisecond)
 }
 
 // Rook's (2): a launch cancelled after a good reply writes no gate.
 func TestOrcaLaunchWritesNoGateOnceCancelled2130(t *testing.T) {
+	gates := countGates(t)
 	wt, tools := t.TempDir(), t.TempDir()
 	out := filepath.Join(tools, "agent.out")
 	agentBin := fakeAgentScript(t, tools, out, true)
@@ -114,6 +131,9 @@ func TestOrcaLaunchWritesNoGateOnceCancelled2130(t *testing.T) {
 	a, err := orcaLauncherFor(t, f).Launch(ctx, OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
 	if err == nil || a != nil || !strings.Contains(err.Error(), "cancelled") || len(f.closed) != 1 {
 		t.Fatalf("a cancelled launch: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+	if *gates != 0 {
+		t.Fatalf("a cancelled launch wrote the gate %d time(s)", *gates)
 	}
 	noAgentAfter(t, out, 1200*time.Millisecond)
 }

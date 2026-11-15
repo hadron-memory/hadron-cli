@@ -32,8 +32,8 @@ import (
 //
 // The agent is not the poller's child, so it is identified, not owned:
 // Orca's reply names the terminal's process id, the process writes its own
-// pid and tty into the marker, and the pid it wrote must be that process (or,
-// under `sg`, a descendant of it), its stdin must be the tty it wrote, and its
+// pid and tty into the marker, and the pid it wrote must be that process (or
+// a descendant of it), its stdin must be the tty it wrote, and its
 // working directory must be the worktree. The pid is then pinned by pidfd, so
 // no later check can land on a reused number. Nothing is inferred from Orca's
 // ptyId (#2074, Rodolfo F1).
@@ -50,8 +50,6 @@ type OrcaLauncher struct {
 	StateDir string
 	// Proc pins the launched process (LinuxProcessControl in production).
 	Proc ProcessControl
-	// Group, when set, runs the command under `sg <group>`.
-	Group string
 	// MarkerWait bounds how long the launch waits for the marker (default 30s).
 	MarkerWait time.Duration
 	// StopWait bounds how long a stop waits for the process to go (default 10s).
@@ -111,7 +109,7 @@ func envNameRune(r rune, notFirst bool) bool {
 // gate only once Orca's create reply has parsed with a handle, so a lost or
 // malformed reply (Orca may well have started the shell) can never leave an
 // agent running untracked: the shell gives up, and the launch file is gone.
-func launchCommand(envFile, marker, gate string, argv []string, group string) (string, error) {
+func launchCommand(envFile, marker, gate string, argv []string) (string, error) {
 	words := make([]string, 0, len(argv))
 	for _, a := range argv {
 		if a == PromptArg {
@@ -131,10 +129,7 @@ func launchCommand(envFile, marker, gate string, argv []string, group string) (s
 		` && printf '%s %s\n' "$$" "$(tty)" > ` + shq(marker+".tmp") +
 		" && mv -f -- " + shq(marker+".tmp") + " " + shq(marker) +
 		" && exec " + strings.Join(words, " ")
-	if group == "" {
-		return inner, nil
-	}
-	return "exec sg " + shq(group) + " -c " + shq(inner), nil
+	return inner, nil
 }
 
 // removeLaunchFile is os.Remove; a test makes it a no-op to model a poller
@@ -151,6 +146,10 @@ var gateTries = 600
 // gateWindow is how long the command waits for the gate; Launch never
 // writes it in the last tenth of that wait (6s of 60s).
 func gateWindow() time.Duration { return time.Duration(gateTries) * 100 * time.Millisecond }
+
+// writeGateFile is writeGate; a test counts its calls to show that a late or
+// cancelled launch never writes a gate (cli#2136).
+var writeGateFile = writeGate
 
 // writeGate creates the gate atomically (a private temp file renamed into
 // place), so the command never sees a partial one (Wolfgang's (1)).
@@ -239,7 +238,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
 		return nil, fmt.Errorf("writing the launch environment: %w", err)
 	}
-	cmd, err := launchCommand(envFile, marker, gate, spec.Argv, l.Group)
+	cmd, err := launchCommand(envFile, marker, gate, spec.Argv)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +281,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if waited := time.Since(callStart); waited > gateWindow()-gateWindow()/10 {
 		return fail("Orca's create reply came after %s, too late for the command's %s wait; nothing was started", waited.Round(time.Millisecond), gateWindow())
 	}
-	if err := writeGate(gate); err != nil {
+	if err := writeGateFile(gate); err != nil {
 		return fail("opening the launch gate: %v", err)
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
@@ -411,7 +410,8 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 }
 
 // isTerminalProcess: the pid the command wrote is the terminal's own process,
-// or (under sg) a descendant of it.
+// or a descendant of it (in case Orca's shell runs the typed text in a child;
+// the sg wrapper that needed it is gone, cli#2121).
 func isTerminalProcess(pid, terminalPID int) bool {
 	return pid == terminalPID || descendsFrom(pid, terminalPID)
 }

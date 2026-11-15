@@ -26,12 +26,12 @@ hadron-cli#2058, epic hadron-memory/hadron-server#4229, CLI lane. Re-scoped by H
 
   `. '<env>' && rm -f -- '<env>' && printf '%s %s\n' "$$" "$(tty)" > '<marker>.tmp' && mv -f -- '<marker>.tmp' '<marker>' && exec <quoted argv>`
 
-  The prompt slot expands to `"$HADRON_FIRST_PROMPT"`. With `orca_launch.group` set, it is wrapped in `exec sg <group> -c '…'`, for an Orca daemon started without `incus`. The default is none, because the spike's Orca-launched agent already had the group.
+  The prompt slot expands to `"$HADRON_FIRST_PROMPT"`. There is no `sg` wrapper: `orca_launch.group` is refused at config load (cli#2121, below).
 - **Env file.** It holds the launch grant, the first prompt, `TMPDIR`, `CLAUDE_CODE_TMPDIR` and `NODE_COMPILE_CACHE` (from `disk_tmp`), and `CODEX_HOME`. It is created exclusively, mode 0600, in `<state dir>/runs/launch` (0700, on the home disk, never `/tmp`; Wolfgang (c)). The command deletes it before writing the marker (pinned), and the launcher deletes it, with the marker, on every return. The agent gets only these additions over the Orca shell's own environment, never the poller's (so no host key, no `HADRON_TOKEN`).
 - **Proof that this is the right process.** No inference from Orca's `ptyId` (#2074, Rodolfo F1). The probe is in the finding `hrn:node:hadronmemory.com:hadron-cli:findings:orca-terminal-create-processid-links-pid-and-tty`. The proof:
   1. Orca's reply names the terminal's `processId`.
   2. The marker names the pid and tty the command saw.
-  3. The pid must be that `processId` (or a descendant of it, under `sg`).
+  3. The pid must be that `processId` (or a descendant of it).
   4. Its `/proc/<pid>/fd/0` must be the tty it wrote.
   5. After it is pinned by pidfd, its cwd must be inside the worktree.
 
@@ -44,13 +44,13 @@ hadron-cli#2058, epic hadron-memory/hadron-server#4229, CLI lane. Re-scoped by H
 - **Call allowlist.** `orcaterm.LaunchGuard` admits only `terminal create` and `terminal close`. The delivery and sweep guards still refuse `create`.
 
 ## No per-agent PID namespace (Holger, 2026-11-15)
-Holger ruled (relayed by Wolfgang #108664): stay as Orca-conform as possible, so the agent runs **plainly in Orca's terminal scope**. The `unshare` wrapper that an earlier head of this PR added (Wolfgang #108196, after the container check) is removed, together with its startup preflight. The marker's `$$` is the agent's own pid after the `exec` (under `sg`, a descendant of the terminal's process, as before).
+Holger ruled (relayed by Wolfgang #108664): stay as Orca-conform as possible, so the agent runs **plainly in Orca's terminal scope**. The `unshare` wrapper that an earlier head of this PR added (Wolfgang #108196, after the container check) is removed, together with its startup preflight. The marker's `$$` is the agent's own pid after the `exec`.
 
 What this gives up: a `pkill -f` from one terminal can reach an agent in another, since the container check showed that Orca's cgroup scopes do not isolate signals. The epic's "a pkill costs one run" item is withdrawn. What stays is Orca's scope caps: the memory limit, the process ceiling, and `memory.swap.max=0` (Hugo).
 
 ## Fix head after review (cli#2088)
 - **A tty is required** (Julius P2, Jamir F1). The marker is parsed strictly as exactly `<pid> /dev/pts/N\n`; anything else, including "not a tty", is refused. After the pidfd pin, the process's `fd/0` must be that pts.
-- **Pin, read, then prove alive** (Rook's note; Julius's delta P2). A pidfd does not bind `/proc/<pid>` reads, so a process that exits during them could hand its pid to another. The parentage, `fd/0` and cwd reads are all made after the pin, and only then is the pinned process checked alive. A live pidfd holds its pid, so a process alive after the reads was the one read. Only a positive liveness answer counts: a clock or signal-check error refuses and closes (Julius's second delta P2). A number another process holds by the time of the pin pins that process, and its parentage, read after the pin, refuses it. A process gone by then (or before the pin) counts as a finished launch only when the marker's pid **is** Orca's `processId`: two independent sources naming the same number. Any other gone pid can't be proven the terminal's, so it is refused and the terminal closed (Jamir's delta P2: a dead foreign marker pid). That includes an agent under `sg` that exits before it is proven: it is refused, not taken as done.
+- **Pin, read, then prove alive** (Rook's note; Julius's delta P2). A pidfd does not bind `/proc/<pid>` reads, so a process that exits during them could hand its pid to another. The parentage, `fd/0` and cwd reads are all made after the pin, and only then is the pinned process checked alive. A live pidfd holds its pid, so a process alive after the reads was the one read. Only a positive liveness answer counts: a clock or signal-check error refuses and closes (Julius's second delta P2). A number another process holds by the time of the pin pins that process, and its parentage, read after the pin, refuses it. A process gone by then (or before the pin) counts as a finished launch only when the marker's pid **is** Orca's `processId`: two independent sources naming the same number. Any other gone pid can't be proven the terminal's, so it is refused and the terminal closed (Jamir's delta P2: a dead foreign marker pid).
 - **The pidfd is released** when the agent is gone (Julius P2, Jamir F2).
 - **A failed close is no longer reported as closed** (Julius P2). An unproven launch whose terminal won't close comes back as an `UnclosedLaunchError` together with an agent that is not done. `worker.start` records it, so the one-agent-per-worktree guard holds, and a later stop retries the close.
 - **Stop order:** authorize, then close, then release (Rook F1). The order is the same on the retried close of an unclosed terminal (Rook's delta P3).
@@ -74,6 +74,14 @@ Orca can start the terminal's shell and then lose or garble its create reply (Ji
 - A gate that appears only after the command's wait: no agent, with the launch file still present.
 
 **Mutants killed:** no hard check, the command ignores the gate, the gate created before the create, a late reply writing it, a cancel writing it, the gate never written. Non-atomic writing at the same point is an equivalent mutant (not observable).
+
+## No `orca_launch.group` (cli#2121)
+`orca_launch.group` ran the typed command under `sg <group>`. A process started through `sg` cannot be read through `/proc` by the poller, **whatever the group**. I probed this on orca1: `sg incus`, a group `orca` already holds, made `cwd` and `fd/0` EACCES, while a process started without `sg` read fine. Finding: `hrn:node:hadronmemory.com:hadron-cli:findings:sg-makes-a-process-uninspectable-through-proc`. So such a launch could never pass its proof. The config now refuses the key at load (exit 2, naming why), with or without an Orca worker. The `sg` wrapper is removed and the proof is unchanged. Start the Orca daemon with the groups the agent needs.
+
+The same change pins the busy-tree refusal for an Orca worker: a process working in the tree means nothing is launched through Orca (`TestWorkerStartRefusesABusyTreeForAnOrcaWorker2121`). It also tightens the go-gate pins (cli#2136):
+- a negative check fails on any `stat` error other than not-exist;
+- a late or cancelled launch is shown never to call the gate writer;
+- after an ambiguous reply, the env file (grant and prompt) and any gate are gone.
 
 ## Entry point for C5's relaunch (#2060)
 `Poller.orcaLaunchSpec(ref, w, dir, grant, taskID)` is the one builder of an Orca launch, and `worker.start` uses it with its grant. A relaunch under a still-open session passes no grant. The spec then carries no `HADRON_LAUNCH_GRANT`, and the first prompt says the session is still open, not to start a new one, and to run `hadron team session recover` (never a new bind, never `--resume`). The launch itself is `OrcaLaunchFunc`, which returns an `OrcaAgent` with the same proof, pin and authorized stop. Identity, two-sweep and rate-limit logic stay with C5.

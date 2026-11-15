@@ -439,7 +439,6 @@ The configuration (YAML):
   #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
   # orca_launch:
   #   orca_bin: /absolute/path/to/orca
-  #   group: incus                    # optional: run the command under sg
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
