@@ -62,7 +62,21 @@ func loopbackOnlyClient(report func(dest string), lookup func(ctx context.Contex
 					return nil, refuse(net.JoinHostPort(ip.IP.String(), port) + " (" + host + ")")
 				}
 			}
-			return d.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+			// Every address is loopback; try them in order, as the standard
+			// dialer would (Jibril's delta P2: ::1 first must not break an
+			// IPv4-only fake server).
+			var errs []error
+			for _, ip := range ips {
+				c, err := d.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+				if err == nil {
+					return c, nil
+				}
+				errs = append(errs, err)
+				if ctx.Err() != nil {
+					break
+				}
+			}
+			return nil, errors.Join(errs...)
 		},
 	}
 	return &http.Client{Transport: tr}
