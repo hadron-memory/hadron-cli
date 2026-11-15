@@ -25,6 +25,25 @@ type Host interface {
 	Occupied(ctx context.Context, path string) (string, error)
 	// Alive reports whether a process id is still running.
 	Alive(pid int) bool
+	// StopAgents stops every agent process working inside path that this
+	// host did not launch itself (hadron-cli#2057 C2a: an agent started from
+	// a terminal is not the poller's child), each with its process group:
+	// SIGTERM, a grace, then SIGKILL. One entry per agent found; none when
+	// no agent works there. An error means the host cannot tell (no /proc,
+	// no pidfd) and nothing was signalled. authorize is asked before EVERY signal (after the agent is pinned and its group pinned): it answers whether the stop is still authorized (the worktree's session binding has not moved on to another session) and, when it is, returns a release that the caller calls right after that one signal — the binding is held unchanged from the check through the signal (hadron-cli#2068), never across a wait. A refusal
+	// signals nothing and says so; a nil authorize always allows.
+	StopAgents(ctx context.Context, path string, authorize Authorize) ([]AgentStop, error)
+}
+
+// AgentStop is one agent process StopAgents handled.
+type AgentStop struct {
+	PID int
+	// Stopped is true only when everything that was signalled is observed
+	// gone.
+	Stopped bool
+	// Detail names the process (pid and a short redacted argv) and what
+	// happened to it.
+	Detail string
 }
 
 // WorktreeState is what worktree.create and worktree.remove decide on.
@@ -106,3 +125,12 @@ func isScrubbed(name string) bool {
 	}
 	return false
 }
+
+// Authorize is the host's check before one signal: ok means the stop is still
+// authorized, and release must then be called right after the signal. Not ok
+// means nothing is signalled. The poller's implementation holds the worktree's
+// session-binding lock between the check and the release.
+type Authorize func() (release func(), ok bool)
+
+// allow is the Authorize that always permits and holds nothing.
+func allow() (func(), bool) { return func() {}, true }

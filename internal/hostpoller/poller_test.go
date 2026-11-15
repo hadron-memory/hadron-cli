@@ -28,6 +28,9 @@ type fakeServer struct {
 	endedOnce map[string]bool
 	// reportErr fails every Report (a report that does not reach the server).
 	reportErr error
+	// startSession, when set, is the sessionId a worker.start success carries
+	// back (the server's result for a bound start).
+	startSession string
 }
 
 func (s *fakeServer) Register(_ context.Context, r Registration) (RegisteredHost, error) {
@@ -72,7 +75,11 @@ func (s *fakeServer) Report(_ context.Context, id, outcome, worktree, reason str
 	if s.endedOnce[id] {
 		status = Succeeded // the server records a FAILED end on an ended session as success
 	}
-	return Operation{ID: id, Status: status, Result: map[string]any{"handoff": true}}, nil
+	res := map[string]any{"handoff": true}
+	if s.startSession != "" && outcome == Succeeded {
+		res = map[string]any{"sessionId": s.startSession}
+	}
+	return Operation{ID: id, Status: status, Result: res}, nil
 }
 
 func (s *fakeServer) finalReports() []report {
@@ -106,6 +113,16 @@ func (a *fakeAgent) Terminate() (bool, string) {
 	return true, "terminated the fake"
 }
 
+// TerminateWith is Terminate behind the authorization, as execAgent's is.
+func (a *fakeAgent) TerminateWith(authorize Authorize) (bool, string) {
+	release, ok := authorize()
+	if !ok {
+		return false, "declined before a signal"
+	}
+	defer release()
+	return a.Terminate()
+}
+
 func (a *fakeAgent) terminations() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -135,6 +152,37 @@ type fakeHost struct {
 	entered chan struct{}
 	// beforeLaunch, when set, runs as Launch is entered.
 	beforeLaunch func()
+	// stopped records every path StopAgents was asked about; stops/stopErr
+	// are its answers (#2057).
+	stopped []string
+	stops   []AgentStop
+	stopErr error
+	// betweenCheckAndStop runs inside StopAgents, before its still check:
+	// the window in which a replacement session can bind.
+	betweenCheckAndStop func()
+	// whileHeld runs inside StopAgents at the moment of the signal, after the
+	// authorization granted it and before the release (#2068).
+	whileHeld func()
+}
+
+func (h *fakeHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.betweenCheckAndStop != nil {
+		h.betweenCheckAndStop()
+	}
+	if authorize != nil {
+		release, ok := authorize()
+		if !ok {
+			return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+		}
+		if h.whileHeld != nil {
+			h.whileHeld() // the instant of the signal, the binding lock held
+		}
+		release()
+	}
+	h.stopped = append(h.stopped, path)
+	return h.stops, h.stopErr
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {

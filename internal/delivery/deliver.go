@@ -571,18 +571,69 @@ const bindingFileName = "hadron-team-session.json"
 // it has none (the file does not exist), or unusableBinding when it has one
 // that cannot be trusted.
 func BoundWorker(worktree string) string {
+	worker, _ := boundIDs(worktree)
+	return worker
+}
+
+// Binding is what a worktree's session binding names (hadron-cli#2057).
+type Binding struct {
+	// WorkerID is "" when the worktree has no binding file.
+	WorkerID string
+	// SessionID is "" when there is no binding or it names no session.
+	SessionID string
+	// Unusable is a binding file that exists but cannot be trusted
+	// (unreadable, not JSON, naming no worker): never the same as none.
+	Unusable bool
+}
+
+// WorktreeBinding reads the worker and session a worktree's session binding
+// names, by the same rules as BoundWorker.
+func WorktreeBinding(worktree string) Binding {
+	worker, session := boundIDs(worktree)
+	if worker == unusableBinding {
+		return Binding{Unusable: true}
+	}
+	return Binding{WorkerID: worker, SessionID: session}
+}
+
+func boundIDs(worktree string) (worker, session string) {
+	dir, state := bindingDir(worktree)
+	switch state {
+	case bindingDirPlain:
+		return plainBoundIDs(worktree)
+	case bindingDirNone:
+		return "", ""
+	case bindingDirUnusable:
+		return unusableBinding, ""
+	}
+	return readBindingIDs(filepath.Join(dir, bindingFileName))
+}
+
+// bindingDirState says what bindingDir found.
+type bindingDirState int
+
+const (
+	bindingDirGit      bindingDirState = iota // dir is the worktree's git directory
+	bindingDirPlain                           // a plain directory: its cache holds the binding
+	bindingDirNone                            // neither: no binding location
+	bindingDirUnusable                        // a .git pointer that cannot be read
+)
+
+// bindingDir is where a worktree's session binding file lives: its git
+// directory, resolved through a worktree's .git pointer file.
+func bindingDir(worktree string) (string, bindingDirState) {
 	gitDir := filepath.Join(worktree, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
 		if isPlainDir(worktree) {
-			return plainBoundWorker(worktree)
+			return "", bindingDirPlain
 		}
-		return ""
+		return "", bindingDirNone
 	}
 	if !info.IsDir() {
 		b, err := os.ReadFile(gitDir)
 		if err != nil {
-			return unusableBinding
+			return "", bindingDirUnusable
 		}
 		pointer := trimGitdir(string(b))
 		if filepath.IsAbs(pointer) {
@@ -591,5 +642,5 @@ func BoundWorker(worktree string) string {
 			gitDir = filepath.Join(worktree, pointer)
 		}
 	}
-	return readBinding(filepath.Join(gitDir, bindingFileName))
+	return gitDir, bindingDirGit
 }
