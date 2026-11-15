@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -63,9 +64,7 @@ func TestTreeKillDeadlineKeepsAuthorizationUntilRunnerReturns(t *testing.T) {
 	select {
 	case got := <-finished:
 		t.Fatalf("stop returned before the runner: %+v", got)
-	case <-time.After(100 * time.Millisecond):
-		// Keep the runner blocked while an incorrectly abandoned stop has
-		// time to return; an instantaneous default check races its scheduler.
+	default:
 	}
 	finish()
 	select {
@@ -108,5 +107,42 @@ func TestTreeKillDoesNotConfirmSuccessAfterDeadline(t *testing.T) {
 	})
 	if stopped || !strings.Contains(detail, "not confirmed") {
 		t.Fatalf("late success must stay unconfirmed: stopped=%v detail=%q", stopped, detail)
+	}
+}
+
+// Goexit ends the runner's goroutine after executing its defers. A synchronous
+// runner therefore unwinds the authorized caller too. An abandoned goroutine
+// instead lets runTreeKill return normally at the deadline. No negative sleep
+// or scheduler race decides this assertion.
+func TestTreeKillRunnerRemainsOnAuthorizedCaller(t *testing.T) {
+	a := &execAgent{done: make(chan struct{}), pid: 4242}
+	var returned, released, runnerExited atomic.Bool
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		a.stopTreeAuthorized(func() (func(), bool) {
+			return func() {
+				if !runnerExited.Load() {
+					t.Error("authority released before runner exited")
+				}
+				released.Store(true)
+			}, true
+		}, func() (bool, string) {
+			return runTreeKill(a.pid, 20*time.Millisecond, func(ctx context.Context, _ int) ([]byte, error) {
+				defer runnerExited.Store(true)
+				<-ctx.Done()
+				runtime.Goexit()
+				return nil, nil
+			})
+		})
+		returned.Store(true)
+	}()
+	select {
+	case <-done:
+		if returned.Load() || !released.Load() || !runnerExited.Load() {
+			t.Fatalf("runner must unwind its authorized caller: returned=%v released=%v runnerExited=%v", returned.Load(), released.Load(), runnerExited.Load())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("runner failed to unwind its caller")
 	}
 }
