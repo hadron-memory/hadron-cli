@@ -107,7 +107,10 @@ WHERE THE DESIRED STATE COMES FROM:
       worker with no assignment on this host is NOT_ASSIGNED and never
       touched; an assigned worker the host does not register is
       NOT_REGISTERED. If hostSetup cannot be read the run stops, nothing is
-      planned;
+      planned. Two assignments for one worker on this host (identical or
+      not, and even for a worker the run would otherwise skip) are a
+      malformed source: the whole run stops, exit 1, nothing planned or
+      issued, because a partial assignment map is not trusted;
     - under SERVER a missing worktree is created only from a repo the server
       names: the worker's role's repos (Worker.repos) must hold exactly one
       entry; then worktree.create (branch <worker>/<label>) and worker.start
@@ -417,14 +420,20 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 	return snap, nil
 }
 
-// hostSetup reads which workers the platform assigns to this host and the App's
-// switch (hadron-server#4241, cli#2085). An empty source means "not known": a
-// server that predates hostSetup refuses that field by name, and host up
-// then behaves exactly as it did (the registration names the worktree). Any
-// other failure (including validation of a different field) stops the run, as
-// does a source other than HOST or SERVER: with
-// the switch unread, the rules to plan under are not known, and nothing is
-// planned. assigned is set only under SERVER.
+// hostSetup reads which workers the platform assigns to this host and the
+// App's switch (hadron-server#4241, cli#2085).
+//
+// An empty source means "not known": a server that predates hostSetup refuses
+// that field by name, and host up then behaves exactly as it did (the
+// registration names the worktree). Any other failure, including validation of
+// a different field, stops the run, as does a source other than HOST or
+// SERVER: with the switch unread, the rules to plan under are not known, and
+// nothing is planned.
+//
+// assigned is set only under SERVER. Two assignments for one worker on this
+// host abort the whole run, identical or not and even for a worker the run
+// would otherwise skip: the source is malformed, and a partial assignment map
+// is not trusted (cli#2115, cli#2147).
 func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (string, map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
 	r, err := gen.TeamHostSetup(ctx, s.client, s.app, &hostID)
 	if err != nil {

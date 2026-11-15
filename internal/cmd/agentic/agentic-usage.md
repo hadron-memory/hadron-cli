@@ -4368,9 +4368,9 @@ whose `desired` is null (`LEAVE_ALONE`, `SWEEP_OFF`) is reported under that
 reason and never acted on, whatever `wouldBe` says; a null `desired` under any
 other reason is `UNKNOWN_DESIRED`. The App's switch decides where a worker's
 setup comes from (cli#2085; `hostSetup(appRef, hostId)`, hadron-server#4241,
-read without the worker session, one read per run). Under `HOST`, or on a server
-that predates `hostSetup` (a validation refusal naming only that missing field; `--json` `hostSetupSource` is
-then null), the registration names it: exactly one registered worktree is the
+read without the worker session, one read per run). Under `HOST`, or on a
+server that predates `hostSetup` (a validation refusal naming only that missing
+field; `--json` `hostSetupSource` is then null), the registration names it: exactly one registered worktree is the
 one acted on, while none, several or a value that is not a host name token is
 `SETUP_INVALID` (reported before the host is read for that worker). Under
 `SERVER` the platform's assignment names the workdir and the family
@@ -4378,8 +4378,13 @@ one acted on, while none, several or a value that is not a host name token is
 lists; a worker in the desired state with no assignment on this host is
 `NOT_ASSIGNED` and never observed or acted on, and an assigned worker the
 desired state does not list is `NOT_REGISTERED`. Any other failure to read
-`hostSetup`, or a `source` that is neither `HOST` nor `SERVER`, stops the run before anything is planned (the rules to plan under
-are unknown; the server's refusal keeps its code, a null answer exits 1).
+`hostSetup`, or a `source` that is neither `HOST` nor `SERVER`, stops the run
+before anything is planned (the rules to plan under are unknown; the server's
+refusal keeps its code, a null answer exits 1). Two assignments for one worker
+on this host, identical or not and even for a worker the run would otherwise
+skip, abort the whole run: exit 1, nothing planned or issued, because the
+source is malformed and a partial assignment map is not trusted (rows for
+another host are ignored).
 Under `SERVER` a missing worktree is created only from a repo the server
 names: `Worker.repos` (the worker's role's repos; read without the worker
 session, and only for a worker whose worktree is missing) must hold exactly

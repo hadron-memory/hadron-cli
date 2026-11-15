@@ -7,7 +7,10 @@ import (
 )
 
 func TestCancelledChildWakeLabel2107(t *testing.T) {
-	for _, event := range []string{"CHILD_CANCELLED", "FUTURE_CHILD_STATE", strings.Repeat("FUTURE_", 50), "X\x1b[31m\nINJECT"} {
+	for _, event := range []string{"CHILD_CANCELLED", "FUTURE_CHILD_STATE", strings.Repeat("FUTURE_", 50), "X\x1b[31m\nINJECT",
+		// Unicode: multi-byte (bytes > runes), a long run of it, and separator/format
+		// characters; the label is sanitized, never truncated (cli#2141).
+		"ÉVÉNEMENT_日本語🙂", strings.Repeat("日本語", 100), "A\u2028B\u200eC\u0085D"} {
 		for _, jsonOutput := range []bool{false, true} {
 			encoded, err := json.Marshal(event)
 			if err != nil {
@@ -39,9 +42,15 @@ func TestCancelledChildWakeLabel2107(t *testing.T) {
 					t.Fatalf("decoded event mismatch: %s", out)
 				}
 			} else {
-				wantEvent := event
-				if event == "X\x1b[31m\nINJECT" {
-					wantEvent = "X [31m INJECT"
+				// The expected text is spelled out per case, never derived from the code
+				// under test: controls, separators and format characters become one
+				// space each; everything else is kept whole.
+				wantEvent := map[string]string{
+					"X\x1b[31m\nINJECT":      "X [31m INJECT",
+					"A\u2028B\u200eC\u0085D": "A B C D",
+				}[event]
+				if wantEvent == "" {
+					wantEvent = event
 				}
 				want := "Iris: TICK standup, TASK AT1.4 t1 " + wantEvent
 				found := false
