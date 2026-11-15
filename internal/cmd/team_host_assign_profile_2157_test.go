@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -200,6 +201,23 @@ func TestHostAssignInstructedWithNoOptionalFlagSendsNoOptionalKey2157(t *testing
 	for _, k := range []string{"model", "effort", "accountProfile", "replace"} {
 		if v, ok := inputOf2157(t, calls, "TeamHostAssign")[k]; ok {
 			t.Errorf("the plain input carries %q = %v although its flag was not given", k, v)
+		}
+	}
+}
+
+// The mock server answers with the profile whatever was asked, so pin the
+// REQUEST: the documents that carry the assignment select both fields (a
+// regeneration that dropped them would otherwise pass every fixture above).
+func TestTheAssignmentDocumentsSelectTheLauncherProfile2157(t *testing.T) {
+	for name, doc := range map[string]string{
+		"TeamHostSetup":            gen.TeamHostSetup_Operation,
+		"TeamHostAssign":           gen.TeamHostAssign_Operation,
+		"TeamHostAssignInstructed": gen.TeamHostAssignInstructed_Operation,
+	} {
+		for _, field := range []string{"effort", "accountProfile"} {
+			if !strings.Contains(doc, field) {
+				t.Errorf("%s no longer selects %q: the profile would silently read as unset", name, field)
+			}
 		}
 	}
 }
