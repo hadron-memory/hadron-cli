@@ -235,3 +235,51 @@ func TestHostReadResetWithoutAnswerIsAnError1043(t *testing.T) {
 		t.Fatal("a null reset was accepted")
 	}
 }
+
+// hadron-cli#2117: a context-cap reset (hadron-server#4258) has a null task and
+// a cause.
+const capResetStep = `{"refused":null,"replayed":false,"reset":{"id":"r1","epoch":1,"phase":"claimed","reason":null,"workerId":"w1","sessionId":"s1","taskId":null,"cause":"context-cap","stopGrantedAt":null,"stopLeaseMs":null,"checkpointNode":null}}`
+
+func TestHostResetReadsANullTaskAndTheCause2117(t *testing.T) {
+	w := &resetWire{body: `{"data":{"claimContextReset":` + capResetStep + `}}`}
+	got, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{PID: 1, StartTime: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Reset.TaskID != "" || got.Reset.Cause != "context-cap" {
+		t.Fatalf("task %q cause %q, want no task and context-cap", got.Reset.TaskID, got.Reset.Cause)
+	}
+}
+
+func TestHostResetReadsATaskEndCause2117(t *testing.T) {
+	body := `{"refused":null,"replayed":false,"reset":{"id":"r1","epoch":1,"phase":"claimed","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","cause":"task-end","stopGrantedAt":null,"stopLeaseMs":null,"checkpointNode":null}}`
+	w := &resetWire{body: `{"data":{"claimContextReset":` + body + `}}`}
+	got, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{PID: 1, StartTime: "1"})
+	if err != nil || got.Reset.TaskID != "t1" || got.Reset.Cause != "task-end" {
+		t.Fatalf("got %+v err %v", got.Reset, err)
+	}
+}
+
+// Wire semantics (CLAUDE.md): an omitted field is "preserve", an explicit null is
+// "clear". A reset with no task sends NO taskId at all, never null or "".
+func TestHostRecoveryOfACapResetOmitsTheTask2117(t *testing.T) {
+	w := &resetWire{body: `{"data":{"registerContextResetRecovery":` + capResetStep + `}}`}
+	_, err := newResetWire(t, w).RegisterResetRecovery(context.Background(), "r1", 1, hostpoller.ResetCheckpoint{Title: "t", Content: "c"}, "s1", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, present := w.input["taskId"]; present {
+		t.Fatalf("a cap reset's recovery sent taskId %v; it must be omitted", w.input["taskId"])
+	}
+	if w.input["sessionId"] != "s1" || w.input["resetId"] != "r1" {
+		t.Fatalf("input %v", w.input)
+	}
+}
+
+func TestHostRecoveryOfATaskEndResetStillSendsItsTask2117(t *testing.T) {
+	w := &resetWire{body: `{"data":{"registerContextResetRecovery":` + resetStepOK + `}}`}
+	_, err := newResetWire(t, w).RegisterResetRecovery(context.Background(), "r1", 3, hostpoller.ResetCheckpoint{Title: "t", Content: "c"}, "s1", "t1")
+	if err != nil || w.input["taskId"] != "t1" {
+		t.Fatalf("input %v err %v", w.input, err)
+	}
+}

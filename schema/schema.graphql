@@ -408,6 +408,14 @@ type Agent {
   this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
   """
   clonedFromAgentRef: String
+
+  """
+  #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+  above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+  worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+  for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+  """
+  contextCap: Int
   createdAt: DateTime!
   description: String
 
@@ -4507,6 +4515,11 @@ type ContextReset {
   appId: ID!
 
   """
+  #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
+  """
+  cause: String!
+
+  """
   #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
   """
   checkpointNode: String
@@ -4533,7 +4546,11 @@ type ContextReset {
   """
   stopGrantedAt: DateTime
   stopLeaseMs: Int
-  taskId: ID!
+
+  """
+  Null for a reset with no task: one asked for by the Agent's context cap (#4225).
+  """
+  taskId: ID
   workerId: ID!
 }
 
@@ -8999,6 +9016,10 @@ type Mutation {
   orgId accepts the org's ID or URN.
   """
   createAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted or null is no cap.
+    """
+    contextCap: Int
     description: String
 
     """#4224: omitted or null is LONG_LIVED."""
@@ -12026,6 +12047,10 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted leaves it, null clears it (no cap).
+    """
+    contextCap: Int
     description: String
 
     """#4224: omitted or null leaves it unchanged."""
@@ -17247,7 +17272,11 @@ input RegisterContextResetRecoveryInput {
 
   """The reset's own session and task."""
   sessionId: ID!
-  taskId: ID!
+
+  """
+  The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
+  """
+  taskId: ID
 }
 
 """
