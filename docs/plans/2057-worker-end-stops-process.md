@@ -54,3 +54,26 @@ the server ending a session whose process was stopped (S2), a spec change
   probe is "not touched" / unconfirmed, never "stopped".
 - The lead process's current directory is re-checked against the worktree.
 - `manager` admits USER only.
+
+## Follow-ups #2068 and #2070
+- **Lock (#2068).** `delivery.LockBinding` takes the same `hadron-team-session.lock`
+  `session start` writes under (flock / LockFileEx, a bounded try-lock, 2 s). Every
+  signal is preceded by `Authorize`: take the lock, re-read the binding under it,
+  signal, release at once. Never held across the SIGTERM grace or any wait. For a
+  launched agent, `execAgent.TerminateWith` asks before SIGTERM and again before
+  SIGKILL. A lock that cannot be taken declines the stop and the report says so.
+  A plain directory with no binding cache has nothing to lock.
+- **Session identity (#2070).** The reset relaunch records the session the reset names;
+  a launch the server had already finished has none recorded, so only a binding that
+  names this worker AND the session being ended identifies it (an empty binding declines).
+
+## Security review (§10) on #2073
+- The stop creates and locks inside a tree the worker can write, so `LockBinding`
+  follows no link: `Mkdir` (not `MkdirAll`) for a plain cache, `Lstat` the lock
+  location and the lock file (a link or non-regular file is refused), `O_NOFOLLOW`
+  on unix, and an `fstat` regular-file check after the open.
+- **Residual, stated plainly:** the stop is fail-safe, not containment. A hostile
+  agent can still decline its own stop (hold the lock for the 2 s bound, rewrite
+  its binding, move its working directory); each of those makes the host signal
+  nothing and say so. The host also trusts the worktree's `.git` pointer, as every
+  binding reader here already does; on orca1 the poller and the agents share one uid.

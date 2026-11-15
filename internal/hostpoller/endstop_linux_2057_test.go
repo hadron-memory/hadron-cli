@@ -42,6 +42,9 @@ func reaped(c *exec.Cmd) <-chan struct{} {
 func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\nsleep 300 &\nwait\n")
+	// Under load the shell may not have forked its child yet: the stop can
+	// only be asked to take down a group that has one.
+	waitFor(t, "the agent's child to start", func() bool { return groupHasOtherMembers(c.Process.Pid, c.Process.Pid) })
 	done := reaped(c)
 	stops, err := stopWorktreeAgents(root, 2*time.Second, nil)
 	if err != nil || len(stops) != 1 || !stops[0].Stopped || stops[0].PID != c.Process.Pid {
@@ -52,8 +55,18 @@ func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("the agent is still running")
 	}
-	if groupHasOtherMembers(c.Process.Pid, c.Process.Pid) {
-		t.Fatal("the agent's child outlived the stop: the whole group must go")
+	waitFor(t, "the agent's child to be gone (the whole group must go)", func() bool { return !groupHasOtherMembers(c.Process.Pid, c.Process.Pid) })
+}
+
+// waitFor polls cond for up to five seconds.
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -197,7 +210,7 @@ func TestStopAgentGroupSignalsNothingWhenTheGuardSaysNo(t *testing.T) {
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\nwhile :; do sleep 1; done\n")
 	ticks := startTicks(t, c.Process.Pid)
-	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, time.Second, func() bool { return false })
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, time.Second, func() (func(), bool) { return nil, false })
 	if s.Stopped || !strings.Contains(s.Detail, "binding changed") {
 		t.Fatalf("stop = %+v", s)
 	}
@@ -260,7 +273,7 @@ func TestStopAgentGroupDoesNotEscalateWhenTheBindingChangedDuringTheGrace(t *tes
 	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
 	ticks := startTicks(t, c.Process.Pid)
 	calls := 0
-	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, 300*time.Millisecond, func() bool { calls++; return calls == 1 })
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, 300*time.Millisecond, func() (func(), bool) { calls++; return func() {}, calls == 1 })
 	if s.Stopped || !strings.Contains(s.Detail, "was not killed") {
 		t.Fatalf("stop = %+v", s)
 	}
@@ -278,5 +291,32 @@ func TestParseProcStatRefusesAMalformedLine(t *testing.T) {
 	}
 	if st, ok := parseProcStat("12 (a (b) c) S 1 99 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 777 22"); !ok || st.pgrp != 99 || st.start != "777" || st.state != "S" {
 		t.Errorf("comm with parens misread: %+v ok=%v", st, ok)
+	}
+}
+
+// #2068: what the authorization grants is released right after each signal,
+// before the grace wait: nothing holds the binding lock while the stop waits.
+func TestStopAgentGroupReleasesTheAuthorizationBeforeTheGraceWait(t *testing.T) {
+	root := t.TempDir()
+	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
+	ticks := startTicks(t, c.Process.Pid)
+	asked, released := 0, 0
+	var heldAtSecondAsk int
+	auth := func() (func(), bool) {
+		asked++
+		if asked == 2 {
+			heldAtSecondAsk = asked - 1 - released // grants still outstanding when KILL is asked
+		}
+		return func() { released++ }, true
+	}
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, 300*time.Millisecond, auth)
+	if !s.Stopped {
+		t.Fatalf("%+v", s)
+	}
+	if asked != 2 || released != 2 {
+		t.Fatalf("asked=%d released=%d", asked, released)
+	}
+	if heldAtSecondAsk != 0 {
+		t.Fatalf("the first grant was still held across the grace wait (%d outstanding)", heldAtSecondAsk)
 	}
 }
