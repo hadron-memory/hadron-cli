@@ -621,7 +621,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 80: 44 gap, 36 excluded
+[Arguments] 82: 46 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -630,6 +630,8 @@ Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (acce
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
+Mutation.assignHostWorker(input.accountProfile)  gap #2157: S1b optional typed launcher profile
+Mutation.assignHostWorker(input.effort)  gap #2157: S1b optional typed launcher profile
 Mutation.cancelAgentTask(instruction)  gap #1617
 Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config

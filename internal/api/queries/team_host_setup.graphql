@@ -29,6 +29,8 @@ query TeamHostSetup(
   }
 }
 
+# @genqlient(for: "AssignHostWorkerInput.accountProfile", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.effort", omitempty: true)
 # @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
 # @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
 mutation TeamHostAssign(
