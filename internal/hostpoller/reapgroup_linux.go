@@ -175,14 +175,22 @@ var readGroupStatFn = readGroupStat
 // at once — a live member of the group is proof whatever else the pass
 // saw.
 func groupHasOtherMembers(pgid, leader int) bool {
+	members, _ := groupMembership(pgid, leader)
+	return members
+}
+
+// groupMembership is groupHasOtherMembers with the reason for a "members"
+// answer: the code of the pass that decided it (the last void pass when the
+// passes ran out).
+func groupMembership(pgid, leader int) (bool, drainWhy) {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
 	for pass := 0; ; pass++ {
-		found, void, zs := scanGroupOnce(pgid, leader, prevZ)
+		found, void, zs, why := scanGroupOnce(pgid, leader, prevZ)
 		if !void {
-			return found
+			return found, why
 		}
 		if pass+1 >= maxGroupScanPasses {
-			return true // /proc never held still: not proof of an empty group
+			return true, why // /proc never held still: not proof of an empty group
 		}
 		prevZ = zs
 	}
@@ -198,12 +206,19 @@ func groupHasOtherMembers(pgid, leader int) bool {
 // purpose, but a leader entry that still shows RUNNING THREADS — state Z
 // with a thread count above one, the exited-main-thread shape — is
 // proof the group is not drained, so it is checked before the exclusion.
-func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool) {
+func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool, why drainWhy) {
 	entries, err := readProcDir("/proc")
 	if err != nil {
-		return true, false, nil
+		return true, false, nil, whyUnreadable
 	}
 	zs = map[int]bool{}
+	// void's reason: the first void cause of the pass, by the order the scan met it.
+	voidWhy := func(w drainWhy) {
+		if !void {
+			why = w
+		}
+		void = true
+	}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
@@ -212,9 +227,16 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 		pgrp, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
-				return true, false, nil // present but unreadable: not proof of absence
+				return true, false, nil, whyUnreadable // present but unreadable: not proof of absence
 			}
-			void = true // listed, then gone before the read: the pass proves nothing
+			// listed, then gone before the read: the pass proves nothing. A pid
+			// the previous pass read as a Z member of the group is a vanished
+			// MEMBER; any other is simply unseen.
+			if prevZ[pid] {
+				voidWhy(whyVanishedMember)
+			} else {
+				voidWhy(whyUnseenPid)
+			}
 			continue
 		}
 		if pgrp != pgid {
@@ -222,19 +244,19 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 		}
 		if pid == leader {
 			if state == 'Z' && threads > 1 {
-				return true, false, nil // the leader's own threads still run
+				return true, false, nil, whyLiveMember // the leader's own threads still run
 			}
 			continue
 		}
 		if state != 'Z' || threads > 1 {
-			return true, false, nil // a member that can still run
+			return true, false, nil, whyLiveMember // a member that can still run
 		}
 		zs[pid] = true
 		if !prevZ[pid] {
-			void = true // first sighting of this Z: it could have forked up to its death
+			voidWhy(whyLateFork) // first sighting of this Z: it could have forked up to its death
 		}
 	}
-	return false, void, zs
+	return false, void, zs, why
 }
 
 // readGroupStat is the group scan's read of a /proc/<pid>/stat line:
