@@ -94,6 +94,13 @@ var sweepAllowed = map[string]bool{
 	"terminal list": true, "terminal read": true, "terminal close": true,
 }
 
+// launchAllowed is every `orca` call a launch through Orca makes
+// (hadron-cli#2058 C3): create the agent's terminal, and close it, a launch
+// that could not be proven or a stop. It neither reads nor types.
+var launchAllowed = map[string]bool{
+	"terminal create": true, "terminal close": true,
+}
+
 // guardFor refuses, without running it, any call outside calls. The refusal
 // is the fail-closed shape, so every caller already handles it.
 func guardFor(calls map[string]bool, run Runner) Runner {
@@ -113,3 +120,6 @@ func Guard(run Runner) Runner { return guardFor(allowed, run) }
 // Guard stays closed over its own four: the sweep is a different caller with
 // a different need (close), not a widening of delivery's.
 func SweepGuard(run Runner) Runner { return guardFor(sweepAllowed, run) }
+
+// LaunchGuard is the launcher's own two calls (#2058), closed to the rest.
+func LaunchGuard(run Runner) Runner { return guardFor(launchAllowed, run) }

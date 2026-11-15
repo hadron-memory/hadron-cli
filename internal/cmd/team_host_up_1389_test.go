@@ -159,7 +159,7 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostRegistrations": []any{map[string]any{
 				"hostId": "orca1", "label": "Orca box 1", "pollIntervalSeconds": 30, "registeredAt": "2026-10-14T00:00:00Z",
 				"refreshedAt": "2026-10-14T01:00:00Z", "live": true, "workers": workers}}}})
-		case "HostOperations":
+		case "HostOperations", "HostOperationsWithReason":
 			var worker string
 			_ = json.Unmarshal(q.Vars["worker"], &worker)
 			items := []map[string]any{}
@@ -525,7 +525,7 @@ func TestTeamHostUpOpenSessionIsNeverStarted1389(t *testing.T) {
 		t.Fatalf("%v\n%s", err, raw)
 	}
 	wantItems1389(t, "planned", dto.Planned)
-	wantItems1389(t, "skipped", dto.Skipped, "Iris worker.relaunch RELAUNCH_UNAVAILABLE", "Jonas - SESSION_WITHOUT_WORKTREE")
+	wantItems1389(t, "skipped", dto.Skipped, "Iris worker.relaunch RELAUNCH_UNPROVEN", "Jonas - SESSION_WITHOUT_WORKTREE")
 	if m := fx.mutations(); len(m) != 0 {
 		t.Fatalf("mutations for an open session: %v", m)
 	}
@@ -753,7 +753,7 @@ func TestTeamHostUpAgenticUsage1389(t *testing.T) {
 		section = section[:end+3]
 	}
 	for _, want := range []string{"hadron team host up", "--dry-run", "--apply", "--worker", "--desired-state-file", `"planned"`, `"applied"`, `"skipped"`, `"failed"`, `"operationId"`, `"sweepMode"`,
-		"WORKTREE_MISSING", "NO_SESSION", "IN_SYNC", "SWEEP_NOT_APPLY", "NOT_ON_HOST", "NOT_REGISTERED", "RELAUNCH_UNAVAILABLE", "LEAVE_ALONE", "REFUSED", "NOT_ATTEMPTED", "OBSERVE_FAILED"} {
+		"WORKTREE_MISSING", "NO_SESSION", "IN_SYNC", "SWEEP_NOT_APPLY", "NOT_ON_HOST", "NOT_REGISTERED", "RELAUNCH_UNPROVEN", "LEAVE_ALONE", "REFUSED", "NOT_ATTEMPTED", "OBSERVE_FAILED"} {
 		if !strings.Contains(section, want) {
 			t.Errorf("the Host up section lacks %q", want)
 		}

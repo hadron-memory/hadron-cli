@@ -290,6 +290,15 @@ func mapError(err error) error {
 	if errors.As(err, &coded) {
 		return err
 	}
+	// S11: ticker subscription is incompatible with the worker's lifecycle,
+	// not a permission or transport failure. Keep the original error chain so
+	// JSON metadata and callers can still identify the server refusal.
+	if HasErrorCode(err, "TICKER_ON_SHORT_LIVED") {
+		return exitcode.New(codeForExtension("TICKER_ON_SHORT_LIVED"), &serverError{
+			msg: "a short-lived worker is woken by its tasks, not by tickers",
+			err: err,
+		})
+	}
 
 	// A curated command sends a query baked into this binary, so a GraphQL
 	// *validation* failure means the CLI and server disagree on the schema —
@@ -754,6 +763,26 @@ func IsUnknownInputFieldOnly(err error, inputType string, fields ...string) bool
 			}
 		}
 		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// IsDefiniteRefusal reports whether err is the server ANSWERING with a coded
+// refusal of the operation: a non-empty GraphQL error list in which every error
+// carries a code other than INTERNAL_SERVER_ERROR. Only then is it safe to say
+// the operation did not take effect. A transport failure, a timeout, a
+// malformed answer or an internal error can follow a commit, so they are an
+// unknown outcome, not a refusal (cli#2108).
+func IsDefiniteRefusal(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		c := extensionCode(e)
+		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
 			return false
 		}
 	}
@@ -1241,6 +1270,9 @@ func codeForExtension(code string) int {
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
 		return exitcode.Usage
 	case code == "TICKER_SETTINGS_CONFLICT" || code == "DELIVERY_STANDBY_UNAVAILABLE":
+		return exitcode.Conflict
+	// A ticker subscription cannot work until the Agent's lifecycle changes.
+	case code == "TICKER_ON_SHORT_LIVED":
 		return exitcode.Conflict
 	// Comment operations retain typed permission, input and state refusals.
 	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":

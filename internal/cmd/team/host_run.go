@@ -42,8 +42,9 @@ import (
 
 // hostServer is the poller's Server over GraphQL, with the host key.
 type hostServer struct {
-	client graphql.Client
-	app    string
+	serverURL string
+	client    graphql.Client
+	app       string
 	// noRefusedAt is when this server rejected the document that asks for
 	// refusedWorkers (schema skew) while the plain one worked (unix nanos; 0 =
 	// not pinned): it lacked hadron-server#4241, so polls skip the extended
@@ -247,7 +248,7 @@ func loadHostPoller(f *cmdutil.Factory, path string) (*hostpoller.Config, string
 	if err != nil {
 		return nil, "", nil, err
 	}
-	return cfg, key, &hostServer{client: client, app: cfg.App}, nil
+	return cfg, key, &hostServer{client: client, app: cfg.App, serverURL: server}, nil
 }
 
 func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
@@ -269,7 +270,7 @@ reports every outcome. One poller per host or container.
                    refused before launching when any process is working in the
                    tree (Linux /proc, the pid and a short redacted argv
                    named), and a start that fails stops the process group it
-                   launched and leaves no agents entry in the state file
+                   launched and leaves no agents entry in the state file.
                    With reset_on_start (default off; TRANSITIONAL like
                    stop_on_end, replaced by the Agent's lifecycle) the
                    worker's EXISTING worktree is first brought back to a
@@ -281,6 +282,13 @@ reports every outcome. One poller per host or container.
                    tree is fetched from origin and checked out detached at
                    origin's default branch. A directory with no Git starts
                    with no reset. Nothing is created or removed.
+                   With launch_via: orca (default exec; Linux; TRANSITIONAL)
+                   it launches through an Orca terminal instead, from the
+                   worker's launcher_profile and fixed per-family templates,
+                   always fresh (never --resume), the grant and first prompt
+                   passed through a 0600 file beside the state, never typed;
+                   the agent runs plainly in Orca's terminal scope; it never
+                   falls back to the exec path
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -313,6 +321,23 @@ belongs to one worker: the config refuses one listed for two.
 
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
+
+PERIODIC RECOVERY (Linux, typed launch_via: orca only) preserves an open
+session whose agent vanished. It requires APPLY and current RUNNING desired
+state, matching worker/session/App/server/worktree identity, two consecutive
+proven-absent process sweeps, exactly one running own-user orca-daemon scope
+and a successful terminal list. Missing systemd proof or either readiness
+check refuses RELAUNCH_UNPROVEN. Readiness is rechecked before spending each
+attempt; the persistent limit is three per worker per rolling hour. Restart
+preserves that budget but requires two fresh absence observations. Launch
+uses the profile and a fresh recover prompt, never --resume or session start.
+Only its own pinned process can pass verification or be stopped on failure.
+Plain bindings work without Git. Host up reports this work; it never launches
+an open-session agent. Relaunch JSON events name workerId/sessionId/reason
+and attempt; noticeFailed plus localCause/noticeCause exposes a local or
+undelivered repair. Setup/disk and unproven post-launch failures currently
+lack a typed server reason and stay local, never a false CAP_REACHED.
+
 
 THE HOST KEY is never put in a launched agent's environment, argv or files.
 It is read only from key_file, which must be mode 0600 or tighter — never
@@ -367,8 +392,11 @@ process tree is force-killed at once. If the launch's exit is observed after
 the binding-authorization wait, taskkill is skipped (its pid may have been
 reused). The final exit check and taskkill are not atomic: the launch can
 still exit between them. Children it left behind cannot be reached without
-a Job Object, which this runner does not yet assign. An entry survives a
-stop that could not be confirmed. A refusal
+a Job Object, which this runner does not yet assign. Binding authority stays
+held until taskkill returns. Its cancellation is requested after 10 seconds;
+a timeout leaves the stop unconfirmed and its records kept (some processes
+may already have been killed). This is not a real-time OS latency guarantee.
+An entry survives a stop that could not be confirmed. A refusal
 saying the operation was already reported stops the launch only when it
 names the recorded outcome as failed; one naming success, or naming nothing,
 leaves what was launched running.
@@ -417,6 +445,18 @@ The configuration (YAML):
       reset_on_start: false         # true: reset the existing worktree at worker.start
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
+    # Through Orca (hadron-cli#2058; launch is not needed then):
+    # iris:
+    #   family: claude
+    #   launch_via: orca
+    #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
+    #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
+    #   worktrees: [hadron-cli/iris]
+  # account_profiles:                # account name -> launcher (and Codex home)
+  #   holger: {bin: claude-holger}
+  #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
+  # orca_launch:
+  #   orca_bin: /absolute/path/to/orca
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
@@ -470,12 +510,18 @@ per line; --json prints each as a JSON object.`,
 				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
 			}
 			emit := hostEventPrinter(f)
-			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{OnDrain: emit}, state, key, emit)
 			if err := wireResets(p, cfg, srv); err != nil {
 				return err
 			}
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
+			}
+			if err := wireOrcaLaunch(p, cfg); err != nil {
+				return err
+			}
+			if err := wireRelaunch(p, cfg, srv); err != nil {
+				return err
 			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
@@ -519,12 +565,22 @@ func hostStepError(err error) error {
 // hostEventDTO is one --json event line: every key always present, "" when
 // it does not apply.
 type hostEventDTO struct {
-	Time      string `json:"time"`
-	Kind      string `json:"kind"`
-	Operation string `json:"operation"`
-	Type      string `json:"type"`
-	Outcome   string `json:"outcome"`
-	Detail    string `json:"detail"`
+	LocalCause     string `json:"localCause,omitempty"`
+	NoticeCause    string `json:"noticeCause,omitempty"`
+	FailureReason  string `json:"failureReason,omitempty"`
+	WorkerID       string `json:"workerId,omitempty"`
+	SessionID      string `json:"sessionId,omitempty"`
+	TerminalHandle string `json:"terminalHandle,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+	Attempt        int    `json:"attempt,omitempty"`
+	CheckedAt      string `json:"checkedAt,omitempty"`
+	NoticeFailed   bool   `json:"noticeFailed,omitempty"`
+	Time           string `json:"time"`
+	Kind           string `json:"kind"`
+	Operation      string `json:"operation"`
+	Type           string `json:"type"`
+	Outcome        string `json:"outcome"`
+	Detail         string `json:"detail"`
 }
 
 // hostEventPrinter writes events one per line. Operations run concurrently,
@@ -535,7 +591,12 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 		mu.Lock()
 		defer mu.Unlock()
 		if f.JSON {
+			checkedAt := ""
+			if !e.CheckedAt.IsZero() {
+				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
+			}
 			b, _ := json.Marshal(hostEventDTO{
+				LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})
@@ -543,7 +604,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 			return
 		}
 		parts := []string{e.Time.Format("15:04:05"), e.Kind}
-		for _, s := range []string{e.Type, e.Operation, e.Outcome} {
+		for _, s := range []string{e.Type, e.Operation, e.WorkerID, e.Outcome} {
 			if s != "" {
 				parts = append(parts, s)
 			}

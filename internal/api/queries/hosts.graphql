@@ -69,6 +69,32 @@ query HostOperations(
   }
 }
 
+# #4231 (hadron-server#4257): the same list, selecting issuedReason too. Only `team host ops`
+# uses it, and falls back to HostOperations when the server rejects that one field: the
+# poller's own operations (collect, report) must keep working on an older server.
+query HostOperationsWithReason(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+  # @genqlient(omitempty: true)
+  $status: HostOperationStatus
+  # @genqlient(omitempty: true)
+  $worker: String
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  hostOperations(appRef: $appRef, hostId: $hostId, status: $status, worker: $worker, first: $first, after: $after) {
+    items {
+      ...HostOperationFields
+      issuedReason
+    }
+    hasNextPage
+    endCursor
+  }
+}
+
 mutation IssueHostOperation($input: IssueHostOperationInput!) {
   issueHostOperation(input: $input) {
     ...HostOperationFields

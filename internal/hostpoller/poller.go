@@ -162,24 +162,37 @@ func ErrFinalWithRecorded(msg, recorded string) *FinalError {
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {
-	Time      time.Time
-	Kind      string
-	Operation string
-	Type      string
-	Outcome   string
-	Detail    string
+	LocalCause, NoticeCause                     string
+	FailureReason                               string
+	CheckedAt                                   time.Time
+	NoticeFailed                                bool
+	Time                                        time.Time
+	Kind                                        string
+	Operation                                   string
+	Type                                        string
+	Outcome                                     string
+	Detail                                      string
+	WorkerID, SessionID, TerminalHandle, Reason string
+	Attempt                                     int
 }
 
 // Poller is one host's loop.
 type Poller struct {
-	cfg    *Config
-	server Server
-	host   Host
-	state  *State
-	key    string
-	emit   func(Event)
-	now    func() time.Time
-	sleep  func(context.Context, time.Duration) error
+	relaunchEpoch string
+	relaunch      *RelaunchDependencies
+	relaunchMu    sync.Mutex
+	// relaunchCancel is guarded by mu. A fatal check-in cancels the owned
+	// recovery job before joining it, without cancelling unrelated operations.
+	relaunchCancel     context.CancelFunc
+	launchingWorktrees map[string]bool
+	cfg                *Config
+	server             Server
+	host               Host
+	state              *State
+	key                string
+	emit               func(Event)
+	now                func() time.Time
+	sleep              func(context.Context, time.Duration) error
 	// bound reads the session binding of a worktree path (worker.end's stop
 	// identifies a process by its worktree and that binding, #2057).
 	bound func(path string) delivery.Binding
@@ -229,7 +242,12 @@ type Poller struct {
 	// server reported it (in memory only): worker.end stops a launched agent
 	// only for that session (#2057).
 	agentSessions map[string]string
-	wg            sync.WaitGroup
+	// orcaLaunch and profiles start a launch_via: orca worker through Orca
+	// (hadron-cli#2058 C3); nil until EnableOrcaLaunch, and such a worker's
+	// start then refuses rather than falling back to the exec path.
+	orcaLaunch OrcaLaunchFunc
+	profiles   ProfileSource
+	wg         sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
@@ -295,6 +313,7 @@ func (p *Poller) Run(ctx context.Context) error {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
 			if p.Fatal != nil && p.Fatal(err) {
+				p.cancelRelaunch()
 				p.wg.Wait()
 				return err
 			}
@@ -337,6 +356,7 @@ func (p *Poller) Step(ctx context.Context) error {
 		p.dispatch(ctx, op)
 	}
 	p.deliverStep(ctx)
+	p.relaunchStep(ctx)
 	return nil
 }
 

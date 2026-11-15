@@ -195,6 +195,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the collected start carried no launch grant")
 		return
 	}
+	if w.launchesViaOrca() {
+		release, err := p.reserveWorktreeLaunch(token)
+		if err != nil {
+			p.finish(ctx, op, Failed, "", "another poller launch owns this worktree; nothing launched")
+			return
+		}
+		defer release()
+	}
 	// One agent per worktree (#472). This sees only agents THIS poller
 	// launched: after a restart, an agent still booting from an earlier
 	// launch is invisible here, and its revoked grant fails its own bind.
@@ -245,14 +253,33 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		}
 	}
 	deadline := p.now().Add(LaunchGrantTTL)
-	agent, err := p.host.Launch(ctx, LaunchSpec{
-		Argv: w.Launch,
-		Dir:  dir,
-		Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
-	})
-	if err != nil {
-		p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
-		return
+	var agent Agent
+	var err error
+	if w.launchesViaOrca() {
+		// C3 (#2058): through an Orca terminal, from the launcher profile.
+		// No fallback to the exec path: a worker configured for Orca that
+		// cannot launch there launches nothing.
+		agent, err = p.orcaStart(ctx, op, ref, w, dir)
+		if err != nil {
+			if agent != nil {
+				// An unproven launch whose terminal could not be closed: it
+				// stays recorded, so the one-agent-per-worktree guard refuses
+				// a second launch there and a stop retries the close.
+				p.trackAgent(op.WorkerID, token, agent)
+			}
+			p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: "+err.Error())
+			return
+		}
+	} else {
+		agent, err = p.host.Launch(ctx, LaunchSpec{
+			Argv: w.Launch,
+			Dir:  dir,
+			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
+		})
+		if err != nil {
+			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
+			return
+		}
 	}
 	p.trackAgent(op.WorkerID, token, agent)
 	p.log("launched", op.ID, op.Type, "", fmt.Sprintf("worker %s in %s", ref, token))
@@ -724,6 +751,18 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 // resets are enabled. An unreaped child keeps its pid, so an identity read
 // while Done is still open, checked after the read, is the agent's own.
 func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
+	if agent, ok := a.(*OrcaAgent); ok && agent.h != nil {
+		select {
+		case <-agent.Done():
+			return ProcessIdentity{}, false
+		default:
+		}
+		identity := agent.h.Identity()
+		if identity.PID > 0 && identity.StartTime != "" {
+			return identity, true
+		}
+	}
+
 	if p.resetDeps.Proc == nil || a.PID() <= 0 {
 		return ProcessIdentity{}, false
 	}
@@ -787,15 +826,18 @@ func contains(list []string, s string) bool {
 
 // bindingLockWait bounds how long a stop waits for a binding writer: a bind
 // holds the lock for one write, so this is generous, and a writer is never made
-// to wait on the stopper longer than one read and one signal (#2068).
+// to wait on Unix beyond one read and signal (#2068). On Windows the
+// authority spans synchronous taskkill; this constant bounds acquisition only.
 const bindingLockWait = 2 * time.Second
 
 // authorizeStop is the Authorize for one worktree: before each signal it takes
 // the worktree's session-binding lock (the lock `team session start` holds
 // while it writes), re-reads the binding under it through check, and returns
-// the release the caller invokes right after the signal. A lock that cannot be
+// the release the caller invokes after the action (a Unix signal syscall or
+// the synchronous Windows taskkill runner). A lock that cannot be
 // taken within bindingLockWait declines the stop, and so does a check that no
-// longer passes; both are logged. Nothing here holds the lock across a wait.
+// longer passes; both are logged. Unix releases before grace waits; Windows
+// keeps authority until its taskkill runner returns, including cancellation.
 func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Authorize {
 	return func() (func(), bool) {
 		release, err := p.lockBinding(p.cfg.WorktreePath(token), bindingLockWait)
