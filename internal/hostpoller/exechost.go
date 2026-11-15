@@ -34,6 +34,13 @@ type UntrustedConfigError struct{ Why string }
 
 func (e *UntrustedConfigError) Error() string { return "untrusted repo config: " + e.Why }
 
+// BrokenRepoError is a worker directory with its own .git entry that git cannot
+// use as a repository whose top level is that directory (hadron-cli#2119): not "a
+// directory without Git". Nothing was run on it.
+type BrokenRepoError struct{ Why string }
+
+func (e *BrokenRepoError) Error() string { return "broken repository: " + e.Why }
+
 // git runs one command on a repository the worker can write to, with the
 // hardened configuration and the transport allowlist (hadron-cli#2057 §10): the
 // same rule as the reset's for EVERY git call this host makes. A repository whose
@@ -96,13 +103,15 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 	} else if !root {
 		return st, nil
 	}
-	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
-	var untrusted *UntrustedConfigError
-	if errors.As(err, &untrusted) {
-		return st, err // refused, not "not a worktree": no command ran
+	// The directory has a .git entry of its own: the config allowlist first (an
+	// untrusted config runs nothing), then it must resolve to a valid repository
+	// whose work tree IS the directory. Anything else is a broken repository,
+	// refused with the reason, never "not a worktree" (hadron-cli#2119).
+	if why := untrustedRepoConfig(ctx, path); why != "" {
+		return st, &UntrustedConfigError{Why: why}
 	}
-	if err != nil || !samePath(top, path) {
-		return st, nil
+	if why := ownRepoProblem(ctx, path); why != "" {
+		return st, &BrokenRepoError{Why: why}
 	}
 	st.IsWorktree = true
 	if b, err := git(ctx, path, "symbolic-ref", "--short", "-q", "HEAD"); err == nil {
@@ -483,7 +492,8 @@ func (a *execAgent) Terminate() (bool, string) {
 
 // TerminateWith is Terminate with a check before every signal: authorize
 // decides, immediately before SIGTERM and again before SIGKILL, whether the
-// stop may still go on, and its release runs right after that one signal. A
+// stop may still go on, and its release runs right after that one signal.
+// Windows instead holds one authorization until synchronous taskkill returns. A
 // refusal signals nothing further and reports the stop unconfirmed, with the
 // agent's records kept (hadron-cli#2068).
 func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {

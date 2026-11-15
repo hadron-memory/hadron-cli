@@ -71,6 +71,14 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	if why := untrustedRepoConfig(ctx, dir); why != "" {
 		return refuse(CodeResetFailed, why), nil
 	}
+	// The directory has a .git entry of its own, so it is not "a worker without
+	// Git": git must resolve it to a valid repository whose work tree IS this
+	// directory. An empty or broken .git directory is skipped by git's discovery,
+	// which answers "not a repository" or falls back to an ENCLOSING repository
+	// (the reset would then move that one): both refuse (hadron-cli#2119).
+	if why := ownRepoProblem(ctx, dir); why != "" {
+		return refuse(CodeResetFailed, why+"; nothing was moved"), nil
+	}
 	st, err := GitTree(ctx, dir)
 	if err != nil {
 		return ResetOutcome{}, err
@@ -298,6 +306,21 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 		return "", "", fmt.Errorf("the fetched %s/%s (%.12s) is not the tip %s reports for its default branch (%.12s); nothing was moved", remote, branch, sha, remote, head)
 	}
 	return remote + "/" + branch, sha, nil
+}
+
+// ownRepoProblem says why dir, which has a .git entry of its own, is not a usable
+// repository whose work tree is dir itself ("" when it is). It runs after the
+// config allowlist, so a repository whose config redirects its work tree
+// (core.worktree) has already been refused by name.
+func ownRepoProblem(ctx context.Context, dir string) string {
+	top, errOut, err := runGitTree(ctx, dir, "rev-parse", "--show-toplevel")
+	switch {
+	case err != nil:
+		return "the .git entry in " + dir + " is not a usable repository (" + firstNonEmpty(errOut, err.Error()) + ")"
+	case !samePath(top, dir):
+		return "git resolves " + dir + " to the work tree " + top + ", not to this directory: its .git entry is not a usable repository and git fell back to an enclosing one"
+	}
+	return ""
 }
 
 // isWorktreeRoot reports whether dir is the top level of a git work tree: it has
