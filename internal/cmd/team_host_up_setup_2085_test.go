@@ -295,3 +295,24 @@ func TestTeamHostUpUnreadableHostSetupPlansNothing2085(t *testing.T) {
 		})
 	}
 }
+
+// BLIND/LOCAL P2 (Julius, #2109): only an explicit HOST or SERVER names the
+// rules to plan under. An empty, missing or unknown source is not "HOST": the
+// run stops, and nothing is planned or issued.
+func TestTeamHostUpAnUnknownHostSetupSourceStopsTheRun2085(t *testing.T) {
+	for name, source := range map[string]string{"empty": `""`, "null": `null`, "future": `"FUTURE"`, "lowercase": `"server"`} {
+		t.Run(name, func(t *testing.T) {
+			fx := newHostUpFixture1389(t)
+			fx.present("Jonas", 0)
+			fx.serverState("APPLY", serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "HOLDS_TASK", "", "hadron-cli/jonas"))
+			fx.setupRaw = `{"data":{"hostSetup":{"source":` + source + `,"assignments":[]}}}`
+			_, raw, err := fx.run("--apply")
+			if err == nil || exitCodeFor(err) != exitcode.Error {
+				t.Fatalf("want exit %d, got %v (exit %d)\n%s", exitcode.Error, err, exitCodeFor(err), raw)
+			}
+			if m := fx.mutations(); len(m) != 0 || len(fx.issued) != 0 {
+				t.Fatalf("nothing is planned or issued for a source nobody can name: mutations %v issued %v", m, fx.issued)
+			}
+		})
+	}
+}
