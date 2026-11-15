@@ -328,7 +328,11 @@ func TestNoProfileNoticeUsesProvenDarkCandidateWithoutSpendingBudget2060(t *test
 	f := newFixture(t)
 	f.runner.Prepare = func(context.Context, Target) (Prepared, error) { return Prepared{}, errors.New("profile missing") }
 	for sweep := uint64(1); sweep <= 3; sweep++ {
-		r := f.run(t, sweep)
+		f.runner.Sweep = sweep
+		r, err := f.runner.Execute(context.Background(), f.target)
+		if err == nil {
+			t.Fatal("missing profile lost its refusal error")
+		}
 		if r.Reason != NoProfile || r.Attempt != 1 {
 			t.Fatal(r)
 		}

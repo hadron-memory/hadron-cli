@@ -88,6 +88,7 @@ type Result struct {
 	Status, Reason, Reference string
 	Attempt                   int
 	NoticeFailed              bool
+	AbsentObservedAt          time.Time
 }
 
 // Runner is one sweep. Sweep must be a persisted increasing generation for an
@@ -147,7 +148,10 @@ func (r Runner) guard(ctx context.Context, t Target) (string, error) {
 	if err != nil {
 		return "RELAUNCH_BINDING_UNAVAILABLE", err
 	}
-	if !b.Usable || b.AppID != t.AppID || b.WorkerID != t.WorkerID || b.SessionID != t.SessionID || b.Server != t.Server {
+	if !b.Usable {
+		return Unproven, nil
+	}
+	if b.AppID != t.AppID || b.WorkerID != t.WorkerID || b.SessionID != t.SessionID || b.Server != t.Server {
 		return IdentityChanged, nil
 	}
 	o, err := r.Probe(ctx, t)
@@ -179,10 +183,6 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if !t.valid() || r.Current == nil || r.Binding == nil || r.Probe == nil || r.Prepare == nil || r.Journal == nil || (!r.DryRun && (r.Lock == nil || r.Sweep == 0)) {
 		return out, errors.New("relaunch safety dependencies or target are incomplete")
 	}
-	now := time.Now().UTC()
-	if r.Now != nil {
-		now = r.Now().UTC()
-	}
 	// Nothing logged or notified by a dry run, including failures.
 	defer func() {
 		if err != nil && out.Reason == StateUnavailable {
@@ -200,9 +200,13 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		out.Reason = reason
 		return out, e
 	}
+	out.AbsentObservedAt = r.clock()
 	prepared, e := r.Prepare(ctx, t)
 	if e != nil || prepared.Fingerprint == "" || prepared.Launch == nil {
 		out.Reason = NoProfile
+		if !r.DryRun {
+			r.earlyProfileNotice(ctx, t, &out)
+		}
 		return out, e
 	}
 	if r.DryRun {
@@ -221,16 +225,21 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		out.Reason = reason
 		return out, e
 	}
+	out.AbsentObservedAt = r.clock()
 	// Resolve again after the lock wait; the actual launch uses this snapshot.
 	prepared, e = r.Prepare(ctx, t)
 	if e != nil || prepared.Fingerprint == "" || prepared.Launch == nil {
 		out.Reason = NoProfile
+		if !r.DryRun {
+			r.earlyProfileNotice(ctx, t, &out)
+		}
 		return out, e
 	}
 	rec, e := r.Journal.Load(t.WorkerID)
 	if e != nil {
 		return out, e
 	}
+	now := r.clock()
 	active := make([]time.Time, 0, len(rec.Attempts))
 	for _, at := range rec.Attempts {
 		if at.IsZero() {
@@ -241,19 +250,8 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		}
 	}
 	rec.Attempts = active
-	notify := func(code string) {
-		if rec.Notice == code || r.Notice == nil {
-			return
-		}
-		rec.Notice = code
-		if e := r.Journal.Save(t.WorkerID, rec); e != nil {
-			out.NoticeFailed = true
-			return
-		}
-		if e := r.Notice(ctx, t, out); e != nil {
-			out.NoticeFailed = true
-		}
-	}
+	notify := func(code string) { r.notifyResult(ctx, t, &out, &rec, code) }
+
 	if len(rec.Attempts) >= 3 {
 		out.Reason = RateLimited
 		notify(RateLimited + ":" + rec.Attempts[0].Format(time.RFC3339Nano))
@@ -284,6 +282,7 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		out.Reason = "RELAUNCH_CANCELLED"
 		return out, e
 	}
+	out.AbsentObservedAt = r.clock()
 	a, e := prepared.Launch(ctx)
 	if e != nil || a == nil {
 		out.Status, out.Reason = Failed, LaunchFailed
@@ -339,4 +338,49 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	out.Status, out.Reason = Applied, "TERMINAL_MISSING"
 	notify("RELAUNCHED:" + now.Format(time.RFC3339Nano))
 	return out, nil
+}
+
+func (r Runner) clock() time.Time {
+	if r.Now != nil {
+		return r.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+func (r Runner) notifyResult(ctx context.Context, t Target, out *Result, rec *Record, code string) {
+	if r.Notice == nil || rec.Notice == code || out.AbsentObservedAt.IsZero() {
+		return
+	}
+	if err := r.Notice(ctx, t, *out); err != nil {
+		out.NoticeFailed = true
+		return
+	}
+	// The server owns once-per-episode idempotence. A failed response/save is
+	// retried later; a failed transport is never marked as delivered locally.
+	rec.Notice = code
+	if err := r.Journal.Save(t.WorkerID, *rec); err != nil {
+		out.NoticeFailed = true
+	}
+}
+func (r Runner) earlyProfileNotice(ctx context.Context, t Target, out *Result) {
+	if r.Notice == nil || out.AbsentObservedAt.IsZero() {
+		return
+	}
+	rec, err := r.Journal.Load(t.WorkerID)
+	if err != nil {
+		out.NoticeFailed = true
+		return
+	}
+	// A refusal identifies the candidate attempt, but consumes no launch.
+	out.Attempt = 1
+	now := r.clock()
+	for _, at := range rec.Attempts {
+		if at.IsZero() {
+			out.NoticeFailed = true
+			return
+		}
+		if now.Sub(at) < time.Hour {
+			out.Attempt++
+		}
+	}
+	r.notifyResult(ctx, t, out, &rec, "REFUSED:"+NoProfile+":"+t.SessionID)
 }

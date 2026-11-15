@@ -161,16 +161,23 @@ func ErrFinalWithRecorded(msg, recorded string) *FinalError {
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {
-	Time      time.Time
-	Kind      string
-	Operation string
-	Type      string
-	Outcome   string
-	Detail    string
+	CheckedAt                                   time.Time
+	NoticeFailed                                bool
+	Time                                        time.Time
+	Kind                                        string
+	Operation                                   string
+	Type                                        string
+	Outcome                                     string
+	Detail                                      string
+	WorkerID, SessionID, TerminalHandle, Reason string
+	Attempt                                     int
 }
 
 // Poller is one host's loop.
 type Poller struct {
+	relaunchEpoch      string
+	relaunch           *RelaunchDependencies
+	relaunchMu         sync.Mutex
 	launchingWorktrees map[string]bool
 	cfg                *Config
 	server             Server
@@ -342,6 +349,7 @@ func (p *Poller) Step(ctx context.Context) error {
 		p.dispatch(ctx, op)
 	}
 	p.deliverStep(ctx)
+	p.relaunchStep(ctx)
 	return nil
 }
 

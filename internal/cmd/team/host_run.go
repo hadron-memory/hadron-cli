@@ -519,12 +519,19 @@ func hostStepError(err error) error {
 // hostEventDTO is one --json event line: every key always present, "" when
 // it does not apply.
 type hostEventDTO struct {
-	Time      string `json:"time"`
-	Kind      string `json:"kind"`
-	Operation string `json:"operation"`
-	Type      string `json:"type"`
-	Outcome   string `json:"outcome"`
-	Detail    string `json:"detail"`
+	WorkerID       string `json:"workerId,omitempty"`
+	SessionID      string `json:"sessionId,omitempty"`
+	TerminalHandle string `json:"terminalHandle,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+	Attempt        int    `json:"attempt,omitempty"`
+	CheckedAt      string `json:"checkedAt,omitempty"`
+	NoticeFailed   bool   `json:"noticeFailed,omitempty"`
+	Time           string `json:"time"`
+	Kind           string `json:"kind"`
+	Operation      string `json:"operation"`
+	Type           string `json:"type"`
+	Outcome        string `json:"outcome"`
+	Detail         string `json:"detail"`
 }
 
 // hostEventPrinter writes events one per line. Operations run concurrently,
@@ -535,7 +542,12 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 		mu.Lock()
 		defer mu.Unlock()
 		if f.JSON {
+			checkedAt := ""
+			if !e.CheckedAt.IsZero() {
+				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
+			}
 			b, _ := json.Marshal(hostEventDTO{
+				WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})
@@ -543,7 +555,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 			return
 		}
 		parts := []string{e.Time.Format("15:04:05"), e.Kind}
-		for _, s := range []string{e.Type, e.Operation, e.Outcome} {
+		for _, s := range []string{e.Type, e.Operation, e.WorkerID, e.Outcome} {
 			if s != "" {
 				parts = append(parts, s)
 			}

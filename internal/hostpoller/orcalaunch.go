@@ -625,6 +625,13 @@ func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID s
 	if !ok {
 		return OrcaLaunchSpec{}, errors.New("the worker has no launcher profile")
 	}
+	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct)
+}
+
+// orcaProfileLaunchSpec is the shared builder with an immutable typed snapshot.
+// C5 prepares that snapshot without IO, then calls this only after claiming
+// its attempt. Normal worker.start uses this through orcaLaunchSpec too.
+func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile) (OrcaLaunchSpec, error) {
 	argv, err := LaunchArgv(prof, acct)
 	if err != nil {
 		return OrcaLaunchSpec{}, err
