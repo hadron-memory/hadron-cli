@@ -322,6 +322,23 @@ belongs to one worker: the config refuses one listed for two.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
+PERIODIC RECOVERY (Linux, typed launch_via: orca only) preserves an open
+session whose agent vanished. It requires APPLY and current RUNNING desired
+state, matching worker/session/App/server/worktree identity, two consecutive
+proven-absent process sweeps, exactly one running own-user orca-daemon scope
+and a successful terminal list. Missing systemd proof or either readiness
+check refuses RELAUNCH_UNPROVEN. Readiness is rechecked before spending each
+attempt; the persistent limit is three per worker per rolling hour. Restart
+preserves that budget but requires two fresh absence observations. Launch
+uses the profile and a fresh recover prompt, never --resume or session start.
+Only its own pinned process can pass verification or be stopped on failure.
+Plain bindings work without Git. Host up reports this work; it never launches
+an open-session agent. Relaunch JSON events name workerId/sessionId/reason
+and attempt; noticeFailed plus localCause/noticeCause exposes a local or
+undelivered repair. Setup/disk and unproven post-launch failures currently
+lack a typed server reason and stay local, never a false CAP_REACHED.
+
+
 THE HOST KEY is never put in a launched agent's environment, argv or files.
 It is read only from key_file, which must be mode 0600 or tighter — never
 from HADRON_TOKEN, the token store, or any environment variable. The agent
