@@ -5,6 +5,8 @@ package hostpoller
 import (
 	"context"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -30,7 +32,7 @@ func TestTerminateAfterExitRunsNoTaskkill(t *testing.T) {
 	}
 	calls := 0
 	real := runTaskkill
-	runTaskkill = func(int) ([]byte, error) {
+	runTaskkill = func(context.Context, int) ([]byte, error) {
 		calls++
 		return nil, nil
 	}
@@ -47,17 +49,74 @@ func TestTerminateAfterExitRunsNoTaskkill(t *testing.T) {
 // #2099: exercise the Windows adapter as well as the portable decision. The
 // callback models a binding-lock wait that finishes after this launch exited.
 func TestTerminateWithExitDuringAuthorizationRunsNoTaskkill(t *testing.T) {
-	a := &execAgent{done: make(chan struct{}), pid: 4242}
 	old := runTaskkill
 	calls := 0
-	runTaskkill = func(int) ([]byte, error) { calls++; return nil, nil }
+	runTaskkill = func(context.Context, int) ([]byte, error) { calls++; return nil, nil }
 	t.Cleanup(func() { runTaskkill = old })
-	released := 0
-	stopped, detail := a.TerminateWith(func() (func(), bool) {
-		close(a.done)
-		return func() { released++ }, true
+	for _, viaDone := range []bool{true, false} {
+		a := &execAgent{done: make(chan struct{}), pid: 4242}
+		released := 0
+		stopped, detail := a.TerminateWith(func() (func(), bool) {
+			if viaDone {
+				close(a.done)
+			} else {
+				a.exited.Store(true)
+			}
+			return func() { released++ }, true
+		})
+		if !stopped || calls != 0 || released != 1 || !strings.Contains(detail, "already exited") || !strings.Contains(detail, "4242") || !strings.Contains(detail, "not touched") {
+			t.Fatalf("viaDone=%v stopped=%v taskkill calls=%d releases=%d detail=%q", viaDone, stopped, calls, released, detail)
+		}
+	}
+}
+
+func TestTerminateWithBlockingTaskkillHoldsAuthorizationAndHasDeadline(t *testing.T) {
+	a := &execAgent{done: make(chan struct{}), pid: 4242}
+	var held atomic.Bool
+	entered, finish := make(chan struct{}), make(chan struct{})
+	old := runTaskkill
+	runTaskkill = func(ctx context.Context, pid int) ([]byte, error) {
+		if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > taskkillTimeout {
+			t.Error("Windows taskkill did not receive the cancellation deadline")
+		}
+		if pid != 4242 || !held.Load() {
+			t.Error("taskkill called outside this launch's authorization")
+		}
+		close(entered)
+		<-finish
+		return nil, nil
+	}
+	finished := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-finish:
+		default:
+			close(finish)
+		}
+		<-finished
+		runTaskkill = old
 	})
-	if !stopped || calls != 0 || released != 1 || detail == "" {
-		t.Fatalf("stopped=%v taskkill calls=%d releases=%d detail=%q", stopped, calls, released, detail)
+	go func() {
+		defer close(finished)
+		stopped, _ := a.TerminateWith(func() (func(), bool) {
+			held.Store(true)
+			return func() { held.Store(false) }, true
+		})
+		if !stopped {
+			t.Error("the successful injected taskkill was not confirmed")
+		}
+	}()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("taskkill was never called")
+	}
+	if !held.Load() {
+		t.Error("binding authority was released while taskkill was blocked")
+	}
+	close(finish)
+	<-finished
+	if held.Load() {
+		t.Error("binding authority outlived taskkill")
 	}
 }

@@ -3,7 +3,7 @@
 package hostpoller
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,13 +53,18 @@ func occupied(string) (string, error) { return "", nil }
 // not the remaining numeric-PID race between the final check and taskkill:
 // no process handle is retained across that action.
 func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
-	return a.stopProcessTree(authorize, func() (bool, string) { return terminateGroup(a.pid, 0) })
+	return a.stopTreeAuthorized(authorize, func() (bool, string) { return terminateGroup(a.pid, 0) })
 }
+
+const taskkillTimeout = 10 * time.Second
+const taskkillWaitDelay = time.Second
 
 // runTaskkill is the process-tree kill terminateGroup uses, as a package var
 // so the Windows tests can observe (and refuse) it.
-var runTaskkill = func(pid int) ([]byte, error) {
-	return exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").CombinedOutput()
+var runTaskkill = func(ctx context.Context, pid int) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
+	cmd.WaitDelay = taskkillWaitDelay
+	return cmd.CombinedOutput()
 }
 
 // terminateGroup stops the process tree a launch created: Windows has no
@@ -72,11 +77,9 @@ var runTaskkill = func(pid int) ([]byte, error) {
 // tree emptied, so the stop is forceful at once (/F) and taskkill's own exit
 // decides. /T walks parentage, so a descendant of an already-exited parent
 // can be missed and a stale parent pid can match a reused one — which is
-// why Terminate never gets there for an exited launch (the stop gate above).
+// why the decision above checks for an observed exit before taskkill. The
+// last check still is not atomic with taskkill. Authorization remains held
+// through this command's return, including its cancellation/drain handling.
 func terminateGroup(pid int, _ time.Duration) (bool, string) {
-	out, err := runTaskkill(pid)
-	if err != nil {
-		return false, fmt.Sprintf("could not stop the launched process tree (pid %d): %v: %s", pid, err, strings.TrimSpace(string(out)))
-	}
-	return true, fmt.Sprintf("terminated the launched process tree (pid %d)", pid)
+	return runTreeKill(pid, taskkillTimeout, runTaskkill)
 }
