@@ -39,6 +39,20 @@ than collapse into one process. Existing observational cleanup scans are unchang
 There is no host-global or cross-process start fence; the reservation serializes
 C3 and C5 inside this poller. Fresh proofs still surround admission and launch.
 
+#2159 retries an unavailable complete census up to three times, with 20ms pauses
+and a 250ms cooperative child-context budget per proof. Each try starts the same
+strict scan afresh; no unreadable PID is omitted, and no partial or late result
+is accepted. Parent cancellation stops further scans. Exhaustion at an absence
+guard reports local RELAUNCH_CENSUS_UNAVAILABLE. This is a local event reason,
+not a new server repair enum; report failure remains visible as noticeFailed.
+The final guard stays AFTER the persisted claim: transient failure then proof
+can launch once, while persistent exhaustion charges one attempt, without a
+refund. The three-per-hour contract and two-sweep requirement are unchanged.
+Retries run inside the existing single-flight recovery job, with no new RPC,
+queue or host-loop wait. The budget depends on the probe honoring its context;
+it does not interrupt an uninterruptible operating-system read.
+
+
 Before spending an attempt, Linux must prove exactly one running own-user
 orca-daemon scope through systemd AND obtain a successful terminal list. Missing
 systemd proof, zero or multiple scopes, or list failure yields RELAUNCH_UNPROVEN

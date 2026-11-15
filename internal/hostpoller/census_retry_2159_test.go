@@ -167,3 +167,14 @@ func TestCensusRetryCancellationStopsWithoutAnotherScan2159(t *testing.T) {
 		t.Fatalf("cancellation lost or retried: %+v %v calls=%d", out, err, calls)
 	}
 }
+
+func TestCensusRetryRejectsLateSuccess2159(t *testing.T) {
+	d := RelaunchDependencies{Probe: func(ctx context.Context, _ hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		<-ctx.Done()
+		return hostrelaunch.Observation{Proven: true}, nil
+	}}
+	out, err := postLaunchObservation(context.Background(), &d, nil, hostrelaunch.Target{})
+	if !errors.Is(err, hostrelaunch.ErrCensusUnavailable) || out.Proven || errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("late success accepted or census deadline exposed as launch timeout: %+v %v", out, err)
+	}
+}
