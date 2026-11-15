@@ -43,7 +43,7 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
-	Lifecycle               string  `json:"lifecycle"`
+	Lifecycle               *string `json:"lifecycle,omitempty"`
 	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
 	// host with a worker.reset-context handler acts on it (#1043).
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
@@ -86,7 +86,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, Lifecycle: string(a.Lifecycle), ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -422,6 +422,7 @@ func writeOfferReadiness(w io.Writer, r *OfferReadinessDTO) {
 
 // Origin is get-only; null deliberately does not identify a concealment reason.
 type agentGetDTO struct {
+	Lifecycle *string `json:"lifecycle"`
 	agentDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
@@ -444,7 +445,11 @@ servers), output keeps the ID alone and omits that key without a warning.
 The "reset context after task" line (JSON resetContextAfterTask) shows the
 setting recorded by agent update --reset-context-after-task.
 The lifecycle line (JSON lifecycle) shows LONG_LIVED or SHORT_LIVED as
-recorded by agent update --lifecycle; it does not report a running process.`,
+recorded by agent update --lifecycle; it does not report a running process.
+This is a separate read. A server before #4242 shows unknown (server before
+#4242), JSON lifecycle null, while the original Agent fields still work. Other
+read failures are errors. --lifecycle writes require server #4242; omitting the
+flag keeps the legacy create/update documents unchanged.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -460,6 +465,18 @@ recorded by agent update --lifecycle; it does not report a running process.`,
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
 			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
+			life, lifeErr := gen.GetAgentLifecycle(cmd.Context(), client, resp.Agent.Id)
+			if lifeErr != nil && !api.IsFrameworkValidationOnlyFor(lifeErr, "lifecycle") {
+				return api.MapError(lifeErr)
+			}
+			if lifeErr == nil {
+				if life == nil || life.Agent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent lifecycle")
+				}
+				v := string(life.Agent.Lifecycle)
+				dto.Lifecycle = &v
+			}
+
 			// Read through the normal memory gate using the same client/credential.
 			// Never compose a URN from Agent metadata: unreadable and nonexistent
 			// must have the same id-only output. Even partial data with an error
@@ -484,7 +501,11 @@ recorded by agent update --lifecycle; it does not report a running process.`,
 				}
 				writeOfferReadiness(w, dto.OfferReadiness)
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
-				fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(dto.Lifecycle))
+				lifeLabel := "unknown (server before #4242)"
+				if dto.Lifecycle != nil {
+					lifeLabel = *dto.Lifecycle
+				}
+				fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(lifeLabel))
 				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
 				fmt.Fprintf(w, "  listed on marketplace: %t\n", dto.ListedOnMarketplace)
 				if dto.RegisterDefaults != nil {
@@ -538,7 +559,9 @@ exclusive.
 
 --lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while
 they hold a runnable task. Omitted takes the server default LONG_LIVED.
-This records desired behaviour; an enabled host sweep acts on it.
+This records desired behaviour; an enabled host sweep acts on it. The flag
+requires server #4242 (schema skew exits 2); omitting it keeps the legacy
+create document unchanged.
 
 A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
 (#535). --install-into <app> does that second step in the same run — the
@@ -649,16 +672,35 @@ staging servers.`,
 			if cmd.Flags().Changed("reset-context-after-task") {
 				resetArg = &createReset
 			}
-			resp, err := gen.CreateAgent(cmd.Context(), client, name, lifecycleArg, optStr(org),
-				optStr(description), at, av, optStr(systemMemory), surfaces,
-				optStr(personaRole), rolesArg, usesTasksArg, resetArg)
-			if err != nil {
-				return api.MapError(err)
+			var createdFields *gen.AgentFields
+			var lifecycleValue *string
+			if lifecycleArg == nil {
+				resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+			} else {
+				resp, err := gen.CreateAgentWithLifecycle(cmd.Context(), client, name, lifecycleArg, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+				value := string(resp.CreateAgent.Lifecycle)
+				lifecycleValue = &value
 			}
-			if resp.CreateAgent == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no agent")
-			}
-			created := agentCreateDTO{agentDTO: agentDTOFromFields(resp.CreateAgent.AgentFields)}
+			created := agentCreateDTO{agentDTO: agentDTOFromFields(*createdFields)}
+			created.Lifecycle = lifecycleValue
 
 			// Reaching here with an empty installInto now means ONE thing — the
 			// flag was not passed. "Asked for nothing" was refused above, so do
@@ -730,7 +772,9 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 --lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while they
 hold a runnable task. Omitted preserves the server value (default LONG_LIVED).
 The server checks the same permission as --uses-tasks. This records desired
-behaviour; a host sweep must support it and be enabled to act on it.
+behaviour; a host sweep must support it and be enabled to act on it. The flag
+requires server #4242 (schema skew exits 2). Without it the legacy update
+document stays unchanged.
 
 --persona-role is metadata. Write the Agent source at boot:source in its system
 memory, then use hadron agent compile and hadron node approve. New Agents
@@ -809,6 +853,7 @@ before anything is sent.`,
 				return err
 			}
 			var updated *gen.AgentFields
+			var lifecycleValue *string
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
 				changed("lifecycle") || changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") ||
@@ -823,18 +868,35 @@ before anything is sent.`,
 				if changed("listed-on-marketplace") {
 					listedArg = &listedOnMarketplace
 				}
-				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0], lifecycleArg,
-					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
-					at, av,
-					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
-				if err != nil {
-					return api.MapError(err)
+				if lifecycleArg == nil {
+					resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
+						changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+						at, av,
+						changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+						changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp.UpdateAgent == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no agent")
+					}
+					updated = &resp.UpdateAgent.AgentFields
+				} else {
+					resp, err := gen.UpdateAgentWithLifecycle(cmd.Context(), client, args[0], lifecycleArg,
+						changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+						at, av,
+						changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+						changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp.UpdateAgent == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no agent")
+					}
+					updated = &resp.UpdateAgent.AgentFields
+					value := string(resp.UpdateAgent.Lifecycle)
+					lifecycleValue = &value
 				}
-				if resp.UpdateAgent == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no agent")
-				}
-				updated = &resp.UpdateAgent.AgentFields
 			}
 			// The two index refs are their own mutation (setAgentIndexRefs):
 			// a value sets, an explicit empty clears, absent preserves.
@@ -849,7 +911,9 @@ before anything is sent.`,
 			if fields == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no agent")
 			}
-			return emitAgent(f, agentDTOFromFields(*fields), "✓ updated")
+			dto := agentDTOFromFields(*fields)
+			dto.Lifecycle = lifecycleValue
+			return emitAgent(f, dto, "✓ updated")
 		},
 	}
 	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted preserves; requires S3 server)")

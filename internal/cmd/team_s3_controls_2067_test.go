@@ -15,18 +15,18 @@ func TestAgentLifecycle2067(t *testing.T) {
 	for _, value := range []string{"LONG_LIVED", "SHORT_LIVED"} {
 		t.Run(value, func(t *testing.T) {
 			body := strings.Replace(agentJSON, `"usesTasks":true,`, `"usesTasks":true,"lifecycle":"`+value+`",`, 1)
-			calls, out, err := runTeamTask(t, map[string]string{"UpdateAgent": `{"data":{"updateAgent":` + body + `}}`}, "agent", "update", "agt1", "--lifecycle", value, "--json")
+			calls, out, err := runTeamTask(t, map[string]string{"UpdateAgentWithLifecycle": `{"data":{"updateAgent":` + body + `}}`}, "agent", "update", "agt1", "--lifecycle", value, "--json")
 			if err != nil {
 				t.Fatal(err)
 			}
-			updates := callsFor(calls, "UpdateAgent")
+			updates := callsFor(calls, "UpdateAgentWithLifecycle")
 			if len(updates) != 1 || updates[0].Vars["lifecycle"] != value || len(updates[0].Vars) != 2 {
 				t.Fatalf("updates: %+v", updates)
 			}
 			if !strings.Contains(out, `"lifecycle": "`+value+`"`) {
 				t.Fatal(out)
 			}
-			calls, out, err = runTeamTask(t, map[string]string{"GetAgent": `{"data":{"agent":` + body + `}}`}, "agent", "get", "agt1", "--json")
+			calls, out, err = runTeamTask(t, map[string]string{"GetAgent": `{"data":{"agent":` + body + `}}`, "GetAgentLifecycle": `{"data":{"agent":` + body + `}}`}, "agent", "get", "agt1", "--json")
 			if err != nil || !strings.Contains(out, `"lifecycle": "`+value+`"`) {
 				t.Fatalf("%v %s", err, out)
 			}
@@ -136,7 +136,7 @@ func TestS3Refusals2067(t *testing.T) {
 	for _, argv := range [][]string{{"team", "app", "sweep-mode", "APPLY"}, {"agent", "update", "agt1", "--lifecycle", "SHORT_LIVED"}} {
 		op := "SetAppSweepMode"
 		if argv[0] == "agent" {
-			op = "UpdateAgent"
+			op = "UpdateAgentWithLifecycle"
 		}
 		calls, out, err := runTeamTask(t, map[string]string{op: `{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`}, argv...)
 		if exitCodeFor(err) != exitcode.Forbidden || out != "" || len(callsFor(calls, op)) != 1 {
@@ -148,7 +148,8 @@ func TestS3Refusals2067(t *testing.T) {
 func TestS3UsageGuards2067(t *testing.T) {
 	for _, argv := range [][]string{
 		{"agent", "update", "agt1", "--lifecycle", ""}, {"agent", "update", "agt1", "--lifecycle", "short_lived"},
-		{"team", "worker", "leave-alone", "Iris"},
+		{"team", "worker", "leave-alone", "Iris", "--reason", "why"},
+		{"team", "worker", "leave-alone", "Iris", "--instruction", "task:x"},
 		{"team", "worker", "leave-alone", " ", "--on"}, {"team", "worker", "leave-alone", "Iris", "--on", "--off"},
 		{"team", "worker", "leave-alone", "Iris", "--on=false"}, {"team", "worker", "leave-alone", "Iris", "--off=false"},
 		{"team", "worker", "leave-alone", "Iris", "--on=false", "--off"},
@@ -159,7 +160,7 @@ func TestS3UsageGuards2067(t *testing.T) {
 	} {
 		t.Run(strings.Join(argv, " "), func(t *testing.T) {
 			calls, _, err := runTeamTask(t, map[string]string{}, argv...)
-			if err == nil || (!isUsageError(err) && exitCodeFor(err) != exitcode.Usage) || len(*calls) != 0 {
+			if err == nil || exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
 				t.Fatalf("%v calls=%+v", err, *calls)
 			}
 		})
@@ -213,54 +214,36 @@ func TestS3Instruction2067(t *testing.T) {
 
 func TestS3WorkerMarkerReadBack2067(t *testing.T) {
 	for _, marked := range []bool{true, false} {
-		value := `false,"leaveAloneReason":null,"leaveAloneBy":null,"leaveAloneAt":null`
+		var reason, by, at any
 		if marked {
-			value = `true,"leaveAloneReason":"maintenance","leaveAloneBy":"u1","leaveAloneAt":"2026-11-15T00:00:00Z"`
+			reason = "maintenance"
+			by = "u1"
+			at = "today"
 		}
-		worker := strings.Replace(irisWorkerJSON, `"slug":"iris"`, `"leaveAlone":`+value+`,"slug":"iris"`, 1)
-		if worker == irisWorkerJSON {
-			t.Fatal("fixture did not change")
+		raw, err := json.Marshal(map[string]any{"data": map[string]any{"worker": map[string]any{"id": "wkr1", "leaveAlone": marked, "leaveAloneReason": reason, "leaveAloneBy": by, "leaveAloneAt": at}}})
+		if err != nil {
+			t.Fatal(err)
 		}
-		for _, verb := range []string{"get", "list"} {
-			argv := []string{"team", "worker", verb, "--json"}
-			if verb == "get" {
-				argv = append(argv, "wkr1")
+		calls, out, err := runTeamTask(t, map[string]string{"GetWorkerLeaveAlone": string(raw)}, "team", "worker", "leave-alone", "Iris", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dto map[string]any
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatal(err)
+		}
+		if dto["leaveAlone"] != marked || dto["workerId"] != "wkr1" || len(dto) != 5 {
+			t.Fatal(out)
+		}
+		for _, key := range []string{"reason", "by", "at"} {
+			v, ok := dto[key]
+			if !ok || (marked && v == nil) || (!marked && v != nil) {
+				t.Fatalf("%s: %s", key, out)
 			}
-			calls, out, err := runTeamTask(t, map[string]string{
-				"GetWorker":       `{"data":{"worker":` + worker + `}}`,
-				"GetWorkerInApp":  `{"data":{"worker":` + worker + `}}`,
-				"WorkersRoster":   `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
-				"TeamAppIdentity": teamAppIdentityJSON,
-			}, argv...)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var dto map[string]any
-			if verb == "list" {
-				var rows []map[string]any
-				if json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 {
-					t.Fatal(out)
-				}
-				dto = rows[0]
-			} else {
-				if json.Unmarshal([]byte(out), &dto) != nil {
-					t.Fatal(out)
-				}
-			}
-			if dto["leaveAlone"] != marked {
-				t.Fatal(out)
-			}
-			for _, key := range []string{"leaveAloneReason", "leaveAloneBy", "leaveAloneAt"} {
-				v, ok := dto[key]
-				if !ok || (marked && v == nil) || (!marked && v != nil) {
-					t.Fatalf("%s: %s", key, out)
-				}
-			}
-			for _, c := range *calls {
-				if (c.Op == "GetWorker" || c.Op == "GetWorkerInApp" || c.Op == "WorkersRoster") && c.Session != "" {
-					t.Fatalf("attributed read %+v", c)
-				}
-			}
+		}
+		reads := callsFor(calls, "GetWorkerLeaveAlone")
+		if len(reads) != 1 || reads[0].Session != "" {
+			t.Fatalf("reads %+v", *calls)
 		}
 	}
 }
@@ -274,7 +257,7 @@ func TestS3HumanReceipts2067(t *testing.T) {
 		{`{"data":{"app":{"sweepMode":"OBSERVE"}}}`, "GetAppSweepMode", "sweep mode: OBSERVE", []string{"team", "app", "sweep-mode"}},
 		{`{"data":{"agent":` + strings.Replace(agentJSON, `"usesTasks":true,`, `"usesTasks":true,"lifecycle":"SHORT_LIVED",`, 1) + `}}`, "GetAgent", "lifecycle: SHORT_LIVED", []string{"agent", "get", "agt1"}},
 	} {
-		_, out, err := runTeamTask(t, map[string]string{tc.op: tc.body, "TeamAppIdentity": teamAppIdentityJSON}, tc.argv...)
+		_, out, err := runTeamTask(t, map[string]string{tc.op: tc.body, "GetAgentLifecycle": tc.body, "TeamAppIdentity": teamAppIdentityJSON}, tc.argv...)
 		if err != nil || !strings.Contains(out, tc.want) {
 			t.Fatalf("%v %s", err, out)
 		}
@@ -346,12 +329,12 @@ func TestS3Selections2067(t *testing.T) {
 		}
 		return false
 	}
-	for _, op := range []string{gen.GetAgent_Operation, gen.CreateAgent_Operation, gen.UpdateAgent_Operation} {
+	for _, op := range []string{gen.GetAgentLifecycle_Operation, gen.CreateAgentWithLifecycle_Operation, gen.UpdateAgentWithLifecycle_Operation} {
 		if !hasField(op, "lifecycle") {
 			t.Fatal("agent operation drops lifecycle")
 		}
 	}
-	for _, op := range []string{gen.GetWorker_Operation, gen.GetWorkerInApp_Operation, gen.WorkersRoster_Operation} {
+	for _, op := range []string{gen.GetWorkerLeaveAlone_Operation} {
 		for _, field := range []string{"leaveAlone", "leaveAloneReason", "leaveAloneBy", "leaveAloneAt"} {
 			if !hasField(op, field) {
 				t.Fatalf("worker operation drops %s", field)
@@ -394,11 +377,15 @@ func TestS3AgentCreateLifecycle2067(t *testing.T) {
 		if value != "" {
 			argv = append(argv, "--lifecycle", value)
 		}
-		calls, out, err := runTeamTask(t, map[string]string{"CreateAgent": `{"data":{"createAgent":` + body + `}}`}, argv...)
+		op := "CreateAgent"
+		if value != "" {
+			op = "CreateAgentWithLifecycle"
+		}
+		calls, out, err := runTeamTask(t, map[string]string{op: `{"data":{"createAgent":` + body + `}}`}, argv...)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ops := callsFor(calls, "CreateAgent")
+		ops := callsFor(calls, op)
 		if len(ops) != 1 || len(*calls) != 1 {
 			t.Fatal(*calls)
 		}
@@ -406,7 +393,7 @@ func TestS3AgentCreateLifecycle2067(t *testing.T) {
 		if present != (value != "") || present && got != value {
 			t.Fatalf("lifecycle %v %v", got, present)
 		}
-		if !strings.Contains(out, `"lifecycle": "SHORT_LIVED"`) {
+		if value != "" && !strings.Contains(out, `"lifecycle": "SHORT_LIVED"`) {
 			t.Fatal(out)
 		}
 	}
@@ -416,7 +403,7 @@ func TestS3AgentCreateLifecycle2067(t *testing.T) {
 			t.Fatalf("%v %+v", err, *calls)
 		}
 	}
-	calls, out, err := runTeamTask(t, map[string]string{"CreateAgent": gqlErrorJSON("FORBIDDEN")}, "agent", "create", "--name", "Engineer", "--lifecycle", "SHORT_LIVED")
+	calls, out, err := runTeamTask(t, map[string]string{"CreateAgentWithLifecycle": gqlErrorJSON("FORBIDDEN")}, "agent", "create", "--name", "Engineer", "--lifecycle", "SHORT_LIVED")
 	if exitCodeFor(err) != exitcode.Forbidden || len(*calls) != 1 || out != "" {
 		t.Fatalf("%v %s %+v", err, out, *calls)
 	}

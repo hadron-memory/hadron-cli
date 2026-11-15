@@ -41,27 +41,33 @@ func newCmdWorkerLeaveAlone(f *cmdutil.Factory) *cobra.Command {
 	var on, off bool
 	var reason, rawInstruction string
 	c := &cobra.Command{
-		Use:   "leave-alone <worker> --on|--off [--reason <text>]",
-		Short: "Mark a worker for the host sweep to leave alone, or clear the marker",
-		Long: `Set the server's leave-alone marker as the App manager. The host sweep
+		Use:   "leave-alone <worker> [--on|--off] [--reason <text>]",
+		Short: "Show or change a worker's leave-alone marker",
+		Long: `Read the server's leave-alone marker, or change it as the App manager.
+The host sweep
 observes and reports a marked worker, but never starts, stops or repairs it.
 This command changes the marker only; it does not change a running process.
-Exactly one of --on or --off must be true. --reason is optional with --on
+With neither --on nor --off, read the marker without changing it. For a
+write, exactly one of --on or --off must be true. --reason is optional with --on
 only; the server limits it to 500 characters. Repeating a call is accepted.
 Not permitted exits 8; a missing worker exits 4, retired exits 5, and bad
 input exits 2. Correct the input or ask the App manager; nothing is retried.
 
 A worker id or URN is resolved by the server; a name needs --app, the App
 context or this worktree's binding. --json prints workerId, leaveAlone and
-nullable reason, by and at. worker get/list show the same marker under
-leaveAlone, leaveAloneReason, leaveAloneBy and leaveAloneAt. Null reason/by
+nullable reason, by and at. Existing worker get/list keep their earlier
+server compatibility and do not request these fields. Null reason/by
 can mean withheld working state; it does not prove that no marker exists.
 
 ` + s3InstructionHelp,
-		Example: "  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",
+		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if on == off || (cmd.Flags().Changed("on") && !on) || (cmd.Flags().Changed("off") && !off) {
+			reading := !cmd.Flags().Changed("on") && !cmd.Flags().Changed("off")
+			if reading && (cmd.Flags().Changed("reason") || cmd.Flags().Changed("instruction")) {
+				return exitcode.Newf(exitcode.Usage, "--reason and --instruction require --on or --off")
+			}
+			if !reading && (on == off || (cmd.Flags().Changed("on") && !on) || (cmd.Flags().Changed("off") && !off)) {
 				return exitcode.Newf(exitcode.Usage, "pass exactly one of --on or --off, with a true value")
 			}
 			if strings.TrimSpace(args[0]) == "" {
@@ -111,15 +117,32 @@ can mean withheld working state; it does not prove that no marker exists.
 					return err
 				}
 			}
-			r, err := gen.SetWorkerLeaveAlone(ctx, client, input, claim)
-			if err != nil {
-				return api.MapErrorKeepingCode(err)
+			var d workerLeaveAloneDTO
+			if reading {
+				var appRef *string
+				if !direct {
+					appRef = &scope.Ref
+				}
+				r, err := gen.GetWorkerLeaveAlone(ctx, client, args[0], appRef)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if r == nil || r.Worker == nil {
+					return exitcode.Newf(exitcode.NotFound, "worker not found")
+				}
+				v := r.Worker
+				d = workerLeaveAloneDTO{WorkerID: v.Id, LeaveAlone: v.LeaveAlone, Reason: v.LeaveAloneReason, By: v.LeaveAloneBy, At: v.LeaveAloneAt}
+			} else {
+				r, err := gen.SetWorkerLeaveAlone(ctx, client, input, claim)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if r == nil || r.SetWorkerLeaveAlone == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no leave-alone result; verify the worker before retrying")
+				}
+				v := r.SetWorkerLeaveAlone
+				d = workerLeaveAloneDTO{WorkerID: v.WorkerId, LeaveAlone: v.LeaveAlone, Reason: v.Reason, By: v.By, At: v.At}
 			}
-			if r == nil || r.SetWorkerLeaveAlone == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no leave-alone result; verify the worker before retrying")
-			}
-			v := r.SetWorkerLeaveAlone
-			d := workerLeaveAloneDTO{WorkerID: v.WorkerId, LeaveAlone: v.LeaveAlone, Reason: v.Reason, By: v.By, At: v.At}
 			label := lazyAppLabel(cmd.Context(), f, scope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				if !direct {

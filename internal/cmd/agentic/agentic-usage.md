@@ -546,7 +546,7 @@ hadron agent ticker-templates list <agent-ref> | create <agent-ref> --name <n> -
 
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation, sent once and never retried, into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints the returned NEW URN; --json prints the normal Agent DTO (no origin field). No install/subscription second step or manual-copy fallback. **Exit codes:** a typed refusal is a definite answer, nothing was created, so fix the cause and rerun: exit 8 for AGENT_NOT_PUBLIC and unreadable/unusable linked-memory, base or import; exit 2 for an unsupported target or encrypted content; a source-changed conflict (exit 5) carries retryable=true but is never retried for you, rerun by hand. Exit 3 is rejected credentials: nothing was created. Exit 1 with `(clone server error: …)` is a server fault whose effect on the clone is not known: verify as for exit 7 before rerunning. **UNKNOWN (exit 7, never success)** means the answer was lost, or a success reply carried no Agent (null/missing `cloneAgent`): the clone may exist. Verify before cloning again: `hadron agent list --org <org> --visibility PERSONAL` (`--org` takes the same id, slug or URN as `--to`; a new clone is a PERSONAL draft and is listed for org members); with `--name` look for that name, without it the server copies the SOURCE's name, so look for a PERSONAL agent bearing it. Refusal details are the first GraphQL error's own `code`/`reason`/`retryable` and blocker counts, positions and supplied names only (a hidden subject never gets a name); an empty-details first error yields none, never a later error's. The text suffix (stderr, human mode only) names the answer: `(clone refusal: …)`, `(clone authentication: …)` or `(clone server error: …)`, followed by the code, `reason <R>` and, when retryable is true, `retryable: rerun by hand`; each blocker then gets its own indented line, `blocker <CODE>  count <N>  "<name>" (position <P>), position <P>`, with positions as received and a quoted name only where the server supplied one. Server strings are made one-line and control-free; a name is backslash-escaped for `\` and `"` inside its quotes, and a reason containing a comma, quote or backslash is quoted the same way; parse `--json`, not this text. Requires server cloneAgent S1; older providers reject as schema skew.
 hadron team app sweep-mode [OFF|OBSERVE|APPLY] [--instruction <kind>:<ref>] (uses --app, the context, or the binding)
-hadron team worker leave-alone <worker> --on|--off [--reason <text>] [--instruction <kind>:<ref>] (names use App scope; ids/URNs resolve server-side)
+hadron team worker leave-alone <worker> [--on|--off] [--reason <text>] [--instruction <kind>:<ref>] (names use App scope; ids/URNs resolve server-side)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | terminal-title <name-or-id> [--json] | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes [--instruction <kind>:<ref>] | rm <name-or-id> --yes [--instruction <kind>:<ref>]
 # Cast success text includes the server-returned worker URN when available; its existing JSON urn and request count are unchanged.
@@ -6373,22 +6373,27 @@ the lifecycle at creation (omitted sends no key and uses the server default
 LONG_LIVED). `hadron agent update <ref> --lifecycle LONG_LIVED|SHORT_LIVED` changes the
 Agent's desired worker process lifetime, with the same server permission as
 `--uses-tasks`. Omitted sends no lifecycle key and preserves the value.
-`agent get` (text and JSON) shows `lifecycle`; Agent DTOs include that string.
+`agent get` reads lifecycle separately. A server before #4242 gives text
+`unknown (server before #4242)` and JSON `lifecycle: null`; other read errors
+remain errors. Shared Agent fields and omitted-flag create/update documents
+stay unchanged, so unrelated commands keep working on older servers.
+Lifecycle write receipts include the returned value; unrelated Agent DTOs omit it.
 LONG_LIVED is the server default; SHORT_LIVED runs while assigned a runnable
 task. Recording the value launches or stops no process.
 
-`hadron team worker leave-alone <worker> --on|--off [--reason <text>]`
+`hadron team worker leave-alone <worker> [--on|--off] [--reason <text>]`
 marks a worker for the sweep to observe and report without starting, stopping
-or repairing it, or clears that marker. Exactly one switch must be true;
+or repairing it, or clears that marker. With neither switch, it reads the
+marker without changing it. A write requires exactly one true switch;
 `=false` is refused. A reason is accepted only with `--on` (server limit:
 500 characters). A repeat call succeeds. Names use `--app`, the App context
 or the worktree binding; direct worker ids/URNs are resolved by the server
 without ambient App scope. `--json` returns
 `{"workerId":"…","leaveAlone":true,"reason":null,"by":"…","at":"…"}`.
 `reason`, `by`, `at` are nullable, and all three are null when cleared.
-Worker get/list add `leaveAlone`, `leaveAloneReason`, `leaveAloneBy`,
-`leaveAloneAt` to their JSON and show them in text. Reason/by may be withheld
-working state: null does not prove that no marker exists.
+Worker get/list keep their previous documents, DTOs and tables; use the new
+leave-alone command to read the marker. Reason/by may be withheld working
+state: null does not prove that no marker exists.
 
 `hadron team app sweep-mode [OFF|OBSERVE|APPLY]` reads with no argument and
 sets with one. OFF is the default and acts on no workers; OBSERVE reports
@@ -6403,8 +6408,10 @@ never instruction text. A verified binding sends the worker session; the
 server resolves the target App and checks its manager arm and reference.
 Without the flag the write is the person's, with no worker session. Reads
 never carry `X-Hadron-Session`. No refusal is retried without the instruction.
-`--instruction` on a sweep-mode read is refused. These fields and commands
-require the S3 server (hadron-server#4242).
+`--instruction` on either control read is refused; --reason also requires a
+leave-alone write. Lifecycle flag writes and the two new controls require the
+S3 server (hadron-server#4242), with schema skew exit 2. They do not raise the
+minimum for unrelated Agent/Worker commands.
 
 Refusals produce no partial result: `WORKER_LEAVE_ALONE_NOT_PERMITTED` and
 `FORBIDDEN` exit 8, `WORKER_NOT_FOUND` exits 4, `WORKER_RETIRED` exits 5,

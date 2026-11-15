@@ -29,7 +29,6 @@ fragment AgentFields on Agent {
   hasAiApiKey
   personaRole
   usesTasks
-  lifecycle
   # #1551 (cor:agt:050:27): recorded only; a host acts on it (#1043).
   resetContextAfterTask
   # cli#58 slice 2 read-back: the catalogue flag (cor:acl:080:04, NOT access)
@@ -114,8 +113,6 @@ query PublicAgents(
 mutation CreateAgent(
   $name: String!
   # @genqlient(omitempty: true)
-  $lifecycle: AgentLifecycle
-  # @genqlient(omitempty: true)
   $orgId: ID
   # @genqlient(omitempty: true)
   $description: String
@@ -140,7 +137,6 @@ mutation CreateAgent(
 ) {
   createAgent(
     name: $name
-    lifecycle: $lifecycle
     orgId: $orgId
     description: $description
     type: $agentType
@@ -158,8 +154,6 @@ mutation CreateAgent(
 
 mutation UpdateAgent(
   $ref: ID!
-  # @genqlient(omitempty: true)
-  $lifecycle: AgentLifecycle
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -200,7 +194,6 @@ mutation UpdateAgent(
 ) {
   updateAgent(
     ref: $ref
-    lifecycle: $lifecycle
     name: $name
     description: $description
     type: $agentType

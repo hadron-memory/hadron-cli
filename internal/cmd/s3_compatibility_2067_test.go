@@ -30,7 +30,7 @@ func TestS3LegacyOperationCompatibility2067(t *testing.T) {
 func TestS3AgentGetOldSchemaUnknown2067(t *testing.T) {
 	calls, out, err := runTeamTask(t, map[string]string{
 		"GetAgent":          `{"data":{"agent":` + agentJSON + `}}`,
-		"GetAgentLifecycle": `{"errors":[{"message":"Cannot query field lifecycle on type Agent","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"GetAgentLifecycle": `{"errors": [{"message": "Cannot query field \"lifecycle\" on type \"Agent\".", "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"}}]}`,
 	}, "agent", "get", "agt1")
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +63,26 @@ func TestS3LeaveAloneRead2067(t *testing.T) {
 	for _, c := range *calls {
 		if c.Op == "SetWorkerLeaveAlone" {
 			t.Fatal("marker read wrote state")
+		}
+	}
+}
+
+// A read failure is not evidence of an old schema. Only the framework's
+// lifecycle-field rejection may turn a successful base read into unknown.
+func TestS3LifecycleFallbackIsSpecific2067(t *testing.T) {
+	for _, failure := range []string{
+		`{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`,
+		`{"errors":[{"message":"Cannot query field \"other\" on type \"Agent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		`{"errors":[{"message":"Cannot query field \"lifecycle\" on type \"Agent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`,
+		`{"data":{"agent":null}}`,
+		`gateway failed`,
+	} {
+		calls, out, err := runTeamTask(t, map[string]string{"GetAgent": `{"data":{"agent":` + agentJSON + `}}`, "GetAgentLifecycle": failure}, "agent", "get", "agt1", "--json")
+		if err == nil || out != "" {
+			t.Fatalf("failure %s became unknown: %v %s", failure, err, out)
+		}
+		if len(callsFor(calls, "GetAgentLifecycle")) != 1 {
+			t.Fatalf("retried: %+v", *calls)
 		}
 	}
 }

@@ -412,11 +412,6 @@ or quiet time never clears it.
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.
 
-LEAVE ALONE and the LEAVE REASON/BY/AT columns show the sweep marker.
-JSON: leaveAlone, leaveAloneReason, leaveAloneBy, leaveAloneAt. A null reason
-or setter can mean withheld; the marker itself is not inferred from them.
-Use team worker leave-alone <worker> --on or --off to change it as manager.
-
 HELD BY and LAST RECORDED ACTIVITY answer two DIFFERENT questions (cor:agt:020:09),
 and reading one as the other is the mistake this table exists to stop.
 
@@ -528,7 +523,7 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "FAMILY", "MODEL", "TIER", "LEAVE ALONE", "LEAVE REASON", "LEAVE BY", "LEAVE AT", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "FAMILY", "MODEL", "TIER", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
@@ -538,7 +533,7 @@ reads as MORE idle than it was, never less.`,
 						output.SafeCell(renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label)),
 						output.SafeCell(renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now)),
 						output.SafeCell(dash(wk.Family)), output.SafeCell(dash(wk.Model)), output.SafeCell(dash(wk.Tier)),
-						fmt.Sprint(wk.LeaveAlone), output.SafeCell(dash(wk.LeaveAloneReason)), output.SafeCell(dash(wk.LeaveAloneBy)), output.SafeCell(dash(wk.LeaveAloneAt)), output.SafeCell(retired), output.SafeCell(dash(wk.URN)), output.SafeCell(wk.ID))
+						output.SafeCell(retired), output.SafeCell(dash(wk.URN)), output.SafeCell(wk.ID))
 				}
 				return t.Flush()
 			})
@@ -794,10 +789,6 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <name-or-id>",
 		Short: "Show a worker (by name within the App, or by id)",
 		Long: `Show the worker and the server-derived team-channel check status.
-The leave-alone marker and its reason, setter and timestamp are printed;
---json names them leaveAlone, leaveAloneReason, leaveAloneBy, leaveAloneAt.
-A null reason or setter may be withheld working state. Change the marker
-with team worker leave-alone --on or --off (App managers only).
 A known check result with no lastCheckedAt means never checked; an unavailable
 check result stays unavailable. No local clock or task-count inference is made.
 
@@ -994,7 +985,6 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// state, signalled by hasLiveSession null. Say so once and omit what
 				// it masks — a reporting line, check status or boot pointer printed
 				// from those nulls would claim facts the server refused to give.
-				fmt.Fprintf(out, "  leave alone: %t\n  leave alone reason: %s\n  leave alone by: %s\n  leave alone at: %s\n", dto.LeaveAlone, output.SafeCell(dash(dto.LeaveAloneReason)), output.SafeCell(dash(dto.LeaveAloneBy)), output.SafeCell(dash(dto.LeaveAloneAt)))
 				profile := !workingStateVisible(dto.HasLiveSession)
 				if dto.OwnerName != nil && *dto.OwnerName != "" {
 					fmt.Fprintf(out, "  owner: %s\n", *dto.OwnerName)

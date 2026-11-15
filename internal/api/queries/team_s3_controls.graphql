@@ -28,3 +28,18 @@ mutation SetWorkerLeaveAlone(
     at
   }
 }
+
+# The new read command alone requires S3; shared WorkerFields stay unchanged.
+query GetWorkerLeaveAlone(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $appRef: ID
+) {
+  worker(ref: $ref, appRef: $appRef) {
+    id
+    leaveAlone
+    leaveAloneReason
+    leaveAloneBy
+    leaveAloneAt
+  }
+}

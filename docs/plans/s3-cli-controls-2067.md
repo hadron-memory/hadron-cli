@@ -12,13 +12,19 @@ rule or spec citation. S5 owns the Proposed lifecycle/sweep spec wording.
   to C9 by the coordinator; #2071 is superseded by #2067.
 - `agent update <ref> --lifecycle LONG_LIVED|SHORT_LIVED`: enum checked before
   any request; omitted is absent on the wire, preserving the stored value.
-  Agent DTOs add `lifecycle`, and `agent get` prints it.
-- `team worker leave-alone <worker> --on|--off [--reason text]`: exactly one
+  Only the flag path uses the S3 mutation document. Legacy create/update
+  documents and shared `AgentFields` are unchanged. `agent get` makes a
+  separate lifecycle read: missing-field validation means text
+  `unknown (server before #4242)` and JSON `lifecycle: null`; other failures
+  fail rather than claiming an old server. Lists and unrelated DTOs stay
+  unchanged; lifecycle write receipts include the returned value.
+- `team worker leave-alone <worker> [--on|--off] [--reason text]`: no switches
+  reads the marker; a write requires exactly one
   true switch, reason only when marking. The server resolves the worker;
   names carry App scope, direct ids/URNs do not inherit ambient App scope.
   The receipt is `{workerId,leaveAlone,reason,by,at}`; nullable fields stay
-  null. Existing worker get/list DTOs add `leaveAlone`, `leaveAloneReason`,
-  `leaveAloneBy`, `leaveAloneAt`; text shows them too. Reason/by may be masked.
+  null. Existing worker get/list documents, DTOs and tables stay unchanged;
+  only the new command requests marker fields. Reason/by may be masked.
 - `team app sweep-mode [OFF|OBSERVE|APPLY]`: one read when no argument is
   supplied, one mutation otherwise. Receipt: `{appRef,sweepMode}`.
 
@@ -33,7 +39,7 @@ does not manufacture an instruction from a task or chat message.
 
 New reads carry no worker session. Existing worker-get side reads that serve
 rendered signature/trailer retain their separate attribution contract.
-The marker fields themselves are selected by the headerless worker reads.
+The marker fields are selected only by the new headerless leave-alone read.
 
 The controls only record state. They launch, stop and relaunch nothing.
 `hostDesiredState`, the host-up server adapter and timer are separate slices.
@@ -46,3 +52,13 @@ JSON, worker marker read-back, headerless reads, instruction attribution and
 server refusal mapping. Guard mutants are run one at a time and restored.
 The schema must be re-exported from the named merge SHA of server#4242 before
 this PR freezes; an export from its review head is provisional build input.
+
+## Compatibility review fold
+
+Wolfgang #107896/#107901 chose split documents, not a raised minimum for all
+Agent/Worker commands. Lifecycle create/update flags, leave-alone and sweep-mode
+require server #4242 (schema skew exits 2). Legacy shared fragments and omitted
+flag paths retain their earlier server compatibility. The second red-only
+commit pins the legacy documents, old-schema Agent get and read-only marker form.
+The final schema export still waits for #4242 to merge; any intervening server
+snapshot drift is generated from that pin and disclosed, never hand-edited.
