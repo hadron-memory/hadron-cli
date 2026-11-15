@@ -374,6 +374,13 @@ func TestObservedLiveAgentRearmsNoticeWithoutResettingBudget2060(t *testing.T) {
 	f.runner.Probe = func(context.Context, Target) (Observation, error) {
 		return Observation{Proven: true, PIDs: []int{42}}, nil
 	}
+	before, saves := f.store.rows[f.target.WorkerID], f.store.saves
+	f.runner.DryRun = true
+	f.run(t, 2)
+	if !reflect.DeepEqual(before, f.store.rows[f.target.WorkerID]) || f.store.saves != saves {
+		t.Fatal("dry live observation changed the journal or notice marker")
+	}
+	f.runner.DryRun = false
 	f.run(t, 2)
 	f.runner.Probe = func(context.Context, Target) (Observation, error) { return Observation{Proven: true}, nil }
 	f.runner.Sweep = 3
