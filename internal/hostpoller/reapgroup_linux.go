@@ -110,6 +110,11 @@ const maxGroupScanPasses = 8
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir
 
+// readGroupStatFn reads one process's group, state and thread count, as a package var
+// so a test can model /proc churn (unrelated processes dying between the
+// listing and their own stat read) without a real busy host.
+var readGroupStatFn = readGroupStat
+
 // groupHasOtherMembers reports whether /proc shows a member of process group
 // pgid, other than the leader itself, that can still RUN. The leader is
 // excludable only as a zombie whose thread group fully exited — the caller
@@ -160,8 +165,9 @@ var readProcDir = os.ReadDir
 // saw.
 func groupHasOtherMembers(pgid, leader int) bool {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
+	nonMembers := map[int]bool{}
 	for pass := 0; ; pass++ {
-		found, void, zs := scanGroupOnce(pgid, leader, prevZ)
+		found, void, zs := scanGroupOnce(pgid, leader, prevZ, nonMembers)
 		if !void {
 			return found
 		}
@@ -182,7 +188,7 @@ func groupHasOtherMembers(pgid, leader int) bool {
 // purpose, but a leader entry that still shows RUNNING THREADS — state Z
 // with a thread count above one, the exited-main-thread shape — is
 // proof the group is not drained, so it is checked before the exclusion.
-func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool) {
+func scanGroupOnce(pgid, leader int, prevZ, nonMembers map[int]bool) (found, void bool, zs map[int]bool) {
 	entries, err := readProcDir("/proc")
 	if err != nil {
 		return true, false, nil
@@ -193,15 +199,26 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 		if err != nil {
 			continue
 		}
-		pgrp, state, threads, err := readGroupStat(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return true, false, nil // present but unreadable: not proof of absence
 			}
-			void = true // listed, then gone before the read: the pass proves nothing
+			if nonMembers[pid] {
+				// Seen in an EARLIER pass of this call outside the group, and gone
+				// now: it was never a member, being dead it cannot be one, and
+				// anything it forked inherited a group other than ours. Its
+				// vanishing proves nothing about the group, so it must not void the
+				// pass: a busy host kills unrelated processes through every pass,
+				// and voiding on each starved the scan into the "members" answer
+				// forever (#2042).
+				continue
+			}
+			void = true // listed, then gone before the read, and never seen: it could have been a member
 			continue
 		}
 		if pgrp != pgid {
+			nonMembers[pid] = true
 			continue
 		}
 		if pid == leader {
