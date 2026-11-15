@@ -117,7 +117,7 @@ func TestTeamHostRunRefusesOrcaLaunchGroup2121(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg})
 			err := root.Execute()
-			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "orca_launch.group") || !strings.Contains(err.Error(), "/proc") {
+			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "ORCA_GROUP_UNPROVABLE") || !strings.Contains(err.Error(), "orca_launch.group") || !strings.Contains(err.Error(), "/proc") {
 				t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
 			}
 		})

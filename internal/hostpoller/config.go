@@ -364,10 +364,16 @@ func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(
 	return nil
 }
 
+// CodeOrcaGroupUnprovable leads the config refusal of orca_launch.group
+// (cli#2121): an sg-launched process is uninspectable through /proc, so the
+// launch proof can't pass. Reversible if a proof channel that works under sg
+// turns up.
+const CodeOrcaGroupUnprovable = "ORCA_GROUP_UNPROVABLE"
+
 func (c *Config) validate() error {
 	var errs []string
 	if c.OrcaLaunch.Group != "" {
-		errs = append(errs, "orca_launch.group is not supported: a process started through sg cannot be read through /proc by the poller (whatever the group), so the launch could never prove its process (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
+		errs = append(errs, CodeOrcaGroupUnprovable+": orca_launch.group is not supported: a process started through sg cannot be read through /proc by the poller (whatever the group), so the launch could never prove its process (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
 	}
 	if strings.TrimSpace(c.App) == "" {
 		errs = append(errs, "app is required")
