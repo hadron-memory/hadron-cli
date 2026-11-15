@@ -50,8 +50,9 @@ The first commit contains failing command tests only, against fake GraphQL.
 Pins cover exact enum/boolean inputs, omission, repeat marker calls, nullable
 JSON, worker marker read-back, headerless reads, instruction attribution and
 server refusal mapping. Guard mutants are run one at a time and restored.
-The schema must be re-exported from the named merge SHA of server#4242 before
-this PR freezes; an export from its review head is provisional build input.
+The final SDL is exported without edits from merged server revision
+`79652a984` (server#4242), which includes server#4241 hostSetup.
+`make schema-check` verifies the generated client against that exact revision.
 
 ## Compatibility review fold
 
@@ -60,9 +61,9 @@ Agent/Worker commands. Lifecycle create/update flags, leave-alone and sweep-mode
 require server #4242 (schema skew exits 2). Legacy shared fragments and omitted
 flag paths retain their earlier server compatibility. The second red-only
 commit pins the legacy documents, old-schema Agent get and read-only marker form.
-The final schema export still waits for #4242 to merge; any intervening server
-snapshot drift is generated from that pin and disclosed, never hand-edited.
+The final export uses the merged revision above; snapshot changes are generated
+from that pin, never hand-edited.
 
 
 ## Final S3 visibility fold
-Worker.leaveAlone is nullable: profile-only callers receive null for all four leaveAlone* fields. The isolated read DTO preserves JSON null and renders `unknown (not visible to you)` for the marker, while visible true/false and mutation replies retain boolean values. Existing worker get/list documents remain unchanged. Regression `TestS3WorkerMarkerHidden2067` reproduces the former false rendering before the fix. Candidate SDL export163d5cc4a is provisional until #4242 merges; final freeze requires the merge SHA.
+Worker.leaveAlone is nullable: profile-only callers receive null for all four leaveAlone* fields. The isolated read DTO preserves JSON null and renders `unknown (not visible to you)` for the marker, while visible true/false and mutation replies retain boolean values. Existing worker get/list documents remain unchanged. Regression `TestS3WorkerMarkerHidden2067` reproduces the former false rendering before the fix. The final merged SDL preserves this nullable contract. It removes WAITING_ON_CHILDREN: a short-lived worker waiting on child tasks stays up under G7.

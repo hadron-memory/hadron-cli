@@ -2143,7 +2143,7 @@ type AgentLifecycle string
 const (
 	// The worker's process should always run (the default, and the behaviour before this field existed).
 	AgentLifecycleLongLived AgentLifecycle = "LONG_LIVED"
-	// The worker's process should run only while it is the assignee of a pending or started task that is not waiting on child tasks.
+	// The worker's process should run only while it is the assignee of a pending or started task (one waiting on its child tasks included).
 	AgentLifecycleShortLived AgentLifecycle = "SHORT_LIVED"
 )
 
@@ -35175,7 +35175,7 @@ func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhook
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type CreateAgentWithLifecycleCreateAgent struct {
 	AgentFields `json:"-"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task that is not waiting on child tasks. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
@@ -45700,7 +45700,7 @@ var AllDesiredRunState = []DesiredRunState{
 	DesiredRunStateStopped,
 }
 
-// #4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first four come from the
+// #4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first three come from the
 // Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
 // and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
 // is desired (desired is null) and wouldBe says what the state would otherwise be.
@@ -45709,7 +45709,7 @@ type DesiredStateReason string
 const (
 	// A live halt stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01).
 	DesiredStateReasonHalted DesiredStateReason = "HALTED"
-	// A worker of a SHORT_LIVED Agent that is the assignee of a pending task, or of a started task with no open child: RUNNING.
+	// A worker of a SHORT_LIVED Agent that is the assignee of a pending or started task, including one waiting on its child tasks (the worker stays up and is woken by their events): RUNNING.
 	DesiredStateReasonHoldsTask DesiredStateReason = "HOLDS_TASK"
 	// The worker is marked leave-alone (Worker.leaveAlone).
 	DesiredStateReasonLeaveAlone DesiredStateReason = "LEAVE_ALONE"
@@ -45727,8 +45727,6 @@ const (
 	DesiredStateReasonSweepOff DesiredStateReason = "SWEEP_OFF"
 	// The App is under a team pause (App.teamPausedAt).
 	DesiredStateReasonTeamPaused DesiredStateReason = "TEAM_PAUSED"
-	// A worker of a SHORT_LIVED Agent whose every open task is started and waiting on an open child task (hrn:node:hadronmemory.com:specs:cor:agt:050:04): STOPPED.
-	DesiredStateReasonWaitingOnChildren DesiredStateReason = "WAITING_ON_CHILDREN"
 )
 
 var AllDesiredStateReason = []DesiredStateReason{
@@ -45742,7 +45740,6 @@ var AllDesiredStateReason = []DesiredStateReason{
 	DesiredStateReasonRetired,
 	DesiredStateReasonSweepOff,
 	DesiredStateReasonTeamPaused,
-	DesiredStateReasonWaitingOnChildren,
 }
 
 // Only the public flat reference, never members or nested resource details.
@@ -49568,7 +49565,7 @@ func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSub
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type GetAgentLifecycleAgent struct {
 	Id string `json:"id"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task that is not waiting on child tasks. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
@@ -56177,9 +56174,9 @@ func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees
 // HostDesiredStateResponse is returned by HostDesiredState on success.
 type HostDesiredStateResponse struct {
 	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-	// host's sweep reads this once per pass and compares it with what it sees. Until the platform holds which workers
-	// a host runs (#4222), those are the workers the host's registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or
-	// lapsed, with the family and worktrees it registered. Rows are ordered by worker name.
+	// host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
+	// registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
+	// registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
 	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
 	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
 	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -102476,7 +102473,7 @@ func (v *UpdateAgentWithLifecycleResponse) GetUpdateAgent() *UpdateAgentWithLife
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type UpdateAgentWithLifecycleUpdateAgent struct {
 	AgentFields `json:"-"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task that is not waiting on child tasks. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
