@@ -205,6 +205,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	}
 	if reason, e := r.guard(ctx, t); reason != "" {
 		out.Reason = reason
+		if reason == AgentPresent && e == nil && !r.DryRun {
+			e = r.endObservedAbsence(t)
+		}
 		return out, e
 	}
 	out.AbsentObservedAt = r.clock()
@@ -230,6 +233,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	defer unlock()
 	if reason, e := r.guard(ctx, t); reason != "" {
 		out.Reason = reason
+		if reason == AgentPresent && e == nil && !r.DryRun {
+			e = r.endObservedAbsence(t)
+		}
 		return out, e
 	}
 	out.AbsentObservedAt = r.clock()
@@ -363,7 +369,9 @@ func (r Runner) clock() time.Time {
 	return time.Now().UTC()
 }
 func (r Runner) notifyResult(ctx context.Context, t Target, out *Result, rec *Record, code string) {
-	if r.Notice == nil || rec.Notice == code || out.AbsentObservedAt.IsZero() {
+	// Keep distinct typed reasons and target identities distinct locally too.
+	key := fingerprint(t, code+":"+out.FailureReason)
+	if r.Notice == nil || rec.Notice == key || out.AbsentObservedAt.IsZero() {
 		return
 	}
 	if err := r.Notice(ctx, t, *out); err != nil {
@@ -373,7 +381,7 @@ func (r Runner) notifyResult(ctx context.Context, t Target, out *Result, rec *Re
 	}
 	// The server owns once-per-episode idempotence. A failed response/save is
 	// retried later; a failed transport is never marked as delivered locally.
-	rec.Notice = code
+	rec.Notice = key
 	if err := r.Journal.Save(t.WorkerID, *rec); err != nil {
 		out.NoticeCause = err.Error()
 		out.NoticeFailed = true
@@ -416,4 +424,18 @@ func observedFailureReason(err error) string {
 		}
 	}
 	return ""
+}
+
+// A proven live process ends this observer's absence episode. Preserve the
+// rolling attempt budget: seeing life must not make past launches free.
+func (r Runner) endObservedAbsence(t Target) error {
+	rec, err := r.Journal.Load(t.WorkerID)
+	if err != nil {
+		return err
+	}
+	if rec.Notice == "" && rec.AbsentFor == "" && rec.AbsentSweep == 0 {
+		return nil
+	}
+	rec.Notice, rec.AbsentFor, rec.AbsentSweep = "", "", 0
+	return r.Journal.Save(t.WorkerID, rec)
 }
