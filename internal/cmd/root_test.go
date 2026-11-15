@@ -138,6 +138,10 @@ func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// C9 optional side read: an unstubbed legacy server has no S3 lifecycle.
+	// Modern lifecycle tests supply their explicit response.
+	case "GetAgentLifecycle":
+		return missingFieldJSON("lifecycle"), true
 	// cli#1655 defaults model ONLY the synthetic exact missing-capability
 	// policy. They are not a stock pre-2708 provider (its missing
 	// installMethod/importer produce mixed errors). Modern preview/provenance

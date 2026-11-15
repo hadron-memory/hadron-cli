@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -33,8 +34,8 @@ func regServer2091(t *testing.T, answers map[string]string) (*hostServer, func()
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		mu.Lock()
 		ops = append(ops, body.OperationName)
-		mu.Unlock()
 		resp, ok := answers[body.OperationName]
+		mu.Unlock()
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 		}
@@ -109,4 +110,90 @@ func TestRegisterPinsNothingWhenThePlainDocumentFailsToo(t *testing.T) {
 	if strings.Join(ops(), ",") != "RegisterHostWithRefused,RegisterHost,RegisterHostWithRefused,RegisterHost" {
 		t.Fatalf("calls = %v", ops())
 	}
+}
+
+// cli#2100: the pin is not forever. A host pinned to the plain registration
+// asks the extended document again after refusedReprobeEvery, so a server
+// upgraded while the host runs is noticed without a restart.
+func TestRegisterReprobesAPinnedServerAfterTheInterval(t *testing.T) {
+	answers := map[string]string{
+		"RegisterHostWithRefused": skew2091,
+		"RegisterHost":            `{"data":{"registerHost":{` + regAnswer2091 + `}}}`,
+	}
+	s, ops := regServer2091(t, answers)
+	clock := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return clock }
+	reg := func() hostpoller.RegisteredHost {
+		got, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	reg() // skew, plain, pinned
+	clock = clock.Add(refusedReprobeEvery - time.Second)
+	if got := reg(); got.RefusedKnown { // still pinned: plain only
+		t.Fatalf("inside the interval nothing is re-asked: %+v", got)
+	}
+	clock = clock.Add(2 * time.Second)
+	reg() // interval over: asks again, still old, plain again, re-pinned
+	want := "RegisterHostWithRefused,RegisterHost,RegisterHost,RegisterHostWithRefused,RegisterHost"
+	if strings.Join(ops(), ",") != want {
+		t.Fatalf("calls = %v, want %s", ops(), want)
+	}
+	// The server is upgraded; the next re-probe finds the field and unpins.
+	answers["RegisterHostWithRefused"] = `{"data":{"registerHost":{` + regAnswer2091 + `,"refusedWorkers":[{"worker":"Synthetic","code":"HOST_WORKER_NOT_ASSIGNED"}]}}}`
+	clock = clock.Add(refusedReprobeEvery)
+	got := reg()
+	if !got.RefusedKnown || len(got.Refused) != 1 {
+		t.Fatalf("an upgraded server's refusals are read again: %+v", got)
+	}
+	reg()
+	if tail := ops()[len(ops())-2:]; strings.Join(tail, ",") != "RegisterHostWithRefused,RegisterHostWithRefused" {
+		t.Fatalf("once found, the extended document is the one used: %v", ops())
+	}
+}
+
+// Ordinary failures never trigger a second document, and a fallback that did
+// not succeed pins nothing (Jamir, #2093).
+func TestRegisterFallbackEdgeCases(t *testing.T) {
+	t.Run("null registration answer is an error with no second document", func(t *testing.T) {
+		s, ops := regServer2091(t, map[string]string{"RegisterHostWithRefused": `{"data":{"registerHost":null}}`})
+		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+			t.Fatal("a null registration is an error")
+		}
+		if strings.Join(ops(), ",") != "RegisterHostWithRefused" {
+			t.Fatalf("calls = %v", ops())
+		}
+	})
+	t.Run("transport failure is an error with no second document", func(t *testing.T) {
+		s, ops := regServer2091(t, map[string]string{})
+		s.client = graphql.NewClient("http://127.0.0.1:1/graphql", http.DefaultClient)
+		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+			t.Fatal("an unreachable server is an error")
+		}
+		if len(ops()) != 0 {
+			t.Fatalf("the failing server saw %v", ops())
+		}
+	})
+	t.Run("plain failing after skew pins nothing, then recovery pins", func(t *testing.T) {
+		answers := map[string]string{
+			"RegisterHostWithRefused": skew2091,
+			"RegisterHost":            `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		}
+		s, ops := regServer2091(t, answers)
+		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+			t.Fatal("the plain registration failed: an error")
+		}
+		answers["RegisterHost"] = `{"data":{"registerHost":{` + regAnswer2091 + `}}}`
+		for i := 0; i < 2; i++ {
+			if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		want := "RegisterHostWithRefused,RegisterHost,RegisterHostWithRefused,RegisterHost,RegisterHost"
+		if strings.Join(ops(), ",") != want {
+			t.Fatalf("calls = %v, want %s (nothing pinned by the failed fallback; pinned after the successful one)", ops(), want)
+		}
+	})
 }
