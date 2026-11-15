@@ -79,6 +79,13 @@ func OpenJournal(path string, dry bool) (_ *FileJournal, err error) {
 	}
 	if e == nil {
 		defer func() { _ = f.Close() }()
+		info, statErr := f.Stat()
+		if statErr != nil {
+			return nil, statErr
+		}
+		if info.Size() > journalLimit {
+			return nil, errors.New("relaunch journal exceeds limit")
+		}
 		decoder := json.NewDecoder(io.LimitReader(f, journalLimit+1))
 		decoder.DisallowUnknownFields()
 		if e = decoder.Decode(&s.state); e != nil {
@@ -115,6 +122,9 @@ func privateOwned(f *os.File, directory bool) error {
 	var st unix.Stat_t
 	if err = unix.Fstat(int(f.Fd()), &st); err != nil {
 		return err
+	}
+	if !directory && st.Nlink != 1 {
+		return errors.New("relaunch journal file has multiple links")
 	}
 	if st.Uid != uint32(os.Geteuid()) {
 		return errors.New("relaunch journal owner mismatch")

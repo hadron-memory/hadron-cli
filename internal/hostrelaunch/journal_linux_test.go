@@ -79,7 +79,7 @@ func TestJournalDryRunCreatesAndChangesNothing2060(t *testing.T) {
 }
 
 func TestJournalRefusesCorruptionAndLinks2060(t *testing.T) {
-	for _, kind := range []string{"corrupt", "directory-link", "state-link", "lock-link", "fifo"} {
+	for _, kind := range []string{"corrupt", "directory-link", "state-link", "lock-link", "fifo", "oversize", "hardlink"} {
 		t.Run(kind, func(t *testing.T) {
 			parent := t.TempDir()
 			dir := filepath.Join(parent, "relaunch")
@@ -108,6 +108,20 @@ func TestJournalRefusesCorruptionAndLinks2060(t *testing.T) {
 				}
 			case "fifo":
 				makeJournalFIFO(t, filepath.Join(dir, "state.json"))
+			case "oversize":
+				data := []byte(`{"version":1,"generation":1,"records":{}}`)
+				data = append(data, make([]byte, journalLimit)...)
+				if err := os.WriteFile(filepath.Join(dir, "state.json"), data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "hardlink":
+				outside := filepath.Join(parent, "outside")
+				if err := os.WriteFile(outside, []byte(`{"version":1,"generation":1,"records":{}}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Link(outside, filepath.Join(dir, "state.json")); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if s, err := OpenJournal(dir, false); err == nil {
 				_ = s.Close()
