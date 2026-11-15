@@ -148,7 +148,7 @@ func TestMeasureFindsFilesByWorktreeAndFamily(t *testing.T) {
 	if m := Measure("Codex", []string{wt}, roots, now); m == nil || m.Tokens != 42 {
 		t.Fatalf("codex: %+v", m)
 	}
-	for _, fam := range []string{"kimi", "", "gemini"} {
+	for _, fam := range []string{"glm", "kimi", "", "gemini"} {
 		if m := Measure(fam, []string{wt}, roots, now); m != nil {
 			t.Errorf("family %q must have no measurer, got %+v", fam, m)
 		}
@@ -184,28 +184,5 @@ func TestOverRangeReadingIsNeverReported(t *testing.T) {
 	write(t, r, claudeRec(wt, "2026-11-15T10:00:00Z", 2147483647, 0, 0, ""))
 	if m, ok := ClaudeFromFile(r, wt, now); !ok || m.Tokens != 2147483647 {
 		t.Fatalf("the bound itself is valid: %+v", m)
-	}
-}
-
-// Numeric-only projection of a real claude-glm / glm-5.3 transcript on orca1.
-// Paths are replaced; content, ids and every other field are omitted.
-func TestMeasureGLMVerifiedTranscript(t *testing.T) {
-	raw, err := os.ReadFile("testdata/glm-usage.jsonl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	wt := t.TempDir()
-	roots := Roots{ClaudeProjects: t.TempDir()}
-	body := strings.ReplaceAll(string(raw), "/fixture/glm-worker", filepath.ToSlash(wt))
-	// Escape Windows path separators through forward-slash JSON paths.
-	write(t, filepath.Join(claudeProjectDir(roots.ClaudeProjects, wt), "glm.jsonl"), body)
-	for _, family := range []string{"glm", " GLM "} {
-		m := Measure(family, []string{wt}, roots, now)
-		if m == nil || m.Tokens != 16991 || m.MeasuredAt.Format(time.RFC3339Nano) != "2026-11-14T20:51:22.382Z" {
-			t.Fatalf("%s: %+v", family, m)
-		}
-	}
-	if m := Measure("glm", []string{filepath.Join(wt, "foreign")}, roots, now); m != nil {
-		t.Fatalf("foreign worktree: %+v", m)
 	}
 }
