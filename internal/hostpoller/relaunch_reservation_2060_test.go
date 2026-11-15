@@ -1,6 +1,11 @@
 package hostpoller
 
-import "testing"
+import (
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestPollerLaunchReservationSerializesC3AndC52060(t *testing.T) {
 	p := New(nil, nil, nil, nil, "", nil)
@@ -22,4 +27,24 @@ func TestPollerLaunchReservationSerializesC3AndC52060(t *testing.T) {
 		t.Fatal(err)
 	}
 	release()
+}
+
+func TestWorkerStartCannotBypassRelaunchReservation2060(t *testing.T) {
+	p, srv, host := testPoller(t)
+	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude"})
+	rec := &recordedOrca{}
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	release, err := p.reserveWorktreeLaunch("repo/iris")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	srv.notDone["s1"] = 1
+	p.workerStart(context.Background(), startOp())
+	if len(rec.specs) != 0 || len(host.launches) != 0 {
+		t.Fatal("worker.start bypassed relaunch owner")
+	}
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "another poller launch") {
+		t.Fatalf("%+v", r)
+	}
 }

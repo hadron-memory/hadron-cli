@@ -183,6 +183,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the collected start carried no launch grant")
 		return
 	}
+	if w.launchesViaOrca() {
+		release, err := p.reserveWorktreeLaunch(token)
+		if err != nil {
+			p.finish(ctx, op, Failed, "", "another poller launch owns this worktree; nothing launched")
+			return
+		}
+		defer release()
+	}
 	// One agent per worktree (#472). This sees only agents THIS poller
 	// launched: after a restart, an agent still booting from an earlier
 	// launch is invisible here, and its revoked grant fails its own bind.

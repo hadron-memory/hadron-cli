@@ -172,15 +172,16 @@ type Event struct {
 // Poller is one host's loop.
 type Poller struct {
 	// Immutable startup witness, read only through the running host poller.
-	pidNamespace PIDNamespaceIdentity
-	cfg          *Config
-	server       Server
-	host         Host
-	state        *State
-	key          string
-	emit         func(Event)
-	now          func() time.Time
-	sleep        func(context.Context, time.Duration) error
+	pidNamespace       PIDNamespaceIdentity
+	launchingWorktrees map[string]bool
+	cfg                *Config
+	server             Server
+	host               Host
+	state              *State
+	key                string
+	emit               func(Event)
+	now                func() time.Time
+	sleep              func(context.Context, time.Duration) error
 	// bound reads the session binding of a worktree path (worker.end's stop
 	// identifies a process by its worktree and that binding, #2057).
 	bound func(path string) delivery.Binding
