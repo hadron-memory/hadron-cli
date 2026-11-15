@@ -55,8 +55,17 @@ type hostUpFixture1389 struct {
 	desiredErr  string
 	desiredRaw  string // answered verbatim when set (a malformed success)
 	desiredVars []map[string]json.RawMessage
-	onIssue     func()   // runs after an issued operation is stored
-	registry    []string // worker ids the host registration lists
+	// cli#2085: the hostSetup answer (verbatim when set; unset = an old server's
+	// schema-skew refusal) and what each read carried.
+	setupRaw  string
+	setupVars []map[string]json.RawMessage
+	// cli#2085: Worker.repos by worker id (unset = []), an error code for the
+	// read, and which workers' repos were read.
+	repos      map[string][]string
+	reposErr   string
+	reposReads []string
+	onIssue    func()   // runs after an issued operation is stored
+	registry   []string // worker ids the host registration lists
 }
 
 func (fx *hostUpFixture1389) dir(name string) string {
@@ -183,6 +192,28 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 				}
 				fx.complete(op)
 			}
+		case "HostUpWorkerRepos":
+			var ref string
+			_ = json.Unmarshal(q.Vars["ref"], &ref)
+			fx.reposReads = append(fx.reposReads, ref)
+			if fx.reposErr != "" {
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.reposErr + `"}}]}`))
+				return
+			}
+			repos := fx.repos[ref]
+			if repos == nil {
+				repos = []string{}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"worker": map[string]any{"id": ref, "repos": repos}}})
+		case "TeamHostSetup":
+			// cli#2085: unset, the server predates hostSetup (schema skew), so
+			// every older test keeps meaning "HOST behaviour".
+			fx.setupVars = append(fx.setupVars, q.Vars)
+			if fx.setupRaw != "" {
+				_, _ = w.Write([]byte(fx.setupRaw))
+				return
+			}
+			_, _ = w.Write([]byte(`{"errors":[{"message":"Cannot query field \"hostSetup\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
 		case "HostDesiredState":
 			fx.desiredVars = append(fx.desiredVars, q.Vars)
 			if fx.desiredRaw != "" {
@@ -288,16 +319,18 @@ type hostUpItem1389 struct {
 }
 
 type hostUpOut1389 struct {
-	AppRef    string           `json:"appRef"`
-	HostID    string           `json:"hostId"`
-	DryRun    bool             `json:"dryRun"`
-	SweepMode *string          `json:"sweepMode"`
-	Planned   []hostUpItem1389 `json:"planned"`
-	Applied   []hostUpItem1389 `json:"applied"`
-	Skipped   []hostUpItem1389 `json:"skipped"`
-	Failed    []hostUpItem1389 `json:"failed"`
-	Error     *string          `json:"error"`
-	Source    string           `json:"source"`
+	AppRef    string  `json:"appRef"`
+	HostID    string  `json:"hostId"`
+	DryRun    bool    `json:"dryRun"`
+	SweepMode *string `json:"sweepMode"`
+	// cli#2085: the App's hostSetupSource; null when it was not read.
+	SetupSource *string          `json:"hostSetupSource"`
+	Planned     []hostUpItem1389 `json:"planned"`
+	Applied     []hostUpItem1389 `json:"applied"`
+	Skipped     []hostUpItem1389 `json:"skipped"`
+	Failed      []hostUpItem1389 `json:"failed"`
+	Error       *string          `json:"error"`
+	Source      string           `json:"source"`
 }
 
 // run executes `team host up --json` from a bound worktree and decodes stdout.
