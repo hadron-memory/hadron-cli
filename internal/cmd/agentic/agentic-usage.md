@@ -4363,12 +4363,30 @@ The desired state comes from the server by default: `hostDesiredState(appRef,
 hostId)` (S3, hadron-server#4224), read without the worker session. A worker
 whose `desired` is null (`LEAVE_ALONE`, `SWEEP_OFF`) is reported under that
 reason and never acted on, whatever `wouldBe` says; a null `desired` under any
-other reason is `UNKNOWN_DESIRED`. Until the platform holds each host's setup
-(hadron-server#4222) the server names a worker's registered worktrees but no
-repo: exactly one registered worktree is the one acted on, while none, several
-or a value that is not a host name token is `SETUP_INVALID` (reported before
-the host is read for that worker), and a missing worktree is
-`NO_WORKTREE_SOURCE`, never created. A server answer for another host exits 1;
+other reason is `UNKNOWN_DESIRED`. The App's switch decides where a worker's
+setup comes from (cli#2085; `hostSetup(appRef, hostId)`, hadron-server#4241,
+read without the worker session, one read per run). Under `HOST`, or on a server
+that predates `hostSetup` (a schema-skew refusal; `--json` `hostSetupSource` is
+then null), the registration names it: exactly one registered worktree is the
+one acted on, while none, several or a value that is not a host name token is
+`SETUP_INVALID` (reported before the host is read for that worker). Under
+`SERVER` the platform's assignment names the workdir and the family
+(`SETUP_INVALID` if either is not a host name token), whatever the registration
+lists; a worker in the desired state with no assignment on this host is
+`NOT_ASSIGNED` and never observed or acted on, and an assigned worker the
+desired state does not list is `NOT_REGISTERED`. Any other failure to read
+`hostSetup`, or a `source` that is neither `HOST` nor `SERVER`, stops the run before anything is planned (the rules to plan under
+are unknown; the server's refusal keeps its code, a null answer exits 1).
+Under `SERVER` a missing worktree is created only from a repo the server
+names: `Worker.repos` (the worker's role's repos; read without the worker
+session, and only for a worker whose worktree is missing) must hold exactly
+one entry, then `worktree.create` (base `main`, branch `<worker name>/<label>`,
+label the workdir's last segment; the repo's last segment must equal the
+workdir's first, else `SETUP_INVALID`) and `worker.start` are planned. Zero or
+several repos, a malformed entry, or a worker the caller cannot read (the field
+is masked to `[]`) is `NO_WORKTREE_SOURCE`: a repo is never guessed. Under
+`HOST` no repo is named, so a missing worktree is `NO_WORKTREE_SOURCE`, never
+created. `--json` `hostSetupSource` is `"HOST"`, `"SERVER"` or null. A server answer for another host exits 1;
 the server's refusal keeps its code. `--desired-state-file <file>` reads the
 engine's own shape from a file instead (tests, offline dry runs), including
 the repo a `worktree.create` needs. The file is strict (unknown keys,
