@@ -270,6 +270,17 @@ reports every outcome. One poller per host or container.
                    tree (Linux /proc, the pid and a short redacted argv
                    named), and a start that fails stops the process group it
                    launched and leaves no agents entry in the state file
+                   With reset_on_start (default off; TRANSITIONAL like
+                   stop_on_end, replaced by the Agent's lifecycle) the
+                   worker's EXISTING worktree is first brought back to a
+                   clean base (hadron-cli#2057): a dirty or untracked tree
+                   refuses the start (WORKTREE_DIRTY), as does a HEAD on no
+                   remote branch (WORKTREE_UNPUSHED), reported as the
+                   failure so the task waits; commits no remote branch has
+                   are kept as refs/hadron/rescue/<utc>/<branch>; then the
+                   tree is fetched from origin and checked out detached at
+                   origin's default branch. A directory with no Git starts
+                   with no reset. Nothing is created or removed.
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -406,6 +417,7 @@ The configuration (YAML):
       end_wait: 15m
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
+      reset_on_start: false         # true: reset the existing worktree at worker.start
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
 

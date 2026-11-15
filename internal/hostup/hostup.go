@@ -23,6 +23,7 @@ import (
 	"errors"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -54,10 +55,13 @@ const (
 	// Why a worker was left alone. The platform's own stop reasons
 	// (LEAVE_ALONE, HALTED, PAUSED, TEAM_PAUSED, RESETTING, RETIRED,
 	// SWEEP_OFF) pass through unchanged.
-	ReasonInSync                 = "IN_SYNC"
-	ReasonSweepNotApply          = "SWEEP_NOT_APPLY"
-	ReasonNotOnHost              = "NOT_ON_HOST"
-	ReasonNotRegistered          = "NOT_REGISTERED"
+	ReasonInSync        = "IN_SYNC"
+	ReasonSweepNotApply = "SWEEP_NOT_APPLY"
+	ReasonNotOnHost     = "NOT_ON_HOST"
+	ReasonNotRegistered = "NOT_REGISTERED"
+	// ReasonNotAssigned: the App's setup source is SERVER and the platform
+	// does not assign this worker to this host (cli#2085).
+	ReasonNotAssigned            = "NOT_ASSIGNED"
 	ReasonUnknownDesired         = "UNKNOWN_DESIRED"
 	ReasonUnknownReason          = "UNKNOWN_REASON"
 	ReasonSessionWithoutWorktree = "SESSION_WITHOUT_WORKTREE"
@@ -101,6 +105,11 @@ type Setup struct {
 	Branch     string
 	// Family is the model family worker.start launches.
 	Family string
+	// RepoSource, when set, names the repos the worker's role has, read only
+	// when the worktree is missing and Repo is empty. Exactly one entry is the
+	// repo a worktree.create is planned from; zero, several or a failed read is
+	// NO_WORKTREE_SOURCE: a repo is never guessed (cli#2085).
+	RepoSource func(ctx context.Context) ([]string, error)
 	// Problem, when set, is why the source could not give a usable setup
 	// (no worktree, several, or a malformed value). The worker is then
 	// reported SETUP_INVALID before the host is read for it.
@@ -119,13 +128,23 @@ type Worker struct {
 	// SessionID is the worker's open session, or "".
 	SessionID string
 	Setup     Setup
+	// Unassigned: the App's setup source is SERVER and the platform does not
+	// assign this worker to this host. Reported, never acted on (cli#2085).
+	Unassigned bool
+	// Absent: assigned to this host by the platform, but the desired state
+	// does not list it (the host's registration does not). It has no desired
+	// state to act on: reported NOT_REGISTERED, never acted on (cli#2085).
+	Absent bool
 }
 
 // Snapshot is a host's desired state.
 type Snapshot struct {
 	HostID    string
 	SweepMode string
-	Workers   []Worker
+	// SetupSource is the App's hostSetupSource ("HOST" or "SERVER") when the
+	// source read it, else "" (a file, or a server that predates it).
+	SetupSource string
+	Workers     []Worker
 }
 
 // Source reads a host's desired state.
@@ -192,11 +211,13 @@ type Item struct {
 type Result struct {
 	HostID    string
 	SweepMode string
-	DryRun    bool
-	Planned   []Item
-	Applied   []Item
-	Skipped   []Item
-	Failed    []Item
+	// SetupSource echoes Snapshot.SetupSource.
+	SetupSource string
+	DryRun      bool
+	Planned     []Item
+	Applied     []Item
+	Skipped     []Item
+	Failed      []Item
 }
 
 // Options select the run.
@@ -236,6 +257,7 @@ func (e Engine) Run(ctx context.Context, o Options) (Result, error) {
 		return res, errors.New("the desired state is for host " + snap.HostID + ", not " + o.HostID)
 	}
 	res.SweepMode = snap.SweepMode
+	res.SetupSource = snap.SetupSource
 
 	workers := append([]Worker(nil), snap.Workers...)
 	sort.SliceStable(workers, func(i, j int) bool { return workers[i].Name < workers[j].Name })
@@ -340,6 +362,14 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	skip := func(reason, action, detail string) ([]Step, *Item, *failure) {
 		return nil, &Item{WorkerID: w.WorkerID, Worker: w.Name, Action: action, Reason: reason, Detail: detail}, nil
 	}
+	// A worker the platform does not assign to this host is never touched,
+	// whatever else its state says (cli#2085).
+	if w.Unassigned {
+		return skip(ReasonNotAssigned, "", "the App's host setup (SERVER) does not assign this worker to this host")
+	}
+	if w.Absent {
+		return skip(ReasonNotRegistered, "", "assigned to this host, but its registration does not list the worker, so there is no desired state to act on")
+	}
 	// The platform's stop reasons win before anything is read from the host.
 	if neverAct[w.Reason] {
 		return skip(w.Reason, "", "")
@@ -401,6 +431,16 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 		}
 		if !obs.WorktreeExists {
 			s := w.Setup
+			if s.Repo == "" && s.Branch != "" && s.RepoSource != nil {
+				repos, err := s.RepoSource(ctx)
+				switch {
+				case err != nil:
+					return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the worker's repos could not be read: "+err.Error())
+				case len(repos) != 1:
+					return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the worker's role names "+itoa(len(repos))+" repos, so none is chosen for it")
+				}
+				s.Repo = repos[0]
+			}
 			if s.Repo == "" || s.Branch == "" {
 				return skip(ReasonNoWorktreeSource, ActionWorktreeCreate, "the worktree is missing and the setup names no repo or branch to create it from")
 			}
@@ -428,6 +468,8 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	}
 	return steps, nil, nil
 }
+
+func itoa(n int) string { return strconv.Itoa(n) }
 
 func orNone(s string) string {
 	if s == "" {
