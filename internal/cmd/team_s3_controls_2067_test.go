@@ -408,3 +408,35 @@ func TestS3AgentCreateLifecycle2067(t *testing.T) {
 		t.Fatalf("%v %s %+v", err, out, *calls)
 	}
 }
+
+// A profile-only reader receives null working-state fields, not an unset marker.
+func TestS3WorkerMarkerHidden2067(t *testing.T) {
+	body := `{"data":{"worker":{"id":"wkr1","leaveAlone":null,"leaveAloneReason":null,"leaveAloneBy":null,"leaveAloneAt":null}}}`
+	for _, jsonOutput := range []bool{false, true} {
+		argv := []string{"team", "worker", "leave-alone", irisURN1592}
+		if jsonOutput {
+			argv = append(argv, "--json")
+		}
+		calls, out, err := runTeamTask(t, map[string]string{"GetWorkerLeaveAlone": body}, argv...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if jsonOutput {
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"leaveAlone", "reason", "by", "at"} {
+				v, present := dto[key]
+				if !present || v != nil {
+					t.Fatalf("hidden field %s must remain null: %s", key, out)
+				}
+			}
+		} else if !strings.Contains(out, "leave alone: unknown (not visible to you)") {
+			t.Fatalf("hidden marker misrepresented: %s", out)
+		}
+		if len(callsFor(calls, "GetWorkerLeaveAlone")) != 1 || len(callsFor(calls, "SetWorkerLeaveAlone")) != 0 {
+			t.Fatalf("read must not write: %+v", *calls)
+		}
+	}
+}
