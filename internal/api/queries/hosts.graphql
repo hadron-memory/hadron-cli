@@ -207,8 +207,6 @@ fragment ContextResetFields on ContextReset {
   sessionId
   # #4258: null for a context-cap reset (it belongs to no task).
   taskId
-  # #4258: what asked for it, task-end or context-cap.
-  cause
   stopGrantedAt
   stopLeaseMs
   endedAt

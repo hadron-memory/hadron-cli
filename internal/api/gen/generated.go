@@ -33886,9 +33886,6 @@ func (v *ContextResetContextReset) GetSessionId() string { return v.ContextReset
 // GetTaskId returns ContextResetContextReset.TaskId, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetTaskId() *string { return v.ContextResetFields.TaskId }
 
-// GetCause returns ContextResetContextReset.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetCause() string { return v.ContextResetFields.Cause }
-
 // GetStopGrantedAt returns ContextResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopGrantedAt() *string {
 	return v.ContextResetFields.StopGrantedAt
@@ -33945,8 +33942,6 @@ type __premarshalContextResetContextReset struct {
 
 	TaskId *string `json:"taskId"`
 
-	Cause string `json:"cause"`
-
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
@@ -33974,7 +33969,6 @@ func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextReset
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
-	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
 	retval.EndedAt = v.ContextResetFields.EndedAt
@@ -33996,8 +33990,6 @@ type ContextResetFields struct {
 	SessionId string  `json:"sessionId"`
 	// Null for a reset with no task: one asked for by the Agent's context cap (#4225).
 	TaskId *string `json:"taskId"`
-	// #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
-	Cause string `json:"cause"`
 	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
 	StopGrantedAt *string `json:"stopGrantedAt"`
 	StopLeaseMs   *int    `json:"stopLeaseMs"`
@@ -34026,9 +34018,6 @@ func (v *ContextResetFields) GetSessionId() string { return v.SessionId }
 
 // GetTaskId returns ContextResetFields.TaskId, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetTaskId() *string { return v.TaskId }
-
-// GetCause returns ContextResetFields.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetCause() string { return v.Cause }
 
 // GetStopGrantedAt returns ContextResetFields.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt }
@@ -34121,11 +34110,6 @@ func (v *ContextResetStepFieldsResetContextReset) GetTaskId() *string {
 	return v.ContextResetFields.TaskId
 }
 
-// GetCause returns ContextResetStepFieldsResetContextReset.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetCause() string {
-	return v.ContextResetFields.Cause
-}
-
 // GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string {
 	return v.ContextResetFields.StopGrantedAt
@@ -34186,8 +34170,6 @@ type __premarshalContextResetStepFieldsResetContextReset struct {
 
 	TaskId *string `json:"taskId"`
 
-	Cause string `json:"cause"`
-
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
@@ -34215,7 +34197,6 @@ func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premars
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
-	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
 	retval.EndedAt = v.ContextResetFields.EndedAt
@@ -132821,7 +132802,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -135370,7 +135350,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -137101,7 +137080,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -152711,7 +152689,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -153608,7 +153585,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -153664,7 +153640,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -153719,7 +153694,6 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
-	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt

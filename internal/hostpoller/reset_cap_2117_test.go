@@ -10,7 +10,7 @@ import (
 
 func capOp(taskID any, set bool) Operation {
 	op := resetOp()
-	op.Args = map[string]any{"workerId": "id-iris", "sessionId": "s1", "resetId": "r1"}
+	op.Args = map[string]any{"workerId": "id-iris", "sessionId": "s1", "resetId": "r1", "cause": "context-cap"}
 	if set {
 		op.Args["taskId"] = taskID
 	}
@@ -60,10 +60,10 @@ func TestResetStillRequiresItsIdAndSession2117(t *testing.T) {
 }
 
 // Recovery of a cap reset registers no task, and the checkpoint names the cause
-// the server reported on the claim instead of an empty "finished task" line.
+// the operation's args carry (hadron-server#4258) instead of an empty
+// "finished task" line.
 func TestCapResetRegistersNoTaskAndNamesItsCause2117(t *testing.T) {
 	x := newFwdFixture(t)
-	x.fr.claim.Cause = "context-cap"
 	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
 	x.p.runReset(context.Background(), capOp(nil, false), "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
 	x.wantCalls(t,
@@ -89,11 +89,14 @@ func TestCapResetRegistersNoTaskAndNamesItsCause2117(t *testing.T) {
 	}
 }
 
-// A server that did not say why (no cause) still never prints an empty line.
+// A server that did not say why (no cause in the args) still never prints an
+// empty line.
 func TestCapResetWithoutAReportedCauseSaysSo2117(t *testing.T) {
 	x := newFwdFixture(t)
 	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
-	x.p.runReset(context.Background(), capOp(nil, false), "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
+	op := capOp(nil, false)
+	delete(op.Args, "cause")
+	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
 	c := x.fr.checkpoint.Content
 	if strings.Contains(c, "finished task") || strings.Contains(c, ": \n") {
 		t.Fatalf("an empty line:\n%s", c)
@@ -106,12 +109,24 @@ func TestCapResetWithoutAReportedCauseSaysSo2117(t *testing.T) {
 // A task-end reset is unchanged: it registers its task and prints the line.
 func TestTaskEndResetIsUnchanged2117(t *testing.T) {
 	x := newFwdFixture(t)
-	x.fr.claim.Cause = "task-end"
-	x.run(t)
+	x.run(t) // its args are unchanged: no cause
 	if x.fr.registeredTask != "t1" {
 		t.Fatalf("registered task %q, want t1", x.fr.registeredTask)
 	}
 	if !strings.Contains(x.fr.checkpoint.Content, "- finished task: t1\n") {
 		t.Fatalf("the finished-task line changed:\n%s", x.fr.checkpoint.Content)
+	}
+}
+
+// A task-end reset that carries cause: task-end in its args (the closed set allows
+// it, with or without a task) still prints its task line and no cause line.
+func TestTaskEndResetWithACauseArgPrintsItsTaskLine2117(t *testing.T) {
+	x := newFwdFixture(t)
+	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
+	op := resetOp()
+	op.Args["cause"] = "task-end"
+	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
+	if !strings.Contains(x.fr.checkpoint.Content, "- finished task: t1\n") || strings.Contains(x.fr.checkpoint.Content, "reset because") {
+		t.Fatalf("%s", x.fr.checkpoint.Content)
 	}
 }
