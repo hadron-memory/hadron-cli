@@ -374,8 +374,11 @@ process tree is force-killed at once. If the launch's exit is observed after
 the binding-authorization wait, taskkill is skipped (its pid may have been
 reused). The final exit check and taskkill are not atomic: the launch can
 still exit between them. Children it left behind cannot be reached without
-a Job Object, which this runner does not yet assign. An entry survives a
-stop that could not be confirmed. A refusal
+a Job Object, which this runner does not yet assign. Binding authority stays
+held until taskkill returns. Its cancellation is requested after 10 seconds;
+a timeout leaves the stop unconfirmed and its records kept (some processes
+may already have been killed). This is not a real-time OS latency guarantee.
+An entry survives a stop that could not be confirmed. A refusal
 saying the operation was already reported stops the launch only when it
 names the recorded outcome as failed; one naming success, or naming nothing,
 leaves what was launched running.

@@ -492,7 +492,8 @@ func (a *execAgent) Terminate() (bool, string) {
 
 // TerminateWith is Terminate with a check before every signal: authorize
 // decides, immediately before SIGTERM and again before SIGKILL, whether the
-// stop may still go on, and its release runs right after that one signal. A
+// stop may still go on, and its release runs right after that one signal.
+// Windows instead holds one authorization until synchronous taskkill returns. A
 // refusal signals nothing further and reports the stop unconfirmed, with the
 // agent's records kept (hadron-cli#2068).
 func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
