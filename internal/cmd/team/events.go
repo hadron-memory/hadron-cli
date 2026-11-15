@@ -86,7 +86,9 @@ The recorded end can lag by up to one evaluator pass (about a minute), and the
 alarm reads as in effect until it is written, so the column is not a real-time
 value. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
-reason or evidence is added. A missing subject stays —.
+reason or evidence is added. An alarm.start-failing (wake handle START: the
+platform's starts of a long-lived worker with no task keep failing) is task-less
+too and shows worker <name>; its failure count and window stay in --json. A missing subject stays —.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -236,6 +238,10 @@ func tasklessAlarmCell(e teamEventDTO) string {
 		// The reason repeats the type, and hidden evidence may be absent.
 		// Render only the server's subject, never a payload-derived string.
 		return "coordinator " + partyCell(e.SubjectWorker)
+	case "alarm.start-failing":
+		// #4231: platform starts of the worker keep failing. Its payload
+		// (failure count, window) stays in --json only.
+		return "worker " + partyCell(e.SubjectWorker)
 	case "alarm.dark-worker":
 		// Only this alarm uses the fixed reason vocabulary below.
 	default:
@@ -275,7 +281,8 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Short: "Acknowledge an alarm",
 		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
 owners; it does not end the alarm episode. A coordinator-cadence alarm names
-its coordinator, without printing payload reasons or evidence. A finish-by episode ends when the
+its coordinator, and a start-failing alarm its worker, without printing payload
+reasons or evidence. A finish-by episode ends when the
 task finishes or is cancelled, or its finish-by value changes or is cleared;
 starting or assigning the task does not end that episode. A dark-worker
 episode ends when the worker is checking again and has no unacknowledged
@@ -307,7 +314,7 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 						return err
 					}
 				}
-				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence") && event.SubjectWorker != nil {
+				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}

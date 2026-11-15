@@ -31053,6 +31053,11 @@ func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedByWor
 	return v.HostOperationFields.IssuedByWorkerId
 }
 
+// GetIssuedReason returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedReason, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedReason() *string {
+	return v.HostOperationFields.IssuedReason
+}
+
 // GetIssuedAt returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedAt, and is useful for accessing the field via an interface.
 func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedAt() string {
 	return v.HostOperationFields.IssuedAt
@@ -31128,6 +31133,8 @@ type __premarshalCollectHostOperationsCollectHostOperationsHostOperation struct 
 
 	IssuedByWorkerId *string `json:"issuedByWorkerId"`
 
+	IssuedReason *string `json:"issuedReason"`
+
 	IssuedAt string `json:"issuedAt"`
 
 	CollectedAt *string `json:"collectedAt"`
@@ -31162,6 +31169,7 @@ func (v *CollectHostOperationsCollectHostOperationsHostOperation) __premarshalJS
 	retval.IssuedBy = v.HostOperationFields.IssuedBy
 	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
 	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedReason = v.HostOperationFields.IssuedReason
 	retval.IssuedAt = v.HostOperationFields.IssuedAt
 	retval.CollectedAt = v.HostOperationFields.CollectedAt
 	retval.FinishedAt = v.HostOperationFields.FinishedAt
@@ -56212,9 +56220,13 @@ type HostOperationFields struct {
 	IssuedBy         HostOperationIssuer        `json:"issuedBy"`
 	IssuedByUserId   *string                    `json:"issuedByUserId"`
 	IssuedByWorkerId *string                    `json:"issuedByWorkerId"`
-	IssuedAt         string                     `json:"issuedAt"`
-	CollectedAt      *string                    `json:"collectedAt"`
-	FinishedAt       *string                    `json:"finishedAt"`
+	// #4231 — why the platform issued it when no task did: DESIRED_RUNNING for the start of a long-lived worker that
+	// should run and has no session (hrn:node:hadronmemory.com:specs:cor:agt:070:05, Proposed). Null for every other
+	// operation.
+	IssuedReason *string `json:"issuedReason"`
+	IssuedAt     string  `json:"issuedAt"`
+	CollectedAt  *string `json:"collectedAt"`
+	FinishedAt   *string `json:"finishedAt"`
 	// A success's typed result, by type: {worktree} for worktree.create, {sessionId} (the worker session the start's grant
 	// bound) for worker.start, {handoff} (a boolean: whether a handoff was written) for worker.end. Null for worker.deliver,
 	// worktree.remove and worker.reset-context, for a failure, and until the operation finishes.
@@ -56255,6 +56267,9 @@ func (v *HostOperationFields) GetIssuedByUserId() *string { return v.IssuedByUse
 
 // GetIssuedByWorkerId returns HostOperationFields.IssuedByWorkerId, and is useful for accessing the field via an interface.
 func (v *HostOperationFields) GetIssuedByWorkerId() *string { return v.IssuedByWorkerId }
+
+// GetIssuedReason returns HostOperationFields.IssuedReason, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetIssuedReason() *string { return v.IssuedReason }
 
 // GetIssuedAt returns HostOperationFields.IssuedAt, and is useful for accessing the field via an interface.
 func (v *HostOperationFields) GetIssuedAt() string { return v.IssuedAt }
@@ -56425,6 +56440,11 @@ func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIss
 	return v.HostOperationFields.IssuedByWorkerId
 }
 
+// GetIssuedReason returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedReason, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedReason() *string {
+	return v.HostOperationFields.IssuedReason
+}
+
 // GetIssuedAt returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedAt, and is useful for accessing the field via an interface.
 func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedAt() string {
 	return v.HostOperationFields.IssuedAt
@@ -56498,6 +56518,8 @@ type __premarshalHostOperationsHostOperationsHostOperationPageItemsHostOperation
 
 	IssuedByWorkerId *string `json:"issuedByWorkerId"`
 
+	IssuedReason *string `json:"issuedReason"`
+
 	IssuedAt string `json:"issuedAt"`
 
 	CollectedAt *string `json:"collectedAt"`
@@ -56531,6 +56553,7 @@ func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) __prem
 	retval.IssuedBy = v.HostOperationFields.IssuedBy
 	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
 	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedReason = v.HostOperationFields.IssuedReason
 	retval.IssuedAt = v.HostOperationFields.IssuedAt
 	retval.CollectedAt = v.HostOperationFields.CollectedAt
 	retval.FinishedAt = v.HostOperationFields.FinishedAt
@@ -58543,6 +58566,11 @@ func (v *IssueHostOperationIssueHostOperation) GetIssuedByWorkerId() *string {
 	return v.HostOperationFields.IssuedByWorkerId
 }
 
+// GetIssuedReason returns IssueHostOperationIssueHostOperation.IssuedReason, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetIssuedReason() *string {
+	return v.HostOperationFields.IssuedReason
+}
+
 // GetIssuedAt returns IssueHostOperationIssueHostOperation.IssuedAt, and is useful for accessing the field via an interface.
 func (v *IssueHostOperationIssueHostOperation) GetIssuedAt() string {
 	return v.HostOperationFields.IssuedAt
@@ -58616,6 +58644,8 @@ type __premarshalIssueHostOperationIssueHostOperation struct {
 
 	IssuedByWorkerId *string `json:"issuedByWorkerId"`
 
+	IssuedReason *string `json:"issuedReason"`
+
 	IssuedAt string `json:"issuedAt"`
 
 	CollectedAt *string `json:"collectedAt"`
@@ -58649,6 +58679,7 @@ func (v *IssueHostOperationIssueHostOperation) __premarshalJSON() (*__premarshal
 	retval.IssuedBy = v.HostOperationFields.IssuedBy
 	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
 	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedReason = v.HostOperationFields.IssuedReason
 	retval.IssuedAt = v.HostOperationFields.IssuedAt
 	retval.CollectedAt = v.HostOperationFields.CollectedAt
 	retval.FinishedAt = v.HostOperationFields.FinishedAt
@@ -76903,6 +76934,11 @@ func (v *ReportHostOperationReportHostOperation) GetIssuedByWorkerId() *string {
 	return v.HostOperationFields.IssuedByWorkerId
 }
 
+// GetIssuedReason returns ReportHostOperationReportHostOperation.IssuedReason, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetIssuedReason() *string {
+	return v.HostOperationFields.IssuedReason
+}
+
 // GetIssuedAt returns ReportHostOperationReportHostOperation.IssuedAt, and is useful for accessing the field via an interface.
 func (v *ReportHostOperationReportHostOperation) GetIssuedAt() string {
 	return v.HostOperationFields.IssuedAt
@@ -76976,6 +77012,8 @@ type __premarshalReportHostOperationReportHostOperation struct {
 
 	IssuedByWorkerId *string `json:"issuedByWorkerId"`
 
+	IssuedReason *string `json:"issuedReason"`
+
 	IssuedAt string `json:"issuedAt"`
 
 	CollectedAt *string `json:"collectedAt"`
@@ -77009,6 +77047,7 @@ func (v *ReportHostOperationReportHostOperation) __premarshalJSON() (*__premarsh
 	retval.IssuedBy = v.HostOperationFields.IssuedBy
 	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
 	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedReason = v.HostOperationFields.IssuedReason
 	retval.IssuedAt = v.HostOperationFields.IssuedAt
 	retval.CollectedAt = v.HostOperationFields.CollectedAt
 	retval.FinishedAt = v.HostOperationFields.FinishedAt
@@ -112644,7 +112683,7 @@ type WorkerTerminalReportInput struct {
 	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
 	// #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
 	// outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
-	RepairReason *WorkerTerminalRepairReason `json:"repairReason"`
+	RepairReason *WorkerTerminalRepairReason `json:"repairReason,omitempty"`
 	Status       WorkerTerminalState         `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
@@ -136405,6 +136444,7 @@ fragment HostOperationFields on HostOperation {
 	issuedBy
 	issuedByUserId
 	issuedByWorkerId
+	issuedReason
 	issuedAt
 	collectedAt
 	finishedAt
@@ -146052,6 +146092,7 @@ mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
 `
 
 // Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
+// #4247 (arrives with the schema refresh of #2117): repairReason is optional like repair; omitted, never null.
 func HealthSweepSetTerminals(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -146297,6 +146338,7 @@ fragment HostOperationFields on HostOperation {
 	issuedBy
 	issuedByUserId
 	issuedByWorkerId
+	issuedReason
 	issuedAt
 	collectedAt
 	finishedAt
@@ -147078,6 +147120,7 @@ fragment HostOperationFields on HostOperation {
 	issuedBy
 	issuedByUserId
 	issuedByWorkerId
+	issuedReason
 	issuedAt
 	collectedAt
 	finishedAt
@@ -153746,6 +153789,7 @@ fragment HostOperationFields on HostOperation {
 	issuedBy
 	issuedByUserId
 	issuedByWorkerId
+	issuedReason
 	issuedAt
 	collectedAt
 	finishedAt

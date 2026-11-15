@@ -61,11 +61,25 @@ type hostOperationDTO struct {
 	IssuedBy         string          `json:"issuedBy"`
 	IssuedByUserID   *string         `json:"issuedByUserId"`
 	IssuedByWorkerID *string         `json:"issuedByWorkerId"`
-	IssuedAt         string          `json:"issuedAt"`
-	CollectedAt      *string         `json:"collectedAt"`
-	FinishedAt       *string         `json:"finishedAt"`
-	Result           json.RawMessage `json:"result"`
-	FailureReason    *string         `json:"failureReason"`
+	// IssuedReason is why the platform issued an operation no task asked for
+	// (DESIRED_RUNNING, #4231). Absent, not null, when the server names none, so
+	// an operation without one keeps its shape.
+	IssuedReason  *string         `json:"issuedReason,omitempty"`
+	IssuedAt      string          `json:"issuedAt"`
+	CollectedAt   *string         `json:"collectedAt"`
+	FinishedAt    *string         `json:"finishedAt"`
+	Result        json.RawMessage `json:"result"`
+	FailureReason *string         `json:"failureReason"`
+}
+
+// hostOpByCell is who issued the operation, and, when the server says why no
+// task did (#4231), the reason beside it: PLATFORM (DESIRED_RUNNING). Without
+// a reason it is the issuer alone, as before.
+func hostOpByCell(o hostOperationDTO) string {
+	if o.IssuedReason == nil || *o.IssuedReason == "" {
+		return o.IssuedBy
+	}
+	return o.IssuedBy + " (" + *o.IssuedReason + ")"
 }
 
 type hostOperationPageDTO struct {
@@ -95,6 +109,7 @@ func hostOperationDTOFrom(o *gen.HostOperationFields) hostOperationDTO {
 		IssuedBy:         string(o.IssuedBy),
 		IssuedByUserID:   o.IssuedByUserId,
 		IssuedByWorkerID: o.IssuedByWorkerId,
+		IssuedReason:     o.IssuedReason,
 		IssuedAt:         o.IssuedAt,
 		CollectedAt:      o.CollectedAt,
 		FinishedAt:       o.FinishedAt,
@@ -242,7 +257,10 @@ func newCmdTeamHostOps(f *cmdutil.Factory) *cobra.Command {
 		Short: "List the operations issued to the App's hosts",
 		Long: `List the App's host operations, NEWEST first (cor:agt:070:02): each one's
 type, host, worker, status, who issued it and, once reported, its result or
-failure reason. Whoever reads the App's tasks and events may.
+failure reason. When the platform issued it for no task, the BY cell adds the
+server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
+run and has no session; --json carries it as issuedReason, absent when the
+server names none. Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -305,7 +323,7 @@ the original cursor from --json.`,
 				}
 				t := output.NewTable(w, "ID", "ISSUED", "TYPE", "HOST", "WORKER", "STATUS", "BY", "OUTCOME")
 				for _, o := range page.Items {
-					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(o.IssuedBy), output.SafeCell(hostOpOutcomeCell(o)))
+					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(hostOpByCell(o)), output.SafeCell(hostOpOutcomeCell(o)))
 				}
 				if err := t.Flush(); err != nil {
 					return err

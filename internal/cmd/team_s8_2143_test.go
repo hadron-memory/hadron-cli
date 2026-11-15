@@ -101,7 +101,7 @@ func TestStartFailingAlarmNamesTheWorkerWithNoTask2143(t *testing.T) {
 			t.Fatalf("ack receipt: %q", out)
 		}
 		_, out, err = runTeamTask(t, r, append(args, "--json")...)
-		if err != nil || !strings.Contains(out, `"alarm.start-failing"`) || !strings.Contains(out, `"failures":3`) {
+		if err != nil || !strings.Contains(out, `"alarm.start-failing"`) || !strings.Contains(out, `"failures": 3`) {
 			t.Fatalf("--json must keep the payload as returned: %v\n%s", err, out)
 		}
 	}

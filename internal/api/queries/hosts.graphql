@@ -19,6 +19,7 @@ fragment HostOperationFields on HostOperation {
   issuedBy
   issuedByUserId
   issuedByWorkerId
+  issuedReason
   issuedAt
   collectedAt
   finishedAt
