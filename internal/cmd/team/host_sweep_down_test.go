@@ -46,7 +46,7 @@ func TestSweepDaemonDownReadsAndRecordsButIssuesNoOperation2056(t *testing.T) {
 			if r.Header.Get("Authorization") != "Bearer host-only" {
 				t.Error("identity borrowed manager")
 			}
-			fmt.Fprint(w, `{"data":{"hostRegistrations":[{"hostId":"h1"}]}}`)
+			fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"h1"}}}`)
 		case "RecordHostSweepRun":
 			writes++
 			if r.Header.Get("Authorization") != "Bearer host-only" {

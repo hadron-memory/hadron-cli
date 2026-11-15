@@ -128,7 +128,10 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if e == nil {
 			report = &SweepReport{AppID: initial.AppID, HostID: hostID, RunID: "recovery:" + id, Mode: initial.SweepMode, StartedAt: started, Lines: []SweepReportLine{}}
 			defer func() {
-				if report == nil {
+				// S10 freshness is host-wide. Only actual recovery outcomes
+				// (including the pending first outage announcement) belong
+				// here; C1's timer records routine/quiet observations.
+				if report == nil || report.Applied+report.Failed == 0 {
 					return
 				}
 				report.EndedAt = p.now()

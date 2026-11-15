@@ -36,7 +36,7 @@ func TestSweepRecordUsesOnlyHostKeyAndCodeLines2056(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch req.Operation {
 		case "HostSweepIdentity":
-			fmt.Fprint(w, `{"data":{"hostRegistrations":[{"hostId":"orca1"}]}}`)
+			fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"orca1"}}}`)
 		case "RecordHostSweepRun":
 			calls++
 			input = req.Variables.Input
@@ -103,7 +103,7 @@ func TestSweepRecordCompatibilityAndRefusals2056(t *testing.T) {
 				_ = json.NewDecoder(r.Body).Decode(&q)
 				w.Header().Set("Content-Type", "application/json")
 				if q.Operation == "HostSweepIdentity" {
-					fmt.Fprint(w, `{"data":{"hostRegistrations":[{"hostId":"orca1"}]}}`)
+					fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"orca1"}}}`)
 					return
 				}
 				if q.Operation != "RecordHostSweepRun" {
@@ -136,7 +136,7 @@ func TestSweepInstallUsesOneMinuteUnitsWithoutCredential2056(t *testing.T) {
 	if err := os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_, _, home := healthHarness(t, "systemctl")
+	_, _, home := healthHarness(t, "systemctl", "logger")
 	cfg := hostConfig(t, orca)
 	io, _, _ := output.Test()
 	f := &cmdutil.Factory{IOStreams: io}
@@ -188,6 +188,101 @@ func TestSweepHistoryEmptyAndMalformed2056(t *testing.T) {
 			}
 			if !tc.wantErr && strings.TrimSpace(out.String()) != "[]" {
 				t.Fatalf("empty list not []: %s", out.String())
+			}
+		})
+	}
+}
+
+func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
+	for _, scenario := range []string{"valid", "alias", "wrong-host", "missing", "second-app-error", "transport", "server-mismatch"} {
+		t.Run(scenario, func(t *testing.T) {
+			reads, writes := 0, 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var q struct {
+					Op    string         `json:"operationName"`
+					Query string         `json:"query"`
+					Vars  map[string]any `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+					t.Error(err)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if q.Op == "HostSweepIdentity" {
+					reads++
+					if q.Vars["hostId"] != "orca1" || !strings.Contains(q.Query, "hostDesiredState(") || strings.Contains(q.Query, "hostRegistrations(") {
+						t.Errorf("not host-scoped proof: %+v", q)
+					}
+					if scenario == "transport" {
+						w.WriteHeader(503)
+						return
+					}
+					if scenario == "second-app-error" && reads == 2 {
+						fmt.Fprint(w, `{"errors":[{"message":"other App","extensions":{"code":"APP_NOT_FOUND"}}]}`)
+						return
+					}
+					if scenario == "wrong-host" {
+						fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"other"}}}`)
+						return
+					}
+					if scenario == "missing" {
+						fmt.Fprint(w, `{"data":{"hostDesiredState":null}}`)
+						return
+					}
+					fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"orca1"}}}`)
+					return
+				}
+				if q.Op != "RecordHostSweepRun" {
+					t.Errorf("unexpected %s", q.Op)
+				}
+				writes++
+				fmt.Fprint(w, `{"data":{"recordHostSweepRun":{"id":"r1","runId":"run1"}}}`)
+			}))
+			defer srv.Close()
+			dir := t.TempDir()
+			key := filepath.Join(dir, "key")
+			if err := os.WriteFile(key, []byte("host-key"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := filepath.Join(dir, "host.yaml")
+			if err := os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", srv.URL, key, dir)), 0600); err != nil {
+				t.Fatal(err)
+			}
+			streams, _, _ := output.Test()
+			f := &cmdutil.Factory{IOStreams: streams, ServerFlag: srv.URL}
+			app := "app"
+			if scenario == "alias" || scenario == "second-app-error" {
+				app = "alias"
+			}
+			if scenario == "server-mismatch" {
+				f.ServerFlag = srv.URL + "/different"
+			}
+			got := recordSweepRun(context.Background(), f, cfg, app, "orca1", "run1", time.Now(), true, hostup.Result{SweepMode: "APPLY"})
+			want := "RECORDED"
+			switch scenario {
+			case "wrong-host", "missing":
+				want = "HOST_SCOPE_MISMATCH"
+			case "second-app-error":
+				want = "APP_NOT_FOUND"
+			case "transport":
+				want = "HOST_IDENTITY_FAILED"
+			case "server-mismatch":
+				want = "SERVER_MISMATCH"
+			}
+			if got.Reason != want {
+				t.Fatalf("got %+v want %s", got, want)
+			}
+			expectedWrites := 0
+			if want == "RECORDED" {
+				expectedWrites = 1
+			}
+			if writes != expectedWrites {
+				t.Fatalf("record calls %d", writes)
+			}
+			if scenario == "alias" && reads != 2 {
+				t.Fatalf("alias not proved: %d reads", reads)
+			}
+			if scenario == "server-mismatch" && reads != 0 {
+				t.Fatalf("server mismatch issued reads: %d", reads)
 			}
 		})
 	}

@@ -170,8 +170,12 @@ func (e Env) Install(s Spec) (Result, error) {
 		return Result{}, usagef("the team sweep requires systemd user units for crash limiting and OnFailure logging; nothing written")
 	}
 	if e.job().Name == Sweep.Name {
-		if _, err := os.Stat("/usr/bin/logger"); err != nil {
-			return Result{}, usagef("/usr/bin/logger is required for sweep OnFailure logging")
+		s.Logger, err = e.Which("logger")
+		if err != nil {
+			return Result{}, usagef("logger is required on PATH for sweep OnFailure logging")
+		}
+		if err := ValidatePath("logger", s.Logger); err != nil {
+			return Result{}, err
 		}
 	}
 	if k == Cron {

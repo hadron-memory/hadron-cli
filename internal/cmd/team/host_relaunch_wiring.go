@@ -28,7 +28,7 @@ func wireRelaunch(p *hostpoller.Poller, cfg *hostpoller.Config, server *hostServ
 
 // managedDaemonProbe is shared by the C5 owner and the C1 queue-only sweep.
 // It checks readiness; it never creates a terminal or starts a daemon.
-func managedDaemonProbe(cfg *hostpoller.Config) func(context.Context) error {
+func configuredOrcaBin(cfg *hostpoller.Config) string {
 	bin := cfg.OrcaLaunch.OrcaBin
 	if bin == "" {
 		bin = cfg.Delivery.OrcaBin
@@ -36,7 +36,11 @@ func managedDaemonProbe(cfg *hostpoller.Config) func(context.Context) error {
 	if bin == "" {
 		bin = "orca"
 	}
-	client := orcaterm.NewClient(orcaRunner(bin))
+	return bin
+}
+
+func managedDaemonProbe(cfg *hostpoller.Config) func(context.Context) error {
+	client := orcaterm.NewClient(orcaRunner(configuredOrcaBin(cfg)))
 	return func(ctx context.Context) error {
 		checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()

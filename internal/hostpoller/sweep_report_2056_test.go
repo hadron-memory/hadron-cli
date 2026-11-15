@@ -29,8 +29,8 @@ func TestSweepReportsOutageEpisodeAndPollerOwnedRecovery2056(t *testing.T) {
 	f.ready = false
 	stepSweep2056(t, f)
 	stepSweep2056(t, f)
-	if len(reports) != 2 || reports[0].Failed != 1 || reports[1].Failed != 0 || reports[1].Skipped != 1 {
-		t.Fatalf("outage must announce once then record quiet skips: %+v", reports)
+	if len(reports) != 1 || reports[0].Failed != 1 {
+		t.Fatalf("outage must announce once then leave quiet records to C1: %+v", reports)
 	}
 	for _, r := range reports {
 		if r.Mode != "APPLY" || len(r.Lines) != 1 || r.Lines[0].Reason != "ORCA_DOWN" {
@@ -83,7 +83,7 @@ func TestSweepOutageReportReplaysUnknownOutcome2056(t *testing.T) {
 	}
 	f.p.state = state
 	stepSweep2056(t, f)
-	if len(reports) != 3 || reports[0].RunID == "" || reports[0].RunID != reports[1].RunID || reports[2].RunID == reports[1].RunID || reports[2].Failed != 0 {
+	if len(reports) != 2 || reports[0].RunID == "" || reports[0].RunID != reports[1].RunID {
 		t.Fatalf("outage token must replay until confirmed, then quiet: %+v", reports)
 	}
 }
@@ -105,18 +105,18 @@ func TestSweepUnknownReadinessIsNotCalledDaemonDown2056(t *testing.T) {
 	f.p.relaunch.Ready = func(context.Context) error { return errors.New("systemd proof unavailable") }
 	f.p.relaunch.ReportSweep = func(_ context.Context, r SweepReport) error { reports = append(reports, r); return nil }
 	stepSweep2056(t, f)
-	if len(reports) != 1 || reports[0].Failed != 0 || len(reports[0].Lines) != 1 || reports[0].Lines[0].Reason != "RELAUNCH_UNPROVEN" || f.p.state.SweepOutage != nil || len(f.launches) != 0 {
+	if len(reports) != 0 || f.p.state.SweepOutage != nil || len(f.launches) != 0 {
 		t.Fatalf("unknown readiness forged outage or action: %+v", reports)
 	}
 }
 
-func TestSweepObserveRecordsWithoutRepair2056(t *testing.T) {
+func TestSweepObserveLeavesRecordingToTimer2056(t *testing.T) {
 	f := newLoopFixture2060(t)
 	f.source.snapshot.SweepMode = "OBSERVE"
 	var reports []SweepReport
 	f.p.relaunch.ReportSweep = func(_ context.Context, r SweepReport) error { reports = append(reports, r); return nil }
 	stepSweep2056(t, f)
-	if len(reports) != 1 || reports[0].Mode != "OBSERVE" || reports[0].Applied != 0 || reports[0].Failed != 0 || len(f.launches) != 0 || f.p.state.SweepOutage != nil {
-		t.Fatalf("observe acted or lost report: %+v", reports)
+	if len(reports) != 0 || len(f.launches) != 0 || f.p.state.SweepOutage != nil {
+		t.Fatalf("observe acted or forged sweep freshness: %+v", reports)
 	}
 }

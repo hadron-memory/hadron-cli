@@ -4372,11 +4372,17 @@ starts in 60s, plus a fixed-code OnFailure journal logger. It preserves the
 existing health and report-stops timers and never writes the key to argv/unit.
 The App's mode gates actions; installing does not change it. C5 owns recovery
 inside the poller, never a new direct host-up launch. C5 now reports closed recovery outcomes through S10; no direct sweep relaunch
-is added. Both use the managed-daemon readiness gate. Missing scope/unreachable
+is added. Typed Orca-launch hosts share C5's managed-daemon readiness gate;
+exec-launch hosts use ordinary host-up readiness. Both select the same Orca
+binary. Expected unavailable observations exit0 and wait for the next timer
+tick; lock conflicts exit5 without service restart (RestartPreventExitStatus=5).
+The failure logger is resolved from PATH at install time. Missing scope/unreachable
 list is ORCA_DOWN; unreadable or ambiguous proof is RELAUNCH_UNPROVEN. The sweep
 queues nothing in either case and records skipped metadata. The poller owns the
-first failed outage report and persistent replay token, so later passes are
-quiet skips until readiness returns. Default recovery target assumes 30s poll
+first failed outage report and persistent replay token. Only applied/failed
+C5 passes write S10; empty, OBSERVE and skip-only passes write nothing. The
+one-minute command records quiet outage skips. Thus an idle poller cannot mask
+a stopped sweep timer from the host-level five-minute stale-record alarm. Default recovery target assumes 30s poll
 cadence, two absence observations and available launch prerequisites.
 
 

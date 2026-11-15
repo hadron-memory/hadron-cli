@@ -57051,27 +57051,35 @@ var AllHostSetupSource = []HostSetupSource{
 	HostSetupSourceServer,
 }
 
-// HostSweepIdentityHostRegistrationsHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// HostSweepIdentityHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
 // The GraphQL type's documentation follows.
 //
-// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
-type HostSweepIdentityHostRegistrationsHostRegistration struct {
-	// The host's id within its App: the one its key's host:operate scope names.
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostSweepIdentityHostDesiredState struct {
 	HostId string `json:"hostId"`
 }
 
-// GetHostId returns HostSweepIdentityHostRegistrationsHostRegistration.HostId, and is useful for accessing the field via an interface.
-func (v *HostSweepIdentityHostRegistrationsHostRegistration) GetHostId() string { return v.HostId }
+// GetHostId returns HostSweepIdentityHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityHostDesiredState) GetHostId() string { return v.HostId }
 
 // HostSweepIdentityResponse is returned by HostSweepIdentity on success.
 type HostSweepIdentityResponse struct {
-	// #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
-	HostRegistrations []*HostSweepIdentityHostRegistrationsHostRegistration `json:"hostRegistrations"`
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostSweepIdentityHostDesiredState `json:"hostDesiredState"`
 }
 
-// GetHostRegistrations returns HostSweepIdentityResponse.HostRegistrations, and is useful for accessing the field via an interface.
-func (v *HostSweepIdentityResponse) GetHostRegistrations() []*HostSweepIdentityHostRegistrationsHostRegistration {
-	return v.HostRegistrations
+// GetHostDesiredState returns HostSweepIdentityResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityResponse) GetHostDesiredState() *HostSweepIdentityHostDesiredState {
+	return v.HostDesiredState
 }
 
 type HostSweepRunLineInput struct {
@@ -119369,10 +119377,14 @@ func (v *__HostRelaunchSnapshotInput) GetHostId() string { return v.HostId }
 // __HostSweepIdentityInput is used internally by genqlient
 type __HostSweepIdentityInput struct {
 	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
 }
 
 // GetAppRef returns __HostSweepIdentityInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostSweepIdentityInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostSweepIdentityInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostSweepIdentityInput) GetHostId() string { return v.HostId }
 
 // __HostSweepRunsInput is used internally by genqlient
 type __HostSweepRunsInput struct {
@@ -146902,8 +146914,8 @@ func HostRelaunchSnapshot(
 
 // The query executed by HostSweepIdentity.
 const HostSweepIdentity_Operation = `
-query HostSweepIdentity ($appRef: String!) {
-	hostRegistrations(appRef: $appRef) {
+query HostSweepIdentity ($appRef: String!, $hostId: String!) {
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
 		hostId
 	}
 }
@@ -146914,12 +146926,14 @@ func HostSweepIdentity(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
+	hostId string,
 ) (data_ *HostSweepIdentityResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "HostSweepIdentity",
 		Query:  HostSweepIdentity_Operation,
 		Variables: &__HostSweepIdentityInput{
 			AppRef: appRef,
+			HostId: hostId,
 		},
 	}
 

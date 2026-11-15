@@ -40,27 +40,36 @@ report duties. Reinstall is idempotent; uninstall removes only sweep units.
 ## Recovery and outage integration
 
 C5 remains the only owner, through host run's periodic recovery job. C1's S10
-observer sees its closed outcomes after each owned pass; it creates no IPC,
-actuator or Runner. Applied/failed/skipped repair counts and code-only lines
-are recorded with the host key after launch admission and the journal lock are
-released. Report failures log codes but do not change the recovery result.
-OBSERVE reports metadata only; OFF records nothing. A malformed or missing
+observer records only passes with applied or failed outcomes, including the
+first pending ORCA_DOWN announcement; it creates no IPC, actuator or Runner.
+Routine empty, OBSERVE and skip-only C5 passes write no S10 row, so they cannot
+mask a stopped one-minute timer. Counts and code-only lines are recorded with
+the host key after launch admission and the journal lock are released. Report failures log codes but do not change the recovery result.
+The C1 command records OBSERVE metadata; OFF records nothing. A malformed or missing
 source identity never becomes an empty proof of safety.
 
-The sweep and C5 share the managed-daemon preflight: exactly one running
+For typed Orca-launch hosts, the sweep and C5 share the managed-daemon
+preflight: exactly one running
 own-user daemon scope plus a successful terminal list. A missing managed scope
 or an unreachable terminal list is ORCA_DOWN. Unreadable/ambiguous scope proof
 stays RELAUNCH_UNPROVEN, never asserted as a confirmed outage. The queue-only
 sweep takes the shared nonblocking host-up lock before this check; an unavailable
 pass reads desired state and records skipped metadata but queues no operation.
-It also strips worker-session attribution from every maintenance call.
+Exec-launch hosts retain the ordinary host-up readiness check without requiring
+C5's systemd daemon scope. Both readiness and reconciliation select the same
+configured Orca binary. Maintenance calls strip worker-session attribution.
+An expected ORCA_DOWN/RELAUNCH_UNPROVEN observation exits zero after writing its
+result; the next timer tick retries it. Lock contention still exits5 immediately,
+but RestartPreventExitStatus=5 prevents service restarts for that result.
+Actual crashes retain bounded Restart=on-failure behavior. The failure logger
+is resolved through the install environment and its absolute path is saved.
 
 C5's first applying ORCA_DOWN observation for an eligible should-run worker
 records failed outcome lines, so S10 can announce that outage once. The report
 token is persisted in existing poller state before sending. A lost or refused
 answer retries the same row; the episode is marked reported only after explicit
-S10 confirmation. Subsequent outage passes record quiet skipped lines, keeping
-history current without another summary. A successful readiness observation
+S10 confirmation. Subsequent C5 outage passes send nothing; the one-minute
+C1 command records quiet skipped lines without another summary. A successful readiness observation
 ends the daemon episode. Paused/halted/leave-alone/resetting rows do not create
 an outage announcement or a launch. The dark-worker repair notices and episode
 identity remain C5/server-owned; no third alarm is added.

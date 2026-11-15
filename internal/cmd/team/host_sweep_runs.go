@@ -48,8 +48,15 @@ func recordSweepRun(ctx context.Context, f *cmdutil.Factory, configPath, app, ho
 	// Resolve through the host-key gate, not by comparing aliases. This also
 	// proves the key belongs to the host whose reconciliation is being recorded.
 	for _, ref := range []string{cfg.App, app} {
-		identity, err := gen.HostSweepIdentity(ctx, server.client, ref)
-		if err != nil || identity == nil || len(identity.HostRegistrations) != 1 || identity.HostRegistrations[0] == nil || identity.HostRegistrations[0].HostId != host {
+		identity, err := gen.HostSweepIdentity(ctx, server.client, ref, host)
+		if err != nil {
+			status.Reason = "HOST_IDENTITY_FAILED"
+			if code := api.ServerCodeOf(err); sweepReasonCode.MatchString(code) {
+				status.Reason = code
+			}
+			return status
+		}
+		if identity == nil || identity.HostDesiredState == nil || identity.HostDesiredState.HostId != host {
 			status.Reason = "HOST_SCOPE_MISMATCH"
 			return status
 		}

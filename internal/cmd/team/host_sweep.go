@@ -16,7 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sweepDaemonReady = func(ctx context.Context, cfg *hostpoller.Config) error { return managedDaemonProbe(cfg)(ctx) }
+var sweepDaemonReady = func(ctx context.Context, cfg *hostpoller.Config) error {
+	if !cfg.UsesOrcaLaunch() {
+		return nil
+	}
+	return managedDaemonProbe(cfg)(ctx)
+}
 
 func newCmdTeamHostSweep(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
@@ -31,10 +36,15 @@ Open-session recovery belongs to the running poller's C5 loop; this command
 never starts a second agent directly. The 15-minute health timer and 5-minute
 report-stops timer remain explicitly separate: they still handle health and
 unreported stop notices. Install creates only the new one-minute sweep timer.
-The managed-daemon preflight is shared with C5. A missing daemon scope or an
+On typed Orca-launch hosts, managed-daemon preflight is shared with C5;
+exec-launch hosts retain ordinary host-up readiness. A missing daemon scope or an
 unreachable terminal list records ORCA_DOWN skips and queues nothing; unreadable
 or ambiguous readiness stays RELAUNCH_UNPROVEN. C5 reports the first outage once
-and replays its persisted token until confirmed. A failed record does not change
+and replays its persisted token until confirmed. C5 records only applied/failed
+passes; routine empty/observe/skipped passes do not refresh the stale-sweep
+clock. This one-minute command records the quiet passes. An expected unavailable
+observation exits 0 and waits for the next timer tick. Lock contention exits 5
+without a service restart. A failed record does not change
 the reconciliation result. Default recovery target assumes 30s poll cadence and
 two proven absence observations; a slow custom cadence can miss two minutes.
 This command requests no daemon start, kill or restart; the service manager owns it.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
@@ -65,7 +75,7 @@ This command requests no daemon start, kill or restart; the service manager owns
 			}
 			f.ServerFlag = cfg.Server
 		}
-		orca := cfg.Delivery.OrcaBin
+		orca := configuredOrcaBin(cfg)
 		if orca == "" {
 			orca = "orca"
 		}
@@ -88,7 +98,7 @@ This command requests no daemon start, kill or restart; the service manager owns
 			}
 			return reportUnavailableSweep(cmd, f, cfg, configPath, host, reason, started)
 		}
-		return runHostUp(cmd, f, hostUpOptions{host: host, root: cfg.WorktreesRoot, orcaBin: orca, configPath: configPath, apply: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: true, startedAt: started})
+		return runHostUp(cmd, f, hostUpOptions{host: host, root: cfg.WorktreesRoot, orcaBin: orca, configPath: configPath, apply: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: cfg.UsesOrcaLaunch(), startedAt: started})
 	}}
 	c.Flags().StringVar(&configPath, "config", "", "host configuration (required)")
 	install := newScheduledInstall(f, healthsched.Sweep)
@@ -156,5 +166,6 @@ func reportUnavailableSweep(cmd *cobra.Command, f *cmdutil.Factory, cfg *hostpol
 	if snap.SweepMode == "OFF" {
 		return nil
 	}
-	return exitcode.Newf(exitcode.Error, "%s: sweep issued no worker operation", reason)
+	// A confirmed unavailable observation is a completed sweep, not a crash.
+	return nil
 }

@@ -67,6 +67,7 @@ type Spec struct {
 	Bin      string        // absolute path of hadron
 	Config   string        // absolute path of the host config
 	Interval time.Duration // whole minutes, at least one
+	Logger   string        // resolved failure logger, sweep install only
 	Path     string        // PATH the entry runs with (the installing shell's)
 }
 
@@ -231,12 +232,12 @@ func Plist(s Spec) string {
 // SweepFailureService writes a fixed reason code to the journal, never run
 // output or credentials. It has no schedule or worker action.
 func SweepFailureService(s Spec) string {
-	return headerComment(s) + "\n[Unit]\nDescription=Log failed Hadron sweep\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/logger --tag hadron-team-sweep SWEEP_FAILED_check_hadron-team-sweep.service_journal\n"
+	return headerComment(s) + "\n[Unit]\nDescription=Log failed Hadron sweep\n\n[Service]\nType=oneshot\nExecStart=" + systemdQuote(s.Logger) + " --tag hadron-team-sweep SWEEP_FAILED_check_hadron-team-sweep.service_journal\n"
 }
 
 func sweepRestart(s Spec) string {
 	if s.Job.orHealth().Name == Sweep.Name {
-		return "\nRestart=on-failure\nRestartSec=10s"
+		return "\nRestart=on-failure\nRestartSec=10s\nRestartPreventExitStatus=5"
 	}
 	return ""
 }

@@ -76,3 +76,16 @@ func TestSweepReadinessSeparatesDownFromUnproven2056(t *testing.T) {
 		})
 	}
 }
+
+func TestSweepExecOnlyDoesNotRequireManagedScope2137(t *testing.T) {
+	t.Setenv("PATH", "/nonexistent")
+	if err := sweepDaemonReady(context.Background(), &hostpoller.Config{}); err != nil {
+		t.Fatalf("exec-only host requires C5 daemon scope: %v", err)
+	}
+	cfg := &hostpoller.Config{}
+	cfg.Delivery.OrcaBin = "/delivery/orca"
+	cfg.OrcaLaunch.OrcaBin = "/launch/orca"
+	if got := configuredOrcaBin(cfg); got != "/launch/orca" {
+		t.Fatalf("inconsistent Orca selection %q", got)
+	}
+}
