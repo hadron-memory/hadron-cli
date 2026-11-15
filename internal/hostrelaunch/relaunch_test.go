@@ -305,3 +305,35 @@ func TestMissingLaunchReferenceNeverClaimsSuccess2060(t *testing.T) {
 		t.Fatalf("%+v err=%v rollback=%d", r, err, f.rolledBack)
 	}
 }
+
+func TestFailedRepairNoticeRetriesWithoutAnotherLaunch2060(t *testing.T) {
+	f := newFixture(t)
+	now := f.runner.Now()
+	f.store.rows[f.target.WorkerID] = Record{Attempts: []time.Time{now, now, now}}
+	calls := 0
+	f.runner.Notice = func(context.Context, Target, Result) error {
+		calls++
+		if calls == 1 {
+			return errors.New("transport unavailable")
+		}
+		return nil
+	}
+	first := f.run(t, 1)
+	second := f.run(t, 2)
+	if !first.NoticeFailed || second.NoticeFailed || calls != 2 || f.starts != 0 {
+		t.Fatalf("first=%+v second=%+v calls=%d starts=%d", first, second, calls, f.starts)
+	}
+}
+func TestNoProfileNoticeUsesProvenDarkCandidateWithoutSpendingBudget2060(t *testing.T) {
+	f := newFixture(t)
+	f.runner.Prepare = func(context.Context, Target) (Prepared, error) { return Prepared{}, errors.New("profile missing") }
+	for sweep := uint64(1); sweep <= 3; sweep++ {
+		r := f.run(t, sweep)
+		if r.Reason != NoProfile || r.Attempt != 1 {
+			t.Fatal(r)
+		}
+	}
+	if f.starts != 0 || len(f.store.rows[f.target.WorkerID].Attempts) != 0 || f.notices[NoProfile] != 1 {
+		t.Fatalf("starts=%d notices=%v record=%+v", f.starts, f.notices, f.store.rows[f.target.WorkerID])
+	}
+}
