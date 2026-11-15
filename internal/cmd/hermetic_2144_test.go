@@ -143,6 +143,19 @@ func TestTestClientOnlyConnectsToLoopback2144(t *testing.T) {
 	if reported() != before4 {
 		t.Fatal("a loopback fallback was reported")
 	}
+	// A name resolving loopback first and non-loopback second is refused
+	// outright, before any dial: every address must be loopback, so a
+	// fallback can never reach the outside one (Wolfgang #109418).
+	mixed := loopbackOnlyClient(report, func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}, {IP: net.ParseIP("192.0.2.1")}}, nil
+	})
+	beforeMixed := reported()
+	if _, err := mixed.Get("http://fixture.test:" + port + "/"); !errors.Is(err, errNotLoopbackInTest) {
+		t.Fatalf("a name with a non-loopback second address was not refused: %v", err)
+	}
+	if reported() != beforeMixed+1 || !strings.Contains(seen[len(seen)-1], "192.0.2.1") {
+		t.Fatalf("the mixed resolution was not reported: %v", seen)
+	}
 	// A loopback server redirecting outside: the redirect is refused and
 	// reported.
 	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
