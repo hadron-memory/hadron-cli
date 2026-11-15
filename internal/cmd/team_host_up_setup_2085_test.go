@@ -12,7 +12,8 @@ import (
 // `team host up` takes each worker's workdir and family from hostSetup instead
 // of the registration; a worker the platform does not assign is reported and
 // never touched; HOST (and a server that predates hostSetup) behaves as before.
-// The S1a SDL names no repo, so a missing worktree is still never created.
+// A missing worktree is created only from exactly one Worker.repos entry;
+// the S1a assignment itself names no repo.
 
 func assignment2085(workdir, family string) string {
 	const name = "Jonas"
