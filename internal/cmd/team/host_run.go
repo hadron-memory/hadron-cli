@@ -45,10 +45,12 @@ type hostServer struct {
 	serverURL string
 	client    graphql.Client
 	app       string
-	// noRefusedWorkers pins that this server rejected the document that asks
-	// for refusedWorkers (schema skew) while the plain one worked: it lacks
-	// hadron-server#4241, so later polls skip the extended document (cli#2091).
-	noRefusedWorkers atomic.Bool
+	// noRefusedAt is when this server rejected the document that asks for
+	// refusedWorkers (schema skew) while the plain one worked (unix nanos; 0 =
+	// not pinned): it lacked hadron-server#4241, so polls skip the extended
+	// document, and look again every refusedReprobeEvery, so a server upgraded
+	// while the host runs is noticed (cli#2091, cli#2100).
+	noRefusedAt atomic.Int64
 	// now dates a batch read, for its proof's expiry; time.Now when nil.
 	now func() time.Time
 }
@@ -57,10 +59,20 @@ type hostServer struct {
 // SEPARATE document and falls back to the plain one when the server rejects it
 // as schema skew (a server without hadron-server#4241): the plain registration
 // is unchanged, so no poller breaks against an older server (cli#2091). The
-// fallback is tried once and remembered, so later polls go straight to the
-// plain document. known is false when the server cannot report refusals.
+// fallback is remembered, so later polls go straight to the plain document,
+// except for one fresh try every refusedReprobeEvery. known is false when the server cannot report refusals.
+// refusedReprobeEvery is how often a host pinned to the plain registration asks
+// the extended document again: one extra request per interval against an old
+// server, so an upgrade is noticed without a restart (cli#2100).
+const refusedReprobeEvery = 30 * time.Minute
+
 func (s *hostServer) registerHost(ctx context.Context, in *gen.RegisterHostInput) (reg *gen.HostRegistrationFields, refused []*gen.RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal, known bool, err error) {
-	if !s.noRefusedWorkers.Load() {
+	now := time.Now
+	if s.now != nil {
+		now = s.now
+	}
+	at := s.noRefusedAt.Load()
+	if at == 0 || now().Sub(time.Unix(0, at)) >= refusedReprobeEvery {
 		resp, err := gen.RegisterHostWithRefused(ctx, s.client, in)
 		switch {
 		case err == nil:
@@ -68,6 +80,7 @@ func (s *hostServer) registerHost(ctx context.Context, in *gen.RegisterHostInput
 				return nil, nil, false, exitcode.Newf(exitcode.Error, "the server returned no registration")
 			}
 			r := resp.RegisterHost
+			s.noRefusedAt.Store(0)
 			return &r.HostRegistrationFields, r.RefusedWorkers, true, nil
 		case !api.IsSchemaSkew(err):
 			return nil, nil, false, api.MapError(err)
@@ -81,7 +94,7 @@ func (s *hostServer) registerHost(ctx context.Context, in *gen.RegisterHostInput
 		if plain.RegisterHost == nil {
 			return nil, nil, false, exitcode.Newf(exitcode.Error, "the server returned no registration")
 		}
-		s.noRefusedWorkers.Store(true)
+		s.noRefusedAt.Store(now().UnixNano())
 		return &plain.RegisterHost.HostRegistrationFields, nil, false, nil
 	}
 	plain, err := gen.RegisterHost(ctx, s.client, in)
@@ -258,14 +271,24 @@ reports every outcome. One poller per host or container.
                    tree (Linux /proc, the pid and a short redacted argv
                    named), and a start that fails stops the process group it
                    launched and leaves no agents entry in the state file.
+                   With reset_on_start (default off; TRANSITIONAL like
+                   stop_on_end, replaced by the Agent's lifecycle) the
+                   worker's EXISTING worktree is first brought back to a
+                   clean base (hadron-cli#2057): a dirty or untracked tree
+                   refuses the start (WORKTREE_DIRTY), as does a HEAD on no
+                   remote branch (WORKTREE_UNPUSHED), reported as the
+                   failure so the task waits; commits no remote branch has
+                   are kept as refs/hadron/rescue/<utc>/<branch>; then the
+                   tree is fetched from origin and checked out detached at
+                   origin's default branch. A directory with no Git starts
+                   with no reset. Nothing is created or removed.
                    With launch_via: orca (default exec; Linux; TRANSITIONAL)
                    it launches through an Orca terminal instead, from the
                    worker's launcher_profile and fixed per-family templates,
                    always fresh (never --resume), the grant and first prompt
                    passed through a 0600 file beside the state, never typed;
-                   each agent runs in its own user/PID namespace (unshare),
-                   so a pkill by one worker reaches only its own processes;
-                   it never falls back to the exec path
+                   the agent runs plainly in Orca's terminal scope; it never
+                   falls back to the exec path
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -399,6 +422,7 @@ The configuration (YAML):
       end_wait: 15m
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
+      reset_on_start: false         # true: reset the existing worktree at worker.start
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
     # Through Orca (hadron-cli#2058; launch is not needed then):

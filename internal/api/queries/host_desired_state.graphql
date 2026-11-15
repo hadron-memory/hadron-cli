@@ -19,3 +19,15 @@ query HostDesiredState($appRef: String!, $hostId: String!) {
     }
   }
 }
+
+# cli#2085: the repos a worker's role names (TeamRole.repos), the one source
+# `host up` may create a missing worktree from under hostSetupSource SERVER.
+# Only these fields (the full worker record carries the boot prompt). Masked to
+# [] for a caller who cannot read the worker, which `host up` treats as "no
+# repo". Sent without the worker session.
+query HostUpWorkerRepos($ref: ID!) {
+  worker(ref: $ref) {
+    id
+    repos
+  }
+}

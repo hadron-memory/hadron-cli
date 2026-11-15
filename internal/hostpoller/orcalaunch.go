@@ -53,17 +53,6 @@ type OrcaLauncher struct {
 	Proc ProcessControl
 	// Group, when set, runs the command under `sg <group>`.
 	Group string
-	// Namespace, when set, replaces the default AgentNamespace prefix that
-	// runs the agent in its own PID namespace inside the Orca terminal, so
-	// a `pkill` by one worker sees only its own processes (Wolfgang #108196,
-	// after the container check: Orca's cgroup scopes cap resources but do
-	// not isolate signals). The marker is written BEFORE it, so the pinned
-	// pid is the host-side unshare process, which lives exactly as long as
-	// the agent (--kill-child). Every production launch is namespaced; only
-	// a test opts out (noNamespace), on runners without unprivileged
-	// namespaces.
-	Namespace   []string
-	noNamespace bool
 	// MarkerWait bounds how long the launch waits for the marker (default 30s).
 	MarkerWait time.Duration
 	// StopWait bounds how long a stop waits for the process to go (default 10s).
@@ -92,13 +81,6 @@ type OrcaLaunchSpec struct {
 
 const firstPromptVar = "HADRON_FIRST_PROMPT"
 
-// AgentNamespace runs the agent in an unprivileged user and PID namespace
-// with its own /proc. --kill-child matters: the agent is the namespace's
-// pid 1, which ignores signals it has no handler for, so without it closing
-// the terminal ends unshare and leaves the agent running, orphaned (measured
-// on orca1, 2026-11-15).
-var AgentNamespace = []string{"unshare", "--user", "--map-current-user", "--pid", "--fork", "--mount-proc", "--kill-child"}
-
 // shq quotes s for a POSIX shell, as one word.
 func shq(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
@@ -120,15 +102,12 @@ func envNameRune(r rune, notFirst bool) bool {
 }
 
 // launchCommand is the text typed into the terminal's shell. It names only
-// file paths in the poller's private directory and the quoted argv.
-func launchCommand(envFile, marker string, argv []string, group string, ns []string) (string, error) {
-	words := make([]string, 0, len(ns)+len(argv))
-	for _, a := range ns {
-		if strings.ContainsAny(a, "\x00\n\r") || a == PromptArg {
-			return "", fmt.Errorf("a namespace word is not plain")
-		}
-		words = append(words, shq(a))
-	}
+// file paths in the poller's private directory and the quoted argv. The
+// agent runs plainly in Orca's terminal scope (Holger, 2026-11-15: as
+// Orca-conform as possible, no per-agent PID namespace), so the shell's $$
+// in the marker is the agent's own pid after the exec.
+func launchCommand(envFile, marker string, argv []string, group string) (string, error) {
+	words := make([]string, 0, len(argv))
 	for _, a := range argv {
 		if a == PromptArg {
 			words = append(words, `"$`+firstPromptVar+`"`)
@@ -213,14 +192,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
 		return nil, fmt.Errorf("writing the launch environment: %w", err)
 	}
-	ns := l.Namespace
-	if len(ns) == 0 {
-		ns = AgentNamespace
-	}
-	if l.noNamespace {
-		ns = nil
-	}
-	cmd, err := launchCommand(envFile, marker, spec.Argv, l.Group, ns)
+	cmd, err := launchCommand(envFile, marker, spec.Argv, l.Group)
 	if err != nil {
 		return nil, err
 	}

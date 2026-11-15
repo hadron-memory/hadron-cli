@@ -1,0 +1,1 @@
+{"type": "assistant", "isSidechain": false, "cwd": "/fixture/glm-worker", "timestamp": "2026-11-14T20:51:22.382Z", "message": {"model": "glm-5.3", "usage": {"input_tokens": 4831, "cache_read_input_tokens": 12160, "cache_creation_input_tokens": 0}}}

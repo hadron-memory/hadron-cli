@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,11 +55,14 @@ type hostUpDTO struct {
 	DryRun bool   `json:"dryRun"`
 	// SweepMode is the App's sweep mode as the desired state reported it;
 	// null when the desired state could not be read.
-	SweepMode *string         `json:"sweepMode"`
-	Planned   []hostUpItemDTO `json:"planned"`
-	Applied   []hostUpItemDTO `json:"applied"`
-	Skipped   []hostUpItemDTO `json:"skipped"`
-	Failed    []hostUpItemDTO `json:"failed"`
+	SweepMode *string `json:"sweepMode"`
+	// SetupSource is the App's hostSetupSource ("HOST" or "SERVER"); null when
+	// it was not read (a file source, or a server that predates hostSetup).
+	SetupSource *string         `json:"hostSetupSource"`
+	Planned     []hostUpItemDTO `json:"planned"`
+	Applied     []hostUpItemDTO `json:"applied"`
+	Skipped     []hostUpItemDTO `json:"skipped"`
+	Failed      []hostUpItemDTO `json:"failed"`
 	// Error is why the run ended non-zero, else null.
 	Error *string `json:"error"`
 	// Source is where the desired state came from: "server" or "file".
@@ -92,13 +97,23 @@ worker.start. There is no direct Orca create or launch call.
 WHERE THE DESIRED STATE COMES FROM:
   By default, the server: hostDesiredState for the App and --host (S3,
   hadron-server#4224). A worker whose desired is null (LEAVE_ALONE, SWEEP_OFF)
-  is reported under that reason and never acted on. Until the platform holds
-  each host's setup (hadron-server#4222) the server names a worker's
-  registered worktrees but no repo, so:
-    - exactly one registered worktree is the one acted on; none, several, or a
-      value that is not a host name token is SETUP_INVALID, reported before
-      the host is read for that worker;
-    - a missing worktree is NO_WORKTREE_SOURCE, never created.
+  is reported under that reason and never acted on. Where a worker's setup
+  comes from depends on the App's switch (hostSetup, hadron-server#4241):
+    - HOST (the default), or a server without hostSetup: the registration
+      names the worktree. Exactly one registered worktree is the one acted on;
+      none, several, or a value that is not a host name token is
+      SETUP_INVALID, reported before the host is read for that worker;
+    - SERVER: the platform's assignment names the workdir and the family. A
+      worker with no assignment on this host is NOT_ASSIGNED and never
+      touched; an assigned worker the host does not register is
+      NOT_REGISTERED. If hostSetup cannot be read the run stops, nothing is
+      planned;
+    - under SERVER a missing worktree is created only from a repo the server
+      names: the worker's role's repos (Worker.repos) must hold exactly one
+      entry; then worktree.create (branch <worker>/<label>) and worker.start
+      are planned. Zero, several, or an unreadable list is NO_WORKTREE_SOURCE,
+      never guessed. Under HOST no repo is named, so a missing worktree is
+      NO_WORKTREE_SOURCE and never created.
   --desired-state-file <file> reads the engine's shape from a JSON file
   instead (tests, offline dry runs), including the repo a worktree.create
   needs. The answer's hostId must equal --host either way. File shape:
@@ -124,7 +139,7 @@ Each worker appears once per list, with a reason code:
   skipped  IN_SYNC, SWEEP_NOT_APPLY, NOT_ON_HOST, NOT_REGISTERED, STOP_PENDING,
            RELAUNCH_UNPROVEN, RELAUNCH_PENDING_POLLER, SESSION_WITHOUT_WORKTREE,
            TERMINAL_WITHOUT_SESSION, DUPLICATE_AGENTS, NO_WORKTREE_SOURCE,
-           SETUP_INVALID, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
+           SETUP_INVALID, NOT_ASSIGNED, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
            or the platform's own reason
   failed   OBSERVE_FAILED, ACTION_FAILED, REFUSED, NOT_ATTEMPTED
 
@@ -217,6 +232,9 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 
 	dto := hostUpDTO{AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
 		Planned: hostUpItems(res.Planned), Applied: hostUpItems(res.Applied), Skipped: hostUpItems(res.Skipped), Failed: hostUpItems(res.Failed)}
+	if res.SetupSource != "" {
+		dto.SetupSource = &res.SetupSource
+	}
 	if res.SweepMode != "" {
 		dto.SweepMode = &res.SweepMode
 	}
@@ -337,11 +355,17 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 		// Not usage: the server answered for a host nobody asked about.
 		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server's desired state is for host %s, not %s; nothing planned", d.HostId, hostID)
 	}
-	snap := hostup.Snapshot{HostID: d.HostId, SweepMode: string(d.SweepMode)}
+	setupSource, assigned, err := s.hostSetup(ctx, hostID)
+	if err != nil {
+		return hostup.Snapshot{}, err
+	}
+	snap := hostup.Snapshot{HostID: d.HostId, SweepMode: string(d.SweepMode), SetupSource: setupSource}
+	seen := map[string]bool{}
 	for _, w := range d.Workers {
 		if w == nil {
 			continue
 		}
+		seen[w.WorkerId] = true
 		hw := hostup.Worker{WorkerID: w.WorkerId, Name: w.Name, Reason: string(w.Reason),
 			Setup: hostup.Setup{Family: w.Family}}
 		// Act only on a non-null desired: null (LEAVE_ALONE, SWEEP_OFF) stays
@@ -355,10 +379,123 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 		if w.OpenSessionId != nil {
 			hw.SessionID = *w.OpenSessionId
 		}
-		hw.Setup.Worktree, hw.Setup.Problem = serverWorktree(w.Worktrees, w.Family)
+		if setupSource == string(gen.HostSetupSourceServer) {
+			// SERVER: the platform's assignment, not the registration, names
+			// the workdir and the family. No assignment: reported, untouched.
+			a, ok := assigned[w.WorkerId]
+			if !ok {
+				hw.Unassigned = true
+			} else {
+				hw.Setup.Worktree, hw.Setup.Family, hw.Setup.Problem = assignedSetup(a)
+				if hw.Setup.Problem == "" {
+					s.repoSetup(&hw)
+				}
+			}
+		} else {
+			hw.Setup.Worktree, hw.Setup.Problem = serverWorktree(w.Worktrees, w.Family)
+		}
 		snap.Workers = append(snap.Workers, hw)
 	}
+	// An assigned worker the desired state does not list has no desired state
+	// to act on: it appears in the report, and nothing is done for it.
+	ids := make([]string, 0, len(assigned))
+	for id := range assigned {
+		if !seen[id] {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		a := assigned[id]
+		name := a.WorkerId
+		if a.Worker != nil && a.Worker.Name != "" {
+			name = a.Worker.Name
+		}
+		snap.Workers = append(snap.Workers, hostup.Worker{WorkerID: id, Name: name, Absent: true})
+	}
 	return snap, nil
+}
+
+// hostSetup reads which workers the platform assigns to this host and the App's
+// switch (hadron-server#4241, cli#2085). An empty source means "not known": a
+// server that predates hostSetup refuses the query as schema skew, and host up
+// then behaves exactly as it did (the registration names the worktree). Any
+// other failure stops the run, as does a source other than HOST or SERVER: with
+// the switch unread, the rules to plan under are not known, and nothing is
+// planned. assigned is set only under SERVER.
+func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (string, map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
+	r, err := gen.TeamHostSetup(ctx, s.client, s.app, &hostID)
+	if err != nil {
+		if api.IsSchemaSkew(err) {
+			return "", nil, nil
+		}
+		return "", nil, api.MapError(err)
+	}
+	if r == nil || r.HostSetup == nil {
+		return "", nil, exitcode.Newf(exitcode.Error, "the server answered without a host setup for host %s; nothing planned", hostID)
+	}
+	switch r.HostSetup.Source {
+	case gen.HostSetupSourceHost:
+		return string(gen.HostSetupSourceHost), nil, nil
+	case gen.HostSetupSourceServer:
+		// handled below
+	default:
+		// An empty or unknown source names no rules to plan under: stop, never
+		// fall back to HOST (LOCAL P2, Julius).
+		return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with source %q, which is neither HOST nor SERVER; nothing planned", string(r.HostSetup.Source))
+	}
+	assigned := map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment{}
+	for _, a := range r.HostSetup.Assignments {
+		if a == nil || a.HostId != hostID {
+			continue
+		}
+		assigned[a.WorkerId] = a
+	}
+	return string(gen.HostSetupSourceServer), assigned, nil
+}
+
+// repoSetup lets a missing assigned worktree be created from the worker's
+// role's repo when that is exactly one (cli#2085, the rule `worker onboard`
+// follows with its --repo). The branch is "<worker name>/<label>", both tokens;
+// a name that is not one leaves no branch, and the engine then reports
+// NO_WORKTREE_SOURCE. The repos are read lazily, only for a missing worktree.
+func (s hostUpServerSource) repoSetup(w *hostup.Worker) {
+	label := path.Base(w.Setup.Worktree)
+	branch := strings.ToLower(w.Name) + "/" + label
+	if !hostpoller.ValidNameToken(branch) {
+		return
+	}
+	w.Setup.Branch = branch
+	id := w.WorkerID
+	w.Setup.RepoSource = func(ctx context.Context) ([]string, error) {
+		r, err := gen.HostUpWorkerRepos(ctx, s.client, id)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if r == nil || r.Worker == nil {
+			return nil, errors.New("the server returned no worker")
+		}
+		var repos []string
+		for _, repo := range r.Worker.Repos {
+			if !hostpoller.ValidNameToken(repo) {
+				return nil, nil // one malformed entry: no repo is chosen
+			}
+			repos = append(repos, repo)
+		}
+		return repos, nil
+	}
+}
+
+// assignedSetup is the worktree and family an assignment names, checked like
+// every value that reaches a command line or a path: a token or a problem.
+func assignedSetup(a *gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) (worktree, family, problem string) {
+	if !hostpoller.ValidNameToken(a.Workdir) {
+		return "", "", "the assigned workdir is not a host name token"
+	}
+	if !hostpoller.ValidNameToken(a.Family) {
+		return "", "", "the assigned model family is not a host name token"
+	}
+	return a.Workdir, a.Family, ""
 }
 
 // serverWorktree picks the one worktree a worker is reconciled in, from the

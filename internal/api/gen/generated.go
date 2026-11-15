@@ -57053,6 +57053,73 @@ var AllHostSetupSource = []HostSetupSource{
 	HostSetupSourceServer,
 }
 
+// HostUpWorkerReposResponse is returned by HostUpWorkerRepos on success.
+type HostUpWorkerReposResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *HostUpWorkerReposWorker `json:"worker"`
+}
+
+// GetWorker returns HostUpWorkerReposResponse.Worker, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposResponse) GetWorker() *HostUpWorkerReposWorker { return v.Worker }
+
+// HostUpWorkerReposWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostUpWorkerReposWorker struct {
+	Id string `json:"id"`
+	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
+	// already holds the worker needs no second round-trip to teamRoles. Clients
+	// may use it to warn on a role/repo mismatch at session start; the server
+	// does not enforce a repo-affinity refusal.
+	//
+	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
+	// like memoryId and the holder — Session.worker reaches a Worker
+	// through a wider gate that admits any org member and survives a user leaving
+	// the App, so an ungated field would publish a team's repo list through any
+	// historical session.
+	//
+	// Masking to [] costs nothing, because empty already means "no affinity,
+	// never warn": a denied caller simply gets no warning, which is the safe
+	// direction for a signal that must never become a refusal. Same reason a
+	// worker with no role, a role with no definition, or an unreadable system
+	// memory all answer [] rather than erroring.
+	Repos []string `json:"repos"`
+}
+
+// GetId returns HostUpWorkerReposWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetId() string { return v.Id }
+
+// GetRepos returns HostUpWorkerReposWorker.Repos, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetRepos() []string { return v.Repos }
+
 type IdentifyUserMethod string
 
 const (
@@ -119065,6 +119132,14 @@ func (v *__HostRelaunchSnapshotInput) GetAppRef() string { return v.AppRef }
 // GetHostId returns __HostRelaunchSnapshotInput.HostId, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchSnapshotInput) GetHostId() string { return v.HostId }
 
+// __HostUpWorkerReposInput is used internally by genqlient
+type __HostUpWorkerReposInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HostUpWorkerReposInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostUpWorkerReposInput) GetRef() string { return v.Ref }
+
 // __ImpersonationSessionInput is used internally by genqlient
 type __ImpersonationSessionInput struct {
 	Ref string `json:"ref"`
@@ -146549,6 +146624,46 @@ func HostRelaunchSnapshot(
 	}
 
 	data_ = &HostRelaunchSnapshotResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostUpWorkerRepos.
+const HostUpWorkerRepos_Operation = `
+query HostUpWorkerRepos ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		repos
+	}
+}
+`
+
+// cli#2085: the repos a worker's role names (TeamRole.repos), the one source
+// `host up` may create a missing worktree from under hostSetupSource SERVER.
+// Only these fields (the full worker record carries the boot prompt). Masked to
+// [] for a caller who cannot read the worker, which `host up` treats as "no
+// repo". Sent without the worker session.
+func HostUpWorkerRepos(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HostUpWorkerReposResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostUpWorkerRepos",
+		Query:  HostUpWorkerRepos_Operation,
+		Variables: &__HostUpWorkerReposInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HostUpWorkerReposResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

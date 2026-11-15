@@ -328,3 +328,39 @@ func TestConnectedPollerStillOnlyReportsRelaunch2060(t *testing.T) {
 		t.Fatalf("connected poller was bypassed: %+v", result)
 	}
 }
+
+// cli#2085: a worker the platform does not assign to this host is reported
+// NOT_ASSIGNED and never observed or acted on, whatever its state says; an
+// assigned worker with no desired state is NOT_REGISTERED. A missing worktree
+// with a repo named still plans exactly worktree.create then worker.start.
+func TestUnassignedAndAbsentWorkersAreReportedAndNeverActedOn(t *testing.T) {
+	w := Worker{WorkerID: "w1", Name: "Iris", Desired: Running, Reason: "LONG_LIVED", Setup: setup("iris")}
+	unassigned, absent := w, Worker{WorkerID: "w2", Name: "Jonas", Absent: true}
+	unassigned.Unassigned = true
+	act := queueActuator()
+	// No observation exists for either: reading the host for them would fail.
+	res := run(t, Engine{
+		Source:   fakeSource{snap: Snapshot{HostID: "h1", SweepMode: SweepApply, SetupSource: "SERVER", Workers: []Worker{unassigned, absent}}},
+		Observer: fakeObserver{}, Actuator: act,
+	}, Options{Apply: true})
+	if got := lines(res.Skipped); !reflect.DeepEqual(got, []string{"Iris  NOT_ASSIGNED", "Jonas  NOT_REGISTERED"}) {
+		t.Fatalf("skipped = %q", got)
+	}
+	if len(res.Planned)+len(res.Applied)+len(res.Failed) != 0 || len(act.applied) != 0 {
+		t.Fatalf("nothing is planned or applied: %+v %v", res, act.applied)
+	}
+	if res.SetupSource != "SERVER" {
+		t.Fatalf("SetupSource = %q", res.SetupSource)
+	}
+}
+
+func TestMissingAssignedWorktreeWithARepoPlansCreateThenStart(t *testing.T) {
+	w := Worker{WorkerID: "w1", Name: "Iris", Desired: Running, Reason: "HOLDS_TASK", Setup: setup("iris")}
+	res := run(t, Engine{
+		Source:   fakeSource{snap: Snapshot{HostID: "h1", SweepMode: SweepApply, SetupSource: "SERVER", Workers: []Worker{w}}},
+		Observer: fakeObserver{"w1": {Registered: true}}, Actuator: queueActuator(),
+	}, Options{})
+	if got := lines(res.Planned); !reflect.DeepEqual(got, []string{"Iris worktree.create WORKTREE_MISSING", "Iris worker.start NO_SESSION"}) {
+		t.Fatalf("planned = %q", got)
+	}
+}

@@ -170,9 +170,7 @@ func fakeAgentScript(t *testing.T, dir, out string, sleep bool) string {
 }
 
 func orcaLauncherFor(t *testing.T, f *fakeOrca) OrcaLauncher {
-	// No namespace by default here: CI runners may forbid unprivileged ones.
-	// TestOrcaLaunchNamespaceIsolatesAgents2058 runs with it.
-	return OrcaLauncher{Run: f.run, StateDir: t.TempDir(), Proc: LinuxProcessControl{}, MarkerWait: 3 * time.Second, StopWait: 3 * time.Second, noNamespace: true}
+	return OrcaLauncher{Run: f.run, StateDir: t.TempDir(), Proc: LinuxProcessControl{}, MarkerWait: 3 * time.Second, StopWait: 3 * time.Second}
 }
 
 func waitFile(t *testing.T, path string) string {
@@ -342,11 +340,11 @@ func TestOrcaLaunchRefusesAProcessOutsideTheWorktree2058(t *testing.T) {
 }
 
 func TestLaunchCommandAndEnvGuards2058(t *testing.T) {
-	cmd, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "exec", PromptArg}, "incus", nil)
+	cmd, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "exec", PromptArg}, "incus")
 	if err != nil || !strings.HasPrefix(cmd, "exec sg 'incus' -c '") || strings.Contains(cmd, "\n") {
 		t.Fatalf("group command %q %v", cmd, err)
 	}
-	if _, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "a\nb"}, "", nil); err == nil {
+	if _, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "a\nb"}, ""); err == nil {
 		t.Fatal("an argv word with a newline was accepted")
 	}
 	dir := t.TempDir()
@@ -368,88 +366,6 @@ func TestLaunchCommandAndEnvGuards2058(t *testing.T) {
 	}
 	if err := writeLaunchEnv(p, []string{"A=1"}, "x"); err == nil {
 		t.Fatal("an existing env file was overwritten")
-	}
-}
-
-// namespacesAvailable: unprivileged user and PID namespaces work here (CI
-// runners may forbid them; the tests below then say so and skip).
-func namespacesAvailable(t *testing.T) {
-	t.Helper()
-	if err := exec.Command(AgentNamespace[0], append(AgentNamespace[1:], "true")...).Run(); err != nil {
-		t.Skipf("unprivileged user/PID namespaces are not available here: %v", err)
-	}
-}
-
-// The namespace prefix sits after the group wrapper and before the argv.
-func TestLaunchCommandRunsTheAgentInItsNamespace2058(t *testing.T) {
-	cmd, err := launchCommand("/s/a.env", "/s/a.marker", []string{"claude-worker", PromptArg}, "", AgentNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(cmd, "&& exec 'unshare' '--user' '--map-current-user' '--pid' '--fork' '--mount-proc' '--kill-child' 'claude-worker' \"$HADRON_FIRST_PROMPT\"") {
-		t.Fatalf("command %q", cmd)
-	}
-	// The marker is written by the shell BEFORE the exec, so it records the
-	// host-side pid, never the namespace's pid 1.
-	if strings.Index(cmd, "printf") > strings.Index(cmd, "unshare") {
-		t.Fatal("the marker is written inside the namespace")
-	}
-}
-
-// Inside the namespace the agent is pid 1 and sees only its own processes;
-// the launcher pins the HOST pid (the terminal's process); a pkill by one
-// agent cannot reach another; closing the terminal ends the agent.
-func TestOrcaLaunchNamespaceIsolatesAgents2058(t *testing.T) {
-	namespacesAvailable(t)
-	wt, tools := t.TempDir(), t.TempDir()
-	f := newFakeOrca(t)
-	l := orcaLauncherFor(t, f)
-	l.noNamespace = false // the production default: AgentNamespace
-	victimOut := filepath.Join(tools, "victim.out")
-	victim := filepath.Join(tools, "victim")
-	if err := os.WriteFile(victim, []byte("#!/bin/bash\necho \"ns-pid=$$ procs=$(ls /proc | grep -c '^[0-9]')\" > "+shq(victimOut)+"\nexec -a \"c3victim$(printf %s 9q)\" sleep 120\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	killer := filepath.Join(tools, "killer")
-	killerOut := filepath.Join(tools, "killer.out")
-	if err := os.WriteFile(killer, []byte("#!/bin/bash\npkill -f \"c3victim$(printf %s 9q)\"; echo \"pkill-exit=$?\" > "+shq(killerOut)+"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{victim, PromptArg}, Dir: wt, Prompt: "go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := waitFile(t, victimOut); !strings.HasPrefix(got, "ns-pid=1 ") {
-		t.Fatalf("the agent is not pid 1 of its own namespace: %q", got)
-	}
-	if _, pid, _ := a.Terminal(); pid <= 1 || pid != a.PID() {
-		t.Fatalf("the pinned pid %d is not a host pid", pid)
-	}
-	if _, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{killer, PromptArg}, Dir: wt, Prompt: "go"}); err != nil {
-		t.Fatal(err)
-	}
-	if got := waitFile(t, killerOut); !strings.Contains(got, "pkill-exit=1") {
-		t.Fatalf("the other agent's pkill found something: %q", got)
-	}
-	select {
-	case <-a.Done():
-		t.Fatal("a pkill from another agent's namespace ended this agent")
-	case <-time.After(700 * time.Millisecond):
-	}
-	if stopped, detail := a.TerminateWith(func() (func(), bool) { return func() {}, true }); !stopped {
-		t.Fatalf("closing the terminal did not end the namespaced agent: %s", detail)
-	}
-}
-
-// Every production launch is namespaced: the default, with no field set,
-// types the AgentNamespace prefix.
-func TestOrcaLaunchIsNamespacedByDefault2058(t *testing.T) {
-	f := newFakeOrca(t)
-	f.runNoCmd = true // nothing needs to start; the typed text is the subject
-	l := OrcaLauncher{Run: f.run, StateDir: t.TempDir(), Proc: LinuxProcessControl{}, MarkerWait: 200 * time.Millisecond}
-	_, _ = l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{"claude-worker", PromptArg}, Dir: t.TempDir(), Prompt: "go"})
-	if len(f.typed) != 1 || !strings.Contains(f.typed[0], "exec 'unshare' '--user'") || !strings.Contains(f.typed[0], "'--kill-child'") {
-		t.Fatalf("the default launch is not namespaced: %q", f.typed)
 	}
 }
 
@@ -789,5 +705,33 @@ func TestOrcaLaunchRefusesAReplacementPinnedInsteadOfTheAgent2088(t *testing.T) 
 	a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
 	if err == nil || a != nil || !strings.Contains(err.Error(), "not the one Orca's terminal runs") || len(f.closed) != 1 {
 		t.Fatalf("a replacement pinned in the agent's place: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+}
+
+// Holger's ruling (2026-11-15, relayed by Wolfgang #108664): stay as
+// Orca-conform as possible, so no per-agent PID namespace. A default launcher
+// types the agent's argv plainly after the marker, and the pinned pid is the
+// agent's own pid, the one it sees as $$.
+func TestOrcaLaunchRunsTheAgentPlainlyInOrcasScope2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	bin := filepath.Join(tools, "agent")
+	if err := os.WriteFile(bin, []byte("#!/bin/bash\necho \"$$\" > "+shq(out)+"\nexec sleep 60\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakeOrca(t)
+	l := OrcaLauncher{Run: f.run, StateDir: t.TempDir(), Proc: LinuxProcessControl{}, MarkerWait: 3 * time.Second, StopWait: 3 * time.Second}
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.typed) != 1 || strings.Contains(f.typed[0], "unshare") || !strings.Contains(f.typed[0], "&& exec "+shq(bin)+` "$HADRON_FIRST_PROMPT"`) {
+		t.Fatalf("the agent is not run plainly in the terminal: %q", f.typed)
+	}
+	if got := strings.TrimSpace(waitFile(t, out)); got != strconv.Itoa(a.PID()) {
+		t.Fatalf("the agent sees itself as pid %s, the launcher pinned %d", got, a.PID())
+	}
+	if stopped, detail := a.TerminateWith(nil); !stopped {
+		t.Fatalf("closing the terminal did not end the agent: %s", detail)
 	}
 }

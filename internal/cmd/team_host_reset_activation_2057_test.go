@@ -133,7 +133,7 @@ func TestHostResetRestartUsesRedeliveredOperation2057(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := calls()
-			want := []string{"RegisterHost", "CollectHostOperations", "ContextReset"}
+			want := []string{"RegisterHostWithRefused", "CollectHostOperations", "ContextReset"}
 			if phase == "claimed" {
 				want = append(want, "ReportContextResetRelaunchFailed")
 			}
