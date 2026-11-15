@@ -587,6 +587,8 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 	}
 	if err := a.signalAuthorized(authorize, pid, syscall.SIGTERM); errors.Is(err, errStopDeclined) {
 		return false, declinedDetail(pid)
+	} else if errors.Is(err, errAuthorityLost) {
+		return false, a.unconfirmedDetail()
 	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
 	}
@@ -601,6 +603,8 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 	}
 	if err := a.signalAuthorized(authorize, pid, syscall.SIGKILL); errors.Is(err, errStopDeclined) {
 		return false, declinedDetail(pid)
+	} else if errors.Is(err, errAuthorityLost) {
+		return false, a.unconfirmedDetail()
 	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, a.grace, err)
 	}
@@ -613,9 +617,14 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
 }
 
+// errAuthorityLost: the launch's ownership of its group number ended while the
+// authorization was waited for, so nothing was signalled.
+var errAuthorityLost = errors.New("the launch's authority over its process group ended before the signal")
+
 // signalAuthorized sends one signal to the launch's group, first asking the
 // authorization TerminateWith installed (none: a plain Terminate) and holding
-// what it grants only until the signal is sent. Called with a.mu held.
+// what it grants only until the signal is sent; authority is re-checked once
+// the authorization is held. Called with a.mu held.
 func (a *execAgent) signalAuthorized(authorize Authorize, pid int, sig syscall.Signal) error {
 	if authorize == nil {
 		return signalGroup(pid, sig)
@@ -625,6 +634,15 @@ func (a *execAgent) signalAuthorized(authorize Authorize, pid int, sig syscall.S
 		return errStopDeclined
 	}
 	defer release()
+	// The authorization may have waited (up to the binding lock's bound) for
+	// a writer. On a launch without the zombie hold the leader's exit frees
+	// the group's number unserialized with this stop, so the authority that
+	// was proved BEFORE that wait is proved again, now that the lock is held
+	// and immediately before the signal: a number that may have been reused
+	// is never signalled (hadron-cli#2082).
+	if a.stopAuthorityGone() {
+		return errAuthorityLost
+	}
 	return signalGroup(pid, sig)
 }
 

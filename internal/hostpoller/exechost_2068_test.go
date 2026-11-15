@@ -109,3 +109,47 @@ func TestExecAgentConcurrentTerminateWithKeepsEachAuthorizationItsOwn(t *testing
 		t.Fatal("the agent must be stopped")
 	}
 }
+
+// hadron-cli#2082: on a launch with no zombie hold, the leader's exit frees the
+// group's number unserialized with a stop. The authorization can wait (the
+// binding lock, up to 2 s); if the leader exits during that wait, the number
+// may be reused, so authority is proved again once the authorization is held
+// and nothing is signalled.
+func TestExecAgentTerminateWithDoesNotSignalAfterTheLeaderExitedDuringTheLockWait(t *testing.T) {
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	realWait, realSignal := waitLeaderExit, signalGroup
+	defer func() { waitLeaderExit, signalGroup = realWait, realSignal }()
+	waitLeaderExit = func(int) (leaderExit, error) { return leaderExit{kind: unknownStatus}, syscall.ENOSYS } // no hold
+	var signals atomic.Int32
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		signals.Add(1)
+		return realSignal(pgid, sig)
+	}
+	dir := t.TempDir()
+	ready := filepath.Join(dir, "up")
+	a, err := ExecHost{TerminateGrace: 200 * time.Millisecond}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"sh", "-c", `touch "$0"; while :; do sleep 1; done`, ready}, Dir: dir, Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = syscall.Kill(-a.PID(), syscall.SIGKILL) }()
+	waitFor(t, "the agent to start", func() bool { _, err := os.Stat(ready); return err == nil })
+	ea := a.(*execAgent)
+	stopped, detail := ea.TerminateWith(func() (func(), bool) {
+		// The binding lock is busy for a while; the leader exits meanwhile.
+		_ = syscall.Kill(a.PID(), syscall.SIGKILL)
+		waitFor(t, "the leader's exit to be observed", func() bool { return ea.exited.Load() })
+		return func() {}, true
+	})
+	if stopped {
+		t.Fatalf("a stop whose group number may have been reused is not a confirmed stop: %q", detail)
+	}
+	if signals.Load() != 0 {
+		t.Fatalf("%d signal(s) were sent to a group number the exited leader no longer owned", signals.Load())
+	}
+	if !strings.Contains(detail, "without the ownership hold") {
+		t.Fatalf("the report must say the process was not touched, unconfirmed and its records kept: %q", detail)
+	}
+}

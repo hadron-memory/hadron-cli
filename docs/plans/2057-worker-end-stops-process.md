@@ -77,3 +77,10 @@ the server ending a session whose process was stopped (S2), a spec change
   its binding, move its working directory); each of those makes the host signal
   nothing and say so. The host also trusts the worktree's `.git` pointer, as every
   binding reader here already does; on orca1 the poller and the agents share one uid.
+
+## #2082: authority is proved again after the lock wait
+`signalAuthorized` re-checks `stopAuthorityGone()` once the authorization (the binding lock, which can wait up
+to 2 s) is held and immediately before the signal. On a launch without the zombie hold the leader's exit frees
+the group's number unserialized with a stop, so a leader that exits during the wait could otherwise leave the
+numeric group signal to reach a reused group. A lost authority signals nothing and reports the stop unconfirmed,
+records kept.
