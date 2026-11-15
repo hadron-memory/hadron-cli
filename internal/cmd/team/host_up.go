@@ -129,14 +129,16 @@ WHAT IT NEVER DOES:
   RETIRED or SWEEP_OFF is reported and not touched. Nothing is planned unless
   the desired state's sweepMode is APPLY. A worker with an open session is
   never started again: if its agent terminal is gone it is reported
-  (RELAUNCH_UNAVAILABLE) until the host-local relaunch ships (hadron-cli#2060).
+  (RELAUNCH_UNPROVEN). This CLI has no adapter proving a live connection to
+  the poller, and does not report RELAUNCH_PENDING_POLLER. Only the periodic
+  poller relaunches an agent; this command does not trigger it.
   A worker it could not observe is reported as failed and not acted on.
 
 Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
   applied  the planned reason, with the host operation's id
   skipped  IN_SYNC, SWEEP_NOT_APPLY, NOT_ON_HOST, NOT_REGISTERED, STOP_PENDING,
-           RELAUNCH_UNAVAILABLE, SESSION_WITHOUT_WORKTREE,
+           RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
            TERMINAL_WITHOUT_SESSION, DUPLICATE_AGENTS, NO_WORKTREE_SOURCE,
            SETUP_INVALID, NOT_ASSIGNED, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
            or the platform's own reason
@@ -417,15 +419,16 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 
 // hostSetup reads which workers the platform assigns to this host and the App's
 // switch (hadron-server#4241, cli#2085). An empty source means "not known": a
-// server that predates hostSetup refuses the query as schema skew, and host up
+// server that predates hostSetup refuses that field by name, and host up
 // then behaves exactly as it did (the registration names the worktree). Any
-// other failure stops the run, as does a source other than HOST or SERVER: with
+// other failure (including validation of a different field) stops the run, as
+// does a source other than HOST or SERVER: with
 // the switch unread, the rules to plan under are not known, and nothing is
 // planned. assigned is set only under SERVER.
 func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (string, map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
 	r, err := gen.TeamHostSetup(ctx, s.client, s.app, &hostID)
 	if err != nil {
-		if api.IsSchemaSkew(err) {
+		if api.IsFrameworkValidationOnlyFor(err, "hostSetup") {
 			return "", nil, nil
 		}
 		return "", nil, api.MapError(err)
@@ -447,6 +450,9 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 	for _, a := range r.HostSetup.Assignments {
 		if a == nil || a.HostId != hostID {
 			continue
+		}
+		if _, exists := assigned[a.WorkerId]; exists {
+			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on host %s; nothing planned", a.WorkerId, hostID)
 		}
 		assigned[a.WorkerId] = a
 	}

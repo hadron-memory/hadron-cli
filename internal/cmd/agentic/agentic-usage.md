@@ -4280,6 +4280,9 @@ fastest subscribed ticker** (each tick reason's own `tickDueAt` in `dueWakes`, t
 The monitoring due-wake read always sends preview:true (cli#1984): it reserves no wake budget,
 withholds no due wakes and posts no budget notice. It does not acknowledge or deliver wakes.
 The host delivery poller keeps its spending read; the public team wakes due preview flag is separate.
+Task wakes include CHILD_CANCELLED beside CHILD_FINISHED. The due list keeps
+the TASK <handle> <id> <event> format; delivery says "child cancelled". JSON
+keeps the server event, and unknown events print as returned by the server.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
@@ -4366,7 +4369,7 @@ reason and never acted on, whatever `wouldBe` says; a null `desired` under any
 other reason is `UNKNOWN_DESIRED`. The App's switch decides where a worker's
 setup comes from (cli#2085; `hostSetup(appRef, hostId)`, hadron-server#4241,
 read without the worker session, one read per run). Under `HOST`, or on a server
-that predates `hostSetup` (a schema-skew refusal; `--json` `hostSetupSource` is
+that predates `hostSetup` (a validation refusal naming only that missing field; `--json` `hostSetupSource` is
 then null), the registration names it: exactly one registered worktree is the
 one acted on, while none, several or a value that is not a host name token is
 `SETUP_INVALID` (reported before the host is read for that worker). Under
@@ -4399,7 +4402,32 @@ Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
 `SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
 worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
 session is never started again: with its agent terminal gone it is reported
-`RELAUNCH_UNAVAILABLE` until the host-local relaunch ships (hadron-cli#2060).
+`RELAUNCH_UNPROVEN`. The current CLI has no adapter proving a live poller
+association, so it does not report `RELAUNCH_PENDING_POLLER` or trigger a
+recovery. Only the periodic poller relaunches an agent; reconciliation reports.
+
+With typed `launch_via: orca` profiles, the Linux poller's periodic pass may
+recover that same open session after two consecutive proven-absent sweeps.
+It requires matching App/server/worker/session/worktree bindings, fresh
+RUNNING desired state under APPLY, a strict process census, and exactly one
+running own-user `orca-daemon-*.scope` plus a successful terminal list.
+Missing systemd proof, a failed list, or zero/multiple scopes refuses
+`RELAUNCH_UNPROVEN`, spending no launch attempt. The daemon is checked again
+before each attempt. At most three attempts per worker per rolling hour are
+persisted before launch, including failed attempts; restart preserves that
+budget and requires two fresh absence observations. The launch uses a fresh
+recover prompt, never a new bind or `--resume`, then verifies its own pinned
+process and rechecks desired state and binding. Failed verification stops
+only that launch. Plain worktree bindings need no Git.
+
+Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
+`attempt` and the absence observation's `checkedAt`, plus a terminal handle
+when known. `noticeFailed` with `localCause` or `noticeCause` means a local
+failure could not be represented or delivered as a typed server repair.
+Setup/disk failures and unproven post-launch identity currently have no honest
+generic server reason; they remain local, never a false `CAP_REACHED` or a
+borrowed failure code. No daemon controls or separate relaunch RPC are added.
+
 An identical operation still in flight is adopted, never issued twice, and
 followed to its outcome; a finished one is not reused; a conflicting one in
 flight fails that worker's step (`ACTION_FAILED`). Every operation is issued
@@ -4424,7 +4452,7 @@ failed; exit 4 when `--worker` names a worker the host is not meant to run
 Reason codes, which are added to and never repurposed:
 - planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
 - skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
-  `RELAUNCH_UNAVAILABLE`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `RELAUNCH_UNPROVEN`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
   `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
   `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
 - failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`
@@ -4476,6 +4504,9 @@ These defaults and the management/read rules include Proposed corpus clauses;
 this describes shipped behavior, not a promotion to settled law. The server
 checks cadence, consent and authority; no local wake/budget simulation occurs.
 Adding every-tick can refuse the entire edit with TICKER_CADENCE_NEEDS_CONSENT.
+Subscribing a short-lived worker refuses with TICKER_ON_SHORT_LIVED (exit 5):
+a short-lived worker is woken by its tasks, not by tickers. Unsubscribe stays allowed.
+The JSON error envelope also carries `serverCode: "TICKER_ON_SHORT_LIVED"`.
 The CLI does not retry an uncertain write or attempt a narrower edit.
 
 JSON ticker objects use id, nullable urn, name, slug, appId, cadenceSeconds,

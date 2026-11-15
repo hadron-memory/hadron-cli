@@ -87,6 +87,9 @@ func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
 		"RegisterHost":          hostRegistrationAnswer,
 		"CollectHostOperations": `{"data":{"collectHostOperations":[` + start + `]}}`,
 		"ReportHostOperation":   `{"data":null,"errors":[{"message":"not bound yet","extensions":{"code":"HOST_OPERATION_NOT_DONE"}}]}`,
+		// C5's periodic read is separate from this explicit C3 start. OFF must
+		// neither call terminal list nor launch another agent after the refusal.
+		"HostRelaunchSnapshot": `{"data":{"myApp":{"id":"app1"},"hostDesiredState":{"hostId":"h1","sweepMode":"OFF","workers":[]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

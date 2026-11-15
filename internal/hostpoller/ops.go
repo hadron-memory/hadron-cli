@@ -195,6 +195,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the collected start carried no launch grant")
 		return
 	}
+	if w.launchesViaOrca() {
+		release, err := p.reserveWorktreeLaunch(token)
+		if err != nil {
+			p.finish(ctx, op, Failed, "", "another poller launch owns this worktree; nothing launched")
+			return
+		}
+		defer release()
+	}
 	// One agent per worktree (#472). This sees only agents THIS poller
 	// launched: after a restart, an agent still booting from an earlier
 	// launch is invisible here, and its revoked grant fails its own bind.
@@ -743,6 +751,18 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 // resets are enabled. An unreaped child keeps its pid, so an identity read
 // while Done is still open, checked after the read, is the agent's own.
 func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
+	if agent, ok := a.(*OrcaAgent); ok && agent.h != nil {
+		select {
+		case <-agent.Done():
+			return ProcessIdentity{}, false
+		default:
+		}
+		identity := agent.h.Identity()
+		if identity.PID > 0 && identity.StartTime != "" {
+			return identity, true
+		}
+	}
+
 	if p.resetDeps.Proc == nil || a.PID() <= 0 {
 		return ProcessIdentity{}, false
 	}
