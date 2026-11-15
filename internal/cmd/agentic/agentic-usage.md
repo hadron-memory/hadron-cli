@@ -4421,8 +4421,8 @@ Missing systemd proof, a failed list, or zero/multiple scopes refuses
 before each attempt. At most three attempts per worker per rolling hour are
 persisted before launch, including failed attempts; restart preserves that
 budget and requires two fresh absence observations. An unavailable strict census
-is retried as a complete fresh scan up to three times, with 20ms between failures
-and a 250ms cooperative deadline per proof. Unknown processes never prove
+is retried as a complete fresh scan up to three times, with 20ms between failed
+scans, a 1s cooperative deadline per probe and 3s total per proof. Unknown processes never prove
 absence. Exhaustion reports local `RELAUNCH_CENSUS_UNAVAILABLE`; exhaustion at
 the final guard after the journal claim still charges exactly one attempt, with
 no refund. This local reason has no typed server repair equivalent. Parent

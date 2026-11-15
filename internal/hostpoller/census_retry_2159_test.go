@@ -114,7 +114,7 @@ func TestCensusRetryDiscardsPartialProofAndBoundsCalls2159(t *testing.T) {
 	}
 }
 func TestCensusRetryUsesShortChildDeadline2159(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	d := RelaunchDependencies{Probe: func(c context.Context, _ hostrelaunch.Target) (hostrelaunch.Observation, error) {
 		<-c.Done()
@@ -202,5 +202,21 @@ func TestSlowSuccessfulFinalCensusLaunchesOnce2159(t *testing.T) {
 	}
 	if len(f.launches) != 1 || len(f.journal["id-iris"].Attempts) != 1 || result.Status != hostrelaunch.Applied {
 		t.Fatalf("slow complete proof refused: launches=%d attempts=%v result=%+v", len(f.launches), f.journal["id-iris"].Attempts, result)
+	}
+}
+
+func TestCensusProbeTimeoutCanRetryFreshProof2159(t *testing.T) {
+	calls := 0
+	d := RelaunchDependencies{Probe: func(ctx context.Context, _ hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		calls++
+		if calls == 1 {
+			<-ctx.Done()
+			return hostrelaunch.Observation{Proven: true, PIDs: []int{555}}, nil
+		}
+		return hostrelaunch.Observation{Proven: true, PIDs: []int{777}}, nil
+	}}
+	out, err := postLaunchObservation(context.Background(), &d, nil, hostrelaunch.Target{})
+	if err != nil || !out.Proven || len(out.PIDs) != 1 || out.PIDs[0] != 777 || calls != 2 {
+		t.Fatalf("expired probe was accepted or consumed the entire retry window: %+v err=%v calls=%d", out, err, calls)
 	}
 }
