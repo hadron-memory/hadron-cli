@@ -447,14 +447,16 @@ func healthContextRoots(w hostpoller.WorkerConfig) contextsize.Roots {
 
 // healthContext measures one registered worker's context size from what its
 // launcher wrote on this host. nil means "not measured": an unconfigured
-// worker, a family without a measurer, or any file that cannot be proven.
+// worker, an interface without a measurer, or any file that cannot be proven.
 func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name string, measurer *contextsize.Measurer) *contextsize.Measurement {
 	ref := cfg.RefFor(id, "", name)
 	if ref == "" {
 		return nil
 	}
 	rec := cfg.Recipient(state, ref, id)
-	return healthContextMeasurer(measurer, cfg.Workers[ref].Family, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
+	// Recipient already selects the explicit TUI, else the family's native
+	// interface. Provider identity does not determine the transcript format.
+	return healthContextMeasurer(measurer, rec.TUI, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
 }
 
 func healthSafeError(err error) error {
