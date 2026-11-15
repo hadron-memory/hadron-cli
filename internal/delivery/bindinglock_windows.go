@@ -2,6 +2,62 @@
 
 package delivery
 
-// noFollow has no open flag on Windows; the Lstat and regular-file checks in
-// LockBinding carry the refusal there.
-const noFollow = 0
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"golang.org/x/sys/windows"
+)
+
+// openLockFile opens (creating) the lock file name inside dir WITHOUT following
+// a reparse point: FILE_FLAG_OPEN_REPARSE_POINT opens a link itself rather than
+// its target, and the opened handle's own attributes are checked, so a link
+// swapped in after the caller's checks is refused, never followed or created
+// through. The directory is checked the same way on its handle. Windows has no
+// openat, so the directory and the file are two opens; a directory swapped
+// between them is the one residual, and the poller's stop path does not run
+// on Windows (StopAgents needs Linux).
+func openLockFile(dir, name string) (*os.File, error) {
+	dh, err := openNoReparse(dir, windows.FILE_FLAG_BACKUP_SEMANTICS, windows.OPEN_EXISTING)
+	if err != nil {
+		return nil, fmt.Errorf("opening the session binding location: %w", err)
+	}
+	if err := refuseReparse(dh); err != nil {
+		_ = windows.CloseHandle(dh)
+		return nil, err
+	}
+	_ = windows.CloseHandle(dh)
+	path := filepath.Join(dir, name)
+	h, err := openNoReparse(path, 0, windows.OPEN_ALWAYS)
+	if err != nil {
+		return nil, fmt.Errorf("opening the session binding lock: %w", err)
+	}
+	if err := refuseReparse(h); err != nil {
+		_ = windows.CloseHandle(h)
+		return nil, err
+	}
+	return os.NewFile(uintptr(h), path), nil
+}
+
+func openNoReparse(path string, flags uint32, disposition uint32) (windows.Handle, error) {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return 0, err
+	}
+	return windows.CreateFile(p, windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil,
+		disposition, flags|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+}
+
+func refuseReparse(h windows.Handle) error {
+	var info windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(h, &info); err != nil {
+		return err
+	}
+	if info.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+		return errors.New("the session binding location is a link, so it was not used")
+	}
+	return nil
+}

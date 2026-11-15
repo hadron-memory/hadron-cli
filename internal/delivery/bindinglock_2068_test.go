@@ -137,3 +137,26 @@ func TestLockBindingRefusesALinkedGitDirectory(t *testing.T) {
 		t.Fatal("a lock file was created through the link")
 	}
 }
+
+// Blind delta P2: a directory swapped for a link AFTER the check and before the
+// open is not followed: the file is never created where it was not validated.
+func TestLockBindingRefusesADirectorySwappedForALinkBeforeTheOpen(t *testing.T) {
+	d := gitTree(t)
+	outside := t.TempDir()
+	lockOpenHook = func(dir string) {
+		if err := os.Rename(dir, dir+".moved"); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink(outside, dir); err != nil {
+			t.Error(err)
+		}
+	}
+	defer func() { lockOpenHook = nil }()
+	if _, err := LockBinding(d, time.Second); err == nil {
+		t.Fatal("a directory swapped for a link was followed")
+	}
+	if _, err := os.Stat(filepath.Join(outside, bindingLockFileName)); err == nil {
+		t.Fatal("the lock was created through the swapped link")
+	}
+}

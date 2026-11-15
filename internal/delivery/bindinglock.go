@@ -14,6 +14,10 @@ import (
 // rename would replace the locked inode).
 const bindingLockFileName = "hadron-team-session.lock"
 
+// lockOpenHook runs between LockBinding's directory check and its open; a test
+// uses it to swap the directory the way a worker could.
+var lockOpenHook func(dir string)
+
 // ErrBindingLockBusy: the binding's writer held the lock for the whole wait.
 var ErrBindingLockBusy = errors.New("the worktree's session binding is being written")
 
@@ -55,13 +59,16 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 	if info, err := os.Lstat(dir); err != nil || !info.IsDir() {
 		return nil, errors.New("the session binding location is not a plain directory (a link or a file?), so it was not locked")
 	}
-	path := filepath.Join(dir, bindingLockFileName)
-	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
-		return nil, errors.New("the session binding lock is not a regular file (a link?), so it was not taken")
+	// The directory was checked above for a clear refusal; the open below does
+	// not trust that check (a worker can swap the directory for a link in
+	// between): it opens the directory and then the file relative to it,
+	// refusing links, so the file is created only where it was validated.
+	if lockOpenHook != nil {
+		lockOpenHook(dir)
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|noFollow, 0o600) // #nosec G304 — derived from the worktree's git dir or cache; a link is refused above and by noFollow
+	f, err := openLockFile(dir, bindingLockFileName)
 	if err != nil {
-		return nil, fmt.Errorf("opening the session binding lock: %w", err)
+		return nil, err
 	}
 	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
 		_ = f.Close()
