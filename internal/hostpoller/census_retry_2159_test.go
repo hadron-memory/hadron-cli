@@ -178,3 +178,29 @@ func TestCensusRetryRejectsLateSuccess2159(t *testing.T) {
 		t.Fatalf("late success accepted or census deadline exposed as launch timeout: %+v %v", out, err)
 	}
 }
+
+func TestSlowSuccessfulFinalCensusLaunchesOnce2159(t *testing.T) {
+	f := newLoopFixture2060(t)
+	raw := f.p.relaunch.Probe
+	calls := 0
+	f.p.relaunch.Probe = func(ctx context.Context, target hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		calls++
+		if calls == 5 { // the final guard, after the persisted attempt claim
+			if err := sleepCtx(ctx, 300*time.Millisecond); err != nil {
+				return hostrelaunch.Observation{}, err
+			}
+		}
+		return raw(ctx, target)
+	}
+	var result hostrelaunch.Result
+	f.p.relaunch.Notice = func(_ context.Context, _ hostrelaunch.Target, r hostrelaunch.Result) error { result = r; return nil }
+	for range 2 {
+		if err := f.p.Step(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		f.p.Wait()
+	}
+	if len(f.launches) != 1 || len(f.journal["id-iris"].Attempts) != 1 || result.Status != hostrelaunch.Applied {
+		t.Fatalf("slow complete proof refused: launches=%d attempts=%v result=%+v", len(f.launches), f.journal["id-iris"].Attempts, result)
+	}
+}
