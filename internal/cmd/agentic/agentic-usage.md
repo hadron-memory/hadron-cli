@@ -4341,7 +4341,7 @@ that sentence. Onboard never casts, binds a session or writes a register row.
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
 After preflight a failure prints this partial record before nonzero exit;
-timeouts leave submitted work running. Inspect `team host ops` (its BY cell reads PLATFORM (DESIRED_RUNNING) for a no-task start of a long-lived worker; --json adds issuedReason only then) after ambiguous
+timeouts leave submitted work running. Inspect `team host ops` (its BY cell reads PLATFORM (DESIRED_RUNNING) for a no-task start of a long-lived worker; --json adds issuedReason only then; against a server older than #4257 the list omits it and says so once, a stderr note or a `warnings` entry in --json) after ambiguous
 submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention

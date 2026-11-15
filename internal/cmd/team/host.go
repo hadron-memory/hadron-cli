@@ -74,6 +74,8 @@ type hostOperationDTO struct {
 	FailureReason *string         `json:"failureReason"`
 }
 
+const hostOpsNoReasonWarning = "issuedReason is not shown: this server predates hadron-server#4257 and has no such field"
+
 // readHostOperations reads one page of the App's host operations with the
 // server's reason for each (#4231), and, when the server is older than #4257 and
 // rejects that one field, reads it again without. Any other refusal is the
@@ -99,6 +101,7 @@ func readHostOperations(ctx context.Context, client graphql.Client, appRef strin
 	if err != nil {
 		return page, err
 	}
+	page.Warnings = []string{hostOpsNoReasonWarning}
 	page.HasNextPage, page.EndCursor = plain.HostOperations.HasNextPage, plain.HostOperations.EndCursor
 	for _, o := range plain.HostOperations.Items {
 		if o != nil {
@@ -122,6 +125,9 @@ type hostOperationPageDTO struct {
 	Items       []hostOperationDTO `json:"items"`
 	HasNextPage bool               `json:"hasNextPage"`
 	EndCursor   *string            `json:"endCursor"`
+	// Warnings is present only when the list was read without something the
+	// server could not give: a server older than #4257 has no issuedReason.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // jsonOrNull keeps a JSON field present as `null` rather than dropping it or
@@ -295,7 +301,7 @@ type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none; a server older than #4257 has no such field, and the list then reads without it. Whoever reads the App's tasks and events may.
+server names none; a server older than #4257 has no such field, and the list then reads without it, saying so once (a stderr note, or a warnings entry in --json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -341,6 +347,11 @@ the original cursor from --json.`,
 			page, err := readHostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
 			if err != nil {
 				return api.MapError(err)
+			}
+			if !f.JSON {
+				for _, n := range page.Warnings {
+					fmt.Fprintln(f.IOStreams.ErrOut, "note: "+n)
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {

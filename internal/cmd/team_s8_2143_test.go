@@ -70,8 +70,19 @@ func TestHostOpsFallsBackOnAServerWithoutIssuedReason2143(t *testing.T) {
 		t.Fatalf("one try with the reason, one without: %+v", *calls)
 	}
 	_, out, err = runTeamTask(t, r, "team", "host", "ops", "--json")
-	if err != nil || strings.Contains(out, "issuedReason") {
+	if err != nil || strings.Contains(out, `"issuedReason"`) {
 		t.Fatalf("no reason key from an older server: %v\n%s", err, out)
+	}
+	var page struct {
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(out), &page); err != nil || len(page.Warnings) != 1 || !strings.Contains(page.Warnings[0], "#4257") {
+		t.Fatalf("--json says once that the reason is unavailable: %v\n%s", err, out)
+	}
+	// A server that has the field says nothing.
+	_, out, err = runTeamTask(t, hostResponses(), "team", "host", "ops", "--json")
+	if err != nil || strings.Contains(out, "warnings") {
+		t.Fatalf("no warning when the reason was readable: %v\n%s", err, out)
 	}
 }
 
