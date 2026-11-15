@@ -40,6 +40,9 @@ func TestWorkerStartCannotBypassRelaunchReservation2060(t *testing.T) {
 	}
 	defer release()
 	srv.notDone["s1"] = 1
+	if err := p.register(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	p.workerStart(context.Background(), startOp())
 	if len(rec.specs) != 0 || len(host.launches) != 0 {
 		t.Fatal("worker.start bypassed relaunch owner")
