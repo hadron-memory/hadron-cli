@@ -171,16 +171,36 @@ func withRepoOverrides(ctx context.Context, args []string) context.Context {
 // off. A remote's uploadpack is not refused: both network calls pass an explicit
 // --upload-pack, which wins. Reading config executes nothing.
 func repoOverrides(ctx context.Context, dir string) (args []string, refusal string) {
+	if _, errOut, err := runGitRaw(ctx, dir, nil, "rev-parse", "--git-dir"); err != nil {
+		if strings.Contains(strings.ToLower(errOut), "not a git repository") || errors.Is(err, exec.ErrNotFound) {
+			return nil, "" // no repository, no repository config
+		}
+		return nil, "could not read the repository (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so its config could not be checked"
+	}
 	seen := map[string]bool{}
-	var filters = map[string]bool{}
+	filters := map[string]bool{}
+	last := map[string]string{} // the EFFECTIVE value of a key: the last one read, worktree after local
+	hasValue := map[string]bool{}
 	for _, scope := range []string{"--local", "--worktree"} {
-		out, _, err := runGitRaw(ctx, dir, nil, "config", scope, "--list", "-z")
+		// --includes: an explicit scope does not expand include.path /
+		// includeIf by default, and an included file is as much the worker's
+		// as the config that names it.
+		out, errOut, err := runGitRaw(ctx, dir, nil, "config", scope, "--includes", "--list", "-z")
 		if err != nil {
-			continue // not a git tree, or no such scope: nothing to read
+			// A repository with extensions.worktreeConfig and no config.worktree
+			// has nothing in that scope; anything else fails closed.
+			if scope == "--worktree" && (strings.Contains(errOut, "unable to read config file") || strings.Contains(errOut, "No such file")) {
+				continue
+			}
+			return nil, "could not read the repository's " + strings.TrimPrefix(scope, "--") + " config (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so it could not be checked"
 		}
 		for _, entry := range strings.Split(out, "\x00") {
-			key, value, _ := strings.Cut(entry, "\n")
-			if key == "" || seen[key] {
+			key, value, withValue := strings.Cut(entry, "\n")
+			if key == "" {
+				continue
+			}
+			last[key], hasValue[key] = value, withValue
+			if seen[key] {
 				continue
 			}
 			seen[key] = true
@@ -196,6 +216,10 @@ func repoOverrides(ctx context.Context, dir string) (args []string, refusal stri
 			case section == "filter" && (name == "smudge" || name == "clean" || name == "process"):
 				args = append(args, "-c", key+"=")
 				filters[sub] = true
+			case section == "diff" && (name == "textconv" || name == "external"):
+				args = append(args, "-c", key+"=")
+			case section == "credential" && name == "helper":
+				refusal = "the repository's own config sets a credential helper (" + key + "), which would run as the poller and cannot be neutralised without resetting the host user's helper"
 			case section == "remote" && (name == "proxy" || name == "vcs"):
 				// A proxy redirects the fetch; a vcs names a remote helper program.
 				// Git keeps the FIRST value of remote.* keys, so a later -c cannot
@@ -205,19 +229,35 @@ func repoOverrides(ctx context.Context, dir string) (args []string, refusal stri
 				refusal = "the repository's own config rewrites remote URLs (" + key + "), which could point the fetch at another host"
 			case section == "http" && strings.Contains(name, "proxy"):
 				refusal = "the repository's own config sets a proxy (" + key + "), which could point the fetch at another host"
-			case section == "http" && name == "sslverify" && strings.EqualFold(strings.TrimSpace(value), "false"):
-				refusal = "the repository's own config turns TLS verification off (" + key + ")"
-			case section == "diff" && (name == "textconv" || name == "external"):
-				args = append(args, "-c", key+"=")
-			case section == "credential" && name == "helper":
-				refusal = "the repository's own config sets a credential helper (" + key + "), which would run as the poller and cannot be neutralised without resetting the host user's helper"
 			}
+		}
+	}
+	// TLS verification is judged on the EFFECTIVE value of each key (git uses the
+	// last one), in any of git's spellings of false.
+	for key, v := range last {
+		section, rest, _ := strings.Cut(key, ".")
+		name := rest
+		if i := strings.LastIndex(rest, "."); i >= 0 {
+			name = rest[i+1:]
+		}
+		if section == "http" && name == "sslverify" && hasValue[key] && gitBoolFalse(v) {
+			refusal = "the repository's own config turns TLS verification off (" + key + ")"
 		}
 	}
 	for sub := range filters {
 		args = append(args, "-c", "filter."+sub+".required=false")
 	}
 	return args, refusal
+}
+
+// gitBoolFalse reports whether v is one of git's spellings of false: false, no,
+// off, 0, or the empty string.
+func gitBoolFalse(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "false", "no", "off", "0", "":
+		return true
+	}
+	return false
 }
 
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {

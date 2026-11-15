@@ -1,7 +1,6 @@
 package hostpoller
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -28,18 +27,29 @@ type ExecHost struct {
 	TerminateGrace time.Duration
 }
 
+// git runs one command on a repository the worker can write to, with the
+// hardened configuration, the repository's own command-running config
+// neutralised, and the transport allowlist (hadron-cli#2057 §10): the same rule
+// as the reset's, for every git call this host makes, so `status` never runs a
+// worker's clean filter and a fetch never follows a worker's proxy. A repository
+// config that cannot be neutralised refuses the commands that touch the network.
 func git(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	var out, errb bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errb
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(errb.String())
+	over, refusal := repoOverrides(ctx, dir)
+	if refusal != "" && len(args) > 0 {
+		switch args[0] {
+		case "fetch", "ls-remote", "pull", "push", "clone":
+			return "", errors.New(refusal)
+		}
+	}
+	out, errOut, err := runGitRaw(ctx, dir, over, args...)
+	if err != nil {
+		msg := strings.TrimSpace(errOut)
 		if msg == "" {
 			msg = err.Error()
 		}
 		return "", errors.New(msg)
 	}
-	return strings.TrimSpace(out.String()), nil
+	return strings.TrimSpace(out), nil
 }
 
 // CreateWorktree fetches the base from origin, then adds the worktree on a

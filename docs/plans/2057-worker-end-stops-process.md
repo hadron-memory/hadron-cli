@@ -154,3 +154,14 @@ The worktree's git config is untrusted; the reset allowlists rather than chasing
   a repository `url.*.insteadOf` / `pushInsteadOf`, `http.*proxy`, `http.*sslVerify=false`, `remote.*.proxy|vcs`, and
   a repository credential helper.
 - The user's own global and system git config is kept (a private remote's credential helper lives there).
+
+### C2b review round 4 (at ab8925f2)
+- **Includes.** An explicit-scope `git config --local --list` does NOT expand `include.path` / `includeIf` (probed);
+  the scan now passes `--includes`, so a filter or helper in an included file is seen. A config that cannot be read
+  (a syntax error in an include, an unreadable scope) refuses the reset: nothing is taken for "no overrides".
+- **TLS verification** is judged on the effective (last) value of each `http.*sslVerify` key, in every git spelling of
+  false (false, no, off, 0, empty), included files and worktree scope after local.
+- **Every git call the host makes** (`Inspect` before the reset, `worktree.create`, `worktree.remove`, the reset's
+  own) now goes through the one hardened runner: `status` no longer runs a worker's clean filter, `worktree add` no
+  longer runs its smudge filter, and a repository config that cannot be neutralised refuses the host's network
+  commands (found by QA's compiled-CLI run).
