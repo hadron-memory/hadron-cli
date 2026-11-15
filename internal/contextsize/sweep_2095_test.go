@@ -76,6 +76,15 @@ func TestCodexArchiveDiscoveryIsOncePerRootPerSweep2095(t *testing.T) {
 	if walks != 1 || visits > files+4 {
 		t.Fatalf("archive traversed %d times, %d visits; want one traversal of at most %d entries", walks, visits, files+4)
 	}
+	// A worker absent from the archive reads only the bounded newest candidates.
+	oldOpen := openContextFile
+	opens := 0
+	openContextFile = func(path string) (*os.File, int64, error) { opens++; return oldOpen(path) }
+	got := sweep.Measure("codex", []string{t.TempDir()}, roots, now)
+	openContextFile = oldOpen
+	if got != nil || opens != maxCandidates {
+		t.Fatalf("unmatched worker: reading=%+v, opens=%d; want no reading and %d candidates", got, opens, maxCandidates)
+	}
 	// Another root is discovered independently, and another sweep sees new files.
 	other := t.TempDir()
 	p := filepath.Join(other, "rollout-other.jsonl")
@@ -94,5 +103,28 @@ func TestCodexArchiveDiscoveryIsOncePerRootPerSweep2095(t *testing.T) {
 	}
 	if walks != 3 {
 		t.Fatalf("wanted one discovery per root/sweep, got %d", walks)
+	}
+}
+
+func TestCodexSweepRefreshesUsageWithoutOlderFallback2095(t *testing.T) {
+	root, tree := t.TempDir(), t.TempDir()
+	older, latest := filepath.Join(root, "rollout-old.jsonl"), filepath.Join(root, "rollout-new.jsonl")
+	write(t, older, codexMeta(tree)+codexTok("2026-11-15T10:00:00Z", 7, 7))
+	write(t, latest, codexMeta(tree)+codexTok("2026-11-15T10:01:00Z", 42, 42))
+	if err := os.Chtimes(older, now.Add(-time.Hour), now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	sweep := &Measurer{}
+	roots := Roots{CodexSessions: root}
+	if got := sweep.Measure("codex", []string{tree}, roots, now); got == nil || got.Tokens != 42 {
+		t.Fatalf("first reading: %+v", got)
+	}
+	write(t, latest, codexMeta(tree)+codexTok("2026-11-15T10:02:00Z", 55, 55))
+	if got := sweep.Measure("codex", []string{tree}, roots, now); got == nil || got.Tokens != 55 {
+		t.Fatalf("usage was cached: %+v", got)
+	}
+	write(t, latest, codexMeta(tree)+codexTok("2026-11-15T10:03:00Z", 0, 0))
+	if got := sweep.Measure("codex", []string{tree}, roots, now); got != nil {
+		t.Fatalf("fell back from newest unusable rollout: %+v", got)
 	}
 }

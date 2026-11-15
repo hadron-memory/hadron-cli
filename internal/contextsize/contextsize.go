@@ -70,10 +70,8 @@ func DefaultRoots() Roots {
 
 // Measurer owns the discovery work shared by one health sweep.
 // The zero value is ready to use; do not retain it across sweeps.
-type Measurer struct{}
-
-func (m *Measurer) Measure(family string, worktrees []string, roots Roots, now time.Time) *Measurement {
-	return Measure(family, worktrees, roots, now)
+type Measurer struct {
+	codexCandidates map[string][]string
 }
 
 // Filesystem seams let tests replace a rollout at the open boundary and count
@@ -86,6 +84,12 @@ var walkCodexSessions = filepath.WalkDir
 // "claude" and "codex" have a measurer; every other family returns nil.
 // `now` bounds a reading that claims to be from the future.
 func Measure(family string, worktrees []string, roots Roots, now time.Time) *Measurement {
+	return (&Measurer{}).Measure(family, worktrees, roots, now)
+}
+
+// Measure reuses candidate discovery for each Codex root within this sweep.
+// Calls on one Measurer must be sequential; measurements themselves are not cached.
+func (sweep *Measurer) Measure(family string, worktrees []string, roots Roots, now time.Time) *Measurement {
 	var best *Measurement
 	for _, wt := range worktrees {
 		var m *Measurement
@@ -93,7 +97,7 @@ func Measure(family string, worktrees []string, roots Roots, now time.Time) *Mea
 		case "claude":
 			m = measureClaude(roots.ClaudeProjects, wt, now)
 		case "codex":
-			m = measureCodex(roots.CodexSessions, wt, now)
+			m = sweep.measureCodex(roots.CodexSessions, wt, now)
 		default:
 			return nil
 		}
@@ -136,10 +140,30 @@ func measureClaude(root, worktree string, now time.Time) *Measurement {
 	return m
 }
 
-func measureCodex(root, worktree string, now time.Time) *Measurement {
+func (m *Measurer) measureCodex(root, worktree string, now time.Time) *Measurement {
 	if root == "" || worktree == "" {
 		return nil
 	}
+	root = filepath.Clean(root)
+	if m.codexCandidates == nil {
+		m.codexCandidates = map[string][]string{}
+	}
+	files, found := m.codexCandidates[root]
+	if !found {
+		files = discoverCodex(root)
+		m.codexCandidates[root] = files
+	}
+	for _, path := range files {
+		reading, attributed := codexForWorktree(path, worktree, now)
+		if attributed {
+			// Never fall back from this worktree's newest rollout.
+			return reading
+		}
+	}
+	return nil
+}
+
+func discoverCodex(root string) []string {
 	var files []string
 	_ = walkCodexSessions(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -150,17 +174,27 @@ func measureCodex(root, worktree string, now time.Time) *Measurement {
 		}
 		return nil
 	})
-	for i, p := range newestFirst(files) {
-		if i >= maxCandidates {
-			break
-		}
-		if !codexCwdIs(p, worktree) {
-			continue
-		}
-		m, _ := CodexFromFile(p, now)
-		return m // the newest rollout for this worktree is the current one
+	ordered := newestFirst(files)
+	if len(ordered) > maxCandidates {
+		ordered = ordered[:maxCandidates]
 	}
-	return nil
+	// Retain only the bounded candidates, not the entire archive's backing array.
+	return append([]string(nil), ordered...)
+}
+
+// Attribution and usage must come from the same descriptor. Replacing the
+// pathname after opening cannot substitute another worktree's measurement.
+func codexForWorktree(path, worktree string, now time.Time) (*Measurement, bool) {
+	f, size, err := openContextFile(path)
+	if err != nil {
+		return nil, false
+	}
+	defer func() { _ = f.Close() }()
+	if !codexCwdIs(f, size, worktree) {
+		return nil, false
+	}
+	reading, _ := codexUsage(f, size, now)
+	return reading, true
 }
 
 func newestFirst(paths []string) []string {
@@ -291,12 +325,7 @@ func ClaudeFromFile(path, worktree string, now time.Time) (*Measurement, bool) {
 	return nil, false
 }
 
-func codexCwdIs(path, worktree string) bool {
-	f, size, err := openContextFile(path)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = f.Close() }()
+func codexCwdIs(f *os.File, size int64, worktree string) bool {
 	n := int64(maxHeader)
 	if size < n {
 		n = size
@@ -332,6 +361,10 @@ func CodexFromFile(path string, now time.Time) (*Measurement, bool) {
 		return nil, false
 	}
 	defer func() { _ = f.Close() }()
+	return codexUsage(f, size, now)
+}
+
+func codexUsage(f *os.File, size int64, now time.Time) (*Measurement, bool) {
 	ls, ok := tailLines(f, size)
 	if !ok {
 		return nil, false
