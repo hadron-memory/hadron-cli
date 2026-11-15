@@ -160,6 +160,8 @@ type fakeHost struct {
 	// betweenCheckAndStop runs inside StopAgents, before its still check:
 	// the window in which a replacement session can bind.
 	betweenCheckAndStop func()
+	// inspectErr fails Inspect (an untrusted repo config, say).
+	inspectErr error
 	// resets records the paths ResetWorkspace was asked about; resetOut/resetErr
 	// are its answers; resetOrder, when set, is told "reset" at the call so a
 	// test can pin it before the launch.
@@ -226,6 +228,9 @@ func (h *fakeHost) CreateWorktree(_ context.Context, _, path, branch, _ string) 
 func (h *fakeHost) Inspect(_ context.Context, path string) (WorktreeState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.inspectErr != nil {
+		return WorktreeState{}, h.inspectErr
+	}
 	return h.trees[path], nil
 }
 

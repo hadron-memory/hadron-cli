@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// resetAfterFetch is a test seam, called right after the fetch.
+var resetAfterFetch func()
+
 // resetFetchTimeout bounds the fetch: a stalled remote must not hold a start.
 const resetFetchTimeout = 2 * time.Minute
 
@@ -75,6 +78,9 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	cancel()
 	if err != nil {
 		return refuse(CodeResetFailed, fmt.Sprintf("git fetch %s failed: %s", remote, firstNonEmpty(errOut, err.Error()))), nil
+	}
+	if resetAfterFetch != nil {
+		resetAfterFetch() // test seam: what a ref moved between the fetch and the read would look like
 	}
 	rescued, err := recordRescueRefs(ctx, dir, now)
 	if err != nil {
@@ -248,6 +254,19 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 	sha, _, verr := runGitTree(ctx, dir, "rev-parse", "--verify", "-q", ref+"^{commit}")
 	if verr != nil || sha == "" {
 		return "", "", fmt.Errorf("%s's default branch %s was not fetched", remote, branch)
+	}
+	// What was fetched must be what the remote says its default branch is: the
+	// ls-remote answer names the tip, so a tracking ref that points elsewhere (a
+	// refspec or a ref moved by someone else) never gets checked out. A remote
+	// that moved between the fetch and this read refuses too: try again.
+	var head string
+	for _, l := range strings.Split(out, "\n") {
+		if f := strings.Fields(l); len(f) == 2 && f[1] == "HEAD" && !strings.HasPrefix(l, "ref:") {
+			head = f[0]
+		}
+	}
+	if head == "" || head != sha {
+		return "", "", fmt.Errorf("the fetched %s/%s (%.12s) is not the tip %s reports for its default branch (%.12s); nothing was moved", remote, branch, sha, remote, head)
 	}
 	return remote + "/" + branch, sha, nil
 }

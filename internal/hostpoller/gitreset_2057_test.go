@@ -621,3 +621,64 @@ func TestExecHostGitCallsRunOnATrustedConfig(t *testing.T) {
 		t.Fatalf("st=%+v err=%v", st, err)
 	}
 }
+
+// §10 (Rook, df95c30b): remote.origin.fetch decides which remote ref lands on
+// refs/remotes/origin/main, the commit the reset checks out. Only the standard
+// mapping is inert; a refspec that maps another branch there is refused, not
+// followed (the probe checked out 'evil' while reporting origin/main).
+func TestResetWorktreeRefusesANonStandardFetchRefspec(t *testing.T) {
+	for refspec, ok := range map[string]bool{
+		"+refs/heads/*:refs/remotes/origin/*":        true,
+		"refs/heads/*:refs/remotes/origin/*":         true,
+		"+refs/heads/main:refs/remotes/origin/main":  true,
+		"+refs/heads/evil:refs/remotes/origin/main":  false,
+		"+refs/heads/*:refs/remotes/upstream/*":      false,
+		"+refs/heads/*:refs/remotes/origin/main":     false,
+		"+refs/*:refs/*":                             false,
+		"+refs/pull/*/head:refs/remotes/origin/pr/*": false,
+		"+refs/heads/evil":                           false,
+		"+refs/heads/*:refs/heads/*":                 false,
+	} {
+		origin, clone := resetRepo(t)
+		advanceOrigin(t, origin)
+		gitIn(t, clone, "config", "--replace-all", "remote.origin.fetch", refspec)
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil {
+			t.Fatalf("%s: %v", refspec, err)
+		}
+		if ok && !out.Reset {
+			t.Errorf("%q must be accepted: %+v", refspec, out)
+		}
+		if !ok && (out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "remote.origin.fetch")) {
+			t.Errorf("%q must be refused naming the key: %+v", refspec, out)
+		}
+	}
+}
+
+// The fetched default branch must be the tip the remote reports. A tracking ref
+// that points elsewhere (here moved right after the fetch) is never checked out.
+func TestResetWorktreeRefusesAFetchedTipThatIsNotWhatTheRemoteReports(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	old := gitIn(t, clone, "rev-parse", "HEAD")
+	resetAfterFetch = func() { gitIn(t, clone, "update-ref", "refs/remotes/origin/main", old) }
+	defer func() { resetAfterFetch = nil }()
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "not the tip") {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != old {
+		t.Fatal("a refused reset moved HEAD")
+	}
+}
+
+// §10 note: an unreadable worktree-scope config fails closed.
+func TestResetWorktreeFailsClosedOnAnUnreadableWorktreeScope(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "config", "extensions.worktreeConfig", "true")
+	_ = os.WriteFile(filepath.Join(clone, ".git", "config.worktree"), []byte("[filter \"evil\"\n"), 0o644)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Reset || out.Code != CodeResetFailed {
+		t.Fatalf("an unreadable config.worktree must refuse: out=%+v err=%v", out, err)
+	}
+}

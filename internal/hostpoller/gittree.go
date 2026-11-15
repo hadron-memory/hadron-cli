@@ -197,7 +197,7 @@ func untrustedRepoConfig(ctx context.Context, dir string) string {
 			if key == "" {
 				continue
 			}
-			if !inertConfigKey(key) {
+			if !inertConfigKey(key, value) {
 				return "the repository's own config sets " + key + ", which is not on the allowlist of inert keys; nothing was run, fetched or moved"
 			}
 			if scope == "--local" && key == "extensions.worktreeconfig" && !gitBoolFalse(value) {
@@ -221,7 +221,7 @@ func gitBoolFalse(v string) bool {
 // inertConfigKey reports whether key (as git lists it: lowercase section and
 // variable, case-preserved subsection) is one a clone carries and that can run
 // nothing.
-func inertConfigKey(key string) bool {
+func inertConfigKey(key, value string) bool {
 	section, rest, ok := strings.Cut(key, ".")
 	if !ok {
 		return false
@@ -238,7 +238,12 @@ func inertConfigKey(key string) bool {
 		}
 	case "remote":
 		if sub != "" {
-			return name == "url" || name == "fetch"
+			// The fetch refspec decides which remote ref lands on the tracking
+			// ref the reset checks out: only the standard mapping is inert.
+			if name == "fetch" {
+				return standardRefspec(sub, value)
+			}
+			return name == "url"
 		}
 		return name == "pushdefault"
 	case "branch":
@@ -251,6 +256,25 @@ func inertConfigKey(key string) bool {
 		return sub == "" && name == "worktreeconfig"
 	}
 	return false
+}
+
+// standardRefspec reports whether v maps the remote's branches onto that same
+// remote's tracking namespace and nothing else: +refs/heads/*:refs/remotes/<r>/*,
+// or the single-branch form +refs/heads/<b>:refs/remotes/<r>/<b>. A refspec that
+// lands another branch on refs/remotes/<r>/main would make the reset check out
+// the wrong commit while reporting the default branch.
+func standardRefspec(remote, v string) bool {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "+")
+	src, dst, ok := strings.Cut(v, ":")
+	if !ok {
+		return false
+	}
+	wantDst := "refs/remotes/" + remote + "/"
+	if src == "refs/heads/*" {
+		return dst == wantDst+"*"
+	}
+	b, isHead := strings.CutPrefix(src, "refs/heads/")
+	return isHead && b != "" && !strings.Contains(b, "*") && dst == wantDst+b
 }
 
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {

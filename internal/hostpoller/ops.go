@@ -175,7 +175,12 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		return
 	}
 	dir := p.cfg.WorktreePath(token)
-	if st, err := p.host.Inspect(ctx, dir); err != nil || !st.Exists {
+	if st, err := p.host.Inspect(ctx, dir); err != nil {
+		// An error is not "does not exist": an untrusted repo config (nothing was
+		// run on the tree) and an unreadable one say what they are.
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("could not inspect worktree %q: %s; nothing was launched", token, err.Error()))
+		return
+	} else if !st.Exists {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q does not exist on this host", token))
 		return
 	}

@@ -134,3 +134,20 @@ func TestWorkerStartAlreadyBoundIsNotReset(t *testing.T) {
 		t.Fatalf("resets=%v launches=%d", host.resets, len(host.launches))
 	}
 }
+
+// Jill's local P3: an Inspect error is not "does not exist". An untrusted repo
+// config says what it is, and nothing is launched.
+func TestWorkerStartReportsAnInspectErrorAsItIs(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.inspectErr = &UntrustedConfigError{Why: "the repository's own config sets filter.evil.smudge, which is not on the allowlist"}
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	r := only(t, srv)
+	if r.outcome != Failed || !strings.Contains(r.reason, "untrusted repo config") || strings.Contains(r.reason, "does not exist") {
+		t.Fatalf("%+v", r)
+	}
+	if len(host.launches) != 0 {
+		t.Fatal("nothing may launch on a tree that could not be inspected")
+	}
+}
