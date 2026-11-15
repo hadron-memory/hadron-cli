@@ -1599,7 +1599,7 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
   """
   type: String!
 
@@ -5776,7 +5776,7 @@ type DueTaskReason {
   """
   handle: String!
 
-  """The task's id (for CHILD_FINISHED, the child's)."""
+  """The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's)."""
   id: ID!
 
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
@@ -6826,6 +6826,49 @@ type HostSetup {
 enum HostSetupSource {
   HOST
   SERVER
+}
+
+"""
+#4233 (S10 of #4229): one run of a host's sweep, as the host reported it.
+"""
+type HostSweepRun {
+  applied: Int!
+  endedAt: DateTime!
+  failed: Int!
+  hostId: String!
+  id: ID!
+
+  """At most 50 lines."""
+  lines: [HostSweepRunLine!]!
+
+  """OBSERVE or APPLY; a sweep in mode OFF records nothing."""
+  mode: SweepMode!
+  planned: Int!
+
+  """When the server stored the run."""
+  recordedAt: DateTime!
+
+  """The host's own token for the run."""
+  runId: String!
+  skipped: Int!
+  startedAt: DateTime!
+}
+
+"""
+#4233: one worker's line in a sweep run: the worker as the host named it, what became of it, and a reason code.
+"""
+type HostSweepRunLine {
+  outcome: SweepRunOutcome!
+
+  """A code (capital letters, digits, underscores), never text."""
+  reason: String!
+  worker: String!
+}
+
+input HostSweepRunLineInput {
+  outcome: SweepRunOutcome!
+  reason: String!
+  worker: String!
 }
 
 """
@@ -10742,6 +10785,16 @@ type Mutation {
   A caller without an Agent receives WITHHELD with code only, no task loc/URN and no register lookup.
   """
   recordAppAction(appRef: ID!, code: String!, payload: JSON, taskRef: ID): RecordAppActionResult!
+
+  """
+  #4233 (S10 of #4229) — a host records one run of its sweep. The host key only (HOST_KEY_REQUIRED otherwise); the
+  host is the key's own. The whole report is validated first and a malformed one stores nothing (BAD_USER_INPUT): a
+  mode of OBSERVE or APPLY, counts from 0, at most 50 lines of worker token, outcome and reason code, and no free
+  text. The same runId for the same host is the same run: a replay returns it and changes nothing. A run that applied
+  or failed something produces ONE summary post in the App's team chat, from the platform, and a run that changed
+  nothing posts nothing. Recording a run ends the host's stale-sweep alarm episode.
+  """
+  recordHostSweepRun(input: RecordHostSweepRunInput!): HostSweepRun!
 
   """
   #1332 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — record the result of running the node's validation task on revision nodeRevision of the node. Advisory: it never edits the node or blocks a write, and a report for an older revision is stored as history without changing the current revision's state. validationTaskRef is the task the node's role rule names NOW (its id or node URN; read it from NodeRoleRule.validationTask) and validationTaskRevision the task revision that ran.
@@ -15576,9 +15629,11 @@ type Query {
 
   """
   #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-  host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
-  registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
-  registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
+  host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+  (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+  live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+  assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+  one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
   Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
   that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
   answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -15605,6 +15660,14 @@ type Query {
   FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
   """
   hostSetup(appRef: String!, hostId: String): HostSetup!
+
+  """
+  #4233 (S10 of #4229) — the recorded runs of one host's sweep, newest first: when each ran, its mode, the counts
+  planned, applied, skipped and failed, and up to 50 per-worker lines with reason codes. Read by whoever reads the
+  App's tasks and events (a participant, the App's own key) and by a host key for ITS OWN host only: another host
+  answers HOST_NOT_FOUND, exactly as a host the App does not have. limit is 1 to 100 (default 20). Reads only.
+  """
+  hostSweepRuns(appRef: String!, hostId: String!, limit: Int): [HostSweepRun!]!
 
   """
   One admin-impersonation audit record by id. Resolvable to the session's
@@ -17053,6 +17116,31 @@ enum ReadyFilter {
 type RecordAppActionResult {
   action: TickAction!
   eventId: ID!
+}
+
+input RecordHostSweepRunInput {
+  appRef: String!
+  applied: Int!
+
+  """
+  Not before startedAt, not more than two minutes ahead of the server, and within an hour of startedAt.
+  """
+  endedAt: DateTime!
+  failed: Int!
+
+  """At most 50."""
+  lines: [HostSweepRunLineInput!]
+
+  """OBSERVE or APPLY."""
+  mode: SweepMode!
+  planned: Int!
+
+  """
+  A token of 1 to 64 letters, digits and . _ : - that names this run for this host; a replay is the same run.
+  """
+  runId: String!
+  skipped: Int!
+  startedAt: DateTime!
 }
 
 type RecoveryEdgesPage {
@@ -19611,6 +19699,13 @@ enum SweepMode {
   OFF
 }
 
+"""#4233: what a sweep did to one worker in one run."""
+enum SweepRunOutcome {
+  APPLIED
+  FAILED
+  SKIPPED
+}
+
 enum SyncStatus {
   ERROR
   OK
@@ -19627,7 +19722,12 @@ enum TaskWakeEvent {
   ASSIGNED
 
   """
-  A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  """
+  CHILD_CANCELLED
+
+  """
+  A child task finished; the reason names the child. Due to the child's owner (hrn:node:hadronmemory.com:specs:cor:agt:050:16) and, #4234, to the parent's current assignee.
   """
   CHILD_FINISHED
 
@@ -21870,6 +21970,22 @@ type WorkerTerminal {
   """Required for locked and dark, null otherwise."""
   reason: WorkerTerminalReason
 
+  """
+  #4247 — what the host did about this dark worker, stored for RELAUNCH_REFUSED and RELAUNCH_FAILED only. Null for the
+  other outcomes (they are not stored) and when the report carried none; the next report replaces it.
+  """
+  repair: WorkerTerminalRepair
+
+  """
+  #4247 — the relaunch's attempt number, at least 1. Null exactly when repair is.
+  """
+  repairAttempt: Int
+
+  """
+  #4247 — why the relaunch was refused or failed. Null exactly when repair is.
+  """
+  repairReason: WorkerTerminalRepairReason
+
   """When the server stored the report."""
   reportedAt: DateTime!
   status: WorkerTerminalState!
@@ -21917,7 +22033,7 @@ type WorkerTerminalRef {
 }
 
 """
-#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
+#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
 """
 type WorkerTerminalRefusal {
   code: String!
@@ -21940,12 +22056,57 @@ enum WorkerTerminalRepair {
 
   """The host relaunched the worker; carries attempt."""
   RELAUNCHED
+
+  """
+  #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
+  (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT) and attempt.
+  """
+  RELAUNCH_FAILED
+
+  """
+  #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
+  refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
+  """
+  RELAUNCH_REFUSED
+}
+
+"""
+#4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
+the last three with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+"""
+enum WorkerTerminalRepairReason {
+  """Another agent is already running in the worker's place."""
+  DUPLICATE_AGENT
+
+  """The worker is halted."""
+  HALTED
+
+  """The worker's identity does not match its launch snapshot."""
+  IDENTITY_MISMATCH
+
+  """The launcher exited non-zero."""
+  LAUNCH_EXIT_NONZERO
+
+  """The worker is marked leave-alone."""
+  LEAVE_ALONE
+
+  """The worker has no launcher profile."""
+  NO_LAUNCHER_PROFILE
+
+  """The worker is paused."""
+  PAUSED
+
+  """Orca refused to create the terminal."""
+  TERMINAL_CREATE_REFUSED
+
+  """The relaunch timed out."""
+  TIMEOUT
 }
 
 """#2771 — one worker's terminal report. There is no free-text field."""
 input WorkerTerminalReportInput {
   """
-  The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+  The relaunch's attempt number, at least 1: required with RELAUNCHED, RELAUNCH_REFUSED and RELAUNCH_FAILED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
   """
   attempt: Int
 
@@ -21977,6 +22138,12 @@ input WorkerTerminalReportInput {
   locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
   """
   repair: WorkerTerminalRepair
+
+  """
+  #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
+  outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
+  """
+  repairReason: WorkerTerminalRepairReason
   status: WorkerTerminalState!
 
   """A worker this host registers: its id, URN or name within the App."""
