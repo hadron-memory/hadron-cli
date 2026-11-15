@@ -64,6 +64,7 @@ func TestResetStillRequiresItsIdAndSession2117(t *testing.T) {
 // "finished task" line.
 func TestCapResetRegistersNoTaskAndNamesItsCause2117(t *testing.T) {
 	x := newFwdFixture(t)
+	x.fr.claim.Cause = "context-cap"
 	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
 	x.p.runReset(context.Background(), capOp(nil, false), "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
 	x.wantCalls(t,
@@ -95,7 +96,7 @@ func TestCapResetWithoutAReportedCauseSaysSo2117(t *testing.T) {
 	x := newFwdFixture(t)
 	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
 	op := capOp(nil, false)
-	delete(op.Args, "cause")
+	delete(op.Args, "cause") // and the claim carries none either
 	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
 	c := x.fr.checkpoint.Content
 	if strings.Contains(c, "finished task") || strings.Contains(c, ": \n") {
@@ -128,5 +129,33 @@ func TestTaskEndResetWithACauseArgPrintsItsTaskLine2117(t *testing.T) {
 	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
 	if !strings.Contains(x.fr.checkpoint.Content, "- finished task: t1\n") || strings.Contains(x.fr.checkpoint.Content, "reset because") {
 		t.Fatalf("%s", x.fr.checkpoint.Content)
+	}
+}
+
+// hadron-server#4258 also puts the cause in the op args: a cap op whose args carry
+// it works when the claim carries none (Wolfgang #108845).
+func TestCapResetNamesItsCauseFromTheOpArgsToo2117(t *testing.T) {
+	x := newFwdFixture(t)
+	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
+	op := capOp(nil, false)            // args carry cause: context-cap; the claim's ContextReset carries none
+	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
+	c := x.fr.checkpoint.Content
+	if !strings.Contains(c, "reset because: context-cap") || strings.Contains(c, "finished task") {
+		t.Fatalf("the args' cause was not used:\n%s", c)
+	}
+}
+
+// The claim's record wins over the args if the two ever differ (it is the server's
+// own row), and the checkpoint prints one cause line, not two.
+func TestCapResetPrefersTheClaimsCause2117(t *testing.T) {
+	x := newFwdFixture(t)
+	x.fr.claim.Cause = "context-cap"
+	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
+	op := capOp(nil, false)
+	op.Args["cause"] = "task-end"
+	x.p.runReset(context.Background(), op, "iris", "repo/iris", GitTreeState{InGit: true, Upstream: "origin/iris/work"}, x.h, x.agent)
+	c := x.fr.checkpoint.Content
+	if strings.Count(c, "reset because") != 1 || !strings.Contains(c, "reset because: context-cap") {
+		t.Fatalf("%s", c)
 	}
 }

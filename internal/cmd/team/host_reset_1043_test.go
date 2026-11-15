@@ -238,16 +238,25 @@ func TestHostReadResetWithoutAnswerIsAnError1043(t *testing.T) {
 
 // hadron-cli#2117: a context-cap reset (hadron-server#4258) has a null task and
 // a cause.
-const capResetStep = `{"refused":null,"replayed":false,"reset":{"id":"r1","epoch":1,"phase":"claimed","reason":null,"workerId":"w1","sessionId":"s1","taskId":null,"stopGrantedAt":null,"stopLeaseMs":null,"checkpointNode":null}}`
+const capResetStep = `{"refused":null,"replayed":false,"reset":{"id":"r1","epoch":1,"phase":"claimed","reason":null,"workerId":"w1","sessionId":"s1","taskId":null,"cause":"context-cap","stopGrantedAt":null,"stopLeaseMs":null,"checkpointNode":null}}`
 
-func TestHostResetReadsANullTask2117(t *testing.T) {
+func TestHostResetReadsANullTaskAndTheCause2117(t *testing.T) {
 	w := &resetWire{body: `{"data":{"claimContextReset":` + capResetStep + `}}`}
 	got, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{PID: 1, StartTime: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Reset.TaskID != "" {
-		t.Fatalf("task %q, want none", got.Reset.TaskID)
+	if got.Reset.TaskID != "" || got.Reset.Cause != "context-cap" {
+		t.Fatalf("task %q cause %q, want no task and context-cap", got.Reset.TaskID, got.Reset.Cause)
+	}
+}
+
+func TestHostResetReadsATaskEndCause2117(t *testing.T) {
+	body := `{"refused":null,"replayed":false,"reset":{"id":"r1","epoch":1,"phase":"claimed","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","cause":"task-end","stopGrantedAt":null,"stopLeaseMs":null,"checkpointNode":null}}`
+	w := &resetWire{body: `{"data":{"claimContextReset":` + body + `}}`}
+	got, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{PID: 1, StartTime: "1"})
+	if err != nil || got.Reset.TaskID != "t1" || got.Reset.Cause != "task-end" {
+		t.Fatalf("got %+v err %v", got.Reset, err)
 	}
 }
 

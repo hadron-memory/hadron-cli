@@ -33,7 +33,7 @@ func resetStepFrom(f *gen.ContextResetStepFields) (hostpoller.ResetStep, error) 
 
 func resetFrom(r *gen.ContextResetFields) hostpoller.ContextReset {
 	out := hostpoller.ContextReset{
-		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId,
+		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId, Cause: r.Cause,
 		StopGranted: r.StopGrantedAt != nil,
 	}
 	if r.TaskId != nil {

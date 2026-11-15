@@ -26,13 +26,17 @@ type ProcessIdentity struct {
 
 // ContextReset is the part of the server's reset record the handler reads.
 type ContextReset struct {
-	ID          string
-	Epoch       int
-	Phase       string
-	Reason      string
-	WorkerID    string
-	SessionID   string
-	TaskID      string
+	ID        string
+	Epoch     int
+	Phase     string
+	Reason    string
+	WorkerID  string
+	SessionID string
+	TaskID    string
+	// Cause is what asked for the reset: task-end (a task's finish or cancel)
+	// or context-cap (the Agent's context cap, hadron-server#4258); empty from
+	// a server that does not say (hadron-cli#2117).
+	Cause       string
 	StopGranted bool
 	StopLeaseMs int
 	// CheckpointNode is the v2 URN of the checkpoint node registered for
