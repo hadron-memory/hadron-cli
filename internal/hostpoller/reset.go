@@ -8,7 +8,7 @@ import (
 
 // OpWorkerResetContext is the capability-gated operation (#2162,
 // cor:agt:050:27): reset a worker's context after its task, keeping the
-// binding. Args {workerId, sessionId, taskId, resetId}; no epoch, the claim
+// binding. Args {workerId, sessionId, resetId, taskId?} (taskId is absent for a context-cap reset, hadron-cli#2117); no epoch, the claim
 // is made at 0 and moves it (hadron-cli#1043).
 const OpWorkerResetContext = "worker.reset-context"
 

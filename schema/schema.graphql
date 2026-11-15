@@ -408,6 +408,14 @@ type Agent {
   this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
   """
   clonedFromAgentRef: String
+
+  """
+  #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+  above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+  worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+  for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+  """
+  contextCap: Int
   createdAt: DateTime!
   description: String
 
@@ -4489,6 +4497,11 @@ type ContextReset {
   appId: ID!
 
   """
+  #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
+  """
+  cause: String!
+
+  """
   #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
   """
   checkpointNode: String
@@ -4515,7 +4528,11 @@ type ContextReset {
   """
   stopGrantedAt: DateTime
   stopLeaseMs: Int
-  taskId: ID!
+
+  """
+  Null for a reset with no task: one asked for by the Agent's context cap (#4225).
+  """
+  taskId: ID
   workerId: ID!
 }
 
@@ -8919,6 +8936,10 @@ type Mutation {
   orgId accepts the org's ID or URN.
   """
   createAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted or null is no cap.
+    """
+    contextCap: Int
     description: String
 
     """#4224: omitted or null is LONG_LIVED."""
@@ -11936,6 +11957,10 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted leaves it, null clears it (no cap).
+    """
+    contextCap: Int
     description: String
 
     """#4224: omitted or null leaves it unchanged."""
@@ -15576,9 +15601,11 @@ type Query {
 
   """
   #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-  host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
-  registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
-  registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
+  host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+  (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+  live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+  assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+  one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
   Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
   that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
   answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -17122,7 +17149,11 @@ input RegisterContextResetRecoveryInput {
 
   """The reset's own session and task."""
   sessionId: ID!
-  taskId: ID!
+
+  """
+  The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
+  """
+  taskId: ID
 }
 
 """
@@ -21870,6 +21901,22 @@ type WorkerTerminal {
   """Required for locked and dark, null otherwise."""
   reason: WorkerTerminalReason
 
+  """
+  #4247 — what the host did about this dark worker, stored for RELAUNCH_REFUSED and RELAUNCH_FAILED only. Null for the
+  other outcomes (they are not stored) and when the report carried none; the next report replaces it.
+  """
+  repair: WorkerTerminalRepair
+
+  """
+  #4247 — the relaunch's attempt number, at least 1. Null exactly when repair is.
+  """
+  repairAttempt: Int
+
+  """
+  #4247 — why the relaunch was refused or failed. Null exactly when repair is.
+  """
+  repairReason: WorkerTerminalRepairReason
+
   """When the server stored the report."""
   reportedAt: DateTime!
   status: WorkerTerminalState!
@@ -21917,7 +21964,7 @@ type WorkerTerminalRef {
 }
 
 """
-#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
+#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
 """
 type WorkerTerminalRefusal {
   code: String!
@@ -21940,12 +21987,57 @@ enum WorkerTerminalRepair {
 
   """The host relaunched the worker; carries attempt."""
   RELAUNCHED
+
+  """
+  #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
+  (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT) and attempt.
+  """
+  RELAUNCH_FAILED
+
+  """
+  #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
+  refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
+  """
+  RELAUNCH_REFUSED
+}
+
+"""
+#4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
+the last three with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+"""
+enum WorkerTerminalRepairReason {
+  """Another agent is already running in the worker's place."""
+  DUPLICATE_AGENT
+
+  """The worker is halted."""
+  HALTED
+
+  """The worker's identity does not match its launch snapshot."""
+  IDENTITY_MISMATCH
+
+  """The launcher exited non-zero."""
+  LAUNCH_EXIT_NONZERO
+
+  """The worker is marked leave-alone."""
+  LEAVE_ALONE
+
+  """The worker has no launcher profile."""
+  NO_LAUNCHER_PROFILE
+
+  """The worker is paused."""
+  PAUSED
+
+  """Orca refused to create the terminal."""
+  TERMINAL_CREATE_REFUSED
+
+  """The relaunch timed out."""
+  TIMEOUT
 }
 
 """#2771 — one worker's terminal report. There is no free-text field."""
 input WorkerTerminalReportInput {
   """
-  The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+  The relaunch's attempt number, at least 1: required with RELAUNCHED, RELAUNCH_REFUSED and RELAUNCH_FAILED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
   """
   attempt: Int
 
@@ -21977,6 +22069,12 @@ input WorkerTerminalReportInput {
   locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
   """
   repair: WorkerTerminalRepair
+
+  """
+  #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
+  outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
+  """
+  repairReason: WorkerTerminalRepairReason
   status: WorkerTerminalState!
 
   """A worker this host registers: its id, URN or name within the App."""

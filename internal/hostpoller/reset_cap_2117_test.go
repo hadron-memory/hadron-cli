@@ -27,9 +27,15 @@ func TestCapResetWithoutATaskIdIsNotMalformed2117(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			x := newResetFixture(t)
-			r := x.run(t, op)
-			if strings.Contains(r.reason, "names no taskId") || strings.Contains(r.reason, "malformed operation") {
-				t.Fatalf("a cap reset was refused as malformed: %+v", r)
+			x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
+			x.p.carryOut(context.Background(), op)
+			// The fixture's fake server answers nothing useful, so the reset
+			// ends in a refusal further on: what matters is that it was NOT
+			// refused as malformed and that it reached the claim step.
+			for _, r := range x.srv.finalReports() {
+				if strings.Contains(r.reason, "names no taskId") || strings.Contains(r.reason, "malformed operation") {
+					t.Fatalf("a cap reset was refused as malformed: %+v", r)
+				}
 			}
 			if len(x.resets.calls) == 0 || x.resets.calls[0] != "claim" {
 				t.Fatalf("the cap reset did not reach the claim step: calls %v", x.resets.calls)
