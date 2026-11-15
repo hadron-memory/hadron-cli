@@ -247,10 +247,12 @@ assignment is removable. --json prints {appRef, hostId, worker, removed}.
 				if err != nil {
 					return api.MapErrorKeepingCode(err)
 				}
-				if resp == nil {
+				// A missing or null answer is not "there was none": the
+				// outcome is unknown (hadron-cli#2090).
+				if resp == nil || resp.UnassignHostWorker == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no answer; outcome unknown, run `hadron team host setup` before retrying")
 				}
-				removed = resp.UnassignHostWorker
+				removed = *resp.UnassignHostWorker
 			} else {
 				ictx, _, err := instructed(ctx, "", scope.Ref)
 				if err != nil {
@@ -260,10 +262,12 @@ assignment is removable. --json prints {appRef, hostId, worker, removed}.
 				if err != nil {
 					return api.MapErrorKeepingCode(err)
 				}
-				if resp == nil {
+				// A missing or null answer is not "there was none": the
+				// outcome is unknown (hadron-cli#2090).
+				if resp == nil || resp.UnassignHostWorker == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no answer; outcome unknown, run `hadron team host setup` before retrying")
 				}
-				removed = resp.UnassignHostWorker
+				removed = *resp.UnassignHostWorker
 			}
 			d := hostUnassignDTO{AppRef: scope.Ref, HostID: hostID, Worker: worker, Removed: removed}
 			label := lazyAppLabel(ctx, f, scope)

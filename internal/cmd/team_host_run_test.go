@@ -35,10 +35,22 @@ func hostServerFake(t *testing.T, responses map[string]string) (*httptest.Server
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		// cli#2091: a registration asks for refusedWorkers first. A test that
+		// stubs only the plain RegisterHost answers the extended document with
+		// the same body, recorded as RegisterHost: such a server "has" the field
+		// and reports no refusals. A test that stubs RegisterHostWithRefused
+		// itself (an old server's skew refusal, a refusal list) sees it by name.
+		recorded := body.OperationName
+		answerAs := body.OperationName
+		if recorded == "RegisterHostWithRefused" {
+			if _, own := responses[recorded]; !own {
+				recorded, answerAs = "RegisterHost", "RegisterHost"
+			}
+		}
 		mu.Lock()
-		calls = append(calls, hostCall{body.OperationName, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
+		calls = append(calls, hostCall{recorded, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
 		mu.Unlock()
-		resp, ok := responses[body.OperationName]
+		resp, ok := responses[answerAs]
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected"}]}`

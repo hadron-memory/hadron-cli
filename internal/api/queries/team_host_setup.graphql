@@ -46,10 +46,12 @@ mutation TeamHostAssignInstructed($input: AssignHostWorkerInput!, $instruction: 
 }
 
 mutation TeamHostUnassign($input: UnassignHostWorkerInput!) {
+  # @genqlient(pointer: true)
   unassignHostWorker(input: $input)
 }
 
 mutation TeamHostUnassignInstructed($input: UnassignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  # @genqlient(pointer: true)
   unassignHostWorker(input: $input, instruction: $instruction)
 }
 
