@@ -321,6 +321,21 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#2062: `team session recover` needs only the worker's identity, and
+# WorkerFields carries the whole served boot prompt (thousands of words) that a
+# recovery read must not pull on every call.
+query RecoverWorker($ref: ID!) {
+  worker(ref: $ref) {
+    id
+    urn
+    name
+    role
+    appId
+    # The worker's working memory (null until provisioned, or withheld).
+    memoryId
+  }
+}
+
 # cli#1459: ONE worker by NAME within an App, in one read. The name form of
 # worker(ref:) is activated by appRef (server #1015): unique per App, matched
 # with the database's lower(), retired workers included, and an id or URN in

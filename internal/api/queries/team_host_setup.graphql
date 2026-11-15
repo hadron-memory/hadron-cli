@@ -1,0 +1,81 @@
+# S1a (hadron-server#4241, hadron-cli#2080): which workers each host of a team
+# App runs, and the per-App switch. Reads select exactly these fields; nothing
+# shared (HostRegistration, WorkerFields) is widened.
+
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+  id
+  hostId
+  workerId
+  worker {
+    name
+  }
+  workdir
+  family
+  model
+  createdAt
+  updatedAt
+}
+
+query TeamHostSetup(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+) {
+  hostSetup(appRef: $appRef, hostId: $hostId) {
+    source
+    assignments {
+      ...HostSetupAssignmentFields
+    }
+  }
+}
+
+# @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
+# #4230 (server main, tracked by #2157): optional like model; omitted, never null, so an existing assignment is preserved.
+# @genqlient(for: "AssignHostWorkerInput.accountProfile", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.effort", omitempty: true)
+mutation TeamHostAssign(
+  $input: AssignHostWorkerInput!
+) {
+  assignHostWorker(input: $input) {
+    ...HostSetupAssignmentFields
+  }
+}
+
+mutation TeamHostAssignInstructed($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  assignHostWorker(input: $input, instruction: $instruction) {
+    ...HostSetupAssignmentFields
+  }
+}
+
+mutation TeamHostUnassign($input: UnassignHostWorkerInput!) {
+  # @genqlient(pointer: true)
+  unassignHostWorker(input: $input)
+}
+
+mutation TeamHostUnassignInstructed($input: UnassignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  # @genqlient(pointer: true)
+  unassignHostWorker(input: $input, instruction: $instruction)
+}
+
+mutation TeamHostSetSource($appRef: String!, $source: HostSetupSource!) {
+  setHostSetupSource(appRef: $appRef, source: $source)
+}
+
+mutation TeamHostSetSourceInstructed($appRef: String!, $source: HostSetupSource!, $instruction: ActInstructionInput!) {
+  setHostSetupSource(appRef: $appRef, source: $source, instruction: $instruction)
+}
+
+# Host import (hadron-cli#2061): only who the roster workers ARE, never their
+# operational state, so an unrelated roster field can not fail an import.
+query TeamHostImportRoster($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    workers {
+      worker {
+        id
+        name
+        urn
+      }
+    }
+  }
+}

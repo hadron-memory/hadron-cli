@@ -86,6 +86,7 @@ holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
+	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))

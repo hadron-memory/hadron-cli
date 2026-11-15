@@ -1,7 +1,6 @@
 package hostpoller
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,20 +25,45 @@ type ExecHost struct {
 	// TerminateGrace is how long a failed start's SIGTERM gets before the
 	// escalation to SIGKILL (zero: 5s).
 	TerminateGrace time.Duration
+	// OnDrain, when set, receives the drain-held / drain-ended events of a
+	// group the host holds past drainHeldAfter (hadron-cli#2142). Codes and
+	// numbers only.
+	OnDrain func(Event)
 }
 
+// UntrustedConfigError is a repository refused because its own git config holds
+// a key outside the allowlist of inert ones (hadron-cli#2057 §10). It is not
+// "this is not a worktree": Inspect reports it, and nothing was run.
+type UntrustedConfigError struct{ Why string }
+
+func (e *UntrustedConfigError) Error() string { return "untrusted repo config: " + e.Why }
+
+// BrokenRepoError is a worker directory with its own .git entry that git cannot
+// use as a repository whose top level is that directory (hadron-cli#2119): not "a
+// directory without Git". Nothing was run on it.
+type BrokenRepoError struct{ Why string }
+
+func (e *BrokenRepoError) Error() string { return "broken repository: " + e.Why }
+
+// git runs one command on a repository the worker can write to, with the
+// hardened configuration and the transport allowlist (hadron-cli#2057 §10): the
+// same rule as the reset's for EVERY git call this host makes. A repository whose
+// own config holds a key outside the allowlist is refused outright, before the
+// command runs: `status` never runs a worker's clean filter, a fetch never
+// follows a worker's proxy, `worktree add` never runs a smudge filter.
 func git(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	var out, errb bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errb
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(errb.String())
+	if why := untrustedRepoConfig(ctx, dir); why != "" {
+		return "", &UntrustedConfigError{Why: why}
+	}
+	out, errOut, err := runGitRaw(ctx, dir, args...)
+	if err != nil {
+		msg := strings.TrimSpace(errOut)
 		if msg == "" {
 			msg = err.Error()
 		}
 		return "", errors.New(msg)
 	}
-	return strings.TrimSpace(out.String()), nil
+	return strings.TrimSpace(out), nil
 }
 
 // CreateWorktree fetches the base from origin, then adds the worktree on a
@@ -75,9 +99,23 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 		return st, err
 	}
 	st.Exists = true
-	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
-	if err != nil || !samePath(top, path) {
+	// Not a worktree root (a plain directory, or a subdirectory, inside some
+	// enclosing repository): that repository's config is not this worker's
+	// business, so nothing about it is read or refused.
+	if root, err := isWorktreeRoot(ctx, path); err != nil {
+		return st, err // could not tell: refused, not "not a worktree"
+	} else if !root {
 		return st, nil
+	}
+	// The directory has a .git entry of its own: the config allowlist first (an
+	// untrusted config runs nothing), then it must resolve to a valid repository
+	// whose work tree IS the directory. Anything else is a broken repository,
+	// refused with the reason, never "not a worktree" (hadron-cli#2119).
+	if why := untrustedRepoConfig(ctx, path); why != "" {
+		return st, &UntrustedConfigError{Why: why}
+	}
+	if why := ownRepoProblem(ctx, path); why != "" {
+		return st, &BrokenRepoError{Why: why}
 	}
 	st.IsWorktree = true
 	if b, err := git(ctx, path, "symbolic-ref", "--short", "-q", "HEAD"); err == nil {
@@ -129,7 +167,7 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	a := &execAgent{done: make(chan struct{}), watcherDone: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd}
+	a := &execAgent{done: make(chan struct{}), watcherDone: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd, onDrain: h.OnDrain}
 	go a.waitExit()
 	return a, nil
 }
@@ -140,6 +178,8 @@ type execAgent struct {
 	pid    int
 	grace  time.Duration
 	cmd    *exec.Cmd
+	// onDrain is ExecHost.OnDrain, for the drain watcher's events.
+	onDrain func(Event)
 	// watcherDone is allocated at launch and closes exactly once — when
 	// the drain watcher exits, or when the waiter finishes without arming
 	// one — so tests can wait out a watcher before swapping the scan
@@ -372,21 +412,82 @@ func (a *execAgent) watchDrain() {
 	defer close(a.watcherDone)
 	t := time.NewTicker(drainWatchInterval)
 	defer t.Stop()
-	for range t.C {
+	a.drainLoop(t.C, drainMembership, drainClock, a.drainReap)
+}
+
+// drainReap reaps the held zombie once the group has drained. It reports
+// whether THIS call reaped (false: a stop reaped first and finalized it).
+func (a *execAgent) drainReap() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.reaped.Load() {
+		return false
+	}
+	a.reap()
+	a.emptyAtReap.Store(true)
+	return true
+}
+
+// The drain-held events (hadron-cli#2142). A held group can stay held for as
+// long as membership is uncertain, by ruling (#2042: a wrong reap is worse than
+// a held zombie), and that is silent. After drainHeldAfter the watcher says so
+// ONCE per hold, with a CODE for why, and says once more when the hold ends. It
+// signals nothing, reaps nothing and never repeats per pass; every field is a
+// number or a code from this package, never text read from /proc.
+const (
+	drainHeldKind  = "drain-held"
+	drainEndedKind = "drain-ended"
+)
+
+// drainHeldAfter is how long a hold lasts before it is announced; vars so a test
+// can use a fake clock.
+var (
+	drainHeldAfter  = 10 * time.Minute
+	drainClock      = time.Now
+	drainMembership = groupMembership
+)
+
+// emitDrain sends one event stamped with the loop's own clock reading, so its
+// timestamp and its held duration come from the same instant.
+func (a *execAgent) emitDrain(kind, outcome string, at time.Time, held time.Duration) {
+	if a.onDrain == nil {
+		return
+	}
+	a.onDrain(Event{
+		Time: at.UTC(), Kind: kind, Outcome: outcome,
+		Detail: fmt.Sprintf("pgid=%d held=%s", a.pid, held.Round(time.Second)),
+	})
+}
+
+// drainLoop is the watcher's body, with its clock, tick source, membership
+// oracle and reap injected so the episode logic is testable without a process.
+func (a *execAgent) drainLoop(ticks <-chan time.Time, membership func(pgid, leader int) (bool, drainWhy), now func() time.Time, reap func() bool) {
+	start := now()
+	opened := false
+	for range ticks {
 		if a.reaped.Load() {
+			if opened {
+				at := now()
+				a.emitDrain(drainEndedKind, "released", at, at.Sub(start))
+			}
 			return
 		}
-		if groupHasOtherMembers(a.pid, a.pid) {
+		members, why := membership(a.pid, a.pid)
+		if members {
+			if at := now(); !opened && at.Sub(start) >= drainHeldAfter {
+				opened = true
+				a.emitDrain(drainHeldKind, string(why), at, at.Sub(start))
+			}
 			continue
 		}
-		a.mu.Lock()
-		if a.reaped.Load() {
-			a.mu.Unlock()
-			return
+		outcome := "drained"
+		if !reap() {
+			outcome = "released"
 		}
-		a.reap()
-		a.emptyAtReap.Store(true)
-		a.mu.Unlock()
+		if opened {
+			at := now()
+			a.emitDrain(drainEndedKind, outcome, at, at.Sub(start))
+		}
 		return
 	}
 }
@@ -453,13 +554,30 @@ func (a *execAgent) PID() int { return a.pid }
 // group, never a process that took a reused number (#1474). The platform
 // stop in detach_unix/detach_windows carries the per-OS details.
 func (a *execAgent) Terminate() (bool, string) {
-	return a.stop()
+	return a.stopAuthorized(nil)
+}
+
+// TerminateWith is Terminate with a check before every signal: authorize
+// decides, immediately before SIGTERM and again before SIGKILL, whether the
+// stop may still go on, and its release runs right after that one signal.
+// Windows instead holds one authorization until synchronous taskkill returns. A
+// refusal signals nothing further and reports the stop unconfirmed, with the
+// agent's records kept (hadron-cli#2068).
+func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
+	// The authorization travels with the call, never in the agent's state, so
+	// concurrent stops cannot overwrite or clear each other's.
+	return a.stopAuthorized(authorize)
 }
 
 // Occupied looks for a process whose working directory is inside path, via
 // /proc (Linux). Without /proc it cannot tell and reports none.
 func (ExecHost) Occupied(_ context.Context, path string) (string, error) {
 	return occupied(path)
+}
+
+// ResetWorkspace is ResetWorktree at the current time.
+func (ExecHost) ResetWorkspace(ctx context.Context, path string) (ResetOutcome, error) {
+	return ResetWorktree(ctx, path, time.Now())
 }
 
 // Alive reports whether pid is a running process.
@@ -484,4 +602,12 @@ func (h ExecHost) Prompt(ctx context.Context, argv []string, dir string, env []s
 		return err
 	}
 	return nil
+}
+
+// errStopDeclined: the authorization asked before a signal said no, so nothing
+// was sent.
+var errStopDeclined = errors.New("the stop was not authorized")
+
+func declinedDetail(pid int) string {
+	return fmt.Sprintf("the stop of the launched process group (pid %d) was declined before a signal: the worktree's session binding changed, or could not be locked; nothing further was signalled and its records are kept", pid)
 }

@@ -2137,6 +2137,21 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
 
+// #4224 (S3 of #4229): how long an Agent's workers run.
+type AgentLifecycle string
+
+const (
+	// The worker's process should always run (the default, and the behaviour before this field existed).
+	AgentLifecycleLongLived AgentLifecycle = "LONG_LIVED"
+	// The worker's process should run only while it is the assignee of a pending or started task (one waiting on its child tasks included).
+	AgentLifecycleShortLived AgentLifecycle = "SHORT_LIVED"
+)
+
+var AllAgentLifecycle = []AgentLifecycle{
+	AgentLifecycleLongLived,
+	AgentLifecycleShortLived,
+}
+
 // AgentModelGroupsAgentModelGroupsModelGroup includes the requested fields of the GraphQL type ModelGroup.
 // The GraphQL type's documentation follows.
 //
@@ -2390,11 +2405,14 @@ const (
 	AgentSchedulePreviewOutcomeAdoptable AgentSchedulePreviewOutcome = "ADOPTABLE"
 	// Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
 	AgentSchedulePreviewOutcomeCannotBeAdopted AgentSchedulePreviewOutcome = "CANNOT_BE_ADOPTED"
+	// #3483: the caller is a worker-bound session and create would be refused with TRIGGER_GRANT_REQUIRED: it holds no live, signed schedule.create grant for this entry node in this App (hrn:node:hadronmemory.com:specs:cor:agt:010:01). Summary, hash and reason are null. Only while the grant check is on.
+	AgentSchedulePreviewOutcomeGrantRequired AgentSchedulePreviewOutcome = "GRANT_REQUIRED"
 )
 
 var AllAgentSchedulePreviewOutcome = []AgentSchedulePreviewOutcome{
 	AgentSchedulePreviewOutcomeAdoptable,
 	AgentSchedulePreviewOutcomeCannotBeAdopted,
+	AgentSchedulePreviewOutcomeGrantRequired,
 }
 
 type AgentSchedulePreviewReason string
@@ -5288,6 +5306,7 @@ type AgentTaskFields struct {
 	CancelledAt *string `json:"cancelledAt"`
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
+	// #4223: not read for a worker of a SHORT_LIVED Agent (Agent.lifecycle), whose session ends with its last open task.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
 	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 	// Set only on a finished task.
@@ -13491,7 +13510,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -15667,7 +15686,7 @@ type AiServiceConfigEndpointFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -15739,7 +15758,7 @@ type AiServiceConfigFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -21030,6 +21049,53 @@ var AllAssetScanStatus = []AssetScanStatus{
 	AssetScanStatusClean,
 	AssetScanStatusPending,
 }
+
+type AssignHostWorkerInput struct {
+	// #4230 — the host-local account profile the launcher runs under, a profile token. Optional.
+	AccountProfile *string `json:"accountProfile,omitempty"`
+	AppRef         string  `json:"appRef"`
+	// #4230 — the effort, a profile token. Optional.
+	Effort *string `json:"effort,omitempty"`
+	// The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
+	Family string `json:"family"`
+	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+	HostId string `json:"hostId"`
+	// The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
+	Model *string `json:"model,omitempty"`
+	// Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
+	Replace *bool `json:"replace,omitempty"`
+	// The name the host knows the working directory by: a name token (letters, digits and . _ / @ + -, starting with a letter or digit, no .., // or trailing /), at most 256 characters.
+	Workdir string `json:"workdir"`
+	// The worker: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAccountProfile returns AssignHostWorkerInput.AccountProfile, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetAccountProfile() *string { return v.AccountProfile }
+
+// GetAppRef returns AssignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetEffort returns AssignHostWorkerInput.Effort, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetEffort() *string { return v.Effort }
+
+// GetFamily returns AssignHostWorkerInput.Family, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetFamily() string { return v.Family }
+
+// GetHostId returns AssignHostWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetHostId() string { return v.HostId }
+
+// GetModel returns AssignHostWorkerInput.Model, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetModel() *string { return v.Model }
+
+// GetReplace returns AssignHostWorkerInput.Replace, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetReplace() *bool { return v.Replace }
+
+// GetWorkdir returns AssignHostWorkerInput.Workdir, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetWorkdir() string { return v.Workdir }
+
+// GetWorker returns AssignHostWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetWorker() string { return v.Worker }
 
 // AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -33829,7 +33895,10 @@ func (v *ContextResetContextReset) GetWorkerId() string { return v.ContextResetF
 func (v *ContextResetContextReset) GetSessionId() string { return v.ContextResetFields.SessionId }
 
 // GetTaskId returns ContextResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetTaskId() string { return v.ContextResetFields.TaskId }
+func (v *ContextResetContextReset) GetTaskId() *string { return v.ContextResetFields.TaskId }
+
+// GetCause returns ContextResetContextReset.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetCause() string { return v.ContextResetFields.Cause }
 
 // GetStopGrantedAt returns ContextResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopGrantedAt() *string {
@@ -33838,6 +33907,9 @@ func (v *ContextResetContextReset) GetStopGrantedAt() *string {
 
 // GetStopLeaseMs returns ContextResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopLeaseMs() *int { return v.ContextResetFields.StopLeaseMs }
+
+// GetEndedAt returns ContextResetContextReset.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetEndedAt() *string { return v.ContextResetFields.EndedAt }
 
 // GetCheckpointNode returns ContextResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetCheckpointNode() *string {
@@ -33882,11 +33954,15 @@ type __premarshalContextResetContextReset struct {
 
 	SessionId string `json:"sessionId"`
 
-	TaskId string `json:"taskId"`
+	TaskId *string `json:"taskId"`
+
+	Cause string `json:"cause"`
 
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
+
+	EndedAt *string `json:"endedAt"`
 
 	CheckpointNode *string `json:"checkpointNode"`
 }
@@ -33909,15 +33985,19 @@ func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextReset
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
+	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.EndedAt = v.ContextResetFields.EndedAt
 	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
 
 // #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
 // Every step answers ContextResetStep; refused/replayed are read by the
-// handler, and a refusal ends the reset server-side.
+// handler, and a refusal ends the reset server-side. endedAt (#2027) is null
+// while the reset is in flight: the health sweep skips a worker whose reset
+// has not ended, so it never stops a relaunch mid-window.
 type ContextResetFields struct {
 	Id        string  `json:"id"`
 	Epoch     int     `json:"epoch"`
@@ -33925,10 +34005,14 @@ type ContextResetFields struct {
 	Reason    *string `json:"reason"`
 	WorkerId  string  `json:"workerId"`
 	SessionId string  `json:"sessionId"`
-	TaskId    string  `json:"taskId"`
+	// Null for a reset with no task: one asked for by the Agent's context cap (#4225).
+	TaskId *string `json:"taskId"`
+	// #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
+	Cause string `json:"cause"`
 	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
 	StopGrantedAt *string `json:"stopGrantedAt"`
 	StopLeaseMs   *int    `json:"stopLeaseMs"`
+	EndedAt       *string `json:"endedAt"`
 	// #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
 	CheckpointNode *string `json:"checkpointNode"`
 }
@@ -33952,13 +34036,19 @@ func (v *ContextResetFields) GetWorkerId() string { return v.WorkerId }
 func (v *ContextResetFields) GetSessionId() string { return v.SessionId }
 
 // GetTaskId returns ContextResetFields.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetTaskId() string { return v.TaskId }
+func (v *ContextResetFields) GetTaskId() *string { return v.TaskId }
+
+// GetCause returns ContextResetFields.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetCause() string { return v.Cause }
 
 // GetStopGrantedAt returns ContextResetFields.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt }
 
 // GetStopLeaseMs returns ContextResetFields.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopLeaseMs() *int { return v.StopLeaseMs }
+
+// GetEndedAt returns ContextResetFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetEndedAt() *string { return v.EndedAt }
 
 // GetCheckpointNode returns ContextResetFields.CheckpointNode, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetCheckpointNode() *string { return v.CheckpointNode }
@@ -34038,8 +34128,13 @@ func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string {
 }
 
 // GetTaskId returns ContextResetStepFieldsResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetTaskId() string {
+func (v *ContextResetStepFieldsResetContextReset) GetTaskId() *string {
 	return v.ContextResetFields.TaskId
+}
+
+// GetCause returns ContextResetStepFieldsResetContextReset.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetCause() string {
+	return v.ContextResetFields.Cause
 }
 
 // GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
@@ -34050,6 +34145,11 @@ func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string {
 // GetStopLeaseMs returns ContextResetStepFieldsResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int {
 	return v.ContextResetFields.StopLeaseMs
+}
+
+// GetEndedAt returns ContextResetStepFieldsResetContextReset.EndedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetEndedAt() *string {
+	return v.ContextResetFields.EndedAt
 }
 
 // GetCheckpointNode returns ContextResetStepFieldsResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
@@ -34095,11 +34195,15 @@ type __premarshalContextResetStepFieldsResetContextReset struct {
 
 	SessionId string `json:"sessionId"`
 
-	TaskId string `json:"taskId"`
+	TaskId *string `json:"taskId"`
+
+	Cause string `json:"cause"`
 
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
+
+	EndedAt *string `json:"endedAt"`
 
 	CheckpointNode *string `json:"checkpointNode"`
 }
@@ -34122,8 +34226,10 @@ func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premars
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
+	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.EndedAt = v.ContextResetFields.EndedAt
 	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
@@ -35089,6 +35195,263 @@ type CreateAgentWebhookResponse struct {
 // GetCreateAgentWebhook returns CreateAgentWebhookResponse.CreateAgentWebhook, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials {
 	return v.CreateAgentWebhook
+}
+
+// CreateAgentWithLifecycleCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentWithLifecycleCreateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetLifecycle returns CreateAgentWithLifecycleCreateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetId returns CreateAgentWithLifecycleCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentWithLifecycleCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentWithLifecycleCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentWithLifecycleCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns CreateAgentWithLifecycleCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentWithLifecycleCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns CreateAgentWithLifecycleCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns CreateAgentWithLifecycleCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentWithLifecycleCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns CreateAgentWithLifecycleCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns CreateAgentWithLifecycleCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentWithLifecycleCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns CreateAgentWithLifecycleCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CreateAgentWithLifecycleCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentWithLifecycleCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns CreateAgentWithLifecycleCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentWithLifecycleCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns CreateAgentWithLifecycleCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns CreateAgentWithLifecycleCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns CreateAgentWithLifecycleCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentWithLifecycleCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentWithLifecycleCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentWithLifecycleCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentWithLifecycleCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentWithLifecycleCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWithLifecycleCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWithLifecycleCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWithLifecycleCreateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentWithLifecycleCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWithLifecycleCreateAgent) __premarshalJSON() (*__premarshalCreateAgentWithLifecycleCreateAgent, error) {
+	var retval __premarshalCreateAgentWithLifecycleCreateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentWithLifecycleResponse is returned by CreateAgentWithLifecycle on success.
+type CreateAgentWithLifecycleResponse struct {
+	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgId accepts the org's ID or URN.
+	CreateAgent *CreateAgentWithLifecycleCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentWithLifecycleResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleResponse) GetCreateAgent() *CreateAgentWithLifecycleCreateAgent {
+	return v.CreateAgent
 }
 
 // CreateAiServiceConfigCreateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
@@ -45355,6 +45718,61 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// #4224: whether a worker's agent process should be running.
+type DesiredRunState string
+
+const (
+	DesiredRunStateRunning DesiredRunState = "RUNNING"
+	DesiredRunStateStopped DesiredRunState = "STOPPED"
+)
+
+var AllDesiredRunState = []DesiredRunState{
+	DesiredRunStateRunning,
+	DesiredRunStateStopped,
+}
+
+// #4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first three come from the
+// Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
+// and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
+// is desired (desired is null) and wouldBe says what the state would otherwise be.
+type DesiredStateReason string
+
+const (
+	// A live halt stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01).
+	DesiredStateReasonHalted DesiredStateReason = "HALTED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of a pending or started task, including one waiting on its child tasks (the worker stays up and is woken by their events): RUNNING.
+	DesiredStateReasonHoldsTask DesiredStateReason = "HOLDS_TASK"
+	// The worker is marked leave-alone (Worker.leaveAlone).
+	DesiredStateReasonLeaveAlone DesiredStateReason = "LEAVE_ALONE"
+	// A worker of a LONG_LIVED Agent: RUNNING.
+	DesiredStateReasonLongLived DesiredStateReason = "LONG_LIVED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of no pending or started task: STOPPED.
+	DesiredStateReasonNoOpenTask DesiredStateReason = "NO_OPEN_TASK"
+	// A live pause stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01). A pause-dispatch signal stops assignment only and is not a reason here.
+	DesiredStateReasonPaused DesiredStateReason = "PAUSED"
+	// A context reset holds the worker (hrn:node:hadronmemory.com:specs:cor:agt:050:27): its host is relaunching it.
+	DesiredStateReasonResetting DesiredStateReason = "RESETTING"
+	// The worker is retired.
+	DesiredStateReasonRetired DesiredStateReason = "RETIRED"
+	// The App's sweep mode is OFF.
+	DesiredStateReasonSweepOff DesiredStateReason = "SWEEP_OFF"
+	// The App is under a team pause (App.teamPausedAt).
+	DesiredStateReasonTeamPaused DesiredStateReason = "TEAM_PAUSED"
+)
+
+var AllDesiredStateReason = []DesiredStateReason{
+	DesiredStateReasonHalted,
+	DesiredStateReasonHoldsTask,
+	DesiredStateReasonLeaveAlone,
+	DesiredStateReasonLongLived,
+	DesiredStateReasonNoOpenTask,
+	DesiredStateReasonPaused,
+	DesiredStateReasonResetting,
+	DesiredStateReasonRetired,
+	DesiredStateReasonSweepOff,
+	DesiredStateReasonTeamPaused,
+}
+
 // Only the public flat reference, never members or nested resource details.
 type DiscoveryPublicRef struct {
 	Id          string  `json:"id"`
@@ -46369,7 +46787,7 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason s
 	// 0, or the alarm chain position woken.
 	ChainIndex int           `json:"chainIndex"`
 	Event      TaskWakeEvent `json:"event"`
-	// The task's id (for CHILD_FINISHED, the child's).
+	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
 	Id string `json:"id"`
 	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
 	Handle string `json:"handle"`
@@ -49169,6 +49587,39 @@ func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSub
 	return v.Name
 }
 
+// GetAgentLifecycleAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type GetAgentLifecycleAgent struct {
+	Id string `json:"id"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetId returns GetAgentLifecycleAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleAgent) GetId() string { return v.Id }
+
+// GetLifecycle returns GetAgentLifecycleAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetAgentLifecycleResponse is returned by GetAgentLifecycle on success.
+type GetAgentLifecycleResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetAgentLifecycleAgent `json:"agent"`
+}
+
+// GetAgent returns GetAgentLifecycleResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleResponse) GetAgent() *GetAgentLifecycleAgent { return v.Agent }
+
 // GetAgentResponse is returned by GetAgent on success.
 type GetAgentResponse struct {
 	// The uniform single-agent read. Uses the shared Agent read gate, including
@@ -49371,6 +49822,35 @@ type GetAppSharedMemoryResponse struct {
 
 // GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
+
+// GetAppSweepModeApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppSweepModeApp struct {
+	// #4224 (S3 of #4229): the App's sweep switch (setAppSweepMode). OFF by default.
+	SweepMode SweepMode `json:"sweepMode"`
+}
+
+// GetSweepMode returns GetAppSweepModeApp.SweepMode, and is useful for accessing the field via an interface.
+func (v *GetAppSweepModeApp) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetAppSweepModeResponse is returned by GetAppSweepMode on success.
+type GetAppSweepModeResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppSweepModeApp `json:"app"`
+}
+
+// GetApp returns GetAppSweepModeResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppSweepModeResponse) GetApp() *GetAppSweepModeApp { return v.App }
 
 // GetBoundSessionEndResponse is returned by GetBoundSessionEnd on success.
 type GetBoundSessionEndResponse struct {
@@ -53138,6 +53618,73 @@ func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWo
 	return &retval, nil
 }
 
+// GetWorkerLeaveAloneResponse is returned by GetWorkerLeaveAlone on success.
+type GetWorkerLeaveAloneResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerLeaveAloneWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerLeaveAloneResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneResponse) GetWorker() *GetWorkerLeaveAloneWorker { return v.Worker }
+
+// GetWorkerLeaveAloneWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerLeaveAloneWorker struct {
+	Id string `json:"id"`
+	// #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it. WORKING-STATE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): null for a caller who may see only the worker's profile.
+	LeaveAlone *bool `json:"leaveAlone"`
+	// Why the worker is marked leave-alone, when a reason was given. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneReason *string `json:"leaveAloneReason"`
+	// The user who marked the worker leave-alone. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneBy *string `json:"leaveAloneBy"`
+	// When the worker was marked leave-alone; null when it is not marked. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneAt *string `json:"leaveAloneAt"`
+}
+
+// GetId returns GetWorkerLeaveAloneWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetId() string { return v.Id }
+
+// GetLeaveAlone returns GetWorkerLeaveAloneWorker.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAlone() *bool { return v.LeaveAlone }
+
+// GetLeaveAloneReason returns GetWorkerLeaveAloneWorker.LeaveAloneReason, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneReason() *string { return v.LeaveAloneReason }
+
+// GetLeaveAloneBy returns GetWorkerLeaveAloneWorker.LeaveAloneBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneBy() *string { return v.LeaveAloneBy }
+
+// GetLeaveAloneAt returns GetWorkerLeaveAloneWorker.LeaveAloneAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneAt() *string { return v.LeaveAloneAt }
+
 // GetWorkerModelGroupsResponse is returned by GetWorkerModelGroups on success.
 type GetWorkerModelGroupsResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -54978,6 +55525,78 @@ var AllGrantSigningRequestState = []GrantSigningRequestState{
 	GrantSigningRequestStateWithdrawn,
 }
 
+// HealthSweepPauseResponse is returned by HealthSweepPause on success.
+type HealthSweepPauseResponse struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *HealthSweepPauseWorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns HealthSweepPauseResponse.Workers, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseResponse) GetWorkers() *HealthSweepPauseWorkersWorkersPage { return v.Workers }
+
+// HealthSweepPauseWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type HealthSweepPauseWorkersWorkersPage struct {
+	Items []*HealthSweepPauseWorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetItems returns HealthSweepPauseWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPage) GetItems() []*HealthSweepPauseWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// HealthSweepPauseWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HealthSweepPauseWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+	// #2138 §3.4 (experimental) — whether this worker is checking its team
+	// channel as expected, derived at read time. Masked to null on the same read
+	// gate as hasLiveSession.
+	CheckStatus *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus `json:"checkStatus"`
+}
+
+// GetId returns HealthSweepPauseWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorker) GetId() string { return v.Id }
+
+// GetCheckStatus returns HealthSweepPauseWorkersWorkersPageItemsWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorker) GetCheckStatus() *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus {
+	return v.CheckStatus
+}
+
+// HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
+// The GraphQL type's documentation follows.
+//
+// #2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+// assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+// the latest of lastCheckedAt, its newest open assignment, its live session's
+// start and the end of its own pause.
+type HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus struct {
+	Status WorkerCheckState `json:"status"`
+	// Set only when status is PENDING.
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+}
+
+// GetStatus returns HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus.Status, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus) GetStatus() WorkerCheckState {
+	return v.Status
+}
+
+// GetPendingReason returns HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
+func (v *HealthSweepPauseWorkersWorkersPageItemsWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
+	return v.PendingReason
+}
+
 // HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
 type HealthSweepSetTerminalsResponse struct {
 	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
@@ -55017,7 +55636,7 @@ func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResu
 // HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
 // The GraphQL type's documentation follows.
 //
-// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
 type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
 	// The worker as the host named it.
 	Worker string `json:"worker"`
@@ -55490,6 +56109,119 @@ func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssist
 	return v.HomeAssistantInstances
 }
 
+// HostDesiredStateHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostDesiredStateHostDesiredState struct {
+	HostId    string                                                       `json:"hostId"`
+	SweepMode SweepMode                                                    `json:"sweepMode"`
+	Workers   []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostDesiredStateHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostDesiredStateHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostDesiredStateHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetWorkers() []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostDesiredStateHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostDesiredStateHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	Name     string `json:"name"`
+	// The lifecycle of the worker's Agent.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// Set exactly when desired is null: the state the worker would have without the marker, or with the sweep on.
+	WouldBe *DesiredRunState `json:"wouldBe"`
+	// The reason for wouldBe; never LEAVE_ALONE or SWEEP_OFF. Null when wouldBe is.
+	WouldBeReason *DesiredStateReason `json:"wouldBeReason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetName returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Name, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetName() string { return v.Name }
+
+// GetLifecycle returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Lifecycle, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetLifecycle() AgentLifecycle {
+	return v.Lifecycle
+}
+
+// GetDesired returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetWouldBe returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBe, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBe() *DesiredRunState {
+	return v.WouldBe
+}
+
+// GetWouldBeReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBeReason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBeReason() *DesiredStateReason {
+	return v.WouldBeReason
+}
+
+// GetOpenSessionId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetFamily returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetWorktrees returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostDesiredStateResponse is returned by HostDesiredState on success.
+type HostDesiredStateResponse struct {
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostDesiredStateHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetHostDesiredState returns HostDesiredStateResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateResponse) GetHostDesiredState() *HostDesiredStateHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
 // The GraphQL type's documentation follows.
 //
@@ -55514,7 +56246,9 @@ type HostOperationFields struct {
 	IssuedAt         string                     `json:"issuedAt"`
 	CollectedAt      *string                    `json:"collectedAt"`
 	FinishedAt       *string                    `json:"finishedAt"`
-	// A success's typed result: {worktree} for worktree.create.
+	// A success's typed result, by type: {worktree} for worktree.create, {sessionId} (the worker session the start's grant
+	// bound) for worker.start, {handoff} (a boolean: whether a handoff was written) for worker.end. Null for worker.deliver,
+	// worktree.remove and worker.reset-context, for a failure, and until the operation finishes.
 	Result *json.RawMessage `json:"result"`
 	// Why it failed, as the host said it.
 	FailureReason *string `json:"failureReason"`
@@ -55847,6 +56581,234 @@ func (v *HostOperationsResponse) GetHostOperations() *HostOperationsHostOperatio
 	return v.HostOperations
 }
 
+// HostOperationsWithReasonHostOperationsHostOperationPage includes the requested fields of the GraphQL type HostOperationPage.
+type HostOperationsWithReasonHostOperationsHostOperationPage struct {
+	Items       []*HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation `json:"items"`
+	HasNextPage bool                                                                         `json:"hasNextPage"`
+	// Pass as after for the next page.
+	EndCursor *string `json:"endCursor"`
+}
+
+// GetItems returns HostOperationsWithReasonHostOperationsHostOperationPage.Items, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPage) GetItems() []*HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation {
+	return v.Items
+}
+
+// GetHasNextPage returns HostOperationsWithReasonHostOperationsHostOperationPage.HasNextPage, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPage) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns HostOperationsWithReasonHostOperationsHostOperationPage.EndCursor, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPage) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
+type HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation struct {
+	HostOperationFields `json:"-"`
+	// #4231 — why the platform issued it when no task did: DESIRED_RUNNING for the start of a long-lived worker that
+	// should run and has no session (hrn:node:hadronmemory.com:specs:cor:agt:070:05, Proposed). Null for every other
+	// operation.
+	IssuedReason *string `json:"issuedReason"`
+}
+
+// GetIssuedReason returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.IssuedReason, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetIssuedReason() *string {
+	return v.IssuedReason
+}
+
+// GetId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetId() string {
+	return v.HostOperationFields.Id
+}
+
+// GetAppId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetAppId() string {
+	return v.HostOperationFields.AppId
+}
+
+// GetHostId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetType() string {
+	return v.HostOperationFields.Type
+}
+
+// GetArgs returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation struct {
+	IssuedReason *string `json:"issuedReason"`
+
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation) __premarshalJSON() (*__premarshalHostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation, error) {
+	var retval __premarshalHostOperationsWithReasonHostOperationsHostOperationPageItemsHostOperation
+
+	retval.IssuedReason = v.IssuedReason
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// HostOperationsWithReasonResponse is returned by HostOperationsWithReason on success.
+type HostOperationsWithReasonResponse struct {
+	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate, revoked or not) is refused with FORBIDDEN, whatever it passes: it sees its own host's operations only by collecting them (hrn:node:hadronmemory.com:specs:cor:agt:070:04 S5, Holger's ruling 0). after: the endCursor of the previous page.
+	HostOperations *HostOperationsWithReasonHostOperationsHostOperationPage `json:"hostOperations"`
+}
+
+// GetHostOperations returns HostOperationsWithReasonResponse.HostOperations, and is useful for accessing the field via an interface.
+func (v *HostOperationsWithReasonResponse) GetHostOperations() *HostOperationsWithReasonHostOperationsHostOperationPage {
+	return v.HostOperations
+}
+
 // HostPlanAppApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -56161,6 +57123,260 @@ type HostRegistrationsResponse struct {
 func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsHostRegistrationsHostRegistration {
 	return v.HostRegistrations
 }
+
+// HostRelaunchSnapshotHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostRelaunchSnapshotHostDesiredState struct {
+	HostId    string                                                           `json:"hostId"`
+	SweepMode SweepMode                                                        `json:"sweepMode"`
+	Workers   []*HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostRelaunchSnapshotHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostRelaunchSnapshotHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostRelaunchSnapshotHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredState) GetWorkers() []*HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetFamily returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetDesired returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetOpenSessionId returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetWorktrees returns HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRelaunchSnapshotMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostRelaunchSnapshotMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostRelaunchSnapshotMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotMyApp) GetId() string { return v.Id }
+
+// HostRelaunchSnapshotResponse is returned by HostRelaunchSnapshot on success.
+type HostRelaunchSnapshotResponse struct {
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostRelaunchSnapshotMyApp `json:"myApp"`
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostRelaunchSnapshotHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetMyApp returns HostRelaunchSnapshotResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotResponse) GetMyApp() *HostRelaunchSnapshotMyApp { return v.MyApp }
+
+// GetHostDesiredState returns HostRelaunchSnapshotResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapshotHostDesiredState {
+	return v.HostDesiredState
+}
+
+// HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type HostSetupAssignmentFields struct {
+	Id        string                           `json:"id"`
+	HostId    string                           `json:"hostId"`
+	WorkerId  string                           `json:"workerId"`
+	Worker    *HostSetupAssignmentFieldsWorker `json:"worker"`
+	Workdir   string                           `json:"workdir"`
+	Family    string                           `json:"family"`
+	Model     *string                          `json:"model"`
+	CreatedAt string                           `json:"createdAt"`
+	UpdatedAt string                           `json:"updatedAt"`
+}
+
+// GetId returns HostSetupAssignmentFields.Id, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetId() string { return v.Id }
+
+// GetHostId returns HostSetupAssignmentFields.HostId, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetHostId() string { return v.HostId }
+
+// GetWorkerId returns HostSetupAssignmentFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorkerId() string { return v.WorkerId }
+
+// GetWorker returns HostSetupAssignmentFields.Worker, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorker() *HostSetupAssignmentFieldsWorker { return v.Worker }
+
+// GetWorkdir returns HostSetupAssignmentFields.Workdir, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorkdir() string { return v.Workdir }
+
+// GetFamily returns HostSetupAssignmentFields.Family, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetFamily() string { return v.Family }
+
+// GetModel returns HostSetupAssignmentFields.Model, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetModel() *string { return v.Model }
+
+// GetCreatedAt returns HostSetupAssignmentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns HostSetupAssignmentFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// HostSetupAssignmentFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostSetupAssignmentFieldsWorker struct {
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetName returns HostSetupAssignmentFieldsWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFieldsWorker) GetName() string { return v.Name }
+
+// #4222 — who states which workers a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). HOST: the host, at registration (the default, as before). SERVER: the platform's assignments; a registration is checked against them and a start uses them.
+type HostSetupSource string
+
+const (
+	HostSetupSourceHost   HostSetupSource = "HOST"
+	HostSetupSourceServer HostSetupSource = "SERVER"
+)
+
+var AllHostSetupSource = []HostSetupSource{
+	HostSetupSourceHost,
+	HostSetupSourceServer,
+}
+
+// HostUpWorkerReposResponse is returned by HostUpWorkerRepos on success.
+type HostUpWorkerReposResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *HostUpWorkerReposWorker `json:"worker"`
+}
+
+// GetWorker returns HostUpWorkerReposResponse.Worker, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposResponse) GetWorker() *HostUpWorkerReposWorker { return v.Worker }
+
+// HostUpWorkerReposWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostUpWorkerReposWorker struct {
+	Id string `json:"id"`
+	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
+	// already holds the worker needs no second round-trip to teamRoles. Clients
+	// may use it to warn on a role/repo mismatch at session start; the server
+	// does not enforce a repo-affinity refusal.
+	//
+	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
+	// like memoryId and the holder — Session.worker reaches a Worker
+	// through a wider gate that admits any org member and survives a user leaving
+	// the App, so an ungated field would publish a team's repo list through any
+	// historical session.
+	//
+	// Masking to [] costs nothing, because empty already means "no affinity,
+	// never warn": a denied caller simply gets no warning, which is the safe
+	// direction for a signal that must never become a refusal. Same reason a
+	// worker with no role, a role with no definition, or an unreadable system
+	// memory all answer [] rather than erroring.
+	Repos []string `json:"repos"`
+}
+
+// GetId returns HostUpWorkerReposWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetId() string { return v.Id }
+
+// GetRepos returns HostUpWorkerReposWorker.Repos, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetRepos() []string { return v.Repos }
 
 type IdentifyUserMethod string
 
@@ -57286,8 +58502,9 @@ type IntakeExternalIdChangesResponse struct {
 	// external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
 	// cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
-	// the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
-	// it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+	// the release cleared (its task no longer holds it); a change before the release in this read's own order — the
+	// (tx_id, created_at, id) key the page is served by, not wall-clock time — carries that id too, and a change after it in
+	// that order (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
 	// oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
 	// appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
 	// to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
@@ -73082,6 +74299,81 @@ type RecordUsageResponse struct {
 // GetRecordUsage returns RecordUsageResponse.RecordUsage, and is useful for accessing the field via an interface.
 func (v *RecordUsageResponse) GetRecordUsage() bool { return v.RecordUsage }
 
+// RecoverWorkerResponse is returned by RecoverWorker on success.
+type RecoverWorkerResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *RecoverWorkerWorker `json:"worker"`
+}
+
+// GetWorker returns RecoverWorkerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerResponse) GetWorker() *RecoverWorkerWorker { return v.Worker }
+
+// RecoverWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type RecoverWorkerWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role  *string `json:"role"`
+	AppId string  `json:"appId"`
+	// The worker-scoped working memory in the App's container (null until provisioned).
+	MemoryId *string `json:"memoryId"`
+}
+
+// GetId returns RecoverWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetId() string { return v.Id }
+
+// GetUrn returns RecoverWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetUrn() *string { return v.Urn }
+
+// GetName returns RecoverWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetName() string { return v.Name }
+
+// GetRole returns RecoverWorkerWorker.Role, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetRole() *string { return v.Role }
+
+// GetAppId returns RecoverWorkerWorker.AppId, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetAppId() string { return v.AppId }
+
+// GetMemoryId returns RecoverWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetMemoryId() *string { return v.MemoryId }
+
 // RecoveryEdgesRecoveryEdgesRecoveryEdgesPage includes the requested fields of the GraphQL type RecoveryEdgesPage.
 type RecoveryEdgesRecoveryEdgesRecoveryEdgesPage struct {
 	Total int                                                                  `json:"total"`
@@ -73414,7 +74706,8 @@ type RegisterContextResetRecoveryInput struct {
 	ResetId        string  `json:"resetId"`
 	// The reset's own session and task.
 	SessionId string `json:"sessionId"`
-	TaskId    string `json:"taskId"`
+	// The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
+	TaskId *string `json:"taskId,omitempty"`
 }
 
 // GetAppRef returns RegisterContextResetRecoveryInput.AppRef, and is useful for accessing the field via an interface.
@@ -73438,7 +74731,7 @@ func (v *RegisterContextResetRecoveryInput) GetResetId() string { return v.Reset
 func (v *RegisterContextResetRecoveryInput) GetSessionId() string { return v.SessionId }
 
 // GetTaskId returns RegisterContextResetRecoveryInput.TaskId, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetTaskId() string { return v.TaskId }
+func (v *RegisterContextResetRecoveryInput) GetTaskId() *string { return v.TaskId }
 
 // RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
 // The GraphQL type's documentation follows.
@@ -73930,11 +75223,165 @@ type RegisterHostResponse struct {
 	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
 	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
 	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+	// #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+	// left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
 	RegisterHost *RegisterHostRegisterHostHostRegistration `json:"registerHost"`
 }
 
 // GetRegisterHost returns RegisterHostResponse.RegisterHost, and is useful for accessing the field via an interface.
 func (v *RegisterHostResponse) GetRegisterHost() *RegisterHostRegisterHostHostRegistration {
+	return v.RegisterHost
+}
+
+// RegisterHostWithRefusedRegisterHostHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type RegisterHostWithRefusedRegisterHostHostRegistration struct {
+	HostRegistrationFields `json:"-"`
+	// #4222 — on registerHost's own answer only (empty on every read): the workers the host listed that were left out because the App's hostSetupSource is SERVER and the platform did not assign them to this host. The registration itself succeeded with the rest.
+	RefusedWorkers []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+}
+
+// GetRefusedWorkers returns RegisterHostWithRefusedRegisterHostHostRegistration.RefusedWorkers, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRefusedWorkers() []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal {
+	return v.RefusedWorkers
+}
+
+// GetHostId returns RegisterHostWithRefusedRegisterHostHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetHostId() string {
+	return v.HostRegistrationFields.HostId
+}
+
+// GetLabel returns RegisterHostWithRefusedRegisterHostHostRegistration.Label, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetLabel() string {
+	return v.HostRegistrationFields.Label
+}
+
+// GetPollIntervalSeconds returns RegisterHostWithRefusedRegisterHostHostRegistration.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetPollIntervalSeconds() int {
+	return v.HostRegistrationFields.PollIntervalSeconds
+}
+
+// GetRegisteredAt returns RegisterHostWithRefusedRegisterHostHostRegistration.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRegisteredAt() string {
+	return v.HostRegistrationFields.RegisteredAt
+}
+
+// GetRefreshedAt returns RegisterHostWithRefusedRegisterHostHostRegistration.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRefreshedAt() string {
+	return v.HostRegistrationFields.RefreshedAt
+}
+
+// GetLive returns RegisterHostWithRefusedRegisterHostHostRegistration.Live, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetLive() bool {
+	return v.HostRegistrationFields.Live
+}
+
+// GetWorkers returns RegisterHostWithRefusedRegisterHostHostRegistration.Workers, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetWorkers() []*HostRegistrationFieldsWorkersHostRegistrationWorker {
+	return v.HostRegistrationFields.Workers
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RegisterHostWithRefusedRegisterHostHostRegistration
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RegisterHostWithRefusedRegisterHostHostRegistration = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostRegistrationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRegisterHostWithRefusedRegisterHostHostRegistration struct {
+	RefusedWorkers []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds int `json:"pollIntervalSeconds"`
+
+	RegisteredAt string `json:"registeredAt"`
+
+	RefreshedAt string `json:"refreshedAt"`
+
+	Live bool `json:"live"`
+
+	Workers []*HostRegistrationFieldsWorkersHostRegistrationWorker `json:"workers"`
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) __premarshalJSON() (*__premarshalRegisterHostWithRefusedRegisterHostHostRegistration, error) {
+	var retval __premarshalRegisterHostWithRefusedRegisterHostHostRegistration
+
+	retval.RefusedWorkers = v.RefusedWorkers
+	retval.HostId = v.HostRegistrationFields.HostId
+	retval.Label = v.HostRegistrationFields.Label
+	retval.PollIntervalSeconds = v.HostRegistrationFields.PollIntervalSeconds
+	retval.RegisteredAt = v.HostRegistrationFields.RegisteredAt
+	retval.RefreshedAt = v.HostRegistrationFields.RefreshedAt
+	retval.Live = v.HostRegistrationFields.Live
+	retval.Workers = v.HostRegistrationFields.Workers
+	return &retval, nil
+}
+
+// RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal includes the requested fields of the GraphQL type HostRegistrationRefusal.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker a checked registration left out. code is HOST_WORKER_NOT_ASSIGNED, whatever the reason (unassigned, assigned to another host, retired, of another App, or naming nothing).
+type RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetWorker() string {
+	return v.Worker
+}
+
+// GetCode returns RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Code, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetCode() string {
+	return v.Code
+}
+
+// RegisterHostWithRefusedResponse is returned by RegisterHostWithRefused on success.
+type RegisterHostWithRefusedResponse struct {
+	// #1709 — a host registers, or refreshes, which of its App's workers it can launch, as which model family, and in
+	// which worktrees it declares (hrn:node:hadronmemory.com:specs:cor:agt:070:01). The server validates their tokens, not filesystem existence. A host key only: an App key holding
+	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
+	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
+	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+	// #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+	// left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
+	RegisterHost *RegisterHostWithRefusedRegisterHostHostRegistration `json:"registerHost"`
+}
+
+// GetRegisterHost returns RegisterHostWithRefusedResponse.RegisterHost, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedResponse) GetRegisterHost() *RegisterHostWithRefusedRegisterHostHostRegistration {
 	return v.RegisterHost
 }
 
@@ -76244,7 +77691,7 @@ type ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -84345,6 +85792,32 @@ func (v *SetAppPropertiesSetAppPropertiesApp) GetPropertiesRevision() *int {
 // GetProperties returns SetAppPropertiesSetAppPropertiesApp.Properties, and is useful for accessing the field via an interface.
 func (v *SetAppPropertiesSetAppPropertiesApp) GetProperties() *json.RawMessage { return v.Properties }
 
+// SetAppSweepModeResponse is returned by SetAppSweepMode on success.
+type SetAppSweepModeResponse struct {
+	// #4224 (S3 of #4229) — set the App's sweep mode, as whoever manages the App. OFF (the default) restores today's
+	// behaviour in one write: every hostDesiredState row then says SWEEP_OFF and a sweep acts on nothing. A change is
+	// one team.sweep-mode-changed team event (from, to); setting the mode it already has changes and records nothing.
+	// Refusals: FORBIDDEN (not a manager; an App key never is). The App-manager arm also admits the manager's held
+	// worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetAppSweepMode *SetAppSweepModeSetAppSweepMode `json:"setAppSweepMode"`
+}
+
+// GetSetAppSweepMode returns SetAppSweepModeResponse.SetAppSweepMode, and is useful for accessing the field via an interface.
+func (v *SetAppSweepModeResponse) GetSetAppSweepMode() *SetAppSweepModeSetAppSweepMode {
+	return v.SetAppSweepMode
+}
+
+// SetAppSweepModeSetAppSweepMode includes the requested fields of the GraphQL type AppSweepMode.
+// The GraphQL type's documentation follows.
+//
+// #4224: the App's sweep mode after setAppSweepMode.
+type SetAppSweepModeSetAppSweepMode struct {
+	SweepMode SweepMode `json:"sweepMode"`
+}
+
+// GetSweepMode returns SetAppSweepModeSetAppSweepMode.SweepMode, and is useful for accessing the field via an interface.
+func (v *SetAppSweepModeSetAppSweepMode) GetSweepMode() SweepMode { return v.SweepMode }
+
 // SetAssetPublicLinkInstructedResponse is returned by SetAssetPublicLinkInstructed on success.
 type SetAssetPublicLinkInstructedResponse struct {
 	// #1667 — switch an asset's anonymous public link on or off. Only whoever
@@ -85317,7 +86790,7 @@ func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarsh
 
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
-	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamPause *SetTeamPauseSetTeamPause `json:"setTeamPause"`
 }
 
@@ -85811,6 +87284,75 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
 }
+
+type SetWorkerLeaveAloneInput struct {
+	AppRef     *string `json:"appRef,omitempty"`
+	LeaveAlone bool    `json:"leaveAlone"`
+	// Optional, only when marking: why the sweep leaves this worker alone. At most 500 characters.
+	Reason *string `json:"reason,omitempty"`
+	// The worker: its id or URN, or its name together with appRef.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns SetWorkerLeaveAloneInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetAppRef() *string { return v.AppRef }
+
+// GetLeaveAlone returns SetWorkerLeaveAloneInput.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetLeaveAlone() bool { return v.LeaveAlone }
+
+// GetReason returns SetWorkerLeaveAloneInput.Reason, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetReason() *string { return v.Reason }
+
+// GetWorker returns SetWorkerLeaveAloneInput.Worker, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetWorker() string { return v.Worker }
+
+// SetWorkerLeaveAloneResponse is returned by SetWorkerLeaveAlone on success.
+type SetWorkerLeaveAloneResponse struct {
+	// #4224 (S3 of #4229) — mark a worker leave-alone, or clear the marker, as whoever manages the App. A marked
+	// worker's hostDesiredState row says LEAVE_ALONE: a sweep observes and reports it and never starts, stops or repairs
+	// it. A change of the marker is one worker.leave-alone-changed team event (the new value only, never the reason); a
+	// call that changes nothing records nothing. Marking an already marked worker with another reason replaces the
+	// reason, who set it and when.
+	// Refusals: WORKER_NOT_FOUND (also for a caller who is not a participant of the worker's App),
+	// WORKER_LEAVE_ALONE_NOT_PERMITTED (a participant who does not manage the App; a worker's session without an
+	// instruction), WORKER_RETIRED, BAD_USER_INPUT (a reason on a clear, or one over 500 characters). The App-manager
+	// arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12),
+	// recorded as one app.manager-act event, ids only.
+	SetWorkerLeaveAlone *SetWorkerLeaveAloneSetWorkerLeaveAlone `json:"setWorkerLeaveAlone"`
+}
+
+// GetSetWorkerLeaveAlone returns SetWorkerLeaveAloneResponse.SetWorkerLeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneResponse) GetSetWorkerLeaveAlone() *SetWorkerLeaveAloneSetWorkerLeaveAlone {
+	return v.SetWorkerLeaveAlone
+}
+
+// SetWorkerLeaveAloneSetWorkerLeaveAlone includes the requested fields of the GraphQL type WorkerLeaveAlone.
+// The GraphQL type's documentation follows.
+//
+// #4224: a worker's leave-alone marker after setWorkerLeaveAlone. reason, by and at are null when the worker is not marked.
+type SetWorkerLeaveAloneSetWorkerLeaveAlone struct {
+	WorkerId   string  `json:"workerId"`
+	LeaveAlone bool    `json:"leaveAlone"`
+	Reason     *string `json:"reason"`
+	// The user who set the marker.
+	By *string `json:"by"`
+	At *string `json:"at"`
+}
+
+// GetWorkerId returns SetWorkerLeaveAloneSetWorkerLeaveAlone.WorkerId, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetWorkerId() string { return v.WorkerId }
+
+// GetLeaveAlone returns SetWorkerLeaveAloneSetWorkerLeaveAlone.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetLeaveAlone() bool { return v.LeaveAlone }
+
+// GetReason returns SetWorkerLeaveAloneSetWorkerLeaveAlone.Reason, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetReason() *string { return v.Reason }
+
+// GetBy returns SetWorkerLeaveAloneSetWorkerLeaveAlone.By, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetBy() *string { return v.By }
+
+// GetAt returns SetWorkerLeaveAloneSetWorkerLeaveAlone.At, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetAt() *string { return v.At }
 
 // SetWorkerReportsToResponse is returned by SetWorkerReportsTo on success.
 type SetWorkerReportsToResponse struct {
@@ -89101,6 +90643,24 @@ func (v *SubscribeTickerSubscribeWorkerSubscribeResultSubscriptionTickerSubscrip
 	return &retval, nil
 }
 
+// #4224 (S3 of #4229): the App's sweep switch.
+type SweepMode string
+
+const (
+	// The sweep also repairs what it can.
+	SweepModeApply SweepMode = "APPLY"
+	// The sweep compares desired state with what it sees and reports; it repairs nothing.
+	SweepModeObserve SweepMode = "OBSERVE"
+	// The sweep acts on no worker: every hostDesiredState row says SWEEP_OFF. The default.
+	SweepModeOff SweepMode = "OFF"
+)
+
+var AllSweepMode = []SweepMode{
+	SweepModeApply,
+	SweepModeObserve,
+	SweepModeOff,
+}
+
 // SyncMemoryResponse is returned by SyncMemory on success.
 type SyncMemoryResponse struct {
 	// Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
@@ -89207,7 +90767,9 @@ const (
 	// An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
 	TaskWakeEventAlarm    TaskWakeEvent = "ALARM"
 	TaskWakeEventAssigned TaskWakeEvent = "ASSIGNED"
-	// A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	// #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	TaskWakeEventChildCancelled TaskWakeEvent = "CHILD_CANCELLED"
+	// A child task finished; the reason names the child. Due to the child's owner (hrn:node:hadronmemory.com:specs:cor:agt:050:16) and, #4234, to the parent's current assignee.
 	TaskWakeEventChildFinished TaskWakeEvent = "CHILD_FINISHED"
 	// #1709 — the task was cancelled and asks its assignee to end its session (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Due while that session is open and the platform has not yet ended it through a host.
 	TaskWakeEventEndSession TaskWakeEvent = "END_SESSION"
@@ -89219,6 +90781,7 @@ const (
 var AllTaskWakeEvent = []TaskWakeEvent{
 	TaskWakeEventAlarm,
 	TaskWakeEventAssigned,
+	TaskWakeEventChildCancelled,
 	TaskWakeEventChildFinished,
 	TaskWakeEventEndSession,
 	TaskWakeEventMatched,
@@ -93070,7 +94633,7 @@ func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStop
 //
 // #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
-	// The task's id (for CHILD_FINISHED, the child's).
+	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
 	Id string `json:"id"`
 	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
 	Handle string `json:"handle"`
@@ -93719,6 +95282,574 @@ type TeamHeldWorkersResponse struct {
 func (v *TeamHeldWorkersResponse) GetHeldWorkers() *TeamHeldWorkersHeldWorkersWorkersPage {
 	return v.HeldWorkers
 }
+
+// TeamHostAssignAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignInstructedResponse is returned by TeamHostAssignInstructed on success.
+type TeamHostAssignInstructedResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignInstructedResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedResponse) GetAssignHostWorker() *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostAssignResponse is returned by TeamHostAssign on success.
+type TeamHostAssignResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignResponse) GetAssignHostWorker() *TeamHostAssignAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostImportRosterResponse is returned by TeamHostImportRoster on success.
+type TeamHostImportRosterResponse struct {
+	// #1707 — every worker's derived state in an App (plan design:agent-tasks
+	// §7.4), computed server-side so the CLI and portal render one answer. Plan-
+	// derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+	TeamRoster *TeamHostImportRosterTeamRoster `json:"teamRoster"`
+}
+
+// GetTeamRoster returns TeamHostImportRosterResponse.TeamRoster, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterResponse) GetTeamRoster() *TeamHostImportRosterTeamRoster {
+	return v.TeamRoster
+}
+
+// TeamHostImportRosterTeamRoster includes the requested fields of the GraphQL type TeamRoster.
+// The GraphQL type's documentation follows.
+//
+// #1707 — the team roster of one App.
+type TeamHostImportRosterTeamRoster struct {
+	Workers []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry `json:"workers"`
+}
+
+// GetWorkers returns TeamHostImportRosterTeamRoster.Workers, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRoster) GetWorkers() []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry {
+	return v.Workers
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntry includes the requested fields of the GraphQL type TeamRosterEntry.
+// The GraphQL type's documentation follows.
+//
+// #1707 — one worker on the team roster.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntry struct {
+	Worker *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty `json:"worker"`
+}
+
+// GetWorker returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntry) GetWorker() *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetName returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// TeamHostSetSourceInstructedResponse is returned by TeamHostSetSourceInstructed on success.
+type TeamHostSetSourceInstructedResponse struct {
+	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+	// (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+	// host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+	// a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+	// workdir and as the assigned family; with none, nothing is issued and the task waits
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+	SetHostSetupSource HostSetupSource `json:"setHostSetupSource"`
+}
+
+// GetSetHostSetupSource returns TeamHostSetSourceInstructedResponse.SetHostSetupSource, and is useful for accessing the field via an interface.
+func (v *TeamHostSetSourceInstructedResponse) GetSetHostSetupSource() HostSetupSource {
+	return v.SetHostSetupSource
+}
+
+// TeamHostSetSourceResponse is returned by TeamHostSetSource on success.
+type TeamHostSetSourceResponse struct {
+	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+	// (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+	// host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+	// a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+	// workdir and as the assigned family; with none, nothing is issued and the task waits
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+	SetHostSetupSource HostSetupSource `json:"setHostSetupSource"`
+}
+
+// GetSetHostSetupSource returns TeamHostSetSourceResponse.SetHostSetupSource, and is useful for accessing the field via an interface.
+func (v *TeamHostSetSourceResponse) GetSetHostSetupSource() HostSetupSource {
+	return v.SetHostSetupSource
+}
+
+// TeamHostSetupHostSetup includes the requested fields of the GraphQL type HostSetup.
+// The GraphQL type's documentation follows.
+//
+// #4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+type TeamHostSetupHostSetup struct {
+	Source      HostSetupSource                                          `json:"source"`
+	Assignments []*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment `json:"assignments"`
+}
+
+// GetSource returns TeamHostSetupHostSetup.Source, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetup) GetSource() HostSetupSource { return v.Source }
+
+// GetAssignments returns TeamHostSetupHostSetup.Assignments, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetup) GetAssignments() []*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment {
+	return v.Assignments
+}
+
+// TeamHostSetupHostSetupAssignmentsHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostSetupResponse is returned by TeamHostSetup on success.
+type TeamHostSetupResponse struct {
+	// #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+	// the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+	// App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+	// own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+	// no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+	// FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	HostSetup *TeamHostSetupHostSetup `json:"hostSetup"`
+}
+
+// GetHostSetup returns TeamHostSetupResponse.HostSetup, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupResponse) GetHostSetup() *TeamHostSetupHostSetup { return v.HostSetup }
+
+// TeamHostUnassignInstructedResponse is returned by TeamHostUnassignInstructed on success.
+type TeamHostUnassignInstructedResponse struct {
+	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
+}
+
+// GetUnassignHostWorker returns TeamHostUnassignInstructedResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() *bool {
+	return v.UnassignHostWorker
+}
+
+// TeamHostUnassignResponse is returned by TeamHostUnassign on success.
+type TeamHostUnassignResponse struct {
+	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
+}
+
+// GetUnassignHostWorker returns TeamHostUnassignResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostUnassignResponse) GetUnassignHostWorker() *bool { return v.UnassignHostWorker }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -98937,6 +101068,21 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	return &retval, nil
 }
 
+type UnassignHostWorkerInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns UnassignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns UnassignHostWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetHostId() string { return v.HostId }
+
+// GetWorker returns UnassignHostWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetWorker() string { return v.Worker }
+
 // UniformEdge includes the GraphQL fields of Edge requested by the fragment UniformEdge.
 type UniformEdge struct {
 	Id string `json:"id"`
@@ -100790,6 +102936,258 @@ func (v *UpdateAgentUpdateAgent) MarshalJSON() ([]byte, error) {
 func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpdateAgent, error) {
 	var retval __premarshalUpdateAgentUpdateAgent
 
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// UpdateAgentWithLifecycleResponse is returned by UpdateAgentWithLifecycle on success.
+type UpdateAgentWithLifecycleResponse struct {
+	// Update an Agent.
+	//
+	// urn renames the slug (org-owned agents only). personaRole is normalized
+	// (explicit null or blank clears, omitted preserves). Worker castings
+	// referencing this agent are unaffected —
+	// the named identity lives on the Worker.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateAgentWithLifecycleUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateAgentWithLifecycleResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleResponse) GetUpdateAgent() *UpdateAgentWithLifecycleUpdateAgent {
+	return v.UpdateAgent
+}
+
+// UpdateAgentWithLifecycleUpdateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type UpdateAgentWithLifecycleUpdateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetLifecycle returns UpdateAgentWithLifecycleUpdateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetId returns UpdateAgentWithLifecycleUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentWithLifecycleUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentWithLifecycleUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentWithLifecycleUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns UpdateAgentWithLifecycleUpdateAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns UpdateAgentWithLifecycleUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns UpdateAgentWithLifecycleUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns UpdateAgentWithLifecycleUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns UpdateAgentWithLifecycleUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns UpdateAgentWithLifecycleUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns UpdateAgentWithLifecycleUpdateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns UpdateAgentWithLifecycleUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns UpdateAgentWithLifecycleUpdateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateAgentWithLifecycleUpdateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns UpdateAgentWithLifecycleUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns UpdateAgentWithLifecycleUpdateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns UpdateAgentWithLifecycleUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns UpdateAgentWithLifecycleUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns UpdateAgentWithLifecycleUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns UpdateAgentWithLifecycleUpdateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns UpdateAgentWithLifecycleUpdateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentWithLifecycleUpdateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns UpdateAgentWithLifecycleUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns UpdateAgentWithLifecycleUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentWithLifecycleUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentWithLifecycleUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentWithLifecycleUpdateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentWithLifecycleUpdateAgent, error) {
+	var retval __premarshalUpdateAgentWithLifecycleUpdateAgent
+
+	retval.Lifecycle = v.Lifecycle
 	retval.Id = v.AgentFields.Id
 	retval.Urn = v.AgentFields.Urn
 	retval.Name = v.AgentFields.Name
@@ -110548,20 +112946,76 @@ const (
 	WorkerTerminalRepairNoSnapshot WorkerTerminalRepair = "NO_SNAPSHOT"
 	// The host relaunched the worker; carries attempt.
 	WorkerTerminalRepairRelaunched WorkerTerminalRepair = "RELAUNCHED"
+	// #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
+	// (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT, SETUP_FAILED, VERIFY_FAILED) and attempt.
+	WorkerTerminalRepairRelaunchFailed WorkerTerminalRepair = "RELAUNCH_FAILED"
+	// #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
+	// refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
+	WorkerTerminalRepairRelaunchRefused WorkerTerminalRepair = "RELAUNCH_REFUSED"
 )
 
 var AllWorkerTerminalRepair = []WorkerTerminalRepair{
 	WorkerTerminalRepairCapReached,
 	WorkerTerminalRepairNoSnapshot,
 	WorkerTerminalRepairRelaunched,
+	WorkerTerminalRepairRelaunchFailed,
+	WorkerTerminalRepairRelaunchRefused,
+}
+
+// #4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
+// the last five with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+type WorkerTerminalRepairReason string
+
+const (
+	// Another agent is already running in the worker's place.
+	WorkerTerminalRepairReasonDuplicateAgent WorkerTerminalRepairReason = "DUPLICATE_AGENT"
+	// The worker is halted.
+	WorkerTerminalRepairReasonHalted WorkerTerminalRepairReason = "HALTED"
+	// The worker's identity does not match its launch snapshot.
+	WorkerTerminalRepairReasonIdentityMismatch WorkerTerminalRepairReason = "IDENTITY_MISMATCH"
+	// The launcher exited non-zero.
+	WorkerTerminalRepairReasonLaunchExitNonzero WorkerTerminalRepairReason = "LAUNCH_EXIT_NONZERO"
+	// The worker is marked leave-alone.
+	WorkerTerminalRepairReasonLeaveAlone WorkerTerminalRepairReason = "LEAVE_ALONE"
+	// The worker has no launcher profile.
+	WorkerTerminalRepairReasonNoLauncherProfile WorkerTerminalRepairReason = "NO_LAUNCHER_PROFILE"
+	// The worker is paused.
+	WorkerTerminalRepairReasonPaused WorkerTerminalRepairReason = "PAUSED"
+	// #4259 — the host could not prepare the launch (a setup or disk error); the launcher never ran.
+	WorkerTerminalRepairReasonSetupFailed WorkerTerminalRepairReason = "SETUP_FAILED"
+	// Orca refused to create the terminal.
+	WorkerTerminalRepairReasonTerminalCreateRefused WorkerTerminalRepairReason = "TERMINAL_CREATE_REFUSED"
+	// The relaunch timed out.
+	WorkerTerminalRepairReasonTimeout WorkerTerminalRepairReason = "TIMEOUT"
+	// #4259 — the launcher ran, but the host could not prove the agent came up.
+	WorkerTerminalRepairReasonVerifyFailed WorkerTerminalRepairReason = "VERIFY_FAILED"
+)
+
+var AllWorkerTerminalRepairReason = []WorkerTerminalRepairReason{
+	WorkerTerminalRepairReasonDuplicateAgent,
+	WorkerTerminalRepairReasonHalted,
+	WorkerTerminalRepairReasonIdentityMismatch,
+	WorkerTerminalRepairReasonLaunchExitNonzero,
+	WorkerTerminalRepairReasonLeaveAlone,
+	WorkerTerminalRepairReasonNoLauncherProfile,
+	WorkerTerminalRepairReasonPaused,
+	WorkerTerminalRepairReasonSetupFailed,
+	WorkerTerminalRepairReasonTerminalCreateRefused,
+	WorkerTerminalRepairReasonTimeout,
+	WorkerTerminalRepairReasonVerifyFailed,
 }
 
 // #2771 — one worker's terminal report. There is no free-text field.
 type WorkerTerminalReportInput struct {
-	// The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+	// The relaunch's attempt number, at least 1: required with RELAUNCHED, RELAUNCH_REFUSED and RELAUNCH_FAILED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
 	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
+	// #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+	ContextMeasuredAt *string `json:"contextMeasuredAt,omitempty"`
+	// #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+	// when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+	ContextTokens *int `json:"contextTokens,omitempty"`
 	// When the worker's last turn ended, not after checkedAt.
 	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
@@ -110570,7 +113024,10 @@ type WorkerTerminalReportInput struct {
 	// #4041 (V82) — the outcome of the host's repair of a dark worker. Valid only with status dark; on a busy, idle or
 	// locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
 	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
-	Status WorkerTerminalState   `json:"status"`
+	// #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
+	// outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
+	RepairReason *WorkerTerminalRepairReason `json:"repairReason,omitempty"`
+	Status       WorkerTerminalState         `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
 }
@@ -110580,6 +113037,12 @@ func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetContextMeasuredAt returns WorkerTerminalReportInput.ContextMeasuredAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextMeasuredAt() *string { return v.ContextMeasuredAt }
+
+// GetContextTokens returns WorkerTerminalReportInput.ContextTokens, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextTokens() *int { return v.ContextTokens }
 
 // GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }
@@ -110592,6 +113055,11 @@ func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v
 
 // GetRepair returns WorkerTerminalReportInput.Repair, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetRepair() *WorkerTerminalRepair { return v.Repair }
+
+// GetRepairReason returns WorkerTerminalReportInput.RepairReason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetRepairReason() *WorkerTerminalRepairReason {
+	return v.RepairReason
+}
 
 // GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }
@@ -114299,6 +116767,60 @@ type __CreateAgentWebhookInput struct {
 // GetInput returns __CreateAgentWebhookInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWebhookInput) GetInput() *CreateAgentWebhookInput { return v.Input }
 
+// __CreateAgentWithLifecycleInput is used internally by genqlient
+type __CreateAgentWithLifecycleInput struct {
+	Name                  string           `json:"name"`
+	Lifecycle             *AgentLifecycle  `json:"lifecycle,omitempty"`
+	OrgId                 *string          `json:"orgId,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+}
+
+// GetName returns __CreateAgentWithLifecycleInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetName() string { return v.Name }
+
+// GetLifecycle returns __CreateAgentWithLifecycleInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetOrgId returns __CreateAgentWithLifecycleInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetOrgId() *string { return v.OrgId }
+
+// GetDescription returns __CreateAgentWithLifecycleInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentWithLifecycleInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __CreateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __CreateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentWithLifecycleInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentWithLifecycleInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentWithLifecycleInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentWithLifecycleInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
 // __CreateAiServiceConfigInput is used internally by genqlient
 type __CreateAiServiceConfigInput struct {
 	Name      string            `json:"name"`
@@ -116293,6 +118815,14 @@ type __GetAgentInput struct {
 // GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAgentInput) GetRef() string { return v.Ref }
 
+// __GetAgentLifecycleInput is used internally by genqlient
+type __GetAgentLifecycleInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAgentLifecycleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAgentLifecycleInput) GetRef() string { return v.Ref }
+
 // __GetAppChatbotAiConfigInput is used internally by genqlient
 type __GetAppChatbotAiConfigInput struct {
 	Ref string `json:"ref"`
@@ -116324,6 +118854,14 @@ type __GetAppSharedMemoryInput struct {
 
 // GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
+
+// __GetAppSweepModeInput is used internally by genqlient
+type __GetAppSweepModeInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __GetAppSweepModeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetAppSweepModeInput) GetAppRef() string { return v.AppRef }
 
 // __GetBoundSessionEndInput is used internally by genqlient
 type __GetBoundSessionEndInput struct {
@@ -116577,6 +119115,18 @@ type __GetWorkerInput struct {
 // GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerInput) GetRef() string { return v.Ref }
 
+// __GetWorkerLeaveAloneInput is used internally by genqlient
+type __GetWorkerLeaveAloneInput struct {
+	Ref    string  `json:"ref"`
+	AppRef *string `json:"appRef,omitempty"`
+}
+
+// GetRef returns __GetWorkerLeaveAloneInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerLeaveAloneInput) GetRef() string { return v.Ref }
+
+// GetAppRef returns __GetWorkerLeaveAloneInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetWorkerLeaveAloneInput) GetAppRef() *string { return v.AppRef }
+
 // __GetWorkerModelGroupsInput is used internally by genqlient
 type __GetWorkerModelGroupsInput struct {
 	Ref string `json:"ref"`
@@ -116729,6 +119279,14 @@ type __GrantCreditsInput struct {
 // GetInput returns __GrantCreditsInput.Input, and is useful for accessing the field via an interface.
 func (v *__GrantCreditsInput) GetInput() *GrantCreditsInput { return v.Input }
 
+// __HealthSweepPauseInput is used internally by genqlient
+type __HealthSweepPauseInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __HealthSweepPauseInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HealthSweepPauseInput) GetAppRef() string { return v.AppRef }
+
 // __HealthSweepSetTerminalsInput is used internally by genqlient
 type __HealthSweepSetTerminalsInput struct {
 	Input *SetHostWorkerTerminalsInput `json:"input,omitempty"`
@@ -116769,6 +119327,18 @@ func (v *__HomeAssistantInstancesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __HomeAssistantInstancesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__HomeAssistantInstancesInput) GetOffset() *int { return v.Offset }
 
+// __HostDesiredStateInput is used internally by genqlient
+type __HostDesiredStateInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostDesiredStateInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostDesiredStateInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetHostId() string { return v.HostId }
+
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
 	AppRef string               `json:"appRef"`
@@ -116797,6 +119367,34 @@ func (v *__HostOperationsInput) GetFirst() *int { return v.First }
 // GetAfter returns __HostOperationsInput.After, and is useful for accessing the field via an interface.
 func (v *__HostOperationsInput) GetAfter() *string { return v.After }
 
+// __HostOperationsWithReasonInput is used internally by genqlient
+type __HostOperationsWithReasonInput struct {
+	AppRef string               `json:"appRef"`
+	HostId *string              `json:"hostId,omitempty"`
+	Status *HostOperationStatus `json:"status,omitempty"`
+	Worker *string              `json:"worker,omitempty"`
+	First  *int                 `json:"first,omitempty"`
+	After  *string              `json:"after,omitempty"`
+}
+
+// GetAppRef returns __HostOperationsWithReasonInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostOperationsWithReasonInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetHostId() *string { return v.HostId }
+
+// GetStatus returns __HostOperationsWithReasonInput.Status, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetStatus() *HostOperationStatus { return v.Status }
+
+// GetWorker returns __HostOperationsWithReasonInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetWorker() *string { return v.Worker }
+
+// GetFirst returns __HostOperationsWithReasonInput.First, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __HostOperationsWithReasonInput.After, and is useful for accessing the field via an interface.
+func (v *__HostOperationsWithReasonInput) GetAfter() *string { return v.After }
+
 // __HostPlanAppInput is used internally by genqlient
 type __HostPlanAppInput struct {
 	Ref string `json:"ref"`
@@ -116824,6 +119422,26 @@ type __HostRegistrationsInput struct {
 
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
+
+// __HostRelaunchSnapshotInput is used internally by genqlient
+type __HostRelaunchSnapshotInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostRelaunchSnapshotInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSnapshotInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostRelaunchSnapshotInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSnapshotInput) GetHostId() string { return v.HostId }
+
+// __HostUpWorkerReposInput is used internally by genqlient
+type __HostUpWorkerReposInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HostUpWorkerReposInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostUpWorkerReposInput) GetRef() string { return v.Ref }
 
 // __ImpersonationSessionInput is used internally by genqlient
 type __ImpersonationSessionInput struct {
@@ -118213,6 +120831,14 @@ type __RecordUsageInput struct {
 // GetEvent returns __RecordUsageInput.Event, and is useful for accessing the field via an interface.
 func (v *__RecordUsageInput) GetEvent() *UsageEventInput { return v.Event }
 
+// __RecoverWorkerInput is used internally by genqlient
+type __RecoverWorkerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RecoverWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RecoverWorkerInput) GetRef() string { return v.Ref }
+
 // __RecoveryEdgesInput is used internally by genqlient
 type __RecoveryEdgesInput struct {
 	MemoryRef string   `json:"memoryRef"`
@@ -118310,6 +120936,14 @@ type __RegisterHostInput struct {
 
 // GetInput returns __RegisterHostInput.Input, and is useful for accessing the field via an interface.
 func (v *__RegisterHostInput) GetInput() *RegisterHostInput { return v.Input }
+
+// __RegisterHostWithRefusedInput is used internally by genqlient
+type __RegisterHostWithRefusedInput struct {
+	Input *RegisterHostInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RegisterHostWithRefusedInput.Input, and is useful for accessing the field via an interface.
+func (v *__RegisterHostWithRefusedInput) GetInput() *RegisterHostInput { return v.Input }
 
 // __ReinstallAppInput is used internally by genqlient
 type __ReinstallAppInput struct {
@@ -119343,6 +121977,22 @@ func (v *__SetAppPropertiesInput) GetProperties() *json.RawMessage { return v.Pr
 // GetExpectedRevision returns __SetAppPropertiesInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__SetAppPropertiesInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
+// __SetAppSweepModeInput is used internally by genqlient
+type __SetAppSweepModeInput struct {
+	AppRef      string               `json:"appRef"`
+	Mode        SweepMode            `json:"mode"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __SetAppSweepModeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetAppRef() string { return v.AppRef }
+
+// GetMode returns __SetAppSweepModeInput.Mode, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetMode() SweepMode { return v.Mode }
+
+// GetInstruction returns __SetAppSweepModeInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __SetAssetPublicLinkInput is used internally by genqlient
 type __SetAssetPublicLinkInput struct {
 	AssetRef string `json:"assetRef"`
@@ -119504,6 +122154,18 @@ func (v *__SetWorkerBootPromptInput) GetWorkerRef() string { return v.WorkerRef 
 
 // GetNodeRef returns __SetWorkerBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__SetWorkerBootPromptInput) GetNodeRef() *string { return v.NodeRef }
+
+// __SetWorkerLeaveAloneInput is used internally by genqlient
+type __SetWorkerLeaveAloneInput struct {
+	Input       *SetWorkerLeaveAloneInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput      `json:"instruction,omitempty"`
+}
+
+// GetInput returns __SetWorkerLeaveAloneInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetWorkerLeaveAloneInput) GetInput() *SetWorkerLeaveAloneInput { return v.Input }
+
+// GetInstruction returns __SetWorkerLeaveAloneInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetWorkerLeaveAloneInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __SetWorkerReportsToInput is used internally by genqlient
 type __SetWorkerReportsToInput struct {
@@ -120261,6 +122923,98 @@ func (v *__TeamHeldWorkersInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __TeamHeldWorkersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamHeldWorkersInput) GetOffset() *int { return v.Offset }
 
+// __TeamHostAssignInput is used internally by genqlient
+type __TeamHostAssignInput struct {
+	Input *AssignHostWorkerInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInput) GetInput() *AssignHostWorkerInput { return v.Input }
+
+// __TeamHostAssignInstructedInput is used internally by genqlient
+type __TeamHostAssignInstructedInput struct {
+	Input       *AssignHostWorkerInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput   `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInstructedInput) GetInput() *AssignHostWorkerInput { return v.Input }
+
+// GetInstruction returns __TeamHostAssignInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
+// __TeamHostImportRosterInput is used internally by genqlient
+type __TeamHostImportRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamHostImportRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostImportRosterInput) GetAppRef() string { return v.AppRef }
+
+// __TeamHostSetSourceInput is used internally by genqlient
+type __TeamHostSetSourceInput struct {
+	AppRef string          `json:"appRef"`
+	Source HostSetupSource `json:"source"`
+}
+
+// GetAppRef returns __TeamHostSetSourceInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInput) GetAppRef() string { return v.AppRef }
+
+// GetSource returns __TeamHostSetSourceInput.Source, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInput) GetSource() HostSetupSource { return v.Source }
+
+// __TeamHostSetSourceInstructedInput is used internally by genqlient
+type __TeamHostSetSourceInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Source      HostSetupSource      `json:"source"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamHostSetSourceInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetSource returns __TeamHostSetSourceInstructedInput.Source, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetSource() HostSetupSource { return v.Source }
+
+// GetInstruction returns __TeamHostSetSourceInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// __TeamHostSetupInput is used internally by genqlient
+type __TeamHostSetupInput struct {
+	AppRef string  `json:"appRef"`
+	HostId *string `json:"hostId,omitempty"`
+}
+
+// GetAppRef returns __TeamHostSetupInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __TeamHostSetupInput.HostId, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupInput) GetHostId() *string { return v.HostId }
+
+// __TeamHostUnassignInput is used internally by genqlient
+type __TeamHostUnassignInput struct {
+	Input *UnassignHostWorkerInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamHostUnassignInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInput) GetInput() *UnassignHostWorkerInput { return v.Input }
+
+// __TeamHostUnassignInstructedInput is used internally by genqlient
+type __TeamHostUnassignInstructedInput struct {
+	Input       *UnassignHostWorkerInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput     `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamHostUnassignInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInstructedInput) GetInput() *UnassignHostWorkerInput { return v.Input }
+
+// GetInstruction returns __TeamHostUnassignInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
 	Ref string `json:"ref"`
@@ -120918,6 +123672,76 @@ func (v *__UpdateAgentTickerTemplateInput) GetExpectedRevision() int { return v.
 
 // GetInput returns __UpdateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentTickerTemplateInput) GetInput() *AgentTickerTemplatePatch { return v.Input }
+
+// __UpdateAgentWithLifecycleInput is used internally by genqlient
+type __UpdateAgentWithLifecycleInput struct {
+	Ref                   string                          `json:"ref"`
+	Lifecycle             *AgentLifecycle                 `json:"lifecycle,omitempty"`
+	Name                  *string                         `json:"name,omitempty"`
+	Description           *string                         `json:"description,omitempty"`
+	AgentType             *AgentType                      `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
+	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                        `json:"surfaces,omitempty"`
+	Urn                   *string                         `json:"urn,omitempty"`
+	PersonaRole           *string                         `json:"personaRole,omitempty"`
+	UsesTasks             *bool                           `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                           `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string                        `json:"memberRoles,omitempty"`
+	ListedOnMarketplace   *bool                           `json:"listedOnMarketplace,omitempty"`
+	RegisterDefaults      *gqltypes.RegisterDefaultsInput `json:"registerDefaults,omitempty"`
+}
+
+// GetRef returns __UpdateAgentWithLifecycleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetRef() string { return v.Ref }
+
+// GetLifecycle returns __UpdateAgentWithLifecycleInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetName returns __UpdateAgentWithLifecycleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAgentWithLifecycleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __UpdateAgentWithLifecycleInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __UpdateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __UpdateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __UpdateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetUrn returns __UpdateAgentWithLifecycleInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetUrn() *string { return v.Urn }
+
+// GetPersonaRole returns __UpdateAgentWithLifecycleInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetUsesTasks returns __UpdateAgentWithLifecycleInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __UpdateAgentWithLifecycleInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// GetMemberRoles returns __UpdateAgentWithLifecycleInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetListedOnMarketplace returns __UpdateAgentWithLifecycleInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetListedOnMarketplace() *bool {
+	return v.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns __UpdateAgentWithLifecycleInput.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetRegisterDefaults() *gqltypes.RegisterDefaultsInput {
+	return v.RegisterDefaults
+}
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -130401,8 +133225,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -132948,8 +135774,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -134677,8 +137505,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -134953,6 +137783,93 @@ func CreateAgentWebhook(
 	}
 
 	data_ = &CreateAgentWebhookResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgentWithLifecycle.
+const CreateAgentWithLifecycle_Operation = `
+mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, lifecycle: $lifecycle, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+		lifecycle
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentWithLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	lifecycle *AgentLifecycle,
+	orgId *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+) (data_ *CreateAgentWithLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWithLifecycle",
+		Query:  CreateAgentWithLifecycle_Operation,
+		Variables: &__CreateAgentWithLifecycleInput{
+			Name:                  name,
+			Lifecycle:             lifecycle,
+			OrgId:                 orgId,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+		},
+	}
+
+	data_ = &CreateAgentWithLifecycleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -140871,6 +143788,42 @@ func GetAgent(
 	return data_, err_
 }
 
+// The query executed by GetAgentLifecycle.
+const GetAgentLifecycle_Operation = `
+query GetAgentLifecycle ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+		lifecycle
+	}
+}
+`
+
+// S3-only documents. Keep AgentFields and legacy mutations valid on older servers.
+func GetAgentLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAgentLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAgentLifecycle",
+		Query:  GetAgentLifecycle_Operation,
+		Variables: &__GetAgentLifecycleInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAgentLifecycleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetAppChatbotAiConfig.
 const GetAppChatbotAiConfig_Operation = `
 query GetAppChatbotAiConfig ($ref: ID!) {
@@ -141016,6 +143969,40 @@ func GetAppSharedMemory(
 	}
 
 	data_ = &GetAppSharedMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppSweepMode.
+const GetAppSweepMode_Operation = `
+query GetAppSweepMode ($appRef: ID!) {
+	app(ref: $appRef) {
+		sweepMode
+	}
+}
+`
+
+func GetAppSweepMode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *GetAppSweepModeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppSweepMode",
+		Query:  GetAppSweepMode_Operation,
+		Variables: &__GetAppSweepModeInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &GetAppSweepModeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -142780,6 +145767,47 @@ func GetWorkerInApp(
 	return data_, err_
 }
 
+// The query executed by GetWorkerLeaveAlone.
+const GetWorkerLeaveAlone_Operation = `
+query GetWorkerLeaveAlone ($ref: ID!, $appRef: ID) {
+	worker(ref: $ref, appRef: $appRef) {
+		id
+		leaveAlone
+		leaveAloneReason
+		leaveAloneBy
+		leaveAloneAt
+	}
+}
+`
+
+// The new read command alone requires S3; shared WorkerFields stay unchanged.
+func GetWorkerLeaveAlone(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	appRef *string,
+) (data_ *GetWorkerLeaveAloneResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerLeaveAlone",
+		Query:  GetWorkerLeaveAlone_Operation,
+		Variables: &__GetWorkerLeaveAloneInput{
+			Ref:    ref,
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &GetWorkerLeaveAloneResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetWorkerModelGroups.
 const GetWorkerModelGroups_Operation = `
 query GetWorkerModelGroups ($ref: ID!) {
@@ -143387,6 +146415,51 @@ func GrantCredits(
 	return data_, err_
 }
 
+// The query executed by HealthSweepPause.
+const HealthSweepPause_Operation = `
+query HealthSweepPause ($appRef: ID!) {
+	workers(appRef: $appRef) {
+		items {
+			id
+			checkStatus {
+				status
+				pendingReason
+			}
+		}
+	}
+}
+`
+
+// #2027 — the sweep's team-pause check. A pendingReason of TEAM_PAUSED on any
+// of the App's workers means a team pause is in force, and the sweep detects
+// and reports only (gate edge 4). Read with the host key, which shares the
+// worker read's authorization; checkStatus is null where a read gate withholds
+// it, and null is simply not a pause.
+func HealthSweepPause(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *HealthSweepPauseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HealthSweepPause",
+		Query:  HealthSweepPause_Operation,
+		Variables: &__HealthSweepPauseInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &HealthSweepPauseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by HealthSweepSetTerminals.
 const HealthSweepSetTerminals_Operation = `
 mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
@@ -143571,6 +146644,58 @@ func HomeAssistantInstances(
 	return data_, err_
 }
 
+// The query executed by HostDesiredState.
+const HostDesiredState_Operation = `
+query HostDesiredState ($appRef: String!, $hostId: String!) {
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			name
+			lifecycle
+			desired
+			reason
+			wouldBe
+			wouldBeReason
+			openSessionId
+			family
+			worktrees
+		}
+	}
+}
+`
+
+// hadron-cli#1389 server adapter over hadron-server#4242 (S3 of #4229): a
+// host's desired state, the source `team host up` reconciles against. A read:
+// it is sent without the worker session (no X-Hadron-Session).
+func HostDesiredState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostDesiredStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostDesiredState",
+		Query:  HostDesiredState_Operation,
+		Variables: &__HostDesiredStateInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostDesiredStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostOperations.
 const HostOperations_Operation = `
 query HostOperations ($appRef: String!, $hostId: String, $status: HostOperationStatus, $worker: String, $first: Int, $after: String) {
@@ -143629,6 +146754,79 @@ func HostOperations(
 	}
 
 	data_ = &HostOperationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostOperationsWithReason.
+const HostOperationsWithReason_Operation = `
+query HostOperationsWithReason ($appRef: String!, $hostId: String, $status: HostOperationStatus, $worker: String, $first: Int, $after: String) {
+	hostOperations(appRef: $appRef, hostId: $hostId, status: $status, worker: $worker, first: $first, after: $after) {
+		items {
+			... HostOperationFields
+			issuedReason
+		}
+		hasNextPage
+		endCursor
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+// #4231 (hadron-server#4257): the same list, selecting issuedReason too. Only `team host ops`
+// uses it, and falls back to HostOperations when the server rejects that one field: the
+// poller's own operations (collect, report) must keep working on an older server.
+func HostOperationsWithReason(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+	status *HostOperationStatus,
+	worker *string,
+	first *int,
+	after *string,
+) (data_ *HostOperationsWithReasonResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostOperationsWithReason",
+		Query:  HostOperationsWithReason_Operation,
+		Variables: &__HostOperationsWithReasonInput{
+			AppRef: appRef,
+			HostId: hostId,
+			Status: status,
+			Worker: worker,
+			First:  first,
+			After:  after,
+		},
+	}
+
+	data_ = &HostOperationsWithReasonResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -143753,6 +146951,97 @@ func HostRegistrations(
 	}
 
 	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRelaunchSnapshot.
+const HostRelaunchSnapshot_Operation = `
+query HostRelaunchSnapshot ($appRef: String!, $hostId: String!) {
+	myApp {
+		id
+	}
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			family
+			desired
+			reason
+			openSessionId
+			worktrees
+		}
+	}
+}
+`
+
+// C5: canonical App identity and desired state from one host-key read.
+// myApp identifies the authenticated App key; app(ref) has a user/org gate.
+// The desired-state read independently checks the configured App and host.
+func HostRelaunchSnapshot(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostRelaunchSnapshotResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchSnapshot",
+		Query:  HostRelaunchSnapshot_Operation,
+		Variables: &__HostRelaunchSnapshotInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostRelaunchSnapshotResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostUpWorkerRepos.
+const HostUpWorkerRepos_Operation = `
+query HostUpWorkerRepos ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		repos
+	}
+}
+`
+
+// cli#2085: the repos a worker's role names (TeamRole.repos), the one source
+// `host up` may create a missing worktree from under hostSetupSource SERVER.
+// Only these fields (the full worker record carries the boot prompt). Masked to
+// [] for a caller who cannot read the worker, which `host up` treats as "no
+// repo". Sent without the worker session.
+func HostUpWorkerRepos(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HostUpWorkerReposResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostUpWorkerRepos",
+		Query:  HostUpWorkerRepos_Operation,
+		Variables: &__HostUpWorkerReposInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HostUpWorkerReposResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -149659,6 +152948,48 @@ func RecordUsage(
 	return data_, err_
 }
 
+// The query executed by RecoverWorker.
+const RecoverWorker_Operation = `
+query RecoverWorker ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		urn
+		name
+		role
+		appId
+		memoryId
+	}
+}
+`
+
+// cli#2062: `team session recover` needs only the worker's identity, and
+// WorkerFields carries the whole served boot prompt (thousands of words) that a
+// recovery read must not pull on every call.
+func RecoverWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RecoverWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoverWorker",
+		Query:  RecoverWorker_Operation,
+		Variables: &__RecoverWorkerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RecoverWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by RecoveryEdges.
 const RecoveryEdges_Operation = `
 query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int, $edgeIds: [ID!]) {
@@ -149907,8 +153238,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -149916,6 +153249,8 @@ fragment ContextResetFields on ContextReset {
 // #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
 // never names one (checkpointNode). Exactly one is allowed: checkpointNode is
 // omitted, not sent as null, when unset (checkpoint already is).
+// #4258: a context-cap reset has no task; taskId is OMITTED then (an omitted
+// field is "none", never an explicit null).
 func RegisterContextResetRecovery(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -150046,6 +153381,69 @@ func RegisterHost(
 	}
 
 	data_ = &RegisterHostResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RegisterHostWithRefused.
+const RegisterHostWithRefused_Operation = `
+mutation RegisterHostWithRefused ($input: RegisterHostInput!) {
+	registerHost(input: $input) {
+		... HostRegistrationFields
+		refusedWorkers {
+			worker
+			code
+		}
+	}
+}
+fragment HostRegistrationFields on HostRegistration {
+	hostId
+	label
+	pollIntervalSeconds
+	registeredAt
+	refreshedAt
+	live
+	workers {
+		workerId
+		worker {
+			id
+			urn
+			name
+		}
+		family
+		worktrees
+	}
+}
+`
+
+// #4222 / cli#2091: the same registration, also asking for refusedWorkers: under
+// a SERVER setup source, the listed workers the platform did not assign to this
+// host. A SEPARATE document, because a server without hadron-server#4241 refuses
+// any query naming the field, which would take every host poller down. The
+// poller tries this one first and, on a schema-skew refusal, falls back to
+// RegisterHost once and remembers it (hostServer.Register). Never widen
+// RegisterHost or HostRegistrationFields with the field.
+func RegisterHostWithRefused(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RegisterHostInput,
+) (data_ *RegisterHostWithRefusedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegisterHostWithRefused",
+		Query:  RegisterHostWithRefused_Operation,
+		Variables: &__RegisterHostWithRefusedInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RegisterHostWithRefusedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -150737,8 +154135,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -150791,8 +154191,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -150844,8 +154246,10 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
+	endedAt
 	checkpointNode
 }
 `
@@ -154323,6 +157727,44 @@ func SetAppProperties(
 	return data_, err_
 }
 
+// The mutation executed by SetAppSweepMode.
+const SetAppSweepMode_Operation = `
+mutation SetAppSweepMode ($appRef: String!, $mode: SweepMode!, $instruction: ActInstructionInput) {
+	setAppSweepMode(appRef: $appRef, mode: $mode, instruction: $instruction) {
+		sweepMode
+	}
+}
+`
+
+func SetAppSweepMode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	mode SweepMode,
+	instruction *ActInstructionInput,
+) (data_ *SetAppSweepModeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppSweepMode",
+		Query:  SetAppSweepMode_Operation,
+		Variables: &__SetAppSweepModeInput{
+			AppRef:      appRef,
+			Mode:        mode,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetAppSweepModeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAssetPublicLink.
 const SetAssetPublicLink_Operation = `
 mutation SetAssetPublicLink ($assetRef: ID!, $enabled: Boolean!) {
@@ -154898,6 +158340,48 @@ func SetWorkerBootPrompt(
 	}
 
 	data_ = &SetWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetWorkerLeaveAlone.
+const SetWorkerLeaveAlone_Operation = `
+mutation SetWorkerLeaveAlone ($input: SetWorkerLeaveAloneInput!, $instruction: ActInstructionInput) {
+	setWorkerLeaveAlone(input: $input, instruction: $instruction) {
+		workerId
+		leaveAlone
+		reason
+		by
+		at
+	}
+}
+`
+
+// Omitted reason is absent, never null. The server validates its bound and
+// whether it is meaningful for this marker change.
+func SetWorkerLeaveAlone(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetWorkerLeaveAloneInput,
+	instruction *ActInstructionInput,
+) (data_ *SetWorkerLeaveAloneResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerLeaveAlone",
+		Query:  SetWorkerLeaveAlone_Operation,
+		Variables: &__SetWorkerLeaveAloneInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetWorkerLeaveAloneResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -157686,6 +161170,333 @@ func TeamHeldWorkers(
 	return data_, err_
 }
 
+// The mutation executed by TeamHostAssign.
+const TeamHostAssign_Operation = `
+mutation TeamHostAssign ($input: AssignHostWorkerInput!) {
+	assignHostWorker(input: $input) {
+		... HostSetupAssignmentFields
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+// #4230 (server main, tracked by #2157): optional like model; omitted, never null, so an existing assignment is preserved.
+func TeamHostAssign(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+) (data_ *TeamHostAssignResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssign",
+		Query:  TeamHostAssign_Operation,
+		Variables: &__TeamHostAssignInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamHostAssignResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostAssignInstructed.
+const TeamHostAssignInstructed_Operation = `
+mutation TeamHostAssignInstructed ($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+	assignHostWorker(input: $input, instruction: $instruction) {
+		... HostSetupAssignmentFields
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostAssignInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostAssignInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssignInstructed",
+		Query:  TeamHostAssignInstructed_Operation,
+		Variables: &__TeamHostAssignInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostAssignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostImportRoster.
+const TeamHostImportRoster_Operation = `
+query TeamHostImportRoster ($appRef: ID!) {
+	teamRoster(appRef: $appRef) {
+		workers {
+			worker {
+				id
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+// Host import (hadron-cli#2061): only who the roster workers ARE, never their
+// operational state, so an unrelated roster field can not fail an import.
+func TeamHostImportRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamHostImportRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostImportRoster",
+		Query:  TeamHostImportRoster_Operation,
+		Variables: &__TeamHostImportRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamHostImportRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostSetSource.
+const TeamHostSetSource_Operation = `
+mutation TeamHostSetSource ($appRef: String!, $source: HostSetupSource!) {
+	setHostSetupSource(appRef: $appRef, source: $source)
+}
+`
+
+func TeamHostSetSource(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	source HostSetupSource,
+) (data_ *TeamHostSetSourceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetSource",
+		Query:  TeamHostSetSource_Operation,
+		Variables: &__TeamHostSetSourceInput{
+			AppRef: appRef,
+			Source: source,
+		},
+	}
+
+	data_ = &TeamHostSetSourceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostSetSourceInstructed.
+const TeamHostSetSourceInstructed_Operation = `
+mutation TeamHostSetSourceInstructed ($appRef: String!, $source: HostSetupSource!, $instruction: ActInstructionInput!) {
+	setHostSetupSource(appRef: $appRef, source: $source, instruction: $instruction)
+}
+`
+
+func TeamHostSetSourceInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	source HostSetupSource,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostSetSourceInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetSourceInstructed",
+		Query:  TeamHostSetSourceInstructed_Operation,
+		Variables: &__TeamHostSetSourceInstructedInput{
+			AppRef:      appRef,
+			Source:      source,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostSetSourceInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostSetup.
+const TeamHostSetup_Operation = `
+query TeamHostSetup ($appRef: String!, $hostId: String) {
+	hostSetup(appRef: $appRef, hostId: $hostId) {
+		source
+		assignments {
+			... HostSetupAssignmentFields
+		}
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostSetup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+) (data_ *TeamHostSetupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetup",
+		Query:  TeamHostSetup_Operation,
+		Variables: &__TeamHostSetupInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &TeamHostSetupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostUnassign.
+const TeamHostUnassign_Operation = `
+mutation TeamHostUnassign ($input: UnassignHostWorkerInput!) {
+	unassignHostWorker(input: $input)
+}
+`
+
+func TeamHostUnassign(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UnassignHostWorkerInput,
+) (data_ *TeamHostUnassignResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostUnassign",
+		Query:  TeamHostUnassign_Operation,
+		Variables: &__TeamHostUnassignInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamHostUnassignResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostUnassignInstructed.
+const TeamHostUnassignInstructed_Operation = `
+mutation TeamHostUnassignInstructed ($input: UnassignHostWorkerInput!, $instruction: ActInstructionInput!) {
+	unassignHostWorker(input: $input, instruction: $instruction)
+}
+`
+
+func TeamHostUnassignInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UnassignHostWorkerInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostUnassignInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostUnassignInstructed",
+		Query:  TeamHostUnassignInstructed_Operation,
+		Variables: &__TeamHostUnassignInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostUnassignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamMemoryApp.
 const TeamMemoryApp_Operation = `
 query TeamMemoryApp ($ref: ID!) {
@@ -159812,6 +163623,99 @@ func UpdateAgentTickerTemplate(
 	}
 
 	data_ = &UpdateAgentTickerTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentWithLifecycle.
+const UpdateAgentWithLifecycle_Operation = `
+mutation UpdateAgentWithLifecycle ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+		... AgentFields
+		lifecycle
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func UpdateAgentWithLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	lifecycle *AgentLifecycle,
+	name *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	urn *string,
+	personaRole *string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+	memberRoles []string,
+	listedOnMarketplace *bool,
+	registerDefaults *gqltypes.RegisterDefaultsInput,
+) (data_ *UpdateAgentWithLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentWithLifecycle",
+		Query:  UpdateAgentWithLifecycle_Operation,
+		Variables: &__UpdateAgentWithLifecycleInput{
+			Ref:                   ref,
+			Lifecycle:             lifecycle,
+			Name:                  name,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			Urn:                   urn,
+			PersonaRole:           personaRole,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			MemberRoles:           memberRoles,
+			ListedOnMarketplace:   listedOnMarketplace,
+			RegisterDefaults:      registerDefaults,
+		},
+	}
+
+	data_ = &UpdateAgentWithLifecycleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

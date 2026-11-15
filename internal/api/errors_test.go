@@ -142,6 +142,7 @@ func TestMapError(t *testing.T) {
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"ticker settings conflict", gqlErr("TICKER_SETTINGS_CONFLICT"), exitcode.Conflict},
+		{"short-lived ticker subscription", gqlErr("TICKER_ON_SHORT_LIVED"), exitcode.Conflict},
 		{"standby unavailable", gqlErr("DELIVERY_STANDBY_UNAVAILABLE"), exitcode.Conflict},
 		{"ticker consent", gqlErr("TICKER_CADENCE_NEEDS_CONSENT"), exitcode.Forbidden},
 		{"ticker self subscribe", gqlErr("SUBSCRIBE_CADENCE_NEEDS_HOLDER"), exitcode.Forbidden},
@@ -362,6 +363,7 @@ func TestMapError(t *testing.T) {
 		{"task finding missing", gqlErr("TASK_FINDING_NOT_FOUND"), exitcode.NotFound},
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
 		// #871: host operations and the host:operate grant.
 		{"host op not permitted", gqlErr("HOST_OPERATION_NOT_PERMITTED"), exitcode.Forbidden},

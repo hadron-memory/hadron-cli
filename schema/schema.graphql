@@ -408,6 +408,14 @@ type Agent {
   this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
   """
   clonedFromAgentRef: String
+
+  """
+  #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+  above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+  worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+  for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+  """
+  contextCap: Int
   createdAt: DateTime!
   description: String
 
@@ -431,6 +439,11 @@ type Agent {
   importedBy: [AgentImport!]!
   imports: [AgentImport!]!
   installationPolicy: InstallationPolicy!
+
+  """
+  #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+  """
+  lifecycle: AgentLifecycle!
 
   """
   cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
@@ -569,6 +582,19 @@ type AgentImport {
   parentAgentId: ID!
   position: Int!
   required: Boolean!
+}
+
+"""#4224 (S3 of #4229): how long an Agent's workers run."""
+enum AgentLifecycle {
+  """
+  The worker's process should always run (the default, and the behaviour before this field existed).
+  """
+  LONG_LIVED
+
+  """
+  The worker's process should run only while it is the assignee of a pending or started task (one waiting on its child tasks included).
+  """
+  SHORT_LIVED
 }
 
 """
@@ -754,6 +780,11 @@ enum AgentSchedulePreviewOutcome {
   Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
   """
   CANNOT_BE_ADOPTED
+
+  """
+  #3483: the caller is a worker-bound session and create would be refused with TRIGGER_GRANT_REQUIRED: it holds no live, signed schedule.create grant for this entry node in this App (hrn:node:hadronmemory.com:specs:cor:agt:010:01). Summary, hash and reason are null. Only while the grant check is on.
+  """
+  GRANT_REQUIRED
 }
 
 enum AgentSchedulePreviewReason {
@@ -853,6 +884,7 @@ type AgentTask {
   """
   Whether finishing or cancelling asks the assignee to end its worker session
   (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
+  #4223: not read for a worker of a SHORT_LIVED Agent (Agent.lifecycle), whose session ends with its last open task.
   """
   closeSessionWhenDone: Boolean!
   createdAt: DateTime!
@@ -956,7 +988,10 @@ type AgentTask {
   """
   #1709 — the request this task's finish or cancellation made that its worker assignee end its session
   (hrn:node:hadronmemory.com:specs:cor:agt:050:10); null when none was made (closeSessionWhenDone false, a person
-  assignee, or no open session). A worker that finishes its own task reads it here: end the session, with a handoff,
+  assignee, or no open session; #4223: for a worker of a SHORT_LIVED Agent, another pending or started task is still
+  assigned to it). Reassigning such a worker's last pending or started task away asks that former assignee too, by a
+  wake and never here: this field shows only the latest request made of the task's current worker assignee, is
+  null for a task assigned to a person or to nobody, and is null for a reader that is another worker. A worker that finishes its own task reads it here: end the session, with a handoff,
   before dueAt, or the platform ends it through a live host.
   """
   sessionEndRequest: AgentTaskSessionEndRequest
@@ -1397,6 +1432,11 @@ type AgentTaskSessionEndRequest {
   The session asked to end: only this one is ever ended, never a later replacement.
   """
   sessionId: ID!
+
+  """
+  #4223: the worker asked to end its session. On AgentTask.sessionEndRequest it is always the task's current worker assignee.
+  """
+  workerId: ID!
 }
 
 enum AgentTaskSessionEndResolution {
@@ -1576,7 +1616,7 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
   """
   type: String!
 
@@ -1885,7 +1925,7 @@ type AiServiceConfig {
   params: JSON
 
   """
-  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
   """
   provider: String!
   updatedAt: DateTime
@@ -2199,6 +2239,11 @@ type App {
   """
   sharedMemory: Memory
   surfaces: [String!]!
+
+  """
+  #4224 (S3 of #4229): the App's sweep switch (setAppSweepMode). OFF by default.
+  """
+  sweepMode: SweepMode!
 
   """
   #2138: when the whole team was paused (setTeamPause), or null. Separate from every worker's own pause.
@@ -2830,6 +2875,11 @@ type AppScopedMemoryPage {
   total: Int!
 }
 
+"""#4224: the App's sweep mode after setAppSweepMode."""
+type AppSweepMode {
+  sweepMode: SweepMode!
+}
+
 """
 #1747 — an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
 """
@@ -3090,6 +3140,45 @@ enum AssetScanStatus {
 type AssetsPage {
   items: [Asset!]!
   total: Int!
+}
+
+input AssignHostWorkerInput {
+  """
+  #4230 — the host-local account profile the launcher runs under, a profile token. Optional.
+  """
+  accountProfile: String
+  appRef: String!
+
+  """#4230 — the effort, a profile token. Optional."""
+  effort: String
+
+  """
+  The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
+  """
+  family: String!
+
+  """
+  The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+  """
+  hostId: String!
+
+  """
+  The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
+  """
+  model: String
+
+  """
+  Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
+  """
+  replace: Boolean
+
+  """
+  The name the host knows the working directory by: a name token (letters, digits and . _ / @ + -, starting with a letter or digit, no .., // or trailing /), at most 256 characters.
+  """
+  workdir: String!
+
+  """The worker: its id, URN or name within the App."""
+  worker: String!
 }
 
 """
@@ -3929,7 +4018,7 @@ type ChatResponseResult {
   conversationHandoff: String
 
   """
-  Whether this turn returned from a detour; false until the detour-return slice ships. hrn:node:hadronmemory.com:specs:cor:cht:030:02
+  Whether this turn returned the chat from a detour to the conversation and stage the most recent active detour left. False when a completion rule fired instead, or routing was skipped. hrn:node:hadronmemory.com:specs:cor:cht:030:02
   """
   detourReturned: Boolean!
   displayMessage: String!
@@ -4426,6 +4515,11 @@ type ContextReset {
   appId: ID!
 
   """
+  #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
+  """
+  cause: String!
+
+  """
   #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
   """
   checkpointNode: String
@@ -4452,7 +4546,11 @@ type ContextReset {
   """
   stopGrantedAt: DateTime
   stopLeaseMs: Int
-  taskId: ID!
+
+  """
+  Null for a reset with no task: one asked for by the Agent's context cap (#4225).
+  """
+  taskId: ID
   workerId: ID!
 }
 
@@ -5561,6 +5659,60 @@ type DeliveryBatchRange {
   throughSeq: Int!
 }
 
+"""#4224: whether a worker's agent process should be running."""
+enum DesiredRunState {
+  RUNNING
+  STOPPED
+}
+
+"""
+#4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first three come from the
+Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
+and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
+is desired (desired is null) and wouldBe says what the state would otherwise be.
+"""
+enum DesiredStateReason {
+  """
+  A live halt stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01).
+  """
+  HALTED
+
+  """
+  A worker of a SHORT_LIVED Agent that is the assignee of a pending or started task, including one waiting on its child tasks (the worker stays up and is woken by their events): RUNNING.
+  """
+  HOLDS_TASK
+
+  """The worker is marked leave-alone (Worker.leaveAlone)."""
+  LEAVE_ALONE
+
+  """A worker of a LONG_LIVED Agent: RUNNING."""
+  LONG_LIVED
+
+  """
+  A worker of a SHORT_LIVED Agent that is the assignee of no pending or started task: STOPPED.
+  """
+  NO_OPEN_TASK
+
+  """
+  A live pause stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01). A pause-dispatch signal stops assignment only and is not a reason here.
+  """
+  PAUSED
+
+  """
+  A context reset holds the worker (hrn:node:hadronmemory.com:specs:cor:agt:050:27): its host is relaunching it.
+  """
+  RESETTING
+
+  """The worker is retired."""
+  RETIRED
+
+  """The App's sweep mode is OFF."""
+  SWEEP_OFF
+
+  """The App is under a team pause (App.teamPausedAt)."""
+  TEAM_PAUSED
+}
+
 type DormantWithheld {
   mentions: Int!
   worker: Worker!
@@ -5659,7 +5811,7 @@ type DueTaskReason {
   """
   handle: String!
 
-  """The task's id (for CHILD_FINISHED, the child's)."""
+  """The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's)."""
   id: ID!
 
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
@@ -6539,6 +6691,15 @@ type HomeAssistantOp {
 }
 
 """
+#4224: the desired state of every worker one host runs, and the App's sweep mode.
+"""
+type HostDesiredState {
+  hostId: String!
+  sweepMode: SweepMode!
+  workers: [WorkerDesiredState!]!
+}
+
+"""
 #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 """
 type HostKeyUse {
@@ -6588,6 +6749,13 @@ type HostOperation {
   issuedByWorkerId: ID
 
   """
+  #4231 — why the platform issued it when no task did: DESIRED_RUNNING for the start of a long-lived worker that
+  should run and has no session (hrn:node:hadronmemory.com:specs:cor:agt:070:05, Proposed). Null for every other
+  operation.
+  """
+  issuedReason: String
+
+  """
   #1709 — worker.start only, and only in collectHostOperations' answer: the single-use launch grant to pass to the
   agent the host starts (it redeems it at startSession with its holder's own token). Short-lived; never stored in clear
   and never shown again. #1928: while it is live, a re-collection leaves the start out of the answer; once it expires,
@@ -6596,7 +6764,11 @@ type HostOperation {
   """
   launchGrant: String
 
-  """A success's typed result: {worktree} for worktree.create."""
+  """
+  A success's typed result, by type: {worktree} for worktree.create, {sessionId} (the worker session the start's grant
+  bound) for worker.start, {handoff} (a boolean: whether a handoff was written) for worker.end. Null for worker.deliver,
+  worktree.remove and worker.reset-context, for a failure, and until the operation finishes.
+  """
   result: JSON
   status: HostOperationStatus!
   type: String!
@@ -6653,8 +6825,23 @@ type HostRegistration {
   live: Boolean!
   pollIntervalSeconds: Int!
   refreshedAt: DateTime!
+
+  """
+  #4222 — on registerHost's own answer only (empty on every read): the workers the host listed that were left out because the App's hostSetupSource is SERVER and the platform did not assign them to this host. The registration itself succeeded with the rest.
+  """
+  refusedWorkers: [HostRegistrationRefusal!]!
   registeredAt: DateTime!
   workers: [HostRegistrationWorker!]!
+}
+
+"""
+#4222 — one worker a checked registration left out. code is HOST_WORKER_NOT_ASSIGNED, whatever the reason (unassigned, assigned to another host, retired, of another App, or naming nothing).
+"""
+type HostRegistrationRefusal {
+  code: String!
+
+  """The worker as the host named it."""
+  worker: String!
 }
 
 """
@@ -6665,6 +6852,95 @@ type HostRegistrationWorker {
   worker: Worker
   workerId: ID!
   worktrees: [String!]!
+}
+
+"""
+#4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+"""
+type HostSetup {
+  assignments: [HostWorkerAssignment!]!
+  source: HostSetupSource!
+}
+
+"""
+#4222 — who states which workers a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). HOST: the host, at registration (the default, as before). SERVER: the platform's assignments; a registration is checked against them and a start uses them.
+"""
+enum HostSetupSource {
+  HOST
+  SERVER
+}
+
+"""
+#4233 (S10 of #4229): one run of a host's sweep, as the host reported it.
+"""
+type HostSweepRun {
+  applied: Int!
+  endedAt: DateTime!
+  failed: Int!
+  hostId: String!
+  id: ID!
+
+  """At most 50 lines."""
+  lines: [HostSweepRunLine!]!
+
+  """OBSERVE or APPLY; a sweep in mode OFF records nothing."""
+  mode: SweepMode!
+  planned: Int!
+
+  """When the server stored the run."""
+  recordedAt: DateTime!
+
+  """The host's own token for the run."""
+  runId: String!
+  skipped: Int!
+  startedAt: DateTime!
+}
+
+"""
+#4233: one worker's line in a sweep run: the worker as the host named it, what became of it, and a reason code.
+"""
+type HostSweepRunLine {
+  outcome: SweepRunOutcome!
+
+  """A code (capital letters, digits, underscores), never text."""
+  reason: String!
+  worker: String!
+}
+
+input HostSweepRunLineInput {
+  outcome: SweepRunOutcome!
+  reason: String!
+  worker: String!
+}
+
+"""
+#4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+carries the set ones, and the host builds the command from a fixed template for the family.
+"""
+type HostWorkerAssignment {
+  """
+  #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+  """
+  accountProfile: String
+  createdAt: DateTime!
+  createdByUserId: ID!
+
+  """
+  #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+  """
+  effort: String
+  family: String!
+  hostId: String!
+  id: ID!
+  model: String
+  updatedAt: DateTime!
+  workdir: String!
+  worker: Worker
+  workerId: ID!
 }
 
 enum IdentifyUserMethod {
@@ -8310,6 +8586,19 @@ type Mutation {
   assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
+  #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+  and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+  Proposed). Whoever manages the App
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+  A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+  Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+  BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+  profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+  already assigned to that host and replace is not set. A refusal writes nothing.
+  """
+  assignHostWorker(input: AssignHostWorkerInput!, instruction: ActInstructionInput): HostWorkerAssignment!
+
+  """
   #3448 — seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
   """
   assignReviewSeat(head: String!, slot: String!, supersedes: ID, taskRef: ID!): PrProtocolResult!
@@ -8727,7 +9016,14 @@ type Mutation {
   orgId accepts the org's ID or URN.
   """
   createAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted or null is no cap.
+    """
+    contextCap: Int
     description: String
+
+    """#4224: omitted or null is LONG_LIVED."""
+    lifecycle: AgentLifecycle
 
     """
     #2171 (R211): the member roles the Agent offers. Omitted: owner and member. Empty or malformed: BAD_USER_INPUT.
@@ -10549,6 +10845,16 @@ type Mutation {
   recordAppAction(appRef: ID!, code: String!, payload: JSON, taskRef: ID): RecordAppActionResult!
 
   """
+  #4233 (S10 of #4229) — a host records one run of its sweep. The host key only (HOST_KEY_REQUIRED otherwise); the
+  host is the key's own. The whole report is validated first and a malformed one stores nothing (BAD_USER_INPUT): a
+  mode of OBSERVE or APPLY, counts from 0, at most 50 lines of worker token, outcome and reason code, and no free
+  text. The same runId for the same host is the same run: a replay returns it and changes nothing. A run that applied
+  or failed something produces ONE summary post in the App's team chat, from the platform, and a run that changed
+  nothing posts nothing. Recording a run ends the host's stale-sweep alarm episode.
+  """
+  recordHostSweepRun(input: RecordHostSweepRunInput!): HostSweepRun!
+
+  """
   #1332 (hrn:node:hadronmemory.com:specs:cor:dmo:160:01) — record the result of running the node's validation task on revision nodeRevision of the node. Advisory: it never edits the node or blocks a write, and a report for an older revision is stored as history without changing the current revision's state. validationTaskRef is the task the node's role rule names NOW (its id or node URN; read it from NodeRoleRule.validationTask) and validationTaskRevision the task revision that ran.
   
   Any writer of the node's memory may record one except the author of nodeRevision, decided from its authorship stamp: for HUMAN, that person acting as themselves through any credential is refused (a worker they hold may report); for TASK, a headless run whose entry task is the author task is refused (another run is CHECKED; any other caller is AUTHOR_UNKNOWN); with no stamp every writer is AUTHOR_UNKNOWN. The reporter is derived by the server (a run, a worker session, a person by user id, or an App key), never from the request.
@@ -10665,6 +10971,8 @@ type Mutation {
   host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
   of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
   scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+  #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+  left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
   """
   registerHost(input: RegisterHostInput!): HostRegistration!
 
@@ -11304,6 +11612,15 @@ type Mutation {
   setAppProperties(appRef: String!, expectedRevision: Int, instruction: ActInstructionInput, properties: JSON): App!
 
   """
+  #4224 (S3 of #4229) — set the App's sweep mode, as whoever manages the App. OFF (the default) restores today's
+  behaviour in one write: every hostDesiredState row then says SWEEP_OFF and a sweep acts on nothing. A change is
+  one team.sweep-mode-changed team event (from, to); setting the mode it already has changes and records nothing.
+  Refusals: FORBIDDEN (not a manager; an App key never is). The App-manager arm also admits the manager's held
+  worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+  """
+  setAppSweepMode(appRef: String!, instruction: ActInstructionInput, mode: SweepMode!): AppSweepMode!
+
+  """
   #1747 — change an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05, :19). Whoever manages the App only.
   Refusals: TICKER_SETTINGS_OUT_OF_RANGE, TICKER_SETTINGS_CONFLICT (a floor above a live ticker cadence),
   DELIVERY_SETTINGS_CONFLICT (the shared cadence floor must keep stuckWindowSeconds greater than busyDelaySeconds + minCadenceSeconds).
@@ -11344,6 +11661,16 @@ type Mutation {
   #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing decisions keep theirs. Needs management rights on the memory, or the owner role in its App.
   """
   setDecisionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): DecisionLog!
+
+  """
+  #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+  (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+  host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+  a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+  workdir and as the assigned family; with none, nothing is issued and the task waits
+  (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+  """
+  setHostSetupSource(appRef: String!, instruction: ActInstructionInput, source: HostSetupSource!): HostSetupSource!
 
   """
   #1709 — a host marks a worker it registers UNAVAILABLE, only as OUT_OF_TOKENS or HOST_DOWN, or clears a mark it set
@@ -11408,7 +11735,7 @@ type Mutation {
   setReviewSchedule(slots: [String!]!, taskRef: ID!): PrProtocolResult!
 
   """
-  #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+  #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   setTeamPause(appRef: String!, instruction: ActInstructionInput, paused: Boolean!): TeamPause!
 
@@ -11449,6 +11776,20 @@ type Mutation {
   otherwise as setAgentBootPrompt. workerRef is the worker's id or URN.
   """
   setWorkerBootPrompt(nodeRef: String, workerRef: ID!): Worker!
+
+  """
+  #4224 (S3 of #4229) — mark a worker leave-alone, or clear the marker, as whoever manages the App. A marked
+  worker's hostDesiredState row says LEAVE_ALONE: a sweep observes and reports it and never starts, stops or repairs
+  it. A change of the marker is one worker.leave-alone-changed team event (the new value only, never the reason); a
+  call that changes nothing records nothing. Marking an already marked worker with another reason replaces the
+  reason, who set it and when.
+  Refusals: WORKER_NOT_FOUND (also for a caller who is not a participant of the worker's App),
+  WORKER_LEAVE_ALONE_NOT_PERMITTED (a participant who does not manage the App; a worker's session without an
+  instruction), WORKER_RETIRED, BAD_USER_INPUT (a reason on a clear, or one over 500 characters). The App-manager
+  arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12),
+  recorded as one app.manager-act event, ids only.
+  """
+  setWorkerLeaveAlone(input: SetWorkerLeaveAloneInput!, instruction: ActInstructionInput): WorkerLeaveAlone!
 
   """
   #1726 — set, hand over or clear (reportsTo: null) who a worker reports to:
@@ -11645,6 +11986,11 @@ type Mutation {
   triggerAppRun(input: TriggerAppRunInput!): AppRun!
 
   """
+  #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+  """
+  unassignHostWorker(input: UnassignHostWorkerInput!, instruction: ActInstructionInput): Boolean!
+
+  """
   Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
   per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
   they persist as orphans and become reachable again if the same Agent
@@ -11701,7 +12047,14 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateAgent(
+    """
+    #4225: the context cap in tokens, a whole number from 1; omitted leaves it, null clears it (no cap).
+    """
+    contextCap: Int
     description: String
+
+    """#4224: omitted or null leaves it unchanged."""
+    lifecycle: AgentLifecycle
     listedOnMarketplace: Boolean
 
     """
@@ -14158,8 +14511,9 @@ type Query {
   external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
   cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
   (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
-  the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
-  it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+  the release cleared (its task no longer holds it); a change before the release in this read's own order — the
+  (tx_id, created_at, id) key the page is served by, not wall-clock time — carries that id too, and a change after it in
+  that order (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
   oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
   appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
   to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
@@ -14231,7 +14585,8 @@ type Query {
     exactly as written. 1 to 100 ids; each entry passes the externalId check (1 to 512 characters, no unpaired
     surrogate), and ONE bad entry refuses the whole list with BAD_USER_INPUT naming its position (externalIds[i]), never
     its text; an empty list is BAD_USER_INPUT, never "no narrowing". At most one task holds an id, so with limit omitted
-    the page is as long as the list and answers every id; an id no task of this App holds matches nothing. Runs inside
+    — and offset omitted or 0 — the page is as long as the list and answers every id; an explicit offset windows the
+    batch like any list. An id no task of this App holds matches nothing. Runs inside
     the App read gate (hrn:node:hadronmemory.com:specs:cor:agt:050:21), so another App's task with the same id never
     appears. ANDed with every other filter, externalId included.
     """
@@ -15335,6 +15690,20 @@ type Query {
   homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
 
   """
+  #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+  host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+  (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+  live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+  assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+  one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+  Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+  that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+  answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+  (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+  """
+  hostDesiredState(appRef: String!, hostId: String!): HostDesiredState!
+
+  """
   #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate, revoked or not) is refused with FORBIDDEN, whatever it passes: it sees its own host's operations only by collecting them (hrn:node:hadronmemory.com:specs:cor:agt:070:04 S5, Holger's ruling 0). after: the endCursor of the previous page.
   """
   hostOperations(after: String, appRef: String!, first: Int, hostId: String, status: HostOperationStatus, worker: String): HostOperationPage!
@@ -15343,6 +15712,24 @@ type Query {
   #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
   """
   hostRegistrations(appRef: String!): [HostRegistration!]!
+
+  """
+  #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+  the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+  App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+  own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+  no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+  FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+  """
+  hostSetup(appRef: String!, hostId: String): HostSetup!
+
+  """
+  #4233 (S10 of #4229) — the recorded runs of one host's sweep, newest first: when each ran, its mode, the counts
+  planned, applied, skipped and failed, and up to 50 per-worker lines with reason codes. Read by whoever reads the
+  App's tasks and events (a participant, the App's own key) and by a host key for ITS OWN host only: another host
+  answers HOST_NOT_FOUND, exactly as a host the App does not have. limit is 1 to 100 (default 20). Reads only.
+  """
+  hostSweepRuns(appRef: String!, hostId: String!, limit: Int): [HostSweepRun!]!
 
   """
   One admin-impersonation audit record by id. Resolvable to the session's
@@ -16793,6 +17180,31 @@ type RecordAppActionResult {
   eventId: ID!
 }
 
+input RecordHostSweepRunInput {
+  appRef: String!
+  applied: Int!
+
+  """
+  Not before startedAt, not more than two minutes ahead of the server, and within an hour of startedAt.
+  """
+  endedAt: DateTime!
+  failed: Int!
+
+  """At most 50."""
+  lines: [HostSweepRunLineInput!]
+
+  """OBSERVE or APPLY."""
+  mode: SweepMode!
+  planned: Int!
+
+  """
+  A token of 1 to 64 letters, digits and . _ : - that names this run for this host; a replay is the same run.
+  """
+  runId: String!
+  skipped: Int!
+  startedAt: DateTime!
+}
+
 type RecoveryEdgesPage {
   items: [RecoveryGraphEdge!]!
   total: Int!
@@ -16860,7 +17272,11 @@ input RegisterContextResetRecoveryInput {
 
   """The reset's own session and task."""
   sessionId: ID!
-  taskId: ID!
+
+  """
+  The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
+  """
+  taskId: ID
 }
 
 """
@@ -18466,6 +18882,19 @@ input SetWorkerAvailabilityInput {
   worker: String!
 }
 
+input SetWorkerLeaveAloneInput {
+  appRef: ID
+  leaveAlone: Boolean!
+
+  """
+  Optional, only when marking: why the sweep leaves this worker alone. At most 500 characters.
+  """
+  reason: String
+
+  """The worker: its id or URN, or its name together with appRef."""
+  worker: String!
+}
+
 """
 Only safe identity scalars for a live organization shared with the effective human viewer.
 """
@@ -19320,6 +19749,29 @@ type SummarizationRequest {
   prompt: String!
 }
 
+"""#4224 (S3 of #4229): the App's sweep switch."""
+enum SweepMode {
+  """The sweep also repairs what it can."""
+  APPLY
+
+  """
+  The sweep compares desired state with what it sees and reports; it repairs nothing.
+  """
+  OBSERVE
+
+  """
+  The sweep acts on no worker: every hostDesiredState row says SWEEP_OFF. The default.
+  """
+  OFF
+}
+
+"""#4233: what a sweep did to one worker in one run."""
+enum SweepRunOutcome {
+  APPLIED
+  FAILED
+  SKIPPED
+}
+
 enum SyncStatus {
   ERROR
   OK
@@ -19336,7 +19788,12 @@ enum TaskWakeEvent {
   ASSIGNED
 
   """
-  A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  """
+  CHILD_CANCELLED
+
+  """
+  A child task finished; the reason names the child. Due to the child's owner (hrn:node:hadronmemory.com:specs:cor:agt:050:16) and, #4234, to the parent's current assignee.
   """
   CHILD_FINISHED
 
@@ -20234,6 +20691,12 @@ input TriggerAppRunInput {
   runAsSelf: Boolean
 }
 
+input UnassignHostWorkerInput {
+  appRef: String!
+  hostId: String!
+  worker: String!
+}
+
 """
 Return shape for the uninstallAgentFromApp mutation. The Agent's
 per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
@@ -21085,6 +21548,26 @@ type Worker {
   lastActiveAt: DateTime
 
   """
+  #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it. WORKING-STATE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): null for a caller who may see only the worker's profile.
+  """
+  leaveAlone: Boolean
+
+  """
+  When the worker was marked leave-alone; null when it is not marked. WORKING-STATE field (#1149), masked like createdBy.
+  """
+  leaveAloneAt: DateTime
+
+  """
+  The user who marked the worker leave-alone. WORKING-STATE field (#1149), masked like createdBy.
+  """
+  leaveAloneBy: String
+
+  """
+  Why the worker is marked leave-alone, when a reason was given. WORKING-STATE field (#1149), masked like createdBy.
+  """
+  leaveAloneReason: String
+
+  """
   The worker-scoped working memory in the App's container (null until provisioned).
   """
   memoryId: ID
@@ -21403,6 +21886,45 @@ enum WorkerContinuityStatus {
 }
 
 """
+#4224: one worker's desired state on one host, with the setup the host needs to start it.
+"""
+type WorkerDesiredState {
+  """
+  RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+  """
+  desired: DesiredRunState
+
+  """The model family the host registered the worker to run as."""
+  family: String!
+
+  """The lifecycle of the worker's Agent."""
+  lifecycle: AgentLifecycle!
+  name: String!
+
+  """
+  The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+  """
+  openSessionId: ID
+  reason: DesiredStateReason!
+  workerId: ID!
+
+  """
+  The worker's existing worktrees on this host, as the host names them; empty when it has none.
+  """
+  worktrees: [String!]!
+
+  """
+  Set exactly when desired is null: the state the worker would have without the marker, or with the sweep on.
+  """
+  wouldBe: DesiredRunState
+
+  """
+  The reason for wouldBe; never LEAVE_ALONE or SWEEP_OFF. Null when wouldBe is.
+  """
+  wouldBeReason: DesiredStateReason
+}
+
+"""
 #2223 — a sanitized identity for the person holding a worker's name. A closed projection, never User:
 User's default-resolved tail (policy, identityProvider, externalId, githubId, roles, maxReferrals) must
 not come along (hrn:node:hadronmemory.com:specs:cor:acl:110:01). The same four fields as ReleasedFromUser.
@@ -21421,6 +21943,19 @@ type WorkerHolder {
   Canonical hrn:user:<handle> URN (hrn:node:hadronmemory.com:specs:cor:urn:010:01). Null for a handle-less user.
   """
   urn: String
+}
+
+"""
+#4224: a worker's leave-alone marker after setWorkerLeaveAlone. reason, by and at are null when the worker is not marked.
+"""
+type WorkerLeaveAlone {
+  at: DateTime
+
+  """The user who set the marker."""
+  by: String
+  leaveAlone: Boolean!
+  reason: String
+  workerId: ID!
 }
 
 """
@@ -21483,12 +22018,39 @@ from checkedAt and reportedAt. Null until a host first reports; null to a reader
 type WorkerTerminal {
   """When the host classified the terminal."""
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens; judge its age from this. Null exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, as its host measured it. Null when the host could not measure
+  it (never 0), and on a report stored before hosts sent it. Shown only: it decides nothing.
+  """
+  contextTokens: Int
   host: WorkerTerminalHost!
   lastTurnAt: DateTime
   prompt: WorkerTerminalPrompt!
 
   """Required for locked and dark, null otherwise."""
   reason: WorkerTerminalReason
+
+  """
+  #4247 — what the host did about this dark worker, stored for RELAUNCH_REFUSED and RELAUNCH_FAILED only. Null for the
+  other outcomes (they are not stored) and when the report carried none; the next report replaces it.
+  """
+  repair: WorkerTerminalRepair
+
+  """
+  #4247 — the relaunch's attempt number, at least 1. Null exactly when repair is.
+  """
+  repairAttempt: Int
+
+  """
+  #4247 — why the relaunch was refused or failed. Null exactly when repair is.
+  """
+  repairReason: WorkerTerminalRepairReason
 
   """When the server stored the report."""
   reportedAt: DateTime!
@@ -21537,7 +22099,7 @@ type WorkerTerminalRef {
 }
 
 """
-#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
+#2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
 """
 type WorkerTerminalRefusal {
   code: String!
@@ -21560,12 +22122,67 @@ enum WorkerTerminalRepair {
 
   """The host relaunched the worker; carries attempt."""
   RELAUNCHED
+
+  """
+  #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
+  (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT, SETUP_FAILED, VERIFY_FAILED) and attempt.
+  """
+  RELAUNCH_FAILED
+
+  """
+  #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
+  refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
+  """
+  RELAUNCH_REFUSED
+}
+
+"""
+#4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
+the last five with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+"""
+enum WorkerTerminalRepairReason {
+  """Another agent is already running in the worker's place."""
+  DUPLICATE_AGENT
+
+  """The worker is halted."""
+  HALTED
+
+  """The worker's identity does not match its launch snapshot."""
+  IDENTITY_MISMATCH
+
+  """The launcher exited non-zero."""
+  LAUNCH_EXIT_NONZERO
+
+  """The worker is marked leave-alone."""
+  LEAVE_ALONE
+
+  """The worker has no launcher profile."""
+  NO_LAUNCHER_PROFILE
+
+  """The worker is paused."""
+  PAUSED
+
+  """
+  #4259 — the host could not prepare the launch (a setup or disk error); the launcher never ran.
+  """
+  SETUP_FAILED
+
+  """Orca refused to create the terminal."""
+  TERMINAL_CREATE_REFUSED
+
+  """The relaunch timed out."""
+  TIMEOUT
+
+  """
+  #4259 — the launcher ran, but the host could not prove the agent came up.
+  """
+  VERIFY_FAILED
 }
 
 """#2771 — one worker's terminal report. There is no free-text field."""
 input WorkerTerminalReportInput {
   """
-  The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+  The relaunch's attempt number, at least 1: required with RELAUNCHED, RELAUNCH_REFUSED and RELAUNCH_FAILED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
   """
   attempt: Int
 
@@ -21573,6 +22190,17 @@ input WorkerTerminalReportInput {
   When the host classified the terminal, not more than two minutes ahead of the server.
   """
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+  when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+  """
+  contextTokens: Int
 
   """When the worker's last turn ended, not after checkedAt."""
   lastTurnAt: DateTime
@@ -21586,6 +22214,12 @@ input WorkerTerminalReportInput {
   locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
   """
   repair: WorkerTerminalRepair
+
+  """
+  #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
+  outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
+  """
+  repairReason: WorkerTerminalRepairReason
   status: WorkerTerminalState!
 
   """A worker this host registers: its id, URN or name within the App."""

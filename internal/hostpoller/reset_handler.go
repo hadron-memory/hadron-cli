@@ -7,10 +7,22 @@ import (
 	"os"
 )
 
+// ResetIdleTarget pins the idle proof to the operation and the process already
+// observed by the reset handler. A quiet terminal elsewhere proves nothing.
+type ResetIdleTarget struct {
+	WorkerRef, WorkerID, SessionID, Worktree, Family string
+	Process                                          ProcessIdentity
+}
+
+func (p *Poller) resetIdleTarget(op Operation, ref, token string, id ProcessIdentity) ResetIdleTarget {
+	return ResetIdleTarget{WorkerRef: ref, WorkerID: op.WorkerID, SessionID: argString(op, "sessionId"),
+		Worktree: p.cfg.WorktreePath(token), Family: p.cfg.Workers[ref].tui(), Process: id}
+}
+
 // ResetDeps is what the worker.reset-context handler needs beyond the
 // poller (#1043). Each is injected so the handler runs against fakes; in
-// production only `team host run` could supply them, and this slice wires
-// none, so the handler is unreachable there.
+// production `team host run` supplies them only when the host config
+// explicitly declares worker.reset-context (C2c, #2057).
 type ResetDeps struct {
 	// Proc observes and signals agent processes (LinuxProcessControl).
 	Proc ProcessControl
@@ -19,7 +31,7 @@ type ResetDeps struct {
 	// Idle proves the worker's agent idle with an empty composer and no
 	// menu (BUSY, DRAFT_OR_MENU). Nil means this host cannot prove it, and
 	// every reset refuses NOT_IDLE: idle is never assumed.
-	Idle func(ctx context.Context, workerRef string) error
+	Idle func(ctx context.Context, target ResetIdleTarget) error
 }
 
 // EnableResets turns the handler on for this poller. It declares no
@@ -47,7 +59,9 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("HOST_UNSUPPORTED", "this host's reset handler has no process control or Git reader")
 		return
 	}
-	for _, a := range []string{"resetId", "sessionId", "taskId"} {
+	// taskId is NOT required: a context-cap reset (hadron-server#4258) names
+	// none (absent, null or empty, all read as ""). resetId and sessionId stay.
+	for _, a := range []string{"resetId", "sessionId"} {
 		if argString(op, a) == "" {
 			refuse("HOST_UNSUPPORTED", "malformed operation: it names no "+a)
 			return
@@ -139,7 +153,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("NOT_IDLE", "this host has no proven terminal read to show the agent idle")
 		return
 	}
-	if err := p.resetDeps.Idle(ctx, ref); err != nil {
+	if err := p.resetDeps.Idle(ctx, p.resetIdleTarget(op, ref, token, h.Identity())); err != nil {
 		refuse("NOT_IDLE", err.Error())
 		return
 	}
@@ -162,6 +176,14 @@ func (p *Poller) relaunchAgent(ctx context.Context, op Operation, w WorkerConfig
 		return ProcessIdentity{}, "RELAUNCH_BLOCKED", "launching the agent failed: " + err.Error()
 	}
 	p.trackAgent(op.WorkerID, token, agent)
+	// A reset keeps the session, so the relaunched agent serves the session
+	// the reset names: recorded for worker.end's stop to identify it by
+	// (#2070).
+	if sid := argString(op, "sessionId"); sid != "" {
+		p.mu.Lock()
+		p.agentSessions[op.WorkerID] = sid
+		p.mu.Unlock()
+	}
 	h, err := p.resetDeps.Proc.Observe(agent.PID())
 	if err != nil {
 		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the relaunched agent could not be observed: " + err.Error()

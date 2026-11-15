@@ -9,6 +9,7 @@ package team
 // (cor:agt:070:03), and a plan login never travels in one (Holger, #10777).
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -61,17 +63,71 @@ type hostOperationDTO struct {
 	IssuedBy         string          `json:"issuedBy"`
 	IssuedByUserID   *string         `json:"issuedByUserId"`
 	IssuedByWorkerID *string         `json:"issuedByWorkerId"`
-	IssuedAt         string          `json:"issuedAt"`
-	CollectedAt      *string         `json:"collectedAt"`
-	FinishedAt       *string         `json:"finishedAt"`
-	Result           json.RawMessage `json:"result"`
-	FailureReason    *string         `json:"failureReason"`
+	// IssuedReason is why the platform issued an operation no task asked for
+	// (DESIRED_RUNNING, #4231). Absent, not null, when the server names none, so
+	// an operation without one keeps its shape.
+	IssuedReason  *string         `json:"issuedReason,omitempty"`
+	IssuedAt      string          `json:"issuedAt"`
+	CollectedAt   *string         `json:"collectedAt"`
+	FinishedAt    *string         `json:"finishedAt"`
+	Result        json.RawMessage `json:"result"`
+	FailureReason *string         `json:"failureReason"`
+}
+
+const hostOpsNoReasonWarning = "issuedReason is not shown: this server predates hadron-server#4257 and has no such field"
+
+// readHostOperations reads one page of the App's host operations with the
+// server's reason for each (#4231), and, when the server is older than #4257 and
+// rejects that one field, reads it again without. Any other refusal is the
+// answer. The poller's own operations never select the field.
+func readHostOperations(ctx context.Context, client graphql.Client, appRef string, hostID *string, status *gen.HostOperationStatus, worker *string, first *int, after *string) (hostOperationPageDTO, error) {
+	page := hostOperationPageDTO{Items: []hostOperationDTO{}}
+	resp, err := gen.HostOperationsWithReason(ctx, client, appRef, hostID, status, worker, first, after)
+	if err == nil {
+		page.HasNextPage, page.EndCursor = resp.HostOperations.HasNextPage, resp.HostOperations.EndCursor
+		for _, o := range resp.HostOperations.Items {
+			if o != nil {
+				dto := hostOperationDTOFrom(&o.HostOperationFields)
+				dto.IssuedReason = o.IssuedReason
+				page.Items = append(page.Items, dto)
+			}
+		}
+		return page, nil
+	}
+	if !api.IsFrameworkValidationOnlyFor(err, "issuedReason") {
+		return page, err
+	}
+	plain, err := gen.HostOperations(ctx, client, appRef, hostID, status, worker, first, after)
+	if err != nil {
+		return page, err
+	}
+	page.Warnings = []string{hostOpsNoReasonWarning}
+	page.HasNextPage, page.EndCursor = plain.HostOperations.HasNextPage, plain.HostOperations.EndCursor
+	for _, o := range plain.HostOperations.Items {
+		if o != nil {
+			page.Items = append(page.Items, hostOperationDTOFrom(&o.HostOperationFields))
+		}
+	}
+	return page, nil
+}
+
+// hostOpByCell is who issued the operation, and, when the server says why no
+// task did (#4231), the reason beside it: PLATFORM (DESIRED_RUNNING). Without
+// a reason it is the issuer alone, as before.
+func hostOpByCell(o hostOperationDTO) string {
+	if o.IssuedReason == nil || *o.IssuedReason == "" {
+		return o.IssuedBy
+	}
+	return o.IssuedBy + " (" + *o.IssuedReason + ")"
 }
 
 type hostOperationPageDTO struct {
 	Items       []hostOperationDTO `json:"items"`
 	HasNextPage bool               `json:"hasNextPage"`
 	EndCursor   *string            `json:"endCursor"`
+	// Warnings is present only when the list was read without something the
+	// server could not give: a server older than #4257 has no issuedReason.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // jsonOrNull keeps a JSON field present as `null` rather than dropping it or
@@ -126,6 +182,11 @@ granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <h
 	cmd.AddCommand(newCmdTeamHostAvailability(f))
 	cmd.AddCommand(newCmdTeamHostStatus(f))
 	cmd.AddCommand(newCmdTeamHostReportStops(f))
+	cmd.AddCommand(newCmdTeamHostUp(f))
+	cmd.AddCommand(newCmdTeamHostAssign(f))
+	cmd.AddCommand(newCmdTeamHostUnassign(f))
+	cmd.AddCommand(newCmdTeamHostSetup(f))
+	cmd.AddCommand(newCmdTeamHostImport(f))
 	return cmd
 }
 
@@ -237,7 +298,10 @@ func newCmdTeamHostOps(f *cmdutil.Factory) *cobra.Command {
 		Short: "List the operations issued to the App's hosts",
 		Long: `List the App's host operations, NEWEST first (cor:agt:070:02): each one's
 type, host, worker, status, who issued it and, once reported, its result or
-failure reason. Whoever reads the App's tasks and events may.
+failure reason. When the platform issued it for no task, the BY cell adds the
+server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
+run and has no session; --json carries it as issuedReason, absent when the
+server names none; a server older than #4257 has no such field, and the list then reads without it, saying so once (a stderr note, or a warnings entry in --json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -280,18 +344,13 @@ the original cursor from --json.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.HostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
+			page, err := readHostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
 			if err != nil {
 				return api.MapError(err)
 			}
-			page := hostOperationPageDTO{
-				Items:       []hostOperationDTO{},
-				HasNextPage: resp.HostOperations.HasNextPage,
-				EndCursor:   resp.HostOperations.EndCursor,
-			}
-			for _, o := range resp.HostOperations.Items {
-				if o != nil {
-					page.Items = append(page.Items, hostOperationDTOFrom(&o.HostOperationFields))
+			if !f.JSON {
+				for _, n := range page.Warnings {
+					fmt.Fprintln(f.IOStreams.ErrOut, "note: "+n)
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
@@ -300,7 +359,7 @@ the original cursor from --json.`,
 				}
 				t := output.NewTable(w, "ID", "ISSUED", "TYPE", "HOST", "WORKER", "STATUS", "BY", "OUTCOME")
 				for _, o := range page.Items {
-					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(o.IssuedBy), output.SafeCell(hostOpOutcomeCell(o)))
+					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(hostOpByCell(o)), output.SafeCell(hostOpOutcomeCell(o)))
 				}
 				if err := t.Flush(); err != nil {
 					return err

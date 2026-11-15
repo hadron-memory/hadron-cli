@@ -30,7 +30,7 @@ func TestTeamMetadata1112(t *testing.T) {
 		{"role-reverse-role", []string{"role", "list"}, "AppAgentRoster", "data/app/agents/1/personaRole", "no matching role definition", true},
 		{"composition-asof", []string{"composition"}, "TeamComposition", "data/teamComposition/asOf", "as of ", false},
 		{"roster-asof", []string{"roster"}, "TeamRoster", "data/teamRoster/asOf", "as of ", false},
-		{"host-cursor", []string{"host", "ops"}, "HostOperations", "data/hostOperations/endCursor", "", true},
+		{"host-cursor", []string{"host", "ops"}, "HostOperationsWithReason", "data/hostOperations/endCursor", "", true},
 		{"stop-lift-changed", []string{"stop", "lift", "sig2"}, "TeamStopSignalLift", "data/liftTeamStopSignal/signal/id", "Lifted stop signal", false},
 		{"stop-lift-ended", []string{"stop", "lift", "sig2"}, "TeamStopSignalLift", "data/liftTeamStopSignal/signal/id", "had already ended", false},
 	}
@@ -225,7 +225,7 @@ func TestTeamMetadataCopyQuoting1112(t *testing.T) {
 				responses["AppAgentRoster"] = replaceMetadataLeaf1112(t, responses["AppAgentRoster"], "data/app/agents/1/personaRole", value)
 			case "cursor":
 				args = []string{"team", "host", "ops"}
-				responses["HostOperations"] = replaceMetadataLeaf1112(t, responses["HostOperations"], "data/hostOperations/endCursor", value)
+				responses["HostOperationsWithReason"] = replaceMetadataLeaf1112(t, responses["HostOperationsWithReason"], "data/hostOperations/endCursor", value)
 				want = "continue with --after 'role; echo NEVER'"
 			}
 			_, out, err := runTeamTask(t, responses, args...)

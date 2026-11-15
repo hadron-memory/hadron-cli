@@ -3,10 +3,11 @@ package team
 // `team health install|uninstall|status` (hadron-cli#1374, slice C2b of the
 // team health sweep): put the sweep on a schedule on the Orca host without a
 // separate app. The entry is exactly
-//   <abs hadron> team health sweep --config <abs host.yaml>
-// in a systemd user timer, a crontab line or a launchd agent. The host key is
-// never read, written or passed on argv: it stays in the 0600 key file the
-// sweep reads. Scheduler calls go through healthsched's injected Runner.
+//   <abs hadron> team health sweep --dry-run=false --config <abs host.yaml>
+// in a systemd user timer, a crontab line or a launchd agent — the scheduled
+// sweep applies the duplicate fixes (#2027). The host key is never read,
+// written or passed on argv: it stays in the 0600 key file the sweep reads.
+// Scheduler calls go through healthsched's injected Runner.
 
 import (
 	"errors"
@@ -77,8 +78,8 @@ func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
 		Short: "Run the team health sweep on a schedule on this host",
 		Long: `Install a user-level scheduler entry that runs
 "<hadron> team health sweep --config <host.yaml> --dry-run=false" every
---interval (the flag makes the scheduled sweep apply tab titles; a manual
-sweep only lists them): a systemd
+--interval (the flag makes the scheduled sweep apply tab titles and the
+duplicate fixes; a manual sweep only lists them): a systemd
 user timer on Linux (a crontab line where systemd user units are not
 available) or a launchd agent on macOS. There is no default interval; give
 whole minutes, at least 1m (cron needs one that divides an hour or a day
@@ -143,6 +144,9 @@ written (uninstall removes them).`,
 			if err != nil {
 				return mapSched(err)
 			}
+			// The zero Job already carries --dry-run=false in its Args
+			// (#2017): the scheduled sweep applies tab titles and duplicate
+			// fixes (#2027); a manual run stays dry by default.
 			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path}
 			res, err := healthEnv(f).Install(spec)
 			if err != nil {
@@ -157,7 +161,7 @@ written (uninstall removes them).`,
 				if !res.Changed {
 					verb = "already installed, unchanged"
 				}
-				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
+				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --dry-run=false --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
 				return e
 			})
 		},
