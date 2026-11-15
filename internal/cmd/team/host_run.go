@@ -219,7 +219,12 @@ reports every outcome. One poller per host or container.
                    found in the worker's registered worktree whose session
                    binding is not another worker's or session's is touched;
                    the report names each pid stopped or says none was
-                   touched. TRANSITIONAL: the field goes with host.yaml
+                   touched. Each signal is sent holding the worktree's
+                   session-binding lock (the one session start writes
+                   under), released at once after it: a bind landing
+                   between the check and the signal waits, and a lock
+                   not taken within 2s declines the stop (#2068).
+                   TRANSITIONAL: the field goes with host.yaml
                    (Agent.lifecycle replaces it, hadron-server#4224)
   worktree.remove  only the operation's own worker's registered tree;
                    refused for uncommitted or untracked changes, no

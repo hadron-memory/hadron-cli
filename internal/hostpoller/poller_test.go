@@ -113,6 +113,16 @@ func (a *fakeAgent) Terminate() (bool, string) {
 	return true, "terminated the fake"
 }
 
+// TerminateWith is Terminate behind the authorization, as execAgent's is.
+func (a *fakeAgent) TerminateWith(authorize Authorize) (bool, string) {
+	release, ok := authorize()
+	if !ok {
+		return false, "declined before a signal"
+	}
+	defer release()
+	return a.Terminate()
+}
+
 func (a *fakeAgent) terminations() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -150,16 +160,26 @@ type fakeHost struct {
 	// betweenCheckAndStop runs inside StopAgents, before its still check:
 	// the window in which a replacement session can bind.
 	betweenCheckAndStop func()
+	// whileHeld runs inside StopAgents at the moment of the signal, after the
+	// authorization granted it and before the release (#2068).
+	whileHeld func()
 }
 
-func (h *fakeHost) StopAgents(_ context.Context, path string, still func() bool) ([]AgentStop, error) {
+func (h *fakeHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.betweenCheckAndStop != nil {
 		h.betweenCheckAndStop()
 	}
-	if still != nil && !still() {
-		return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+	if authorize != nil {
+		release, ok := authorize()
+		if !ok {
+			return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+		}
+		if h.whileHeld != nil {
+			h.whileHeld() // the instant of the signal, the binding lock held
+		}
+		release()
 	}
 	h.stopped = append(h.stopped, path)
 	return h.stops, h.stopErr

@@ -174,6 +174,14 @@ func (p *Poller) relaunchAgent(ctx context.Context, op Operation, w WorkerConfig
 		return ProcessIdentity{}, "RELAUNCH_BLOCKED", "launching the agent failed: " + err.Error()
 	}
 	p.trackAgent(op.WorkerID, token, agent)
+	// A reset keeps the session, so the relaunched agent serves the session
+	// the reset names: recorded for worker.end's stop to identify it by
+	// (#2070).
+	if sid := argString(op, "sessionId"); sid != "" {
+		p.mu.Lock()
+		p.agentSessions[op.WorkerID] = sid
+		p.mu.Unlock()
+	}
 	h, err := p.resetDeps.Proc.Observe(agent.PID())
 	if err != nil {
 		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the relaunched agent could not be observed: " + err.Error()

@@ -453,7 +453,18 @@ func (a *execAgent) PID() int { return a.pid }
 // group, never a process that took a reused number (#1474). The platform
 // stop in detach_unix/detach_windows carries the per-OS details.
 func (a *execAgent) Terminate() (bool, string) {
-	return a.stop()
+	return a.stopAuthorized(nil)
+}
+
+// TerminateWith is Terminate with a check before every signal: authorize
+// decides, immediately before SIGTERM and again before SIGKILL, whether the
+// stop may still go on, and its release runs right after that one signal. A
+// refusal signals nothing further and reports the stop unconfirmed, with the
+// agent's records kept (hadron-cli#2068).
+func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
+	// The authorization travels with the call, never in the agent's state, so
+	// concurrent stops cannot overwrite or clear each other's.
+	return a.stopAuthorized(authorize)
 }
 
 // Occupied looks for a process whose working directory is inside path, via
@@ -484,4 +495,12 @@ func (h ExecHost) Prompt(ctx context.Context, argv []string, dir string, env []s
 		return err
 	}
 	return nil
+}
+
+// errStopDeclined: the authorization asked before a signal said no, so nothing
+// was sent.
+var errStopDeclined = errors.New("the stop was not authorized")
+
+func declinedDetail(pid int) string {
+	return fmt.Sprintf("the stop of the launched process group (pid %d) was declined before a signal: the worktree's session binding changed, or could not be locked; nothing further was signalled and its records are kept", pid)
 }
