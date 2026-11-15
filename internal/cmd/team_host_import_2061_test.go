@@ -170,3 +170,18 @@ func TestTeamHostImport2061WarnsWhenTheFileNamesAnotherApp(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+// Colin F1: a successful answer with a null hostSetup must not read as "no assignments".
+func TestTeamHostImport2061NullHostSetupIsAnErrorNotAFalseCreatePlan(t *testing.T) {
+	for name, resp := range map[string]string{
+		"null":    `{"data":{"hostSetup":null}}`,
+		"missing": `{"data":{}}`,
+	} {
+		r := importResponses2061()
+		r["TeamHostSetup"] = resp
+		_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+		if err == nil || strings.Contains(out, `"create"`) {
+			t.Errorf("%s: err=%v out=%s: must fail, never plan creates", name, err, out)
+		}
+	}
+}

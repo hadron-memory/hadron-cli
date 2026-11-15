@@ -371,6 +371,11 @@ eligible for the sweep. Nothing is written by the refusal.`,
 				}
 				setupKnown = false
 			}
+			if setupKnown && (hs == nil || hs.HostSetup == nil) {
+				// A successful answer without the setup is not "no assignments":
+				// planning from it would report false creates (cli#2094 QA F1).
+				return exitcode.Newf(exitcode.Error, "server returned no host setup; nothing planned")
+			}
 			var existing []importExisting1
 			if hs != nil && hs.HostSetup != nil {
 				for _, a := range hs.HostSetup.Assignments {
