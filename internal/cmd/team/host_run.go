@@ -262,9 +262,8 @@ reports every outcome. One poller per host or container.
                    worker's launcher_profile and fixed per-family templates,
                    always fresh (never --resume), the grant and first prompt
                    passed through a 0600 file beside the state, never typed;
-                   each agent runs in its own user/PID namespace (unshare),
-                   so a pkill by one worker reaches only its own processes;
-                   it never falls back to the exec path
+                   the agent runs plainly in Orca's terminal scope; it never
+                   falls back to the exec path
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an

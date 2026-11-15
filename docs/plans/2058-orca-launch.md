@@ -43,19 +43,10 @@ hadron-cli#2058, epic hadron-memory/hadron-server#4229, CLI lane. Re-scoped by H
   - `Terminal()` returns (handle, pid, tty), the verified association a future C2c idle proof can bind to.
 - **Call allowlist.** `orcaterm.LaunchGuard` admits only `terminal create` and `terminal close`. The delivery and sweep guards still refuse `create`.
 
-## Per-agent PID namespace (Wolfgang #108196, after the container check)
-Orca's cgroup scopes cap resources but do not isolate signals: a `pkill -f` from one terminal killed an agent in another. So every Orca launch runs the agent under `unshare --user --map-current-user --pid --fork --mount-proc --kill-child`. This is the default `AgentNamespace`, which production can't leave out; only a test opts out, on runners without unprivileged namespaces.
+## No per-agent PID namespace (Holger, 2026-11-15)
+Holger ruled (relayed by Wolfgang #108664): stay as Orca-conform as possible, so the agent runs **plainly in Orca's terminal scope**. The `unshare` wrapper that an earlier head of this PR added (Wolfgang #108196, after the container check) is removed, together with its startup preflight. The marker's `$$` is the agent's own pid after the `exec` (under `sg`, a descendant of the terminal's process, as before).
 
-The cgroup scope stays Orca's, and G3 holds. Measured on orca1 (unprivileged):
-- Inside, the agent is pid 1 and sees only its own processes.
-- `incus` still works.
-- A `pkill` in one namespace found nothing in another; the same `pkill` from the host did reach it.
-
-The marker is written by the shell **before** `exec unshare`, so the pinned pid is the host-side `unshare` (C2a and C2c pin host pids). With `--fork --kill-child` that process lives exactly as long as the agent.
-
-**`--kill-child` is required.** The agent is its namespace's pid 1, which ignores signals it has no handler for. Without the flag, a SIGHUP to `unshare` (the terminal closing) ended `unshare` and left the agent running, orphaned (measured on orca1). With it, the agent dies too.
-
-`team host run` preflights the namespace at startup and refuses (exit 2) on a host that cannot create one. Tests pin the prefix in the typed text, the default, and the preflight refusal. Where namespaces are available, they also pin pid 1 inside, the host pid pinned, the pkill isolation, and the terminal close ending the agent.
+What this gives up: a `pkill -f` from one terminal can reach an agent in another, since the container check showed that Orca's cgroup scopes do not isolate signals. The epic's "a pkill costs one run" item is withdrawn. What stays is Orca's scope caps: the memory limit, the process ceiling, and `memory.swap.max=0` (Hugo).
 
 ## Fix head after review (cli#2088)
 - **A tty is required** (Julius P2, Jamir F1). The marker is parsed strictly as exactly `<pid> /dev/pts/N\n`; anything else, including "not a tty", is refused. After the pidfd pin, the process's `fd/0` must be that pts.
@@ -81,7 +72,7 @@ An Orca terminal does not restart a crashed agent. Restarts come from the sweep 
 Real Orca 1.4.247 (`orca serve`) in a disposable incus container, with caps of 64 processes and 256 MB. Finding: `hrn:node:hadronmemory.com:hadron-cli:findings:orca-terminal-scopes-contain-forks-not-pkill-memory-goes-to-swap`.
 - A fork runaway was contained.
 - A memory runaway pushed about 12 GB into swap, because `memory.swap.max` was unlimited. Hugo has since added `ORCA_TERMINAL_MEMORY_SWAP_MAX=0`, effective at the next daemon start.
-- A `pkill` crossed terminals. That is why the PID namespace above exists.
+- A `pkill` crossed terminals. An earlier head answered that with a per-agent PID namespace, which Holger's ruling removed (see above).
 
 ## Tests
 - **hostpoller:**
@@ -94,4 +85,5 @@ Real Orca 1.4.247 (`orca serve`) in a disposable incus container, with caps of 6
   - `team host status` accepts an Orca worker config;
   - `team host run` refuses incomplete ones (naming what's missing) and wires the launcher;
   - `orcaterm.LaunchGuard`.
-- **Mutants:** thirteen, one per guard, all killed.
+- **Mutants:** one per guard, all killed.
+- **Plain launch** (`TestOrcaLaunchRunsTheAgentPlainlyInOrcasScope2088`, red first): the typed text has no `unshare`, and the pinned pid is the pid the agent sees as `$$`.
