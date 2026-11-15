@@ -46,7 +46,7 @@ func TestRelaunchCensusIncludesCallerAndAncestors2060(t *testing.T) {
 }
 func TestRelaunchCensusUnknownVisibilityNeverProvesAbsence2060(t *testing.T) {
 	proc, work := t.TempDir(), t.TempDir()
-	for _, witness := range []func(context.Context) error{nil, func(context.Context) error { return errors.New("namespace unproven") }} {
+	for _, witness := range []func(context.Context) error{nil, func(context.Context) error { return errors.New("proc view unproven") }} {
 		if _, err := strictRelaunchCensus(context.Background(), proc, work, witness); err == nil {
 			t.Fatal("unproven zero accepted")
 		}
