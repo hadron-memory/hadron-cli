@@ -60,6 +60,23 @@ type Config struct {
 	Accounts map[string]AccountProfile `yaml:"account_profiles"`
 	// OrcaLaunch configures launches through Orca (launch_via: orca).
 	OrcaLaunch OrcaLaunchConfig `yaml:"orca_launch"`
+	// ResetContext reserves the C3 reader path for an explicitly declared reset capability.
+	ResetContext ResetContextConfig `yaml:"reset_context"`
+}
+
+// ResetContextConfig neither activates resets nor proves a terminal/process binding.
+type ResetContextConfig struct {
+	OrcaBin string `yaml:"orca_bin"`
+}
+
+// ResetContextEnabled reports the operator's explicit capability declaration.
+func (c *Config) ResetContextEnabled() bool {
+	for _, capability := range c.Capabilities {
+		if capability == CapabilityResetContext {
+			return true
+		}
+	}
+	return false
 }
 
 // OrcaLaunchConfig is what an Orca launch needs from the host.
@@ -192,6 +209,13 @@ type WorkerConfig struct {
 	// the model family does not say (a glm worker runs in Claude Code).
 	// Delivery holds a terminal that shows anything else.
 	TUI string `yaml:"tui"`
+	// CodexHome and ClaudeConfigDir are where THIS worker's launcher writes its
+	// Codex rollouts (<codex_home>/sessions) and Claude transcripts
+	// (<claude_config_dir>/projects), when that is not the health sweep's own
+	// CODEX_HOME / CLAUDE_CONFIG_DIR / ~ (hadron-cli#2063: Orca gives each Codex
+	// worker an account home). Only the context-size measurement reads them.
+	CodexHome       string `yaml:"codex_home"`
+	ClaudeConfigDir string `yaml:"claude_config_dir"`
 }
 
 // familyAliases are the provider names the server folds into the family a
@@ -378,6 +402,11 @@ func (c *Config) validate() error {
 			}
 			owner[t] = ref
 		}
+		for k, p := range map[string]string{"codex_home": w.CodexHome, "claude_config_dir": w.ClaudeConfigDir} {
+			if p != "" && !filepath.IsAbs(p) {
+				errs = append(errs, fmt.Sprintf("worker %q: %s must be an absolute path", ref, k))
+			}
+		}
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))
 		}
@@ -427,6 +456,9 @@ func (c *Config) validate() error {
 		case !filepath.IsAbs(c.Delivery.OrcaBin):
 			errs = append(errs, "delivery.orca_bin must be an absolute path")
 		}
+	}
+	if c.ResetContextEnabled() && !filepath.IsAbs(c.ResetContext.OrcaBin) {
+		errs = append(errs, "reset_context.orca_bin must be an absolute path when worker.reset-context is declared")
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))

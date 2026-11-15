@@ -726,6 +726,40 @@ func isValidationErrorFor(e *gqlerror.Error, name string) bool {
 		strings.Contains(e.Message, "Unknown argument")
 }
 
+// IsUnknownInputFieldOnly reports whether err is a GraphQL envelope in which
+// EVERY error is the server's variable-coercion refusal of one of fields as
+// not defined by the input type — an older server that lacks exactly those
+// input fields (`Field "<f>" is not defined by type "<inputType>"`). It is a
+// pre-execution refusal, so nothing was stored and a resend is safe. An error
+// with a path (it came from a resolver, possibly after a write), any other code
+// than BAD_USER_INPUT / GRAPHQL_VALIDATION_FAILED, any other message, transport
+// failures and a mixed envelope are all NOT this (cli#2063).
+func IsUnknownInputFieldOnly(err error, inputType string, fields ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 0 {
+			return false
+		}
+		if c := extensionCode(e); c != "" && c != "BAD_USER_INPUT" && c != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+		matched := false
+		for _, f := range fields {
+			if strings.Contains(e.Message, `Field "`+f+`" is not defined by type "`+inputType+`"`) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
 // IsSchemaSkew reports whether err is the server rejecting a query this build
 // sends (a GraphQL validation failure) — the server lacks an operation or
 // field. A command that needs a more specific sentence than MapError's generic
@@ -1553,6 +1587,17 @@ func codeForExtension(code string) int {
 	case code == "HOST_OPERATION_TYPE_UNKNOWN" || code == "HOST_OPERATION_NOT_ISSUABLE" ||
 		code == "BAD_HOST_OPERATION_ARGS":
 		return exitcode.Usage
+	// The platform's record of which workers each host runs (hadron-cli#2080
+	// over hadron-server#4241). A field that is not its token shape is an input
+	// the caller changes; who may write is the server's rule, a permission; an
+	// existing assignment needs --replace (state), like WORKER_RETIRED above.
+	// WORKER_NOT_FOUND is NotFound where it is mapped.
+	case code == "BAD_HOST_ASSIGNMENT_ARGS":
+		return exitcode.Usage
+	case code == "HOST_ASSIGNMENT_NOT_PERMITTED":
+		return exitcode.Forbidden
+	case code == "HOST_ASSIGNMENT_EXISTS":
+		return exitcode.Conflict
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
 		return exitcode.Conflict
 	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed
