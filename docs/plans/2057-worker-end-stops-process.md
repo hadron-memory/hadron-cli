@@ -96,3 +96,127 @@ Residual, by design and already documented in `team host run`'s help: on a launc
 hold (a kernel or policy that refuses `waitid`, and the non-Linux unixes), the instant between the final
 authority check and the `kill(2)` itself is not serialized with the leader's exit; the 2 s lock-wait window
 that #2068 added is closed by the check above, and a hold-capable launch has no such gap.
+
+## #2099: Windows checks exit after authorization too
+The Windows launch stop checks `Done` and the waiter's recorded exit again after
+authorization returns, before `taskkill /PID /T /F`. A launch that exited during
+the binding-lock wait is reported as already exited, with no process touched;
+the authorization is released and taskkill is not run. The portable decision
+is shared with Windows production code so its interleavings run on Linux tests;
+the Windows adapter has a separate test, cross-compiled but not run here.
+This does not retain a process handle or establish identity atomically with
+taskkill: the remaining final-check-to-taskkill PID-reuse window and descendant
+tracking after the leader exits still need a handle/Job Object design. The
+binding lock continues to span synchronous taskkill; its duration is the
+separate follow-up #2087. No Windows runtime or PID-reuse reproduction is claimed.
+
+## C2b: workspace reset inside worker.start (G6)
+Behind `reset_on_start` (default off; transitional like `stop_on_end`, one lookup `resetsOnStart` that
+`Agent.lifecycle` replaces). It runs inside `worker.start` after every check that no process works in the
+tree and before the launch, so nothing is moved under a running agent and no new operation type exists.
+`ResetWorktree` (internal/hostpoller/gitreset.go): not a Git tree: no reset. Dirty or untracked:
+`WORKTREE_DIRTY`. Then fetch origin (a failure is `WORKTREE_RESET_FAILED`, never a guess), record
+`refs/hadron/rescue/<utc>/<branch>` for every local branch tip and a detached HEAD that no remote branch
+contains, refuse with `WORKTREE_UNPUSHED` when HEAD itself is on no remote branch (`git branch -r --contains`;
+the upstream/ahead rule of ruling 0012 would wrongly refuse a detached HEAD left at origin's tip by an earlier
+reset), then `checkout --detach origin/HEAD` (else origin/main). A refusal reports its code as the start's
+failure, so the task waits with the not-started alarm. Nothing is created or removed (cor:agt:070:06).
+Residual: a squash-merged and deleted remote branch reads as unpushed and refuses (the safe direction; the
+team merges with merge commits).
+
+### C2b review round 1 (at 615cf4b9)
+- **Base by commit id.** The base is the remote's CURRENT default branch, read with `ls-remote --symref` (a fetch never
+  refreshes the cached `origin/HEAD`), qualified as `refs/remotes/origin/<branch>` and resolved to a commit id that
+  is checked out detached: a local branch named `origin/main` is never taken for it. A default that cannot be read or
+  was not fetched refuses.
+- **Rescue refs.** One `rev-list --no-walk --branches --not --remotes` finds every unpushed tip (a shared clone has
+  hundreds of branches); a commit already kept by an earlier rescue ref is not recorded again; branch tips live under
+  `.../heads/<branch>`, a detached HEAD under `.../detached` (no name collides); every ref is created with an all-zero
+  old value so none is ever replaced, a taken name gets `-2`, `-3`.
+- **Worker-writable repository.** Every git run in the tree carries `core.hooksPath=<null>`, `core.fsmonitor=false`,
+  `credential.helper=`, `core.sshCommand=ssh`, and `GIT_TERMINAL_PROMPT=0`; the fetch and the remote read are bounded
+  (2 min). A hook or config line planted in the repository never runs as the poller's user.
+- Residual, accepted: the occupancy check and the checkout are not one atomic step; a process that begins working in
+  the tree in between meets a tree that was clean and pushed, the same window the launch has always had.
+
+### C2b review round 2 (at 4fe02dff): repository config, class by class
+The reset's git runs against a tree the worker writes. The user's own global/system git config stays (a private
+remote's credential helper lives there, and clearing it or pointing the global config at /dev/null would break the
+fetch); what the REPOSITORY's local and worktree config adds is handled by class:
+- Overridden for every run: `core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `core.askPass`, `core.gitProxy`,
+  `protocol.ext.allow=never`, submodule recursion, `gc.auto`, `maintenance.auto`; `GIT_ALLOW_PROTOCOL` allows only
+  file, http, https, ssh and git (no `ext::`); `GIT_ASKPASS` and `SSH_ASKPASS` empty; `GIT_TERMINAL_PROMPT=0`.
+- Enumerated from the repository's own config and overridden, per driver: `filter.<name>.smudge|clean|process`
+  (and `required=false`), `diff.<name>.textconv|external`.
+- Refused with `WORKTREE_RESET_FAILED`, before anything is touched, because they cannot be neutralised: a
+  repository credential helper (an empty one clears the user's own list) and `remote.<name>.uploadpack|receivepack|
+  proxy|vcs` (git keeps the FIRST value, so a later override does not replace it; found by probing).
+One test per class: hook, filter, fsmonitor, uploadpack and its siblings, ext transport, ssh command, credential
+helper; askpass is pinned structurally (a prompt cannot be provoked from a local fixture).
+
+### C2b review round 3: the allowlist (Wolfgang #108163/#108170, Rook #108165/#108166)
+The worktree's git config is untrusted; the reset allowlists rather than chasing names.
+- **Transports:** `protocol.allow=never` with only `protocol.https.allow` and `protocol.ssh.allow` `always`, and
+  `GIT_ALLOW_PROTOCOL=https:ssh`, in production. The reset's remote URL must be `https://`, `ssh://` or
+  `user@host:path`; anything else (a local path, `file://`, `ext::`, `git://`, `http://`) refuses before the fetch.
+  The tests' local fixtures run through a test-only seam (`localRemotesForTests`, flipped only in a `_test.go`).
+- **Explicit commands:** `--upload-pack=git-upload-pack` on `fetch` and on `ls-remote` (git keeps the first config
+  value, so a `-c` cannot replace the repository's `remote.*.uploadpack`; the command-line option wins);
+  `--no-recurse-submodules`.
+- **Refused, not overridden** (redirection poisons the clean base the next task starts from; no `-c` unsets them):
+  a repository `url.*.insteadOf` / `pushInsteadOf`, `http.*proxy`, `http.*sslVerify=false`, `remote.*.proxy|vcs`, and
+  a repository credential helper.
+- The user's own global and system git config is kept (a private remote's credential helper lives there).
+
+### C2b review round 4 (at ab8925f2)
+- **Includes.** An explicit-scope `git config --local --list` does NOT expand `include.path` / `includeIf` (probed);
+  the scan now passes `--includes`, so a filter or helper in an included file is seen. A config that cannot be read
+  (a syntax error in an include, an unreadable scope) refuses the reset: nothing is taken for "no overrides".
+- **TLS verification** is judged on the effective (last) value of each `http.*sslVerify` key, in every git spelling of
+  false (false, no, off, 0, empty), included files and worktree scope after local.
+- **Every git call the host makes** (`Inspect` before the reset, `worktree.create`, `worktree.remove`, the reset's
+  own) now goes through the one hardened runner: `status` no longer runs a worker's clean filter, `worktree add` no
+  longer runs its smudge filter, and a repository config that cannot be neutralised refuses the host's network
+  commands (found by QA's compiled-CLI run).
+
+### C2b review round 5: an allowlist, not a denylist (Wolfgang #108206)
+The list kept growing (hooks, filters, uploadpack, includes, TLS, the pre-reset `status`), so the approach changed.
+- **One gate for every git call the host makes in a worker tree** (`ExecHost.git`: `Inspect` before the reset,
+  `worktree.create`, `worktree.remove`, and the reset's own): before it, the repository's own local config (and
+  `config.worktree` when `extensions.worktreeConfig` is on) is read with includes expanded, and every key must be one
+  of a small set of inert ones; anything else refuses, naming the key, before a command runs. `Inspect` reports it
+  (`UntrustedConfigError`) rather than "not a worktree". A config that cannot be read refuses too.
+- **The set:** `core.repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|precomposeunicode|symlinks`,
+  `remote.<n>.url|fetch`, `remote.pushdefault`, `branch.<n>.remote|merge|base|pushremote`, `push.autosetupremote`,
+  `user.name|email`, `extensions.worktreeconfig`. Five are additions to the ruled list (`symlinks`, `base`,
+  `pushremote`, `pushdefault`, `autosetupremote`): a survey of this host's clones shows every one carries
+  `branch.*.base` and `push.autosetupremote`, so the ruled list alone would refuse every reset.
+- The denylist (per-driver overrides, refusal classes) is gone: everything it caught is outside the set. What stays is
+  the fixed hardening (`core.hooksPath`, `core.fsmonitor`, ssh and askpass cleared, the transport allowlist and
+  remote-URL check), as defence in depth for what git reads from global and system config and from `.gitattributes`.
+
+### C2b residuals (Wolfgang's ruling on Jamir's P1 and P3 at df95c30b)
+- The allowlist is check-then-run: the repository config is read, then git reads it again when it runs. The reset runs
+  inside `worker.start` before the agent launches, so only another process of the SAME user could change the config
+  in between, and that process can already read the poller's environment and config; the real boundary would be
+  separate uids, an epic-level question, recorded. Narrowed, not closed: the config is re-read right before the
+  fetch's follow-up steps and right before the checkout (a key planted after the first read refuses there), and every
+  host git call re-reads it.
+- The occupancy check and the checkout are not one atomic step (the window the launch has always had).
+- #2095 (contextsize, from merged C8) is not this PR's.
+
+### C2b: the worker directory must be a worktree root (Julius's LOCAL P2, Wolfgang #108365)
+`rev-parse --is-inside-work-tree` is true for a plain directory (or a subdirectory) inside some enclosing repository,
+and a reset there would move that repository. `ResetWorktree` first requires `git rev-parse --show-toplevel` to equal
+the worker's directory (symlinks resolved); otherwise the worker is a worker without Git: no reset, nothing refused,
+and the enclosing repository's state, branch, rescue refs and config are not touched or judged. `Inspect` follows the
+same rule (such a directory is not a worktree and the enclosing repository's config is not refused). Only a definite
+"not a repository" or a different top level means "no tree"; an answer that cannot be read falls through to the config
+gate, which refuses.
+
+Correction after §10 (Rook, a4e836e8): the root is decided by the directory's own `.git` entry (a repository's `.git`
+directory or a linked worktree's `.git` pointer file), not by `rev-parse --show-toplevel`, which honours the
+repository's own `core.worktree`: a root whose config redirects its work tree elsewhere read as "not a root" and slipped
+past silently. With the entry present the tree goes through the config allowlist, which refuses `core.worktree` by name;
+a plain directory or a subdirectory of a work tree has no entry of its own and stays a worker without Git. A root whose
+repository cannot be read fails closed (the allowlist read refuses), never a worker without Git.

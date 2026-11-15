@@ -55,6 +55,11 @@ type Config struct {
 	// Delivery turns on chat delivery into this host's Orca terminals
 	// (cli#907). Absent, the poller carries out host operations only.
 	Delivery DeliveryConfig `yaml:"delivery"`
+	// Accounts maps a launcher profile's account name to this host's
+	// launcher and Codex home (hadron-cli#2058 C3, G1).
+	Accounts map[string]AccountProfile `yaml:"account_profiles"`
+	// OrcaLaunch configures launches through Orca (launch_via: orca).
+	OrcaLaunch OrcaLaunchConfig `yaml:"orca_launch"`
 	// ResetContext reserves the C3 reader path for an explicitly declared reset capability.
 	ResetContext ResetContextConfig `yaml:"reset_context"`
 }
@@ -73,6 +78,72 @@ func (c *Config) ResetContextEnabled() bool {
 	}
 	return false
 }
+
+// OrcaLaunchConfig is what an Orca launch needs from the host.
+type OrcaLaunchConfig struct {
+	// OrcaBin is the absolute Orca CLI path.
+	OrcaBin string `yaml:"orca_bin"`
+	// Group, when set, runs the launched command under `sg <group>`, for an
+	// Orca daemon started without that supplementary group (incus).
+	Group string `yaml:"group"`
+}
+
+// The launch_via values.
+const (
+	LaunchViaExec = "exec"
+	LaunchViaOrca = "orca"
+)
+
+// launchesViaOrca is the one lookup for "this worker starts through Orca".
+func (w WorkerConfig) launchesViaOrca() bool { return w.LaunchVia == LaunchViaOrca }
+
+// UsesOrcaLaunch reports whether any worker here starts through Orca.
+func (c *Config) UsesOrcaLaunch() bool {
+	for _, w := range c.Workers {
+		if w.launchesViaOrca() {
+			return true
+		}
+	}
+	return false
+}
+
+// validateOrcaWorker checks an Orca-launched worker's prerequisites at load,
+// so a start never finds them missing: a profile whose argv builds, an account
+// that exists, an absolute disk temp and Orca binary, and a profile family
+// that is the worker's own launch identity.
+func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
+	var errs []string
+	if w.Profile == nil {
+		return append(errs, fmt.Sprintf("worker %q: launch_via orca needs a launcher_profile", ref))
+	}
+	a, ok := c.Accounts[w.Profile.Account]
+	if !ok {
+		errs = append(errs, fmt.Sprintf("worker %q: launcher_profile account %q is not in account_profiles", ref, w.Profile.Account))
+	} else if _, err := LaunchArgv(*w.Profile, a); err != nil {
+		errs = append(errs, fmt.Sprintf("worker %q: %v", ref, err))
+	}
+	pf, wf := CanonicalFamily(w.Profile.Family), CanonicalFamily(w.Family)
+	if !sameLaunchFamily(pf, wf) {
+		errs = append(errs, fmt.Sprintf("worker %q: launcher_profile family %q is not the worker's family %q", ref, w.Profile.Family, w.Family))
+	}
+	if w.DiskTmp == "" || !filepath.IsAbs(w.DiskTmp) {
+		errs = append(errs, fmt.Sprintf("worker %q: launch_via orca needs an absolute disk_tmp", ref))
+	}
+	if !filepath.IsAbs(c.OrcaLaunch.OrcaBin) {
+		errs = append(errs, "orca_launch.orca_bin must be an absolute path when a worker launches via orca")
+	}
+	if g := c.OrcaLaunch.Group; g != "" && !familyRE.MatchString(g) {
+		errs = append(errs, fmt.Sprintf("orca_launch.group %q is not a group name", g))
+	}
+	if a.CodexHome != "" && !filepath.IsAbs(a.CodexHome) {
+		errs = append(errs, fmt.Sprintf("account profile %q: codex_home must be an absolute path", w.Profile.Account))
+	}
+	return errs
+}
+
+// sameLaunchFamily: a profile fits a worker of its own family, and any
+// Claude-family profile fits a Claude-family worker (one launcher, Claude Code).
+func sameLaunchFamily(a, b string) bool { return a == b || claudeFamily[a] && claudeFamily[b] }
 
 // DeliveryConfig is chat delivery's part of a host configuration.
 type DeliveryConfig struct {
@@ -93,6 +164,19 @@ type WorkerConfig struct {
 	// Launch is the argv that starts its agent in a worktree. The poller adds
 	// HADRON_LAUNCH_GRANT to its environment and nothing else of Hadron's.
 	Launch []string `yaml:"launch"`
+	// LaunchVia selects how worker.start launches (hadron-cli#2058 C3):
+	// "exec" or empty (the default: Launch, as the poller's own child) or
+	// "orca" (through an Orca terminal, from Profile; G3: the agent is a
+	// child of the Orca daemon in Orca's capped per-terminal scope).
+	// TRANSITIONAL: the exec path goes with worker-supervise (C4).
+	LaunchVia string `yaml:"launch_via"`
+	// Profile is the typed launcher profile an Orca launch builds its argv
+	// from (G1). TRANSITIONAL: S1b's server fields replace it.
+	Profile *LauncherProfile `yaml:"launcher_profile"`
+	// DiskTmp is an absolute directory an Orca launch sets as TMPDIR,
+	// CLAUDE_CODE_TMPDIR and the NODE_COMPILE_CACHE parent, so the agent's
+	// temp is on disk rather than the RAM /tmp (the 2026-11-12 OOM).
+	DiskTmp string `yaml:"disk_tmp"`
 	// End is an optional argv that prompts the running agent to end its own
 	// session with a handoff (worker.end). It is never a kill.
 	End []string `yaml:"end"`
@@ -105,6 +189,13 @@ type WorkerConfig struct {
 	// manages the App issued the end, never the platform's own or a worker's),
 	// or always (a short-lived worker: every end stops it).
 	StopOnEnd string `yaml:"stop_on_end"`
+	// ResetOnStart makes worker.start bring the worker's existing worktree back to
+	// a clean base before it launches the agent (hadron-cli#2057 C2b; G6: part of
+	// starting, no new operation type): a dirty tree or a HEAD on no remote branch
+	// refuses the start, a worker without Git starts with no reset. Default off.
+	// TRANSITIONAL like stop_on_end: it is meant for a short-lived worker, and
+	// goes with host.yaml when Agent.lifecycle reaches the host (S3).
+	ResetOnStart bool `yaml:"reset_on_start"`
 	// StopWait bounds how long a stopping worker.end gives a delivered end
 	// prompt before it stops the process (default 60s). With no end prompt,
 	// or one that failed, there is nothing to wait for and the stop is
@@ -326,13 +417,22 @@ func (c *Config) validate() error {
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))
 		}
-		if len(w.Launch) == 0 || strings.TrimSpace(w.Launch[0]) == "" {
+		// An Orca-launched worker's argv comes from its launcher profile; only
+		// the exec path needs a configured command.
+		if !w.launchesViaOrca() && (len(w.Launch) == 0 || strings.TrimSpace(w.Launch[0]) == "") {
 			errs = append(errs, fmt.Sprintf("worker %q: launch must name a command", ref))
 		}
 		if w.EndWait != "" {
 			if d, err := time.ParseDuration(w.EndWait); err != nil || d <= 0 {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
+		}
+		switch w.LaunchVia {
+		case "", LaunchViaExec:
+		case LaunchViaOrca:
+			errs = append(errs, validateOrcaWorker(c, ref, w)...)
+		default:
+			errs = append(errs, fmt.Sprintf("worker %q: launch_via %q must be %s or %s", ref, w.LaunchVia, LaunchViaExec, LaunchViaOrca))
 		}
 		switch w.StopOnEnd {
 		case "", StopOnEndNever, StopOnEndManager, StopOnEndAlways:
@@ -422,6 +522,11 @@ func (w WorkerConfig) stopsOnEnd(issuedBy string) bool {
 	}
 	return false
 }
+
+// resetsOnStart is the one lookup for "this worker's tree is reset at start":
+// the seam Agent.lifecycle replaces (a SHORT_LIVED agent resets), as stopsOnEnd
+// is for the stop.
+func (w WorkerConfig) resetsOnStart() bool { return w.ResetOnStart }
 
 // stopWait is the bounded wait a stopping worker.end gives its end prompt.
 func (w WorkerConfig) stopWait() time.Duration {

@@ -175,7 +175,19 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		return
 	}
 	dir := p.cfg.WorktreePath(token)
-	if st, err := p.host.Inspect(ctx, dir); err != nil || !st.Exists {
+	if st, err := p.host.Inspect(ctx, dir); err != nil {
+		// An error is not "does not exist": an untrusted repo config (nothing was
+		// run on the tree) and an unreadable one say what they are.
+		reason := fmt.Sprintf("could not inspect worktree %q: %s; nothing was launched", token, err.Error())
+		if w.resetsOnStart() {
+			// A worker that resets on start is refused like every other reset
+			// refusal: led by its code, so the report is greppable and the task
+			// waits with the not-started alarm.
+			reason = CodeResetFailed + ": " + reason
+		}
+		p.finish(ctx, op, Failed, "", reason)
+		return
+	} else if !st.Exists {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q does not exist on this host", token))
 		return
 	}
@@ -204,15 +216,62 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("a process is already working in %s (%s); nothing was launched", token, who))
 		return
 	}
+	// C2b (G6): the workspace is reset as part of starting, after every check
+	// that no process works in the tree (so nothing is moved under a running
+	// agent) and before the launch. A refusal reports the code, launches
+	// nothing and leaves the task waiting with the not-started alarm.
+	if w.resetsOnStart() {
+		out, err := p.host.ResetWorkspace(ctx, dir)
+		switch {
+		case err != nil:
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("%s: could not reset %s: %s; nothing was launched", CodeResetFailed, token, err.Error()))
+			return
+		case out.Refused():
+			p.log("reset-refused", op.ID, op.Type, "", fmt.Sprintf("%s in %s: %s", out.Code, token, out.Detail))
+			reason := fmt.Sprintf("%s: %s; nothing was launched", out.Code, out.Detail)
+			if len(out.Rescued) > 0 {
+				reason += " (rescue refs: " + strings.Join(out.Rescued, ", ") + ")"
+			}
+			p.finish(ctx, op, Failed, "", reason)
+			return
+		case out.Reset:
+			detail := fmt.Sprintf("reset %s to %s", token, out.Base)
+			if len(out.Rescued) > 0 {
+				detail += "; rescue refs: " + strings.Join(out.Rescued, ", ")
+			}
+			p.log("reset", op.ID, op.Type, "", detail)
+		default:
+			p.log("reset-skipped", op.ID, op.Type, "", fmt.Sprintf("%s has no Git work tree: no reset", token))
+		}
+	}
 	deadline := p.now().Add(LaunchGrantTTL)
-	agent, err := p.host.Launch(ctx, LaunchSpec{
-		Argv: w.Launch,
-		Dir:  dir,
-		Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
-	})
-	if err != nil {
-		p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
-		return
+	var agent Agent
+	var err error
+	if w.launchesViaOrca() {
+		// C3 (#2058): through an Orca terminal, from the launcher profile.
+		// No fallback to the exec path: a worker configured for Orca that
+		// cannot launch there launches nothing.
+		agent, err = p.orcaStart(ctx, op, ref, w, dir)
+		if err != nil {
+			if agent != nil {
+				// An unproven launch whose terminal could not be closed: it
+				// stays recorded, so the one-agent-per-worktree guard refuses
+				// a second launch there and a stop retries the close.
+				p.trackAgent(op.WorkerID, token, agent)
+			}
+			p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: "+err.Error())
+			return
+		}
+	} else {
+		agent, err = p.host.Launch(ctx, LaunchSpec{
+			Argv: w.Launch,
+			Dir:  dir,
+			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
+		})
+		if err != nil {
+			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
+			return
+		}
 	}
 	p.trackAgent(op.WorkerID, token, agent)
 	p.log("launched", op.ID, op.Type, "", fmt.Sprintf("worker %s in %s", ref, token))

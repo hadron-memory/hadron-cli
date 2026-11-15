@@ -71,6 +71,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerCompile(f))
 	cmd.AddCommand(newCmdWorkerApprove(f))
+	cmd.AddCommand(newCmdWorkerLeaveAlone(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))

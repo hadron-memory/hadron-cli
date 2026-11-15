@@ -35166,6 +35166,263 @@ func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhook
 	return v.CreateAgentWebhook
 }
 
+// CreateAgentWithLifecycleCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentWithLifecycleCreateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetLifecycle returns CreateAgentWithLifecycleCreateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetId returns CreateAgentWithLifecycleCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentWithLifecycleCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentWithLifecycleCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentWithLifecycleCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns CreateAgentWithLifecycleCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentWithLifecycleCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns CreateAgentWithLifecycleCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns CreateAgentWithLifecycleCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentWithLifecycleCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns CreateAgentWithLifecycleCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns CreateAgentWithLifecycleCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentWithLifecycleCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns CreateAgentWithLifecycleCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CreateAgentWithLifecycleCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentWithLifecycleCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns CreateAgentWithLifecycleCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentWithLifecycleCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns CreateAgentWithLifecycleCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns CreateAgentWithLifecycleCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns CreateAgentWithLifecycleCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentWithLifecycleCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentWithLifecycleCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentWithLifecycleCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentWithLifecycleCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentWithLifecycleCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWithLifecycleCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWithLifecycleCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWithLifecycleCreateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentWithLifecycleCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWithLifecycleCreateAgent) __premarshalJSON() (*__premarshalCreateAgentWithLifecycleCreateAgent, error) {
+	var retval __premarshalCreateAgentWithLifecycleCreateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentWithLifecycleResponse is returned by CreateAgentWithLifecycle on success.
+type CreateAgentWithLifecycleResponse struct {
+	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgId accepts the org's ID or URN.
+	CreateAgent *CreateAgentWithLifecycleCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentWithLifecycleResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleResponse) GetCreateAgent() *CreateAgentWithLifecycleCreateAgent {
+	return v.CreateAgent
+}
+
 // CreateAiServiceConfigCreateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
 //
@@ -49299,6 +49556,39 @@ func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSub
 	return v.Name
 }
 
+// GetAgentLifecycleAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type GetAgentLifecycleAgent struct {
+	Id string `json:"id"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetId returns GetAgentLifecycleAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleAgent) GetId() string { return v.Id }
+
+// GetLifecycle returns GetAgentLifecycleAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetAgentLifecycleResponse is returned by GetAgentLifecycle on success.
+type GetAgentLifecycleResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetAgentLifecycleAgent `json:"agent"`
+}
+
+// GetAgent returns GetAgentLifecycleResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetAgentLifecycleResponse) GetAgent() *GetAgentLifecycleAgent { return v.Agent }
+
 // GetAgentResponse is returned by GetAgent on success.
 type GetAgentResponse struct {
 	// The uniform single-agent read. Uses the shared Agent read gate, including
@@ -49501,6 +49791,35 @@ type GetAppSharedMemoryResponse struct {
 
 // GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
+
+// GetAppSweepModeApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppSweepModeApp struct {
+	// #4224 (S3 of #4229): the App's sweep switch (setAppSweepMode). OFF by default.
+	SweepMode SweepMode `json:"sweepMode"`
+}
+
+// GetSweepMode returns GetAppSweepModeApp.SweepMode, and is useful for accessing the field via an interface.
+func (v *GetAppSweepModeApp) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetAppSweepModeResponse is returned by GetAppSweepMode on success.
+type GetAppSweepModeResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppSweepModeApp `json:"app"`
+}
+
+// GetApp returns GetAppSweepModeResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppSweepModeResponse) GetApp() *GetAppSweepModeApp { return v.App }
 
 // GetBoundSessionEndResponse is returned by GetBoundSessionEnd on success.
 type GetBoundSessionEndResponse struct {
@@ -53268,6 +53587,73 @@ func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWo
 	return &retval, nil
 }
 
+// GetWorkerLeaveAloneResponse is returned by GetWorkerLeaveAlone on success.
+type GetWorkerLeaveAloneResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerLeaveAloneWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerLeaveAloneResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneResponse) GetWorker() *GetWorkerLeaveAloneWorker { return v.Worker }
+
+// GetWorkerLeaveAloneWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerLeaveAloneWorker struct {
+	Id string `json:"id"`
+	// #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it. WORKING-STATE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): null for a caller who may see only the worker's profile.
+	LeaveAlone *bool `json:"leaveAlone"`
+	// Why the worker is marked leave-alone, when a reason was given. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneReason *string `json:"leaveAloneReason"`
+	// The user who marked the worker leave-alone. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneBy *string `json:"leaveAloneBy"`
+	// When the worker was marked leave-alone; null when it is not marked. WORKING-STATE field (#1149), masked like createdBy.
+	LeaveAloneAt *string `json:"leaveAloneAt"`
+}
+
+// GetId returns GetWorkerLeaveAloneWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetId() string { return v.Id }
+
+// GetLeaveAlone returns GetWorkerLeaveAloneWorker.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAlone() *bool { return v.LeaveAlone }
+
+// GetLeaveAloneReason returns GetWorkerLeaveAloneWorker.LeaveAloneReason, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneReason() *string { return v.LeaveAloneReason }
+
+// GetLeaveAloneBy returns GetWorkerLeaveAloneWorker.LeaveAloneBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneBy() *string { return v.LeaveAloneBy }
+
+// GetLeaveAloneAt returns GetWorkerLeaveAloneWorker.LeaveAloneAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneAt() *string { return v.LeaveAloneAt }
+
 // GetWorkerModelGroupsResponse is returned by GetWorkerModelGroups on success.
 type GetWorkerModelGroupsResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -56554,6 +56940,73 @@ var AllHostSetupSource = []HostSetupSource{
 	HostSetupSourceHost,
 	HostSetupSourceServer,
 }
+
+// HostUpWorkerReposResponse is returned by HostUpWorkerRepos on success.
+type HostUpWorkerReposResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *HostUpWorkerReposWorker `json:"worker"`
+}
+
+// GetWorker returns HostUpWorkerReposResponse.Worker, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposResponse) GetWorker() *HostUpWorkerReposWorker { return v.Worker }
+
+// HostUpWorkerReposWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostUpWorkerReposWorker struct {
+	Id string `json:"id"`
+	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
+	// already holds the worker needs no second round-trip to teamRoles. Clients
+	// may use it to warn on a role/repo mismatch at session start; the server
+	// does not enforce a repo-affinity refusal.
+	//
+	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
+	// like memoryId and the holder — Session.worker reaches a Worker
+	// through a wider gate that admits any org member and survives a user leaving
+	// the App, so an ungated field would publish a team's repo list through any
+	// historical session.
+	//
+	// Masking to [] costs nothing, because empty already means "no affinity,
+	// never warn": a denied caller simply gets no warning, which is the safe
+	// direction for a signal that must never become a refusal. Same reason a
+	// worker with no role, a role with no definition, or an unreadable system
+	// memory all answer [] rather than erroring.
+	Repos []string `json:"repos"`
+}
+
+// GetId returns HostUpWorkerReposWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetId() string { return v.Id }
+
+// GetRepos returns HostUpWorkerReposWorker.Repos, and is useful for accessing the field via an interface.
+func (v *HostUpWorkerReposWorker) GetRepos() []string { return v.Repos }
 
 type IdentifyUserMethod string
 
@@ -84968,6 +85421,32 @@ func (v *SetAppPropertiesSetAppPropertiesApp) GetPropertiesRevision() *int {
 // GetProperties returns SetAppPropertiesSetAppPropertiesApp.Properties, and is useful for accessing the field via an interface.
 func (v *SetAppPropertiesSetAppPropertiesApp) GetProperties() *json.RawMessage { return v.Properties }
 
+// SetAppSweepModeResponse is returned by SetAppSweepMode on success.
+type SetAppSweepModeResponse struct {
+	// #4224 (S3 of #4229) — set the App's sweep mode, as whoever manages the App. OFF (the default) restores today's
+	// behaviour in one write: every hostDesiredState row then says SWEEP_OFF and a sweep acts on nothing. A change is
+	// one team.sweep-mode-changed team event (from, to); setting the mode it already has changes and records nothing.
+	// Refusals: FORBIDDEN (not a manager; an App key never is). The App-manager arm also admits the manager's held
+	// worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetAppSweepMode *SetAppSweepModeSetAppSweepMode `json:"setAppSweepMode"`
+}
+
+// GetSetAppSweepMode returns SetAppSweepModeResponse.SetAppSweepMode, and is useful for accessing the field via an interface.
+func (v *SetAppSweepModeResponse) GetSetAppSweepMode() *SetAppSweepModeSetAppSweepMode {
+	return v.SetAppSweepMode
+}
+
+// SetAppSweepModeSetAppSweepMode includes the requested fields of the GraphQL type AppSweepMode.
+// The GraphQL type's documentation follows.
+//
+// #4224: the App's sweep mode after setAppSweepMode.
+type SetAppSweepModeSetAppSweepMode struct {
+	SweepMode SweepMode `json:"sweepMode"`
+}
+
+// GetSweepMode returns SetAppSweepModeSetAppSweepMode.SweepMode, and is useful for accessing the field via an interface.
+func (v *SetAppSweepModeSetAppSweepMode) GetSweepMode() SweepMode { return v.SweepMode }
+
 // SetAssetPublicLinkInstructedResponse is returned by SetAssetPublicLinkInstructed on success.
 type SetAssetPublicLinkInstructedResponse struct {
 	// #1667 — switch an asset's anonymous public link on or off. Only whoever
@@ -86434,6 +86913,75 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
 }
+
+type SetWorkerLeaveAloneInput struct {
+	AppRef     *string `json:"appRef,omitempty"`
+	LeaveAlone bool    `json:"leaveAlone"`
+	// Optional, only when marking: why the sweep leaves this worker alone. At most 500 characters.
+	Reason *string `json:"reason,omitempty"`
+	// The worker: its id or URN, or its name together with appRef.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns SetWorkerLeaveAloneInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetAppRef() *string { return v.AppRef }
+
+// GetLeaveAlone returns SetWorkerLeaveAloneInput.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetLeaveAlone() bool { return v.LeaveAlone }
+
+// GetReason returns SetWorkerLeaveAloneInput.Reason, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetReason() *string { return v.Reason }
+
+// GetWorker returns SetWorkerLeaveAloneInput.Worker, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneInput) GetWorker() string { return v.Worker }
+
+// SetWorkerLeaveAloneResponse is returned by SetWorkerLeaveAlone on success.
+type SetWorkerLeaveAloneResponse struct {
+	// #4224 (S3 of #4229) — mark a worker leave-alone, or clear the marker, as whoever manages the App. A marked
+	// worker's hostDesiredState row says LEAVE_ALONE: a sweep observes and reports it and never starts, stops or repairs
+	// it. A change of the marker is one worker.leave-alone-changed team event (the new value only, never the reason); a
+	// call that changes nothing records nothing. Marking an already marked worker with another reason replaces the
+	// reason, who set it and when.
+	// Refusals: WORKER_NOT_FOUND (also for a caller who is not a participant of the worker's App),
+	// WORKER_LEAVE_ALONE_NOT_PERMITTED (a participant who does not manage the App; a worker's session without an
+	// instruction), WORKER_RETIRED, BAD_USER_INPUT (a reason on a clear, or one over 500 characters). The App-manager
+	// arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12),
+	// recorded as one app.manager-act event, ids only.
+	SetWorkerLeaveAlone *SetWorkerLeaveAloneSetWorkerLeaveAlone `json:"setWorkerLeaveAlone"`
+}
+
+// GetSetWorkerLeaveAlone returns SetWorkerLeaveAloneResponse.SetWorkerLeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneResponse) GetSetWorkerLeaveAlone() *SetWorkerLeaveAloneSetWorkerLeaveAlone {
+	return v.SetWorkerLeaveAlone
+}
+
+// SetWorkerLeaveAloneSetWorkerLeaveAlone includes the requested fields of the GraphQL type WorkerLeaveAlone.
+// The GraphQL type's documentation follows.
+//
+// #4224: a worker's leave-alone marker after setWorkerLeaveAlone. reason, by and at are null when the worker is not marked.
+type SetWorkerLeaveAloneSetWorkerLeaveAlone struct {
+	WorkerId   string  `json:"workerId"`
+	LeaveAlone bool    `json:"leaveAlone"`
+	Reason     *string `json:"reason"`
+	// The user who set the marker.
+	By *string `json:"by"`
+	At *string `json:"at"`
+}
+
+// GetWorkerId returns SetWorkerLeaveAloneSetWorkerLeaveAlone.WorkerId, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetWorkerId() string { return v.WorkerId }
+
+// GetLeaveAlone returns SetWorkerLeaveAloneSetWorkerLeaveAlone.LeaveAlone, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetLeaveAlone() bool { return v.LeaveAlone }
+
+// GetReason returns SetWorkerLeaveAloneSetWorkerLeaveAlone.Reason, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetReason() *string { return v.Reason }
+
+// GetBy returns SetWorkerLeaveAloneSetWorkerLeaveAlone.By, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetBy() *string { return v.By }
+
+// GetAt returns SetWorkerLeaveAloneSetWorkerLeaveAlone.At, and is useful for accessing the field via an interface.
+func (v *SetWorkerLeaveAloneSetWorkerLeaveAlone) GetAt() *string { return v.At }
 
 // SetWorkerReportsToResponse is returned by SetWorkerReportsTo on success.
 type SetWorkerReportsToResponse struct {
@@ -102037,6 +102585,258 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	return &retval, nil
 }
 
+// UpdateAgentWithLifecycleResponse is returned by UpdateAgentWithLifecycle on success.
+type UpdateAgentWithLifecycleResponse struct {
+	// Update an Agent.
+	//
+	// urn renames the slug (org-owned agents only). personaRole is normalized
+	// (explicit null or blank clears, omitted preserves). Worker castings
+	// referencing this agent are unaffected —
+	// the named identity lives on the Worker.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateAgentWithLifecycleUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateAgentWithLifecycleResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleResponse) GetUpdateAgent() *UpdateAgentWithLifecycleUpdateAgent {
+	return v.UpdateAgent
+}
+
+// UpdateAgentWithLifecycleUpdateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type UpdateAgentWithLifecycleUpdateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetLifecycle returns UpdateAgentWithLifecycleUpdateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetId returns UpdateAgentWithLifecycleUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentWithLifecycleUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentWithLifecycleUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentWithLifecycleUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns UpdateAgentWithLifecycleUpdateAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns UpdateAgentWithLifecycleUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns UpdateAgentWithLifecycleUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns UpdateAgentWithLifecycleUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns UpdateAgentWithLifecycleUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns UpdateAgentWithLifecycleUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns UpdateAgentWithLifecycleUpdateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns UpdateAgentWithLifecycleUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns UpdateAgentWithLifecycleUpdateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateAgentWithLifecycleUpdateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns UpdateAgentWithLifecycleUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns UpdateAgentWithLifecycleUpdateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns UpdateAgentWithLifecycleUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns UpdateAgentWithLifecycleUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns UpdateAgentWithLifecycleUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns UpdateAgentWithLifecycleUpdateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns UpdateAgentWithLifecycleUpdateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentWithLifecycleUpdateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns UpdateAgentWithLifecycleUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns UpdateAgentWithLifecycleUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithLifecycleUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentWithLifecycleUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentWithLifecycleUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentWithLifecycleUpdateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentWithLifecycleUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentWithLifecycleUpdateAgent, error) {
+	var retval __premarshalUpdateAgentWithLifecycleUpdateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
 // UpdateAiServiceConfigResponse is returned by UpdateAiServiceConfig on success.
 type UpdateAiServiceConfigResponse struct {
 	// 036-ai-service-config: update a named AI config. All fields optional.
@@ -115530,6 +116330,60 @@ type __CreateAgentWebhookInput struct {
 // GetInput returns __CreateAgentWebhookInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWebhookInput) GetInput() *CreateAgentWebhookInput { return v.Input }
 
+// __CreateAgentWithLifecycleInput is used internally by genqlient
+type __CreateAgentWithLifecycleInput struct {
+	Name                  string           `json:"name"`
+	Lifecycle             *AgentLifecycle  `json:"lifecycle,omitempty"`
+	OrgId                 *string          `json:"orgId,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+}
+
+// GetName returns __CreateAgentWithLifecycleInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetName() string { return v.Name }
+
+// GetLifecycle returns __CreateAgentWithLifecycleInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetOrgId returns __CreateAgentWithLifecycleInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetOrgId() *string { return v.OrgId }
+
+// GetDescription returns __CreateAgentWithLifecycleInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentWithLifecycleInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __CreateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __CreateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentWithLifecycleInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentWithLifecycleInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentWithLifecycleInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentWithLifecycleInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
 // __CreateAiServiceConfigInput is used internally by genqlient
 type __CreateAiServiceConfigInput struct {
 	Name      string            `json:"name"`
@@ -117524,6 +118378,14 @@ type __GetAgentInput struct {
 // GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAgentInput) GetRef() string { return v.Ref }
 
+// __GetAgentLifecycleInput is used internally by genqlient
+type __GetAgentLifecycleInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAgentLifecycleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAgentLifecycleInput) GetRef() string { return v.Ref }
+
 // __GetAppChatbotAiConfigInput is used internally by genqlient
 type __GetAppChatbotAiConfigInput struct {
 	Ref string `json:"ref"`
@@ -117555,6 +118417,14 @@ type __GetAppSharedMemoryInput struct {
 
 // GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
+
+// __GetAppSweepModeInput is used internally by genqlient
+type __GetAppSweepModeInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __GetAppSweepModeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetAppSweepModeInput) GetAppRef() string { return v.AppRef }
 
 // __GetBoundSessionEndInput is used internally by genqlient
 type __GetBoundSessionEndInput struct {
@@ -117807,6 +118677,18 @@ type __GetWorkerInput struct {
 
 // GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerInput) GetRef() string { return v.Ref }
+
+// __GetWorkerLeaveAloneInput is used internally by genqlient
+type __GetWorkerLeaveAloneInput struct {
+	Ref    string  `json:"ref"`
+	AppRef *string `json:"appRef,omitempty"`
+}
+
+// GetRef returns __GetWorkerLeaveAloneInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerLeaveAloneInput) GetRef() string { return v.Ref }
+
+// GetAppRef returns __GetWorkerLeaveAloneInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetWorkerLeaveAloneInput) GetAppRef() *string { return v.AppRef }
 
 // __GetWorkerModelGroupsInput is used internally by genqlient
 type __GetWorkerModelGroupsInput struct {
@@ -118075,6 +118957,14 @@ type __HostRegistrationsInput struct {
 
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
+
+// __HostUpWorkerReposInput is used internally by genqlient
+type __HostUpWorkerReposInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HostUpWorkerReposInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HostUpWorkerReposInput) GetRef() string { return v.Ref }
 
 // __ImpersonationSessionInput is used internally by genqlient
 type __ImpersonationSessionInput struct {
@@ -120610,6 +121500,22 @@ func (v *__SetAppPropertiesInput) GetProperties() *json.RawMessage { return v.Pr
 // GetExpectedRevision returns __SetAppPropertiesInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__SetAppPropertiesInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
+// __SetAppSweepModeInput is used internally by genqlient
+type __SetAppSweepModeInput struct {
+	AppRef      string               `json:"appRef"`
+	Mode        SweepMode            `json:"mode"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __SetAppSweepModeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetAppRef() string { return v.AppRef }
+
+// GetMode returns __SetAppSweepModeInput.Mode, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetMode() SweepMode { return v.Mode }
+
+// GetInstruction returns __SetAppSweepModeInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetAppSweepModeInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __SetAssetPublicLinkInput is used internally by genqlient
 type __SetAssetPublicLinkInput struct {
 	AssetRef string `json:"assetRef"`
@@ -120771,6 +121677,18 @@ func (v *__SetWorkerBootPromptInput) GetWorkerRef() string { return v.WorkerRef 
 
 // GetNodeRef returns __SetWorkerBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__SetWorkerBootPromptInput) GetNodeRef() *string { return v.NodeRef }
+
+// __SetWorkerLeaveAloneInput is used internally by genqlient
+type __SetWorkerLeaveAloneInput struct {
+	Input       *SetWorkerLeaveAloneInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput      `json:"instruction,omitempty"`
+}
+
+// GetInput returns __SetWorkerLeaveAloneInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetWorkerLeaveAloneInput) GetInput() *SetWorkerLeaveAloneInput { return v.Input }
+
+// GetInstruction returns __SetWorkerLeaveAloneInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetWorkerLeaveAloneInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __SetWorkerReportsToInput is used internally by genqlient
 type __SetWorkerReportsToInput struct {
@@ -122277,6 +123195,76 @@ func (v *__UpdateAgentTickerTemplateInput) GetExpectedRevision() int { return v.
 
 // GetInput returns __UpdateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentTickerTemplateInput) GetInput() *AgentTickerTemplatePatch { return v.Input }
+
+// __UpdateAgentWithLifecycleInput is used internally by genqlient
+type __UpdateAgentWithLifecycleInput struct {
+	Ref                   string                          `json:"ref"`
+	Lifecycle             *AgentLifecycle                 `json:"lifecycle,omitempty"`
+	Name                  *string                         `json:"name,omitempty"`
+	Description           *string                         `json:"description,omitempty"`
+	AgentType             *AgentType                      `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
+	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                        `json:"surfaces,omitempty"`
+	Urn                   *string                         `json:"urn,omitempty"`
+	PersonaRole           *string                         `json:"personaRole,omitempty"`
+	UsesTasks             *bool                           `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                           `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string                        `json:"memberRoles,omitempty"`
+	ListedOnMarketplace   *bool                           `json:"listedOnMarketplace,omitempty"`
+	RegisterDefaults      *gqltypes.RegisterDefaultsInput `json:"registerDefaults,omitempty"`
+}
+
+// GetRef returns __UpdateAgentWithLifecycleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetRef() string { return v.Ref }
+
+// GetLifecycle returns __UpdateAgentWithLifecycleInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetName returns __UpdateAgentWithLifecycleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAgentWithLifecycleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __UpdateAgentWithLifecycleInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __UpdateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __UpdateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __UpdateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetUrn returns __UpdateAgentWithLifecycleInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetUrn() *string { return v.Urn }
+
+// GetPersonaRole returns __UpdateAgentWithLifecycleInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetUsesTasks returns __UpdateAgentWithLifecycleInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __UpdateAgentWithLifecycleInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// GetMemberRoles returns __UpdateAgentWithLifecycleInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetListedOnMarketplace returns __UpdateAgentWithLifecycleInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetListedOnMarketplace() *bool {
+	return v.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns __UpdateAgentWithLifecycleInput.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetRegisterDefaults() *gqltypes.RegisterDefaultsInput {
+	return v.RegisterDefaults
+}
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -136326,6 +137314,93 @@ func CreateAgentWebhook(
 	return data_, err_
 }
 
+// The mutation executed by CreateAgentWithLifecycle.
+const CreateAgentWithLifecycle_Operation = `
+mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, lifecycle: $lifecycle, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+		lifecycle
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentWithLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	lifecycle *AgentLifecycle,
+	orgId *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+) (data_ *CreateAgentWithLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWithLifecycle",
+		Query:  CreateAgentWithLifecycle_Operation,
+		Variables: &__CreateAgentWithLifecycleInput{
+			Name:                  name,
+			Lifecycle:             lifecycle,
+			OrgId:                 orgId,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+		},
+	}
+
+	data_ = &CreateAgentWithLifecycleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAiServiceConfig.
 const CreateAiServiceConfig_Operation = `
 mutation CreateAiServiceConfig ($name: String!, $provider: String!, $model: String!, $ownerId: ID!, $ownerType: AiConfigOwnerType!, $apiKey: String, $enabled: Boolean, $params: JSON) {
@@ -142233,6 +143308,42 @@ func GetAgent(
 	return data_, err_
 }
 
+// The query executed by GetAgentLifecycle.
+const GetAgentLifecycle_Operation = `
+query GetAgentLifecycle ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+		lifecycle
+	}
+}
+`
+
+// S3-only documents. Keep AgentFields and legacy mutations valid on older servers.
+func GetAgentLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAgentLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAgentLifecycle",
+		Query:  GetAgentLifecycle_Operation,
+		Variables: &__GetAgentLifecycleInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAgentLifecycleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetAppChatbotAiConfig.
 const GetAppChatbotAiConfig_Operation = `
 query GetAppChatbotAiConfig ($ref: ID!) {
@@ -142378,6 +143489,40 @@ func GetAppSharedMemory(
 	}
 
 	data_ = &GetAppSharedMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppSweepMode.
+const GetAppSweepMode_Operation = `
+query GetAppSweepMode ($appRef: ID!) {
+	app(ref: $appRef) {
+		sweepMode
+	}
+}
+`
+
+func GetAppSweepMode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *GetAppSweepModeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppSweepMode",
+		Query:  GetAppSweepMode_Operation,
+		Variables: &__GetAppSweepModeInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &GetAppSweepModeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -144142,6 +145287,47 @@ func GetWorkerInApp(
 	return data_, err_
 }
 
+// The query executed by GetWorkerLeaveAlone.
+const GetWorkerLeaveAlone_Operation = `
+query GetWorkerLeaveAlone ($ref: ID!, $appRef: ID) {
+	worker(ref: $ref, appRef: $appRef) {
+		id
+		leaveAlone
+		leaveAloneReason
+		leaveAloneBy
+		leaveAloneAt
+	}
+}
+`
+
+// The new read command alone requires S3; shared WorkerFields stay unchanged.
+func GetWorkerLeaveAlone(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	appRef *string,
+) (data_ *GetWorkerLeaveAloneResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerLeaveAlone",
+		Query:  GetWorkerLeaveAlone_Operation,
+		Variables: &__GetWorkerLeaveAloneInput{
+			Ref:    ref,
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &GetWorkerLeaveAloneResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetWorkerModelGroups.
 const GetWorkerModelGroups_Operation = `
 query GetWorkerModelGroups ($ref: ID!) {
@@ -145212,6 +146398,46 @@ func HostRegistrations(
 	}
 
 	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostUpWorkerRepos.
+const HostUpWorkerRepos_Operation = `
+query HostUpWorkerRepos ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		repos
+	}
+}
+`
+
+// cli#2085: the repos a worker's role names (TeamRole.repos), the one source
+// `host up` may create a missing worktree from under hostSetupSource SERVER.
+// Only these fields (the full worker record carries the boot prompt). Masked to
+// [] for a caller who cannot read the worker, which `host up` treats as "no
+// repo". Sent without the worker session.
+func HostUpWorkerRepos(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HostUpWorkerReposResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostUpWorkerRepos",
+		Query:  HostUpWorkerRepos_Operation,
+		Variables: &__HostUpWorkerReposInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HostUpWorkerReposResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -155891,6 +157117,44 @@ func SetAppProperties(
 	return data_, err_
 }
 
+// The mutation executed by SetAppSweepMode.
+const SetAppSweepMode_Operation = `
+mutation SetAppSweepMode ($appRef: String!, $mode: SweepMode!, $instruction: ActInstructionInput) {
+	setAppSweepMode(appRef: $appRef, mode: $mode, instruction: $instruction) {
+		sweepMode
+	}
+}
+`
+
+func SetAppSweepMode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	mode SweepMode,
+	instruction *ActInstructionInput,
+) (data_ *SetAppSweepModeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppSweepMode",
+		Query:  SetAppSweepMode_Operation,
+		Variables: &__SetAppSweepModeInput{
+			AppRef:      appRef,
+			Mode:        mode,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetAppSweepModeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAssetPublicLink.
 const SetAssetPublicLink_Operation = `
 mutation SetAssetPublicLink ($assetRef: ID!, $enabled: Boolean!) {
@@ -156466,6 +157730,48 @@ func SetWorkerBootPrompt(
 	}
 
 	data_ = &SetWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetWorkerLeaveAlone.
+const SetWorkerLeaveAlone_Operation = `
+mutation SetWorkerLeaveAlone ($input: SetWorkerLeaveAloneInput!, $instruction: ActInstructionInput) {
+	setWorkerLeaveAlone(input: $input, instruction: $instruction) {
+		workerId
+		leaveAlone
+		reason
+		by
+		at
+	}
+}
+`
+
+// Omitted reason is absent, never null. The server validates its bound and
+// whether it is meaningful for this marker change.
+func SetWorkerLeaveAlone(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetWorkerLeaveAloneInput,
+	instruction *ActInstructionInput,
+) (data_ *SetWorkerLeaveAloneResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerLeaveAlone",
+		Query:  SetWorkerLeaveAlone_Operation,
+		Variables: &__SetWorkerLeaveAloneInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetWorkerLeaveAloneResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -161706,6 +163012,99 @@ func UpdateAgentTickerTemplate(
 	}
 
 	data_ = &UpdateAgentTickerTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentWithLifecycle.
+const UpdateAgentWithLifecycle_Operation = `
+mutation UpdateAgentWithLifecycle ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+		... AgentFields
+		lifecycle
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func UpdateAgentWithLifecycle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	lifecycle *AgentLifecycle,
+	name *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	urn *string,
+	personaRole *string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+	memberRoles []string,
+	listedOnMarketplace *bool,
+	registerDefaults *gqltypes.RegisterDefaultsInput,
+) (data_ *UpdateAgentWithLifecycleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentWithLifecycle",
+		Query:  UpdateAgentWithLifecycle_Operation,
+		Variables: &__UpdateAgentWithLifecycleInput{
+			Ref:                   ref,
+			Lifecycle:             lifecycle,
+			Name:                  name,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			Urn:                   urn,
+			PersonaRole:           personaRole,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			MemberRoles:           memberRoles,
+			ListedOnMarketplace:   listedOnMarketplace,
+			RegisterDefaults:      registerDefaults,
+		},
+	}
+
+	data_ = &UpdateAgentWithLifecycleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

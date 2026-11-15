@@ -363,6 +363,7 @@ func TestMapError(t *testing.T) {
 		{"task finding missing", gqlErr("TASK_FINDING_NOT_FOUND"), exitcode.NotFound},
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
 		// #871: host operations and the host:operate grant.
 		{"host op not permitted", gqlErr("HOST_OPERATION_NOT_PERMITTED"), exitcode.Forbidden},

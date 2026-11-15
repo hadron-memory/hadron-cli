@@ -261,7 +261,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 356: 297 command, 45 gap, 14 excluded
+[Mutation] 356: 299 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -527,7 +527,7 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
-setAppSweepMode  gap #2067: team app sweep-mode (C9, server#4224)
+setAppSweepMode  command team app sweep-mode
 setAppTickerSettings  command team ticker settings set
 setAssetPublicLink  command asset public-link
 setAutomationReadGrant  command automation grant set
@@ -548,7 +548,7 @@ setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
 setWorkerAvailability  command team availability set
 setWorkerBootPrompt  command team worker set-boot-prompt
-setWorkerLeaveAlone  gap #2067: team worker leave-alone (C9, server#4224)
+setWorkerLeaveAlone  command team worker leave-alone
 setWorkerReportsTo  command team worker set-reports-to
 setWorkerWakeSettings  command team wake-settings set
 softDeleteAsset  command asset rm
@@ -619,7 +619,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 84: 48 gap, 36 excluded
+[Arguments] 82: 46 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -629,7 +629,6 @@ Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (ac
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
 Mutation.cancelAgentTask(instruction)  gap #1617
-Mutation.createAgent(lifecycle)  gap #2067: agent create --lifecycle (C9, server#4224)
 Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
@@ -682,7 +681,6 @@ Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
 Mutation.subscribeWorker(instruction)  gap #1617
 Mutation.unsubscribeWorker(instruction)  gap #1617
-Mutation.updateAgent(lifecycle)  gap #2067: agent update --lifecycle (C9, server#4224)
 Mutation.updateAgentTask(instruction)  gap #1617
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
