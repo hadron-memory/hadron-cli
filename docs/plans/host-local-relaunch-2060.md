@@ -54,16 +54,16 @@ absence requires two sweeps plus a strict zero-agent host proc census.
 Unreadable proc, ambiguous cwd, scan errors or unknown visibility report
 RELAUNCH_UNPROVEN and never launch. No launch adapter is enabled yet.
 
-Wolfgang confirmed the source in #108559: the host poller captures its own
-/proc/self/ns/pid identity at startup, under the host launch contract that
-it is never launched under unshare. The constructor now captures the nsfs
-device/inode pair once; failed capture remains unknown. HostPIDNamespace
-exposes that immutable snapshot and VerifyCallerPIDNamespace checks the
-caller's namespace against it. The host-up adapter must read the witness
-through that existing poller, never create a new caller-local Poller as proof.
-A missing or mismatched witness refuses RELAUNCH_UNPROVEN. No proc/1 read is
-used. Namespace mismatch/error tests and the live startup-capture test pass.
-Transport through the running poller and the relaunch adapter remain unwired.
+Holger's ruling relayed in #108664 supersedes the PID-namespace design:
+no per-agent PID namespace is used. C5's namespace snapshot, verifier and
+tests are removed. C3's updated dependency will run the agent plainly in
+Orca's terminal scope and pin that agent PID directly. Scope resource caps
+remain; the old claim that a pkill costs only one run is withdrawn.
+
+After the Orca daemon returns, C5's periodic check and C1 must bring every
+should-run worker back. #108668 adds a private container daemon-kill/recovery
+acceptance leg to #2056. This is not authorization to kill the shared host's
+daemon or call a paid provider.
 
 The intended adapter must compose C3's typed launch with an empty grant and
 its fresh recovery prompt: preserve the open session, run session recover,
