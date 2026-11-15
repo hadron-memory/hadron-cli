@@ -30,7 +30,7 @@ func TestTerminateAfterExitRunsNoTaskkill(t *testing.T) {
 	}
 	calls := 0
 	real := runTaskkill
-	runTaskkill = func(int) ([]byte, error) {
+	runTaskkill = func(context.Context, int) ([]byte, error) {
 		calls++
 		return nil, nil
 	}
@@ -50,7 +50,7 @@ func TestTerminateWithExitDuringAuthorizationRunsNoTaskkill(t *testing.T) {
 	a := &execAgent{done: make(chan struct{}), pid: 4242}
 	old := runTaskkill
 	calls := 0
-	runTaskkill = func(int) ([]byte, error) { calls++; return nil, nil }
+	runTaskkill = func(context.Context, int) ([]byte, error) { calls++; return nil, nil }
 	t.Cleanup(func() { runTaskkill = old })
 	released := 0
 	stopped, detail := a.TerminateWith(func() (func(), bool) {

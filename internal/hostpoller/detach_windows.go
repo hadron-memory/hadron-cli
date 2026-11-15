@@ -3,7 +3,7 @@
 package hostpoller
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,8 +58,8 @@ func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
 
 // runTaskkill is the process-tree kill terminateGroup uses, as a package var
 // so the Windows tests can observe (and refuse) it.
-var runTaskkill = func(pid int) ([]byte, error) {
-	return exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").CombinedOutput()
+var runTaskkill = func(ctx context.Context, pid int) ([]byte, error) {
+	return exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").CombinedOutput()
 }
 
 // terminateGroup stops the process tree a launch created: Windows has no
@@ -74,9 +74,5 @@ var runTaskkill = func(pid int) ([]byte, error) {
 // can be missed and a stale parent pid can match a reused one — which is
 // why Terminate never gets there for an exited launch (the stop gate above).
 func terminateGroup(pid int, _ time.Duration) (bool, string) {
-	out, err := runTaskkill(pid)
-	if err != nil {
-		return false, fmt.Sprintf("could not stop the launched process tree (pid %d): %v: %s", pid, err, strings.TrimSpace(string(out)))
-	}
-	return true, fmt.Sprintf("terminated the launched process tree (pid %d)", pid)
+	return runTreeKill(pid, taskkillTimeout, runTaskkill)
 }
