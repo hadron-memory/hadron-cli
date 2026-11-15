@@ -290,8 +290,10 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 		}
 		res := &importAppliedDTO{}
 		e.Applied = res
-		fail := func(step string, err error) bool {
-			res.Unknown = w.Refused == nil || !w.Refused(err)
+		// fail records one failed step. A READ wrote nothing, so it is never an
+		// unknown outcome; a write that was not definitely refused is.
+		fail := func(step string, wrote bool, err error) bool {
+			res.Unknown = wrote && (w.Refused == nil || !w.Refused(err))
 			msg := step + ": " + err.Error()
 			if res.Unknown {
 				msg = step + " outcome unknown (" + err.Error() + "): check the server's state before any rollback"
@@ -302,17 +304,16 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 		}
 		already, err := w.LeaveAloneSet(ctx, e.workerID)
 		if err != nil {
-			if fail("reading leave-alone", err) {
+			if fail("reading leave-alone", false, err) {
 				break
 			}
-			res.Unknown = false // a read wrote nothing
 			continue
 		}
 		if already {
 			res.LeaveAlone, res.LeaveAloneKept = true, true
 		} else {
 			if err := w.LeaveAlone(ctx, e.workerID); err != nil {
-				if fail("leave-alone", err) {
+				if fail("leave-alone", true, err) {
 					break
 				}
 				continue
@@ -320,7 +321,7 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 			res.LeaveAlone = true
 		}
 		if err := w.Assign(ctx, e.workerID, *e.Workdir, e.Family); err != nil {
-			if fail("assignment", err) {
+			if fail("assignment", true, err) {
 				break
 			}
 			continue
@@ -456,8 +457,11 @@ which stops the run. Exit 1 when any entry failed; a re-run completes them and
 writes nothing for the entries now "unchanged" (idempotent). Marked but not
 assigned is the safe half-state. --apply is refused, nothing written, when the
 server lacks host setup. The report's applied.assigned entries are what a
-rollback undoes: "team host unassign <worker> --host <id>" and "team worker
-leave-alone <worker> --off" (see the runbook). Never run it against a live
+rollback undoes: "team host unassign <worker> --host <id>", and "team worker
+leave-alone <worker> --off" ONLY where applied.leaveAlone is true and
+applied.leaveAloneKept is false (a kept mark was not the import's). An
+applied.unknown entry may have been written: check "team host setup --host <id>"
+first (see the runbook). Never run it against a live
 host without the runbook: the orca1 import is the host manager's step.`,
 		Example: `  hadron team host import --from ./host.yaml.copy --host orca1
   hadron team host import --from ./host.yaml.copy --host orca1 --json`,
@@ -548,7 +552,7 @@ host without the runbook: the orca1 import is the host manager's step.`,
 					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: %s", appWarning)
 				}
 				if dto.Counts[importCreate] > 0 {
-					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("In App %s, assign %d workers to host %s and mark each leave-alone?", describeApp(ctx, f, scope.Ref), dto.Counts[importCreate], hostID)); err != nil {
+					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("In App %s, assign %d workers to host %s and mark each leave-alone?", output.SafeCell(describeApp(ctx, f, scope.Ref)), dto.Counts[importCreate], output.SafeCell(hostID))); err != nil {
 						return err
 					}
 					applyErr = applyHostImport(ctx, entries, hostImportWriter(client, scope.Ref, hostID))
@@ -603,6 +607,11 @@ host without the runbook: the orca1 import is the host manager's step.`,
 					}
 					res := "assigned and leave-alone"
 					switch {
+					case e.Applied.Error != nil && e.Applied.Unknown:
+						// The step may have been written: never say "NOT".
+						res = "UNKNOWN: " + *e.Applied.Error
+					case e.Applied.Error != nil && e.Applied.LeaveAloneKept:
+						res = "already leave-alone (kept, not the import's mark), NOT assigned: " + *e.Applied.Error
 					case e.Applied.Error != nil && e.Applied.LeaveAlone:
 						res = "leave-alone set, NOT assigned: " + *e.Applied.Error
 					case e.Applied.Error != nil:

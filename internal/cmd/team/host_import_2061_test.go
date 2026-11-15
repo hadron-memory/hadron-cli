@@ -426,9 +426,16 @@ func TestHostImportWriterRequiresTheServerToConfirmEachWrite(t *testing.T) {
 			}
 		}
 	}
-	m := map[string]string{"GetWorkerLeaveAlone": `{"data":{"worker":null}}`}
-	if _, err := hostImportWriter(opClient2061{m}, "c", "h").LeaveAloneSet(ctx, "w1"); err == nil {
-		t.Error("an unknown worker answer must not read as 'not marked'")
+	for name, body := range map[string]string{
+		"null worker":     `{"data":{"worker":null}}`,
+		"null leaveAlone": `{"data":{"worker":{"id":"w1","leaveAlone":null}}}`,
+		"other worker":    `{"data":{"worker":{"id":"w9","leaveAlone":false}}}`,
+		"missing worker":  `{"data":{}}`,
+	} {
+		m := map[string]string{"GetWorkerLeaveAlone": body}
+		if set, err := hostImportWriter(opClient2061{m}, "c", "h").LeaveAloneSet(ctx, "w1"); err == nil {
+			t.Errorf("%s: an unknown answer must not read as 'not marked' (read %v)", name, set)
+		}
 	}
 }
 
@@ -448,5 +455,51 @@ func TestHostImportWriterClassifiesRealErrors(t *testing.T) {
 	}
 	if !w.Refused(gql("FORBIDDEN")) || w.Refused(gql("INTERNAL_SERVER_ERROR")) || w.Refused(errors.New("timeout")) {
 		t.Error("only a coded, non-internal answer is a definite refusal")
+	}
+}
+
+// countClient wraps opClient2061 and counts how often each operation is sent.
+type countClient2061 struct {
+	inner opClient2061
+	n     map[string]int
+}
+
+func (c countClient2061) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
+	c.n[req.OpName]++
+	return c.inner.MakeRequest(ctx, req, resp)
+}
+
+// Joaquin P3: real (mapped) systemic errors through an apply with several
+// create entries: later workers receive no mutation at all.
+func TestApplyWithRealSystemicErrorsStopsBeforeLaterWorkers(t *testing.T) {
+	for name, body := range map[string]string{
+		"forbidden":       `{"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}}]}`,
+		"unauthenticated": `{"errors":[{"message":"no","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+	} {
+		n := map[string]int{}
+		client := countClient2061{opClient2061{map[string]string{
+			"GetWorkerLeaveAlone": `{"data":{"worker":{"id":"w1","leaveAlone":false}}}`,
+			"SetWorkerLeaveAlone": body,
+			"TeamHostAssign":      `{"data":{"assignHostWorker":null}}`,
+		}}, n}
+		entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w1", "b"), entry2061("C", "w1", "c")}
+		err := applyHostImport(context.Background(), entries, hostImportWriter(client, "capp1", "orca1"))
+		if !errors.Is(err, errApplyIncomplete) {
+			t.Fatalf("%s: err = %v", name, err)
+		}
+		if n["SetWorkerLeaveAlone"] != 1 || n["TeamHostAssign"] != 0 || entries[1].Applied != nil || entries[2].Applied != nil {
+			t.Errorf("%s: a systemic refusal must stop the run at the first write: %v", name, n)
+		}
+	}
+}
+
+// A read failure wrote nothing: not an unknown outcome, even when it stops the run.
+func TestApplyReadFailureIsNeverUnknownEvenWhenSystemic(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a")}
+	r := &recWrites2061{readErr: map[string]error{"w1": errors.New("systemic")}}
+	_ = applyHostImport(context.Background(), entries, r.writes())
+	a := entries[0].Applied
+	if a.Unknown || a.Error == nil || strings.Contains(*a.Error, "outcome unknown") {
+		t.Fatalf("applied = %+v: a read cannot have written anything", a)
 	}
 }

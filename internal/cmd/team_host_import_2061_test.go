@@ -440,3 +440,34 @@ func TestTeamHostImport2061ApplyUnconfirmedAnswersNeverAdvance(t *testing.T) {
 		}
 	}
 }
+
+// Joaquin P2: a lost answer is reported as UNKNOWN in the human text too, never
+// as "NOT assigned" / "NOT written" (which would send an operator the wrong way).
+func TestTeamHostImport2061ApplyHumanTextForUnknownOutcomes(t *testing.T) {
+	for name, tc := range map[string]struct{ op, body string }{
+		"assign":      {"TeamHostAssign", `{"data":{"assignHostWorker":null}}`},
+		"leave-alone": {"SetWorkerLeaveAlone", `{"data":{"setWorkerLeaveAlone":null}}`},
+	} {
+		r := applyResponses2061()
+		r[tc.op] = tc.body
+		_, out, _ := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+		if !strings.Contains(out, "applied Jonas: UNKNOWN") || strings.Contains(out, "NOT assigned") || strings.Contains(out, "NOT written") {
+			t.Errorf("%s: the text must say UNKNOWN and never NOT assigned/written:\n%s", name, out)
+		}
+	}
+	// A definite refusal still says it was not written.
+	r := applyResponses2061()
+	r["TeamHostAssign"] = `{"errors":[{"message":"no","extensions":{"code":"HOST_ASSIGNMENT_NOT_PERMITTED"}}]}`
+	_, out, _ := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if !strings.Contains(out, "leave-alone set, NOT assigned") {
+		t.Errorf("a coded refusal is definite:\n%s", out)
+	}
+	// Rodolfo P3: an already-set mark that the import did not make is never described as the import's.
+	r = applyResponses2061()
+	r["GetWorkerLeaveAlone"] = `{"data":{"worker":{"id":"w1","leaveAlone":true}}}`
+	r["TeamHostAssign"] = `{"errors":[{"message":"no","extensions":{"code":"HOST_ASSIGNMENT_NOT_PERMITTED"}}]}`
+	_, out, _ = runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if !strings.Contains(out, "kept, not the import's mark") || strings.Contains(out, "leave-alone set, NOT assigned") {
+		t.Errorf("a kept mark must read as kept:\n%s", out)
+	}
+}
