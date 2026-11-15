@@ -73174,6 +73174,81 @@ type RecordUsageResponse struct {
 // GetRecordUsage returns RecordUsageResponse.RecordUsage, and is useful for accessing the field via an interface.
 func (v *RecordUsageResponse) GetRecordUsage() bool { return v.RecordUsage }
 
+// RecoverWorkerResponse is returned by RecoverWorker on success.
+type RecoverWorkerResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *RecoverWorkerWorker `json:"worker"`
+}
+
+// GetWorker returns RecoverWorkerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerResponse) GetWorker() *RecoverWorkerWorker { return v.Worker }
+
+// RecoverWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type RecoverWorkerWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role  *string `json:"role"`
+	AppId string  `json:"appId"`
+	// The worker-scoped working memory in the App's container (null until provisioned).
+	MemoryId *string `json:"memoryId"`
+}
+
+// GetId returns RecoverWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetId() string { return v.Id }
+
+// GetUrn returns RecoverWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetUrn() *string { return v.Urn }
+
+// GetName returns RecoverWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetName() string { return v.Name }
+
+// GetRole returns RecoverWorkerWorker.Role, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetRole() *string { return v.Role }
+
+// GetAppId returns RecoverWorkerWorker.AppId, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetAppId() string { return v.AppId }
+
+// GetMemoryId returns RecoverWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *RecoverWorkerWorker) GetMemoryId() *string { return v.MemoryId }
+
 // RecoveryEdgesRecoveryEdgesRecoveryEdgesPage includes the requested fields of the GraphQL type RecoveryEdgesPage.
 type RecoveryEdgesRecoveryEdgesRecoveryEdgesPage struct {
 	Total int                                                                  `json:"total"`
@@ -118313,6 +118388,14 @@ type __RecordUsageInput struct {
 // GetEvent returns __RecordUsageInput.Event, and is useful for accessing the field via an interface.
 func (v *__RecordUsageInput) GetEvent() *UsageEventInput { return v.Event }
 
+// __RecoverWorkerInput is used internally by genqlient
+type __RecoverWorkerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RecoverWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RecoverWorkerInput) GetRef() string { return v.Ref }
+
 // __RecoveryEdgesInput is used internally by genqlient
 type __RecoveryEdgesInput struct {
 	MemoryRef string   `json:"memoryRef"`
@@ -149796,6 +149879,48 @@ func RecordUsage(
 	}
 
 	data_ = &RecordUsageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RecoverWorker.
+const RecoverWorker_Operation = `
+query RecoverWorker ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		urn
+		name
+		role
+		appId
+		memoryId
+	}
+}
+`
+
+// cli#2062: `team session recover` needs only the worker's identity, and
+// WorkerFields carries the whole served boot prompt (thousands of words) that a
+// recovery read must not pull on every call.
+func RecoverWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RecoverWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoverWorker",
+		Query:  RecoverWorker_Operation,
+		Variables: &__RecoverWorkerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RecoverWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
