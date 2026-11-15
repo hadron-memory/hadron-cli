@@ -103,12 +103,28 @@ func leaderZombieAlone(pid int) bool {
 // still (a host churning short-lived processes through every pass): past
 // the bound the scan answers "members" — the fail-safe direction, which
 // keeps the stop probing and the zombie held rather than reading a live
-// group as empty.
-const maxGroupScanPasses = 8
+// group as empty. A process born and dead between a listing and its own stat
+// read is unknown (it could have been a member, or forked one), voids its
+// pass, and no later pass can rule it out, so a host that spawns short-lived
+// processes at ~100/s leaves most passes void. Measured on a busy host with
+// two spawners at ~100/s, 100 runs of the real-process zombie-drain test: at
+// 8 passes it failed up to 64 of 100 runs (the count tracks the host's load);
+// at 32 it failed 0 of 100. A retry is a listing plus some stats
+// (milliseconds), and a false answer still needs a CLEAN pass, so raising the
+// bound only buys more chances to find one: every vanished pid still voids its
+// pass, nothing is assumed about who a vanished process was, and no allocator
+// property is relied on (#2042).
+const maxGroupScanPasses = 32
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir
+
+// readGroupStatFn reads one process's group, state and thread count, as a
+// package var so a test can model /proc churn (processes dying between the
+// listing and their own stat read, a process moving between groups)
+// deterministically instead of depending on a busy host.
+var readGroupStatFn = readGroupStat
 
 // groupHasOtherMembers reports whether /proc shows a member of process group
 // pgid, other than the leader itself, that can still RUN. The leader is
@@ -193,7 +209,7 @@ func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs m
 		if err != nil {
 			continue
 		}
-		pgrp, state, threads, err := readGroupStat(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return true, false, nil // present but unreadable: not proof of absence

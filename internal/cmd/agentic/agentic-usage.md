@@ -4393,7 +4393,7 @@ reason and never acted on, whatever `wouldBe` says; a null `desired` under any
 other reason is `UNKNOWN_DESIRED`. The App's switch decides where a worker's
 setup comes from (cli#2085; `hostSetup(appRef, hostId)`, hadron-server#4241,
 read without the worker session, one read per run). Under `HOST`, or on a server
-that predates `hostSetup` (a schema-skew refusal; `--json` `hostSetupSource` is
+that predates `hostSetup` (a validation refusal naming only that missing field; `--json` `hostSetupSource` is
 then null), the registration names it: exactly one registered worktree is the
 one acted on, while none, several or a value that is not a host name token is
 `SETUP_INVALID` (reported before the host is read for that worker). Under

@@ -454,15 +454,16 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 
 // hostSetup reads which workers the platform assigns to this host and the App's
 // switch (hadron-server#4241, cli#2085). An empty source means "not known": a
-// server that predates hostSetup refuses the query as schema skew, and host up
+// server that predates hostSetup refuses that field by name, and host up
 // then behaves exactly as it did (the registration names the worktree). Any
-// other failure stops the run, as does a source other than HOST or SERVER: with
+// other failure (including validation of a different field) stops the run, as
+// does a source other than HOST or SERVER: with
 // the switch unread, the rules to plan under are not known, and nothing is
 // planned. assigned is set only under SERVER.
 func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (string, map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
 	r, err := gen.TeamHostSetup(ctx, s.client, s.app, &hostID)
 	if err != nil {
-		if api.IsSchemaSkew(err) {
+		if api.IsFrameworkValidationOnlyFor(err, "hostSetup") {
 			return "", nil, nil
 		}
 		return "", nil, api.MapError(err)
@@ -484,6 +485,9 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 	for _, a := range r.HostSetup.Assignments {
 		if a == nil || a.HostId != hostID {
 			continue
+		}
+		if _, exists := assigned[a.WorkerId]; exists {
+			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on host %s; nothing planned", a.WorkerId, hostID)
 		}
 		assigned[a.WorkerId] = a
 	}
