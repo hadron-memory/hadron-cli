@@ -21052,10 +21052,10 @@ var AllAssetScanStatus = []AssetScanStatus{
 
 type AssignHostWorkerInput struct {
 	// #4230 — the host-local account profile the launcher runs under, a profile token. Optional.
-	AccountProfile *string `json:"accountProfile"`
+	AccountProfile *string `json:"accountProfile,omitempty"`
 	AppRef         string  `json:"appRef"`
 	// #4230 — the effort, a profile token. Optional.
-	Effort *string `json:"effort"`
+	Effort *string `json:"effort,omitempty"`
 	// The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
 	Family string `json:"family"`
 	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
@@ -161192,6 +161192,7 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 }
 `
 
+// #4230 (server main, tracked by #2157): optional like model; omitted, never null, so an existing assignment is preserved.
 func TeamHostAssign(
 	ctx_ context.Context,
 	client_ graphql.Client,
