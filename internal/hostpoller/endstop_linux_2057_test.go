@@ -268,3 +268,15 @@ func TestStopAgentGroupDoesNotEscalateWhenTheBindingChangedDuringTheGrace(t *tes
 		t.Fatalf("killed despite the binding change: %v", err)
 	}
 }
+
+// A stat line that cannot be parsed is an unknown, never a gone process.
+func TestParseProcStatRefusesAMalformedLine(t *testing.T) {
+	for _, line := range []string{"", "12 (claude) S", "12 claude S 1 2 3", "12 (c) S 1 x 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22"} {
+		if _, ok := parseProcStat(line); ok {
+			t.Errorf("parsed %q", line)
+		}
+	}
+	if st, ok := parseProcStat("12 (a (b) c) S 1 99 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 777 22"); !ok || st.pgrp != 99 || st.start != "777" || st.state != "S" {
+		t.Errorf("comm with parens misread: %+v ok=%v", st, ok)
+	}
+}

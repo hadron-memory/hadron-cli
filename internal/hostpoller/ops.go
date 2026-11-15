@@ -537,9 +537,10 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 		said := ""
 		// The launched agent runs in the tree it was started in. Without that
 		// identity nothing can be checked, so nothing is stopped; with it, the
-		// session its start bound must be the one being ended (when known: a
-		// restart forgets it, and the binding rules below then decide), and
-		// the same binding rules as a scanned agent apply.
+		// session its start bound must be the one being ended (both must be
+		// known: a launch whose session was not recorded, or an end that names
+		// none, is declined), and the same binding rules as a scanned agent
+		// apply. A restart forgets the launch, and the scan path decides.
 		t, ok := p.agentWorktree(op.WorkerID)
 		if !ok {
 			why := "the launched agent's worktree is not recorded, so it could not be identified and was not touched"
@@ -549,7 +550,12 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 		p.mu.Lock()
 		launched := p.agentSessions[op.WorkerID]
 		p.mu.Unlock()
-		if launched != "" && session != "" && launched != session {
+		if launched == "" || session == "" {
+			why := "the session of the launched agent or of this end is not known, so the agent could not be identified and was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		if launched != session {
 			why := "the launched agent serves another session than the one being ended, so it was not touched"
 			p.log("stop-skipped", op.ID, op.Type, "", why)
 			return why

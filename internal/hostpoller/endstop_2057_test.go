@@ -117,6 +117,7 @@ func TestWorkerEndStopsTheLaunchedAgentByItsOwnGroup(t *testing.T) {
 	withStop(p, StopOnEndAlways)
 	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
 	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess1"
 	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
 	step(t, p)
 	if agent.terminations() != 1 || len(host.stopped) != 0 {
@@ -135,6 +136,7 @@ func TestWorkerEndKeepsRecordsWhenTheStopIsUnconfirmed(t *testing.T) {
 	withStop(p, StopOnEndAlways)
 	agent := &fakeAgent{done: make(chan struct{}), pid: 4242, stopFails: true}
 	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess1"
 	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
 	step(t, p)
 	if _, ok := p.agentWorktree("id-iris"); !ok {
@@ -168,6 +170,7 @@ func TestWorkerEndNeverStopsALaunchedAgentOfAnotherSession(t *testing.T) {
 		withStop(p, StopOnEndAlways)
 		agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
 		p.trackAgent("id-iris", "repo/iris", agent)
+		p.agentSessions["id-iris"] = "sess1"
 		p.bound = func(string) delivery.Binding { return b }
 		srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
 		step(t, p)
@@ -247,5 +250,33 @@ func TestWorkerEndDeclinesALaunchedAgentWithNoRecordedWorktree(t *testing.T) {
 	}
 	if r := only(t, srv); !strings.Contains(r.reason, "not recorded") {
 		t.Fatalf("%q", r.reason)
+	}
+}
+
+// Blind delta P1: identity that is not available declines the stop, on either
+// side: a launch whose session was not recorded, or an end that names none.
+func TestWorkerEndDeclinesALaunchedAgentWhenASessionIsUnknown(t *testing.T) {
+	for name, tc := range map[string]struct{ launched, end string }{
+		"no recorded launch session": {"", "sess1"},
+		"an end naming no session":   {"sess1", ""},
+	} {
+		p, srv, _ := testPoller(t)
+		withStop(p, StopOnEndAlways)
+		agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+		p.trackAgent("id-iris", "repo/iris", agent)
+		if tc.launched != "" {
+			p.agentSessions["id-iris"] = tc.launched
+		}
+		p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+		op := stopOp(IssuedByUser)
+		op.Args = map[string]any{"workerId": "id-iris", "sessionId": tc.end}
+		srv.batches = [][]Operation{{op}}
+		step(t, p)
+		if agent.terminations() != 0 {
+			t.Errorf("%s: an agent that could not be identified was stopped", name)
+		}
+		if r := only(t, srv); !strings.Contains(r.reason, "not known") {
+			t.Errorf("%s: %q", name, r.reason)
+		}
 	}
 }
