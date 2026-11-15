@@ -31,9 +31,56 @@ func parseQueries2114(t *testing.T, file string) *ast.QueryDocument {
 }
 
 type opShape2114 struct {
-	vars map[string]string // variable -> "Type|omitempty"
-	args map[string]string // argument -> value
-	sel  []string          // selection, formatted
+	vars map[string]string // variable -> "Type|omitempty|default|directives"
+	args map[string]string // root argument -> value (plus "@root", "@alias", "@directives")
+	sel  []string          // the FULL normalized selection (nested, aliased, directed), sorted
+}
+
+// normArgs2114 and normDirs2114 render arguments and directives canonically
+// (argument order is not significant).
+func normArgs2114(args ast.ArgumentList) string {
+	var out []string
+	for _, a := range args {
+		out = append(out, a.Name+":"+a.Value.String())
+	}
+	sort.Strings(out)
+	return strings.Join(out, ",")
+}
+
+func normDirs2114(ds ast.DirectiveList) string {
+	var out []string
+	for _, d := range ds {
+		out = append(out, "@"+d.Name+"("+normArgs2114(d.Arguments)+")")
+	}
+	sort.Strings(out)
+	return strings.Join(out, "")
+}
+
+// normSel2114 renders a selection set completely and recursively: aliases,
+// arguments, directives, nested selections, fragment spreads and inline
+// fragments are all part of what the document returns.
+func normSel2114(set ast.SelectionSet) []string {
+	var out []string
+	for _, sel := range set {
+		switch n := sel.(type) {
+		case *ast.Field:
+			e := n.Name
+			if n.Alias != "" && n.Alias != n.Name {
+				e = n.Alias + ":" + n.Name
+			}
+			e += "(" + normArgs2114(n.Arguments) + ")" + normDirs2114(n.Directives)
+			if len(n.SelectionSet) > 0 {
+				e += "{" + strings.Join(normSel2114(n.SelectionSet), " ") + "}"
+			}
+			out = append(out, e)
+		case *ast.FragmentSpread:
+			out = append(out, "..."+n.Name+normDirs2114(n.Directives))
+		case *ast.InlineFragment:
+			out = append(out, "...on "+n.TypeCondition+normDirs2114(n.Directives)+"{"+strings.Join(normSel2114(n.SelectionSet), " ")+"}")
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func shapeOf2114(t *testing.T, op *ast.OperationDefinition) opShape2114 {
@@ -48,7 +95,11 @@ func shapeOf2114(t *testing.T, op *ast.OperationDefinition) opShape2114 {
 				}
 			}
 		}
-		s.vars[v.Variable] = v.Type.String() + "|omitempty=" + map[bool]string{true: "yes", false: "no"}[omit]
+		def := "-"
+		if v.DefaultValue != nil {
+			def = v.DefaultValue.String()
+		}
+		s.vars[v.Variable] = v.Type.String() + "|omitempty=" + map[bool]string{true: "yes", false: "no"}[omit] + "|default=" + def + "|" + normDirs2114(v.Directives)
 	}
 	if len(op.SelectionSet) != 1 {
 		t.Fatalf("%s: want one root field", op.Name)
@@ -58,18 +109,12 @@ func shapeOf2114(t *testing.T, op *ast.OperationDefinition) opShape2114 {
 		t.Fatalf("%s: root is not a field", op.Name)
 	}
 	s.args["@root"] = root.Name
+	s.args["@alias"] = root.Alias
+	s.args["@directives"] = normDirs2114(root.Directives)
 	for _, a := range root.Arguments {
 		s.args[a.Name] = a.Value.String()
 	}
-	for _, sel := range root.SelectionSet {
-		switch n := sel.(type) {
-		case *ast.FragmentSpread:
-			s.sel = append(s.sel, "..."+n.Name)
-		case *ast.Field:
-			s.sel = append(s.sel, n.Name)
-		}
-	}
-	sort.Strings(s.sel)
+	s.sel = normSel2114(root.SelectionSet)
 	return s
 }
 
@@ -82,7 +127,7 @@ func TestAgentLegacyAndLifecycleDocumentsDoNotDrift2114(t *testing.T) {
 		}
 		l, s := shapeOf2114(t, lop), shapeOf2114(t, sop)
 		// The only things the lifecycle copy may add.
-		if s.vars["lifecycle"] != "AgentLifecycle|omitempty=yes" {
+		if s.vars["lifecycle"] != "AgentLifecycle|omitempty=yes|default=-|" {
 			t.Errorf("%s: the lifecycle variable must be an omitempty AgentLifecycle, got %q", pair[1], s.vars["lifecycle"])
 		}
 		if s.args["lifecycle"] != "$lifecycle" {
@@ -92,7 +137,7 @@ func TestAgentLegacyAndLifecycleDocumentsDoNotDrift2114(t *testing.T) {
 		delete(s.args, "lifecycle")
 		var selNoLife []string
 		for _, x := range s.sel {
-			if x != "lifecycle" {
+			if x != "lifecycle()" {
 				selNoLife = append(selNoLife, x)
 			}
 		}
