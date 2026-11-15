@@ -110,19 +110,17 @@ func TestExecAgentConcurrentTerminateWithKeepsEachAuthorizationItsOwn(t *testing
 	}
 }
 
-// hadron-cli#2082: on a launch with no zombie hold, the leader's exit frees the
-// group's number unserialized with a stop. The authorization can wait (the
-// binding lock, up to 2 s); if the leader exits during that wait, the number
-// may be reused, so authority is proved again once the authorization is held
-// and nothing is signalled.
-func TestExecAgentTerminateWithDoesNotSignalAfterTheLeaderExitedDuringTheLockWait(t *testing.T) {
-	if _, err := os.Stat("/proc/self/cwd"); err != nil {
-		t.Skip("no /proc")
-	}
+// holdlessLaunch launches a long-running agent as a launch that took no zombie
+// hold (the waitid refusal forced), counting every signal the stop sends. The
+// returned cleanup restores the package hooks. The agent's shell keeps a live
+// child (sleep) in the group, and a process-group number is never reused while
+// any member of the group exists, so the test's own final group kill below can
+// only ever reach this launch's own group.
+func holdlessLaunch(t *testing.T, script string) (*execAgent, *atomic.Int32, func()) {
+	t.Helper()
 	realWait, realSignal := waitLeaderExit, signalGroup
-	defer func() { waitLeaderExit, signalGroup = realWait, realSignal }()
 	waitLeaderExit = func(int) (leaderExit, error) { return leaderExit{kind: unknownStatus}, syscall.ENOSYS } // no hold
-	var signals atomic.Int32
+	signals := &atomic.Int32{}
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		signals.Add(1)
 		return realSignal(pgid, sig)
@@ -130,18 +128,35 @@ func TestExecAgentTerminateWithDoesNotSignalAfterTheLeaderExitedDuringTheLockWai
 	dir := t.TempDir()
 	ready := filepath.Join(dir, "up")
 	a, err := ExecHost{TerminateGrace: 200 * time.Millisecond}.Launch(context.Background(),
-		LaunchSpec{Argv: []string{"sh", "-c", `touch "$0"; while :; do sleep 1; done`, ready}, Dir: dir, Env: os.Environ()})
+		LaunchSpec{Argv: []string{"sh", "-c", script, ready}, Dir: dir, Env: os.Environ()})
 	if err != nil {
+		waitLeaderExit, signalGroup = realWait, realSignal
 		t.Fatal(err)
 	}
-	defer func() { _ = syscall.Kill(-a.PID(), syscall.SIGKILL) }()
 	waitFor(t, "the agent to start", func() bool { _, err := os.Stat(ready); return err == nil })
-	ea := a.(*execAgent)
+	return a.(*execAgent), signals, func() {
+		_ = realSignal(a.PID(), syscall.SIGKILL) // the group still holds our sleep child: its number is ours
+		waitLeaderExit, signalGroup = realWait, realSignal
+	}
+}
+
+// hadron-cli#2082: on a launch with no zombie hold, the leader's exit frees the
+// group's number unserialized with a stop. The authorization can wait (the
+// binding lock, up to 2 s); if the leader exits during that wait, the number
+// may be reused, so authority is proved again once the authorization is held
+// and nothing is signalled, and the grant is released.
+func TestExecAgentTerminateWithDoesNotSignalAfterTheLeaderExitedDuringTheLockWait(t *testing.T) {
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	ea, signals, done := holdlessLaunch(t, `touch "$0"; sleep 300 & while :; do sleep 1; done`)
+	defer done()
+	released := 0
 	stopped, detail := ea.TerminateWith(func() (func(), bool) {
 		// The binding lock is busy for a while; the leader exits meanwhile.
-		_ = syscall.Kill(a.PID(), syscall.SIGKILL)
+		_ = syscall.Kill(ea.PID(), syscall.SIGKILL)
 		waitFor(t, "the leader's exit to be observed", func() bool { return ea.exited.Load() })
-		return func() {}, true
+		return func() { released++ }, true
 	})
 	if stopped {
 		t.Fatalf("a stop whose group number may have been reused is not a confirmed stop: %q", detail)
@@ -151,5 +166,33 @@ func TestExecAgentTerminateWithDoesNotSignalAfterTheLeaderExitedDuringTheLockWai
 	}
 	if !strings.Contains(detail, "without the ownership hold") {
 		t.Fatalf("the report must say the process was not touched, unconfirmed and its records kept: %q", detail)
+	}
+	if released != 1 {
+		t.Fatalf("the binding grant was released %d times on the lost-authority path, want once", released)
+	}
+}
+
+// The same, at the SIGKILL arm: SIGTERM goes out, the agent ignores it, and the
+// leader exits during the SECOND authorization's wait; SIGKILL is not sent.
+func TestExecAgentTerminateWithDoesNotKillAfterTheLeaderExitedDuringTheSecondLockWait(t *testing.T) {
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	ea, signals, done := holdlessLaunch(t, `trap '' TERM; touch "$0"; sleep 300 & while :; do sleep 1; done`)
+	defer done()
+	asked, released := 0, 0
+	stopped, detail := ea.TerminateWith(func() (func(), bool) {
+		asked++
+		if asked == 2 {
+			_ = syscall.Kill(ea.PID(), syscall.SIGKILL)
+			waitFor(t, "the leader's exit to be observed", func() bool { return ea.exited.Load() })
+		}
+		return func() { released++ }, true
+	})
+	if stopped || signals.Load() != 1 {
+		t.Fatalf("stopped=%v signals=%d: only the SIGTERM may have been sent (%q)", stopped, signals.Load(), detail)
+	}
+	if !strings.Contains(detail, "without the ownership hold") || released != 2 {
+		t.Fatalf("detail=%q released=%d, want unconfirmed and both grants released", detail, released)
 	}
 }
