@@ -82,3 +82,40 @@ func TestRelaunchCensusWitnessRechecked2060(t *testing.T) {
 		t.Fatal("changed authority accepted")
 	}
 }
+
+func TestRelaunchCensusOnlyProvenKernelOrExitedEmptyEntriesAreHarmless2060(t *testing.T) {
+	for _, kind := range []string{"kernel", "zombie", "unknown user"} {
+		t.Run(kind, func(t *testing.T) {
+			proc, work := t.TempDir(), t.TempDir()
+			dir := censusFixture2060(t, proc, work, 42)
+			if err := os.WriteFile(filepath.Join(dir, "cmdline"), nil, 0600); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(dir, "stat"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			end := strings.LastIndexByte(string(raw), ')')
+			fields := strings.Fields(string(raw)[end+1:])
+			if kind == "kernel" {
+				fields[6] = "2097152"
+			}
+			if kind == "zombie" {
+				fields[0] = "Z"
+			}
+			if err := os.WriteFile(filepath.Join(dir, "stat"), []byte("42 (kernel) "+strings.Join(fields, " ")), 0600); err != nil {
+				t.Fatal(err)
+			}
+			found, err := strictRelaunchCensus(context.Background(), proc, work, func(context.Context) error { return nil })
+			if kind == "unknown user" {
+				if err == nil {
+					t.Fatal("unknown empty userspace entry accepted")
+				}
+				return
+			}
+			if err != nil || len(found) != 0 {
+				t.Fatalf("%s: %+v %v", kind, found, err)
+			}
+		})
+	}
+}
