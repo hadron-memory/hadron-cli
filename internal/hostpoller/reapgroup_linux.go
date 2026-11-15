@@ -104,25 +104,27 @@ func leaderZombieAlone(pid int) bool {
 // the bound the scan answers "members" — the fail-safe direction, which
 // keeps the stop probing and the zombie held rather than reading a live
 // group as empty. A process born and dead between a listing and its own stat
-// read is unknown (it could have been a member), voids its pass, and cannot be
-// ruled out by any later pass, so a host that spawns short-lived processes at
-// 100/s leaves most passes void. Measured on a busy host with two spawners at
-// ~100/s: at 8 passes the real-process zombie-drain test failed 64 runs of 100
-// (7 of 50 in an earlier loop); at 32 it failed 0 of 100. A retry is a
-// listing and some stats (milliseconds), and a false answer still needs a
-// clean pass, so raising the bound only buys more chances to find one: it
-// weakens nothing (#2042).
+// read is unknown (it could have been a member, or forked one), voids its
+// pass, and no later pass can rule it out, so a host that spawns short-lived
+// processes at ~100/s leaves most passes void. Measured on a busy host with
+// two spawners at ~100/s, 100 runs of the real-process zombie-drain test: at
+// 8 passes it failed up to 64 of 100 runs (the count tracks the host's load);
+// at 32 it failed 0 of 100. A retry is a listing plus some stats
+// (milliseconds), and a false answer still needs a CLEAN pass, so raising the
+// bound only buys more chances to find one: every vanished pid still voids its
+// pass, nothing is assumed about who a vanished process was, and no allocator
+// property is relied on (#2042).
 const maxGroupScanPasses = 32
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir
 
-// readGroupStatFn reads one process's group, session, state and thread count,
-// as a package var so a test can model /proc churn (unrelated processes dying
-// between the listing and their own stat read, a process moving between
-// groups) without a real busy host.
-var readGroupStatFn = readGroupStatSession
+// readGroupStatFn reads one process's group, state and thread count, as a
+// package var so a test can model /proc churn (processes dying between the
+// listing and their own stat read, a process moving between groups)
+// deterministically instead of depending on a busy host.
+var readGroupStatFn = readGroupStat
 
 // groupHasOtherMembers reports whether /proc shows a member of process group
 // pgid, other than the leader itself, that can still RUN. The leader is
@@ -174,24 +176,8 @@ var readGroupStatFn = readGroupStatSession
 // saw.
 func groupHasOtherMembers(pgid, leader int) bool {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
-	nonMembers := map[int]bool{}
-	lastPid := -1
 	for pass := 0; ; pass++ {
-		// A cached "outside the group" proof names a pid NUMBER. It can only name
-		// another process if the kernel handed that number out again, and it hands
-		// them out in order, so that needs the counter to wrap past it. If the
-		// counter moved backwards between passes (or cannot be read), no cached
-		// proof is trusted any more (#2042, the pid-reuse case).
-		cur, perr := readLastPid()
-		if perr != nil || (lastPid >= 0 && cur < lastPid) || (pass > 0 && lastPid < 0) {
-			clear(nonMembers)
-		}
-		if perr != nil {
-			lastPid = -1
-		} else {
-			lastPid = cur
-		}
-		found, void, zs := scanGroupOnce(pgid, leader, prevZ, nonMembers)
+		found, void, zs := scanGroupOnce(pgid, leader, prevZ)
 		if !void {
 			return found
 		}
@@ -200,21 +186,6 @@ func groupHasOtherMembers(pgid, leader int) bool {
 		}
 		prevZ = zs
 	}
-}
-
-// readLastPid is the last pid the kernel allocated in this pid namespace (the
-// fifth field of /proc/loadavg), as a package var so a test can model the
-// counter wrapping.
-var readLastPid = func() (int, error) {
-	b, err := os.ReadFile("/proc/loadavg")
-	if err != nil {
-		return 0, err
-	}
-	f := strings.Fields(string(b))
-	if len(f) < 5 {
-		return 0, fmt.Errorf("malformed /proc/loadavg")
-	}
-	return strconv.Atoi(f[4])
 }
 
 // scanGroupOnce is one listing of /proc: found reports whether a running
@@ -227,47 +198,25 @@ var readLastPid = func() (int, error) {
 // purpose, but a leader entry that still shows RUNNING THREADS — state Z
 // with a thread count above one, the exited-main-thread shape — is
 // proof the group is not drained, so it is checked before the exclusion.
-func scanGroupOnce(pgid, leader int, prevZ, nonMembers map[int]bool) (found, void bool, zs map[int]bool) {
+func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool) {
 	entries, err := readProcDir("/proc")
 	if err != nil {
 		return true, false, nil
 	}
 	zs = map[int]bool{}
-	// The group's session, from the leader's own entry (a held zombie is still
-	// listed). Only a process OUTSIDE this session can be proven never to join
-	// the group: setpgid joins only a group of the caller's own session. Without
-	// the session nothing is cached and every vanishing stays conservative.
-	groupSession := -1
-	if _, sess, _, _, lerr := readGroupStatFn(filepath.Join("/proc", strconv.Itoa(leader), "stat")); lerr == nil {
-		groupSession = sess
-	}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}
-		pgrp, sess, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return true, false, nil // present but unreadable: not proof of absence
 			}
-			if nonMembers[pid] {
-				// Seen in an EARLIER pass of this call in ANOTHER session than the
-				// group, and gone now: it never was a member, it could not have
-				// joined (a group is joined only from its own session), being dead
-				// it cannot be one, and anything it forked inherited a group other
-				// than ours. Its vanishing proves nothing about the group, so it
-				// must not void the pass: a busy host kills unrelated processes
-				// through every pass, and voiding on each starved the scan into the
-				// "members" answer forever (#2042).
-				continue
-			}
-			void = true // listed, then gone before the read, and not proven outside: it could have been a member
+			void = true // listed, then gone before the read: the pass proves nothing
 			continue
 		}
-		// Every successful read refreshes the proof: a pid seen inside the group
-		// (or in its session) loses any earlier outsider status.
-		nonMembers[pid] = groupSession >= 0 && pgrp != pgid && sess != groupSession
 		if pgrp != pgid {
 			continue
 		}
@@ -299,18 +248,6 @@ func readGroupStat(statPath string) (int, byte, int, error) {
 	pgrp, _ := strconv.Atoi(f[2])
 	threads, _ := strconv.Atoi(f[17])
 	return pgrp, state, threads, nil
-}
-
-// readGroupStatSession is readGroupStat plus field 6, the session id.
-func readGroupStatSession(statPath string) (pgrp, session int, state byte, threads int, err error) {
-	state, f, err := readProcStat(statPath)
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-	pgrp, _ = strconv.Atoi(f[2])
-	session, _ = strconv.Atoi(f[3])
-	threads, _ = strconv.Atoi(f[17])
-	return pgrp, session, state, threads, nil
 }
 
 // readProcStat reads and validates one /proc/<pid>/stat line: the state
