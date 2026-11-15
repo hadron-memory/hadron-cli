@@ -43,6 +43,20 @@ hadron-cli#2058, epic hadron-memory/hadron-server#4229, CLI lane. Re-scoped by H
   - `Terminal()` returns (handle, pid, tty), the verified association a future C2c idle proof can bind to.
 - **Call allowlist.** `orcaterm.LaunchGuard` admits only `terminal create` and `terminal close`. The delivery and sweep guards still refuse `create`.
 
+## Per-agent PID namespace (Wolfgang #108196, after the container check)
+Orca's cgroup scopes cap resources but do not isolate signals: a `pkill -f` from one terminal killed an agent in another. So every Orca launch runs the agent under `unshare --user --map-current-user --pid --fork --mount-proc --kill-child`. This is the default `AgentNamespace`, which production can't leave out; only a test opts out, on runners without unprivileged namespaces.
+
+The cgroup scope stays Orca's, and G3 holds. Measured on orca1 (unprivileged):
+- Inside, the agent is pid 1 and sees only its own processes.
+- `incus` still works.
+- A `pkill` in one namespace found nothing in another; the same `pkill` from the host did reach it.
+
+The marker is written by the shell **before** `exec unshare`, so the pinned pid is the host-side `unshare` (C2a and C2c pin host pids). With `--fork --kill-child` that process lives exactly as long as the agent.
+
+**`--kill-child` is required.** The agent is its namespace's pid 1, which ignores signals it has no handler for. Without the flag, a SIGHUP to `unshare` (the terminal closing) ended `unshare` and left the agent running, orphaned (measured on orca1). With it, the agent dies too.
+
+`team host run` preflights the namespace at startup and refuses (exit 2) on a host that cannot create one. Tests pin the prefix in the typed text, the default, and the preflight refusal. Where namespaces are available, they also pin pid 1 inside, the host pid pinned, the pkill isolation, and the terminal close ending the agent.
+
 ## Restarts
 An Orca terminal does not restart a crashed agent. Restarts come from the sweep (C5 #2060, C1 #2056), not from the launcher.
 
@@ -53,7 +67,10 @@ An Orca terminal does not restart a crashed agent. Restarts come from the sweep 
 - Activation on orca1, which needs its own recorded authorization.
 
 ## Container check: pkill and runaway under Orca's scopes
-See the PR for what was run and what could not be. The scope caps take effect only when the Orca daemon restarts, so orca1 itself can't show them without restarting the shared daemon.
+Real Orca 1.4.247 (`orca serve`) in a disposable incus container, with caps of 64 processes and 256 MB. Finding: `hrn:node:hadronmemory.com:hadron-cli:findings:orca-terminal-scopes-contain-forks-not-pkill-memory-goes-to-swap`.
+- A fork runaway was contained.
+- A memory runaway pushed about 12 GB into swap, because `memory.swap.max` was unlimited. Hugo has since added `ORCA_TERMINAL_MEMORY_SWAP_MAX=0`, effective at the next daemon start.
+- A `pkill` crossed terminals. That is why the PID namespace above exists.
 
 ## Tests
 - **hostpoller:**

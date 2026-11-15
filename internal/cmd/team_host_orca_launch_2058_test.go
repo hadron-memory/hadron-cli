@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -65,6 +67,7 @@ func TestTeamHostRunRefusesAnIncompleteOrcaWorker2058(t *testing.T) {
 // A valid Orca worker config runs: the launcher is wired and nothing is
 // refused at startup (no start is collected here, so Orca is never called).
 func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
+	stubNamespacePreflight(t, nil)
 	cfg := orcaWorkerConfig(t, orcaProfile, orcaTop)
 	srv, calls := hostServerFake(t, map[string]string{
 		"RegisterHost":          hostRegistrationAnswer,
@@ -78,5 +81,27 @@ func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
 	}
 	if got := calls(); len(got) != 2 {
 		t.Fatalf("want register and collect; got %+v", got)
+	}
+}
+
+func stubNamespacePreflight(t *testing.T, err error) {
+	t.Helper()
+	old := team.AgentNamespacePreflight
+	team.AgentNamespacePreflight = func() error { return err }
+	t.Cleanup(func() { team.AgentNamespacePreflight = old })
+}
+
+// A host that cannot create the agent's PID namespace refuses at startup,
+// rather than failing every start (Wolfgang #108196: a pkill by one worker
+// must see only its own namespace).
+func TestTeamHostRunRefusesWithoutAgentNamespaces2058(t *testing.T) {
+	stubNamespacePreflight(t, errors.New("unshare: Operation not permitted"))
+	cfg := orcaWorkerConfig(t, orcaProfile, orcaTop)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "PID namespace") {
+		t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
 	}
 }
