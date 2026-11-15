@@ -262,12 +262,46 @@ func TestNothingIsProvenOutsideWhenTheLeadersSessionIsUnknown2042(t *testing.T) 
 	f := churnHost(40)
 	f.pids = f.pids[1:] // the leader is not listed ...
 	delete(f.stats, churnPgid)
-	f.gone = func(pass, pid int) bool { return pid >= 200+3*pass && pid < 200+3*pass+3 }
+	// Churn that never stops: three different unrelated pids die in EVERY pass (wrapping).
+	f.gone = func(pass, pid int) bool {
+		if pid < 200 {
+			return false
+		}
+		return ((pid-200)-3*pass%40+40)%40 < 3
+	}
 	f.install(t)
 	if !groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatal("with no leader session nothing is proven outside the group: the scan must stay conservative")
 	}
 	if f.lists != maxGroupScanPasses {
 		t.Fatalf("every pass must be void, used %d of %d", f.lists, maxGroupScanPasses)
+	}
+}
+
+// F2 of the #2042 review: a host that spawns short-lived processes leaves MANY
+// passes void in a row (a fresh unknown pid is born and dead inside every
+// pass). The scan must keep going well past the old bound of eight and settle
+// on the first clean pass; only a /proc that never holds still answers members.
+func TestALongRunOfVoidPassesStillSettlesOnTheFirstCleanPass2042(t *testing.T) {
+	const voidPasses = 20
+	f := churnHost(3)
+	f.gone = func(int, int) bool { return false }
+	f.install(t)
+	list := readProcDir
+	readProcDir = func(path string) ([]os.DirEntry, error) {
+		es, err := list(path)
+		if f.pass < voidPasses {
+			es = append(es, churnEntry{strconv.Itoa(9000 + f.pass)}) // listed, never stat-able: unknown
+		}
+		return es, err
+	}
+	if groupHasOtherMembers(churnPgid, churnPgid) {
+		t.Fatalf("answered members after %d listings; a clean pass exists at %d", f.lists, voidPasses+1)
+	}
+	if f.lists != voidPasses+1 {
+		t.Fatalf("must settle on the first clean pass: %d listings, want %d", f.lists, voidPasses+1)
+	}
+	if maxGroupScanPasses <= voidPasses {
+		t.Fatalf("the bound (%d) must exceed a realistic run of void passes (%d)", maxGroupScanPasses, voidPasses)
 	}
 }

@@ -103,8 +103,16 @@ func leaderZombieAlone(pid int) bool {
 // still (a host churning short-lived processes through every pass): past
 // the bound the scan answers "members" — the fail-safe direction, which
 // keeps the stop probing and the zombie held rather than reading a live
-// group as empty.
-const maxGroupScanPasses = 8
+// group as empty. A process born and dead between a listing and its own stat
+// read is unknown (it could have been a member), voids its pass, and cannot be
+// ruled out by any later pass, so a host that spawns short-lived processes at
+// 100/s leaves most passes void. Measured on a busy host with two spawners at
+// ~100/s: at 8 passes the real-process zombie-drain test failed 64 runs of 100
+// (7 of 50 in an earlier loop); at 32 it failed 0 of 100. A retry is a
+// listing and some stats (milliseconds), and a false answer still needs a
+// clean pass, so raising the bound only buys more chances to find one: it
+// weakens nothing (#2042).
+const maxGroupScanPasses = 32
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
