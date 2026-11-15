@@ -105,6 +105,7 @@ func (p *Poller) cancelRelaunch() {
 }
 
 func (p *Poller) relaunchPass(ctx context.Context) {
+	started := p.now()
 	defer func() {
 		if ctx.Err() != nil {
 			// A partially observed cancelled pass cannot join two absence
@@ -125,7 +126,7 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 	if d.ReportSweep != nil && (initial.SweepMode == "APPLY" || initial.SweepMode == "OBSERVE") {
 		id, e := newRelaunchEpoch()
 		if e == nil {
-			report = &SweepReport{AppID: initial.AppID, HostID: hostID, RunID: "recovery:" + id, Mode: initial.SweepMode, StartedAt: p.now(), Lines: []SweepReportLine{}}
+			report = &SweepReport{AppID: initial.AppID, HostID: hostID, RunID: "recovery:" + id, Mode: initial.SweepMode, StartedAt: started, Lines: []SweepReportLine{}}
 			defer func() {
 				if report == nil {
 					return
@@ -135,7 +136,12 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 					if errors.Is(e, ErrSweepReportingUnavailable) {
 						p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
 					} else {
-						p.log("sweep-record-failed", "", "worker.relaunch", "", "RECORD_FAILED")
+						code := "RECORD_FAILED"
+						var coded interface{ SweepCode() string }
+						if errors.As(e, &coded) {
+							code = boundedSweepCode(coded.SweepCode())
+						}
+						p.log("sweep-record-failed", "", "worker.relaunch", "", code)
 					}
 					return
 				}

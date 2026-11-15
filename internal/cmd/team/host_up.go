@@ -44,6 +44,8 @@ import (
 // heartbeats or moves read state for the worker bound there.
 
 type hostUpOptions struct {
+	startedAt                                time.Time
+	lockHeld, readyChecked                   bool
 	host, worker, desiredFile, root, orcaBin string
 	configPath, runID                        string
 	apply, dryRun                            bool
@@ -199,14 +201,17 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	if !filepath.IsAbs(o.root) || o.timeout < time.Second || o.timeout > 30*time.Minute {
 		return exitcode.Newf(exitcode.Usage, "--worktrees-root must be absolute; --timeout must be 1s to 30m")
 	}
-	started := time.Now()
+	started := o.startedAt
+	if started.IsZero() {
+		started = time.Now()
+	}
 	if o.runID == "" {
 		o.runID = uuid.NewString()
 	}
 	if !sweepRunToken.MatchString(o.runID) {
 		return exitcode.Newf(exitcode.Usage, "--run-id must be a 1..64 character host run token")
 	}
-	ctx := cmd.Context()
+	ctx := api.WithoutSession(cmd.Context())
 	var source hostup.Source
 	sourceName := "server"
 	if o.desiredFile != "" {
@@ -225,8 +230,10 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 		return err
 	}
 	runner := teamrouter.ExecOrca(o.orcaBin)
-	if err := onboardOrcaAvailable(ctx, runner); err != nil {
-		return err
+	if !o.readyChecked {
+		if err := onboardOrcaAvailable(ctx, runner); err != nil {
+			return err
+		}
 	}
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -235,7 +242,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	if source == nil {
 		source = hostUpServerSource{client: client, app: scope.Ref}
 	}
-	if o.apply {
+	if o.apply && !o.lockHeld {
 		dir, err := config.Dir()
 		if err != nil {
 			return exitcode.New(exitcode.Error, err)

@@ -94,6 +94,19 @@ func (r *SweepReport) add(worker, outcome, reason string) {
 		outcome = "SKIPPED"
 	}
 	if len(r.Lines) < 50 {
-		r.Lines = append(r.Lines, SweepReportLine{worker, outcome, reason})
+		r.Lines = append(r.Lines, SweepReportLine{worker, outcome, boundedSweepCode(reason)})
 	}
+}
+
+func boundedSweepCode(code string) string {
+	if len(code) == 0 || len(code) > 64 || code[0] < 'A' || code[0] > 'Z' {
+		return "UNKNOWN_REASON"
+	}
+	for i := range len(code) {
+		c := code[i]
+		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
+			return "UNKNOWN_REASON"
+		}
+	}
+	return code
 }

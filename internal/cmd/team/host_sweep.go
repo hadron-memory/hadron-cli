@@ -1,14 +1,22 @@
 package team
 
 import (
+	"context"
+	"errors"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/healthsched"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
+	"github.com/hadron-memory/hadron-cli/internal/hostup"
 	"github.com/spf13/cobra"
 )
+
+var sweepDaemonReady = func(ctx context.Context, cfg *hostpoller.Config) error { return managedDaemonProbe(cfg)(ctx) }
 
 func newCmdTeamHostSweep(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
@@ -23,7 +31,14 @@ Open-session recovery belongs to the running poller's C5 loop; this command
 never starts a second agent directly. The 15-minute health timer and 5-minute
 report-stops timer remain explicitly separate: they still handle health and
 unreported stop notices. Install creates only the new one-minute sweep timer.
-No daemon is started, killed or restarted by this command.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+The managed-daemon preflight is shared with C5. A missing daemon scope or an
+unreachable terminal list records ORCA_DOWN skips and queues nothing; unreadable
+or ambiguous readiness stays RELAUNCH_UNPROVEN. C5 reports the first outage once
+and replays its persisted token until confirmed. A failed record does not change
+the reconciliation result. Default recovery target assumes 30s poll cadence and
+two proven absence observations; a slow custom cadence can miss two minutes.
+This command requests no daemon start, kill or restart; the service manager owns it.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		started := time.Now()
 		if configPath == "" {
 			return exitcode.Newf(exitcode.Usage, "--config is required")
 		}
@@ -54,7 +69,26 @@ No daemon is started, killed or restarted by this command.`, Args: cobra.NoArgs,
 		if orca == "" {
 			orca = "orca"
 		}
-		return runHostUp(cmd, f, hostUpOptions{host: host, root: cfg.WorktreesRoot, orcaBin: orca, configPath: configPath, apply: true, timeout: 2 * time.Minute})
+		dir, err := config.Dir()
+		if err != nil {
+			return exitcode.New(exitcode.Error, err)
+		}
+		unlock, err := hostup.Lock(dir, host)
+		if errors.Is(err, hostup.ErrLocked) {
+			return exitcode.Newf(exitcode.Conflict, "another sweep holds the lock; nothing issued")
+		}
+		if err != nil {
+			return exitcode.Newf(exitcode.Error, "sweep lock unavailable")
+		}
+		defer unlock()
+		if err := sweepDaemonReady(cmd.Context(), cfg); err != nil {
+			reason := "RELAUNCH_UNPROVEN"
+			if errors.Is(err, hostpoller.ErrOrcaDown) {
+				reason = "ORCA_DOWN"
+			}
+			return reportUnavailableSweep(cmd, f, cfg, configPath, host, reason, started)
+		}
+		return runHostUp(cmd, f, hostUpOptions{host: host, root: cfg.WorktreesRoot, orcaBin: orca, configPath: configPath, apply: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: true, startedAt: started})
 	}}
 	c.Flags().StringVar(&configPath, "config", "", "host configuration (required)")
 	install := newScheduledInstall(f, healthsched.Sweep)
@@ -89,4 +123,38 @@ Repeated install is idempotent; another config requires uninstall first.`
 	status.Long = "Inspect only the installed host sweep timer and its last run. Does not read server history; use host sweep-runs for S10 records."
 	c.AddCommand(install, uninstall, status)
 	return c
+}
+
+// An unavailable daemon permits source reads and S10 metadata only. C5 owns
+// the one failed outage announcement; this timer records quiet skipped rows.
+func reportUnavailableSweep(cmd *cobra.Command, f *cmdutil.Factory, cfg *hostpoller.Config, path, host, reason string, started time.Time) error {
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	snap, err := (hostUpServerSource{client: client, app: cfg.App}).DesiredState(api.WithoutSession(cmd.Context()), host)
+	if err != nil {
+		return err
+	}
+	result := hostup.Result{HostID: host, SweepMode: snap.SweepMode, SetupSource: snap.SetupSource}
+	for _, w := range snap.Workers {
+		code := w.Reason
+		if w.Desired == "RUNNING" && (w.Reason == "LONG_LIVED" || w.Reason == "HOLDS_TASK") {
+			code = reason
+		}
+		result.Skipped = append(result.Skipped, hostup.Item{WorkerID: w.WorkerID, Worker: w.Name, Reason: code})
+	}
+	id := uuid.NewString()
+	record := recordSweepRun(cmd.Context(), f, path, cfg.App, host, id, started, true, result)
+	dto := hostUpDTO{AppRef: cfg.App, HostID: host, DryRun: false, Source: "server", SweepMode: nz(snap.SweepMode), SetupSource: nz(snap.SetupSource), SweepRun: record, Planned: []hostUpItemDTO{}, Applied: []hostUpItemDTO{}, Failed: []hostUpItemDTO{}, Skipped: hostUpItems(result.Skipped)}
+	if snap.SweepMode != "OFF" {
+		dto.Error = &reason
+	}
+	if err := writeHostUp(f, dto, func() string { return cfg.App + " (from --config)" }); err != nil {
+		return err
+	}
+	if snap.SweepMode == "OFF" {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Error, "%s: sweep issued no worker operation", reason)
 }

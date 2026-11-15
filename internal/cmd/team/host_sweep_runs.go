@@ -30,6 +30,7 @@ var sweepRunToken = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`)
 // Record with a distinct host-only client. Reporting never borrows the manager
 // client's credential, and never changes the reconciliation exit code.
 func recordSweepRun(ctx context.Context, f *cmdutil.Factory, configPath, app, host, runID string, started time.Time, apply bool, res hostup.Result) sweepRecordDTO {
+	ctx = api.WithoutSession(ctx)
 	status := sweepRecordDTO{Reason: "NO_HOST_KEY", RunID: runID}
 	if configPath == "" {
 		return status

@@ -1,7 +1,8 @@
-# C1 team sweep — implementation in progress
+# C1 team sweep and poller-owned recovery reports
 
-C1 consumes S10 from server fd9442d67. The repair integration remains gated on
-C5 (#2120); this document does not claim daemon-recovery acceptance has passed.
+C1 consumes S10 from server fd9442d67 and the merged C5 (#2120) recovery owner.
+Implementation is integrated; independent daemon-recovery acceptance is still
+pending. No production host is activated by this PR.
 
 Every completed `team host up` engine pass can record its start/end, effective
 OBSERVE/APPLY mode, planned/applied/skipped/failed counts, and at most 50 worker
@@ -36,7 +37,39 @@ Installing does not change App sweepMode. Existing 15-minute team-health and
 5-minute report-stops timers remain: they still own their health and pending-stop
 report duties. Reinstall is idempotent; uninstall removes only sweep units.
 
-Remaining after C5 merges: merge main (no rebase), report its relaunch ownership
-state, preserve no-parking/leave-alone/pause/halt/resetting/unbound/only-agent
-barriers, and independently test daemon-kill recovery with real Orca in a private
-container. No production host or installed unit is changed by this development.
+## Recovery and outage integration
+
+C5 remains the only owner, through host run's periodic recovery job. C1's S10
+observer sees its closed outcomes after each owned pass; it creates no IPC,
+actuator or Runner. Applied/failed/skipped repair counts and code-only lines
+are recorded with the host key after launch admission and the journal lock are
+released. Report failures log codes but do not change the recovery result.
+OBSERVE reports metadata only; OFF records nothing. A malformed or missing
+source identity never becomes an empty proof of safety.
+
+The sweep and C5 share the managed-daemon preflight: exactly one running
+own-user daemon scope plus a successful terminal list. A missing managed scope
+or an unreachable terminal list is ORCA_DOWN. Unreadable/ambiguous scope proof
+stays RELAUNCH_UNPROVEN, never asserted as a confirmed outage. The queue-only
+sweep takes the shared nonblocking host-up lock before this check; an unavailable
+pass reads desired state and records skipped metadata but queues no operation.
+It also strips worker-session attribution from every maintenance call.
+
+C5's first applying ORCA_DOWN observation for an eligible should-run worker
+records failed outcome lines, so S10 can announce that outage once. The report
+token is persisted in existing poller state before sending. A lost or refused
+answer retries the same row; the episode is marked reported only after explicit
+S10 confirmation. Subsequent outage passes record quiet skipped lines, keeping
+history current without another summary. A successful readiness observation
+ends the daemon episode. Paused/halted/leave-alone/resetting rows do not create
+an outage announcement or a launch. The dark-worker repair notices and episode
+identity remain C5/server-owned; no third alarm is added.
+
+Recovery tests pin two observations then one launch, a fresh recovery prompt,
+tracking of the existing session, and no second launch while the agent lives.
+The real daemon-kill leg belongs to Celine, alongside Colin's independent QA.
+The target uses the one-minute C1 timer and C5's default 30-second polling (two
+absence observations), plus bounded launcher/reaping time and the three-attempts
+per rolling hour cap. A custom slow poll interval or unavailable prerequisites
+can miss the approximately two-minute target; no hard OS latency guarantee is
+claimed. Daemon restart itself remains the service manager's job.

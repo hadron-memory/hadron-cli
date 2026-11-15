@@ -10,6 +10,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
+type sweepRecordFailure struct{ code string }
+
+func (e sweepRecordFailure) Error() string     { return e.code }
+func (e sweepRecordFailure) SweepCode() string { return e.code }
+
 // RecordRecoverySweep consumes C5's existing owner reports. It never calls a
 // launcher or posts chat; S10 owns summary creation. This server uses only the
 // configured host key, with session headers explicitly removed.
@@ -42,10 +47,14 @@ func (s *hostServer) RecordRecoverySweep(ctx context.Context, r hostpoller.Sweep
 		if api.IsFrameworkValidationOnlyFor(err, "recordHostSweepRun") {
 			return hostpoller.ErrSweepReportingUnavailable
 		}
-		return errors.New("sweep record failed")
+		code := api.ServerCodeOf(err)
+		if !sweepReasonCode.MatchString(code) {
+			code = "RECORD_FAILED"
+		}
+		return sweepRecordFailure{code}
 	}
 	if reply == nil || reply.RecordHostSweepRun == nil || reply.RecordHostSweepRun.Id == "" || reply.RecordHostSweepRun.RunId != r.RunID {
-		return errors.New("sweep record unconfirmed")
+		return sweepRecordFailure{"RECORD_UNCONFIRMED"}
 	}
 	return nil
 }

@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 234: 192 command, 16 gap, 25 excluded, 1 UNCLASSIFIED
+[Query] 234: 193 command, 16 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -262,7 +262,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 299 command, 43 gap, 14 excluded, 1 UNCLASSIFIED
+[Mutation] 357: 300 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox

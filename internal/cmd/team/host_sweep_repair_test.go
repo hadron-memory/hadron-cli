@@ -30,7 +30,10 @@ func TestRecoverySweepUsesHostKeyAndRemovesSession2056(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
 			t.Error(err)
 		}
-		if q.Op != "RecordHostSweepRun" || q.Vars.Input["applied"] != float64(1) {
+		if len(q.Vars.Input["lines"].([]any)) != 50 {
+			t.Error("repair report exceeded line cap")
+		}
+		if q.Op != "RecordHostSweepRun" || q.Vars.Input["applied"] != float64(60) {
 			t.Errorf("wrong report: %+v", q)
 		}
 		fmt.Fprint(w, `{"data":{"recordHostSweepRun":{"id":"r1","runId":"recovery:1"}}}`)
@@ -42,7 +45,10 @@ func TestRecoverySweepUsesHostKeyAndRemovesSession2056(t *testing.T) {
 	}
 	s := &hostServer{client: client, app: "app"}
 	now := time.Now()
-	report := hostpoller.SweepReport{AppID: "app", HostID: "h1", RunID: "recovery:1", Mode: "APPLY", StartedAt: now, EndedAt: now, Applied: 1, Lines: []hostpoller.SweepReportLine{{Worker: "w1", Outcome: "APPLIED", Reason: "TERMINAL_MISSING"}}}
+	report := hostpoller.SweepReport{AppID: "app", HostID: "h1", RunID: "recovery:1", Mode: "APPLY", StartedAt: now, EndedAt: now, Applied: 60, Lines: []hostpoller.SweepReportLine{}}
+	for i := 0; i < 60; i++ {
+		report.Lines = append(report.Lines, hostpoller.SweepReportLine{Worker: fmt.Sprintf("w%d", i), Outcome: "APPLIED", Reason: "TERMINAL_MISSING"})
+	}
 	if err := s.RecordRecoverySweep(api.WithSession(context.Background(), "must-remove"), report); err != nil {
 		t.Fatal(err)
 	}

@@ -37,7 +37,7 @@ var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "
 
 // Sweep is C1's one-minute reconcile/report job. Systemd only: crash limits
 // and an OnFailure journal unit are part of its installation contract.
-var Sweep = Job{Name: "hadron-team-sweep", Sub: []string{"team", "host", "sweep"}, Describes: "team sweep", UninstallCmd: "hadron team host sweep uninstall"}
+var Sweep = Job{Name: "hadron-team-sweep", LaunchdLabel: "com.hadronmemory.team-sweep", Sub: []string{"team", "host", "sweep"}, Describes: "team sweep", UninstallCmd: "hadron team host sweep uninstall"}
 
 // Usage is the account-usage collector job (cli#1472).
 var Usage = Job{Name: "hadron-team-usage", LaunchdLabel: "com.hadronmemory.team-usage", Sub: []string{"team", "usage", "collect"}, Describes: "team usage collection", UninstallCmd: "hadron team usage uninstall"}
