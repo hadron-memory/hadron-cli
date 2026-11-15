@@ -70,7 +70,9 @@ inside an attempt. Profiles that fork a separate agent instead of exec require
 additional identity support; family and cwd alone never authorize adoption.
 
 The schema is exported from merged server revision
-25920b11207db1230755f1fe6bf990e1565d18a2 (#4264, adopting #4259). Typed repair notices use
+57bc0604fdc74bb863b3e44ad252960724ded322 (#4258), which includes
+#4264 at 25920b11207db1230755f1fe6bf990e1565d18a2 (adopting #4259).
+This preserves main's ContextReset.cause query as ruled in Wolfgang #109729. Typed repair notices use
 RELAUNCH_REFUSED and RELAUNCH_FAILED only with a supported observed reason.
 CAP_REACHED means the actual rolling cap was reached. The report timestamp is
 the earlier proven absence observation, not a claim that a newly launched agent
