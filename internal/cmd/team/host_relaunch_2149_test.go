@@ -26,11 +26,18 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldSDL := strings.ReplaceAll(strings.ReplaceAll(string(snapshot), "\n  SETUP_FAILED\n", "\n"), "\n  VERIFY_FAILED\n", "\n")
-	oldSchema, err := gqlparser.LoadSchema(&ast.Source{Name: "old-provider", Input: oldSDL})
+	oldSchema, err := gqlparser.LoadSchema(&ast.Source{Name: "old-provider", Input: string(snapshot)})
 	if err != nil {
 		t.Fatal(err)
 	}
+	values := oldSchema.Types["WorkerTerminalRepairReason"].EnumValues
+	kept := values[:0]
+	for _, value := range values {
+		if value.Name != "SETUP_FAILED" && value.Name != "VERIFY_FAILED" {
+			kept = append(kept, value)
+		}
+	}
+	oldSchema.Types["WorkerTerminalRepairReason"].EnumValues = kept
 	for _, reason := range []string{"SETUP_FAILED", "VERIFY_FAILED"} {
 		t.Run(reason, func(t *testing.T) {
 			reads, writes := 0, 0
@@ -62,7 +69,7 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 					return
 				}
 				writes++
-				if !strings.Contains(req.Query, "repairReason: "+reason) {
+				if !strings.Contains(strings.Join(strings.Fields(req.Query), ""), "repairReason:"+reason) {
 					t.Errorf("new enum must be static for schema-skew detection: %s", req.Query)
 				}
 				_, validationErrors := gqlparser.LoadQuery(oldSchema, req.Query)
@@ -94,9 +101,67 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 			if reads != 1 || writes != 1 {
 				t.Fatalf("reads=%d writes=%d; want one guarded attempt and no retry", reads, writes)
 			}
-			if result.Status != hostrelaunch.Failed || result.LocalCause != "original local failure" {
-				t.Fatal("local failure changed")
-			}
 		})
+	}
+}
+
+func TestNewRelaunchReasonReportsAndErrors2149(t *testing.T) {
+	for _, reason := range []string{"SETUP_FAILED", "VERIFY_FAILED"} {
+		for _, mode := range []string{"stored", "refused", "forbidden", "transport"} {
+			t.Run(reason+"/"+mode, func(t *testing.T) {
+				reads, writes := 0, 0
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var req struct {
+						OperationName string
+						Query         string
+						Variables     map[string]json.RawMessage
+					}
+					if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+						t.Error(err)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					if req.OperationName == "HostRelaunchSnapshot" {
+						reads++
+						_, _ = w.Write([]byte(`{"data":{"myApp":{"id":"app"},"hostDesiredState":{"hostId":"host","sweepMode":"APPLY","workers":[{"workerId":"worker","family":"claude","reason":"LONG_LIVED","desired":"RUNNING","openSessionId":"session","worktrees":["repo/worker"]}]}}}`))
+						return
+					}
+					writes++
+					if !strings.Contains(strings.Join(strings.Fields(req.Query), ""), "repairReason:"+reason) || strings.Contains(req.Query, "CAP_REACHED") {
+						t.Error("incorrect new-code document")
+					}
+					switch mode {
+					case "stored":
+						_, _ = w.Write([]byte(`{"data":{"setHostWorkerTerminals":{"stored":[{"id":"worker","urn":"private"}],"refused":[]}}}`))
+					case "refused":
+						_, _ = w.Write([]byte(`{"data":{"setHostWorkerTerminals":{"stored":[],"refused":[{"worker":"worker","code":"STALE_CHECK"}]}}}`))
+					case "forbidden":
+						_, _ = w.Write([]byte(`{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`))
+					case "transport":
+						w.WriteHeader(503)
+						_, _ = w.Write([]byte(`unavailable`))
+					}
+				}))
+				defer srv.Close()
+				c, err := api.NewClient(srv.URL, "synthetic", srv.Client())
+				if err != nil {
+					t.Fatal(err)
+				}
+				s := hostServer{client: c, app: "app", serverURL: srv.URL}
+				err = s.ReportRelaunch(context.Background(), hostrelaunch.Target{AppID: "app", HostID: "host", WorkerID: "worker", SessionID: "session", Server: srv.URL, Worktree: "/private"}, hostrelaunch.Result{Status: hostrelaunch.Failed, Reason: hostrelaunch.LaunchFailed, FailureReason: reason, Attempt: 1, AbsentObservedAt: time.Now()})
+				if (err == nil) != (mode == "stored") {
+					t.Fatalf("%s result=%v", mode, err)
+				}
+				if mode == "forbidden" && exitcode.FromError(err) != exitcode.Forbidden {
+					t.Fatal(err)
+				}
+				if err != nil && strings.Contains(err.Error(), "out of sync") {
+					t.Fatalf("non-schema error misclassified: %v", err)
+				}
+				if reads != 1 || writes != 1 {
+					t.Fatalf("reads=%d writes=%d", reads, writes)
+				}
+			})
+		}
 	}
 }

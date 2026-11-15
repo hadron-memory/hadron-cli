@@ -42,3 +42,33 @@ func TestFailureReasonsFollowObservedPhase2149(t *testing.T) {
 		})
 	}
 }
+
+func TestRejectedNewReasonNoticeKeepsLocalFailure2149(t *testing.T) {
+	f := newFixture(t)
+	f.run(t, 1)
+	f.startErr = &LaunchError{Code: "SETUP_FAILED", Err: errors.New("original disk failure")}
+	f.runner.Notice = func(context.Context, Target, Result) error { return errors.New("schema versions out of sync") }
+	f.runner.Sweep = 2
+	out, err := f.runner.Execute(context.Background(), f.target)
+	if err == nil || out.Status != Failed || out.LocalCause != "original disk failure" || !out.NoticeFailed || out.NoticeCause != "schema versions out of sync" || out.FailureReason != "SETUP_FAILED" {
+		t.Fatalf("lost local failure: %+v %v", out, err)
+	}
+	if f.store.rows[f.target.WorkerID].Notice != "" || len(f.store.rows[f.target.WorkerID].Attempts) != 1 || f.starts != 1 {
+		t.Fatal("unconfirmed notice recorded or attempt changed")
+	}
+}
+
+func TestFinalGuardCensusErrorIsNotProcessVerification2149(t *testing.T) {
+	f := newFixture(t)
+	f.run(t, 1)
+	f.store.onSave = func(r Record) {
+		if len(r.Attempts) > 0 {
+			f.probeErr = errors.New("census identity unavailable")
+		}
+	}
+	f.runner.Sweep = 2
+	out, err := f.runner.Execute(context.Background(), f.target)
+	if err == nil || out.Status != Skipped || out.Reason != Unproven || out.FailureReason != "" || f.starts != 0 {
+		t.Fatalf("prelaunch observation mislabeled: %+v %v starts=%d", out, err, f.starts)
+	}
+}

@@ -42,3 +42,18 @@ func TestDiskTmpFailureIsSetupBeforeLaunch2149(t *testing.T) {
 		t.Fatalf("result=%+v launches=%d journal=%+v", result, len(f.launches), f.journal)
 	}
 }
+
+func TestOrcaUnprovenLiveIdentityCarriesVerifyFailure2149(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	bin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	proc := &failingProc{clockErr: true}
+	l := orcaLauncherFor(t, f)
+	l.Proc = proc
+	l.afterReads = func(int) { proc.mu.Lock(); proc.armed = true; proc.mu.Unlock() }
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "recover"})
+	var classified interface{ RelaunchFailureReason() string }
+	if a != nil || !errors.As(err, &classified) || classified.RelaunchFailureReason() != "VERIFY_FAILED" || len(f.closed) != 1 {
+		t.Fatalf("agent=%v error=%v closed=%v", a, err, f.closed)
+	}
+}
