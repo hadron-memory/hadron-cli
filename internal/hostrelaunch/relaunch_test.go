@@ -345,3 +345,40 @@ func TestNoProfileNoticeUsesProvenDarkCandidateWithoutSpendingBudget2060(t *test
 		t.Fatalf("starts=%d notices=%v record=%+v", f.starts, f.notices, f.store.rows[f.target.WorkerID])
 	}
 }
+
+func TestFailureNoticeDoesNotHideADifferentTypedReason2060(t *testing.T) {
+	f := newFixture(t)
+	var reasons []string
+	f.runner.Notice = func(_ context.Context, _ Target, r Result) error {
+		reasons = append(reasons, r.FailureReason)
+		return nil
+	}
+	for i, reason := range []string{FailureTerminalCreateRefused, FailureTimeout} {
+		f.startErr = &LaunchError{Code: reason, Err: errors.New("private launch failure")}
+		for sweep := uint64(i*2 + 1); sweep <= uint64(i*2+2); sweep++ {
+			f.runner.Sweep = sweep
+			_, _ = f.runner.Execute(context.Background(), f.target)
+		}
+	}
+	if !reflect.DeepEqual(reasons, []string{FailureTerminalCreateRefused, FailureTimeout}) {
+		t.Fatalf("notice reasons=%v", reasons)
+	}
+}
+
+func TestObservedLiveAgentRearmsNoticeWithoutResettingBudget2060(t *testing.T) {
+	f := newFixture(t)
+	f.runner.Prepare = func(context.Context, Target) (Prepared, error) { return Prepared{}, errors.New("profile missing") }
+	f.store.rows[f.target.WorkerID] = Record{Attempts: []time.Time{f.runner.Now()}}
+	f.runner.Sweep = 1
+	_, _ = f.runner.Execute(context.Background(), f.target)
+	f.runner.Probe = func(context.Context, Target) (Observation, error) {
+		return Observation{Proven: true, PIDs: []int{42}}, nil
+	}
+	f.run(t, 2)
+	f.runner.Probe = func(context.Context, Target) (Observation, error) { return Observation{Proven: true}, nil }
+	f.runner.Sweep = 3
+	_, _ = f.runner.Execute(context.Background(), f.target)
+	if f.notices[NoProfile] != 2 || len(f.store.rows[f.target.WorkerID].Attempts) != 1 || f.starts != 0 {
+		t.Fatalf("notices=%v record=%+v starts=%d", f.notices, f.store.rows[f.target.WorkerID], f.starts)
+	}
+}
