@@ -16,8 +16,9 @@ import (
 // keep because a worker.end on them failed (cor:agt:020:10: never remove a
 // worktree after a failed end).
 type State struct {
-	path string
-	mu   sync.Mutex
+	SweepOutage *SweepOutageRecord `json:"sweepOutage,omitempty"`
+	path        string
+	mu          sync.Mutex
 	// Created maps a configured worker reference to the worktree tokens this
 	// poller created for it.
 	Created map[string][]string `json:"created"`

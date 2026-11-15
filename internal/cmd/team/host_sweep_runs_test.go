@@ -90,7 +90,7 @@ func TestSweepRecordUsesOnlyHostKeyAndCodeLines2056(t *testing.T) {
 
 func TestSweepRecordCompatibilityAndRefusals2056(t *testing.T) {
 	for _, tc := range []struct{ name, response, want string }{
-		{"old", `{"errors":[{"message":"Cannot query field recordHostSweepRun on type Mutation","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, "S10_UNAVAILABLE"},
+		{"old", `{"errors":[{"message":"Cannot query field \"recordHostSweepRun\" on type \"Mutation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, "S10_UNAVAILABLE"},
 		{"refused", `{"errors":[{"message":"secret refusal text","extensions":{"code":"HOST_KEY_REQUIRED"}}]}`, "HOST_KEY_REQUIRED"},
 		{"null", `{"data":{"recordHostSweepRun":null}}`, "RECORD_UNCONFIRMED"},
 	} {

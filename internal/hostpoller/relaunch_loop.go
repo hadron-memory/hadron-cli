@@ -120,21 +120,91 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
 	}
+	var report *SweepReport
+	outagePending := false
+	if d.ReportSweep != nil && (initial.SweepMode == "APPLY" || initial.SweepMode == "OBSERVE") {
+		id, e := newRelaunchEpoch()
+		if e == nil {
+			report = &SweepReport{AppID: initial.AppID, HostID: hostID, RunID: "recovery:" + id, Mode: initial.SweepMode, StartedAt: p.now(), Lines: []SweepReportLine{}}
+			defer func() {
+				if report == nil {
+					return
+				}
+				report.EndedAt = p.now()
+				if e := d.ReportSweep(ctx, *report); e != nil {
+					if errors.Is(e, ErrSweepReportingUnavailable) {
+						p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
+					} else {
+						p.log("sweep-record-failed", "", "worker.relaunch", "", "RECORD_FAILED")
+					}
+					return
+				}
+				if outagePending {
+					if e := p.state.markSweepOutage(report.RunID); e != nil {
+						p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
+					}
+				}
+			}()
+		}
+	}
 	journal, generation, closeJournal, err := d.OpenJournal()
 	if err != nil || journal == nil || generation == 0 || closeJournal == nil {
+		for _, row := range initial.Workers {
+			report.add(row.WorkerID, "SKIPPED", hostrelaunch.StateUnavailable)
+		}
 		p.relaunchEpoch = ""
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
 	}
 	defer closeJournal()
 	if initial.SweepMode != "APPLY" || len(initial.Workers) == 0 {
+		for _, row := range initial.Workers {
+			report.add(row.WorkerID, "SKIPPED", "SWEEP_NOT_APPLY")
+		}
 		return
 	}
 	// Even an unavailable-daemon sweep consumes a generation, so it cannot
 	// bridge absence observations across an outage. It consumes no attempt.
 	if err := d.Ready(ctx); err != nil {
+		if report != nil {
+			eligible := false
+			for _, row := range initial.Workers {
+				if row.Desired == "RUNNING" && (row.Reason == "LONG_LIVED" || row.Reason == "HOLDS_TASK") {
+					eligible = true
+				}
+			}
+			if errors.Is(err, ErrOrcaDown) && eligible {
+				id, reported, e := p.state.sweepOutageToken(initial.AppID, hostID)
+				if e != nil {
+					report = nil
+				} else {
+					outcome := "SKIPPED"
+					if !reported {
+						report.RunID = id
+						outagePending = true
+						outcome = "FAILED"
+					}
+					for _, row := range initial.Workers {
+						if row.Desired == "RUNNING" && (row.Reason == "LONG_LIVED" || row.Reason == "HOLDS_TASK") {
+							report.add(row.WorkerID, outcome, "ORCA_DOWN")
+						} else {
+							report.add(row.WorkerID, "SKIPPED", row.Reason)
+						}
+					}
+				}
+			} else {
+				for _, row := range initial.Workers {
+					report.add(row.WorkerID, "SKIPPED", hostrelaunch.Unproven)
+				}
+			}
+		}
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
+	}
+	if report != nil {
+		if e := p.state.clearSweepOutage(); e != nil {
+			p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
+		}
 	}
 	if p.relaunchEpoch == "" {
 		epoch, e := newRelaunchEpoch()
@@ -150,10 +220,12 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		}
 		target, ref, w, token, ok := p.relaunchTarget(initial, row)
 		if !ok {
+			report.add(row.WorkerID, "SKIPPED", hostrelaunch.Unproven)
 			p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 			continue
 		}
 		if target.SessionID == "" {
+			report.add(row.WorkerID, "SKIPPED", "NO_OPEN_SESSION")
 			continue
 		} // normal worker.start owns a new session
 		var launched Agent
@@ -260,7 +332,8 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 			}, Notice: d.Notice,
 			Log: func(t hostrelaunch.Target, result hostrelaunch.Result) { p.logRelaunch(t, result) },
 		}
-		_, _ = runner.Execute(ctx, target) // closed result/reason is emitted by Log
+		result, _ := runner.Execute(ctx, target) // closed result/reason is emitted by Log
+		report.add(row.WorkerID, strings.ToUpper(result.Status), result.Reason)
 	}
 }
 

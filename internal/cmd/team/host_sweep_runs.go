@@ -98,7 +98,7 @@ func recordSweepRun(ctx context.Context, f *cmdutil.Factory, configPath, app, ho
 		if code := api.ServerCodeOf(err); sweepReasonCode.MatchString(code) {
 			status.Reason = code
 		}
-		if api.IsSchemaSkew(err) {
+		if api.IsFrameworkValidationOnlyFor(err, "recordHostSweepRun") {
 			status.Reason = "S10_UNAVAILABLE"
 		}
 		return status

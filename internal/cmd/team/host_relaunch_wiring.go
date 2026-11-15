@@ -20,7 +20,8 @@ func wireRelaunch(p *hostpoller.Poller, cfg *hostpoller.Config, server *hostServ
 	}
 	client := orcaterm.NewClient(orcaRunner(cfg.OrcaLaunch.OrcaBin))
 	return p.EnableRelaunch(hostpoller.RelaunchDependencies{
-		Source: server,
+		Source:      server,
+		ReportSweep: server.RecordRecoverySweep,
 		Ready: func(ctx context.Context) error {
 			checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
@@ -40,6 +41,9 @@ func relaunchDaemonReady(ctx context.Context, scopes func(context.Context) ([]by
 	if err != nil {
 		return fmt.Errorf("daemon scope proof unavailable: %w", err)
 	}
+	if strings.TrimSpace(string(raw)) == "" {
+		return fmt.Errorf("%w: no managed daemon scope", hostpoller.ErrOrcaDown)
+	}
 	rows := strings.Split(strings.TrimSpace(string(raw)), "\n")
 	if len(rows) != 1 {
 		return fmt.Errorf("daemon scope proof requires exactly one running scope")
@@ -51,5 +55,8 @@ func relaunchDaemonReady(ctx context.Context, scopes func(context.Context) ([]by
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return list(ctx)
+	if err := list(ctx); err != nil {
+		return fmt.Errorf("%w: terminal list unavailable", hostpoller.ErrOrcaDown)
+	}
+	return nil
 }
