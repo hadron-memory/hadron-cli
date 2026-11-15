@@ -540,11 +540,13 @@ hadron ai-config get <id> | endpoints <provider> | create (--app|--agent|--org <
 hadron ai-config update <id> [--endpoint <url|"">] [--api-style CHAT_COMPLETIONS|RESPONSES | --clear-api-style] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | signing get|off <org> | signing preview <org> [--first N] [--after C] [--all] | signing on <org>   # boot-prompt signing switch (#1879); off|on take [--yes] | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] [--app-context <app>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
-hadron agent compile <agent> [--no-set-pointer] [--as-worker] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | memory add <agent> <memory> [--role <r>] | memory set-role <agent> <memory> --role <r> | memory rm <agent> <memory> --yes (refs sent verbatim, one mutation each; prints the Agent DTO; the server owns authority and role validation) | revision create <agent> [--description <t>] (prints revisionLoc/label/published/createdAt; no publish/restore yet) | lock acquire <agent> (locked:false prints holder/expiry and exits 5, no retry) | lock release <agent> (released:false exits 5) | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear) | boot-prompt <agent> [--app <app>] [--model <m>] (cli#1853: the boot prompt the Agent is served now, no worker binding; stdout is a header line `served boot prompt: <LEVEL> <compiledNodeId> revision <N>` then the served text raw (final newline on a TTY only); --json `{decision,text}`; without --app only the Agent's own pointer, never the configured default App; exits 4 AGENT_NOT_FOUND; BOOT_PROMPT_NOT_SET/_TARGET_DELETED/_NOT_APPROVED/_NOT_SIGNED exit 1 (branch on the code); a malformed decision exits 1; valid decision with empty text is success) | model-group list <agent> | model-group set <agent> <name> [--pattern <glob>]… | model-group delete <agent> <name> [--yes]
+hadron agent compile <agent> [--no-set-pointer] [--as-worker] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--lifecycle LONG_LIVED|SHORT_LIVED] [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--lifecycle LONG_LIVED|SHORT_LIVED] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | memory add <agent> <memory> [--role <r>] | memory set-role <agent> <memory> --role <r> | memory rm <agent> <memory> --yes (refs sent verbatim, one mutation each; prints the Agent DTO; the server owns authority and role validation) | revision create <agent> [--description <t>] (prints revisionLoc/label/published/createdAt; no publish/restore yet) | lock acquire <agent> (locked:false prints holder/expiry and exits 5, no retry) | lock release <agent> (released:false exits 5) | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear) | boot-prompt <agent> [--app <app>] [--model <m>] (cli#1853: the boot prompt the Agent is served now, no worker binding; stdout is a header line `served boot prompt: <LEVEL> <compiledNodeId> revision <N>` then the served text raw (final newline on a TTY only); --json `{decision,text}`; without --app only the Agent's own pointer, never the configured default App; exits 4 AGENT_NOT_FOUND; BOOT_PROMPT_NOT_SET/_TARGET_DELETED/_NOT_APPROVED/_NOT_SIGNED exit 1 (branch on the code); a malformed decision exits 1; valid decision with empty text is success) | model-group list <agent> | model-group set <agent> <name> [--pattern <glob>]… | model-group delete <agent> <name> [--yes]
   # Agent detail (`hadron agent get <ref>`): when systemMemoryId is present, one optional memory read adds the server-returned URN as systemMemoryUrn and displays `system memory: <urn> (<id>)`. If that read is unavailable, refused, missing or unsupported by the server, the command silently keeps its ID-only output and omits systemMemoryUrn. Agent listing is unchanged.
 hadron agent ticker-templates list <agent-ref> | create <agent-ref> --name <n> --cadence-seconds <s> [--relevance all|mentions] [--reasons read-team-channel,every-tick,live-check] [--quiet-hours <json>] | update <template-id> --expected-revision <n> [--name <n>] [--cadence-seconds <s>] [--relevance all|mentions] [--reasons <csv>] [--quiet-hours <json> | --clear-quiet-hours] | delete <template-id> --expected-revision <n> [--yes]   # singular alias ticker-template; Agent managers write, future casts only, existing workers/tickers untouched; explicit revision, no fetch/retry; requested cadence (cast raises to App floor)
 
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation, sent once and never retried, into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints the returned NEW URN; --json prints the normal Agent DTO (no origin field). No install/subscription second step or manual-copy fallback. **Exit codes:** a typed refusal is a definite answer, nothing was created, so fix the cause and rerun: exit 8 for AGENT_NOT_PUBLIC and unreadable/unusable linked-memory, base or import; exit 2 for an unsupported target or encrypted content; a source-changed conflict (exit 5) carries retryable=true but is never retried for you, rerun by hand. Exit 3 is rejected credentials: nothing was created. Exit 1 with `(clone server error: …)` is a server fault whose effect on the clone is not known: verify as for exit 7 before rerunning. **UNKNOWN (exit 7, never success)** means the answer was lost, or a success reply carried no Agent (null/missing `cloneAgent`): the clone may exist. Verify before cloning again: `hadron agent list --org <org> --visibility PERSONAL` (`--org` takes the same id, slug or URN as `--to`; a new clone is a PERSONAL draft and is listed for org members); with `--name` look for that name, without it the server copies the SOURCE's name, so look for a PERSONAL agent bearing it. Refusal details are the first GraphQL error's own `code`/`reason`/`retryable` and blocker counts, positions and supplied names only (a hidden subject never gets a name); an empty-details first error yields none, never a later error's. The text suffix (stderr, human mode only) names the answer: `(clone refusal: …)`, `(clone authentication: …)` or `(clone server error: …)`, followed by the code, `reason <R>` and, when retryable is true, `retryable: rerun by hand`; each blocker then gets its own indented line, `blocker <CODE>  count <N>  "<name>" (position <P>), position <P>`, with positions as received and a quoted name only where the server supplied one. Server strings are made one-line and control-free; a name is backslash-escaped for `\` and `"` inside its quotes, and a reason containing a comma, quote or backslash is quoted the same way; parse `--json`, not this text. Requires server cloneAgent S1; older providers reject as schema skew.
+hadron team app sweep-mode [OFF|OBSERVE|APPLY] [--instruction <kind>:<ref>] (uses --app, the context, or the binding)
+hadron team worker leave-alone <worker> [--on|--off] [--reason <text>] [--instruction <kind>:<ref>] (names use App scope; ids/URNs resolve server-side)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | terminal-title <name-or-id> [--json] | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes [--instruction <kind>:<ref>] | rm <name-or-id> --yes [--instruction <kind>:<ref>]
 # Cast success text includes the server-returned worker URN when available; its existing JSON urn and request count are unchanged.
@@ -6479,3 +6481,57 @@ The repo-update receipt additionally reports repos as an array; other role DTOs 
 worker:<ref>|user:<ref>` filters by creator server-side, combining with other plain
 list filters. It cannot combine with --team. Without --creator the existing list
 operation documents stay unchanged. No authorization is reimplemented locally.
+
+## S3 worker lifecycle and sweep controls
+
+`hadron agent create --name <n> --lifecycle LONG_LIVED|SHORT_LIVED` sets
+the lifecycle at creation (omitted sends no key and uses the server default
+LONG_LIVED). `hadron agent update <ref> --lifecycle LONG_LIVED|SHORT_LIVED` changes the
+Agent's desired worker process lifetime, with the same server permission as
+`--uses-tasks`. Omitted sends no lifecycle key and preserves the value.
+`agent get` reads lifecycle separately. A server before #4242 gives text
+`unknown (server before #4242)` and JSON `lifecycle: null`; other read errors
+remain errors. Shared Agent fields and omitted-flag create/update documents
+stay unchanged, so unrelated commands keep working on older servers.
+Lifecycle write receipts include the returned value; unrelated Agent DTOs omit it.
+LONG_LIVED is the server default; SHORT_LIVED runs while assigned a runnable
+task. Recording the value launches or stops no process.
+
+`hadron team worker leave-alone <worker> [--on|--off] [--reason <text>]`
+marks a worker for the sweep to observe and report without starting, stopping
+or repairing it, or clears that marker. With neither switch, it reads the
+marker without changing it. A write requires exactly one true switch;
+`=false` is refused. A reason is accepted only with `--on` (server limit:
+500 characters). A repeat call succeeds. Names use `--app`, the App context
+or the worktree binding; direct worker ids/URNs are resolved by the server
+without ambient App scope. `--json` returns
+`{"workerId":"…","leaveAlone":true,"reason":null,"by":"…","at":"…"}`.
+`leaveAlone`, `reason`, `by`, `at` are nullable. All four are null for a
+profile-only reader; human output calls that marker unknown (not visible to
+you), never false. For a visible cleared marker, leaveAlone is false and
+the other three fields are null.
+Worker get/list keep their previous documents, DTOs and tables; use the new
+leave-alone command to read the marker.
+
+`hadron team app sweep-mode [OFF|OBSERVE|APPLY]` reads with no argument and
+sets with one. OFF is the default and acts on no workers; OBSERVE reports
+without repair; APPLY permits supported repairs. App scope is `--app`,
+the App context or binding. `--json` returns
+`{"appRef":"…","sweepMode":"OFF"}` on reads and writes alike.
+
+Both controls write as the App manager. Optional `--instruction <kind>:<ref>`
+claims a holder instruction, following the existing manager-write pattern:
+kind is `task`, `team-chat-message` or `live-chat`, ref stays byte-for-byte,
+never instruction text. A verified binding sends the worker session; the
+server resolves the target App and checks its manager arm and reference.
+Without the flag the write is the person's, with no worker session. Reads
+never carry `X-Hadron-Session`. No refusal is retried without the instruction.
+`--instruction` on either control read is refused; --reason also requires a
+leave-alone write. Lifecycle flag writes and the two new controls require the
+S3 server (hadron-server#4242), with schema skew exit 2. They do not raise the
+minimum for unrelated Agent/Worker commands.
+
+Refusals produce no partial result: `WORKER_LEAVE_ALONE_NOT_PERMITTED` and
+`FORBIDDEN` exit 8, `WORKER_NOT_FOUND` exits 4, `WORKER_RETIRED` exits 5,
+`BAD_USER_INPUT` exits 2. Invalid enums, switch combinations and instruction
+syntax exit 2 before a request.
