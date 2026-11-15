@@ -48,6 +48,14 @@ func (o ResetOutcome) Refused() bool { return o.Code != "" }
 // Order matters: the refusals come first, from the tree as it stands, so a
 // refused start moves nothing; the fetch only updates remote-tracking refs.
 func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome, error) {
+	// Everything below runs with the repository's own command-running config
+	// neutralised (filters, remote helpers, diff drivers); one that cannot be
+	// neutralised refuses before anything is touched.
+	over, refusal := repoOverrides(ctx, dir)
+	if refusal != "" {
+		return refuse(CodeResetFailed, refusal+"; nothing was moved"), nil
+	}
+	ctx = withRepoOverrides(ctx, over)
 	st, err := GitTree(ctx, dir)
 	if err != nil {
 		return ResetOutcome{}, err

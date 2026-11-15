@@ -125,3 +125,18 @@ team merges with merge commits).
   (2 min). A hook or config line planted in the repository never runs as the poller's user.
 - Residual, accepted: the occupancy check and the checkout are not one atomic step; a process that begins working in
   the tree in between meets a tree that was clean and pushed, the same window the launch has always had.
+
+### C2b review round 2 (at 4fe02dff): repository config, class by class
+The reset's git runs against a tree the worker writes. The user's own global/system git config stays (a private
+remote's credential helper lives there, and clearing it or pointing the global config at /dev/null would break the
+fetch); what the REPOSITORY's local and worktree config adds is handled by class:
+- Overridden for every run: `core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `core.askPass`, `core.gitProxy`,
+  `protocol.ext.allow=never`, submodule recursion, `gc.auto`, `maintenance.auto`; `GIT_ALLOW_PROTOCOL` allows only
+  file, http, https, ssh and git (no `ext::`); `GIT_ASKPASS` and `SSH_ASKPASS` empty; `GIT_TERMINAL_PROMPT=0`.
+- Enumerated from the repository's own config and overridden, per driver: `filter.<name>.smudge|clean|process`
+  (and `required=false`), `diff.<name>.textconv|external`.
+- Refused with `WORKTREE_RESET_FAILED`, before anything is touched, because they cannot be neutralised: a
+  repository credential helper (an empty one clears the user's own list) and `remote.<name>.uploadpack|receivepack|
+  proxy|vcs` (git keeps the FIRST value, so a later override does not replace it; found by probing).
+One test per class: hook, filter, fsmonitor, uploadpack and its siblings, ext transport, ssh command, credential
+helper; askpass is pinned structurally (a prompt cannot be provoked from a local fixture).

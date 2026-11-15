@@ -99,28 +99,118 @@ func upstreamRemote(ctx context.Context, dir string) (string, error) {
 	return "", nil
 }
 
-// hardenedGit is the configuration every git run in a tree the worker can
-// write gets, so a hook or a config line the worker (or an agent) planted in
-// the repository never runs as the poller's user (hadron-cli#2057 §10): no
-// hooks, no fsmonitor command, no credential helper, no custom ssh command.
+// hardenedGit is the configuration EVERY git run in a tree the worker can write
+// gets, so a hook, a config line or a transport the worker (or an agent) planted
+// in the repository never runs as the poller's user (hadron-cli#2057 §10). It is
+// the fixed part of a systematic rule: the user's own global and system config
+// (outside the worktree, not worker-writable) is kept, because a private remote's
+// credential helper lives there; what the REPOSITORY's config adds is neutralised
+// by repoOverrides, class by class.
 func hardenedGit() []string {
 	return []string{
 		"-c", "core.hooksPath=" + os.DevNull,
 		"-c", "core.fsmonitor=false",
-		"-c", "credential.helper=",
 		"-c", "core.sshCommand=ssh",
+		"-c", "core.askPass=",
+		"-c", "core.gitProxy=",
+		"-c", "protocol.ext.allow=never",
+		"-c", "fetch.recurseSubmodules=false",
+		"-c", "submodule.recurse=false",
+		"-c", "gc.auto=0",
+		"-c", "maintenance.auto=false",
 	}
 }
 
+// gitEnv is the environment of every git run on a worker-writable tree: no
+// prompt, and only the transports a team remote uses (ext:: runs a command).
+func gitEnv() []string {
+	return append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ALLOW_PROTOCOL=file:http:https:ssh:git",
+		"GIT_ASKPASS=", "SSH_ASKPASS=",
+	)
+}
+
+type repoOverridesKey struct{}
+
+// withRepoOverrides carries the repository-config overrides of one tree on the
+// context, so every git run of one operation applies them.
+func withRepoOverrides(ctx context.Context, args []string) context.Context {
+	return context.WithValue(ctx, repoOverridesKey{}, args)
+}
+
+// repoOverrides reads the WORKER-WRITABLE scopes of dir's git config (local, and
+// worktree when it differs) and returns -c arguments that neutralise every
+// setting in them that can run a command: a filter driver's smudge, clean and
+// process; a diff driver's textconv and external. Two classes cannot be
+// neutralised and are reported as a refusal instead: a repository credential
+// helper (an empty helper clears the whole list, the user's own included) and a
+// remote's uploadpack, receivepack, proxy or vcs (git keeps the first value, so
+// an override cannot replace the repository's). Reading config executes nothing.
+func repoOverrides(ctx context.Context, dir string) (args []string, refusal string) {
+	seen := map[string]bool{}
+	var filters = map[string]bool{}
+	for _, scope := range []string{"--local", "--worktree"} {
+		out, _, err := runGitRaw(ctx, dir, nil, "config", scope, "--list", "-z")
+		if err != nil {
+			continue // not a git tree, or no such scope: nothing to read
+		}
+		for _, entry := range strings.Split(out, "\x00") {
+			key, _, _ := strings.Cut(entry, "\n")
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			section, rest, ok := strings.Cut(key, ".")
+			if !ok {
+				continue
+			}
+			sub, name := "", rest
+			if i := strings.LastIndex(rest, "."); i >= 0 {
+				sub, name = rest[:i], rest[i+1:]
+			}
+			switch {
+			case section == "filter" && (name == "smudge" || name == "clean" || name == "process"):
+				args = append(args, "-c", key+"=")
+				filters[sub] = true
+			case section == "remote" && (name == "uploadpack" || name == "receivepack" || name == "proxy" || name == "vcs"):
+				// Git keeps the FIRST value of these ("more than one uploadpack
+				// given, using the first"), so a later -c cannot replace the
+				// repository's: refuse rather than run it.
+				refusal = "the repository's own config sets " + key + ", which runs a program as the poller and cannot be overridden"
+			case section == "diff" && (name == "textconv" || name == "external"):
+				args = append(args, "-c", key+"=")
+			case section == "credential" && name == "helper":
+				refusal = "the repository's own config sets a credential helper (" + key + "), which would run as the poller and cannot be neutralised without resetting the host user's helper"
+			}
+		}
+	}
+	for sub := range filters {
+		args = append(args, "-c", "filter."+sub+".required=false")
+	}
+	return args, refusal
+}
+
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {
-	cmd := exec.CommandContext(ctx, "git", append(append(hardenedGit(), "-C", dir), args...)...)
-	// Never wait for a person at a prompt: a fetch that wants credentials
-	// fails instead of holding a start.
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	out, errOut, err := runGitRaw(ctx, dir, repoArgs(ctx), args...)
+	return strings.TrimSpace(out), strings.TrimSpace(errOut), err
+}
+
+func repoArgs(ctx context.Context) []string {
+	a, _ := ctx.Value(repoOverridesKey{}).([]string)
+	return a
+}
+
+// runGitRaw runs git with the hardened configuration plus extra -c arguments and
+// returns its output untrimmed.
+func runGitRaw(ctx context.Context, dir string, extra []string, args ...string) (string, string, error) {
+	argv := append(append(append([]string{}, hardenedGit()...), extra...), "-C", dir)
+	cmd := exec.CommandContext(ctx, "git", append(argv, args...)...)
+	cmd.Env = gitEnv()
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
-	return strings.TrimSpace(out.String()), strings.TrimSpace(errb.String()), err
+	return out.String(), errb.String(), err
 }
 
 func firstNonEmpty(a, b string) string {

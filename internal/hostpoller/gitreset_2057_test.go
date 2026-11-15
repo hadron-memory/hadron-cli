@@ -271,6 +271,9 @@ func TestResetWorktreeDoesNotRecordTheSameCommitAgain(t *testing.T) {
 	if n := len(strings.Fields(gitIn(t, clone, "for-each-ref", "--format=%(refname)", "refs/hadron/rescue"))); n != 1 {
 		t.Fatalf("%d rescue refs for one commit across three starts, want 1", n)
 	}
+	if got, want := gitIn(t, clone, "rev-parse", "refs/hadron/rescue/20261115T140000Z/heads/work"), gitIn(t, clone, "rev-parse", "work"); got != want {
+		t.Fatalf("the rescue ref must exist and point at the unpushed tip: %s, want %s", got, want)
+	}
 }
 
 // Blind P2: the remote's CURRENT default branch is used; a cached origin/HEAD
@@ -328,5 +331,163 @@ func TestResetWorktreeNeedsAnOriginRemoteSpecifically(t *testing.T) {
 	out, err := ResetWorktree(context.Background(), clone, resetNow)
 	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "origin") {
 		t.Fatalf("out=%+v err=%v", out, err)
+	}
+}
+
+// ---- §10: every command-running class of repository config (one test each) ----
+
+func markerScript(t *testing.T, body string) (script, marker string) {
+	t.Helper()
+	d := t.TempDir()
+	marker = filepath.Join(d, "ran")
+	script = filepath.Join(d, "evil.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\n"+body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return script, marker
+}
+
+func mustNotHaveRun(t *testing.T, marker, what string) {
+	t.Helper()
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatalf("%s ran as the poller", what)
+	}
+}
+
+// A checkout filter (smudge) the worker configures and .gitattributes selects.
+func TestResetWorktreeRunsNoCheckoutFilter(t *testing.T) {
+	origin, clone := resetRepo(t)
+	script, marker := markerScript(t, "cat\n")
+	other := filepath.Join(t.TempDir(), "other")
+	gitIn(t, filepath.Dir(other), "clone", "-q", origin, other)
+	_ = os.WriteFile(filepath.Join(other, ".gitattributes"), []byte("*.dat filter=evil\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(other, "x.dat"), []byte("payload\n"), 0o644)
+	gitIn(t, other, "add", ".")
+	gitIn(t, other, "commit", "-q", "-m", "filtered file")
+	gitIn(t, other, "push", "-q", "origin", "main")
+	gitIn(t, clone, "config", "filter.evil.smudge", script)
+	gitIn(t, clone, "config", "filter.evil.clean", script)
+	gitIn(t, clone, "config", "filter.evil.process", script)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if _, err := os.Stat(filepath.Join(clone, "x.dat")); err != nil {
+		t.Fatal("the matching file must have been materialized for the probe to mean anything")
+	}
+	mustNotHaveRun(t, marker, "a checkout filter")
+}
+
+// remote.<name>.uploadpack names a program the fetch runs on a local origin. Git
+// keeps the FIRST value, so a -c cannot replace it: the reset refuses, before
+// fetching, and the program never runs.
+func TestResetWorktreeRefusesAConfiguredUploadPack(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	before := gitIn(t, clone, "rev-parse", "HEAD")
+	script, marker := markerScript(t, "exec git-upload-pack \"$@\"\n")
+	for _, key := range []string{"uploadpack", "receivepack", "proxy", "vcs"} {
+		gitIn(t, clone, "config", "remote.origin."+key, script)
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "remote.origin."+key) {
+			t.Fatalf("%s: out=%+v err=%v", key, out, err)
+		}
+		gitIn(t, clone, "config", "--unset", "remote.origin."+key)
+	}
+	if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
+		t.Fatal("a refused reset moved HEAD")
+	}
+	mustNotHaveRun(t, marker, "remote.origin.uploadpack")
+}
+
+// An ext:: remote runs a command; the transport allowlist refuses it even when
+// the repository's config says protocol.ext.allow=always.
+func TestResetWorktreeRunsNoExtTransport(t *testing.T) {
+	_, clone := resetRepo(t)
+	script, marker := markerScript(t, "")
+	gitIn(t, clone, "config", "protocol.ext.allow", "always")
+	gitIn(t, clone, "remote", "set-url", "origin", "ext::"+script)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Code != CodeResetFailed {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	mustNotHaveRun(t, marker, "an ext:: remote")
+}
+
+// core.sshCommand is replaced by plain ssh for the fetch.
+func TestResetWorktreeRunsNoConfiguredSSHCommand(t *testing.T) {
+	_, clone := resetRepo(t)
+	script, marker := markerScript(t, "exit 1\n")
+	gitIn(t, clone, "config", "core.sshCommand", script)
+	gitIn(t, clone, "remote", "set-url", "origin", "ssh://127.0.0.1:1/none.git")
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Code != CodeResetFailed {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	mustNotHaveRun(t, marker, "core.sshCommand")
+}
+
+// core.askPass is cleared: it runs even with terminal prompts off.
+func TestResetWorktreeRunsNoConfiguredAskPass(t *testing.T) {
+	_, clone := resetRepo(t)
+	script, marker := markerScript(t, "echo x\n")
+	gitIn(t, clone, "config", "core.askPass", script)
+	gitIn(t, clone, "config", "credential.helper", "") // none; the askpass is the only prompt source
+	gitIn(t, clone, "remote", "set-url", "origin", "https://127.0.0.1:1/none.git")
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = out
+	mustNotHaveRun(t, marker, "core.askPass")
+}
+
+// A credential helper in the repository's own config cannot be neutralised
+// without resetting the user's own, so the reset refuses before touching
+// anything and the helper never runs.
+func TestResetWorktreeRefusesARepositoryCredentialHelper(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	before := gitIn(t, clone, "rev-parse", "HEAD")
+	script, marker := markerScript(t, "")
+	gitIn(t, clone, "config", "credential.helper", "!"+script)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "credential helper") {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
+		t.Fatal("a refused reset moved HEAD")
+	}
+	mustNotHaveRun(t, marker, "a repository credential helper")
+}
+
+// The poller user's OWN global credential helper is not cleared (a private
+// remote's credentials live there): only the repository's config is distrusted.
+func TestGitEnvKeepsTheUsersOwnConfig(t *testing.T) {
+	for _, kv := range hardenedGit() {
+		if strings.HasPrefix(kv, "credential.helper") {
+			t.Fatalf("hardenedGit clears credential.helper (%q): it would drop the user's own helper", kv)
+		}
+	}
+	for _, kv := range gitEnv() {
+		if strings.HasPrefix(kv, "GIT_CONFIG_GLOBAL=") || strings.HasPrefix(kv, "GIT_CONFIG_NOSYSTEM=") {
+			t.Fatalf("the user's own git config must stay: %q", kv)
+		}
+	}
+}
+
+// A credential prompt cannot be provoked from a local fixture, so the askpass
+// neutralisation is pinned structurally: git skips an empty GIT_ASKPASS and
+// SSH_ASKPASS and falls to the terminal, which GIT_TERMINAL_PROMPT=0 forbids;
+// core.askPass is cleared as well.
+func TestGitRunsNeverReachAnAskPassProgram(t *testing.T) {
+	env := strings.Join(gitEnv(), "\n")
+	for _, want := range []string{"GIT_ASKPASS=\n", "SSH_ASKPASS=\n", "GIT_TERMINAL_PROMPT=0", "GIT_ALLOW_PROTOCOL=file:http:https:ssh:git"} {
+		if !strings.Contains(env+"\n", want) {
+			t.Errorf("gitEnv lacks %q", want)
+		}
+	}
+	if !strings.Contains(strings.Join(hardenedGit(), " "), "core.askPass=") {
+		t.Error("core.askPass is not cleared")
 	}
 }
