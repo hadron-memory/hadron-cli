@@ -419,8 +419,9 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 // switch (hadron-server#4241, cli#2085). An empty source means "not known": a
 // server that predates hostSetup refuses the query as schema skew, and host up
 // then behaves exactly as it did (the registration names the worktree). Any
-// other failure stops the run: with the switch unread, the rules to plan under
-// are not known, and nothing is planned. assigned is set only under SERVER.
+// other failure stops the run, as does a source other than HOST or SERVER: with
+// the switch unread, the rules to plan under are not known, and nothing is
+// planned. assigned is set only under SERVER.
 func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (string, map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
 	r, err := gen.TeamHostSetup(ctx, s.client, s.app, &hostID)
 	if err != nil {
@@ -432,8 +433,15 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 	if r == nil || r.HostSetup == nil {
 		return "", nil, exitcode.Newf(exitcode.Error, "the server answered without a host setup for host %s; nothing planned", hostID)
 	}
-	if r.HostSetup.Source != gen.HostSetupSourceServer {
-		return string(r.HostSetup.Source), nil, nil
+	switch r.HostSetup.Source {
+	case gen.HostSetupSourceHost:
+		return string(gen.HostSetupSourceHost), nil, nil
+	case gen.HostSetupSourceServer:
+		// handled below
+	default:
+		// An empty or unknown source names no rules to plan under: stop, never
+		// fall back to HOST (LOCAL P2, Julius).
+		return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with source %q, which is neither HOST nor SERVER; nothing planned", string(r.HostSetup.Source))
 	}
 	assigned := map[string]*gen.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment{}
 	for _, a := range r.HostSetup.Assignments {

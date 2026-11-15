@@ -4372,7 +4372,7 @@ one acted on, while none, several or a value that is not a host name token is
 lists; a worker in the desired state with no assignment on this host is
 `NOT_ASSIGNED` and never observed or acted on, and an assigned worker the
 desired state does not list is `NOT_REGISTERED`. Any other failure to read
-`hostSetup` stops the run before anything is planned (the rules to plan under
+`hostSetup`, or a `source` that is neither `HOST` nor `SERVER`, stops the run before anything is planned (the rules to plan under
 are unknown; the server's refusal keeps its code, a null answer exits 1).
 Under `SERVER` a missing worktree is created only from a repo the server
 names: `Worker.repos` (the worker's role's repos; read without the worker

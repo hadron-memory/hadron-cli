@@ -316,3 +316,32 @@ func TestTeamHostUpAnUnknownHostSetupSourceStopsTheRun2085(t *testing.T) {
 		})
 	}
 }
+
+// Rook's P3s (#2109): the family and the derived branch are tokens too.
+func TestTeamHostUpAssignedFamilyAndBranchAreTokens2085(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.present("jonas", 0)
+	fx.serverState("APPLY", serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "LONG_LIVED", ""))
+	fx.setup2085("SERVER", assignment2085("hadron-cli/jonas", "claude --dangerously"))
+	dto, raw, err := fx.run("--apply")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	wantItems1389(t, "skipped", dto.Skipped, "Jonas - SETUP_INVALID")
+	if m := fx.mutations(); len(m) != 0 || len(fx.issued) != 0 {
+		t.Fatalf("mutations %v issued %v", m, fx.issued)
+	}
+	// A worker name that cannot be a branch token gets no created worktree.
+	fx = newHostUpFixture1389(t)
+	fx.serverState("APPLY", serverWorker1389("wkr-jonas", "Jo nas", "RUNNING", "LONG_LIVED", ""))
+	fx.setup2085("SERVER", `{"id":"a1","hostId":"orca1","workerId":"wkr-jonas","worker":{"name":"Jo nas"},"workdir":"hadron-cli/jonas","family":"claude","model":null,"createdAt":"2026-11-15T10:00:00Z","updatedAt":"2026-11-15T10:00:00Z"}`)
+	fx.repos = map[string][]string{"wkr-jonas": {"hadron-memory/hadron-cli"}}
+	dto, raw, err = fx.run("--apply")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	wantItems1389(t, "skipped", dto.Skipped, "Jo nas worktree.create NO_WORKTREE_SOURCE")
+	if len(fx.issued) != 0 || len(fx.reposReads) != 0 {
+		t.Fatalf("issued %v, repos read %v", fx.issued, fx.reposReads)
+	}
+}
