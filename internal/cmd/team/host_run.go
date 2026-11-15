@@ -42,8 +42,9 @@ import (
 
 // hostServer is the poller's Server over GraphQL, with the host key.
 type hostServer struct {
-	client graphql.Client
-	app    string
+	serverURL string
+	client    graphql.Client
+	app       string
 	// noRefusedWorkers pins that this server rejected the document that asks
 	// for refusedWorkers (schema skew) while the plain one worked: it lacks
 	// hadron-server#4241, so later polls skip the extended document (cli#2091).
@@ -234,7 +235,7 @@ func loadHostPoller(f *cmdutil.Factory, path string) (*hostpoller.Config, string
 	if err != nil {
 		return nil, "", nil, err
 	}
-	return cfg, key, &hostServer{client: client, app: cfg.App}, nil
+	return cfg, key, &hostServer{client: client, app: cfg.App, serverURL: server}, nil
 }
 
 func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {

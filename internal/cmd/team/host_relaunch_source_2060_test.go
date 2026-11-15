@@ -15,11 +15,11 @@ func TestRelaunchSnapshotRequiresCanonicalIdentityAndHeaderlessRead2060(t *testi
 		name, body string
 		pass       bool
 	}{
-		{"valid", `{"app":{"id":"app-id"},"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[{"workerId":"w","name":"W","family":"claude","desired":"RUNNING","reason":"LONG_LIVED","openSessionId":"s","worktrees":["repo/w"]}]}}`, true},
-		{"missing app", `{"app":null,"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[]}}`, false},
-		{"missing desired", `{"app":{"id":"app-id"},"hostDesiredState":null}`, false},
-		{"wrong host", `{"app":{"id":"app-id"},"hostDesiredState":{"hostId":"other","sweepMode":"APPLY","workers":[]}}`, false},
-		{"duplicate worker", `{"app":{"id":"app-id"},"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[{"workerId":"w"},{"workerId":"w"}]}}`, false},
+		{"valid", `{"myApp":{"id":"app-id"},"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[{"workerId":"w","name":"W","family":"claude","desired":"RUNNING","reason":"LONG_LIVED","openSessionId":"s","worktrees":["repo/w"]}]}}`, true},
+		{"missing app", `{"myApp":null,"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[]}}`, false},
+		{"missing desired", `{"myApp":{"id":"app-id"},"hostDesiredState":null}`, false},
+		{"wrong host", `{"myApp":{"id":"app-id"},"hostDesiredState":{"hostId":"other","sweepMode":"APPLY","workers":[]}}`, false},
+		{"duplicate worker", `{"myApp":{"id":"app-id"},"hostDesiredState":{"hostId":"h","sweepMode":"APPLY","workers":[{"workerId":"w"},{"workerId":"w"}]}}`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			calls := 0
@@ -35,7 +35,7 @@ func TestRelaunchSnapshotRequiresCanonicalIdentityAndHeaderlessRead2060(t *testi
 				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 					t.Error(err)
 				}
-				if body.OperationName != "HostRelaunchSnapshot" || body.Variables["appRef"] != "app-ref" || body.Variables["desiredAppRef"] != "app-ref" || body.Variables["hostId"] != "h" {
+				if body.OperationName != "HostRelaunchSnapshot" || body.Variables["appRef"] != "app-ref" || body.Variables["hostId"] != "h" {
 					t.Errorf("unexpected request %+v", body)
 				}
 				w.Header().Set("Content-Type", "application/json")

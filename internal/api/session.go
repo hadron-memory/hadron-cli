@@ -35,3 +35,10 @@ func sessionFrom(ctx context.Context) string {
 	id, _ := ctx.Value(sessionKey{}).(string)
 	return id
 }
+
+// WithoutSession removes worker attribution from a host-maintenance call while
+// preserving cancellation, deadlines and every unrelated context value.
+// WithSession(ctx, "") intentionally does not clear an existing attribution.
+func WithoutSession(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sessionKey{}, "")
+}
