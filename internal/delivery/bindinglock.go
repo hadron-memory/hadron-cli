@@ -91,3 +91,17 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// fileAttributeReparsePoint is Windows' FILE_ATTRIBUTE_REPARSE_POINT: a
+// symlink, junction or mount point. It lives here, not in the Windows file, so
+// the refusal rule is a unit seam every platform's tests can pin.
+const fileAttributeReparsePoint = 0x400
+
+// refusesAttributes says whether a Windows handle's file attributes name a
+// reparse point, which the lock never uses (hadron-cli#2079).
+func refusesAttributes(attrs uint32) error {
+	if attrs&fileAttributeReparsePoint != 0 {
+		return errors.New("the session binding location is a link, so it was not used")
+	}
+	return nil
+}

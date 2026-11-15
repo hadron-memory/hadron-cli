@@ -3,7 +3,6 @@
 package delivery
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,8 +55,5 @@ func refuseReparse(h windows.Handle) error {
 	if err := windows.GetFileInformationByHandle(h, &info); err != nil {
 		return err
 	}
-	if info.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-		return errors.New("the session binding location is a link, so it was not used")
-	}
-	return nil
+	return refusesAttributes(info.FileAttributes)
 }

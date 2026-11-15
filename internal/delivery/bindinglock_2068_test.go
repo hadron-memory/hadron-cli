@@ -160,3 +160,28 @@ func TestLockBindingRefusesADirectorySwappedForALinkBeforeTheOpen(t *testing.T) 
 		t.Fatal("the lock was created through the swapped link")
 	}
 }
+
+// #2079: the Windows refusal rule, pinned on every platform. A handle whose
+// attributes carry the reparse-point bit is refused; plain files and
+// directories are not.
+func TestRefusesAttributesRefusesAReparsePoint(t *testing.T) {
+	const (
+		attrDirectory = 0x10
+		attrArchive   = 0x20
+		attrReparse   = 0x400
+	)
+	for name, tc := range map[string]struct {
+		attrs   uint32
+		refused bool
+	}{
+		"regular file":            {attrArchive, false},
+		"directory":               {attrDirectory, false},
+		"symlink or junction":     {attrReparse, true},
+		"directory link":          {attrDirectory | attrReparse, true},
+		"file with a reparse tag": {attrArchive | attrReparse, true},
+	} {
+		if err := refusesAttributes(tc.attrs); (err != nil) != tc.refused {
+			t.Errorf("%s: refused=%v, want %v", name, err != nil, tc.refused)
+		}
+	}
+}
