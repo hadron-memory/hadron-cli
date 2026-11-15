@@ -60,6 +60,8 @@ type fakeOrca struct {
 	runNoCmd bool               // create starts nothing (no marker will appear)
 	noPTY    bool               // the shell gets no terminal (Orca always gives one)
 	ttyLie   bool               // the command reports a pts it is not on
+	// markerPID, when set, is the pid the command writes instead of its own.
+	markerPID string
 }
 
 func newFakeOrca(t *testing.T) *fakeOrca {
@@ -98,6 +100,9 @@ func (f *fakeOrca) run(_ context.Context, argv []string) (int, string, string) {
 		script := cmdText
 		if f.runNoCmd {
 			script = "exec sleep 60"
+		}
+		if f.markerPID != "" {
+			script = strings.Replace(script, `"$$"`, f.markerPID, 1)
 		}
 		if f.ttyLie {
 			script = strings.Replace(script, `"$(tty)"`, `/dev/pts/999999`, 1)
@@ -658,5 +663,39 @@ func TestOrcaLaunchDoesNotTrustReadsOfAProcessThatExitedDuringThem2088(t *testin
 	case <-a.Done():
 	default:
 		t.Fatal("reads of a process that exited during them were trusted: the agent came back running")
+	}
+}
+
+// cli#2088 local delta P2 (Jamir): a well-formed marker naming a dead pid that
+// is not the terminal's is refused and the terminal closed; it is never a
+// finished launch while the terminal's own process runs on.
+func TestOrcaLaunchRefusesADeadForeignMarkerPID2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	f.markerPID = "2147483647"
+	a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || a != nil || !strings.Contains(err.Error(), "before it could be proven") || len(f.closed) != 1 {
+		t.Fatalf("a dead foreign marker pid: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+}
+
+// Rook's delta P3: on the unclosed-terminal stop, the authorization is held
+// through the retried close and released after it.
+func TestOrcaUnclosedStopHoldsTheAuthorizationThroughTheClose2088(t *testing.T) {
+	var order []string
+	l := OrcaLauncher{Run: func(_ context.Context, argv []string) (int, string, string) {
+		if len(argv) > 1 && argv[1] == "close" {
+			order = append(order, "close")
+		}
+		return 0, `{"ok":true}`, ""
+	}}
+	a := &OrcaAgent{l: l, handle: "term_x", done: make(chan struct{}), unclosed: true}
+	stopped, _ := a.TerminateWith(func() (func(), bool) {
+		order = append(order, "authorize")
+		return func() { order = append(order, "release") }, true
+	})
+	if !stopped || strings.Join(order, ",") != "authorize,close,release" {
+		t.Fatalf("stop order %v (stopped=%v), want authorize,close,release", order, stopped)
 	}
 }

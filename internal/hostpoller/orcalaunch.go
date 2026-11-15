@@ -264,7 +264,18 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	// gone. A launch whose process already exited (a short task, or a
 	// launcher that failed at once) happened, and its agent is done;
 	// worker.start decides from the bind what that means.
+	//
+	// Gone is a finished launch only when the marker's pid IS the terminal's
+	// processId: two independent sources (the shell's $$ and Orca's reply)
+	// naming the same number. Anything else cannot be proven the terminal's
+	// once it is gone (its ancestry is unreadable), so it is refused and the
+	// terminal closed, never taken as done (cli#2088 local delta P2: a dead
+	// foreign marker pid must not read as a finished launch while the
+	// terminal's own process still runs).
 	exited := func() (*OrcaAgent, error) {
+		if pid != opid {
+			return fail("pid %d exited before it could be proven the process of Orca's terminal (pid %d)", pid, opid)
+		}
 		a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, done: make(chan struct{})}
 		a.closeOnce.Do(func() { close(a.done) })
 		return a, nil

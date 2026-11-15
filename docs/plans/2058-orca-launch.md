@@ -35,7 +35,7 @@ hadron-cli#2058, epic hadron-memory/hadron-server#4229, CLI lane. Re-scoped by H
   4. Its `/proc/<pid>/fd/0` must be the tty it wrote.
   5. After it is pinned by pidfd, its cwd must be inside the worktree.
 
-  Any failure closes the terminal this launch created, so nothing is left running unrecorded. A process that already exited before the pin (a very short task) is a launch whose agent is done, and `worker.start`'s bind loop then reports "exited before binding".
+  Any failure closes the terminal this launch created, so nothing is left running unrecorded. A process that already exited before it was proven (a very short task) is a launch whose agent is done only when its pid is the terminal's own (see the fix head below), and `worker.start`'s bind loop then reports "exited before binding".
 - **`OrcaAgent`.** It implements `Agent`.
   - `Done` comes from the pinned pid: Orca keeps showing a terminal after its process exits, so terminal presence says nothing.
   - `PID` is the pinned pid.
@@ -59,10 +59,10 @@ The marker is written by the shell **before** `exec unshare`, so the pinned pid 
 
 ## Fix head after review (cli#2088)
 - **A tty is required** (Julius P2, Jamir F1). The marker is parsed strictly as exactly `<pid> /dev/pts/N\n`; anything else, including "not a tty", is refused. After the pidfd pin, the process's `fd/0` must be that pts.
-- **Pin, read, then prove alive** (Rook's note; Julius's delta P2). A pidfd does not bind `/proc/<pid>` reads, so a process that exits during them could hand its pid to another. The parentage, `fd/0` and cwd reads are all made after the pin, and only then is the pinned process checked alive. A live pidfd holds its pid, so a process alive after the reads was the one read. A process gone by then is a launch whose agent is done, never a proven running one.
+- **Pin, read, then prove alive** (Rook's note; Julius's delta P2). A pidfd does not bind `/proc/<pid>` reads, so a process that exits during them could hand its pid to another. The parentage, `fd/0` and cwd reads are all made after the pin, and only then is the pinned process checked alive. A live pidfd holds its pid, so a process alive after the reads was the one read. A process gone by then (or before the pin) counts as a finished launch only when the marker's pid **is** Orca's `processId`: two independent sources naming the same number. Any other gone pid can't be proven the terminal's, so it is refused and the terminal closed (Jamir's delta P2: a dead foreign marker pid). That includes an agent under `sg` that exits before it is proven: it is refused, not taken as done.
 - **The pidfd is released** when the agent is gone (Julius P2, Jamir F2).
 - **A failed close is no longer reported as closed** (Julius P2). An unproven launch whose terminal won't close comes back as an `UnclosedLaunchError` together with an agent that is not done. `worker.start` records it, so the one-agent-per-worktree guard holds, and a later stop retries the close.
-- **Stop order:** authorize, then close, then release (Rook F1).
+- **Stop order:** authorize, then close, then release (Rook F1). The order is the same on the retried close of an unclosed terminal (Rook's delta P3).
 - **Tests:** the fake Orca now gives its shell a real pty (`/dev/ptmx`), as Orca does. The wiring test drives a real `worker.start` into a fake `orca` binary (Julius P3).
 
 ## Entry point for C5's relaunch (#2060)
