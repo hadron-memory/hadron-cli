@@ -150,31 +150,30 @@ func TestEndlessChurnStillEndsAtTheBoundAsMembers2042(t *testing.T) {
 // The safety rule, pinned from the review of this change (Joaquin, Jibril,
 // Colin, Rook): a process outside the group can setpgid into it (same session),
 // fork a runnable child and die before its stat read, so EVERY vanished pid voids
-// its pass, however the host looks. The late child is first listed one pass later;
-// the scan must not answer drained before it is.
+// its pass, however the host looks. Here pid 300 is outside the group in every
+// stat read that succeeds, and dies before its stat read in pass 1; its late child
+// is first LISTED in pass 2. Were the vanished pid ignored, pass 1 would be clean
+// and the scan would answer drained before the child is listed.
 func TestAVanishedPidAlwaysVoidsItsPassEvenIfItWasOutsideTheGroup2042(t *testing.T) {
 	f := churnHost(1)
 	f.pids = append(f.pids, 300)
-	f.stats[300] = churnStat{churnOther, 'S', 1} // outside the group in pass 0
+	f.stats[300] = churnStat{churnOther, 'S', 1} // outside the group whenever it can be read
 	f.stats[301] = churnStat{churnPgid, 'S', 1}  // the late child: a running member
-	f.dyn = func(pass, pid int) (churnStat, bool) {
-		if pid == 300 && pass >= 1 {
-			return churnStat{churnPgid, 'S', 1}, true // joined the group after the first listing
-		}
-		return churnStat{}, false
-	}
-	f.gone = func(pass, pid int) bool { return pid == 300 && pass >= 2 } // forked 301, then died
+	f.gone = func(pass, pid int) bool { return pid == 300 && pass >= 1 }
 	f.install(t)
 	list := readProcDir
 	readProcDir = func(path string) ([]os.DirEntry, error) {
 		es, err := list(path)
-		if f.pass >= 3 {
+		if f.pass >= 2 {
 			es = append(es, churnEntry{"301"}) // first listed after 300 forked it and died
 		}
 		return es, err
 	}
 	if !groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatalf("answered drained after %d listings, before the late child was listed", f.lists)
+	}
+	if f.lists != 3 {
+		t.Fatalf("the scan must reach the listing that shows the child: %d listings, want 3 (pass 0: first Z, pass 1: vanish, pass 2: child)", f.lists)
 	}
 }
 
@@ -223,6 +222,9 @@ func TestARunningMemberIsFoundAmidChurn2042(t *testing.T) {
 	f.install(t)
 	if !groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatal("a running member of the group must read as undrained")
+	}
+	if f.lists != 1 {
+		t.Fatalf("a running member is found at once, not by exhausting the passes: %d listings", f.lists)
 	}
 }
 
