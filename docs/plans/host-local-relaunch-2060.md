@@ -30,8 +30,13 @@ Before spending an attempt, Linux must prove exactly one running own-user
 orca-daemon scope through systemd AND obtain a successful terminal list. Missing
 systemd proof, zero or multiple scopes, or list failure yields RELAUNCH_UNPROVEN
 and launches nothing (Wolfgang #108866). Serve readiness alone is insufficient.
-A private-container measurement is assigned separately to establish actual Orca
-behavior after PTY-daemon death. A less restrictive check belongs to a follow-on.
+Celine's real Orca 1.4.247 private-container measurement confirmed terminal
+list can succeed with zero scopes, and a stale scope can briefly remain after
+daemon death. With zero terminals, the daemon respawned within seconds and
+serve restoration recovered the scope/list. This does not prove live-worker
+recovery; that acceptance remains independent QA work. A less restrictive or
+stronger PID-aware check belongs to a follow-on (finding
+`c5-pty-daemon-readiness-measurement-1.4.247`).
 
 Attempts are persisted before acting, at most three per worker per rolling hour,
 across sessions, profiles and poller restarts. Future timestamps remain counted
@@ -76,7 +81,20 @@ daemon death and recovery, with Sonnet-class execution. Never kill the shared
 host daemon or invoke a paid provider for this work.
 
 C3 #2088 is the launch dependency, currently incorporated through 9e715787.
-C5 remains unfinished and unfrozen pending broader author checks, dependency
-status and independent seats. Schedule: T2 plus security; Jerry BLIND, Jonas
+The full repository suite, focused race suites, full lint, schema-check,
+Windows/Darwin vet and eight targeted guard mutants plus an equivalent control
+pass. The first full run caught a C3 fake missing the new snapshot response
+(fixed) and a separately tracked #2042 zombie-group test failure; no production
+process guard was weakened. C5 remains unfrozen pending dependency status,
+hosted CI and independent seats. Schedule: T2 plus security; Jerry BLIND, Jonas
 LOCAL, Rodolfo security, Colin QA, subject to fresh roster/register checks.
 No activation or production relaunch is claimed. No platform citation is minted.
+
+
+The host-wide desired snapshot is small and contains no prompts/transcripts,
+but repeated per-worker freshness checks repeat the full host projection.
+A pass uses one discovery read and up to five snapshots plus one repair
+mutation per worker that launches. At 100 workers and an estimated 20–40 KB
+snapshot this is roughly 10–20 MB during a complete recovery pass; this is an
+estimate, not a measured benchmark. Targeted host-key worker reads are filed
+as nonblocking server follow-on #4260; generic honest failure codes are #4259.
