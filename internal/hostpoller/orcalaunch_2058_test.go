@@ -660,10 +660,16 @@ func TestOrcaLaunchDoesNotTrustReadsOfAProcessThatExitedDuringThem2088(t *testin
 	if err != nil {
 		t.Fatalf("a launch whose agent exited is done, not refused: %v", err)
 	}
+	// Deterministic (Jamir's delta P3): a proven launch hands back a pinned
+	// agent whose watcher closes Done later, which a Done check alone could
+	// not tell from this result; a finished launch pins nothing.
+	if a.h != nil {
+		t.Fatal("reads of a process that exited during them were trusted: the agent came back pinned and running")
+	}
 	select {
 	case <-a.Done():
 	default:
-		t.Fatal("reads of a process that exited during them were trusted: the agent came back running")
+		t.Fatal("a finished launch's agent is not done")
 	}
 }
 
