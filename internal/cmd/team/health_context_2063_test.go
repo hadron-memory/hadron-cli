@@ -35,7 +35,7 @@ func TestHealth2063SendsBothFieldsTogether(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
 	var gotFamily string
-	healthContextMeasurer = func(family string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
+	healthContextMeasurer = func(_ *contextsize.Measurer, family string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
 		gotFamily = family
 		return &contextsize.Measurement{Tokens: 183412, MeasuredAt: at}
 	}
@@ -52,7 +52,9 @@ func TestHealth2063SendsBothFieldsTogether(t *testing.T) {
 func TestHealth2063NoMeasurementSendsNeitherField(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement { return nil }
+	healthContextMeasurer = func(_ *contextsize.Measurer, _ string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
+		return nil
+	}
 	sent, out := health2063Run(t)
 	rep := health2063Report(t, sent)
 	if _, ok := rep["contextTokens"]; ok {
@@ -74,7 +76,7 @@ func TestHealth2063RequestCarriesNoTranscriptText(t *testing.T) {
 	// The fixture's worktrees_root is its own temp dir; find it through the reader.
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
+	healthContextMeasurer = func(_ *contextsize.Measurer, family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
 		if len(trees) != 1 {
 			t.Fatalf("trees %v", trees)
 		}
@@ -106,7 +108,7 @@ func jsonStr(s string) string { b, _ := json.Marshal(s); return string(b) }
 func TestHealth2063OldServerStillStoresTerminalHealth(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement {
+	healthContextMeasurer = func(_ *contextsize.Measurer, _ string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
 		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
 	}
 	out, n, sent, err := health1181RunFixture(t, "OLDSERVER", 0, true, "", health2063Idle, `{"hostId":"own"}`)
@@ -126,7 +128,9 @@ func TestHealth2063OldServerStillStoresTerminalHealth(t *testing.T) {
 func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement { return nil }
+	healthContextMeasurer = func(_ *contextsize.Measurer, _ string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
+		return nil
+	}
 	_, n, _, err := health1181RunFixture(t, "OLDSERVER_ALWAYS", 0, true, "", health2063Idle, `{"hostId":"own"}`)
 	if err == nil || n != 1 {
 		t.Fatalf("err=%v writes=%d (an unmeasured batch must not be retried)", err, n)
@@ -138,7 +142,7 @@ func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
 func TestHealth2063ExecutionErrorsAreNeverRetried(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement {
+	healthContextMeasurer = func(_ *contextsize.Measurer, _ string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
 		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
 	}
 	for name, wire := range map[string]string{
@@ -162,7 +166,7 @@ func TestHealth2063WorkerCodexHomeDecidesTheRoot(t *testing.T) {
 	defer func() { health1181WorkerExtra = "" }()
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
+	healthContextMeasurer = func(_ *contextsize.Measurer, family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
 		if roots.CodexSessions != filepath.Join(account, "sessions") {
 			t.Errorf("codex root %q, want the worker's account home", roots.CodexSessions)
 		}
@@ -189,5 +193,33 @@ func TestHealth2063RootsDefaultWhenWorkerConfiguresNone(t *testing.T) {
 	got = healthContextRoots(hostpoller.WorkerConfig{CodexHome: "/a/h", ClaudeConfigDir: "/a/c"})
 	if got.CodexSessions != "/a/h/sessions" || got.ClaudeProjects != "/a/c/projects" {
 		t.Fatalf("%+v", got)
+	}
+}
+
+// Discovery belongs to one invocation, shared by all its workers and discarded
+// before the next invocation; otherwise a row-local cache still scans per worker.
+func TestHealth2095SharesMeasurerWithinSweepOnly(t *testing.T) {
+	old := healthContextMeasurer
+	defer func() { healthContextMeasurer = old; health1181WorkerExtra = "" }()
+	health1181WorkerExtra = "  w2:\n    family: codex\n    launch: [fake]\n    worktrees: [jane]\n"
+	regs := `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris"},"worktrees":["iris"]},{"workerId":"w2","worker":{"id":"w2","name":"Jane"},"worktrees":["jane"]}]}]}}`
+	status := strings.TrimSuffix(health2063Idle, "]") + "," + strings.TrimPrefix(strings.ReplaceAll(health2063Idle, "Iris", "Jane"), "[")
+	wire := `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"u1"},{"id":"w2","urn":"u2"}],"refused":[]}}}`
+	var seen [2][]*contextsize.Measurer
+	for i := range seen {
+		healthContextMeasurer = func(m *contextsize.Measurer, _ string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
+			seen[i] = append(seen[i], m)
+			return nil
+		}
+		_, n, _, err := health1181RunFixture(t, wire, 0, true, regs, status, `{"hostId":"own"}`)
+		if err != nil || n != 1 {
+			t.Fatalf("sweep %d: writes=%d err=%v", i, n, err)
+		}
+		if len(seen[i]) != 2 || seen[i][0] == nil || seen[i][0] != seen[i][1] {
+			t.Fatalf("sweep %d did not share one measurer: %v", i, seen[i])
+		}
+	}
+	if seen[0][0] == seen[1][0] {
+		t.Fatal("a new sweep must not retain the previous sweep's candidate cache")
 	}
 }
