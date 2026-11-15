@@ -110,10 +110,11 @@ const maxGroupScanPasses = 8
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir
 
-// readGroupStatFn reads one process's group, state and thread count, as a package var
-// so a test can model /proc churn (unrelated processes dying between the
-// listing and their own stat read) without a real busy host.
-var readGroupStatFn = readGroupStat
+// readGroupStatFn reads one process's group, session, state and thread count,
+// as a package var so a test can model /proc churn (unrelated processes dying
+// between the listing and their own stat read, a process moving between
+// groups) without a real busy host.
+var readGroupStatFn = readGroupStatSession
 
 // groupHasOtherMembers reports whether /proc shows a member of process group
 // pgid, other than the leader itself, that can still RUN. The leader is
@@ -194,31 +195,42 @@ func scanGroupOnce(pgid, leader int, prevZ, nonMembers map[int]bool) (found, voi
 		return true, false, nil
 	}
 	zs = map[int]bool{}
+	// The group's session, from the leader's own entry (a held zombie is still
+	// listed). Only a process OUTSIDE this session can be proven never to join
+	// the group: setpgid joins only a group of the caller's own session. Without
+	// the session nothing is cached and every vanishing stays conservative.
+	groupSession := -1
+	if _, sess, _, _, lerr := readGroupStatFn(filepath.Join("/proc", strconv.Itoa(leader), "stat")); lerr == nil {
+		groupSession = sess
+	}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}
-		pgrp, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
+		pgrp, sess, state, threads, err := readGroupStatFn(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return true, false, nil // present but unreadable: not proof of absence
 			}
 			if nonMembers[pid] {
-				// Seen in an EARLIER pass of this call outside the group, and gone
-				// now: it was never a member, being dead it cannot be one, and
-				// anything it forked inherited a group other than ours. Its
-				// vanishing proves nothing about the group, so it must not void the
-				// pass: a busy host kills unrelated processes through every pass,
-				// and voiding on each starved the scan into the "members" answer
-				// forever (#2042).
+				// Seen in an EARLIER pass of this call in ANOTHER session than the
+				// group, and gone now: it never was a member, it could not have
+				// joined (a group is joined only from its own session), being dead
+				// it cannot be one, and anything it forked inherited a group other
+				// than ours. Its vanishing proves nothing about the group, so it
+				// must not void the pass: a busy host kills unrelated processes
+				// through every pass, and voiding on each starved the scan into the
+				// "members" answer forever (#2042).
 				continue
 			}
-			void = true // listed, then gone before the read, and never seen: it could have been a member
+			void = true // listed, then gone before the read, and not proven outside: it could have been a member
 			continue
 		}
+		// Every successful read refreshes the proof: a pid seen inside the group
+		// (or in its session) loses any earlier outsider status.
+		nonMembers[pid] = groupSession >= 0 && pgrp != pgid && sess != groupSession
 		if pgrp != pgid {
-			nonMembers[pid] = true
 			continue
 		}
 		if pid == leader {
@@ -249,6 +261,18 @@ func readGroupStat(statPath string) (int, byte, int, error) {
 	pgrp, _ := strconv.Atoi(f[2])
 	threads, _ := strconv.Atoi(f[17])
 	return pgrp, state, threads, nil
+}
+
+// readGroupStatSession is readGroupStat plus field 6, the session id.
+func readGroupStatSession(statPath string) (pgrp, session int, state byte, threads int, err error) {
+	state, f, err := readProcStat(statPath)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	pgrp, _ = strconv.Atoi(f[2])
+	session, _ = strconv.Atoi(f[3])
+	threads, _ = strconv.Atoi(f[17])
+	return pgrp, session, state, threads, nil
 }
 
 // readProcStat reads and validates one /proc/<pid>/stat line: the state
