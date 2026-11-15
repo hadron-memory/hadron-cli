@@ -105,7 +105,13 @@ func envNameRune(r rune, notFirst bool) bool {
 // agent runs plainly in Orca's terminal scope (Holger, 2026-11-15: as
 // Orca-conform as possible, no per-agent PID namespace), so the shell's $$
 // in the marker is the agent's own pid after the exec.
-func launchCommand(envFile, marker string, argv []string, group string) (string, error) {
+//
+// The go-gate (cli#2130): the command first waits, bounded by gateTries x
+// 0.1s, for the gate file, and starts nothing without it. Launch creates the
+// gate only once Orca's create reply has parsed with a handle, so a lost or
+// malformed reply (Orca may well have started the shell) can never leave an
+// agent running untracked: the shell gives up, and the launch file is gone.
+func launchCommand(envFile, marker, gate string, argv []string, group string) (string, error) {
 	words := make([]string, 0, len(argv))
 	for _, a := range argv {
 		if a == PromptArg {
@@ -117,7 +123,9 @@ func launchCommand(envFile, marker string, argv []string, group string) (string,
 		}
 		words = append(words, shq(a))
 	}
-	inner := ". " + shq(envFile) + " && rm -f -- " + shq(envFile) +
+	inner := "i=0; while [ ! -e " + shq(gate) + " ] && [ \"$i\" -lt " + strconv.Itoa(gateTries) + " ]; do sleep 0.1; i=$((i+1)); done; " +
+		"[ -e " + shq(gate) + " ] && rm -f -- " + shq(gate) + " && " +
+		". " + shq(envFile) + " && rm -f -- " + shq(envFile) +
 		` && printf '%s %s\n' "$$" "$(tty)" > ` + shq(marker+".tmp") +
 		" && mv -f -- " + shq(marker+".tmp") + " " + shq(marker) +
 		" && exec " + strings.Join(words, " ")
@@ -126,6 +134,17 @@ func launchCommand(envFile, marker string, argv []string, group string) (string,
 	}
 	return "exec sg " + shq(group) + " -c " + shq(inner), nil
 }
+
+// removeLaunchFile is os.Remove; a test makes it a no-op to model a poller
+// that died before its cleanup, leaving the launch file behind. The gate,
+// not the cleanup, is what keeps that shell from starting an agent.
+var removeLaunchFile = os.Remove
+
+// gateTries bounds the command's wait for the gate: 600 x 0.1s, the 60s
+// bound on one Orca call, so a slow but successful create still starts. A
+// create slower than that fails closed: the shell gives up, no marker
+// appears and the launch closes the terminal. A test shortens it.
+var gateTries = 600
 
 // writeLaunchEnv writes the environment the command sources: one `export`
 // per variable, each value single-quoted. Created exclusively, 0600.
@@ -186,12 +205,16 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return nil, err
 	}
 	id := hex.EncodeToString(rb[:])
-	envFile, marker := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker")
-	defer func() { _ = os.Remove(envFile); _ = os.Remove(marker); _ = os.Remove(marker + ".tmp") }()
+	envFile, marker, gate := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker"), filepath.Join(dir, id+".go")
+	defer func() {
+		for _, f := range []string{envFile, marker, marker + ".tmp", gate} {
+			_ = removeLaunchFile(f)
+		}
+	}()
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
 		return nil, fmt.Errorf("writing the launch environment: %w", err)
 	}
-	cmd, err := launchCommand(envFile, marker, spec.Argv, l.Group)
+	cmd, err := launchCommand(envFile, marker, gate, spec.Argv, l.Group)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +244,15 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply")}
 		}
 		return nil, errors.New(why + "; the terminal was closed")
+	}
+	// Only now, with the terminal's handle in hand, may the command start
+	// the agent (cli#2130). Before this point a failure leaves no agent.
+	g, err := os.OpenFile(gate, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fail("opening the launch gate: %v", err)
+	}
+	if err := g.Close(); err != nil {
+		return fail("opening the launch gate: %v", err)
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {

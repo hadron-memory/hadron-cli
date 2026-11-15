@@ -56,6 +56,13 @@ What this gives up: a `pkill -f` from one terminal can reach an agent in another
 - **Stop order:** authorize, then close, then release (Rook F1). The order is the same on the retried close of an unclosed terminal (Rook's delta P3).
 - **Tests:** the fake Orca now gives its shell a real pty (`/dev/ptmx`), as Orca does. The wiring test drives a real `worker.start` into a fake `orca` binary (Julius P3).
 
+## The go-gate (cli#2130)
+Orca can start the terminal's shell and then lose or garble its create reply (Jibril's P2, reproduced by Chip against real Orca). Launch then has no handle, so it can close nothing. Before this, the shell had already sourced the launch file and exec'd the agent, which ran untracked: no `agents` entry, no stop, and a second start became possible once the orphan's cwd left the worktree.
+
+The typed command now starts with a bounded wait (600 × 0.1s, the 60s Orca call bound) for a gate file `<id>.go`, and does nothing without it. Launch creates the gate (O_EXCL, 0600) only after the reply has parsed with a handle. So a lost or malformed reply means no agent ever starts. The shell gives up, the launch file is deleted, and at most an empty shell tab is left, which the health sweep's bare-shell close handles. The gate, not the cleanup, is what holds: a poller that dies before deleting the launch file still starts nothing. A create slower than 60s fails closed.
+
+Pins (red first at efeedcef): a lost (non-zero) and a malformed (exit 0) reply after the shell really started, each with and without the cleanup, assert that no agent ever runs. Mutants killed: the command ignores the gate, the gate is created before the create, the gate is never created.
+
 ## Entry point for C5's relaunch (#2060)
 `Poller.orcaLaunchSpec(ref, w, dir, grant, taskID)` is the one builder of an Orca launch, and `worker.start` uses it with its grant. A relaunch under a still-open session passes no grant. The spec then carries no `HADRON_LAUNCH_GRANT`, and the first prompt says the session is still open, not to start a new one, and to run `hadron team session recover` (never a new bind, never `--resume`). The launch itself is `OrcaLaunchFunc`, which returns an `OrcaAgent` with the same proof, pin and authorized stop. Identity, two-sweep and rate-limit logic stay with C5.
 

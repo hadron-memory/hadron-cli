@@ -354,11 +354,11 @@ func TestOrcaLaunchRefusesAProcessOutsideTheWorktree2058(t *testing.T) {
 }
 
 func TestLaunchCommandAndEnvGuards2058(t *testing.T) {
-	cmd, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "exec", PromptArg}, "incus")
+	cmd, err := launchCommand("/s/a.env", "/s/a.marker", "/s/a.go", []string{"codex", "exec", PromptArg}, "incus")
 	if err != nil || !strings.HasPrefix(cmd, "exec sg 'incus' -c '") || strings.Contains(cmd, "\n") {
 		t.Fatalf("group command %q %v", cmd, err)
 	}
-	if _, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "a\nb"}, ""); err == nil {
+	if _, err := launchCommand("/s/a.env", "/s/a.marker", "/s/a.go", []string{"codex", "a\nb"}, ""); err == nil {
 		t.Fatal("an argv word with a newline was accepted")
 	}
 	dir := t.TempDir()
