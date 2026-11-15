@@ -110,3 +110,18 @@ reset), then `checkout --detach origin/HEAD` (else origin/main). A refusal repor
 failure, so the task waits with the not-started alarm. Nothing is created or removed (cor:agt:070:06).
 Residual: a squash-merged and deleted remote branch reads as unpushed and refuses (the safe direction; the
 team merges with merge commits).
+
+### C2b review round 1 (at 615cf4b9)
+- **Base by commit id.** The base is the remote's CURRENT default branch, read with `ls-remote --symref` (a fetch never
+  refreshes the cached `origin/HEAD`), qualified as `refs/remotes/origin/<branch>` and resolved to a commit id that
+  is checked out detached: a local branch named `origin/main` is never taken for it. A default that cannot be read or
+  was not fetched refuses.
+- **Rescue refs.** One `rev-list --no-walk --branches --not --remotes` finds every unpushed tip (a shared clone has
+  hundreds of branches); a commit already kept by an earlier rescue ref is not recorded again; branch tips live under
+  `.../heads/<branch>`, a detached HEAD under `.../detached` (no name collides); every ref is created with an all-zero
+  old value so none is ever replaced, a taken name gets `-2`, `-3`.
+- **Worker-writable repository.** Every git run in the tree carries `core.hooksPath=<null>`, `core.fsmonitor=false`,
+  `credential.helper=`, `core.sshCommand=ssh`, and `GIT_TERMINAL_PROMPT=0`; the fetch and the remote read are bounded
+  (2 min). A hook or config line planted in the repository never runs as the poller's user.
+- Residual, accepted: the occupancy check and the checkout are not one atomic step; a process that begins working in
+  the tree in between meets a tree that was clean and pushed, the same window the launch has always had.

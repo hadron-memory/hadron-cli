@@ -99,8 +99,24 @@ func upstreamRemote(ctx context.Context, dir string) (string, error) {
 	return "", nil
 }
 
+// hardenedGit is the configuration every git run in a tree the worker can
+// write gets, so a hook or a config line the worker (or an agent) planted in
+// the repository never runs as the poller's user (hadron-cli#2057 §10): no
+// hooks, no fsmonitor command, no credential helper, no custom ssh command.
+func hardenedGit() []string {
+	return []string{
+		"-c", "core.hooksPath=" + os.DevNull,
+		"-c", "core.fsmonitor=false",
+		"-c", "credential.helper=",
+		"-c", "core.sshCommand=ssh",
+	}
+}
+
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.CommandContext(ctx, "git", append(append(hardenedGit(), "-C", dir), args...)...)
+	// Never wait for a person at a prompt: a fetch that wants credentials
+	// fails instead of holding a start.
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()

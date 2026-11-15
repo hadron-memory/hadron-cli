@@ -126,7 +126,7 @@ func TestResetWorktreeRefusesUnpushedCommitsAndKeepsThemAsRescueRefs(t *testing.
 	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != work {
 		t.Fatal("a refused reset must leave HEAD where it was")
 	}
-	ref := "refs/hadron/rescue/20261115T140000Z/work"
+	ref := "refs/hadron/rescue/20261115T140000Z/heads/work"
 	if got := gitIn(t, clone, "rev-parse", ref); got != work {
 		t.Fatalf("rescue ref %s = %s, want the unpushed commit %s", ref, got, work)
 	}
@@ -149,7 +149,7 @@ func TestResetWorktreeKeepsAnotherBranchsUnpushedCommitsReachable(t *testing.T) 
 	if err != nil || !out.Reset {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
-	if got := gitIn(t, clone, "rev-parse", "refs/hadron/rescue/20261115T140000Z/side"); got != side {
+	if got := gitIn(t, clone, "rev-parse", "refs/hadron/rescue/20261115T140000Z/heads/side"); got != side {
 		t.Fatalf("rescue ref for the side branch = %s, want %s", got, side)
 	}
 	if got := gitIn(t, clone, "rev-parse", "side"); got != side {
@@ -180,5 +180,153 @@ func TestResetWorktreeRefusesATreeWithNoOriginAndAFailedFetch(t *testing.T) {
 	out, err = ResetWorktree(context.Background(), clone, resetNow)
 	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "origin") {
 		t.Fatalf("no origin: out=%+v err=%v", out, err)
+	}
+}
+
+// Blind P2: a local branch called origin/main must not be taken for the remote
+// one: the base is a commit id resolved from the fully qualified remote ref.
+func TestResetWorktreeIgnoresALocalBranchNamedLikeTheRemoteOne(t *testing.T) {
+	origin, clone := resetRepo(t)
+	tip := advanceOrigin(t, origin)
+	gitIn(t, clone, "branch", "origin/main", "HEAD") // a decoy: the OLD commit, under the remote's short name
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != tip {
+		t.Fatalf("HEAD %s: the decoy branch was taken for the remote (want %s)", head, tip)
+	}
+}
+
+// Blind P2: rescue refs never overwrite an earlier rescue, and a branch can be
+// named like the synthetic detached entry.
+func TestResetWorktreeRescueRefsAreCreateOnlyAndDoNotCollide(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "checkout", "-q", "-b", "work")
+	commit := func(name string) string {
+		_ = os.WriteFile(filepath.Join(clone, name), []byte(name+"\n"), 0o644)
+		gitIn(t, clone, "add", ".")
+		gitIn(t, clone, "commit", "-q", "-m", name)
+		return gitIn(t, clone, "rev-parse", "HEAD")
+	}
+	first := commit("one.txt")
+	if out, _ := ResetWorktree(context.Background(), clone, resetNow); out.Code != CodeWorktreeUnpushed {
+		t.Fatalf("%+v", out)
+	}
+	second := commit("two.txt") // the branch moved on; the SAME second
+	if out, _ := ResetWorktree(context.Background(), clone, resetNow); out.Code != CodeWorktreeUnpushed {
+		t.Fatalf("%+v", out)
+	}
+	base := "refs/hadron/rescue/20261115T140000Z/heads/work"
+	if got := gitIn(t, clone, "rev-parse", base); got != first {
+		t.Fatalf("the earlier rescue was overwritten: %s, want %s", got, first)
+	}
+	if got := gitIn(t, clone, "rev-parse", base+"-2"); got != second {
+		t.Fatalf("the second rescue = %s, want %s", got, second)
+	}
+}
+
+func TestResetWorktreeDetachedUnpushedHeadAndABranchNamedDetachedDoNotCollide(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "checkout", "-q", "-b", "detached")
+	_ = os.WriteFile(filepath.Join(clone, "d.txt"), []byte("d\n"), 0o644)
+	gitIn(t, clone, "add", ".")
+	gitIn(t, clone, "commit", "-q", "-m", "on the branch")
+	onBranch := gitIn(t, clone, "rev-parse", "HEAD")
+	gitIn(t, clone, "checkout", "-q", "--detach")
+	_ = os.WriteFile(filepath.Join(clone, "e.txt"), []byte("e\n"), 0o644)
+	gitIn(t, clone, "add", ".")
+	gitIn(t, clone, "commit", "-q", "-m", "detached work")
+	loose := gitIn(t, clone, "rev-parse", "HEAD")
+	out, _ := ResetWorktree(context.Background(), clone, resetNow)
+	if out.Code != CodeWorktreeUnpushed {
+		t.Fatalf("%+v", out)
+	}
+	if got := gitIn(t, clone, "rev-parse", "refs/hadron/rescue/20261115T140000Z/heads/detached"); got != onBranch {
+		t.Fatalf("branch rescue = %s, want %s", got, onBranch)
+	}
+	if got := gitIn(t, clone, "rev-parse", "refs/hadron/rescue/20261115T140000Z/detached"); got != loose {
+		t.Fatalf("a detached HEAD's commits are not rescued: %s, want %s", got, loose)
+	}
+}
+
+// Local P2: starting again does not multiply rescue refs for commits an earlier
+// rescue already keeps.
+func TestResetWorktreeDoesNotRecordTheSameCommitAgain(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "checkout", "-q", "-b", "work")
+	_ = os.WriteFile(filepath.Join(clone, "w.txt"), []byte("w\n"), 0o644)
+	gitIn(t, clone, "add", ".")
+	gitIn(t, clone, "commit", "-q", "-m", "work")
+	gitIn(t, clone, "checkout", "-q", "main")
+	for i := 0; i < 3; i++ {
+		out, err := ResetWorktree(context.Background(), clone, resetNow.Add(time.Duration(i)*time.Minute))
+		if err != nil || !out.Reset {
+			t.Fatalf("run %d: %+v %v", i, out, err)
+		}
+		if i > 0 && len(out.Rescued) != 0 {
+			t.Fatalf("run %d recorded %v again", i, out.Rescued)
+		}
+	}
+	if n := len(strings.Fields(gitIn(t, clone, "for-each-ref", "--format=%(refname)", "refs/hadron/rescue"))); n != 1 {
+		t.Fatalf("%d rescue refs for one commit across three starts, want 1", n)
+	}
+}
+
+// Blind P2: the remote's CURRENT default branch is used; a cached origin/HEAD
+// is not refreshed by a fetch and would leave every start on the old branch.
+func TestResetWorktreeFollowsTheRemotesCurrentDefaultBranch(t *testing.T) {
+	origin, clone := resetRepo(t)
+	other := filepath.Join(t.TempDir(), "other")
+	gitIn(t, filepath.Dir(other), "clone", "-q", origin, other)
+	gitIn(t, other, "checkout", "-q", "-b", "trunk")
+	_ = os.WriteFile(filepath.Join(other, "t.txt"), []byte("t\n"), 0o644)
+	gitIn(t, other, "add", ".")
+	gitIn(t, other, "commit", "-q", "-m", "trunk")
+	gitIn(t, other, "push", "-q", "origin", "trunk")
+	trunk := gitIn(t, other, "rev-parse", "HEAD")
+	gitIn(t, filepath.Dir(origin), "--git-dir", origin, "symbolic-ref", "HEAD", "refs/heads/trunk") // the server's default moved
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != trunk {
+		t.Fatalf("HEAD %s: still on the former default branch (want trunk %s)", head, trunk)
+	}
+}
+
+// Security (§10): a hook or config line planted in the worker-writable repo
+// never runs as the poller.
+func TestResetWorktreeRunsNoRepositoryHooks(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin) // so the checkout actually moves HEAD
+	hooks := filepath.Join(t.TempDir(), "hooks")
+	if err := os.MkdirAll(hooks, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(t.TempDir(), "ran")
+	hook := "#!/bin/sh\ntouch " + marker + "\n"
+	for _, name := range []string{"post-checkout", "reference-transaction", "post-merge"} {
+		if err := os.WriteFile(filepath.Join(hooks, name), []byte(hook), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gitIn(t, clone, "config", "core.hooksPath", hooks)
+	gitIn(t, clone, "config", "core.fsmonitor", "touch "+marker+"; true")
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("a hook or fsmonitor command from the worker-writable repository ran as the poller")
+	}
+}
+
+func TestResetWorktreeNeedsAnOriginRemoteSpecifically(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "remote", "rename", "origin", "upstream")
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "origin") {
+		t.Fatalf("out=%+v err=%v", out, err)
 	}
 }

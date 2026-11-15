@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// resetFetchTimeout bounds the fetch: a stalled remote must not hold a start.
+const resetFetchTimeout = 2 * time.Minute
+
 // The refusal codes a workspace reset reports (hadron-cli#2057 C2b; the same
 // rule as cor:agt:050:27 part 7 and ruling 0012: a tree with work to lose is
 // never moved). They lead the failure reason a refused worker.start reports,
@@ -59,7 +62,10 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	if err != nil {
 		return refuse(CodeResetFailed, err.Error()), nil
 	}
-	if _, errOut, err := runGitTree(ctx, dir, "fetch", "--quiet", "--prune", remote); err != nil {
+	fctx, cancel := context.WithTimeout(ctx, resetFetchTimeout)
+	_, errOut, err := runGitTree(fctx, dir, "fetch", "--quiet", "--prune", remote)
+	cancel()
+	if err != nil {
 		return refuse(CodeResetFailed, fmt.Sprintf("git fetch %s failed: %s", remote, firstNonEmpty(errOut, err.Error()))), nil
 	}
 	rescued, err := recordRescueRefs(ctx, dir, now)
@@ -78,15 +84,16 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 			return o, nil
 		}
 	}
-	base, err := resetBase(ctx, dir, remote)
+	base, sha, err := resetBase(ctx, dir, remote)
 	if err != nil {
 		return refuse(CodeResetFailed, err.Error()), nil
 	}
-	if _, errOut, err := runGitTree(ctx, dir, "checkout", "--quiet", "--detach", base); err != nil {
+	// By commit id, never by a name: a local branch called origin/main cannot
+	// be taken for the remote one.
+	if _, errOut, err := runGitTree(ctx, dir, "checkout", "--quiet", "--detach", sha); err != nil {
 		return refuse(CodeResetFailed, fmt.Sprintf("git checkout %s failed: %s", base, firstNonEmpty(errOut, err.Error()))), nil
 	}
-	sha, _, _ := runGitTree(ctx, dir, "rev-parse", "--short", "HEAD")
-	return ResetOutcome{Reset: true, Base: base + " (" + sha + ")", Rescued: rescued}, nil
+	return ResetOutcome{Reset: true, Base: base + " (" + sha[:min(len(sha), 12)] + ")", Rescued: rescued}, nil
 }
 
 func refuse(code, detail string) ResetOutcome { return ResetOutcome{Code: code, Detail: detail} }
@@ -122,55 +129,117 @@ func onRemoteBranch(ctx context.Context, dir, sha string) (bool, error) {
 	return false, nil
 }
 
-// recordRescueRefs gives every local branch tip and the current HEAD that no
-// remote branch contains a ref of its own, refs/hadron/rescue/<utc>/<name>, so
-// the commits stay reachable whatever happens to the branch afterwards. It never
-// moves or deletes a branch.
+// recordRescueRefs gives every local branch tip and a detached HEAD that no
+// remote branch contains a ref of its own, so the commits stay reachable
+// whatever happens to the branch afterwards. It never moves or deletes a branch.
+//
+// One git call finds every unpushed tip (a shared clone holds hundreds of
+// branches; a call per branch is seconds per start). A commit already kept by an
+// earlier rescue ref is not recorded again, so repeated starts do not multiply
+// refs. Branch tips go under .../heads/<branch>, a detached HEAD under
+// .../detached, so no branch name can collide with the synthetic one; and every
+// ref is created with an all-zero old value, so an existing ref is never
+// replaced: a name already taken gets a numeric suffix.
 func recordRescueRefs(ctx context.Context, dir string, now time.Time) ([]string, error) {
 	stamp := now.UTC().Format("20060102T150405Z")
+	unpushed, errOut, err := runGitTree(ctx, dir, "rev-list", "--no-walk=unsorted", "--branches", "--not", "--remotes")
+	if err != nil {
+		return nil, fmt.Errorf("git rev-list failed: %s", firstNonEmpty(errOut, err.Error()))
+	}
+	want := map[string]bool{}
+	for _, sha := range strings.Fields(unpushed) {
+		want[sha] = true
+	}
 	type tip struct{ name, sha string }
 	var tips []tip
-	out, errOut, err := runGitTree(ctx, dir, "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads")
-	if err != nil {
-		return nil, fmt.Errorf("git for-each-ref failed: %s", firstNonEmpty(errOut, err.Error()))
-	}
-	for _, l := range strings.Split(out, "\n") {
-		if f := strings.Fields(l); len(f) == 2 {
-			tips = append(tips, tip{f[0], f[1]})
+	if len(want) > 0 {
+		out, errOut, err := runGitTree(ctx, dir, "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads")
+		if err != nil {
+			return nil, fmt.Errorf("git for-each-ref failed: %s", firstNonEmpty(errOut, err.Error()))
+		}
+		for _, l := range strings.Split(out, "\n") {
+			if f := strings.Fields(l); len(f) == 2 && want[f[1]] {
+				tips = append(tips, tip{"heads/" + f[0], f[1]})
+			}
 		}
 	}
-	if head, _, err := runGitTree(ctx, dir, "rev-parse", "--verify", "-q", "HEAD"); err == nil && head != "" {
-		if br, _, _ := runGitTree(ctx, dir, "symbolic-ref", "--short", "-q", "HEAD"); br == "" {
-			tips = append(tips, tip{"detached-head", head})
+	if br, _, _ := runGitTree(ctx, dir, "symbolic-ref", "--short", "-q", "HEAD"); br == "" {
+		if head, _, err := runGitTree(ctx, dir, "rev-parse", "--verify", "-q", "HEAD"); err == nil && head != "" {
+			if onRemote, err := onRemoteBranch(ctx, dir, head); err != nil {
+				return nil, err
+			} else if !onRemote {
+				tips = append(tips, tip{"detached", head})
+			}
+		}
+	}
+	kept := map[string]bool{}
+	if out, _, err := runGitTree(ctx, dir, "for-each-ref", "--format=%(objectname)", "refs/hadron/rescue"); err == nil {
+		for _, sha := range strings.Fields(out) {
+			kept[sha] = true
 		}
 	}
 	var made []string
 	for _, t := range tips {
-		onRemote, err := onRemoteBranch(ctx, dir, t.sha)
+		if kept[t.sha] {
+			continue // an earlier rescue already keeps this commit reachable
+		}
+		ref, err := createRescueRef(ctx, dir, "refs/hadron/rescue/"+stamp+"/"+t.name, t.sha)
 		if err != nil {
 			return nil, err
 		}
-		if onRemote {
-			continue
-		}
-		ref := "refs/hadron/rescue/" + stamp + "/" + t.name
-		if _, errOut, err := runGitTree(ctx, dir, "update-ref", ref, t.sha); err != nil {
-			return nil, fmt.Errorf("recording rescue ref %s failed: %s", ref, firstNonEmpty(errOut, err.Error()))
-		}
+		kept[t.sha] = true
 		made = append(made, ref+" "+t.sha[:min(len(t.sha), 12)])
 	}
 	return made, nil
 }
 
-// resetBase is the remote default branch: origin/HEAD when the clone set it,
-// else origin/main. Anything else is refused rather than guessed.
-func resetBase(ctx context.Context, dir, remote string) (string, error) {
-	if ref, _, err := runGitTree(ctx, dir, "symbolic-ref", "--short", "-q", "refs/remotes/"+remote+"/HEAD"); err == nil && ref != "" {
-		return ref, nil
+// zeroOID is git's "this ref must not exist yet" old value for update-ref.
+const zeroOID = "0000000000000000000000000000000000000000"
+
+// createRescueRef creates ref at sha and never replaces an existing ref: a
+// taken name gets -2, -3, ... (bounded).
+func createRescueRef(ctx context.Context, dir, ref, sha string) (string, error) {
+	name := ref
+	for i := 2; ; i++ {
+		_, errOut, err := runGitTree(ctx, dir, "update-ref", name, sha, zeroOID)
+		if err == nil {
+			return name, nil
+		}
+		if i > 50 {
+			return "", fmt.Errorf("recording rescue ref %s failed: %s", ref, firstNonEmpty(errOut, err.Error()))
+		}
+		name = fmt.Sprintf("%s-%d", ref, i)
 	}
-	cand := remote + "/main"
-	if _, _, err := runGitTree(ctx, dir, "rev-parse", "--verify", "-q", cand+"^{commit}"); err == nil {
-		return cand, nil
+}
+
+// resetBase is the remote's CURRENT default branch, learned from the remote
+// (`ls-remote --symref`), not from the cached origin/HEAD, which a fetch never
+// refreshes: a server whose default changed would otherwise leave every start on
+// the old branch. It returns the qualified ref and the commit id it resolves to,
+// after the fetch; a default that cannot be established or was not fetched is
+// refused rather than guessed.
+func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err error) {
+	lctx, cancel := context.WithTimeout(ctx, resetFetchTimeout)
+	defer cancel()
+	out, errOut, lerr := runGitTree(lctx, dir, "ls-remote", "--symref", remote, "HEAD")
+	if lerr != nil {
+		return "", "", fmt.Errorf("could not read %s's default branch: %s", remote, firstNonEmpty(errOut, lerr.Error()))
 	}
-	return "", fmt.Errorf("could not find the remote default branch (no %s/HEAD, no %s)", remote, cand)
+	branch := ""
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "ref: refs/heads/") {
+			if f := strings.Fields(strings.TrimPrefix(l, "ref: refs/heads/")); len(f) > 0 {
+				branch = f[0]
+			}
+		}
+	}
+	if branch == "" {
+		return "", "", fmt.Errorf("%s reports no default branch", remote)
+	}
+	ref = "refs/remotes/" + remote + "/" + branch
+	sha, _, verr := runGitTree(ctx, dir, "rev-parse", "--verify", "-q", ref+"^{commit}")
+	if verr != nil || sha == "" {
+		return "", "", fmt.Errorf("%s's default branch %s was not fetched", remote, branch)
+	}
+	return remote + "/" + branch, sha, nil
 }
