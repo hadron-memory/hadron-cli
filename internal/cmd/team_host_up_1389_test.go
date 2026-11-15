@@ -31,19 +31,19 @@ type hostUpWorker1389 struct {
 }
 
 type hostUpFixture1389 struct {
-	t        *testing.T
-	root     string // worktrees root
-	desired  string // desired-state file
-	orcaLog  string
-	orcaBin  string
-	srv      *httptest.Server
-	mu       sync.Mutex
-	calls    []attnCall
-	issued   []map[string]any
-	stored   []map[string]any
-	refuse   string   // IssueHostOperation answers this error code (FORBIDDEN, UNAUTHENTICATED)
-	regErr   string   // HostRegistrations answers this error code
-	async    bool     // an issued operation is ISSUED; it completes on the next queue read
+	t       *testing.T
+	root    string // worktrees root
+	desired string // desired-state file
+	orcaLog string
+	orcaBin string
+	srv     *httptest.Server
+	mu      sync.Mutex
+	calls   []attnCall
+	issued  []map[string]any
+	stored  []map[string]any
+	refuse  string // IssueHostOperation answers this error code (FORBIDDEN, UNAUTHENTICATED)
+	regErr  string // HostRegistrations answers this error code
+	async   bool   // an issued operation is ISSUED; it completes on the next queue read
 	// cli#2069: per-operation queue scripts. On each queue read an ISSUED or
 	// COLLECTED operation takes its next scripted status (SUCCEEDED runs the
 	// host's half); a stalled one never moves.
@@ -54,8 +54,8 @@ type hostUpFixture1389 struct {
 	desiredSrv  map[string]any
 	desiredErr  string
 	desiredVars []map[string]json.RawMessage
-	onIssue     func() // runs after an issued operation is stored
-	registry []string // worker ids the host registration lists
+	onIssue     func()   // runs after an issued operation is stored
+	registry    []string // worker ids the host registration lists
 }
 
 func (fx *hostUpFixture1389) dir(name string) string {
@@ -246,6 +246,14 @@ func (fx *hostUpFixture1389) complete(op map[string]any) {
 
 // bindInDesired is the server's half of a start: the worker now has a session.
 func (fx *hostUpFixture1389) bindInDesired(worker string) {
+	if fx.desiredSrv != nil {
+		for _, w := range fx.desiredSrv["workers"].([]map[string]any) {
+			if w["workerId"] == worker {
+				w["openSessionId"] = "s-" + worker
+			}
+		}
+		return
+	}
 	raw, err := os.ReadFile(fx.desired)
 	if err != nil {
 		fx.t.Error(err)

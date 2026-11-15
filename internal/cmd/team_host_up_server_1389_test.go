@@ -167,8 +167,10 @@ func TestTeamHostUpServerRefusals1389(t *testing.T) {
 	fx.serverState("APPLY")
 	fx.desiredSrv["hostId"] = "orca2"
 	_, raw, err = fx.run("--apply")
-	if err == nil || !strings.Contains(err.Error(), "orca2") {
-		t.Fatalf("an answer for another host was accepted: %v\n%s", err, raw)
+	// The server answered for a host nobody asked about: a failure (1), not
+	// the caller's usage (2).
+	if exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "orca2") {
+		t.Fatalf("an answer for another host: exit %d (%v)\n%s", exitCodeFor(err), err, raw)
 	}
 }
 
@@ -256,4 +258,25 @@ func orcaLog1389(t *testing.T, fx *hostUpFixture1389) string {
 	t.Helper()
 	b, _ := os.ReadFile(fx.orcaLog)
 	return string(b)
+}
+
+// The App's switch, as the server reports it: nothing is planned unless the
+// sweep mode is APPLY (S3 defaults every App to OFF).
+func TestTeamHostUpServerSweepModeGatesThePlan1389(t *testing.T) {
+	for _, mode := range []string{"OFF", "OBSERVE"} {
+		t.Run(mode, func(t *testing.T) {
+			fx := newHostUpFixture1389(t)
+			fx.present("Jonas", 0)
+			fx.serverState(mode, serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "LONG_LIVED", "", "hadron-cli/jonas"))
+			dto, raw, err := fx.run("--apply")
+			if err != nil {
+				t.Fatalf("%v\n%s", err, raw)
+			}
+			wantItems1389(t, "planned", dto.Planned)
+			wantItems1389(t, "skipped", dto.Skipped, "Jonas worker.start SWEEP_NOT_APPLY")
+			if m := fx.mutations(); len(m) != 0 {
+				t.Fatalf("mutations: %v", m)
+			}
+		})
+	}
 }
