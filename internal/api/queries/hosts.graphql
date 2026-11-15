@@ -144,6 +144,27 @@ mutation RegisterHost(
   }
 }
 
+# #4222 / cli#2091: the same registration, also asking for refusedWorkers: under
+# a SERVER setup source, the listed workers the platform did not assign to this
+# host. A SEPARATE document, because a server without hadron-server#4241 refuses
+# any query naming the field, which would take every host poller down. The
+# poller tries this one first and, on a schema-skew refusal, falls back to
+# RegisterHost once and remembers it (hostServer.Register). Never widen
+# RegisterHost or HostRegistrationFields with the field.
+# @genqlient(for: "RegisterHostInput.workers", omitempty: false)
+# @genqlient(for: "RegisterHostInput.capabilities", omitempty: true)
+mutation RegisterHostWithRefused(
+  $input: RegisterHostInput!
+) {
+  registerHost(input: $input) {
+    ...HostRegistrationFields
+    refusedWorkers {
+      worker
+      code
+    }
+  }
+}
+
 # Issued operations become collected; collected-but-unreported ones come back
 # too (a restarted host resumes them). launchGrant is set only on worker.start,
 # and only in this answer: a re-collection revokes the unconsumed grant and

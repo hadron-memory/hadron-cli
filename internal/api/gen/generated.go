@@ -74410,6 +74410,158 @@ func (v *RegisterHostResponse) GetRegisterHost() *RegisterHostRegisterHostHostRe
 	return v.RegisterHost
 }
 
+// RegisterHostWithRefusedRegisterHostHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type RegisterHostWithRefusedRegisterHostHostRegistration struct {
+	HostRegistrationFields `json:"-"`
+	// #4222 — on registerHost's own answer only (empty on every read): the workers the host listed that were left out because the App's hostSetupSource is SERVER and the platform did not assign them to this host. The registration itself succeeded with the rest.
+	RefusedWorkers []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+}
+
+// GetRefusedWorkers returns RegisterHostWithRefusedRegisterHostHostRegistration.RefusedWorkers, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRefusedWorkers() []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal {
+	return v.RefusedWorkers
+}
+
+// GetHostId returns RegisterHostWithRefusedRegisterHostHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetHostId() string {
+	return v.HostRegistrationFields.HostId
+}
+
+// GetLabel returns RegisterHostWithRefusedRegisterHostHostRegistration.Label, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetLabel() string {
+	return v.HostRegistrationFields.Label
+}
+
+// GetPollIntervalSeconds returns RegisterHostWithRefusedRegisterHostHostRegistration.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetPollIntervalSeconds() int {
+	return v.HostRegistrationFields.PollIntervalSeconds
+}
+
+// GetRegisteredAt returns RegisterHostWithRefusedRegisterHostHostRegistration.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRegisteredAt() string {
+	return v.HostRegistrationFields.RegisteredAt
+}
+
+// GetRefreshedAt returns RegisterHostWithRefusedRegisterHostHostRegistration.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetRefreshedAt() string {
+	return v.HostRegistrationFields.RefreshedAt
+}
+
+// GetLive returns RegisterHostWithRefusedRegisterHostHostRegistration.Live, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetLive() bool {
+	return v.HostRegistrationFields.Live
+}
+
+// GetWorkers returns RegisterHostWithRefusedRegisterHostHostRegistration.Workers, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) GetWorkers() []*HostRegistrationFieldsWorkersHostRegistrationWorker {
+	return v.HostRegistrationFields.Workers
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RegisterHostWithRefusedRegisterHostHostRegistration
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RegisterHostWithRefusedRegisterHostHostRegistration = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostRegistrationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRegisterHostWithRefusedRegisterHostHostRegistration struct {
+	RefusedWorkers []*RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds int `json:"pollIntervalSeconds"`
+
+	RegisteredAt string `json:"registeredAt"`
+
+	RefreshedAt string `json:"refreshedAt"`
+
+	Live bool `json:"live"`
+
+	Workers []*HostRegistrationFieldsWorkersHostRegistrationWorker `json:"workers"`
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RegisterHostWithRefusedRegisterHostHostRegistration) __premarshalJSON() (*__premarshalRegisterHostWithRefusedRegisterHostHostRegistration, error) {
+	var retval __premarshalRegisterHostWithRefusedRegisterHostHostRegistration
+
+	retval.RefusedWorkers = v.RefusedWorkers
+	retval.HostId = v.HostRegistrationFields.HostId
+	retval.Label = v.HostRegistrationFields.Label
+	retval.PollIntervalSeconds = v.HostRegistrationFields.PollIntervalSeconds
+	retval.RegisteredAt = v.HostRegistrationFields.RegisteredAt
+	retval.RefreshedAt = v.HostRegistrationFields.RefreshedAt
+	retval.Live = v.HostRegistrationFields.Live
+	retval.Workers = v.HostRegistrationFields.Workers
+	return &retval, nil
+}
+
+// RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal includes the requested fields of the GraphQL type HostRegistrationRefusal.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker a checked registration left out. code is HOST_WORKER_NOT_ASSIGNED, whatever the reason (unassigned, assigned to another host, retired, of another App, or naming nothing).
+type RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetWorker() string {
+	return v.Worker
+}
+
+// GetCode returns RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Code, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetCode() string {
+	return v.Code
+}
+
+// RegisterHostWithRefusedResponse is returned by RegisterHostWithRefused on success.
+type RegisterHostWithRefusedResponse struct {
+	// #1709 — a host registers, or refreshes, which of its App's workers it can launch, as which model family, and in
+	// which worktrees it declares (hrn:node:hadronmemory.com:specs:cor:agt:070:01). The server validates their tokens, not filesystem existence. A host key only: an App key holding
+	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
+	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
+	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+	// #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+	// left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
+	RegisterHost *RegisterHostWithRefusedRegisterHostHostRegistration `json:"registerHost"`
+}
+
+// GetRegisterHost returns RegisterHostWithRefusedResponse.RegisterHost, and is useful for accessing the field via an interface.
+func (v *RegisterHostWithRefusedResponse) GetRegisterHost() *RegisterHostWithRefusedRegisterHostHostRegistration {
+	return v.RegisterHost
+}
+
 type RegisterHostWorkerInput struct {
 	// The model family it would run as here, e.g. claude or codex.
 	Family string `json:"family"`
@@ -94494,6 +94646,75 @@ func (v *TeamHostAssignResponse) GetAssignHostWorker() *TeamHostAssignAssignHost
 	return v.AssignHostWorker
 }
 
+// TeamHostImportRosterResponse is returned by TeamHostImportRoster on success.
+type TeamHostImportRosterResponse struct {
+	// #1707 — every worker's derived state in an App (plan design:agent-tasks
+	// §7.4), computed server-side so the CLI and portal render one answer. Plan-
+	// derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+	TeamRoster *TeamHostImportRosterTeamRoster `json:"teamRoster"`
+}
+
+// GetTeamRoster returns TeamHostImportRosterResponse.TeamRoster, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterResponse) GetTeamRoster() *TeamHostImportRosterTeamRoster {
+	return v.TeamRoster
+}
+
+// TeamHostImportRosterTeamRoster includes the requested fields of the GraphQL type TeamRoster.
+// The GraphQL type's documentation follows.
+//
+// #1707 — the team roster of one App.
+type TeamHostImportRosterTeamRoster struct {
+	Workers []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry `json:"workers"`
+}
+
+// GetWorkers returns TeamHostImportRosterTeamRoster.Workers, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRoster) GetWorkers() []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry {
+	return v.Workers
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntry includes the requested fields of the GraphQL type TeamRosterEntry.
+// The GraphQL type's documentation follows.
+//
+// #1707 — one worker on the team roster.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntry struct {
+	Worker *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty `json:"worker"`
+}
+
+// GetWorker returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntry) GetWorker() *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetName returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
 // TeamHostSetSourceInstructedResponse is returned by TeamHostSetSourceInstructed on success.
 type TeamHostSetSourceInstructedResponse struct {
 	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
@@ -94685,22 +94906,22 @@ func (v *TeamHostSetupResponse) GetHostSetup() *TeamHostSetupHostSetup { return 
 // TeamHostUnassignInstructedResponse is returned by TeamHostUnassignInstructed on success.
 type TeamHostUnassignInstructedResponse struct {
 	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
-	UnassignHostWorker bool `json:"unassignHostWorker"`
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
 }
 
 // GetUnassignHostWorker returns TeamHostUnassignInstructedResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
-func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() bool {
+func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() *bool {
 	return v.UnassignHostWorker
 }
 
 // TeamHostUnassignResponse is returned by TeamHostUnassign on success.
 type TeamHostUnassignResponse struct {
 	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
-	UnassignHostWorker bool `json:"unassignHostWorker"`
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
 }
 
 // GetUnassignHostWorker returns TeamHostUnassignResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
-func (v *TeamHostUnassignResponse) GetUnassignHostWorker() bool { return v.UnassignHostWorker }
+func (v *TeamHostUnassignResponse) GetUnassignHostWorker() *bool { return v.UnassignHostWorker }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -119347,6 +119568,14 @@ type __RegisterHostInput struct {
 // GetInput returns __RegisterHostInput.Input, and is useful for accessing the field via an interface.
 func (v *__RegisterHostInput) GetInput() *RegisterHostInput { return v.Input }
 
+// __RegisterHostWithRefusedInput is used internally by genqlient
+type __RegisterHostWithRefusedInput struct {
+	Input *RegisterHostInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RegisterHostWithRefusedInput.Input, and is useful for accessing the field via an interface.
+func (v *__RegisterHostWithRefusedInput) GetInput() *RegisterHostInput { return v.Input }
+
 // __ReinstallAppInput is used internally by genqlient
 type __ReinstallAppInput struct {
 	Ref string `json:"ref"`
@@ -121316,6 +121545,14 @@ func (v *__TeamHostAssignInstructedInput) GetInput() *AssignHostWorkerInput { re
 
 // GetInstruction returns __TeamHostAssignInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__TeamHostAssignInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
+// __TeamHostImportRosterInput is used internally by genqlient
+type __TeamHostImportRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamHostImportRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostImportRosterInput) GetAppRef() string { return v.AppRef }
 
 // __TeamHostSetSourceInput is used internally by genqlient
 type __TeamHostSetSourceInput struct {
@@ -151320,6 +151557,69 @@ func RegisterHost(
 	return data_, err_
 }
 
+// The mutation executed by RegisterHostWithRefused.
+const RegisterHostWithRefused_Operation = `
+mutation RegisterHostWithRefused ($input: RegisterHostInput!) {
+	registerHost(input: $input) {
+		... HostRegistrationFields
+		refusedWorkers {
+			worker
+			code
+		}
+	}
+}
+fragment HostRegistrationFields on HostRegistration {
+	hostId
+	label
+	pollIntervalSeconds
+	registeredAt
+	refreshedAt
+	live
+	workers {
+		workerId
+		worker {
+			id
+			urn
+			name
+		}
+		family
+		worktrees
+	}
+}
+`
+
+// #4222 / cli#2091: the same registration, also asking for refusedWorkers: under
+// a SERVER setup source, the listed workers the platform did not assign to this
+// host. A SEPARATE document, because a server without hadron-server#4241 refuses
+// any query naming the field, which would take every host poller down. The
+// poller tries this one first and, on a schema-skew refusal, falls back to
+// RegisterHost once and remembers it (hostServer.Register). Never widen
+// RegisterHost or HostRegistrationFields with the field.
+func RegisterHostWithRefused(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RegisterHostInput,
+) (data_ *RegisterHostWithRefusedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegisterHostWithRefused",
+		Query:  RegisterHostWithRefused_Operation,
+		Variables: &__RegisterHostWithRefusedInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RegisterHostWithRefusedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ReinstallApp.
 const ReinstallApp_Operation = `
 mutation ReinstallApp ($ref: ID!) {
@@ -159037,6 +159337,48 @@ func TeamHostAssignInstructed(
 	}
 
 	data_ = &TeamHostAssignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostImportRoster.
+const TeamHostImportRoster_Operation = `
+query TeamHostImportRoster ($appRef: ID!) {
+	teamRoster(appRef: $appRef) {
+		workers {
+			worker {
+				id
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+// Host import (hadron-cli#2061): only who the roster workers ARE, never their
+// operational state, so an unrelated roster field can not fail an import.
+func TeamHostImportRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamHostImportRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostImportRoster",
+		Query:  TeamHostImportRoster_Operation,
+		Variables: &__TeamHostImportRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamHostImportRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

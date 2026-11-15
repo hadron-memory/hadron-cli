@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unicode/utf16"
@@ -43,8 +44,53 @@ import (
 type hostServer struct {
 	client graphql.Client
 	app    string
+	// noRefusedWorkers pins that this server rejected the document that asks
+	// for refusedWorkers (schema skew) while the plain one worked: it lacks
+	// hadron-server#4241, so later polls skip the extended document (cli#2091).
+	noRefusedWorkers atomic.Bool
 	// now dates a batch read, for its proof's expiry; time.Now when nil.
 	now func() time.Time
+}
+
+// registerHost makes the one registration. It asks for refusedWorkers in a
+// SEPARATE document and falls back to the plain one when the server rejects it
+// as schema skew (a server without hadron-server#4241): the plain registration
+// is unchanged, so no poller breaks against an older server (cli#2091). The
+// fallback is tried once and remembered, so later polls go straight to the
+// plain document. known is false when the server cannot report refusals.
+func (s *hostServer) registerHost(ctx context.Context, in *gen.RegisterHostInput) (reg *gen.HostRegistrationFields, refused []*gen.RegisterHostWithRefusedRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal, known bool, err error) {
+	if !s.noRefusedWorkers.Load() {
+		resp, err := gen.RegisterHostWithRefused(ctx, s.client, in)
+		switch {
+		case err == nil:
+			if resp.RegisterHost == nil {
+				return nil, nil, false, exitcode.Newf(exitcode.Error, "the server returned no registration")
+			}
+			r := resp.RegisterHost
+			return &r.HostRegistrationFields, r.RefusedWorkers, true, nil
+		case !api.IsSchemaSkew(err):
+			return nil, nil, false, api.MapError(err)
+		}
+		// Schema skew: the server may lack refusedWorkers. Ask the plain
+		// document; only if it succeeds is the field proved missing.
+		plain, perr := gen.RegisterHost(ctx, s.client, in)
+		if perr != nil {
+			return nil, nil, false, api.MapError(perr)
+		}
+		if plain.RegisterHost == nil {
+			return nil, nil, false, exitcode.Newf(exitcode.Error, "the server returned no registration")
+		}
+		s.noRefusedWorkers.Store(true)
+		return &plain.RegisterHost.HostRegistrationFields, nil, false, nil
+	}
+	plain, err := gen.RegisterHost(ctx, s.client, in)
+	if err != nil {
+		return nil, nil, false, api.MapError(err)
+	}
+	if plain.RegisterHost == nil {
+		return nil, nil, false, exitcode.Newf(exitcode.Error, "the server returned no registration")
+	}
+	return &plain.RegisterHost.HostRegistrationFields, nil, false, nil
 }
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {
@@ -58,15 +104,12 @@ func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (h
 			Worker: w.Worker, Family: w.Family, Worktrees: append([]string{}, w.Worktrees...),
 		})
 	}
-	resp, err := gen.RegisterHost(ctx, s.client, in)
+	reg, refused, known, err := s.registerHost(ctx, in)
 	if err != nil {
-		return hostpoller.RegisteredHost{}, api.MapError(err)
+		return hostpoller.RegisteredHost{}, err
 	}
-	if resp.RegisterHost == nil {
-		return hostpoller.RegisteredHost{}, exitcode.Newf(exitcode.Error, "the server returned no registration")
-	}
-	out := hostpoller.RegisteredHost{HostID: resp.RegisterHost.HostId}
-	for _, w := range resp.RegisterHost.Workers {
+	out := hostpoller.RegisteredHost{HostID: reg.HostId, RefusedKnown: known}
+	for _, w := range reg.Workers {
 		if w == nil {
 			continue
 		}
@@ -78,6 +121,14 @@ func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (h
 			}
 		}
 		out.Workers = append(out.Workers, rw)
+	}
+	// Per-row refusals are text from the server: made safe to print, and the
+	// worker is only ever shown, never used to decide anything.
+	for _, r := range refused {
+		if r == nil {
+			continue
+		}
+		out.Refused = append(out.Refused, hostpoller.RefusedWorker{Worker: output.SafeCell(r.Worker), Code: output.SafeCell(r.Code)})
 	}
 	return out, nil
 }
@@ -288,10 +339,12 @@ soundly). The instant
 between a stop's last exit-check and its signal is those platforms'
 un-closable window — no syscall there both proves the number is bound and
 signals it. Linux is the hardened platform for this stop. On Windows the
-process tree is force-killed at once, and a launcher that already exited is
-never signalled again (its pid may have been reused); children it left
-behind cannot be reached without a Job Object, which this runner does not
-yet assign. An entry survives a stop that could not be confirmed. A refusal
+process tree is force-killed at once. If the launch's exit is observed after
+the binding-authorization wait, taskkill is skipped (its pid may have been
+reused). The final exit check and taskkill are not atomic: the launch can
+still exit between them. Children it left behind cannot be reached without
+a Job Object, which this runner does not yet assign. An entry survives a
+stop that could not be confirmed. A refusal
 saying the operation was already reported stops the launch only when it
 names the recorded outcome as failed; one naming success, or naming nothing,
 leaves what was launched running.
