@@ -1,8 +1,9 @@
 # C5 host-local relaunch (#2060), work in progress
 
 This branch contains the guarded relaunch core and Linux journal. It does
-not yet wire a production relaunch adapter or the host-up config flag.
-The command-level dry-run test is intentionally red until that integration.
+not yet wire the periodic production relaunch adapter. Host-up reconciliation
+now only reports missing agents; its obsolete config-flag proposal was
+superseded by Wolfgang #108587.
 No activation or successful production relaunch is claimed.
 
 The pure `internal/hostrelaunch` Runner consumes an exact App, host, worker,
@@ -68,8 +69,11 @@ The intended adapter must compose C3's typed launch with an empty grant and
 its fresh recovery prompt: preserve the open session, run session recover,
 never bind, force, end or resume. It must share C3 tracking/serialization,
 keep typed preparation free of disk_tmp writes during dry run, preserve crash
-work, and verify exactly one process after launch. The optional host-up
-config source is transitional pending S1b, approved in #108275.
+work, and verify exactly one process after launch. Profiles come from the poller config pending S1b. Wolfgang #108587 supersedes
+the earlier optional host-up config source: no new local RPC or trigger.
+The periodic poller loop alone relaunches, sharing p.agents/p.mu. Host-up and
+C1 report RELAUNCH_PENDING_POLLER when connected or RELAUNCH_UNPROVEN
+without a proven poller association. Their actuator cannot execute relaunch.
 
 Server #4247 supplies honest refused/failed repair outcomes. Until its merge,
 those outcomes must remain an injectable seam and appear as closed JSON/log

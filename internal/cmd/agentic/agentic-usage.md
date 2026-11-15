@@ -4379,7 +4379,9 @@ Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
 `SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
 worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
 session is never started again: with its agent terminal gone it is reported
-`RELAUNCH_UNAVAILABLE` until the host-local relaunch ships (hadron-cli#2060).
+`RELAUNCH_UNPROVEN` when no running poller is connected, or
+`RELAUNCH_PENDING_POLLER` when its live poller association is proven.
+Only the poller relaunches an agent; reconciliation only reports.
 An identical operation still in flight is adopted, never issued twice, and
 followed to its outcome; a finished one is not reused; a conflicting one in
 flight fails that worker's step (`ACTION_FAILED`). Every operation is issued
@@ -4404,7 +4406,7 @@ failed; exit 4 when `--worker` names a worker the host is not meant to run
 Reason codes, which are added to and never repurposed:
 - planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
 - skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
-  `RELAUNCH_UNAVAILABLE`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `RELAUNCH_UNPROVEN`, `RELAUNCH_PENDING_POLLER`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
   `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
   `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
 - failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`

@@ -66,6 +66,8 @@ const (
 	ReasonNoWorktreeSource       = "NO_WORKTREE_SOURCE"
 	ReasonSetupInvalid           = "SETUP_INVALID"
 	ReasonRelaunchUnavailable    = "RELAUNCH_UNAVAILABLE"
+	ReasonRelaunchUnproven       = "RELAUNCH_UNPROVEN"
+	ReasonRelaunchPendingPoller  = "RELAUNCH_PENDING_POLLER"
 	ReasonActionUnavailable      = "ACTION_UNAVAILABLE"
 	ReasonStopPending            = "STOP_PENDING"
 
@@ -135,6 +137,9 @@ type Source interface {
 
 // Observation is what the host shows for one worker.
 type Observation struct {
+	// PollerConnected is set only by an adapter with a live association to the
+	// existing host poller. Terminal metadata or a state file alone is not proof.
+	PollerConnected bool
 	// Registered: the host's registration lists this worker.
 	Registered bool
 	// WorktreeExists: the worker's worktree (or plain directory) is there.
@@ -389,12 +394,12 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 		// A live session is never rebound, and there is nowhere to relaunch.
 		return skip(ReasonSessionWithoutWorktree, "", "the session is open and its worktree is missing")
 	case session:
-		// The process died under an open session: worker.start is refused for
-		// it, so only a host-local relaunch in the same worktree can help.
-		if !e.Actuator.Supports(ActionWorkerRelaunch) {
-			return skip(ReasonRelaunchUnavailable, ActionWorkerRelaunch, "the session is open and no agent terminal is; a host-local relaunch is not available here")
+		// C5 has one launch owner: the running host poller. A reconciliation
+		// pass never launches, even if an actuator advertises that ability.
+		if obs.PollerConnected {
+			return skip(ReasonRelaunchPendingPoller, ActionWorkerRelaunch, "the session is open and its agent is missing; the connected poller owns relaunch")
 		}
-		steps = []Step{{Action: ActionWorkerRelaunch, Reason: ReasonTerminalMissing, Args: map[string]string{"worktree": w.Setup.Worktree, "family": w.Setup.Family}}}
+		return skip(ReasonRelaunchUnproven, ActionWorkerRelaunch, "the session is open and its agent is missing; no connected poller proves a safe relaunch")
 	default:
 		if w.Setup.Worktree == "" || w.Setup.Family == "" {
 			return skip(ReasonSetupInvalid, "", "the setup names no worktree or no model family")
