@@ -105,6 +105,32 @@ func TestGuardAllowsOnlyTheFourDeliveryCalls(t *testing.T) {
 	}
 }
 
+// #2027: the sweep's guard is its own closed set — the two reads detection
+// needs, the one close that fixes an extra bare-shell tab, and never a send:
+// the sweep never types.
+func TestSweepGuardAllowsListReadCloseAndNeverSend(t *testing.T) {
+	var ran [][]string
+	run := SweepGuard(func(_ context.Context, argv []string) Result {
+		ran = append(ran, argv)
+		return Result{Stdout: `{"ok":true}`}
+	})
+	for _, argv := range [][]string{
+		{"terminal", "send", "--text", "x"}, {"terminal", "wait"}, {"orchestration", "send"}, {"terminal", "create"}, {"terminal"}, {},
+	} {
+		if res := run(context.Background(), argv); res.Code != 1 || res.Stdout != "" {
+			t.Errorf("%v: got %+v, want the refused fail-closed shape", argv, res)
+		}
+	}
+	if len(ran) != 0 {
+		t.Fatalf("refused calls reached the runner: %v", ran)
+	}
+	for _, argv := range [][]string{{"terminal", "list"}, {"terminal", "read"}, {"terminal", "close"}} {
+		if res := run(context.Background(), argv); res.Code != 0 {
+			t.Errorf("%v refused", argv)
+		}
+	}
+}
+
 func TestNoOrchestrationAnywhereInThePackage(t *testing.T) {
 	files, _ := filepath.Glob("*.go")
 	for _, f := range files {

@@ -961,6 +961,35 @@ func TestUsageJobHasItsOwnIdentity(t *testing.T) {
 	}
 }
 
+// #2027 (on #2017's Job.Args): the scheduled sweep applies, so today's
+// entries carry --dry-run=false after --config — but an entry an older CLI
+// wrote (before either change: no flag) is still OWNED: the matcher must
+// claim it, or a reinstall would orphan it and install a second sweep beside
+// it.
+func TestOwnedCronLineClaimsOldAndNewEntries(t *testing.T) {
+	legacy := Health
+	legacy.Args = nil // the pre-#2017 shape an older CLI installed
+	ol, err := CronLine(Spec{Job: legacy, Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nl, err := CronLine(Spec{Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{ol, nl} {
+		if !IsOwnedCronLine(line) {
+			t.Errorf("entry not owned:\n%s", line)
+		}
+	}
+	if !strings.Contains(nl, `'--config' '/etc/h.yaml' '--dry-run=false'`) {
+		t.Errorf("new entry does not apply: %s", nl)
+	}
+	if strings.Contains(ol, "--dry-run=false") {
+		t.Errorf("old entry changed shape: %s", ol)
+	}
+}
+
 // Only the health sweep carries --dry-run=false: another job's argv is
 // untouched (cli#2017).
 func TestOtherJobsCarryNoDryRunFlag(t *testing.T) {

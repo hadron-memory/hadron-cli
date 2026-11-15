@@ -124,7 +124,10 @@ func TestHealthInstallStatusUninstallJSON(t *testing.T) {
 		t.Fatal(out)
 	}
 	unit, _ := os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
-	if !strings.Contains(string(unit), `ExecStart="/usr/local/bin/hadron" "team" "health" "sweep" "--config" "`+cfg+`"`) || strings.Contains(string(unit), "SENTINELKEY") {
+	// #2017/#2027: the scheduled sweep applies (tab titles and duplicate
+	// fixes), so the entry carries --dry-run=false — appended after --config
+	// by the Job args (the #2036 mechanism this branch adopts for #2027 too).
+	if !strings.Contains(string(unit), `ExecStart="/usr/local/bin/hadron" "team" "health" "sweep" "--config" "`+cfg+`" "--dry-run=false"`) || strings.Contains(string(unit), "SENTINELKEY") {
 		t.Fatalf("unit %s", unit)
 	}
 
