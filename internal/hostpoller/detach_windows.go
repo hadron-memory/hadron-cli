@@ -48,7 +48,10 @@ func occupied(string) (string, error) { return "", nil }
 // Once Done is closed the stop is confirmed without signalling anything.
 // Descendants the launch left behind cannot be reached by pid after its
 // exit; a Job Object assigned at launch would close that — left for later,
-// documented here.
+// documented here. The shared decision checks exit again after authorization
+// waits (#2099), before calling taskkill. This closes the lock-wait window,
+// not the remaining numeric-PID race between the final check and taskkill:
+// no process handle is retained across that action.
 func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
 	return a.stopProcessTree(authorize, func() (bool, string) { return terminateGroup(a.pid, 0) })
 }
