@@ -288,10 +288,12 @@ soundly). The instant
 between a stop's last exit-check and its signal is those platforms'
 un-closable window — no syscall there both proves the number is bound and
 signals it. Linux is the hardened platform for this stop. On Windows the
-process tree is force-killed at once, and a launcher that already exited is
-never signalled again (its pid may have been reused); children it left
-behind cannot be reached without a Job Object, which this runner does not
-yet assign. An entry survives a stop that could not be confirmed. A refusal
+process tree is force-killed at once. If the launch's exit is observed after
+the binding-authorization wait, taskkill is skipped (its pid may have been
+reused). The final exit check and taskkill are not atomic: the launch can
+still exit between them. Children it left behind cannot be reached without
+a Job Object, which this runner does not yet assign. An entry survives a
+stop that could not be confirmed. A refusal
 saying the operation was already reported stops the launch only when it
 names the recorded outcome as failed; one naming success, or naming nothing,
 leaves what was launched running.
