@@ -127,14 +127,21 @@ func TestPlanHostImportDuplicateAliasesOfOneWorker(t *testing.T) {
 	}
 }
 
-// fakeAppClient answers TeamAppIdentity per ref, so identities (not text) are compared.
-type fakeAppClient struct{ ids map[string]string }
+// fakeAppClient answers TeamAppIdentity per ref, so identities (not text) are
+// compared. A ref in fail makes the lookup itself fail (a transport error).
+type fakeAppClient struct {
+	ids  map[string]string
+	fail map[string]bool
+}
 
 func (c fakeAppClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
 	ref, _ := req.Variables.(interface{ GetAppRef() string })
 	var r string
 	if ref != nil {
 		r = ref.GetAppRef()
+	}
+	if c.fail[r] {
+		return errors.New("connection reset")
 	}
 	id, ok := c.ids[r]
 	body := `{"app":null}`
@@ -144,21 +151,70 @@ func (c fakeAppClient) MakeRequest(_ context.Context, req *graphql.Request, resp
 	return json.Unmarshal([]byte(body), resp.Data)
 }
 
-// Jabari F1: identity, not text. hrn:app:t:team is a prefix of hrn:app:t:team-two.
+// Jabari F1 / Rodolfo P3: identity, not text, with URN refs on BOTH sides:
+// hrn:app:t:team is a prefix of hrn:app:t:team-two.
 func TestImportAppWarningComparesIdentitiesNotText(t *testing.T) {
 	c := fakeAppClient{ids: map[string]string{"hrn:app:t:team": "capp1", "hrn:app:t:team-two": "capp10", "capp1": "capp1", "capp10": "capp10"}}
 	ctx := context.Background()
 	if w := importAppWarning(ctx, c, "hrn:app:t:team", "capp1"); w != "" {
 		t.Errorf("the same App by two spellings warned: %s", w)
 	}
+	if w := importAppWarning(ctx, c, "hrn:app:t:team", "hrn:app:t:team"); w != "" {
+		t.Errorf("the same App by one URN warned: %s", w)
+	}
+	if w := importAppWarning(ctx, c, "hrn:app:t:team", "hrn:app:t:team-two"); w == "" {
+		t.Error("a URN that merely extends the file's URN is another App and must warn")
+	}
 	if w := importAppWarning(ctx, c, "hrn:app:t:team", "capp10"); w == "" {
-		t.Error("a different App whose name contains the file's text must warn")
+		t.Error("a different App whose id contains the file's id must warn")
 	}
 	if w := importAppWarning(ctx, c, "hrn:app:t:ghost", "capp1"); w == "" {
 		t.Error("an App the server does not resolve must warn")
 	}
 	if w := importAppWarning(ctx, c, "", "capp1"); w != "" {
 		t.Errorf("a file without an app key has nothing to compare: %s", w)
+	}
+}
+
+// Jamir P3 2: a FAILED lookup is not a mismatch and not a match: the comparison
+// could not be completed, in either direction, and says so.
+func TestImportAppWarningDistinguishesAFailedLookupFromAnUnresolvedApp(t *testing.T) {
+	ids := map[string]string{"hrn:app:t:team": "capp1", "capp1": "capp1"}
+	ctx := context.Background()
+	if w := importAppWarning(ctx, fakeAppClient{ids: ids, fail: map[string]bool{"capp1": true}}, "hrn:app:t:team", "capp1"); !strings.Contains(w, "could not be completed") {
+		t.Errorf("a failed lookup of the App read must say the comparison could not be completed: %q", w)
+	}
+	if w := importAppWarning(ctx, fakeAppClient{ids: ids, fail: map[string]bool{"hrn:app:t:team": true}}, "hrn:app:t:team", "capp1"); !strings.Contains(w, "could not be completed") {
+		t.Errorf("a failed lookup of the file's App must say so: %q", w)
+	}
+	if w := importAppWarning(ctx, fakeAppClient{ids: ids}, "hrn:app:t:ghost", "capp1"); !strings.Contains(w, "does not resolve") || strings.Contains(w, "could not be completed") {
+		t.Errorf("an unresolved App is a different statement: %q", w)
+	}
+	// A failed read-side lookup must not be guessed from the raw ref: same App by URN, lookup failed.
+	if w := importAppWarning(ctx, fakeAppClient{ids: ids, fail: map[string]bool{"hrn:app:t:team": true}}, "hrn:app:t:team", "hrn:app:t:team"); w == "" {
+		t.Error("a failed lookup must never read as a match")
+	}
+}
+
+// Jamir P3 1: the file's server against the server read, by origin.
+func TestImportServerWarningComparesOrigins(t *testing.T) {
+	for name, tc := range map[string]struct {
+		file, active string
+		warn         bool
+	}{
+		"same":                  {"https://hadron.example", "https://hadron.example", false},
+		"trailing slash":        {"https://hadron.example/", "https://hadron.example", false},
+		"default port and case": {"HTTPS://Hadron.Example:443", "https://hadron.example", false},
+		"another host":          {"https://other.example", "https://hadron.example", true},
+		"another port":          {"http://localhost:8080", "http://localhost:3000", true},
+		"another scheme":        {"http://hadron.example", "https://hadron.example", true},
+		"file names none":       {"", "https://hadron.example", false},
+		"file unparsable":       {"not a url", "https://hadron.example", true},
+		"active unknown":        {"https://hadron.example", "", true},
+	} {
+		if got := importServerWarning(tc.file, tc.active) != ""; got != tc.warn {
+			t.Errorf("%s: warned=%v, want %v", name, got, tc.warn)
+		}
 	}
 }
 

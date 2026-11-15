@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -78,10 +79,12 @@ type importReportDTO struct {
 	HostSetup string `json:"hostSetup"`
 	// FileApp is the App the host file names (its app key); the report reads
 	// AppRef. A mismatch is warned about, never silently trusted.
-	FileApp  string           `json:"fileApp"`
-	Warnings []string         `json:"warnings"`
-	Applied  bool             `json:"applied"`
-	Entries  []importEntryDTO `json:"entries"`
+	FileApp string `json:"fileApp"`
+	// FileServer is the server the file names (empty = the usual resolution).
+	FileServer string           `json:"fileServer"`
+	Warnings   []string         `json:"warnings"`
+	Applied    bool             `json:"applied"`
+	Entries    []importEntryDTO `json:"entries"`
 	// Missing are the roster workers the file has no entry for.
 	Missing []string       `json:"missing"`
 	Counts  map[string]int `json:"counts"`
@@ -395,26 +398,75 @@ var hostImportWriter = func(client graphql.Client, appRef, hostID string) hostIm
 	}
 }
 
+// importDestinationWarnings says so when the destination the file names is not
+// the one being read or written: the roster and assignments come from the ACTIVE
+// App on the ACTIVE server, never from the file. Each check fails CLOSED: a
+// comparison that could not be made is a warning too, and --apply refuses on any.
+func importDestinationWarnings(ctx context.Context, client graphql.Client, fileServer, activeServer, fileApp, readRef string) []string {
+	out := []string{}
+	if w := importServerWarning(fileServer, activeServer); w != "" {
+		out = append(out, w)
+	}
+	if w := importAppWarning(ctx, client, fileApp, readRef); w != "" {
+		out = append(out, w)
+	}
+	return out
+}
+
+// importServerWarning compares the file's server with the one read, by origin
+// (scheme, host, port), so "https://h/" and "https://H:443" are the same. A file
+// that names no server uses the usual resolution and has nothing to compare.
+func importServerWarning(fileServer, activeServer string) string {
+	if strings.TrimSpace(fileServer) == "" {
+		return ""
+	}
+	file, fok := serverOrigin(fileServer)
+	active, aok := serverOrigin(activeServer)
+	if !fok || !aok {
+		return fmt.Sprintf("the file names server %s, but the comparison with the server read could not be made: the report reads the active server (--server chooses it)", fileServer)
+	}
+	if file != active {
+		return fmt.Sprintf("the file names server %s but this report reads %s: the roster and assignments come from the active server (--server chooses it)", fileServer, activeServer)
+	}
+	return ""
+}
+
+func serverOrigin(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Hostname() == "" {
+		return "", false
+	}
+	scheme, host, port := strings.ToLower(u.Scheme), strings.ToLower(u.Hostname()), u.Port()
+	if port == "" || (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
+		return scheme + "://" + host, true
+	}
+	return scheme + "://" + host + ":" + port, true
+}
+
 // importAppWarning says so when the App the file names is not the App being
-// read: the roster and assignments come from the active App, not from the
-// file. Both are resolved on the server and compared by identity, never by
-// text (hrn:app:t:team is a prefix of hrn:app:t:team-two).
+// read. Both are resolved on the server and compared by identity, never by text
+// (hrn:app:t:team is a prefix of hrn:app:t:team-two). An unresolved file App and
+// a lookup that FAILED are different statements: a failed lookup is "could not
+// be completed", never a guess from the raw ref.
 func importAppWarning(ctx context.Context, client graphql.Client, fileApp, readRef string) string {
 	if strings.TrimSpace(fileApp) == "" {
 		return ""
 	}
 	file, err := gen.TeamAppIdentity(ctx, client, fileApp)
-	if err != nil || file == nil || file.App == nil {
+	if err != nil {
+		return fmt.Sprintf("the file names App %s, but looking it up failed: the comparison could not be completed, so nothing is trusted (--app chooses the App)", fileApp)
+	}
+	if file == nil || file.App == nil {
 		return fmt.Sprintf("the file names App %s, which this server does not resolve: the report reads the active App (--app chooses it)", fileApp)
 	}
-	readID := readRef
-	if read, err := gen.TeamAppIdentity(ctx, client, readRef); err == nil && read != nil && read.App != nil {
-		readID = read.App.Id
+	read, err := gen.TeamAppIdentity(ctx, client, readRef)
+	if err != nil || read == nil || read.App == nil {
+		return fmt.Sprintf("the file names App %s, but the App being read could not be looked up: the comparison could not be completed (--app chooses the App)", fileApp)
 	}
-	if file.App.Id == readID {
+	if file.App.Id == read.App.Id {
 		return ""
 	}
-	return fmt.Sprintf("the file names App %s (%s) but this report reads another App (%s): the roster and assignments come from the active App (--app chooses it)", fileApp, file.App.Urn, readID)
+	return fmt.Sprintf("the file names App %s (%s) but this report reads another App (%s): the roster and assignments come from the active App (--app chooses it)", fileApp, file.App.Urn, read.App.Id)
 }
 
 func countActions(entries []importEntryDTO) map[string]int {
@@ -537,10 +589,9 @@ host without the runbook: the orca1 import is the host manager's step.`,
 			entries, missing := planHostImport(cfg, roster, existing, setupKnown)
 			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, HostSetup: map[bool]string{true: "available", false: "missing"}[setupKnown], Entries: entries, Missing: missing, Counts: countActions(entries)}
 			dto.FileApp, dto.Warnings = cfg.App, []string{}
-			appWarning := importAppWarning(ctx, client, cfg.App, scope.Ref)
-			if appWarning != "" {
-				dto.Warnings = append(dto.Warnings, appWarning)
-			}
+			activeServer, _ := f.Server()
+			dto.Warnings = importDestinationWarnings(ctx, client, cfg.Server, activeServer, cfg.App, scope.Ref)
+			dto.FileServer = cfg.Server
 			if dto.Entries == nil {
 				dto.Entries = []importEntryDTO{}
 			}
@@ -552,10 +603,10 @@ host without the runbook: the orca1 import is the host manager's step.`,
 				if !setupKnown {
 					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: the server lacks host setup (it predates hadron-server#4241)")
 				}
-				if appWarning != "" {
-					// The dry run's check is a gate for a write: a wrong --app or
-					// binding would assign another App's same-named workers.
-					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: %s", appWarning)
+				if len(dto.Warnings) > 0 {
+					// The dry run's check is a gate for a write: a wrong --app, --server
+					// or binding would assign another App's same-named workers.
+					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: %s", dto.Warnings[0])
 				}
 				if dto.Counts[importCreate] > 0 {
 					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("In App %s, assign %d workers to host %s and mark each leave-alone?", output.SafeCell(describeApp(ctx, f, scope.Ref)), dto.Counts[importCreate], output.SafeCell(hostID))); err != nil {
@@ -612,6 +663,9 @@ host without the runbook: the orca1 import is the host manager's step.`,
 						continue
 					}
 					res := "assigned and leave-alone"
+					if e.Workdir != nil {
+						res += " (host " + hostID + ", workdir " + *e.Workdir + ", family " + e.Family + ")"
+					}
 					switch {
 					case e.Applied.Error != nil && e.Applied.Unknown:
 						// The step may have been written: never say "NOT".
@@ -624,6 +678,9 @@ host without the runbook: the orca1 import is the host manager's step.`,
 						res = "NOT written: " + *e.Applied.Error
 					case e.Applied.LeaveAloneKept:
 						res = "assigned; it was already leave-alone (kept, not the import's mark)"
+						if e.Workdir != nil {
+							res += " (host " + hostID + ", workdir " + *e.Workdir + ", family " + e.Family + ")"
+						}
 					}
 					if _, err := fmt.Fprintf(w, "applied %s: %s\n", output.SafeCell(e.Ref), output.SafeCell(res)); err != nil {
 						return err

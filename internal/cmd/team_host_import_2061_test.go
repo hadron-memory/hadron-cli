@@ -30,7 +30,7 @@ func importResponses2061() map[string]string {
 func hostYAML2061(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	y := "server: http://127.0.0.1:1\napp: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + `
+	y := "app: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + `
 workers:
   Jonas:
     family: openai
@@ -185,7 +185,7 @@ func TestTeamHostImport2061NullRosterIsAnError(t *testing.T) {
 func TestTeamHostImport2061AliasesThroughTheCommand(t *testing.T) {
 	write := func(body string) string {
 		dir := t.TempDir()
-		y := "server: http://127.0.0.1:1\napp: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n" + body
+		y := "app: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n" + body
 		p := filepath.Join(dir, "host.yaml")
 		if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
 			t.Fatal(err)
@@ -469,5 +469,57 @@ func TestTeamHostImport2061ApplyHumanTextForUnknownOutcomes(t *testing.T) {
 	_, out, _ = runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
 	if !strings.Contains(out, "kept, not the import's mark") || strings.Contains(out, "leave-alone set, NOT assigned") {
 		t.Errorf("a kept mark must read as kept:\n%s", out)
+	}
+}
+
+// Jamir P3 1, through the command: a file naming another server warns in the
+// dry run and REFUSES --apply (nothing written), a file naming the active server does not.
+func TestTeamHostImport2061ServerMismatchWarnsAndRefusesApply(t *testing.T) {
+	yaml := func(server string) string {
+		dir := t.TempDir()
+		y := "server: " + server + "\napp: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n  Jonas:\n    family: openai\n    launch: [codex]\n    worktrees: [jonas-1]\n"
+		p := filepath.Join(dir, "host.yaml")
+		if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	calls, out, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", yaml("https://another-server.example"), "--host", "orca1", "--json")
+	if err != nil || !strings.Contains(out, "another-server.example") || !strings.Contains(out, `"fileServer"`) {
+		t.Fatalf("a dry run must warn and name the file's server: %v\n%s", err, out)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("a dry run wrote: %v", got)
+	}
+	calls, _, err = runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", yaml("https://another-server.example"), "--host", "orca1", "--apply", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "nothing written") {
+		t.Fatalf("err = %v, want a usage refusal", err)
+	}
+	if got := ops2061(calls, "GetWorkerLeaveAlone", "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("a server mismatch must stop the apply before any worker is touched: %v", got)
+	}
+}
+
+// A failed identity lookup fails CLOSED too: the apply is refused, nothing written.
+func TestTeamHostImport2061ApplyRefusedWhenTheAppLookupFails(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamAppIdentity"] = `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	calls, _, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("err = %v, want a usage refusal", err)
+	}
+	if got := ops2061(calls, "GetWorkerLeaveAlone", "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("written although the comparison could not be made: %v", got)
+	}
+}
+
+// Rook P3-6 / #2104 item 6: the success line says WHAT was written, so an operator can check it.
+func TestTeamHostImport2061ApplySuccessLineNamesWhatWasWritten(t *testing.T) {
+	_, out, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if !strings.Contains(out, "applied Jonas: assigned and leave-alone (host orca1, workdir jonas-1, family codex)") {
+		t.Fatalf("the success line must name host, workdir and family:\n%s", out)
 	}
 }
