@@ -1,0 +1,62 @@
+# S1a (hadron-server#4241, hadron-cli#2080): which workers each host of a team
+# App runs, and the per-App switch. Reads select exactly these fields; nothing
+# shared (HostRegistration, WorkerFields) is widened.
+
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+  id
+  hostId
+  workerId
+  worker {
+    name
+  }
+  workdir
+  family
+  model
+  createdAt
+  updatedAt
+}
+
+query TeamHostSetup(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+) {
+  hostSetup(appRef: $appRef, hostId: $hostId) {
+    source
+    assignments {
+      ...HostSetupAssignmentFields
+    }
+  }
+}
+
+# @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
+mutation TeamHostAssign(
+  $input: AssignHostWorkerInput!
+) {
+  assignHostWorker(input: $input) {
+    ...HostSetupAssignmentFields
+  }
+}
+
+mutation TeamHostAssignInstructed($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  assignHostWorker(input: $input, instruction: $instruction) {
+    ...HostSetupAssignmentFields
+  }
+}
+
+mutation TeamHostUnassign($input: UnassignHostWorkerInput!) {
+  unassignHostWorker(input: $input)
+}
+
+mutation TeamHostUnassignInstructed($input: UnassignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  unassignHostWorker(input: $input, instruction: $instruction)
+}
+
+mutation TeamHostSetSource($appRef: String!, $source: HostSetupSource!) {
+  setHostSetupSource(appRef: $appRef, source: $source)
+}
+
+mutation TeamHostSetSourceInstructed($appRef: String!, $source: HostSetupSource!, $instruction: ActInstructionInput!) {
+  setHostSetupSource(appRef: $appRef, source: $source, instruction: $instruction)
+}

@@ -2137,6 +2137,21 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
 
+// #4224 (S3 of #4229): how long an Agent's workers run.
+type AgentLifecycle string
+
+const (
+	// The worker's process should always run (the default, and the behaviour before this field existed).
+	AgentLifecycleLongLived AgentLifecycle = "LONG_LIVED"
+	// The worker's process should run only while it is the assignee of a pending or started task that is not waiting on child tasks.
+	AgentLifecycleShortLived AgentLifecycle = "SHORT_LIVED"
+)
+
+var AllAgentLifecycle = []AgentLifecycle{
+	AgentLifecycleLongLived,
+	AgentLifecycleShortLived,
+}
+
 // AgentModelGroupsAgentModelGroupsModelGroup includes the requested fields of the GraphQL type ModelGroup.
 // The GraphQL type's documentation follows.
 //
@@ -21033,6 +21048,43 @@ var AllAssetScanStatus = []AssetScanStatus{
 	AssetScanStatusClean,
 	AssetScanStatusPending,
 }
+
+type AssignHostWorkerInput struct {
+	AppRef string `json:"appRef"`
+	// The model family it runs as there, e.g. claude or codex.
+	Family string `json:"family"`
+	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+	HostId string `json:"hostId"`
+	// The model, a name token of at most 128 characters. Optional. A record only: a start carries the workdir and family, not the model.
+	Model *string `json:"model,omitempty"`
+	// Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
+	Replace *bool `json:"replace,omitempty"`
+	// The name the host knows the working directory by: a name token (letters, digits and . _ / @ + -, starting with a letter or digit, no .., // or trailing /), at most 256 characters.
+	Workdir string `json:"workdir"`
+	// The worker: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns AssignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetFamily returns AssignHostWorkerInput.Family, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetFamily() string { return v.Family }
+
+// GetHostId returns AssignHostWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetHostId() string { return v.HostId }
+
+// GetModel returns AssignHostWorkerInput.Model, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetModel() *string { return v.Model }
+
+// GetReplace returns AssignHostWorkerInput.Replace, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetReplace() *bool { return v.Replace }
+
+// GetWorkdir returns AssignHostWorkerInput.Workdir, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetWorkdir() string { return v.Workdir }
+
+// GetWorker returns AssignHostWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetWorker() string { return v.Worker }
 
 // AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -45378,6 +45430,64 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// #4224: whether a worker's agent process should be running.
+type DesiredRunState string
+
+const (
+	DesiredRunStateRunning DesiredRunState = "RUNNING"
+	DesiredRunStateStopped DesiredRunState = "STOPPED"
+)
+
+var AllDesiredRunState = []DesiredRunState{
+	DesiredRunStateRunning,
+	DesiredRunStateStopped,
+}
+
+// #4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first four come from the
+// Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
+// and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
+// is desired (desired is null) and wouldBe says what the state would otherwise be.
+type DesiredStateReason string
+
+const (
+	// A live halt stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01).
+	DesiredStateReasonHalted DesiredStateReason = "HALTED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of a pending task, or of a started task with no open child: RUNNING.
+	DesiredStateReasonHoldsTask DesiredStateReason = "HOLDS_TASK"
+	// The worker is marked leave-alone (Worker.leaveAlone).
+	DesiredStateReasonLeaveAlone DesiredStateReason = "LEAVE_ALONE"
+	// A worker of a LONG_LIVED Agent: RUNNING.
+	DesiredStateReasonLongLived DesiredStateReason = "LONG_LIVED"
+	// A worker of a SHORT_LIVED Agent that is the assignee of no pending or started task: STOPPED.
+	DesiredStateReasonNoOpenTask DesiredStateReason = "NO_OPEN_TASK"
+	// A live pause stop signal covers the worker (hrn:node:hadronmemory.com:specs:cor:agt:090:01). A pause-dispatch signal stops assignment only and is not a reason here.
+	DesiredStateReasonPaused DesiredStateReason = "PAUSED"
+	// A context reset holds the worker (hrn:node:hadronmemory.com:specs:cor:agt:050:27): its host is relaunching it.
+	DesiredStateReasonResetting DesiredStateReason = "RESETTING"
+	// The worker is retired.
+	DesiredStateReasonRetired DesiredStateReason = "RETIRED"
+	// The App's sweep mode is OFF.
+	DesiredStateReasonSweepOff DesiredStateReason = "SWEEP_OFF"
+	// The App is under a team pause (App.teamPausedAt).
+	DesiredStateReasonTeamPaused DesiredStateReason = "TEAM_PAUSED"
+	// A worker of a SHORT_LIVED Agent whose every open task is started and waiting on an open child task (hrn:node:hadronmemory.com:specs:cor:agt:050:04): STOPPED.
+	DesiredStateReasonWaitingOnChildren DesiredStateReason = "WAITING_ON_CHILDREN"
+)
+
+var AllDesiredStateReason = []DesiredStateReason{
+	DesiredStateReasonHalted,
+	DesiredStateReasonHoldsTask,
+	DesiredStateReasonLeaveAlone,
+	DesiredStateReasonLongLived,
+	DesiredStateReasonNoOpenTask,
+	DesiredStateReasonPaused,
+	DesiredStateReasonResetting,
+	DesiredStateReasonRetired,
+	DesiredStateReasonSweepOff,
+	DesiredStateReasonTeamPaused,
+	DesiredStateReasonWaitingOnChildren,
+}
+
 // Only the public flat reference, never members or nested resource details.
 type DiscoveryPublicRef struct {
 	Id          string  `json:"id"`
@@ -55585,6 +55695,117 @@ func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssist
 	return v.HomeAssistantInstances
 }
 
+// HostDesiredStateHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostDesiredStateHostDesiredState struct {
+	HostId    string                                                       `json:"hostId"`
+	SweepMode SweepMode                                                    `json:"sweepMode"`
+	Workers   []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostDesiredStateHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostDesiredStateHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostDesiredStateHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredState) GetWorkers() []*HostDesiredStateHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostDesiredStateHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostDesiredStateHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	Name     string `json:"name"`
+	// The lifecycle of the worker's Agent.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// Set exactly when desired is null: the state the worker would have without the marker, or with the sweep on.
+	WouldBe *DesiredRunState `json:"wouldBe"`
+	// The reason for wouldBe; never LEAVE_ALONE or SWEEP_OFF. Null when wouldBe is.
+	WouldBeReason *DesiredStateReason `json:"wouldBeReason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetName returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Name, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetName() string { return v.Name }
+
+// GetLifecycle returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Lifecycle, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetLifecycle() AgentLifecycle {
+	return v.Lifecycle
+}
+
+// GetDesired returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetWouldBe returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBe, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBe() *DesiredRunState {
+	return v.WouldBe
+}
+
+// GetWouldBeReason returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.WouldBeReason, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWouldBeReason() *DesiredStateReason {
+	return v.WouldBeReason
+}
+
+// GetOpenSessionId returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetFamily returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetWorktrees returns HostDesiredStateHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostDesiredStateResponse is returned by HostDesiredState on success.
+type HostDesiredStateResponse struct {
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. Until the platform holds which workers
+	// a host runs (#4222), those are the workers the host's registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or
+	// lapsed, with the family and worktrees it registered. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostDesiredStateHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetHostDesiredState returns HostDesiredStateResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostDesiredStateResponse) GetHostDesiredState() *HostDesiredStateHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
 // The GraphQL type's documentation follows.
 //
@@ -56255,6 +56476,84 @@ type HostRegistrationsResponse struct {
 // GetHostRegistrations returns HostRegistrationsResponse.HostRegistrations, and is useful for accessing the field via an interface.
 func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsHostRegistrationsHostRegistration {
 	return v.HostRegistrations
+}
+
+// HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
+// workdir and family, never the model.
+type HostSetupAssignmentFields struct {
+	Id        string                           `json:"id"`
+	HostId    string                           `json:"hostId"`
+	WorkerId  string                           `json:"workerId"`
+	Worker    *HostSetupAssignmentFieldsWorker `json:"worker"`
+	Workdir   string                           `json:"workdir"`
+	Family    string                           `json:"family"`
+	Model     *string                          `json:"model"`
+	CreatedAt string                           `json:"createdAt"`
+	UpdatedAt string                           `json:"updatedAt"`
+}
+
+// GetId returns HostSetupAssignmentFields.Id, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetId() string { return v.Id }
+
+// GetHostId returns HostSetupAssignmentFields.HostId, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetHostId() string { return v.HostId }
+
+// GetWorkerId returns HostSetupAssignmentFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorkerId() string { return v.WorkerId }
+
+// GetWorker returns HostSetupAssignmentFields.Worker, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorker() *HostSetupAssignmentFieldsWorker { return v.Worker }
+
+// GetWorkdir returns HostSetupAssignmentFields.Workdir, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetWorkdir() string { return v.Workdir }
+
+// GetFamily returns HostSetupAssignmentFields.Family, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetFamily() string { return v.Family }
+
+// GetModel returns HostSetupAssignmentFields.Model, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetModel() *string { return v.Model }
+
+// GetCreatedAt returns HostSetupAssignmentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns HostSetupAssignmentFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// HostSetupAssignmentFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostSetupAssignmentFieldsWorker struct {
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetName returns HostSetupAssignmentFieldsWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFieldsWorker) GetName() string { return v.Name }
+
+// #4222 — who states which workers a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). HOST: the host, at registration (the default, as before). SERVER: the platform's assignments; a registration is checked against them and a start uses them.
+type HostSetupSource string
+
+const (
+	HostSetupSourceHost   HostSetupSource = "HOST"
+	HostSetupSourceServer HostSetupSource = "SERVER"
+)
+
+var AllHostSetupSource = []HostSetupSource{
+	HostSetupSourceHost,
+	HostSetupSourceServer,
 }
 
 type IdentifyUserMethod string
@@ -74101,6 +74400,8 @@ type RegisterHostResponse struct {
 	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
 	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
 	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+	// #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+	// left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
 	RegisterHost *RegisterHostRegisterHostHostRegistration `json:"registerHost"`
 }
 
@@ -89272,6 +89573,24 @@ func (v *SubscribeTickerSubscribeWorkerSubscribeResultSubscriptionTickerSubscrip
 	return &retval, nil
 }
 
+// #4224 (S3 of #4229): the App's sweep switch.
+type SweepMode string
+
+const (
+	// The sweep also repairs what it can.
+	SweepModeApply SweepMode = "APPLY"
+	// The sweep compares desired state with what it sees and reports; it repairs nothing.
+	SweepModeObserve SweepMode = "OBSERVE"
+	// The sweep acts on no worker: every hostDesiredState row says SWEEP_OFF. The default.
+	SweepModeOff SweepMode = "OFF"
+)
+
+var AllSweepMode = []SweepMode{
+	SweepModeApply,
+	SweepModeObserve,
+	SweepModeOff,
+}
+
 // SyncMemoryResponse is returned by SyncMemory on success.
 type SyncMemoryResponse struct {
 	// Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
@@ -93890,6 +94209,498 @@ type TeamHeldWorkersResponse struct {
 func (v *TeamHeldWorkersResponse) GetHeldWorkers() *TeamHeldWorkersHeldWorkersWorkersPage {
 	return v.HeldWorkers
 }
+
+// TeamHostAssignAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
+// workdir and family, never the model.
+type TeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
+// workdir and family, never the model.
+type TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignInstructedResponse is returned by TeamHostAssignInstructed on success.
+type TeamHostAssignInstructedResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
+	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
+	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignInstructedResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedResponse) GetAssignHostWorker() *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostAssignResponse is returned by TeamHostAssign on success.
+type TeamHostAssignResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
+	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
+	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignResponse) GetAssignHostWorker() *TeamHostAssignAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostSetSourceInstructedResponse is returned by TeamHostSetSourceInstructed on success.
+type TeamHostSetSourceInstructedResponse struct {
+	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+	// (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+	// host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+	// a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+	// workdir and as the assigned family; with none, nothing is issued and the task waits
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+	SetHostSetupSource HostSetupSource `json:"setHostSetupSource"`
+}
+
+// GetSetHostSetupSource returns TeamHostSetSourceInstructedResponse.SetHostSetupSource, and is useful for accessing the field via an interface.
+func (v *TeamHostSetSourceInstructedResponse) GetSetHostSetupSource() HostSetupSource {
+	return v.SetHostSetupSource
+}
+
+// TeamHostSetSourceResponse is returned by TeamHostSetSource on success.
+type TeamHostSetSourceResponse struct {
+	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+	// (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+	// host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+	// a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+	// workdir and as the assigned family; with none, nothing is issued and the task waits
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+	SetHostSetupSource HostSetupSource `json:"setHostSetupSource"`
+}
+
+// GetSetHostSetupSource returns TeamHostSetSourceResponse.SetHostSetupSource, and is useful for accessing the field via an interface.
+func (v *TeamHostSetSourceResponse) GetSetHostSetupSource() HostSetupSource {
+	return v.SetHostSetupSource
+}
+
+// TeamHostSetupHostSetup includes the requested fields of the GraphQL type HostSetup.
+// The GraphQL type's documentation follows.
+//
+// #4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+type TeamHostSetupHostSetup struct {
+	Source      HostSetupSource                                          `json:"source"`
+	Assignments []*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment `json:"assignments"`
+}
+
+// GetSource returns TeamHostSetupHostSetup.Source, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetup) GetSource() HostSetupSource { return v.Source }
+
+// GetAssignments returns TeamHostSetupHostSetup.Assignments, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetup) GetAssignments() []*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment {
+	return v.Assignments
+}
+
+// TeamHostSetupHostSetupAssignmentsHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
+// workdir and family, never the model.
+type TeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+}
+
+// GetId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostSetupHostSetupAssignmentsHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostSetupHostSetupAssignmentsHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment
+
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostSetupResponse is returned by TeamHostSetup on success.
+type TeamHostSetupResponse struct {
+	// #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+	// the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+	// App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+	// own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+	// no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+	// FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	HostSetup *TeamHostSetupHostSetup `json:"hostSetup"`
+}
+
+// GetHostSetup returns TeamHostSetupResponse.HostSetup, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupResponse) GetHostSetup() *TeamHostSetupHostSetup { return v.HostSetup }
+
+// TeamHostUnassignInstructedResponse is returned by TeamHostUnassignInstructed on success.
+type TeamHostUnassignInstructedResponse struct {
+	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+	UnassignHostWorker bool `json:"unassignHostWorker"`
+}
+
+// GetUnassignHostWorker returns TeamHostUnassignInstructedResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() bool {
+	return v.UnassignHostWorker
+}
+
+// TeamHostUnassignResponse is returned by TeamHostUnassign on success.
+type TeamHostUnassignResponse struct {
+	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+	UnassignHostWorker bool `json:"unassignHostWorker"`
+}
+
+// GetUnassignHostWorker returns TeamHostUnassignResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostUnassignResponse) GetUnassignHostWorker() bool { return v.UnassignHostWorker }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -99107,6 +99918,21 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	retval.FinishedAt = v.AppRunFields.FinishedAt
 	return &retval, nil
 }
+
+type UnassignHostWorkerInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns UnassignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns UnassignHostWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetHostId() string { return v.HostId }
+
+// GetWorker returns UnassignHostWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *UnassignHostWorkerInput) GetWorker() string { return v.Worker }
 
 // UniformEdge includes the GraphQL fields of Edge requested by the fragment UniformEdge.
 type UniformEdge struct {
@@ -116959,6 +117785,18 @@ func (v *__HomeAssistantInstancesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __HomeAssistantInstancesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__HomeAssistantInstancesInput) GetOffset() *int { return v.Offset }
 
+// __HostDesiredStateInput is used internally by genqlient
+type __HostDesiredStateInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostDesiredStateInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostDesiredStateInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostDesiredStateInput) GetHostId() string { return v.HostId }
+
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
 	AppRef string               `json:"appRef"`
@@ -120458,6 +121296,90 @@ func (v *__TeamHeldWorkersInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamHeldWorkersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamHeldWorkersInput) GetOffset() *int { return v.Offset }
+
+// __TeamHostAssignInput is used internally by genqlient
+type __TeamHostAssignInput struct {
+	Input *AssignHostWorkerInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInput) GetInput() *AssignHostWorkerInput { return v.Input }
+
+// __TeamHostAssignInstructedInput is used internally by genqlient
+type __TeamHostAssignInstructedInput struct {
+	Input       *AssignHostWorkerInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput   `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInstructedInput) GetInput() *AssignHostWorkerInput { return v.Input }
+
+// GetInstruction returns __TeamHostAssignInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
+// __TeamHostSetSourceInput is used internally by genqlient
+type __TeamHostSetSourceInput struct {
+	AppRef string          `json:"appRef"`
+	Source HostSetupSource `json:"source"`
+}
+
+// GetAppRef returns __TeamHostSetSourceInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInput) GetAppRef() string { return v.AppRef }
+
+// GetSource returns __TeamHostSetSourceInput.Source, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInput) GetSource() HostSetupSource { return v.Source }
+
+// __TeamHostSetSourceInstructedInput is used internally by genqlient
+type __TeamHostSetSourceInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Source      HostSetupSource      `json:"source"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamHostSetSourceInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetSource returns __TeamHostSetSourceInstructedInput.Source, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetSource() HostSetupSource { return v.Source }
+
+// GetInstruction returns __TeamHostSetSourceInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetSourceInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// __TeamHostSetupInput is used internally by genqlient
+type __TeamHostSetupInput struct {
+	AppRef string  `json:"appRef"`
+	HostId *string `json:"hostId,omitempty"`
+}
+
+// GetAppRef returns __TeamHostSetupInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __TeamHostSetupInput.HostId, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupInput) GetHostId() *string { return v.HostId }
+
+// __TeamHostUnassignInput is used internally by genqlient
+type __TeamHostUnassignInput struct {
+	Input *UnassignHostWorkerInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamHostUnassignInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInput) GetInput() *UnassignHostWorkerInput { return v.Input }
+
+// __TeamHostUnassignInstructedInput is used internally by genqlient
+type __TeamHostUnassignInstructedInput struct {
+	Input       *UnassignHostWorkerInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput     `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamHostUnassignInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInstructedInput) GetInput() *UnassignHostWorkerInput { return v.Input }
+
+// GetInstruction returns __TeamHostUnassignInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostUnassignInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -143817,6 +144739,58 @@ func HomeAssistantInstances(
 	return data_, err_
 }
 
+// The query executed by HostDesiredState.
+const HostDesiredState_Operation = `
+query HostDesiredState ($appRef: String!, $hostId: String!) {
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			name
+			lifecycle
+			desired
+			reason
+			wouldBe
+			wouldBeReason
+			openSessionId
+			family
+			worktrees
+		}
+	}
+}
+`
+
+// hadron-cli#1389 server adapter over hadron-server#4242 (S3 of #4229): a
+// host's desired state, the source `team host up` reconciles against. A read:
+// it is sent without the worker session (no X-Hadron-Session).
+func HostDesiredState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostDesiredStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostDesiredState",
+		Query:  HostDesiredState_Operation,
+		Variables: &__HostDesiredStateInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostDesiredStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostOperations.
 const HostOperations_Operation = `
 query HostOperations ($appRef: String!, $hostId: String, $status: HostOperationStatus, $worker: String, $first: Int, $after: String) {
@@ -157967,6 +158941,290 @@ func TeamHeldWorkers(
 	}
 
 	data_ = &TeamHeldWorkersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostAssign.
+const TeamHostAssign_Operation = `
+mutation TeamHostAssign ($input: AssignHostWorkerInput!) {
+	assignHostWorker(input: $input) {
+		... HostSetupAssignmentFields
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostAssign(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+) (data_ *TeamHostAssignResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssign",
+		Query:  TeamHostAssign_Operation,
+		Variables: &__TeamHostAssignInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamHostAssignResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostAssignInstructed.
+const TeamHostAssignInstructed_Operation = `
+mutation TeamHostAssignInstructed ($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+	assignHostWorker(input: $input, instruction: $instruction) {
+		... HostSetupAssignmentFields
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostAssignInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostAssignInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssignInstructed",
+		Query:  TeamHostAssignInstructed_Operation,
+		Variables: &__TeamHostAssignInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostAssignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostSetSource.
+const TeamHostSetSource_Operation = `
+mutation TeamHostSetSource ($appRef: String!, $source: HostSetupSource!) {
+	setHostSetupSource(appRef: $appRef, source: $source)
+}
+`
+
+func TeamHostSetSource(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	source HostSetupSource,
+) (data_ *TeamHostSetSourceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetSource",
+		Query:  TeamHostSetSource_Operation,
+		Variables: &__TeamHostSetSourceInput{
+			AppRef: appRef,
+			Source: source,
+		},
+	}
+
+	data_ = &TeamHostSetSourceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostSetSourceInstructed.
+const TeamHostSetSourceInstructed_Operation = `
+mutation TeamHostSetSourceInstructed ($appRef: String!, $source: HostSetupSource!, $instruction: ActInstructionInput!) {
+	setHostSetupSource(appRef: $appRef, source: $source, instruction: $instruction)
+}
+`
+
+func TeamHostSetSourceInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	source HostSetupSource,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostSetSourceInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetSourceInstructed",
+		Query:  TeamHostSetSourceInstructed_Operation,
+		Variables: &__TeamHostSetSourceInstructedInput{
+			AppRef:      appRef,
+			Source:      source,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostSetSourceInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostSetup.
+const TeamHostSetup_Operation = `
+query TeamHostSetup ($appRef: String!, $hostId: String) {
+	hostSetup(appRef: $appRef, hostId: $hostId) {
+		source
+		assignments {
+			... HostSetupAssignmentFields
+		}
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostSetup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+) (data_ *TeamHostSetupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetup",
+		Query:  TeamHostSetup_Operation,
+		Variables: &__TeamHostSetupInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &TeamHostSetupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostUnassign.
+const TeamHostUnassign_Operation = `
+mutation TeamHostUnassign ($input: UnassignHostWorkerInput!) {
+	unassignHostWorker(input: $input)
+}
+`
+
+func TeamHostUnassign(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UnassignHostWorkerInput,
+) (data_ *TeamHostUnassignResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostUnassign",
+		Query:  TeamHostUnassign_Operation,
+		Variables: &__TeamHostUnassignInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamHostUnassignResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostUnassignInstructed.
+const TeamHostUnassignInstructed_Operation = `
+mutation TeamHostUnassignInstructed ($input: UnassignHostWorkerInput!, $instruction: ActInstructionInput!) {
+	unassignHostWorker(input: $input, instruction: $instruction)
+}
+`
+
+func TeamHostUnassignInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UnassignHostWorkerInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostUnassignInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostUnassignInstructed",
+		Query:  TeamHostUnassignInstructed_Operation,
+		Variables: &__TeamHostUnassignInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostUnassignInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
