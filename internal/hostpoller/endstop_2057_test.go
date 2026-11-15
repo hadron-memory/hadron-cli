@@ -280,3 +280,31 @@ func TestWorkerEndDeclinesALaunchedAgentWhenASessionIsUnknown(t *testing.T) {
 		}
 	}
 }
+
+// Jill's local P3 on da901deb: the production write of the launch's session is
+// pinned. A start that binds session sessA, then an end naming sessA stops the
+// agent; an end naming another session does not.
+func TestWorkerEndUsesTheSessionTheStartBound(t *testing.T) {
+	for name, tc := range map[string]struct {
+		end  string
+		want int
+	}{"the bound session": {"sessA", 1}, "another session": {"sessB", 0}} {
+		p, srv, host := testPoller(t)
+		withStop(p, StopOnEndAlways)
+		p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+		srv.startSession = "sessA"
+		srv.notDone["s1"] = 1
+		srv.batches = [][]Operation{{startOp()}}
+		step(t, p)
+		if host.agent == nil {
+			t.Fatal("no agent launched")
+		}
+		end := stopOp(IssuedByUser)
+		end.Args = map[string]any{"workerId": "id-iris", "sessionId": tc.end}
+		srv.batches = [][]Operation{{end}}
+		step(t, p)
+		if got := host.agent.terminations(); got != tc.want {
+			t.Errorf("%s: terminations = %d, want %d", name, got, tc.want)
+		}
+	}
+}
