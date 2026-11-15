@@ -1,6 +1,9 @@
 package healthsched
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -44,5 +47,36 @@ func TestSweepUnitInstallUninstallRetainsHealth2056(t *testing.T) {
 	}
 	if !health.ReadStatus().Installed {
 		t.Fatal("sweep uninstall removed health timer")
+	}
+}
+
+func TestSweepFailureLoggerUsesInjectedPath2137(t *testing.T) {
+	for _, found := range []bool{true, false} {
+		e := Env{Home: t.TempDir(), GOOS: "linux", Job: Sweep, Which: func(n string) (string, error) {
+			if n == "systemctl" {
+				return "/fake/systemctl", nil
+			}
+			if n == "logger" && found {
+				return "/private/test/logger", nil
+			}
+			return "", exec.ErrNotFound
+		}, Run: func([]string, string) ([]byte, error) { return nil, nil }}
+		_, err := e.Install(Spec{Bin: "/fake/hadron", Config: "/fake/host.yaml", Path: "/fake", Interval: time.Minute})
+		if !found {
+			if err == nil {
+				t.Fatal("missing logger accepted")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := os.ReadFile(filepath.Join(e.Home, ".config/systemd/user/hadron-team-sweep-failed.service"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), `"/private/test/logger"`) {
+			t.Fatalf("logger bypassed resolver: %s", body)
+		}
 	}
 }

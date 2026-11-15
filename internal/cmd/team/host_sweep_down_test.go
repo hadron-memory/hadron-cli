@@ -12,7 +12,6 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -89,8 +88,8 @@ func TestSweepDaemonDownReadsAndRecordsButIssuesNoOperation2056(t *testing.T) {
 	c.SilenceUsage = true
 	c.SetContext(api.WithSession(context.Background(), "must-not-send"))
 	c.SetArgs([]string{"--config", cfg})
-	if err := c.Execute(); exitcode.FromError(err) != exitcode.Error {
-		t.Fatalf("want ORCA_DOWN exit1, got %v", err)
+	if err := c.Execute(); err != nil {
+		t.Fatalf("expected outage must not trigger service restart, got %v", err)
 	}
 	var dto hostUpDTO
 	if err := json.Unmarshal(out.Bytes(), &dto); err != nil {
