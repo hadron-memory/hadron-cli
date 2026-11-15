@@ -175,3 +175,31 @@ func TestHostSetupShowsTheLauncherProfile2157(t *testing.T) {
 		}
 	}
 }
+
+// Jessie's note on #2157: the INSTRUCTED path must omit what was not given too, with
+// NO profile flag at all (the request a null would have corrupted: model, effort,
+// accountProfile and replace are all absent, not null).
+func TestHostAssignInstructedWithNoOptionalFlagSendsNoOptionalKey2157(t *testing.T) {
+	calls, _, err := runTeamTask(t, profileResponses2157(), assignProfileArgs2157("--instruction", "task:hrn:task:acme.com:eng:7")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := inputOf2157(t, calls, "TeamHostAssignInstructed")
+	for k, v := range in {
+		switch k {
+		case "appRef", "worker", "hostId", "workdir", "family":
+		default:
+			t.Errorf("the instructed input carries %q = %v although its flag was not given", k, v)
+		}
+	}
+	// The plain path, the same assertion, for the same four keys.
+	calls, _, err = runTeamTask(t, profileResponses2157(), assignProfileArgs2157()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"model", "effort", "accountProfile", "replace"} {
+		if v, ok := inputOf2157(t, calls, "TeamHostAssign")[k]; ok {
+			t.Errorf("the plain input carries %q = %v although its flag was not given", k, v)
+		}
+	}
+}
