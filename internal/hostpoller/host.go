@@ -25,6 +25,28 @@ type Host interface {
 	Occupied(ctx context.Context, path string) (string, error)
 	// Alive reports whether a process id is still running.
 	Alive(pid int) bool
+	// StopAgents stops every agent process working inside path that this
+	// host did not launch itself (hadron-cli#2057 C2a: an agent started from
+	// a terminal is not the poller's child), each with its process group:
+	// SIGTERM, a grace, then SIGKILL. One entry per agent found; none when
+	// no agent works there. An error means the host cannot tell (no /proc,
+	// no pidfd) and nothing was signalled. still is asked once per agent,
+	// after the agent is pinned and immediately before its first signal: it
+	// answers whether the stop is still authorized (the worktree's session
+	// binding has not moved on to another session). A false answer
+	// signals nothing and says so; a nil still always allows.
+	StopAgents(ctx context.Context, path string, still func() bool) ([]AgentStop, error)
+}
+
+// AgentStop is one agent process StopAgents handled.
+type AgentStop struct {
+	PID int
+	// Stopped is true only when everything that was signalled is observed
+	// gone.
+	Stopped bool
+	// Detail names the process (pid and a short redacted argv) and what
+	// happened to it.
+	Detail string
 }
 
 // WorktreeState is what worktree.create and worktree.remove decide on.

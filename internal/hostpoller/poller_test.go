@@ -28,6 +28,9 @@ type fakeServer struct {
 	endedOnce map[string]bool
 	// reportErr fails every Report (a report that does not reach the server).
 	reportErr error
+	// startSession, when set, is the sessionId a worker.start success carries
+	// back (the server's result for a bound start).
+	startSession string
 }
 
 func (s *fakeServer) Register(_ context.Context, r Registration) (RegisteredHost, error) {
@@ -72,7 +75,11 @@ func (s *fakeServer) Report(_ context.Context, id, outcome, worktree, reason str
 	if s.endedOnce[id] {
 		status = Succeeded // the server records a FAILED end on an ended session as success
 	}
-	return Operation{ID: id, Status: status, Result: map[string]any{"handoff": true}}, nil
+	res := map[string]any{"handoff": true}
+	if s.startSession != "" && outcome == Succeeded {
+		res = map[string]any{"sessionId": s.startSession}
+	}
+	return Operation{ID: id, Status: status, Result: res}, nil
 }
 
 func (s *fakeServer) finalReports() []report {
@@ -135,6 +142,27 @@ type fakeHost struct {
 	entered chan struct{}
 	// beforeLaunch, when set, runs as Launch is entered.
 	beforeLaunch func()
+	// stopped records every path StopAgents was asked about; stops/stopErr
+	// are its answers (#2057).
+	stopped []string
+	stops   []AgentStop
+	stopErr error
+	// betweenCheckAndStop runs inside StopAgents, before its still check:
+	// the window in which a replacement session can bind.
+	betweenCheckAndStop func()
+}
+
+func (h *fakeHost) StopAgents(_ context.Context, path string, still func() bool) ([]AgentStop, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.betweenCheckAndStop != nil {
+		h.betweenCheckAndStop()
+	}
+	if still != nil && !still() {
+		return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+	}
+	h.stopped = append(h.stopped, path)
+	return h.stops, h.stopErr
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {

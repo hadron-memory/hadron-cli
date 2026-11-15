@@ -46,7 +46,17 @@ type Operation struct {
 	FailureReason string
 	// LaunchGrant is set only on a collected worker.start.
 	LaunchGrant string
+	// IssuedBy is who issued it, as the server names it: PLATFORM, USER or
+	// WORKER ("" when the server did not say).
+	IssuedBy string
 }
+
+// The issuers the server names (HostOperationIssuer).
+const (
+	IssuedByPlatform = "PLATFORM"
+	IssuedByUser     = "USER"
+	IssuedByWorker   = "WORKER"
+)
 
 // Registration is one registerHost call: the whole worker list.
 type Registration struct {
@@ -152,6 +162,9 @@ type Poller struct {
 	emit   func(Event)
 	now    func() time.Time
 	sleep  func(context.Context, time.Duration) error
+	// bound reads the session binding of a worktree path (worker.end's stop
+	// identifies a process by its worktree and that binding, #2057).
+	bound func(path string) delivery.Binding
 	// BindPoll is how often a pending start asks whether its session bound.
 	BindPoll time.Duration
 	// Fatal, when set, decides that a failed check-in ends Run: a refused or
@@ -187,7 +200,11 @@ type Poller struct {
 	// taken for the agent (#1043). Absent when resets were not enabled at
 	// launch, or the observation failed; a reset then refuses.
 	agentIDs map[string]ProcessIdentity
-	wg       sync.WaitGroup
+	// agentSessions is the session each launched agent's start bound, as the
+	// server reported it (in memory only): worker.end stops a launched agent
+	// only for that session (#2057).
+	agentSessions map[string]string
+	wg            sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
@@ -215,6 +232,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		cfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
 		now:        time.Now,
 		sleep:      sleepCtx,
+		bound:      delivery.WorktreeBinding,
 		BindPoll:   5 * time.Second,
 		inFlight:   map[string]bool{},
 		tails:      map[string]chan struct{}{},
@@ -222,6 +240,8 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
 		agentIDs:   map[string]ProcessIdentity{},
+
+		agentSessions: map[string]string{},
 	}
 }
 
