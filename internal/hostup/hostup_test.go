@@ -304,3 +304,17 @@ func TestSetupProblemIsReportedBeforeTheHostIsRead(t *testing.T) {
 		t.Fatalf("observed %v; a worker with a setup problem must not be read", obs.asked)
 	}
 }
+
+// C5 routing ruling #108587: even a capable actuator may not launch here.
+func TestHostUpNeverExecutesRelaunch2060(t *testing.T) {
+	w := Worker{WorkerID: "w", Name: "W", Desired: Running, Reason: "LONG_LIVED", SessionID: "open", Setup: setup("w")}
+	a := &fakeActuator{supports: map[string]bool{ActionWorkerRelaunch: true}}
+	e := Engine{Source: fakeSource{snap: Snapshot{HostID: "h1", SweepMode: "APPLY", Workers: []Worker{w}}}, Observer: fakeObserver{"w": {Registered: true, WorktreeExists: true}}, Actuator: a}
+	result := run(t, e, Options{Apply: true})
+	if len(a.applied) != 0 || len(result.Applied) != 0 || len(result.Planned) != 0 {
+		t.Fatalf("host up launched outside poller: %+v calls=%v", result, a.applied)
+	}
+	if len(result.Skipped) != 1 || result.Skipped[0].Reason != "RELAUNCH_UNPROVEN" {
+		t.Fatalf("unknown poller did not refuse: %+v", result)
+	}
+}
