@@ -22,6 +22,8 @@ type drainRig struct {
 	clock   time.Time
 	step    time.Duration
 	reapOK  bool // the reap is ours (a stop did not get there first)
+	// afterCall runs inside the oracle, after the clock moved (a stop reaping the group).
+	afterCall func(call int)
 }
 
 func (r *drainRig) run(t *testing.T, a *execAgent, ticks int) {
@@ -32,9 +34,18 @@ func (r *drainRig) run(t *testing.T, a *execAgent, ticks int) {
 		ch <- time.Time{}
 	}
 	close(ch)
+	// The clock advances once per TICK (when the oracle is asked), so extra clock
+	// reads inside a tick never change the simulated elapsed time.
 	a.drainLoop(ch,
-		func(int, int) (bool, drainWhy) { r.calls++; return r.members(r.calls) },
-		func() time.Time { r.clock = r.clock.Add(r.step); return r.clock },
+		func(int, int) (bool, drainWhy) {
+			r.calls++
+			r.clock = r.clock.Add(r.step)
+			if r.afterCall != nil {
+				r.afterCall(r.calls)
+			}
+			return r.members(r.calls)
+		},
+		func() time.Time { return r.clock },
 		func() bool { r.reaps++; return r.reapOK })
 }
 
@@ -53,7 +64,7 @@ func kinds(es []Event) []string {
 func TestAHoldPastTheThresholdIsAnnouncedExactlyOnceAndNeverReaped2142(t *testing.T) {
 	r := newDrainRig(func(int) (bool, drainWhy) { return true, whyUnseenPid })
 	a := &execAgent{pid: 4242}
-	r.run(t, a, 60) // an hour of ticks at a minute each, uncertain throughout
+	r.run(t, a, 60) // 60 ticks, one simulated minute each: an hour, uncertain throughout
 	got := kinds(r.events)
 	if len(got) != 1 || got[0] != "drain-held/unseen-pid" {
 		t.Fatalf("events = %v, want exactly one drain-held with the code", got)
@@ -61,8 +72,13 @@ func TestAHoldPastTheThresholdIsAnnouncedExactlyOnceAndNeverReaped2142(t *testin
 	if r.reaps != 0 {
 		t.Fatalf("an announcement must never reap: %d reaps", r.reaps)
 	}
-	if e := r.events[0]; !regexp.MustCompile(`^pgid=4242 held=\d+m\d+s$|^pgid=4242 held=\d+h\d+m\d+s$`).MatchString(e.Detail) {
+	e := r.events[0]
+	if !regexp.MustCompile(`^pgid=4242 held=\d+m\d+s$|^pgid=4242 held=\d+h\d+m\d+s$`).MatchString(e.Detail) {
 		t.Fatalf("detail must be codes and numbers only: %q", e.Detail)
+	}
+	// The loop's one clock stamps both: the 10th tick is 10 simulated minutes in.
+	if want := time.Date(2026, 11, 15, 12, 10, 0, 0, time.UTC); !e.Time.Equal(want) || e.Detail != "pgid=4242 held=10m0s" {
+		t.Fatalf("event time %v detail %q: the timestamp and the held duration must come from the same reading (want %v, 10m0s)", e.Time, e.Detail, want)
 	}
 }
 
@@ -154,4 +170,38 @@ func TestExecHostGivesItsDrainSinkToTheAgentsItLaunches2142(t *testing.T) {
 		t.Fatal("the agent's sink must be the host's")
 	}
 	<-ea.watcherDone
+}
+
+// The other release path: the agent is ALREADY reaped when a tick arrives (a stop
+// got there between ticks), so the loop leaves through its early return, not
+// through the reap. It must still close an announced hold, exactly once, as
+// "released", and never call the reap.
+func TestAnAnnouncedHoldReapedBetweenTicksClosesAsReleasedWithoutReaping2142(t *testing.T) {
+	a := &execAgent{pid: 7}
+	r := newDrainRig(func(int) (bool, drainWhy) { return true, whyLiveMember })
+	r.afterCall = func(call int) {
+		if call == 12 { // after the hold was announced (tick 10), a stop reaps it
+			a.reaped.Store(true)
+		}
+	}
+	r.run(t, a, 60)
+	got := kinds(r.events)
+	if len(got) != 2 || got[0] != "drain-held/live-member" || got[1] != "drain-ended/released" {
+		t.Fatalf("events = %v, want held then ended(released) exactly once", got)
+	}
+	if r.reaps != 0 {
+		t.Fatalf("the early return must not reap: %d", r.reaps)
+	}
+	// Reaped before ever being announced: silent.
+	b := &execAgent{pid: 8}
+	r2 := newDrainRig(func(int) (bool, drainWhy) { return true, whyLiveMember })
+	r2.afterCall = func(call int) {
+		if call == 3 {
+			b.reaped.Store(true)
+		}
+	}
+	r2.run(t, b, 60)
+	if len(r2.events) != 0 {
+		t.Fatalf("a hold reaped before the threshold is silent: %v", kinds(r2.events))
+	}
 }

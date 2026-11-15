@@ -92,7 +92,7 @@ func TestTeamWorkerOnboardApplyQueueOnlyAndRetry837(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		switch q.Op {
-		case "HostOperations":
+		case "HostOperations", "HostOperationsWithReason":
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostOperations": map[string]any{"items": stored, "hasNextPage": false}}})
 		case "IssueHostOperation":
 			var in map[string]any
@@ -280,6 +280,7 @@ func TestTeamWorkerOnboardBroadRegisterRefused837(t *testing.T) {
 func TestTeamWorkerOnboardFailurePrintsPartialQueue837(t *testing.T) {
 	r, args, log, configPath := onboardFixture837(t, true)
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[{"id":"failed-op","hostId":"orca1","workerId":"wkr1","type":"worktree.create","args":{"workerId":"wkr1","repo":"hadron-memory/hadron-cli","baseBranch":"main","branchName":"iris/work","label":"iris"},"status":"FAILED"}],"hasNextPage":false}}}`
+	r["HostOperationsWithReason"] = r["HostOperations"]
 	before, _ := os.ReadFile(configPath)
 	calls, out, err := runTeamTask(t, r, append(args, "--apply")...)
 	if err == nil || !strings.Contains(err.Error(), "failed-op") {

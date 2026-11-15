@@ -447,12 +447,14 @@ var (
 	drainMembership = groupMembership
 )
 
-func (a *execAgent) emitDrain(kind, outcome string, held time.Duration) {
+// emitDrain sends one event stamped with the loop's own clock reading, so its
+// timestamp and its held duration come from the same instant.
+func (a *execAgent) emitDrain(kind, outcome string, at time.Time, held time.Duration) {
 	if a.onDrain == nil {
 		return
 	}
 	a.onDrain(Event{
-		Time: drainClock().UTC(), Kind: kind, Outcome: outcome,
+		Time: at.UTC(), Kind: kind, Outcome: outcome,
 		Detail: fmt.Sprintf("pgid=%d held=%s", a.pid, held.Round(time.Second)),
 	})
 }
@@ -465,15 +467,16 @@ func (a *execAgent) drainLoop(ticks <-chan time.Time, membership func(pgid, lead
 	for range ticks {
 		if a.reaped.Load() {
 			if opened {
-				a.emitDrain(drainEndedKind, "released", now().Sub(start))
+				at := now()
+				a.emitDrain(drainEndedKind, "released", at, at.Sub(start))
 			}
 			return
 		}
 		members, why := membership(a.pid, a.pid)
 		if members {
-			if !opened && now().Sub(start) >= drainHeldAfter {
+			if at := now(); !opened && at.Sub(start) >= drainHeldAfter {
 				opened = true
-				a.emitDrain(drainHeldKind, string(why), now().Sub(start))
+				a.emitDrain(drainHeldKind, string(why), at, at.Sub(start))
 			}
 			continue
 		}
@@ -482,7 +485,8 @@ func (a *execAgent) drainLoop(ticks <-chan time.Time, membership func(pgid, lead
 			outcome = "released"
 		}
 		if opened {
-			a.emitDrain(drainEndedKind, outcome, now().Sub(start))
+			at := now()
+			a.emitDrain(drainEndedKind, outcome, at, at.Sub(start))
 		}
 		return
 	}

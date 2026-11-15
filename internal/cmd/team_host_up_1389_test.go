@@ -159,7 +159,7 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostRegistrations": []any{map[string]any{
 				"hostId": "orca1", "label": "Orca box 1", "pollIntervalSeconds": 30, "registeredAt": "2026-10-14T00:00:00Z",
 				"refreshedAt": "2026-10-14T01:00:00Z", "live": true, "workers": workers}}}})
-		case "HostOperations":
+		case "HostOperations", "HostOperationsWithReason":
 			var worker string
 			_ = json.Unmarshal(q.Vars["worker"], &worker)
 			items := []map[string]any{}
