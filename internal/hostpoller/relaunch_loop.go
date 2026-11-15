@@ -19,6 +19,7 @@ import (
 // use the host key; only the poller may invoke this path. Ready proves the
 // daemon is reachable before any launch budget is spent.
 type RelaunchDependencies struct {
+	ReportSweep    func(context.Context, SweepReport) error
 	PostLaunchWait time.Duration
 	Source         RelaunchSource
 	Ready          func(context.Context) error
