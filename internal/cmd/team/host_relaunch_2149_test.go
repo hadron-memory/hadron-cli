@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+
+	"github.com/vektah/gqlparser/v2"
+	"github.com/vektah/gqlparser/v2/ast"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +22,15 @@ import (
 // The old provider rejects the new enum before executing the mutation. It
 // must leave the failure local, never retry with a borrowed reason or success.
 func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
+	snapshot, err := os.ReadFile("../../../schema/schema.graphql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldSDL := strings.ReplaceAll(strings.ReplaceAll(string(snapshot), "\n  SETUP_FAILED\n", "\n"), "\n  VERIFY_FAILED\n", "\n")
+	oldSchema, err := gqlparser.LoadSchema(&ast.Source{Name: "old-provider", Input: oldSDL})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, reason := range []string{"SETUP_FAILED", "VERIFY_FAILED"} {
 		t.Run(reason, func(t *testing.T) {
 			reads, writes := 0, 0
@@ -27,6 +40,7 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 				}
 				var req struct {
 					OperationName string
+					Query         string
 					Variables     map[string]json.RawMessage
 				}
 				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -39,21 +53,30 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 					_, _ = w.Write([]byte(`{"data":{"myApp":{"id":"app"},"hostDesiredState":{"hostId":"host","sweepMode":"APPLY","workers":[{"workerId":"worker","family":"claude","reason":"LONG_LIVED","desired":"RUNNING","openSessionId":"session","worktrees":["repo/worker"]}]}}}`))
 					return
 				}
-				if req.OperationName != "HealthSweepSetTerminals" {
-					t.Errorf("unexpected operation %s", req.OperationName)
+				wantOp := "HostRelaunchSetupFailure"
+				if reason == "VERIFY_FAILED" {
+					wantOp = "HostRelaunchVerifyFailure"
+				}
+				if req.OperationName != wantOp {
+					t.Errorf("operation=%s want%s", req.OperationName, wantOp)
 					return
 				}
 				writes++
-				var input struct {
-					Reports []struct{ Repair, RepairReason string }
+				if !strings.Contains(req.Query, "repairReason: "+reason) {
+					t.Errorf("new enum must be static for schema-skew detection: %s", req.Query)
 				}
-				if err := json.Unmarshal(req.Variables["input"], &input); err != nil {
-					t.Error(err)
-					return
+				_, validationErrors := gqlparser.LoadQuery(oldSchema, req.Query)
+				if len(validationErrors) == 0 || !strings.Contains(validationErrors.Error(), reason) {
+					t.Errorf("old SDL did not reject static new enum: %v", validationErrors)
 				}
-				if len(input.Reports) != 1 || input.Reports[0].Repair != "RELAUNCH_FAILED" || input.Reports[0].RepairReason != reason {
-					t.Errorf("wrong failure report %+v", input)
+				var worker string
+				if err := json.Unmarshal(req.Variables["worker"], &worker); err != nil || worker != "worker" {
+					t.Errorf("worker=%q error=%v", worker, err)
 				}
+				if string(req.Variables["attempt"]) != "1" {
+					t.Error("candidate attempt was lost")
+				}
+
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": fmt.Sprintf("Value %q does not exist in WorkerTerminalRepairReason enum.", reason), "extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}})
 			}))
