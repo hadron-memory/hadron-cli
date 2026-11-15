@@ -287,13 +287,22 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if err != nil {
 		return fail("pid %d could not be pinned: %v", pid, err)
 	}
-	gone := func() bool {
+	// alive is a positive answer or an error: only a successful liveness
+	// check lets the reads count (cli#2088 blind delta P2). "Not seen gone"
+	// is not "alive".
+	alive := func() (bool, error) {
 		t0, terr := l.Proc.Now()
 		if terr != nil {
-			return false
+			return false, terr
 		}
 		_, serr := h.SignalWithin(syscall.Signal(0), t0, time.Hour, l.Proc.Now)
-		return errors.Is(serr, syscall.ESRCH)
+		if serr == nil {
+			return true, nil
+		}
+		if errors.Is(serr, syscall.ESRCH) {
+			return false, nil
+		}
+		return false, serr
 	}
 	// The identity reads go by number through /proc, which a pidfd does not
 	// bind: if the pinned process exited during them, its pid could have been
@@ -310,7 +319,12 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if l.afterReads != nil {
 		l.afterReads(pid)
 	}
-	if gone() {
+	live, lerr := alive()
+	if lerr != nil {
+		h.Close()
+		return fail("pid %d's liveness could not be established after its checks: %v", pid, lerr)
+	}
+	if !live {
 		h.Close()
 		return exited()
 	}

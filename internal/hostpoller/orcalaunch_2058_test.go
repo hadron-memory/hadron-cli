@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -697,5 +698,90 @@ func TestOrcaUnclosedStopHoldsTheAuthorizationThroughTheClose2088(t *testing.T) 
 	})
 	if !stopped || strings.Join(order, ",") != "authorize,close,release" {
 		t.Fatalf("stop order %v (stopped=%v), want authorize,close,release", order, stopped)
+	}
+}
+
+// failingProc observes for real, then answers liveness with an error once
+// armed: the reads were made, but whether the process was still the one read
+// is unknown.
+type failingProc struct {
+	LinuxProcessControl
+	mu       sync.Mutex
+	armed    bool
+	clockErr bool
+}
+
+type failingHandle struct {
+	ProcessHandle
+	p *failingProc
+}
+
+func (h failingHandle) SignalWithin(sig syscall.Signal, t0, lease time.Duration, now func() (time.Duration, error)) (time.Duration, error) {
+	h.p.mu.Lock()
+	armed := h.p.armed && !h.p.clockErr
+	h.p.mu.Unlock()
+	if armed {
+		return 0, syscall.EPERM
+	}
+	return h.ProcessHandle.SignalWithin(sig, t0, lease, now)
+}
+
+func (p *failingProc) Now() (time.Duration, error) {
+	p.mu.Lock()
+	armed := p.armed && p.clockErr
+	p.mu.Unlock()
+	if armed {
+		return 0, ErrClock
+	}
+	return p.LinuxProcessControl.Now()
+}
+
+func (p *failingProc) Observe(pid int) (ProcessHandle, error) {
+	h, err := p.LinuxProcessControl.Observe(pid)
+	if err != nil {
+		return nil, err
+	}
+	return failingHandle{h, p}, nil
+}
+
+// cli#2088 blind delta P2 (Julius, 6e2c5dad): a liveness check that errs after
+// the identity reads proves nothing; the launch is refused and the terminal
+// closed, for a clock error and for a signal-check error alike.
+func TestOrcaLaunchRefusesWhenLivenessCannotBeEstablished2088(t *testing.T) {
+	for name, clockErr := range map[string]bool{"clock": true, "signal check": false} {
+		t.Run(name, func(t *testing.T) {
+			wt, tools := t.TempDir(), t.TempDir()
+			agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+			f := newFakeOrca(t)
+			proc := &failingProc{clockErr: clockErr}
+			l := orcaLauncherFor(t, f)
+			l.Proc = proc
+			l.afterReads = func(int) { proc.mu.Lock(); proc.armed = true; proc.mu.Unlock() }
+			a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+			if err == nil || a != nil || !strings.Contains(err.Error(), "liveness could not be established") || len(f.closed) != 1 {
+				t.Fatalf("agent=%v err=%v closed=%v", a, err, f.closed)
+			}
+		})
+	}
+}
+
+// Julius's delta P3: a marker number that another process holds by the pin
+// (the agent replaced before it was pinned) pins that other process, whose
+// parentage is then read after the pin: not the terminal's, so refused and
+// closed, never a running agent.
+func TestOrcaLaunchRefusesAReplacementPinnedInsteadOfTheAgent2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	other := exec.Command("sleep", "60")
+	other.Dir = wt // even in the worktree, and alive
+	if err := other.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = other.Process.Kill(); _, _ = other.Process.Wait() })
+	f := newFakeOrca(t)
+	f.markerPID = strconv.Itoa(other.Process.Pid)
+	a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || a != nil || !strings.Contains(err.Error(), "not the one Orca's terminal runs") || len(f.closed) != 1 {
+		t.Fatalf("a replacement pinned in the agent's place: agent=%v err=%v closed=%v", a, err, f.closed)
 	}
 }
