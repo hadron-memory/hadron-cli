@@ -26,7 +26,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		urlPrefix                string
 	)
 	cmd := &cobra.Command{
-		Use:   "create --name <name> --scope <user|org> [--owner <ref>] --kind <generic|webfetch-auth>",
+		Use:   "create --name <name> --scope <user|org|app> [--owner <ref>] --kind <generic|webfetch-auth>",
 		Short: "Create an owner-scoped encrypted secret",
 		Long: `Create an encrypted secret and print its id. The value is never taken as an
 argument:
@@ -40,10 +40,13 @@ with "-". It must be unique within the owner: a second secret with the same
 name exits 2; delete the old one first.
 
 --scope user makes it yours (--owner may be left out). --scope org needs
---owner <org id or URN> and an org ADMIN or OWNER role (else exit 8). See
+--owner <org id or URN> and an org ADMIN or OWNER role (else exit 8).
+--scope app needs --owner <app id or URN>; the server decides who may create
+it, and the value is stored as its first version. See
 hadron secret for who can then use it.
 
---kind generic stores any string, which the agent's model can read. Add
+--kind generic stores any string, which the agent's model can read (for a
+user or org secret; a run never resolves an App secret). Add
 optional metadata with --meta key=value (repeatable) or --meta-json '<object>',
 not both.
 
@@ -84,7 +87,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			}
 			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.CreateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
@@ -96,7 +99,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "secret name (lowercase [a-z0-9-], max 64, not starting with -; required)")
-	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user or org (required)")
+	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user, org or app (required)")
 	cmd.Flags().StringVar(&owner, "owner", "", "owner ID or URN (required except --scope user, where empty means caller)")
 	cmd.Flags().StringVar(&kind, "kind", "", "secret kind: generic or webfetch-auth (required)")
 	cmd.Flags().StringVar(&valueFile, "value-file", "", `read secret material from "-" stdin, "@file", or file path`)

@@ -132,6 +132,14 @@ const (
 	HoldNotSubmitted    = "not-submitted"
 	HoldTwoAgents       = "two-agents"
 	HoldBindingMismatch = "binding-mismatch"
+
+	// A plain-directory worker's terminal record (cli#1989): the handle its
+	// own terminal wrote to <dir>/.hadron-team/terminal.json, and the three
+	// checks that stand between that file and typed input.
+	HoldNoTerminalRecord       = "no-terminal-record"       // the file is missing or unreadable
+	HoldTerminalStale          = "terminal-stale"           // check (a): not connected, writable and an agent
+	HoldTerminalClaimed        = "terminal-claimed"         // check (b): another worker's record names it too
+	HoldTerminalBoundElsewhere = "terminal-bound-elsewhere" // check (c): its worktree is another worker's
 )
 
 // ErrHoldUnavailable is Hold's answer when the server has no hold report

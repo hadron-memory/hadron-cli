@@ -122,32 +122,16 @@ func cleanSkillLintPlan(raw, hostKey string) string {
 	return skillLintPlan(entries...)
 }
 
-// withEmptyLintPlanIfOmitted returns a copy of responses with an explicit empty
-// server lint plan injected when the fixture names none. SkillPlan fixture keys
-// retain their historical spelling and are routed to the lint-only operation;
-// status fixtures using the same helper server are unaffected. This is
-// deliberately narrow, not a generic fake-server fallback.
+// withEmptyLintPlanIfOmitted returns a COPY of responses with the lint-only
+// plan defaulted: a fixture that names no SkillLintPlan (or per-host
+// SkillLintPlan:<host>) key gets clean, declaration-coverage-only plans, so
+// the test says explicitly which fixtures inject an empty plan. Keys are the
+// real operation name; status fixtures using the same server are unaffected.
+// This is deliberately narrow, not a generic fake-server fallback.
 func withEmptyLintPlanIfOmitted(responses map[string]string) map[string]string {
 	out := make(map[string]string, len(responses)+1)
 	for k, v := range responses {
 		out[k] = v
-	}
-	if v, ok := out["SkillPlan"]; ok {
-		delete(out, "SkillPlan")
-		if _, exists := out["SkillLintPlan"]; !exists {
-			out["SkillLintPlan"] = v
-		}
-	}
-	for _, h := range skilldoc.Hosts {
-		host := h.Key
-		oldKey := "SkillPlan:" + host
-		if v, ok := out[oldKey]; ok {
-			delete(out, oldKey)
-			newKey := "SkillLintPlan:" + host
-			if _, exists := out[newKey]; !exists {
-				out[newKey] = v
-			}
-		}
 	}
 	if _, ok := out["SkillLintPlan"]; !ok {
 		raw := out["NodeBatch"]
@@ -155,10 +139,9 @@ func withEmptyLintPlanIfOmitted(responses map[string]string) map[string]string {
 			raw = out["NodeBatchContent"]
 		}
 		for _, h := range skilldoc.Hosts {
-			host := h.Key
-			key := "SkillLintPlan:" + host
+			key := "SkillLintPlan:" + h.Key
 			if _, exists := out[key]; !exists {
-				out[key] = cleanSkillLintPlan(raw, host)
+				out[key] = cleanSkillLintPlan(raw, h.Key)
 			}
 		}
 		out["SkillLintPlan"] = emptyIncludeLintPlan
@@ -212,7 +195,7 @@ func TestSkillLintReportsFindingsAndExitsConflict(t *testing.T) {
 			skillLintFinding("urn:n1", "mem1", "skill-name-collision", "error", "server collision")),
 		skillLintEntry("n2", skillLintFinding("urn:n2", "mem1", "skill-name-collision", "error", "server collision")))
 	out, err := runSkillLint(t, map[string]string{
-		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(bad, fork), "SkillPlan": plan,
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(bad, fork), "SkillLintPlan": plan,
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("exit = %d, want %d (Conflict); err=%v\n%s", got, exitcode.Conflict, err, out)
@@ -237,7 +220,7 @@ func TestSkillLintStrictPromotesWarnings(t *testing.T) {
 		`{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}`, `"# A"`)
 	responses := map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem1", "skill-legacy-key", "warning", "server legacy key"))),
+		"SkillLintPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem1", "skill-legacy-key", "warning", "server legacy key"))),
 	}
 	if _, err := runSkillLint(t, responses, "-m", "hrn:mem:hadronmemory.com:core"); exitCodeFor(err) != exitcode.OK {
 		t.Fatalf("warning-only corpus should exit 0, got %v", err)
@@ -260,7 +243,7 @@ func TestSkillLintNotEnabledDeclarationIsStillLinted(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when rotating.","enable":false}}}`, `"# Rotate"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemNoPrefix, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem2", "skill-name-invalid", "error", "server invalid name"))),
+		"SkillLintPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem2", "skill-name-invalid", "error", "server invalid name"))),
 	}, "-m", "hrn:mem:acme.com:ops", "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
 		t.Fatalf("a not-enabled but broken declaration should still exit 5, got %v\n%s", err, out)
@@ -518,7 +501,7 @@ func TestSkillLintMalformedDeclarationIsReported(t *testing.T) {
 	bad := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true, `{"skill":"yes"}`, `"# A"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(bad),
-		"SkillPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem1", "skill-declaration-malformed", "error", "server malformed declaration"))),
+		"SkillLintPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("urn:n1", "mem1", "skill-declaration-malformed", "error", "server malformed declaration"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
 		t.Fatalf("malformed declaration should exit 5, got %v\n%s", err, out)
@@ -609,7 +592,7 @@ func TestSkillLintCodexOverLimitIsReported_MatrixP11(t *testing.T) {
 	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", true, propsJSON(t, props), `"# Demo\n\nSteps."`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan:codexSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-description-too-long", "error", "Codex description cap"))),
+		"SkillLintPlan:codexSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-description-too-long", "error", "Codex description cap"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("exit = %d, want %d (Conflict): the over-limit Codex description must be an error\n%s", got, exitcode.Conflict, out)
@@ -647,7 +630,7 @@ func TestSkillLintCapsAreIndependentPerHost(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"hadron-demo","description":"Use when demoing."},"codexSkill":{"name":"`+strings.Repeat("a", 65)+`","description":"Use when demoing."}}}`, `"# Demo"`)
 	out, _ := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan:codexSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-name-invalid", "error", "Codex name cap"))),
+		"SkillLintPlan:codexSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-name-invalid", "error", "Codex name cap"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo codexSkill"}
 	if got := rowsFor(lintRows(t, out), "skill-name-invalid"); !reflect.DeepEqual(got, want) {
@@ -660,7 +643,7 @@ func TestSkillLintLegacyAliasWarnsForClaudeOnly(t *testing.T) {
 		`{"skill":{"name":"hadron-demo","description":"Use when demoing."},"exports":{"codexSkill":{"name":"hadron-demo","description":"Use when demoing."}}}`, `"# Demo"`)
 	out, _ := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan:claudeSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-legacy-key", "warning", "Claude legacy key"))),
+		"SkillLintPlan:claudeSkill": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-legacy-key", "warning", "Claude legacy key"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo claudeSkill"}
 	if got := rowsFor(lintRows(t, out), "skill-legacy-key"); !reflect.DeepEqual(got, want) {
@@ -675,7 +658,7 @@ func TestSkillLintNodeLevelFindingIsOneRowNamingEveryHost(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"hadron-demo","description":"Use when demoing."},"codexSkill":{"name":"hadron-demo","description":"Use when demoing."}}}`, `"# Demo"`)
 	out, _ := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-not-runnable", "error", "server runnable check"))),
+		"SkillLintPlan": skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:demo", "mem1", "skill-not-runnable", "error", "server runnable check"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo claudeSkill,codexSkill"}
 	if got := rowsFor(lintRows(t, out), "skill-not-runnable"); !reflect.DeepEqual(got, want) {
@@ -692,7 +675,7 @@ func TestSkillLintCollisionsArePerHost(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"hadron-b","description":"Use when b."},"codexSkill":{"name":"hadron-x","description":"Use when x.","enable":true}}}`, `"# B"`)
 	out, _ := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(a, b),
-		"SkillPlan:codexSkill": skillLintPlan(
+		"SkillLintPlan:codexSkill": skillLintPlan(
 			skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:a", "mem1", "skill-name-collision", "error", "Codex collision")),
 			skillLintEntry("n2", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:b", "mem1", "skill-name-collision", "error", "Codex collision"))),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
@@ -711,7 +694,7 @@ func TestSkillLintReportsAnUnknownHostKeyOnceWithNoHost(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true},"codex":"yes"}}`, `"# A"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-		"SkillPlan": skillLintUnknownPlan("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:a", "mem1", "skill-unknown-host-key", "warning", "server unknown host")),
+		"SkillLintPlan": skillLintUnknownPlan("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:a", "mem1", "skill-unknown-host-key", "warning", "server unknown host")),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	if err != nil {
 		t.Fatalf("a warning alone must not fail the run: %v\n%s", err, out)
@@ -737,7 +720,7 @@ func TestSkillLintReportsServerOnlyHostAsNotJudgedWarning(t *testing.T) {
 		`{"exports":{"futureHost":{"name":"hadron-b","description":"Use when b."}}}`, `"# B"`)
 	plan := skillLintPlan(skillLintEntry("n1", skillLintFinding("hrn:node:hadronmemory.com:core:tasks:a", "mem1", "skill-content-has-template", "warning", "known warning")))
 	out, err := runSkillLint(t, map[string]string{
-		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(known, future), "SkillPlan": plan,
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(known, future), "SkillLintPlan": plan,
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
 	if exitCodeFor(err) != exitcode.OK {
 		t.Fatalf("a server-only host must not block lint, got %v\n%s", err, out)
@@ -765,7 +748,7 @@ func TestSkillLintHumanSummaryCountsMalformedAndUnknownDeclarations(t *testing.T
 		t.Run(name, func(t *testing.T) {
 			n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true, fixture.properties, `"# A"`)
 			out, _ := runSkillLint(t, map[string]string{
-				"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n), "SkillPlan": fixture.plan,
+				"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n), "SkillLintPlan": fixture.plan,
 			}, "-m", "hrn:mem:hadronmemory.com:core")
 			if !strings.Contains(out, "1 finding(s) across 1 skill-declaring node(s)") {
 				t.Fatalf("summary undercounted the declaration subject:\n%s", out)
@@ -781,7 +764,7 @@ func TestSkillLintReportsServerVerdictInsteadOfLocal(t *testing.T) {
 		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when a."}}}`, `"# A"`)
 	plan := `{"data":{"skillPlan":{"scanned":1,"judged":1,"entries":[{"nodeId":"` + nodeID + `","urn":"hrn:node:hadronmemory.com:core:tasks:a","findings":[{"rule":"skill-server-verdict","severity":"error","message":"the server judged this declaration","urn":"hrn:node:hadronmemory.com:core:tasks:a","memory":"hrn:mem:hadronmemory.com:core"}]}],"unrecognized":[]}}}`
 	out, err := runSkillLint(t, map[string]string{
-		"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillPlan": plan,
+		"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillLintPlan": plan,
 	}, "--node", nodeID, "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
 		t.Fatalf("server error finding should exit 5, got %v\n%s", err, out)
@@ -802,7 +785,7 @@ func TestSkillLintKeepsTextJSONGroupingAndIncludeFindings(t *testing.T) {
 		`{"rule":"skill-server-verdict","severity":"error","message":"server judgment","urn":"hrn:node:hadronmemory.com:core:tasks:a","memory":"hrn:mem:hadronmemory.com:core"},` +
 		`{"rule":"skill-include-broken","severity":"warning","message":"include judgment","urn":"hrn:node:hadronmemory.com:core:tasks:a","memory":"hrn:mem:hadronmemory.com:core"}]}],` +
 		`"unrecognized":[{"nodeId":"` + nodeID + `","findings":[{"rule":"skill-unknown-host-key","severity":"warning","message":"unknown host","urn":"hrn:node:hadronmemory.com:core:tasks:a","memory":"hrn:mem:hadronmemory.com:core"}]}]}}}`
-	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillPlan": plan}
+	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillLintPlan": plan}
 	out, err := runSkillLint(t, responses, "--node", nodeID, "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
 		t.Fatalf("server error finding should exit 5, got %v\n%s", err, out)
@@ -836,7 +819,7 @@ func TestSkillLintPlanRefusalDoesNotFallBackToLocal(t *testing.T) {
 	n := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when a."}}}`, `"# A"`)
 	out, err := runSkillLint(t, map[string]string{
-		"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillPlan": gqlErrorJSON("FORBIDDEN"),
+		"GetMemory": skillMemOrg, "NodeBatch": batchOf(n), "SkillLintPlan": gqlErrorJSON("FORBIDDEN"),
 	}, "--node", nodeID, "--json")
 	if exitCodeFor(err) != exitcode.Forbidden {
 		t.Fatalf("skillPlan refusal exit = %d, want %d; err=%v", exitCodeFor(err), exitcode.Forbidden, err)

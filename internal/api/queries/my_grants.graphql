@@ -1,0 +1,12 @@
+# Signed-in person's own grants across Apps, never a worker-bound read.
+# No signature records, signer identity or manager-only departure/revoker fields.
+query MyGrants($limit: Int!, $offset: Int!) {
+  myGrants(limit: $limit, offset: $offset) {
+    total
+    items {
+      id appId action values holderKind holderId
+      startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows
+      signatureStatus { state integrityProblems }
+    }
+  }
+}

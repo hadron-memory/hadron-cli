@@ -28,14 +28,16 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <id|urn> [--value-file <src>] [metadata flags]",
 		Short: "Replace a secret's value or metadata (rotation)",
 		Long: `Replace a secret's value, its metadata, or both. Whatever you do not pass is
-kept. This overwrites in place: there are no versions, and the old value cannot
-be recovered. The new value is never printed.
+kept. For an org or user secret a new value overwrites in place and the old
+one cannot be recovered; an App secret keeps every value as a version. The new
+value is never printed. To store a value, prefer hadron secret set: --value-file
+here is the same operation, kept so existing scripts work.
 
 A secret's name, kind and owner cannot change. To rename one, create a new
 secret and delete the old one (runs and flows find a secret by its name).
 
 Name it by the id from hadron secret list, or by URN:
-hrn:secret:<org or user handle>:<name>. You can update your own user secrets,
+hrn:secret:<org or user handle>:<name> (an App secret by its id). You can update your own user secrets,
 and an org's if you are its ADMIN or OWNER (else exit 8). A secret you cannot
 see exits 4.
 
@@ -112,23 +114,7 @@ the same fields as hadron secret get.`,
 
 			var value *json.RawMessage
 			if changed("value-file") {
-				source := valueFile
-				// "-" on a terminal would echo what is typed: prompt without
-				// echo instead (ReadSecretInput's no-source branch).
-				if source == "-" && f.IOStreams.IsInputTerminal() {
-					source = ""
-				}
-				var v json.RawMessage
-				var err error
-				if changed("type") {
-					v, err = webFetchAuthValue(f, source, authType, username, headerName)
-				} else {
-					var material string
-					material, err = readSecretMaterial(f.IOStreams, source, "New secret value")
-					if err == nil {
-						v, err = jsonStringValue(material)
-					}
-				}
+				v, err := readNewValue(f, valueFile, changed("type"), authType, username, headerName)
 				if err != nil {
 					return err
 				}
@@ -141,7 +127,7 @@ the same fields as hadron secret get.`,
 			}
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
@@ -160,4 +146,28 @@ the same fields as hadron secret get.`,
 	cmd.Flags().StringVar(&headerName, "header-name", "", "webfetch-auth header name (with --type header)")
 	cmd.Flags().StringVar(&urlPrefix, "url-prefix", "", "replace the webfetch-auth URL prefix")
 	return cmd
+}
+
+// readNewValue reads a secret's new value for set and update --value-file
+// (cor:sec:010:01: file or stdin, never argv) and shapes it: the string read,
+// or a webfetch-auth object when --type is given. One path for both commands,
+// so the two cannot drift (cli#2013).
+func readNewValue(f *cmdutil.Factory, valueFile string, typed bool, authType, username, headerName string) (json.RawMessage, error) {
+	if strings.TrimSpace(valueFile) == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--value-file is empty (an unset variable?); pass -, @path or a path")
+	}
+	source := valueFile
+	// "-" on a terminal would echo what is typed: prompt without echo
+	// instead (ReadSecretInput's no-source branch).
+	if source == "-" && f.IOStreams.IsInputTerminal() {
+		source = ""
+	}
+	if typed {
+		return webFetchAuthValue(f, source, authType, username, headerName)
+	}
+	material, err := readSecretMaterial(f.IOStreams, source, "New secret value")
+	if err != nil {
+		return nil, err
+	}
+	return jsonStringValue(material)
 }

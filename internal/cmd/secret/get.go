@@ -21,14 +21,15 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 The value is never returned or printed; there is no way to read it back.
 
 Name it by the id from hadron secret list, or by URN:
-hrn:secret:<org or user handle>:<name>.
+hrn:secret:<org or user handle>:<name> (an App secret by its id).
 
 You can read your own user secrets and the secrets of an org you belong to.
 A secret that does not exist and one you may not see both exit 4, with the
 same message, so the answer says nothing about whether it exists.
 
 --json gives id, ownerType, ownerId, name, kind, metadata, createdAt,
-createdBy, updatedAt and updatedBy.`,
+createdBy, updatedAt, updatedBy, currentVersion (null for org and user
+secrets) and protected.`,
 		Example: `  hadron secret get hrn:secret:alice:github-token
   hadron secret get 01a18cf643247d0fa261f320ec74d878 --json`,
 		Args: cobra.ExactArgs(1),
@@ -39,7 +40,7 @@ createdBy, updatedAt and updatedBy.`,
 			}
 			resp, err := gen.Secret(cmd.Context(), client, args[0])
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.Secret == nil {
 				return exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
@@ -56,11 +57,13 @@ createdBy, updatedAt and updatedBy.`,
 					{"kind", dto.Kind},
 					{"owner", dto.OwnerType + ":" + dto.OwnerID},
 					{"metadata", meta},
+					{"version", versionCell(dto.CurrentVersion)},
+					{"protected", fmt.Sprint(dto.Protected)},
 					{"created", dto.CreatedAt + " by " + output.Dash(dto.CreatedBy)},
 					{"updated", dto.UpdatedAt + " by " + output.Dash(dto.UpdatedBy)},
 				}
 				for _, r := range rows {
-					if _, err := fmt.Fprintf(w, "%-9s %s\n", r[0]+":", output.SafeCell(r[1])); err != nil {
+					if _, err := fmt.Fprintf(w, "%-11s %s\n", r[0]+":", output.SafeCell(r[1])); err != nil {
 						return err
 					}
 				}

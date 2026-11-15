@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -241,9 +242,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		// issued after the event — is authoritative.
 		askExpired := exited(agent)
 		askPastDeadline := !p.now().Before(deadline)
-		_, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
+		bound, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
 		switch {
 		case err == nil:
+			if sid, ok := bound.Result["sessionId"].(string); ok && sid != "" {
+				p.mu.Lock()
+				p.agentSessions[op.WorkerID] = sid
+				p.mu.Unlock()
+			}
 			// The server recorded the bind: the agent IS the start, and
 			// nothing about it is stopped or forgotten.
 			if exited(agent) {
@@ -364,10 +370,17 @@ func (p *Poller) stopLaunchedAgent(op Operation, agent Agent) {
 		p.log("stop-unconfirmed", op.ID, op.Type, "", "the launched agent could not be confirmed stopped; its records are kept")
 		return
 	}
+	p.forgetAgent(op)
+}
+
+// forgetAgent drops every record of a worker's launched agent, in memory and
+// in the state file. Only ever after a CONFIRMED stop.
+func (p *Poller) forgetAgent(op Operation) {
 	p.mu.Lock()
 	delete(p.agents, op.WorkerID)
 	delete(p.agentTrees, op.WorkerID)
 	delete(p.agentIDs, op.WorkerID)
+	delete(p.agentSessions, op.WorkerID)
 	p.mu.Unlock()
 	// The confirmed stop ends the launch's hold on its group number too
 	// (it reaps the leader it had kept unreaped); an unconfirmed one
@@ -388,7 +401,17 @@ const launchGrantEnvVar = "HADRON_LAUNCH_GRANT"
 // a bounded time, and report. It reports FAILED, never SUCCEEDED: the server
 // records a FAILED on a session that did end as the success it is, with
 // whether a handoff was written, while a SUCCEEDED would end a still-running
-// session itself — the kill this operation must never be (cor:agt:020:10).
+// session itself — the host never ends a session (cor:agt:020:10).
+//
+// With stop_on_end (hadron-cli#2057 C2a) the end also stops the worker's
+// agent process: for a short-lived worker (always), or when whoever manages
+// the App issued it (manager). The wait is then stop_wait (60 s), given only
+// to an end prompt that was delivered — the host cannot read whether the
+// session ended, so the bound is what it has — and the process is stopped
+// with its group: SIGTERM, 5 s, SIGKILL. Only a process identified by the
+// worker's worktree and its binding is touched, and the report says which
+// process was stopped or why none was. The report stays FAILED: the server
+// records the end the worker made, and the host still ends no session.
 func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	ref, w, ok := p.workerRef(op)
 	if !ok {
@@ -408,7 +431,9 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 		default:
 		}
 	}
+	stop := w.stopsOnEnd(op.IssuedBy)
 	note := ""
+	prompted := false
 	if len(w.End) > 0 {
 		dir := ""
 		if t, ok := p.agentWorktree(op.WorkerID); ok {
@@ -417,24 +442,42 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 		env := agentEnv(os.Environ(), p.key, "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
 		if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
 			note = "; the end prompt failed: " + err.Error()
+		} else {
+			prompted = true
 		}
 	} else {
 		note = "; no end prompt is configured for this worker"
 	}
 	wait := w.endWait()
+	if stop {
+		wait = w.stopWait()
+	}
 	reason := fmt.Sprintf("the session did not end within %s%s", wait, note)
+	if stop && !prompted {
+		// Nobody was asked to end the session, so there is nothing to wait
+		// for: the stop is immediate.
+		wait = 0
+		reason = "the worker was not asked to end its session" + note
+	}
 	var done <-chan struct{}
 	if agent != nil {
 		done = agent.Done()
 	}
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
+	if wait > 0 {
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			reason = "the agent process exited (" + agent.ExitDetail() + ") without its session ending" + note
+		case <-timer.C:
+		}
+	} else if ctx.Err() != nil {
 		return
-	case <-done:
-		reason = "the agent process exited (" + agent.ExitDetail() + ") without its session ending" + note
-	case <-timer.C:
+	}
+	if stop {
+		reason += "; " + p.stopWorkerProcess(ctx, op, ref, w, session, agent)
 	}
 	got, err := p.report(ctx, op, Failed, "", reason)
 	if err != nil {
@@ -457,6 +500,123 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	if h, ok := got.Result["handoff"].(bool); ok {
 		p.log("ended", op.ID, op.Type, Succeeded, fmt.Sprintf("handoff written: %t", h))
 	}
+}
+
+// stopWorkerProcess stops the agent process of the worker a stopping
+// worker.end names and says, for the report and the operator's log, which
+// process was stopped or why none was (#2057 C2a). The agent this poller
+// launched is stopped by its own launch group (Terminate). Any other — an
+// agent started from a terminal, or launched before a restart — is found by
+// the /proc scan of the worker's own worktrees, and only where the tree's
+// session binding does not say otherwise: a tree bound to another worker, to
+// another session of this worker, or carrying a binding that cannot be read
+// is left alone. No binding at all is the worker having ended its session,
+// which clears it: the tree is then the worker's by this host's own
+// configuration, where a worktree belongs to one worker.
+func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string, w WorkerConfig, session string, agent Agent) string {
+	// allowed answers whether the tree's session binding still leaves its
+	// processes to this end: not another worker's, not another session of
+	// this worker than the one being ended, readable. It is asked before any
+	// process is looked for AND again right before a signal goes out, so a
+	// replacement session that binds in between is not stopped by the older
+	// session's end (the window cannot be closed against a separate process
+	// writing the binding, only made as short as the signal itself).
+	allowed := func(t string) (bool, string) {
+		b := p.bound(p.cfg.WorktreePath(t))
+		switch {
+		case b.Unusable:
+			return false, fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t)
+		case b.WorkerID != "" && b.WorkerID != op.WorkerID:
+			return false, fmt.Sprintf("worktree %s is bound to another worker, so its processes were not touched", t)
+		case b.WorkerID != "" && b.SessionID != "" && b.SessionID != session:
+			return false, fmt.Sprintf("worktree %s is bound to another session of this worker than the one being ended, so its processes were not touched", t)
+		}
+		return true, ""
+	}
+	if agent != nil {
+		said := ""
+		// The launched agent runs in the tree it was started in. Without that
+		// identity nothing can be checked, so nothing is stopped; with it, the
+		// session its start bound must be the one being ended (both must be
+		// known: a launch whose session was not recorded, or an end that names
+		// none, is declined), and the same binding rules as a scanned agent
+		// apply. A restart forgets the launch, and the scan path decides.
+		t, ok := p.agentWorktree(op.WorkerID)
+		if !ok {
+			why := "the launched agent's worktree is not recorded, so it could not be identified and was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		p.mu.Lock()
+		launched := p.agentSessions[op.WorkerID]
+		p.mu.Unlock()
+		if launched == "" || session == "" {
+			why := "the session of the launched agent or of this end is not known, so the agent could not be identified and was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		if launched != session {
+			why := "the launched agent serves another session than the one being ended, so it was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		if ok, why := allowed(t); !ok {
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		stopped, detail := agent.Terminate()
+		said = fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
+		if !stopped {
+			said = fmt.Sprintf("the agent this host launched (pid %d) could not be confirmed stopped and its records are kept", agent.PID())
+		}
+		if detail != "" {
+			said += ": " + detail
+		}
+		if stopped {
+			p.forgetAgent(op)
+			p.log("stopped", op.ID, op.Type, "", said)
+		} else {
+			p.log("stop-unconfirmed", op.ID, op.Type, "", said)
+		}
+		return said
+	}
+	trees := p.state.worktreesFor(ref, w.Worktrees)
+	if t, ok := p.agentWorktree(op.WorkerID); ok {
+		trees = []string{t}
+	}
+	if len(trees) == 0 {
+		said := "no worktree is registered for this worker on this host, so no process could be identified and none was touched"
+		p.log("stop-skipped", op.ID, op.Type, "", said)
+		return said
+	}
+	parts := []string{}
+	say := func(kind, text string) {
+		p.log(kind, op.ID, op.Type, "", text)
+		parts = append(parts, text)
+	}
+	for _, t := range trees {
+		if ok, why := allowed(t); !ok {
+			say("stop-skipped", why)
+			continue
+		}
+		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t), func() bool { ok, _ := allowed(t); return ok })
+		if err != nil {
+			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
+			continue
+		}
+		if len(stops) == 0 {
+			say("stop-skipped", fmt.Sprintf("no agent process was found in worktree %s", t))
+			continue
+		}
+		for _, s := range stops {
+			kind := "stopped"
+			if !s.Stopped {
+				kind = "stop-unconfirmed"
+			}
+			say(kind, fmt.Sprintf("in worktree %s: %s", t, s.Detail))
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // trackAgent remembers a launched agent and the worktree it runs in, in

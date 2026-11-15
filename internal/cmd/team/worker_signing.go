@@ -12,6 +12,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -110,7 +111,7 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if resp.UpdateWorker == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no worker")
 	}
-	return writeSigningReceipt(f, e, resp.UpdateWorker.WorkerFields)
+	return writeSigningReceipt(cmd, ctx, f, client, e, resp.UpdateWorker.WorkerFields)
 }
 
 // updateWorkerSigningInstructed is the same edit carrying the holder's
@@ -139,11 +140,37 @@ func updateWorkerSigningInstructed(cmd *cobra.Command, f *cmdutil.Factory, clien
 	if resp.UpdateWorker == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no worker; outcome unknown, inspect the worker before retrying")
 	}
-	return writeSigningReceipt(f, e, resp.UpdateWorker.WorkerFields)
+	return writeSigningReceipt(cmd, ctx, f, client, e, resp.UpdateWorker.WorkerFields)
 }
 
-func writeSigningReceipt(f *cmdutil.Factory, e signingEdit, fields gen.WorkerFields) error {
-	dto := workerDTOFromFields(fields)
+// workerUpdateReceiptDTO is the stable --json shape of the signature/trailer
+// update receipt: workerDTO plus signatureLint (cli#2007). Update-only, so the
+// cast, list and roster shapes (workerDTO) do not move. signatureLint is the
+// CURRENT check read after the save, not a snapshot taken at write time; null
+// means unavailable (or a masked template), never "no warnings".
+type workerUpdateReceiptDTO struct {
+	workerDTO
+	SignatureLint *lintwarn.Page `json:"signatureLint"`
+}
+
+// writeSigningReceipt prints the receipt of a successful edit and then reads
+// signatureLint with the write's own context (its session header, if any). The
+// read is advisory: it starts its own budget after the write, never fails the
+// command and never changes its exit code.
+func writeSigningReceipt(cmd *cobra.Command, ctx context.Context, f *cmdutil.Factory, client graphql.Client, e signingEdit, fields gen.WorkerFields) error {
+	dto := workerUpdateReceiptDTO{workerDTO: workerDTOFromFields(fields)}
+	// signature is NOT NULL in the store, so null means the caller may not see
+	// the worker's internals (maySeeWorkerInternals), never "unset" (contract,
+	// cli#2007); revisit if the server ever nulls an unset template.
+	masked := dto.Signature == nil
+	if !masked {
+		budget := lintwarn.NewBudget(ctx)
+		defer budget.Close()
+		dto.SignatureLint = lintwarn.ReadSignatureLint(budget, client, dto.ID)
+		if dto.SignatureLint == nil {
+			lintwarn.ReportUnavailable(cmd)
+		}
+	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 		if _, err := fmt.Fprintf(out, "✓ updated the %s for worker %s (%s)\n", changedFields(e), dto.Name, dto.ID); err != nil {
 			return err
@@ -158,6 +185,11 @@ func writeSigningReceipt(f *cmdutil.Factory, e signingEdit, fields gen.WorkerFie
 			trl = dto.Trailer
 		}
 		writeSigningTemplates(out, sig, trl)
+		if !masked {
+			if err := lintwarn.WriteSection(out, "signature lint (current check)", "the signature and trailer", dto.SignatureLint, false); err != nil {
+				return err
+			}
+		}
 		if dto.Prompt != nil && *dto.Prompt != "" {
 			if _, err := fmt.Fprintf(out, "\nBoot briefing at the next bind:\n\n%s\n", *dto.Prompt); err != nil {
 				return err

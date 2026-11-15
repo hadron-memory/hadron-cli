@@ -145,7 +145,7 @@ func (s *hostServer) Report(ctx context.Context, id, outcome, worktree, reason s
 }
 
 func operationFrom(o *gen.HostOperationFields) hostpoller.Operation {
-	op := hostpoller.Operation{ID: o.Id, Type: o.Type, WorkerID: o.WorkerId, Status: string(o.Status), Args: map[string]any{}}
+	op := hostpoller.Operation{ID: o.Id, Type: o.Type, WorkerID: o.WorkerId, Status: string(o.Status), IssuedBy: string(o.IssuedBy), Args: map[string]any{}}
 	if len(o.Args) > 0 {
 		_ = json.Unmarshal(o.Args, &op.Args)
 	}
@@ -208,7 +208,19 @@ reports every outcome. One poller per host or container.
                    launched and leaves no agents entry in the state file
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
-                   (default 15m), and report; never kills the agent
+                   (default 15m), and report FAILED (the server records an
+                   ended session as success; the host ends none). With
+                   stop_on_end (default never; manager = only when someone
+                   who manages the App issued it; always = a short-lived
+                   worker) it then stops the worker's agent: after a
+                   DELIVERED end prompt it waits stop_wait (default 60s,
+                   not end_wait), with none it stops at once; SIGTERM to
+                   the process group, SIGKILL after 5s. Only a process
+                   found in the worker's registered worktree whose session
+                   binding is not another worker's or session's is touched;
+                   the report names each pid stopped or says none was
+                   touched. TRANSITIONAL: the field goes with host.yaml
+                   (Agent.lifecycle replaces it, hadron-server#4224)
   worktree.remove  only the operation's own worker's registered tree;
                    refused for uncommitted or untracked changes, no
                    upstream, unpushed commits, an agent this host launched
@@ -307,6 +319,8 @@ The configuration (YAML):
       launch: [claude-worker, --model, opus]
       end: [orca-send, jonas, "please end your session with a handoff"]
       end_wait: 15m
+      stop_on_end: never            # never (default) | manager | always
+      stop_wait: 60s                # the wait before a stopping end acts
       worktrees: [hadron-cli/jonas-2]
 
 Moving a host from the Orca attention router: see

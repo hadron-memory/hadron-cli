@@ -480,6 +480,10 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list [--include-hidden]|validate|revoke <id>|delete <id>|hide <id>|unhide <id>   # the `auth token create --help` capture example checks GNU ln -T before minting; after any non-zero exit, run `hadron auth token list`, find any unexpected token by its label, then `hadron auth token revoke <id>` (add --yes when non-interactive)  # token delete <id> removes your own key for good, live or revoked (a live one is revoked first with its live subtree; keys it minted directly stay, revoked, parentless): exit 2 without --yes when non-interactive and nothing is sent, one request never retried or replayed (a 307/308 redirect is refused, not followed), unknown/foreign id exit 4; --json = id,keyId,keyPreview,revokedKeyIds,mintedKeyIds,deletedAt; revoke keeps the row, delete removes it  # token hide|unhide change DISPLAY only and only your own REVOKED keys (an active key is refused, exit 2, KEY_ACTIVE; foreign/unknown id exit 4); list --include-hidden also shows hidden keys and every key's JSON has hiddenAt (null when visible)
+hadron auth grants [--limit N] [--offset N] [--json]   # cli#2021: one page of grants directly naming the signed-in person as holder, across Apps/organizations, every state, newest first; not grants only issued/requested for others. Uses current credential without the worktree worker-session header; --app does not scope this read. Default limit 20, offset 0, server caps rows at 200 (larger valid limits pass through), both flags 0..2147483647. --limit 0 = {total} only. Otherwise JSON {items:[],total,hasMore,nextOffset}; items preserve id,appId,action,values,holderKind,holderId,startsAt,expiresAt,maxUses,useCount,reason,createdAt,activatedAt,revokedAt,allows,signatureStatus{state,integrityProblems}. Raw facts only: no derived lifecycle label. hasMore/nextOffset are page metadata; nextOffset null at end, never auto-fetch. Empty text is neutral because App keys, runs and impersonation also receive empty pages; auth whoami inspects the current credential. Missing credential exit 3; server without myGrants validation exit 2; other failures map normally, never empty success. No signatures/signer identities/manager-only end details requested. Read-only: signing needs the person's passkey on the server browser ceremony page; no CLI activation. Manager revoke/withdraw have separate authority and confirmation flows (cli#1846), not this listing. Existing top-level grant group unchanged.
+# auth grants human count: total matching: N; page footer: total matching: N; rows on this page: R; offset: O; requested limit: L; has more: B. The next-offset line is retained.
+# Limit 0 returns the total matching and no rows.
+# Offset pages are not a snapshot; grants added or removed between calls can shift later pages.
 hadron auth passkey list [--json]   # cli#878 part 1: your OWN passkey records, newest first, revoked included; READ ONLY (no revoke verb: removal is the server's interactive revoke page; `auth passkey revoke-page` prints the address the server advertises, and the CLI builds no URL). Reads GET /capabilities first: without `passkey-registration` (switch off, older server, failed discovery) exit 2 with ZERO GraphQL requests, even with no credential: "this server does not offer passkeys" when the capability is absent, "could not confirm that this server offers passkeys (<why>)" when discovery itself failed (unknown, not no). App key exit 3 (serverCode UNAUTHENTICATED); impersonation exit 8 (FORBIDDEN). --json = [] or array of id (record id, NOT the credential id),label,state,registeredAt,lastUsedAt,revokedAt,window{endsAt,endedAt,outcome,registrationMethod}|null,cancel{at}|null,transports[],backupEligible,backedUp; never a credential id, public key or cancel IP/user agent. state is derived on the CLI clock: revoked (revokedAt set) > cooling-off (window not ended, endsAt ahead) > active; it is display, not authority
 hadron auth passkey revoke-page [--open] [--json]   # cli#878 revoke-page handoff: prints ServerInfo.passkeyRevokeUrl (the server's fixed, parameterless interactive revoke page) VERBATIM; never revokes, never builds or joins a URL, no same-origin check against --server (the value is the deployment's canonical baseUrl). No positional. No sign-in needed (public client; an existing credential still rides under the usual transport rules). Order: `--open` with --json, or `--open` when stdout is not a terminal, exit 2 before ANY request (no /capabilities read either); then refuse an insecure --server with exit 2 before discovery (https, loopback http, or HADRON_ALLOW_HTTP=1 permitted, for print and --open); then GET /capabilities exactly as `list` (absent `passkey-registration` or failed discovery: exit 2, zero GraphQL); then ONE query `PasskeyRevokeUrl` selecting only serverInfo{passkeyRevokeUrl}, no mutation. A validation envelope naming only passkeyRevokeUrl (an older server, or the switch went off since discovery) exit 2 "this server does not provide a passkey revoke page (it may be an older server, or passkey registration was switched off since the check)"; other validation keeps the skew advice; transport exit 7. The value must be an absolute http(s) URL with a host, no userinfo/opaque form, no leading '-', no control/format character, and pass the CLI's transport rule (https, http to loopback, or HADRON_ALLOW_HTTP=1), else exit 1 "the server returned an address that is not a valid, secure web address, so it was not printed or opened; tell the server operator" and nothing is opened. A null serverInfo, missing address or empty string exits 1 "the server did not return a passkey revoke page address". Text = the URL alone on one line; --json = {"passkeyRevokeUrl":"<url>"}. No auto-open: only an explicit --open in a terminal asks the default browser through the platform launcher (argv, no shell), once, then prints; launcher failure exit 1 with the URL in the message. A launcher start is not proof the page loaded or anything was revoked
 hadron usage activity [--from <iso>] [--to <iso>] [--bucket DAY|WEEK|MONTH] [--memory <ref>]... [--time-zone <IANA-zone>]  # omitted flags stay omitted; no zero-fill, client resource-count cap or fallback from empty resource scope (cor:acl:090:01); JSON [{date,reads,writes}]
@@ -546,8 +550,8 @@ hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to
 # Cast success text includes the server-returned worker URN when available; its existing JSON urn and request count are unchanged.
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team grant list [--limit N] [--offset N] | get <id> | request --action <name> --values <json|@file> --reason <text> [--holder worker|agent] [--holder-id <id>] [--starts-at <time>] [--expires-at <time>] [--max-uses <n>] | request-signature <grant-id> | signing-request get <request-id> | signing-request withdraw <request-id>   # worker-bound; see "Worker-own grants" below
-hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>]
+hadron team grant list [--limit N] [--offset N] | get <id> | actions [--limit N] [--offset N] | action <name> | request --action <name> --values <json|@file> --reason <text> [--holder worker|agent] [--holder-id <id>] [--starts-at <time>] [--expires-at <time>] [--max-uses <n>] | request-signature <grant-id> | signing-request get <request-id> | signing-request withdraw <request-id>   # worker-bound; see "Worker-own grants" below
+hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | recover [--mentions-limit N] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>]
 # cli#960: a bind whose resulting binding records no tool prints `warning: this binding has no tool recorded…` on STDERR (exit unchanged, --json stdout unchanged): `session log` then refuses, so pass --tool when you start a session that will log work; a resume of a session that already has a tool stays quiet without --tool
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH [--push]] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--wait <dur> [--poll-interval <dur>]] [--mentions-me | --mentions <ref>] [--thread <seq>] [--team-head <id> | --untagged | --tagged] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 # Team chat text keeps [seq] first, then RFC3339 at formatted as a UTC minute (2026-11-06T01:20Z). Missing/invalid times are omitted without failure; JSON at stays verbatim and read/cursor operations are unchanged.
@@ -567,11 +571,11 @@ hadron team composition [--json] (uses --app or the binding)   # cli#1085: the s
 # Direct children (cli#1253): `node list --children-of <loc>` lists only the nodes exactly one level below that loc (grandchildren excluded); `--children-of ""` lists the top level. The empty string is a value and is sent; omit the flag for no constraint. Judged on loc text, so a child whose parent has no node is still listed; it ANDs with `--prefix`, `--type`, `--limit`/`--offset` and the other filters; `--json` shape unchanged. Needs a server with NodeFilter.childrenOf (hadron-server#2832); an older server refuses the unknown argument.
 
 # Unresolved comment grooming (cli#1699, provider server#3520/#3494): `node list --has-unresolved-comments` sends NodeFilter.hasOpenThreads:true; `=false` sends false; omission sends no key, selects no commentSummary and preserves existing text/JSON. Both values combine with the existing filters in the one server-side NodeFilter on EVERY page (including search/install/seq paths); no client thread scan or unfiltered retry. Opt-in JSON adds commentSummary {openThreads,oldestOpenThreadAt}, timestamp string verbatim/null. Text adds OPEN THREADS and OLDEST after normal columns; projected blocks show both labels after metadata and before data/properties. Age floors: under1h Nm, under1d Nh, otherwise Nd (400d stays400d); under1m and future are <1m; zero/null is -. Missing/null summary, missing/negative count, unparseable time or count/time inconsistency fail the whole command (exit1, no partial rows). A provider rejecting the field fails as schema skew(exit2), no fallback. Empty output stays unchanged. Groom boot prompts with `--has-unresolved-comments --memory-class system --role boot-prompt`, role tasks with `--has-unresolved-comments --memory-class system --runnable`, processes with `--has-unresolved-comments -m <team-system-memory> --prefix processes:`. SYSTEM is excluded by default unless named with -m or --memory-class system. Resolve applied/rejected threads instead of deleting grooming history. `app nodes` is unchanged. Provider addition remains Proposed; this CLI adds no access rule.
-# Paging (cli#967): `agent list`, `node list` and `team session list` list EVERYTHING unless you pass --limit/--offset (one page). `team task list|mine`, `team events`, `team host ops`, `comment list`, `node revision list`, `node edge-removals` and a bounded `team chat read` default to 20 per page; a full default page prints "more may exist" on STDERR (stdout and --json shapes are unchanged), and `team chat read --all` walks every page. `node revision list`, `usage events` and a bounded `team session list` read the server's page twin (cli#1339): stderr says `showing a-b of N` with the REAL total and, when more exist, `more: --offset b` (stdout and --json stay the bare array; `--limit 0` counts only). `ticker list` and an unbounded `team session list` page to the server's total and FAIL (exit 7) rather than print a partial list. A list with no total (`node edge-removals`, `team task list`) cannot prove it ended, so treat a full default page as "there may be more". A scan that drains a list (`chat read`, `memory export`, `spec` scans, `node import` overwrite probes, …) stops only on an empty page; a server that keeps returning a page already read makes it FAIL with exit 7 (`Unavailable`: "the server returned a page already read … the list is not advancing"), never succeed with a partial list.
+# Paging (cli#967): `agent list`, `node list` and `team session list` list EVERYTHING unless you pass --limit/--offset (one page). `team task list|mine`, `team events`, `team host ops`, `comment list`, `node revision list`, `node edge-removals` and a bounded `team chat read` default to 20 per page; a full default page prints "more may exist" on STDERR (stdout and --json shapes are unchanged), and `team chat read --all` walks every page. `node revision list`, `usage events` and a bounded `team session list` read the server's page twin (cli#1339): stderr says `showing a-b of N` with the REAL total and, when more exist, `more: --offset b` (stdout and --json stay the bare array; `--limit 0` counts only). `ticker list` and an unbounded `team session list` page to the server's total and FAIL (exit 7) rather than print a partial list. A row inserted while either one pages shifts the offsets, so it restarts from offset 0 (up to 3 restarts per command, cli#2030; the session list is put back in newest-first order, a ticker found on a restart may print after the rest) before it fails: exit 7 "the … list changed while it was being read" means retry, not unbound, while "not advancing" (a restarted pass read nothing new) is a server that cannot be retried into working. Only these two scans restart; the others named here still stop on the first repeated page. A list with no total (`node edge-removals`, `team task list`) cannot prove it ended, so treat a full default page as "there may be more". A scan that drains a list (`chat read`, `memory export`, `spec` scans, `node import` overwrite probes, …) stops only on an empty page; a server that keeps returning a page already read makes it FAIL with exit 7 (`Unavailable`: "the server returned a page already read … the list is not advancing"), never succeed with a partial list.
 hadron orca host plan --roster-file <path> [--json]   # READ-ONLY snapshot, no apply/launch/terminal input/session binding. Explicit version-1 UTF-8 JSON roster <=1MiB, 1..200 workers: {version:1,app:<App ref>,workers:[{worker:<existing ref>,repo:<absolute existing checkout>,family:claude|codex|glm}]}. Ambient App ignored, --app refused. Unknown/duplicate keys and duplicate resolved workers refuse; no shell expansion. Reads typed App/worker identity, git worktrees/binding metadata, and orca terminal list only (no due-wake or screen read). JSON version/server/app/readOnly/complete/discoveryScope/workers/actions/conflicts/unavailable, arrays []; proposed actions are data and confer no execution authority. Partial discovery is incomplete/nonzero; malformed/unreachable Orca10, local input2, conflicts5, provider refusal's mapped exit retained. Binding worker/App IDs must also match the selected canonical server endpoint; missing binding-server metadata is unavailable, a different server is a conflict. Server URLs with userinfo/query/fragment refuse locally. Discovery covers roster repositories and reported terminal roots only, not all host repos: absence and complete refer only to that scope. Explicitly prunable missing git worktrees are ignored without pruning; unresolved terminal paths stay incomplete with exit1, not Orca10. Recorded bindings are not proof of a live session, launched model or safe prompt. Nothing omitted retires/closes/deletes resources. Linux-tested; no production fixture or host-write grant.
 hadron orca terminal status (<worker|terminal-id> | --all) [--config <host.yaml>] [--json]   # ORCA INTEGRATION: reads Orca terminals, needs the Orca CLI/app on THIS host (exit 10 off-host); never types. One worker, or --all (--all --json = ONE JSON array, one entry per active App worker; without --json, one text line per worker). --config (cli#1378, the file of `team host run`) is the unattended form: Orca = delivery.orca_bin (absolute, exit 2 if relative) else PATH; server read with the host key from key_file only (0600; never HADRON_TOKEN/env/token store; no session); --app with --config exit 2; --all = the App workers the file configures; bad file exit 2, key file missing/too open exit 3 before Orca is listed; the dark rule needs the host key's two reads (tickers: `host:operate`; `dueWakes`: `attention:deliver`) and an idle worker fails closed if either is refused. Contract `terminal-status@1`, see "Orca terminal status" below.
 hadron team push <worker> (--text <message> | --message-file <path>) [--seq N] [--wait-timeout 120s] [--draft-wait 30s] [--draft-stable-for 30s] [--confirm-timeout 10s] [--poll-interval 250ms]   # bound sender, one guarded console input; CPU-only busy/unknown/draft decisions and fresh on-screen turn confirmation. Command-only exits: 0 sent, 9 sent-with-draft (SUCCESS: NEVER RETRY), 10 held-busy, 11 held-unknown (zero composer input), 12 unconfirmed (mutation may have occurred: DO NOT RETRY). Draft wait and exact-byte stability overlap; stability cannot be below30s. JSON: outcome/phase/reason/draftIncluded/recipient/seq; no message/draft/screen text. Prefer --message-file (text argv is visible); no chat post or mark. Own-attempt lock only; ms read-to-input race remains and process death can lose a draft. Existing unguarded callers are not migrated by this command.
-hadron team events [--alarms] [--since <iso>] [--after <eventId> | --newest [--before <eventId>]] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward; --newest reads newest-first, --before pages toward older. --json is {events,hasMore,nextCursor} (was a bare array, cli#1919); a continuation is named only when hasMore. `team task tree` / `team task list --team` mark open-alarm counts incomplete (≥N, INCOMPLETE line; --json openAlarmsIncomplete / alarmCounts) when the alarm walk stops early.
+hadron team events [--alarms] [--alarms-in-effect] [--since <iso>] [--after <eventId> | --newest [--before <eventId>]] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward; --newest reads newest-first, --before pages toward older. --json is {events,hasMore,nextCursor} (was a bare array, cli#1919); a continuation is named only when hasMore. `--alarms-in-effect` (cli#1940) passes the server's filter through: only alarms unacknowledged and with no recorded escalation end; it implies alarms only (same rows with or without `--alarms`), is never worked out client-side, and omitted sends nothing. Every event now carries `escalationEndedAt` (--json: an RFC 3339 string or `null`; text: the ESCALATION ENDED column, blank when null): when the server recorded the alarm's escalation end, null while in effect and on non-alarm events. An alarm out of effect is not acknowledged and not hidden (read without the flag); the end can lag up to one evaluator pass (about a minute), so it is not a real-time value. `alarm ack` --json carries the same key. `team task tree` / `team task list --team` mark open-alarm counts incomplete (≥N, INCOMPLETE line; --json openAlarmsIncomplete / alarmCounts) when the alarm walk stops early.
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
 hadron team availability get | set (--worker <ref> | --family <token>) --state <available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED] [--until <iso>] (uses --app or the binding)
 hadron team chat check   # bound worker's team channel only; complete tagged range to private JSON artifact (stored C is trusted only for matching cursorIncarnation; otherwise scan from0 and disclose both values, possibly repeating messages), path on stderr BEFORE fenced H mark; includes server @all/team selection; mark covers untagged gap too; open artifact to read it, delete it yourself afterward; no inbox proof ack. Exit 0 written+marked, 9 empty+marked, 10 uncertain; errors1–8 retained. --json bounded receipt {error,outcome,sampledCursor,scanCursor,cursorIncarnation,sampledHead,messageCount,artifactPath,markAttempted,markStatus,markVerification}; no message bodies on stdout. Fenced mark response proves coverage, lost response uses strict stored/current incarnation readback then at most one identical fenced retry, never a mismatch/unguarded fallback. Page/file/path failure sends no mark; final receipt failure can follow confirmed mark (no rollback). Own-session reads/marks may count as checks even on command failure; no stamp/roster OK claim. Requires server#2194 and a private cache filesystem supporting file+directory sync; no production cursor experiment.
@@ -586,8 +590,9 @@ hadron team wakes ack <proof>…   # cli#1279: record delivery of the proofs fro
 hadron team wake-settings get --worker <id-or-URN> | set --worker <id-or-URN> [--mentions immediate|off] [--paused-until <RFC3339>] [--clear-pause]   # cli#1292 over server #1747 (cor:agt:080:03, :21): one worker's wake settings; --worker takes an id or hrn:worker: URN (a name is exit 2: the calls take no App). get --json = {worker:{id,kind,name,urn}, mentions:"IMMEDIATE"|"OFF", pausedUntil, subscriptions:[{id,ticker:{id,urn,name,cadenceSeconds,enabled}|null,viaGrant,createdAt}] ([] when none), effectiveCadenceSeconds, dormant}, the server's defaults when nothing is stored; set sends ONLY the flags given (omitted keeps, nothing is sent as null), --clear-pause sends clearPause:true and no pausedUntil, no flag / --clear-pause with --paused-until / a bad --mentions or time is exit 2 with no request; set prints the returned settings in the same shape; who may set is the server's rule (the worker, its holder or the App manager, never the may-subscribe-workers grant); refusals keep their code as the prefix (WAKE_SETTINGS_FORBIDDEN 8, FORBIDDEN 8, WORKER_NOT_FOUND 4, BAD_USER_INPUT 2); retired isolation commands/fields are absent (cli#1743)
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] [--host-report-timeout-minutes N|default] [--session-end-grace-minutes N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED); host report timeout (5..1440, cor:agt:070:02) and session-end grace (1..1440, cor:agt:050:10) are range-checked before any call (exit 2, nothing sent, even alongside valid flags); get/--json show the server-returned values (sessionEndGraceMinutes, hostReportTimeoutMinutes; platform defaults 10 and 60 today), never client-computed (cli#983)
 hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
-hadron team host run --config <host.yaml> [--once] | status --config <host.yaml> | report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run [--stale-after 10m])   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8; delivery.enabled (cli#907): each poll also reads the host's chat batches (key also needs attention:deliver) and types each only into an empty agent composer via orca_bin, then acks it; events delivery-delivered|reconciled|held|deferred|skipped|error (codes, ids, spans; never text or proof); a read APP_KEY_SCOPE_REQUIRED turns delivery off for the run (delivery-off event, exit unaffected); holds are UNREPORTED to the server until cli#940 (no server alarm); a message over 131,071 UTF-8 bytes fails delivery-error too-long-to-type (never truncated or acked, stays due) and, oldest first, blocks that worker's later chat until hadron-server#2121; tick/task/stop wakes (cli#1178, cli#1629): each poll also reads dueWakes with accepts MENTION|TICK|TASK|STOP on the whole-lane first page (no workerRefs, no after), which declares the host's lane as a stop consumer, and types each wake's TICK/TASK reasons as one own-prefixed line, recorded before acknowledgeWakes; a wake naming channels or a MENTION is typed once and by default held from ack (delivery.ack_mixed opts into deployed A′ as described below); a refused or unconfirmed send leaves no blocking record (the next pass sends fresh; our own unsubmitted line is Enter-submitted or cleared, never retyped); status --json delivery.workers[].unreported; per worker also lastAgeSeconds, heldSince (start of the current run of holds; only a delivered or reconciled event ends it; null when none) and heldOver30m (text row: "HELD OVER 30m: no delivery since <time>") and notRevisited (a held record whose newest event is older than three poll intervals: no newer local event, so the hold may be stale; the cause is not recorded: the server may list no wake for that worker, or the poller stopped or its reads failed; text: "NOT RE-EVALUATED") (cli#1178, cli#1322); stop notices (cli#1629): a STOP reason's notice is typed first in the server's wording, at most once per eventId, through the same empty-composer guard, and never with Escape or any interrupt key (interrupt: true changes nothing sent); a HALT that cannot be typed (draft, question, unknown screen, unsubmitted line, changed incarnation, no terminal) is neither typed nor acked, stays due, and is recorded once per notice in <state>/delivery/stop-dropped (ids and codes only); report-stops flags each such record with one team-chat post authored by the live session bound in the current worktree, which must be --reporter-worker's (no binding, ended or another worker: nothing posted, exit 7, reports stay pending; never as you), tagging the halted worker's reportsTo, else its holder; at most one post per notice, never silently none, NOT exactly-once (an intent is written before posting, a retry first finds an earlier post, a TEAM_CHAT_DUPLICATE refusal records its earlierSeq; an accepted seq and its author are saved before read-back, then retries only read that seq and never re-post; a mismatch stays failed/pending with "needs a person", and a later matching read-back can finish it; one run per outbox); its reads never move a read mark; a failed report exits 7; recorded-seq failures add reason (readback-mismatch, readback-not-found, invalid-accepted-record, readback-unavailable) and optional field (author, body, author,body), never body text/author id/hash/length; .lastfail is only a last-run observation, never posting authority; diagnosticError lastfail-write-failed or lastfail-remove-failed changes neither result nor exit; --dry-run takes no lock, calls no server and writes nothing: pending/stale plus needsPerson and records (cached mismatch/not-found/invalid-record observations only, oldest heldAt/eventId first, cap50, recordsTotal/recordsTruncated), lastObservedAt is the cached time, not since/current state; missing/unreadable/stale cache stays pending without needsPerson, and reported markers win; human cached rows end with “as last observed by report-stops, not a current check or a final diagnosis”; no recovery/certification command
-hadron team health sweep --config <host.yaml>   # code-only terminal health reporting (cli#1181); uses host key_file (0600) and the terminal-status@1 command JSON, no alarm/cadence/install or terminal typing; json {reports,refused} (a report may carry contextTokens+contextMeasuredAt); exits 0/1/3/7/8/10 (usage 2), per-item refusals exit 0
+hadron team host run --config <host.yaml> [--once] | status --config <host.yaml> | report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run [--stale-after 10m])   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; the host ends no session); with a worker's stop_on_end (never default | manager | always; TRANSITIONAL, goes with host.yaml) it then also stops the worker's agent process group (SIGTERM, 5s, SIGKILL; stop_wait default 60s after a delivered end prompt, immediate with none) and the report names each pid stopped or says no process was touched (a process not found in the worker's registered worktree, or in a tree bound to another worker/session or an unreadable binding, is never touched) (cli#2057); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8; delivery.enabled (cli#907): each poll also reads the host's chat batches (key also needs attention:deliver) and types each only into an empty agent composer via orca_bin, then acks it; events delivery-delivered|reconciled|held|deferred|skipped|error (codes, ids, spans; never text or proof); a read APP_KEY_SCOPE_REQUIRED turns delivery off for the run (delivery-off event, exit unaffected); holds are UNREPORTED to the server until cli#940 (no server alarm); a message over 131,071 UTF-8 bytes fails delivery-error too-long-to-type (never truncated or acked, stays due) and, oldest first, blocks that worker's later chat until hadron-server#2121; tick/task/stop wakes (cli#1178, cli#1629): each poll also reads dueWakes with accepts MENTION|TICK|TASK|STOP on the whole-lane first page (no workerRefs, no after), which declares the host's lane as a stop consumer, and types each wake's TICK/TASK reasons as one own-prefixed line, recorded before acknowledgeWakes; a wake naming channels or a MENTION is typed once and by default held from ack (delivery.ack_mixed opts into deployed A′ as described below); a refused or unconfirmed send leaves no blocking record (the next pass sends fresh; our own unsubmitted line is Enter-submitted or cleared, never retyped); status --json delivery.workers[].unreported; per worker also lastAgeSeconds, heldSince (start of the current run of holds; only a delivered or reconciled event ends it; null when none) and heldOver30m (text row: "HELD OVER 30m: no delivery since <time>") and notRevisited (a held record whose newest event is older than three poll intervals: no newer local event, so the hold may be stale; the cause is not recorded: the server may list no wake for that worker, or the poller stopped or its reads failed; text: "NOT RE-EVALUATED") (cli#1178, cli#1322); stop notices (cli#1629): a STOP reason's notice is typed first in the server's wording, at most once per eventId, through the same empty-composer guard, and never with Escape or any interrupt key (interrupt: true changes nothing sent); a HALT that cannot be typed (draft, question, unknown screen, unsubmitted line, changed incarnation, no terminal) is neither typed nor acked, stays due, and is recorded once per notice in <state>/delivery/stop-dropped (ids and codes only); report-stops flags each such record with one team-chat post authored by the live session bound in the current worktree, which must be --reporter-worker's (no binding, ended or another worker: nothing posted, exit 7, reports stay pending; never as you), tagging the halted worker's reportsTo, else its holder; at most one post per notice, never silently none, NOT exactly-once (an intent is written before posting, a retry first finds an earlier post, a TEAM_CHAT_DUPLICATE refusal records its earlierSeq; an accepted seq and its author are saved before read-back, then retries only read that seq and never re-post; a mismatch stays failed/pending with "needs a person", and a later matching read-back can finish it; one run per outbox); its reads never move a read mark; a failed report exits 7; recorded-seq failures add reason (readback-mismatch, readback-not-found, invalid-accepted-record, readback-unavailable) and optional field (author, body, author,body), never body text/author id/hash/length; .lastfail is only a last-run observation, never posting authority; diagnosticError lastfail-write-failed or lastfail-remove-failed changes neither result nor exit; --dry-run takes no lock, calls no server and writes nothing: pending/stale plus needsPerson and records (cached mismatch/not-found/invalid-record observations only, oldest heldAt/eventId first, cap50, recordsTotal/recordsTruncated), lastObservedAt is the cached time, not since/current state; missing/unreadable/stale cache stays pending without needsPerson, and reported markers win; human cached rows end with “as last observed by report-stops, not a current check or a final diagnosis”; no recovery/certification command
+hadron team host up --host <id> --worktrees-root <path> --desired-state-file <file> [--dry-run | --apply] [--worker <ref>] [--orca-bin <path>] [--timeout 2m]   # cli#1389: reconcile one host's workers through the typed queue; dry-run default; see "## Host up"
+hadron team health sweep --config <host.yaml> [--dry-run[=false]] [--status-timeout <d>]   # code-only terminal health reporting (cli#1181) plus the #2017 title pass and the #2027 duplicate phase; uses host key_file (0600) and the terminal-status@1 command JSON, computes no alarm, installs no cadence (the health install entry below does) and never types into a terminal; after the reports are stored it sets the title of every Orca tab in a registered worker's worktree to the worker's bare name when it differs (a tab is matched by its worktree's session binding, so a plain shell or an unbound worktree is never touched), then detects more than one agent process and more than one terminal tab per bound worker worktree: dry (the default) lists them, --dry-run=false (what the scheduled entry passes) applies the renames, stops the unsupervised duplicates — a pidfd-pinned SIGTERM, never the supervised agent, never a lone agent, never an unbound worktree — and closes extra bare-shell tabs (a fresh listing and re-read immediately before, so nothing mid-turn and no pane added since goes unread), one team-chat line from the sweep's own bound session (an unbound sweep posts nothing); a team pause or an unfinished context reset means report only; json {reports,refused,renames,dryRun,fixes[{worker,action,subject,applied}],alerts[{worker,code,count}],skips[{worker,code}]} (renames: one entry per tab renamed or that a dry run would rename; fix codes stop-agent|close-tab; alert codes unsupervised-agents|multiple-supervised|stop-failed|close-failed; skip codes resetting|team-paused|pause-unreadable|close-gone|close-not-bare|close-recheck-failed (a close declined by its read-adjacent recheck: the tab left, turned, or cannot be re-verified)); a tab that fails to rename is listed with its error, the rest still go ahead, and the sweep then exits 1; duplicate findings it cannot act on become alerts and never fail the sweep; exits 0/1/3/7/8/10 (usage 2), per-item refusals exit 0
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
@@ -631,7 +636,7 @@ hadron ha create --org <ref> --slug <s> --name <n> --url <u> [--token-file -|@pa
 hadron ha update <id> [--name] [--url] [--token-file ...] [--allow-op <op>]... | [--clear-allow-ops] [--enabled|--disabled]   # only the named fields are sent; omitted = kept. No flags = exit 2, nothing sent. Without --token-file stdin is never read and the token stays. --clear-allow-ops sends [] = EVERY catalog op (not none; use --disabled to stop use). --allow-op/--clear-allow-ops and --enabled/--disabled are mutually exclusive. No slug flag.
 hadron ha rm <id> [--yes]   # hard delete; TTY prompts, non-interactive needs --yes (else exit 2, nothing sent). --json {id, status:"deleted"}; false from the server is exit 1, never success. Nodes naming ha__<slug>__<op> then fail at run time; nothing is repaired.
   ha create/update/rm: server refusals keep their exit code and --json serverCode (not admin exit 8, missing or another org's instance exit 4 NOT_FOUND, invalid input exit 2). A lost response is exit 7 "outcome unknown": sent once, never retried; read back with `ha get`/`ha list` before retrying.
-hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | get <id|urn> | update <id|urn> [--value-file -|@file] [--meta k=v...|--meta-json <obj>] [--type bearer|basic|header [--username <u>|--header-name <h>]] [--url-prefix <u>] | rm <id> --yes
+hadron secret create --name <n> --scope user|org|app [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org|app [--owner <ref>] | get <id|urn> | update <id|urn> [--value-file -|@file] [--meta k=v...|--meta-json <obj>] [--type bearer|basic|header [--username <u>|--header-name <h>]] [--url-prefix <u>] | set <id|urn> --value-file -|@file [--type bearer|basic|header [--username <u>|--header-name <h>]] | versions <id|urn> [--limit N --offset N|--all] | events <id|urn> [--limit N --offset N|--all] | rm <id> --yes
 hadron config get <key> | set <key> <value> (an empty value removes the key; server then returns to its default) | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -1490,11 +1495,11 @@ Conventions:
   `skill-unknown-host-key` WARNING, with one row per key the server lists and one
   aggregate row for any remainder, all with `hosts: []` — the keys
   belong to no host — never read as aliases, and never blocking a known host
-  beside it, however malformed (cor:agt:030:06). Note
-  what cannot be checked: with no prefix source, a name's PREFIX is
-  unverifiable — `hadon-foo` lints clean. `--all` walks what the server lists for you — own-org,
-  shared-with-you and other orgs' PUBLIC memories, every class; a per-user
-  agent memory is never listed, so name it with `-m`. Errors exit 5;
+  beside it, however malformed (cor:agt:030:06). Note what cannot be checked:
+  with no prefix source, a name's PREFIX is unverifiable — `hadon-foo` lints
+  clean. `--all` walks what the server lists for you — own-org, shared-with-you
+  and other orgs' PUBLIC memories, every class; a per-user agent memory is
+  never listed, so name it with `-m`. Errors exit 5;
   warnings alone exit 0 unless `--strict` promotes them.
   `skill status` reads BOTH sides and writes nothing: it walks
   `<root>/*/SKILL.md` (`--to user` → `~/.claude/skills`, `project` →
@@ -1511,8 +1516,8 @@ Conventions:
   header verbatim, so their files carry `rev=` with no client change. Against
   a server that predates the field (it refuses `revision` as an unknown input
   field), status and export ask once more without revisions instead of
-  failing; any other refusal is still the run's error. **The class is the server's word** — the
-  vocabulary is one place so it cannot drift between the CLI, MCP and the
+  failing; any other refusal is still the run's error. **The class is the
+  server's word** — the vocabulary is one place so it cannot drift between the CLI, MCP and the
   portal — and a file that exists but does not PARSE gets `class: null` with
   `parseFailure: true`, because a parse failure is a failure and not an
   eleventh class; read the two together and never `class` alone. In the table
@@ -1529,7 +1534,8 @@ Conventions:
   the provenance header below the broken frontmatter is still readable, and
   otherwise listed locally under `unparseable` (never sent, since an
   unidentifiable file must not be claimed as an orphan). An unreadable file is
-  listed under `unreadable` with its errno, likewise never sent. A `SKILL.md` that is not a regular file (a FIFO, a device) is listed under `unreadable` WITHOUT being read, so it cannot block the walk.
+  listed under `unreadable` with its errno, likewise never sent. A `SKILL.md` that is not a regular file (a FIFO, a device) is listed
+  under `unreadable` WITHOUT being read, so it cannot block the walk.
   There is deliberately no `--node` (the orphan and collision classes are
   properties of a SET). An error finding exits 5; drift and warnings alone
   exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,
@@ -2006,7 +2012,8 @@ Conventions:
   to change the description shown in spec lists and search through the same
   guarded write. The description is not in the editor buffer. `--title <text>`
   (cli#810) retitles the spec through the same guarded write: it sets
-  `Node.name` to `<citation> — <text>` (pass the text only; a value starting with
+  `Node.name` to the complete literal text for a typed `spec.<type>` role,
+  as `spec new --role` does. Legacy specs keep `<citation> — <text>` (pass the text only; a value starting with
   the citation prefix, a blank one or a multi-line one is refused, exit 2), alone
   it opens no editor, and a title equal to the stored one writes nothing. The
   title is an approval-hash field (`cor:dmo:120:01`), so a retitle supersedes an
@@ -2030,6 +2037,10 @@ Conventions:
   `changes: []`, and a no-op dry run still closes with the not-an-approval line. The
   same `changes[]` is reported by a real edit, built from the one proposal the
   write sends: the changes a run reports are exactly what that run writes.
+  Authoring requirements are still checked only at write time, pending the
+  non-writing server check (#4168). Dry-run text says so; its JSON adds
+  `authoringCheck: "write-only: ..."`. A missing or supplied authoring claim
+  is not validated by the preview. No role-to-task map or probing write is used.
   A preview is **not an approval**: applying it is a separate run without
   `--dry-run`, which recomputes against the spec as stored then.
   **Every save is guarded (cli#738):** the write targets the immutable node ID
@@ -2134,11 +2145,12 @@ Conventions:
   `spec list` and `replacedRules[]` per feature in `spec register` (`[]` when
   none; every existing key unchanged). It is not the approval state SUPERSEDED,
   and no "withdrawn" state exists; `spec lint` is
-  STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
+  STRUCTURAL: since #708 its generic checks enforce no old content rubric (no missing
   abstract, "what invalidates", `data.version`, scaffold-body or
   placeholder-contract finding), because the sections a spec needs depend on
   its type — each corpus's own authoring framework (its review checks and
-  review tasks) checks those. It takes `--product`/`--module`/`--all`,
+  review tasks) checks those. The platform-frame checks below additionally
+  enforce that framework's structure and abstract bounds. It takes `--product`/`--module`/`--all`,
   warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
@@ -2159,7 +2171,18 @@ Conventions:
   table-of-contents edge to its parent, the inheritance edge to its contract,
   when that target exists), and the message carries the exact `spec link`
   that adds it (`edge create` when the target is not a spec); lint writes
-  nothing. `spec lint` also
+  nothing. For `hadronmemory.com:specs`, `spec lint` additionally checks the
+  platform frame; `--frame` opts another memory (or a memory id) into the same
+  framework. It reads raw type templates from
+  `hrn:mem:hadronmemory.com:specs-engineer-system` at invocation time. Template
+  section order, optionality, defining caps and Built lines are not copied into
+  the CLI. Missing, denied or malformed templates fail instead of reporting a
+  clean partial check. Frame names/tags/sections/caps, abstracts and corpus
+  wikilink labels produce errors (exit 5). Retired and pre-frame specs are
+  exempt from structure checks only; corpus link checks still apply. Invalid
+  type names are per-node findings and do not abort checks of the other nodes.
+  This checks mechanics, not factual
+  correctness or approval. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). A corpus-scope lint also
@@ -2417,6 +2440,18 @@ Conventions:
   `webfetch-auth` secrets use `--type bearer|basic|header` plus `--url-prefix`;
   the server derives `metadata.type`. `rm <id>` requires `--yes`
   non-interactively.
+  App secrets (cli#2013, server#3997): `--scope app --owner <app ref>` on
+  `create|list`; `secret set <ref> --value-file -|@file` is the value path (the
+  server overwrites an org/user secret and ADDS a version to an App secret;
+  prints `currentVersion`, `-`/null for org and user secrets; `update
+  --value-file` is the same operation). `secret versions <ref>` lists the KEPT
+  versions newest first (metadata only; `--json` {id,name,currentVersion,
+  protected,total,hasMore,versions[]}); `secret events <ref>` the audit events
+  (`--json` {total,events[]}); both pass `--limit/--offset` through, `--all`
+  walks pages, and an unset flag is omitted. An excluded caller's events page
+  is empty, printed as empty (never "forbidden"). `protected` is display only
+  (`SECRET_PROTECTED` is the server's refusal). No CLI-side size/count checks.
+  A run never resolves an App secret.
 - `org` manages organizations, their members, and invitations. `org list`
   lists organizations (`--mine` restricts to your memberships; unscoped spans
   every org you can see); `org create --name --urn`, `org get <id>`,
@@ -2825,6 +2860,15 @@ Conventions:
   --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   **`worker update <name-or-id>`** edits signature and trailer templates.
+  Its receipt carries `signatureLint` (cli#2007, cor:agt:040:13/:04): the CURRENT
+  check for a missing worker link, read after the write with the write's own
+  session; `{items,total,nextCursor}` or `null` (unavailable or masked, never "no
+  warnings"). `worker get` always carries `signatureLint` and `promptLintWarnings`
+  (the lint of the compiled revision recorded for the open session, named by its
+  provenance revision): `items: []` with `total: 0` is the one clean answer; null
+  is unavailable, masked, or (prompt) nothing served. 20 per request to the end,
+  one 5 s / 1000-request budget started after the main read, no exit-code effect,
+  one fixed stderr line when unavailable.
   For boot customisation use the worker source and compile workflow above.
   **`--signature` / `--trailer`** (cli#916 C4, `cor:agt:040:04`) replace the
   worker's raw signature and commit-trailer TEMPLATES (`{{worker.name}}`-style
@@ -2858,6 +2902,24 @@ Conventions:
   the session. Refusals keep their codes (`--json` `serverCode`), one write.
   `worker get` and every worker `--json` gain `signature` / `trailer`: a string
   (`""` = empty template) or `null` = WITHHELD (masked), never "empty".
+  **`team session recover [--mentions-limit N]` (cli#2062)** is the one
+  read-only call a fresh run makes instead of `session whoami`, `worker get`,
+  the state note, `chat read --mentions-me --since <watermark>` and `task mine`.
+  It sends NO `X-Hadron-Session` header, so it records no heartbeat, never
+  acknowledges, never advances the watermark (`team chat mark-read` does) and
+  never makes a session live. `--json` shape (keys always present):
+  `{worker:{id,urn,name,role,appId}, session:{id,startedAt,server,open,endedAt},
+  tasks:[{id,handle,status,priority,title,blocked,waitingOnChildren,parentTaskId}],
+  tasksMore, stateNote:{urn,updatedAt,content}|null, standingDirections:string|null,
+  mentions:{watermark,head,items:[chat message DTO, oldest first],more},
+  unavailable:[{section,reason}]}`. `tasks` = your PENDING and STARTED tasks
+  (up to 200). `stateNote` is the node `state` in your own working memory
+  (the worker's `memoryId`), `null` when there is none or no working memory is provisioned; the
+  `## Standing directions` section of it comes back verbatim in
+  `standingDirections`. `watermark` is the server read cursor, `null` when the
+  server reports none: null means unknown, not zero. A section that could not be read is listed in
+  `unavailable`, is null/empty, and the command exits 7 after printing the
+  rest: an unreadable section never means "nothing to do". No binding: exit 2.
   **Rendered values (cli#1525, hadron-server#2969, cor:agt:040:04):** `worker
   get` also prints the signature and trailer as the SERVER fills them, under
   `Signature:` / `Trailer:` ahead of the templates, and `--json` adds
@@ -4176,11 +4238,12 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 
 **An Orca integration command.** It reads terminals of the Orca app, so it works only on the host that
 runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
-(no output). It only lists and reads terminals: it never types and never acknowledges a wake. Its server reads are not free of effect: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
-wake against the App's daily wake budget (an already-outstanding wake is handed out again with no second slot),
-the platform may post its once-a-day budget notice to the team chat when the budget is spent. An App-key
-`dueWakes` read is recorded when the server answers it (which key, how many workers, when); a refused one is not recorded
-nothing. With `--config`, the ticker and subscription reads are each recorded as a host-key use, refusals included; the
+(no output). It only lists and reads terminals: it never types and never acknowledges a wake.
+Its monitoring due-wake read is a preview: no wake reservation, no budget withholding and no budget
+notice. It delivers no wake and cannot be acknowledged. The server must support dueWakes(preview)
+(since hadron-server#3755); rejection fails closed with a schema-version hint, without a spending retry.
+An App-key dueWakes read is recorded when the server answers it (which key, how many workers, when);
+a refused one is not recorded. With `--config`, the ticker and subscription reads are each recorded as a host-key use, refusals included; the
 `workers` read is not recorded. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
 arguments are accepted, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and
 exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says nothing about Orca. `--all` is one JSON array only with `--json`; without it, one text line per worker.
@@ -4210,6 +4273,9 @@ Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `p
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
 ticker the worker is subscribed to has been due and unanswered for at least the interval of **the worker's
 fastest subscribed ticker** (each tick reason's own `tickDueAt` in `dueWakes`, that ticker's oldest unacknowledged tick; never `anchorAt`, which is the oldest reason of any kind, and never `Ticker.lastTickAt`).
+The monitoring due-wake read always sends preview:true (cli#1984): it reserves no wake budget,
+withholds no due wakes and posts no budget notice. It does not acknowledge or deliver wakes.
+The host delivery poller keeps its spending read; the public team wakes due preview flag is separate.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
@@ -4273,6 +4339,61 @@ submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention
 delivery to be checked.
+
+## Host up
+
+`hadron team host up` (cli#1389, epic hadron-server#4229) reconciles one host:
+for each worker the host should run it checks the host registration, the
+worktree under `--worktrees-root`, the Orca agent terminals in it and the
+worker session, and plans only what is missing. The default (`--dry-run`) issues
+nothing and changes nothing: the request log shows reads only. `--apply` carries
+the plan out through the typed host-operation queue (cor:agt:070:05):
+`worktree.create` when the worktree is missing, then `worker.start`. It never
+calls a direct Orca create or launch, never casts, binds, rebinds or ends a
+worker, and never removes anything. `--worker <ref>` narrows the run to one
+worker: an exact id, or a name (any case) only one worker has; a name two
+workers share exits 2 and nothing is planned. An agent terminal counts whether
+or not Orca reports it connected, so no second agent is started beside one.
+
+The desired state comes from `--desired-state-file` until the server holds it
+(hadron-server#4222, #4224); the flag goes away when the server source lands.
+The file is strict (unknown keys, duplicate workers and non-token setup values
+exit 2) and its `hostId` must equal `--host`:
+`{"hostId","sweepMode","workers":[{"workerId","name","desired":"RUNNING"|"STOPPED","reason","wouldBe","sessionId","setup":{"worktree","repo","baseBranch","branch","family"}}]}`.
+
+Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
+`LEAVE_ALONE`, `HALTED`, `PAUSED`, `TEAM_PAUSED`, `RESETTING`, `RETIRED` or
+`SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
+worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
+session is never started again: with its agent terminal gone it is reported
+`RELAUNCH_UNAVAILABLE` until the host-local relaunch ships (hadron-cli#2060).
+An identical operation still in flight is adopted, never issued twice, and
+followed to its outcome; a finished one is not reused; a conflicting one in
+flight fails that worker's step (`ACTION_FAILED`). Every operation is issued
+as the person running the command, never as a worker bound to the worktree:
+starting a worker is the App manager's. No request this command makes, read or
+write, carries `X-Hadron-Session`.
+
+`--apply` takes a per-host lock (`<config dir>/host-up.<hash>.lock`, an OS
+lock released when the process ends): a second applying run exits 5 at once and
+issues nothing. A credential refusal (exit 3 or 8) stops the run: on the registration read
+before anything is issued, or on an operation, where the refused step is
+`REFUSED` and every later step `NOT_ATTEMPTED`. Exit 1 when any step
+failed; exit 4 when `--worker` names a worker the host is not meant to run
+(reported `NOT_ON_HOST`); exit 2 outside reachable Orca.
+
+`--json` returns `{"appRef","hostId","dryRun","sweepMode","planned":[],"applied":[],"skipped":[],"failed":[],"error"}`.
+`sweepMode` and `error` are nullable. Each item is
+`{"workerId","worker","action","reason","args":{},"operationId","detail"}`
+(`workerId` null only for `NOT_ON_HOST`; `action` null for a skip with no step;
+`operationId` set on applied and failed steps that reached the queue).
+Reason codes, which are added to and never repurposed:
+- planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
+- skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
+  `RELAUNCH_UNAVAILABLE`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
+  `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
+- failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`
 
 ## Worker reporting relationships
 
@@ -4753,6 +4874,7 @@ the server.
 ## Recorded served boot prompts (#916 C3b)
 
 `hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which, and exits 0 (unlike `node provenance`, whose unavailable revision exits 4). With `--all`, `provenance.items` aggregates every page while `provenance.limit`/`offset` stay the request paging (page size, offset 0). No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
+Served-record lint (cli#2007, cor:agt:040:13): `team worker served-prompt` always adds `currentLint`; `run served-prompt`, `team session served-prompts` and `chat served-prompts` add it with `--lint-warnings` (key absent without it). It is the current lint of that record's provenance revision (never the newest compile), `{items,total,nextCursor}` or `null`; null is unavailable for that record, never "no warnings". A history record is whole or null (record-id and total checked), 20 per request, one shared 5 s / 1000-request budget; an unavailable read prints one fixed stderr line and changes neither the result nor the exit code.
 
 `hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. For chatbot chat records, use `chat served-prompts <chat-id>` (below); this is separate from team-chat Channels.
 
@@ -4953,9 +5075,9 @@ encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8
 
 `skill lint` reports the server's LINT-plan findings, including `skill-include-broken` warnings, using the explicit selected memories and filtering exact selected node IDs. The server judges the memory-wide corpus, so a selected node can carry a collision finding caused by an unselected node. Warnings preserve the server message and remain exit 0 (`--strict` promotes them to 5); error findings exit 5. Row order is documented, not sorted: hosted findings in host declaration order and then server entry/finding order (the Nth identical finding under another host merges into the Nth row with more hosts, so repeated neutral messages within one host still count separately), host-free unknown-key rows, node-scoped `skill-node-not-judged` warnings, then unavailable-node rows. Literal notice text alone is never interpreted as a broken include. A failed, unavailable, or malformed plan returns an error, never a clean result and never a local fallback; there is no offline mode. If a syntactically valid plan returns no judgment for a selected declaration to a host this CLI supports, the CLI preserves the other server findings and adds a `skill-node-not-judged` warning whose `hosts` names that host and whose `memory` is the selected memory URN, rather than reporting that declaration clean. An unknown-host warning does not cover a known declaration beside it. Retry once if the corpus may have changed between host plans; if the omission persists, report a server `skillPlan` defect with the node and host. Unknown exports keys use the structured `keys`/`keyCount` fields. When the list is untruncated, a node with any locally-unknown key absent from it produces ONE host-free, non-blocking `skill-node-not-judged` warning (per node, not per key; exit 0 unless `--strict`), so it is not reported clean. A missing entry or one with no findings produces the same warning; truncated lists retain their own aggregate warning and are not over-interpreted. Host-free consistency checks cover selected nodes only. Unknown-key and not-judged findings remain warnings under `cor:agt:030:06`; local/server declaration-scope disagreements never become blocking synthetic errors. `scanned` is also memory-wide and includes intentional `exports: {}` gaps, so it is not treated as selected-node proof. The server must provide `SkillPlan.unrecognized` with its `keys` and `keyCount` fields; an older server without them fails through normal GraphQL error mapping. No rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
-hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
+hadron team session served-prompts <session-id> [--lint-warnings] [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
 hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]
-hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
+hadron run served-prompt <run-ref> [--lint-warnings] [--limit N] [--offset N | --all]
 hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 
 # Editing a task (cli#1137)
@@ -5091,7 +5213,8 @@ malformed status reports, an unknown contract version, or more than 200 workers
 refuse before writing. An empty registered host has no report to write.
 
 The JSON receipt is {reports:[{worker,status,prompt,reason,lastTurnAt,checkedAt}],
-refused:[{worker,code}]}. Text is one safe Name/status/reason line per worker,
+refused:[{worker,code}],renames:[{worker(id),name,terminal,from,to,applied,error}],dryRun}
+(`renames` and `dryRun` are cli#2017 additions). Text is one safe Name/status/reason line per worker,
 with an explicit refusal suffix for WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
 No retries. A successful write exits 0 even with per-worker refusals or no
 coordinator; no alarm/noCoordinator field is selected or used. Failed write or
@@ -5103,6 +5226,21 @@ The status read is allowed 5 seconds per registered worker (never under 2 minute
 `--status-timeout <duration>` overrides it. A read that runs out of time exits 1 with
 `terminal status timed out after <duration>; nothing written` (cli#1838), distinct from
 the generic `terminal status command failed` class kept for every other failure.
+
+Tab titles (cli#2017). After the status batch is stored, the sweep lists the
+host's Orca terminals and, for every tab whose worktree session binding names a
+worker registered on this host, sets the tab title to that worker's bare name
+(`team worker terminal-title`'s string) through `orca terminal rename` when it
+differs; a second sweep renames nothing. Every tab of a worker's worktree is
+covered (panes of one tab once); a tab with no registered worker (a plain shell,
+another host's worktree) is never touched, and a tab is matched by binding, never
+by its current title. `--dry-run` is on by default: a manual run changes nothing
+and lists "would rename" lines (`renames[].applied` false, `dryRun` true). The
+status batch is stored either way. The installed timer passes `--dry-run=false`
+(re-run `hadron team health install` once on a host installed before cli#2017 to
+pick it up). One tab failing to rename is `renames[].error: "rename_failed"` and
+does not stop the rest; a failed rename or a failed terminal list exits 1 after
+the receipt is printed. No chat post is made per rename.
 
 A missing/non-live host registration is exit 8. Unresolved or ambiguous registered
 workers, or a missing status row for any registered worker, refuse the whole
@@ -5125,15 +5263,23 @@ or sent. The JSON receipt shows both fields (omitted when not measured).
 ### Team health install (cli#1374)
 
 `hadron team health install --config <host.yaml> --interval <Nm>` writes one fixed
-per-user entry that runs `<abs hadron> team health sweep --config <abs host.yaml>`:
-a systemd user timer (crontab line where user units are unavailable) or a launchd
-agent. The entry carries the installing shell's PATH; install refuses (exit 2) when
-neither delivery.orca_bin nor PATH resolves `orca`. Installing twice changes nothing,
-a changed interval updates the entry, a different --config refuses until
-`uninstall`, which removes exactly what install wrote, also after a failed install.
-`status` is read-only (exit 0 even when not installed) and reads the last run from
-the scheduler; under cron it prints `unknown`. The host key never enters a generated
-file, argv or env. Do not install against production until hadron-server#2931 is deployed.
+per-user entry that runs `<abs hadron> team health sweep --config <abs host.yaml> --dry-run=false`
+(the flag makes the scheduled sweep apply the tab-title renames and the duplicate
+fixes; a manual sweep only lists them): a systemd user timer (crontab line where
+user units are unavailable) or a launchd agent. The entry carries the installing
+shell's PATH; install refuses (exit 2) when neither delivery.orca_bin nor PATH
+resolves `orca`. Installing twice with the same arguments changes nothing; a
+changed interval or a changed command line (as cli#2017 added `--dry-run=false`)
+rewrites the entry; a different --config refuses until `uninstall`, which removes
+exactly what install wrote, also after a failed install. An entry an older CLI
+wrote (without `--dry-run=false`) stays owned: reinstall replaces it in place —
+and until it is reinstalled, the old entry runs the upgraded sweep DRY (the
+flag's default): upgrading the binary never turns an existing timer into an
+applying one by itself, only a fresh `install` does. `status` is read-only
+(exit 0 even when not installed) and reads the last run from the scheduler;
+under cron it prints `unknown`. The host key never enters a generated file,
+argv or env. Do not install against production until hadron-server#2931 is
+deployed.
 
 ### Team usage (cli#1472)
 
@@ -6107,15 +6253,17 @@ before retrying. A failed preflight instead says no sync mutation was sent.
 ### Worker terminal display label
 
 `hadron team worker terminal-title <name-or-id> [--app <app>] [--json]`
-reads one worker and prints `<Name> [<role>, <model>, <leader>]` plus newline;
-null or scrub-empty leader omits its element; a scrub-empty worker name becomes
-`worker unavailable`. Raw JSON values stay unchanged. Same reference and retired-worker handling as
-`worker get`. The model is session-reported, then family, then `model unavailable`;
-null/blank role is `role unavailable`. This is advisory display, never verified
-identity or authorization. Text replaces controls, bidi/format characters,
-line/paragraph separators and brackets/commas with spaces, collapses whitespace,
-and caps the title at 256 Unicode runes including a closing bracket and any
-ellipsis. No host/terminal action or automatic refresh happens.
+reads one worker and prints its bare scrubbed `<Name>` plus newline (cli#2017;
+it was `<Name> [<role>, <model>, <leader>]` under cli#1738). A scrub-empty worker
+name becomes `worker unavailable`. Role, model, family and leader stay in the
+`--json` `parts`/`worker`/`model_source` fields, raw and unchanged, but are no
+longer in `title`. Same reference and retired-worker handling as `worker get`.
+This is advisory display, never verified identity or authorization: nothing may
+identify a worker by its tab title. Text replaces controls, bidi/format
+characters, line/paragraph separators and brackets/commas with spaces, collapses
+whitespace, and caps the title at 256 Unicode runes, the last being an ellipsis
+when it was cut. The command itself takes no terminal action; the health sweep
+applies the title (see "Team health sweep").
 
 JSON keys: `title`, `worker{id,name,urn}`,
 `parts{name,role,model,family,reports_to:{id,name,urn}|null}`, `model_source`
@@ -6131,7 +6279,7 @@ worker command JSON DTOs and `worker get` text stay unchanged.
 
 `node create` (`add`), `node update` (including `--data` and `--data-merge`),
 `node set-properties`, `node merge`, `replace text`, `spec new`, `spec edit`,
-`spec replace`, `spec supersede` and `spec extract` accept
+`spec replace`, `spec rescind`, `spec supersede` and `spec extract` accept
 `--authored-with <task URN or id> --authored-revision <n>`. Pass both or neither;
 one alone exits 2 before any request. Neither sends no `authoredWith` key.
 For this slice the CLI never infers the task from a binding, role or content.
@@ -6230,6 +6378,8 @@ List JSON is `{items:[],total:N}` (empty items stays `[]`); count-only JSON is `
 
 ### Asking for a grant (cli#1868)
 
+`hadron team grant actions [--limit N] [--offset N]` lists the registered grant actions of the App named by `--app` (or the App context): name, parameters, tool, `enforcement`, `issuerRule`, `source`. `hadron team grant action <name>` reads one by its exact dotted code. Anyone in the App reads: a person with their own credential (no worker binding needed) or a bound worker through its session. `--limit 0` counts only; `--json` is `{items,total}` (known fields, values unchanged); count-only text prints the `App:` header then `total:`. `enforcement` is the DECLARED level, not an active guarantee. A worker binding for this server takes precedence over the person credential: a bound worker reading another App gets the empty answer even if the person participates there. A blank or empty --app is absent: the App context applies and the `App:` header names it. The App ref is sent exactly as given (not even trimmed; blank counts as absent), never resolved or looked up first, so every refused caller (not in the App, unknown or malformed App, retired worker, App key, run) gets the same empty list (exit 0) or the same not-found line (exit 4): an empty answer proves nothing about the App.
+
 `hadron team grant request --action <name> --values <json|@file> --reason <text> [--holder worker|agent] [--holder-id <id>] [--starts-at <time>] [--expires-at <time>] [--max-uses <n>]` asks for a grant for this worker (default) or its role agent; the holder id comes from the binding, `--holder-id` overrides it and is required when unbound. It prints the pending grant in the same fourteen fields as `team grant get` (JSON identical); the next-step line goes to stderr. `hadron team grant request-signature <grant-id>` asks for that pending grant to be signed and prints the signing request; `hadron team grant signing-request get <request-id>` reads one (to see whether the URL was signed) and `hadron team grant signing-request withdraw <request-id>` ends an open one (the request, not the grant; no confirmation prompt).
 
 The signing request prints exactly id, grantId, version, termsHash, payloadVersion, state, requestedBy{userId,appId,workerId,sessionId}, createdAt, expiresAt, endedAt, ceremonyUrl. `state` is the server's own state for the request (OPEN, COMPLETED, DECLINED, EXPIRED, STALE, WITHDRAWN), printed as sent; the CLI derives no grant state label. `ceremonyUrl` is the page where a person signs: hand it over as printed. It is never composed, shortened or rewritten; text mode refuses (exit 1, nothing on stdout, pointing to `--json`) a URL carrying control or format characters, and `--json` always carries it byte for byte. Nothing here signs: a requested grant allows nothing until a person signs it.
@@ -6250,6 +6400,12 @@ separate server#3308 enforcement rollout; no gating effect is inferred here.
 Giving is person-only/idempotent; revoking takes effect at the next grantee call.
 The JSON receipt is {id,appId,workerId,name,grantedAt,revokedAt}; revokedAt may be null.
 rm confirms on a terminal, or requires --yes. Refusals retain normal CLI exit codes.
+
+`hadron team ticker settings get` reads the App's ticker settings (any App
+participant; read-only, no flags beyond --app/--json). Text prints an `app:` line, then the four numbers and
+marks the daily wake budget "derived" or "set" as the server says (the CLI never
+computes it). JSON: {minCadenceSeconds,liveCap,selfSubscribeCadenceSeconds,
+dailyWakeBudget,dailyWakeBudgetDerived}. Refusals map as everywhere (FORBIDDEN 8, not found 4).
 
 `hadron team ticker settings set` changes only supplied flags:
 --min-cadence-seconds, --live-cap, --self-subscribe-cadence-seconds,

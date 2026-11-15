@@ -14,7 +14,7 @@ import (
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var scope, owner string
 	cmd := &cobra.Command{
-		Use:     "list --scope <user|org> [--owner <ref>]",
+		Use:     "list --scope <user|org|app> [--owner <ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List inspectable secret metadata for one owner scope",
 		Long: `List the secrets of one owner: name, kind, metadata, id and audit fields.
@@ -22,6 +22,7 @@ Values are never returned or printed.
 
   --scope user                      your own secrets
   --scope org --owner <org ref>     an org's secrets (any member of the org)
+  --scope app --owner <app ref>     an App's secrets (the server decides who sees them)
 
 You only ever see your own user secrets, and an org's only if you are a member:
 listing another user's, or an org you don't belong to, comes back empty.
@@ -43,7 +44,7 @@ is [].`,
 			items, err := api.CollectAll(func(limit, offset int) ([]*gen.SecretsSecretsSecretsPageItemsSecret, int, error) {
 				resp, err := gen.Secrets(cmd.Context(), client, ownerType, ownerRef, &limit, &offset)
 				if err != nil {
-					return nil, 0, api.MapError(err)
+					return nil, 0, api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.Secrets == nil {
 					return nil, 0, nil
@@ -73,7 +74,7 @@ is [].`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user or org (required)")
+	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user, org or app (required)")
 	cmd.Flags().StringVar(&owner, "owner", "", "owner ID or URN (required except --scope user)")
 	_ = cmd.MarkFlagRequired("scope")
 	return cmd

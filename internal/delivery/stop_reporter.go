@@ -720,17 +720,21 @@ func (r *StopReporter) markReported(base, eventID string, seq int) error {
 // holdGloss explains a hold code in plain words; an unknown code is shown
 // as it is.
 var holdGloss = map[string]string{
-	HoldDraft:             "unsent text is in its input box",
-	HoldIsolated:          "its terminal is isolated from delivery",
-	HoldQuestion:          "its screen shows a question or a dialog",
-	HoldScreenUnknown:     "its screen could not be read as idle",
-	HoldNotSubmitted:      "the typed notice was not seen to start a turn",
-	HoldTwoAgents:         "two agents share its terminal",
-	HoldBindingMismatch:   "its terminal is bound to another session",
-	HoldTimingUnavailable: "the delivery timing could not be read",
-	"no-terminal":         "it has no terminal on this host",
-	"malformed-wake":      "the server's wake for it could not be read",
-	"records-unreadable":  "this host could not read its delivery records",
+	HoldDraft:                  "unsent text is in its input box",
+	HoldIsolated:               "its terminal is isolated from delivery",
+	HoldQuestion:               "its screen shows a question or a dialog",
+	HoldScreenUnknown:          "its screen could not be read as idle",
+	HoldNotSubmitted:           "the typed notice was not seen to start a turn",
+	HoldTwoAgents:              "two agents share its terminal",
+	HoldBindingMismatch:        "its terminal is bound to another session",
+	HoldNoTerminalRecord:       "its directory has no readable terminal record",
+	HoldTerminalStale:          "its recorded terminal is gone, read-only or not an agent",
+	HoldTerminalClaimed:        "another worker's terminal record names the same terminal",
+	HoldTerminalBoundElsewhere: "its recorded terminal sits in another worker's directory",
+	HoldTimingUnavailable:      "the delivery timing could not be read",
+	"no-terminal":              "it has no terminal on this host",
+	"malformed-wake":           "the server's wake for it could not be read",
+	"records-unreadable":       "this host could not read its delivery records",
 }
 
 func holdText(code string) string {

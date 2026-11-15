@@ -12,7 +12,7 @@ Author self-check; independent seats still required.
 | entity-fields-not-display-labels | Pass: server finding URN/memory/message retained, identity and membership based on node IDs; no target enrichment |
 | help-text-matches-changed-behaviour | Pass: lint documents provider include warnings and failure behavior; existing strict contract kept; actual help inventory regenerated |
 | no-rmw-sugar-over-wholesale-writes | Skipped: no read/modify/write list |
-| map-new-server-error-codes | Pass: api.MapError for provider read failures; unavailable/malformed plan Error1, no new provider refusal class |
+| map-new-server-error-codes | Pass: api.MapError for provider read failures; unavailable/malformed plan exit 1, no new provider refusal class |
 | confirm-prompt-tells-the-truth | Skipped: no confirmation prompt |
 | no-hand-parsed-ref-labels | Skipped: no parsed display labels |
 | ambient-scope-must-report-its-source | Skipped: explicit ref and explicit optional memory only, no ambient App fallback |
@@ -29,7 +29,7 @@ Author self-check; independent seats still required.
 | a-new-meaning-for-an-existing-glyph | Skipped: no placeholder glyphs |
 | enumerate-the-paths-before-promising-a-guarantee | Pass: no selected nodes, each host, selected/unselected entries, provider null/error, legacy URN collision, strict/output failure; no writes |
 | a-test-double-must-satisfy-the-real-access-pattern | Pass: both host calls recorded and answered, default no-include fixtures explicit in lint tests, focused race pass |
-| assert-the-value-the-user-gets | Pass: returned JSON message/rule/severity, strict exit5, normal warning exit0 and exact selected-node boundary tested |
+| assert-the-value-the-user-gets | Pass: returned JSON message/rule/severity, strict exit 5, normal warning exit 0 and exact selected-node boundary tested |
 | an-empty-flag-is-not-an-absent-flag | Skipped: only bool flag, no empty string option |
 | an-exemption-you-cannot-enumerate-is-a-hiding-place | Skipped: no scanning exemption |
 | sweep-the-subject-not-the-removed-rule | Skipped: no removed rule |

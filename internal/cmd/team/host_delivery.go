@@ -227,6 +227,7 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 		}
 	}
 	d.AckMixed = cfg.Delivery.AckMixed
+	d.Registered = p.Registered
 	d.Wakes = srv
 	p.WakeStep = book.ObserveWakes
 	p.EnableDelivery(srv, d)

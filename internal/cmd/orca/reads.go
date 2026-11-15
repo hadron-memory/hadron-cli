@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/terminalstatus"
 )
 
@@ -123,6 +124,9 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 	for n := 0; ; n++ {
 		resp, err := gen.DueTickWakes(ctx, g.client, g.app, pageSize, workerIDs, after)
 		if err != nil {
+			if api.IsUnknownGraphQLArgument(err, "preview", "Query.dueWakes") || api.IsUnknownGraphQLArgument(err, "preview", "dueWakes") {
+				return nil, exitcode.Newf(exitcode.Usage, "monitoring requires a server with dueWakes(preview) (hadron-server#3755); upgrade the server. No spending wake read was retried")
+			}
 			return nil, api.MapError(err)
 		}
 		page := resp.DueWakes

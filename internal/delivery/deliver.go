@@ -134,10 +134,16 @@ type Deliverer struct {
 	LockDir string
 	Caps    Capabilities
 	// Bound is the worker a worktree's session binding names, or "".
-	Bound  func(worktree string) string
-	Now    func() time.Time
-	Budget time.Duration
-	Emit   func(Event)
+	Bound func(worktree string) string
+	// Registered lists every registered worker's directories, for the
+	// plain-directory claim checks (cli#1989). nil: only the recipient.
+	Registered func() Registered
+	// ProcessGone says no process has a pid (ESRCH and nothing else); nil is
+	// the host's real test. A seam for the claim liveness tests.
+	ProcessGone func(pid int) bool
+	Now         func() time.Time
+	Budget      time.Duration
+	Emit        func(Event)
 
 	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
 	Wakes       WakeServer
@@ -446,6 +452,42 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 			inTree = append(inTree, t)
 		}
 	}
+	// A plain directory (no .git) is found by the handle its own terminal
+	// recorded, never by path (cli#1989). Worktree rows are untouched.
+	plainDir := map[string]string{}
+	var plains []string
+	for _, w := range r.Worktrees {
+		if isPlainDir(w) {
+			plains = append(plains, w)
+		}
+	}
+	if len(plains) > 0 {
+		c, ok := d.claims(r)
+		if !ok {
+			// No view of the other workers: neither (b) nor (c) can be
+			// judged, so nothing is typed.
+			return none, nil, "", l.hold(HoldTerminalClaimed, ""), false
+		}
+		for _, dir := range plains {
+			// Every plain directory's binding names this worker, not only
+			// the first one a shared handle resolves through.
+			if d.Bound(dir) != r.WorkerID {
+				return none, nil, "", l.hold(HoldBindingMismatch, ""), false
+			}
+			t, reason, handle, ok := d.plainTerminal(terms, dir, r, c)
+			if !ok {
+				return none, nil, "", l.hold(reason, handle), false
+			}
+			dup := false
+			for _, e := range inTree {
+				dup = dup || e.Handle == t.Handle
+			}
+			if !dup {
+				inTree = append(inTree, t)
+				plainDir[t.Handle] = dir
+			}
+		}
+	}
 	if len(inTree) == 0 {
 		// No hold evidence: S5 judges an overdue backlog by itself.
 		return none, nil, "", l.emit(Outcome{Kind: Skipped, Reason: "no-terminal"}), false
@@ -474,7 +516,11 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 	if !a.t.Connected || !a.t.Writable {
 		return none, nil, "", l.hold(HoldScreenUnknown, a.t.Handle), false
 	}
-	if d.Bound(a.t.WorktreePath) != r.WorkerID {
+	boundAt := a.t.WorktreePath
+	if dir, ok := plainDir[a.t.Handle]; ok {
+		boundAt = dir
+	}
+	if d.Bound(boundAt) != r.WorkerID {
 		return none, nil, "", l.hold(HoldBindingMismatch, a.t.Handle), false
 	}
 	// The interface: the screen's own family, else Orca's identity (a dialog
@@ -521,17 +567,48 @@ func canonical(p string) string {
 // start` writes into the worktree's git directory.
 const bindingFileName = "hadron-team-session.json"
 
-// BoundWorker is the worker id a worktree's session binding names, or "".
+// BoundWorker is the worker id a worktree's session binding names, "" when
+// it has none (the file does not exist), or unusableBinding when it has one
+// that cannot be trusted.
 func BoundWorker(worktree string) string {
+	worker, _ := boundIDs(worktree)
+	return worker
+}
+
+// Binding is what a worktree's session binding names (hadron-cli#2057).
+type Binding struct {
+	// WorkerID is "" when the worktree has no binding file.
+	WorkerID string
+	// SessionID is "" when there is no binding or it names no session.
+	SessionID string
+	// Unusable is a binding file that exists but cannot be trusted
+	// (unreadable, not JSON, naming no worker): never the same as none.
+	Unusable bool
+}
+
+// WorktreeBinding reads the worker and session a worktree's session binding
+// names, by the same rules as BoundWorker.
+func WorktreeBinding(worktree string) Binding {
+	worker, session := boundIDs(worktree)
+	if worker == unusableBinding {
+		return Binding{Unusable: true}
+	}
+	return Binding{WorkerID: worker, SessionID: session}
+}
+
+func boundIDs(worktree string) (worker, session string) {
 	gitDir := filepath.Join(worktree, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
-		return ""
+		if isPlainDir(worktree) {
+			return plainBoundIDs(worktree)
+		}
+		return "", ""
 	}
 	if !info.IsDir() {
 		b, err := os.ReadFile(gitDir)
 		if err != nil {
-			return ""
+			return unusableBinding, ""
 		}
 		pointer := trimGitdir(string(b))
 		if filepath.IsAbs(pointer) {
@@ -540,5 +617,5 @@ func BoundWorker(worktree string) string {
 			gitDir = filepath.Join(worktree, pointer)
 		}
 	}
-	return readBinding(filepath.Join(gitDir, bindingFileName))
+	return readBindingIDs(filepath.Join(gitDir, bindingFileName))
 }
