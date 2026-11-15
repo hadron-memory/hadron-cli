@@ -240,23 +240,34 @@ func markDuplicateWorkers(entries []importEntryDTO) {
 	}
 }
 
-// hostImportWrites are the two writes an apply makes for one worker, by the
+// hostImportWrites are the writes an apply makes for one worker, by the
 // roster worker's ID (never a name), injected so the flow is testable.
-// Systemic says a failure will repeat for every entry (no authority, server
-// unreachable), so the apply stops instead of trying all of them.
+// LeaveAloneSet reads whether the worker is ALREADY marked leave-alone (the
+// import never overwrites a mark it did not make). Refused says an error is the
+// server's definite refusal (nothing took effect); any other failure is an
+// UNKNOWN outcome. Systemic says a failure will repeat for every entry (no
+// authority, server unreachable), so the apply stops.
 type hostImportWrites struct {
-	Assign     func(ctx context.Context, workerID, workdir, family string) error
-	LeaveAlone func(ctx context.Context, workerID string) error
-	Systemic   func(error) bool
+	Assign        func(ctx context.Context, workerID, workdir, family string) error
+	LeaveAlone    func(ctx context.Context, workerID string) error
+	LeaveAloneSet func(ctx context.Context, workerID string) (bool, error)
+	Refused       func(error) bool
+	Systemic      func(error) bool
 }
 
 // importAppliedDTO is what an apply did for one "create" entry. LeaveAlone
 // true with Assigned false is the SAFE half-state (marked, not assigned): the
-// sweep leaves that worker alone, and a re-run completes it.
+// sweep leaves that worker alone, and a re-run completes it. LeaveAloneKept
+// means the worker was already marked, so the import wrote no mark and a
+// rollback must NOT clear it. Unknown means the failed step's outcome is not
+// known (a lost answer can follow a commit): check "team host setup --host"
+// and "team worker leave-alone" before any rollback.
 type importAppliedDTO struct {
-	LeaveAlone bool    `json:"leaveAlone"`
-	Assigned   bool    `json:"assigned"`
-	Error      *string `json:"error"`
+	LeaveAlone     bool    `json:"leaveAlone"`
+	LeaveAloneKept bool    `json:"leaveAloneKept"`
+	Assigned       bool    `json:"assigned"`
+	Unknown        bool    `json:"unknown"`
+	Error          *string `json:"error"`
 }
 
 var errApplyIncomplete = errors.New("some entries were not applied")
@@ -268,8 +279,8 @@ var errApplyIncomplete = errors.New("some entries were not applied")
 // idempotent: it plans from the server's state, where finished entries read
 // "unchanged" and are not written again. It never replaces a "differs".
 func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImportWrites) error {
-	if w.LeaveAlone == nil || w.Assign == nil {
-		return errors.New("an apply needs both writes")
+	if w.LeaveAlone == nil || w.Assign == nil || w.LeaveAloneSet == nil {
+		return errors.New("an apply needs its writes and the leave-alone read")
 	}
 	failed := 0
 	for i := range entries {
@@ -279,21 +290,37 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 		}
 		res := &importAppliedDTO{}
 		e.Applied = res
-		fail := func(err error) bool {
-			msg := err.Error()
+		fail := func(step string, err error) bool {
+			res.Unknown = w.Refused == nil || !w.Refused(err)
+			msg := step + ": " + err.Error()
+			if res.Unknown {
+				msg = step + " outcome unknown (" + err.Error() + "): check the server's state before any rollback"
+			}
 			res.Error = &msg
 			failed++
 			return w.Systemic != nil && w.Systemic(err)
 		}
-		if err := w.LeaveAlone(ctx, e.workerID); err != nil {
-			if fail(err) {
+		already, err := w.LeaveAloneSet(ctx, e.workerID)
+		if err != nil {
+			if fail("reading leave-alone", err) {
 				break
 			}
+			res.Unknown = false // a read wrote nothing
 			continue
 		}
-		res.LeaveAlone = true
+		if already {
+			res.LeaveAlone, res.LeaveAloneKept = true, true
+		} else {
+			if err := w.LeaveAlone(ctx, e.workerID); err != nil {
+				if fail("leave-alone", err) {
+					break
+				}
+				continue
+			}
+			res.LeaveAlone = true
+		}
 		if err := w.Assign(ctx, e.workerID, *e.Workdir, e.Family); err != nil {
-			if fail(err) {
+			if fail("assignment", err) {
 				break
 			}
 			continue
@@ -309,24 +336,48 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 const importLeaveAloneReason = "imported from host.yaml (hadron-cli#2061); the sweep leaves it alone until its lane is released"
 
 // hostImportWriter is the production writer set: the signed-in manager's own
-// writes (assignHostWorker, setWorkerLeaveAlone), by worker id.
+// writes (assignHostWorker, setWorkerLeaveAlone), by worker id. A write counts
+// only when the server's answer confirms the very worker and values asked for;
+// an empty or mismatched answer is an unconfirmed outcome, never a success.
 var hostImportWriter = func(client graphql.Client, appRef, hostID string) hostImportWrites {
+	unconfirmed := errors.New("the server's answer did not confirm the write")
 	return hostImportWrites{
+		LeaveAloneSet: func(ctx context.Context, workerID string) (bool, error) {
+			r, err := gen.GetWorkerLeaveAlone(ctx, client, workerID, nil)
+			if err != nil {
+				return false, api.MapErrorKeepingCode(err)
+			}
+			if r == nil || r.Worker == nil || r.Worker.Id != workerID || r.Worker.LeaveAlone == nil {
+				return false, unconfirmed
+			}
+			return *r.Worker.LeaveAlone, nil
+		},
 		LeaveAlone: func(ctx context.Context, workerID string) error {
 			reason := importLeaveAloneReason
-			_, err := gen.SetWorkerLeaveAlone(ctx, client, &gen.SetWorkerLeaveAloneInput{Worker: workerID, LeaveAlone: true, Reason: &reason}, nil)
+			r, err := gen.SetWorkerLeaveAlone(ctx, client, &gen.SetWorkerLeaveAloneInput{Worker: workerID, LeaveAlone: true, Reason: &reason}, nil)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
+			}
+			if r == nil || r.SetWorkerLeaveAlone == nil || r.SetWorkerLeaveAlone.WorkerId != workerID || !r.SetWorkerLeaveAlone.LeaveAlone {
+				return unconfirmed
 			}
 			return nil
 		},
 		Assign: func(ctx context.Context, workerID, workdir, family string) error {
-			_, err := gen.TeamHostAssign(ctx, client, &gen.AssignHostWorkerInput{AppRef: appRef, Worker: workerID, HostId: hostID, Workdir: workdir, Family: family})
+			r, err := gen.TeamHostAssign(ctx, client, &gen.AssignHostWorkerInput{AppRef: appRef, Worker: workerID, HostId: hostID, Workdir: workdir, Family: family})
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
+			a := (*gen.HostSetupAssignmentFields)(nil)
+			if r != nil && r.AssignHostWorker != nil {
+				a = &r.AssignHostWorker.HostSetupAssignmentFields
+			}
+			if a == nil || a.WorkerId != workerID || a.HostId != hostID || a.Workdir != workdir || a.Family != family {
+				return unconfirmed
+			}
 			return nil
 		},
+		Refused: api.IsDefiniteRefusal,
 		Systemic: func(err error) bool {
 			switch exitcode.FromError(err) {
 			case exitcode.AuthRequired, exitcode.Forbidden, exitcode.Unavailable:
@@ -476,8 +527,9 @@ host without the runbook: the orca1 import is the host manager's step.`,
 			entries, missing := planHostImport(cfg, roster, existing, setupKnown)
 			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, HostSetup: map[bool]string{true: "available", false: "missing"}[setupKnown], Entries: entries, Missing: missing, Counts: countActions(entries)}
 			dto.FileApp, dto.Warnings = cfg.App, []string{}
-			if w := importAppWarning(ctx, client, cfg.App, scope.Ref); w != "" {
-				dto.Warnings = append(dto.Warnings, w)
+			appWarning := importAppWarning(ctx, client, cfg.App, scope.Ref)
+			if appWarning != "" {
+				dto.Warnings = append(dto.Warnings, appWarning)
 			}
 			if dto.Entries == nil {
 				dto.Entries = []importEntryDTO{}
@@ -490,8 +542,13 @@ host without the runbook: the orca1 import is the host manager's step.`,
 				if !setupKnown {
 					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: the server lacks host setup (it predates hadron-server#4241)")
 				}
+				if appWarning != "" {
+					// The dry run's check is a gate for a write: a wrong --app or
+					// binding would assign another App's same-named workers.
+					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: %s", appWarning)
+				}
 				if dto.Counts[importCreate] > 0 {
-					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Assign %d workers to host %s and mark each leave-alone?", dto.Counts[importCreate], hostID)); err != nil {
+					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("In App %s, assign %d workers to host %s and mark each leave-alone?", describeApp(ctx, f, scope.Ref), dto.Counts[importCreate], hostID)); err != nil {
 						return err
 					}
 					applyErr = applyHostImport(ctx, entries, hostImportWriter(client, scope.Ref, hostID))
@@ -550,6 +607,8 @@ host without the runbook: the orca1 import is the host manager's step.`,
 						res = "leave-alone set, NOT assigned: " + *e.Applied.Error
 					case e.Applied.Error != nil:
 						res = "NOT written: " + *e.Applied.Error
+					case e.Applied.LeaveAloneKept:
+						res = "assigned; it was already leave-alone (kept, not the import's mark)"
 					}
 					if _, err := fmt.Fprintf(w, "applied %s: %s\n", output.SafeCell(e.Ref), output.SafeCell(res)); err != nil {
 						return err

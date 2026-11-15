@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"strings"
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
@@ -170,6 +173,8 @@ type recWrites2061 struct {
 	log        []string
 	failLeave  map[string]error
 	failAssign map[string]error
+	alreadySet map[string]bool
+	readErr    map[string]error
 }
 
 func (r *recWrites2061) writes() hostImportWrites {
@@ -182,6 +187,11 @@ func (r *recWrites2061) writes() hostImportWrites {
 			r.log = append(r.log, "assign:"+id+":"+wd+":"+fam)
 			return r.failAssign[id]
 		},
+		LeaveAloneSet: func(_ context.Context, id string) (bool, error) {
+			r.log = append(r.log, "read:"+id)
+			return r.alreadySet[id], r.readErr[id]
+		},
+		Refused:  func(err error) bool { return strings.HasPrefix(err.Error(), "REFUSED") },
 		Systemic: func(err error) bool { return err.Error() == "systemic" },
 	}
 }
@@ -199,7 +209,7 @@ func TestApplyWritesLeaveAloneBeforeAssignPerWorkerOnlyForCreates(t *testing.T) 
 	if err := applyHostImport(context.Background(), entries, r.writes()); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"leave:w1", "assign:w1:a:claude", "leave:w5", "assign:w5:e:claude"}
+	want := []string{"read:w1", "leave:w1", "assign:w1:a:claude", "read:w5", "leave:w5", "assign:w5:e:claude"}
 	if len(r.log) != len(want) {
 		t.Fatalf("log = %v, want %v", r.log, want)
 	}
@@ -219,7 +229,7 @@ func TestApplyWritesLeaveAloneBeforeAssignPerWorkerOnlyForCreates(t *testing.T) 
 // The half-state of a refusal is always the SAFE one: marked leave-alone, not assigned.
 func TestApplyAssignRefusalLeavesAMarkedUnassignedWorkerAndOthersStillRun(t *testing.T) {
 	entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w2", "b")}
-	r := &recWrites2061{failAssign: map[string]error{"w1": errors.New("HOST_ASSIGNMENT_NOT_PERMITTED")}}
+	r := &recWrites2061{failAssign: map[string]error{"w1": errors.New("REFUSED HOST_ASSIGNMENT_NOT_PERMITTED")}}
 	err := applyHostImport(context.Background(), entries, r.writes())
 	if !errors.Is(err, errApplyIncomplete) {
 		t.Fatalf("err = %v, want the incomplete error", err)
@@ -253,7 +263,7 @@ func TestApplySystemicFailureStopsTheRun(t *testing.T) {
 	entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w2", "b"), entry2061("C", "w3", "c")}
 	r := &recWrites2061{failLeave: map[string]error{"w1": errors.New("systemic")}}
 	_ = applyHostImport(context.Background(), entries, r.writes())
-	if len(r.log) != 1 || entries[1].Applied != nil || entries[2].Applied != nil {
+	if len(r.log) != 2 || entries[1].Applied != nil || entries[2].Applied != nil {
 		t.Fatalf("a failure that repeats for every entry must stop the run: %v", r.log)
 	}
 }
@@ -266,7 +276,8 @@ func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
 	roster := []importRoster{{ID: "w1", Name: "Iris"}, {ID: "w2", Name: "Kit"}}
 	server := []importExisting1{}
 	w := hostImportWrites{
-		LeaveAlone: func(context.Context, string) error { return nil },
+		LeaveAloneSet: func(context.Context, string) (bool, error) { return false, nil },
+		LeaveAlone:    func(context.Context, string) error { return nil },
 		Assign: func(_ context.Context, id, wd, fam string) error {
 			server = append(server, importExisting1{WorkerID: id, Workdir: wd, Family: fam})
 			return nil
@@ -285,5 +296,157 @@ func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
 	w.LeaveAlone = func(context.Context, string) error { calls++; return nil }
 	if err := applyHostImport(context.Background(), again, w); err != nil || len(server) != before || calls != 0 {
 		t.Fatalf("second apply wrote: err=%v leave-alone calls=%d", err, calls)
+	}
+}
+
+// Rodolfo P3: a mark the import did not make is never overwritten, and a
+// rollback must not clear it.
+func TestApplyKeepsAnExistingLeaveAloneMark(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a")}
+	r := &recWrites2061{alreadySet: map[string]bool{"w1": true}}
+	if err := applyHostImport(context.Background(), entries, r.writes()); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range r.log {
+		if strings.HasPrefix(l, "leave:") {
+			t.Fatalf("overwrote an existing mark: %v", r.log)
+		}
+	}
+	if a := entries[0].Applied; !a.LeaveAlone || !a.LeaveAloneKept || !a.Assigned {
+		t.Fatalf("applied = %+v", a)
+	}
+}
+
+func TestApplyNeverWritesWhenTheMarkCannotBeRead(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a")}
+	r := &recWrites2061{readErr: map[string]error{"w1": errors.New("REFUSED nope")}}
+	if err := applyHostImport(context.Background(), entries, r.writes()); !errors.Is(err, errApplyIncomplete) {
+		t.Fatalf("err = %v", err)
+	}
+	for _, l := range r.log {
+		if strings.HasPrefix(l, "leave:") || strings.HasPrefix(l, "assign:") {
+			t.Fatalf("wrote without knowing the mark: %v", r.log)
+		}
+	}
+	if entries[0].Applied.Unknown {
+		t.Fatal("a read wrote nothing: not an unknown outcome")
+	}
+}
+
+// Joaquin P2: a lost answer can follow a commit, so only a definite refusal is
+// "not written"; anything else is an unknown outcome the report says so about.
+func TestApplyDistinguishesARefusalFromAnUnknownOutcome(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w2", "b")}
+	r := &recWrites2061{failAssign: map[string]error{"w1": errors.New("REFUSED nope"), "w2": errors.New("connection reset")}}
+	_ = applyHostImport(context.Background(), entries, r.writes())
+	if entries[0].Applied.Unknown {
+		t.Fatalf("a coded refusal is definite: %+v", entries[0].Applied)
+	}
+	if !entries[1].Applied.Unknown || entries[1].Applied.Error == nil || !strings.Contains(*entries[1].Applied.Error, "outcome unknown") {
+		t.Fatalf("a transport failure may follow a commit: %+v", entries[1].Applied)
+	}
+}
+
+// opClient answers each operation from a fixed JSON body, so the production
+// writer's own confirmation check can be driven with null/empty/mismatched answers.
+type opClient2061 struct{ by map[string]string }
+
+func (c opClient2061) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
+	body, ok := c.by[req.OpName]
+	if !ok {
+		return errors.New("unexpected op " + req.OpName)
+	}
+	var env struct {
+		Data   json.RawMessage `json:"data"`
+		Errors json.RawMessage `json:"errors"`
+	}
+	if err := json.Unmarshal([]byte(body), &env); err != nil {
+		return err
+	}
+	if len(env.Errors) > 0 {
+		var list gqlerror.List
+		if err := json.Unmarshal(env.Errors, &list); err != nil {
+			return err
+		}
+		return list
+	}
+	return json.Unmarshal(env.Data, resp.Data)
+}
+
+func TestHostImportWriterRequiresTheServerToConfirmEachWrite(t *testing.T) {
+	good := map[string]string{
+		"SetWorkerLeaveAlone": `{"data":{"setWorkerLeaveAlone":{"workerId":"w1","leaveAlone":true}}}`,
+		"TeamHostAssign":      `{"data":{"assignHostWorker":{"id":"a","hostId":"orca1","workerId":"w1","workdir":"wd","family":"claude","createdAt":"x","updatedAt":"x"}}}`,
+		"GetWorkerLeaveAlone": `{"data":{"worker":{"id":"w1","leaveAlone":false}}}`,
+	}
+	ctx := context.Background()
+	w := hostImportWriter(opClient2061{good}, "capp1", "orca1")
+	if err := w.LeaveAlone(ctx, "w1"); err != nil {
+		t.Fatalf("a confirmed mark: %v", err)
+	}
+	if err := w.Assign(ctx, "w1", "wd", "claude"); err != nil {
+		t.Fatalf("a confirmed assignment: %v", err)
+	}
+	if set, err := w.LeaveAloneSet(ctx, "w1"); err != nil || set {
+		t.Fatalf("read = %v %v", set, err)
+	}
+	bad := map[string]map[string]string{
+		"SetWorkerLeaveAlone": {
+			"null":      `{"data":{"setWorkerLeaveAlone":null}}`,
+			"not set":   `{"data":{"setWorkerLeaveAlone":{"workerId":"w1","leaveAlone":false}}}`,
+			"other one": `{"data":{"setWorkerLeaveAlone":{"workerId":"w9","leaveAlone":true}}}`,
+		},
+		"TeamHostAssign": {
+			"null":         `{"data":{"assignHostWorker":null}}`,
+			"other worker": `{"data":{"assignHostWorker":{"id":"a","hostId":"orca1","workerId":"w9","workdir":"wd","family":"claude","createdAt":"x","updatedAt":"x"}}}`,
+			"other host":   `{"data":{"assignHostWorker":{"id":"a","hostId":"orca2","workerId":"w1","workdir":"wd","family":"claude","createdAt":"x","updatedAt":"x"}}}`,
+			"other dir":    `{"data":{"assignHostWorker":{"id":"a","hostId":"orca1","workerId":"w1","workdir":"zz","family":"claude","createdAt":"x","updatedAt":"x"}}}`,
+			"other family": `{"data":{"assignHostWorker":{"id":"a","hostId":"orca1","workerId":"w1","workdir":"wd","family":"codex","createdAt":"x","updatedAt":"x"}}}`,
+		},
+	}
+	for op, cases := range bad {
+		for name, body := range cases {
+			m := map[string]string{}
+			for k, v := range good {
+				m[k] = v
+			}
+			m[op] = body
+			ww := hostImportWriter(opClient2061{m}, "capp1", "orca1")
+			var err error
+			if op == "SetWorkerLeaveAlone" {
+				err = ww.LeaveAlone(ctx, "w1")
+			} else {
+				err = ww.Assign(ctx, "w1", "wd", "claude")
+			}
+			if err == nil {
+				t.Errorf("%s/%s: an unconfirmed answer must not count as written", op, name)
+			}
+			if err != nil && ww.Refused(err) {
+				t.Errorf("%s/%s: an unconfirmed answer is an unknown outcome, not a refusal", op, name)
+			}
+		}
+	}
+	m := map[string]string{"GetWorkerLeaveAlone": `{"data":{"worker":null}}`}
+	if _, err := hostImportWriter(opClient2061{m}, "c", "h").LeaveAloneSet(ctx, "w1"); err == nil {
+		t.Error("an unknown worker answer must not read as 'not marked'")
+	}
+}
+
+// Joaquin P3 / Rodolfo P3: the production classifiers, with real mapped errors.
+func TestHostImportWriterClassifiesRealErrors(t *testing.T) {
+	w := hostImportWriter(opClient2061{}, "c", "h")
+	gql := func(code string) error {
+		return api.MapErrorKeepingCode(gqlerror.List{{Message: "m", Extensions: map[string]any{"code": code}}})
+	}
+	for code, want := range map[string]bool{"FORBIDDEN": true, "UNAUTHENTICATED": true, "HOST_ASSIGNMENT_EXISTS": false, "BAD_HOST_ASSIGNMENT_ARGS": false, "WORKER_NOT_FOUND": false} {
+		if got := w.Systemic(gql(code)); got != want {
+			t.Errorf("Systemic(%s) = %v, want %v", code, got, want)
+		}
+	}
+	if !w.Systemic(api.MapErrorKeepingCode(&net.OpError{Op: "dial", Err: errors.New("connection refused")})) {
+		t.Error("an unreachable server repeats for every entry: systemic")
+	}
+	if !w.Refused(gql("FORBIDDEN")) || w.Refused(gql("INTERNAL_SERVER_ERROR")) || w.Refused(errors.New("timeout")) {
+		t.Error("only a coded, non-internal answer is a definite refusal")
 	}
 }

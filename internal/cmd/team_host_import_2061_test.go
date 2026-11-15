@@ -229,6 +229,9 @@ const leaveAloneOK2061 = `{"data":{"setWorkerLeaveAlone":{"workerId":"w1","leave
 func applyResponses2061() map[string]string {
 	r := importResponses2061()
 	r["SetWorkerLeaveAlone"] = leaveAloneOK2061
+	r["GetWorkerLeaveAlone"] = `{"data":{"worker":{"id":"w1","leaveAlone":false}}}`
+	// The confirmation of Jonas's own assignment (w1, orca1, jonas-1, codex).
+	r["TeamHostAssign"] = `{"data":{"assignHostWorker":{"id":"a1","hostId":"orca1","workerId":"w1","worker":{"name":"Jonas"},"workdir":"jonas-1","family":"codex","model":null,"createdAt":"2026-11-15T10:00:00Z","updatedAt":"2026-11-15T10:00:00Z"}}}`
 	return r
 }
 
@@ -250,9 +253,9 @@ func TestTeamHostImport2061ApplyMarksLeaveAloneThenAssignsOnlyTheCreates(t *test
 		t.Fatalf("%v\n%s", err, out)
 	}
 	// Jonas is the only create (Iris is unchanged, Ghost has no roster worker).
-	got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign")
-	if len(got) != 2 || got[0] != "SetWorkerLeaveAlone" || got[1] != "TeamHostAssign" {
-		t.Fatalf("writes = %v, want leave-alone THEN assign, once each", got)
+	got := ops2061(calls, "GetWorkerLeaveAlone", "SetWorkerLeaveAlone", "TeamHostAssign")
+	if len(got) != 3 || got[0] != "GetWorkerLeaveAlone" || got[1] != "SetWorkerLeaveAlone" || got[2] != "TeamHostAssign" {
+		t.Fatalf("calls = %v, want read the mark, leave-alone, THEN assign, once each", got)
 	}
 	la := findCall(t, calls, "SetWorkerLeaveAlone").Vars["input"].(map[string]any)
 	if la["worker"] != "w1" || la["leaveAlone"] != true || la["reason"] == nil {
@@ -269,6 +272,9 @@ func TestTeamHostImport2061ApplyMarksLeaveAloneThenAssignsOnlyTheCreates(t *test
 	}
 	if _, ok := as["model"]; ok {
 		t.Fatalf("no model is in the file: %v", as)
+	}
+	if _, ok := as["replace"]; ok {
+		t.Fatalf("an import never replaces: %v", as)
 	}
 	var rep struct {
 		Applied bool `json:"applied"`
@@ -338,5 +344,60 @@ func TestTeamHostImport2061DryRunStillWritesNothing(t *testing.T) {
 	}
 	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
 		t.Fatalf("a dry run wrote: %v", got)
+	}
+}
+
+// Rodolfo P2: the App check is a gate for the writes, not a warning printed after them.
+func TestTeamHostImport2061ApplyRefusedWhenTheFileAppDoesNotResolve(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamAppIdentity"] = `{"data":{"app":null}}`
+	calls, _, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "nothing written") {
+		t.Fatalf("err = %v, want a usage refusal that says nothing was written", err)
+	}
+	if got := ops2061(calls, "GetWorkerLeaveAlone", "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("an App mismatch must stop the apply before any worker is touched: %v", got)
+	}
+}
+
+// Joaquin P2: an empty answer is not a confirmed write.
+func TestTeamHostImport2061ApplyEmptyAssignAnswerIsNotReportedAsAssigned(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamHostAssign"] = `{"data":{"assignHostWorker":null}}`
+	_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+	if err == nil || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("err = %v, want exit 1", err)
+	}
+	if strings.Contains(out, `"assigned": true`) || !strings.Contains(out, `"unknown": true`) || !strings.Contains(out, "outcome unknown") {
+		t.Fatalf("an unconfirmed assignment must read unknown, never assigned:\n%s", out)
+	}
+}
+
+// Rodolfo P3: server error text is sanitised before it reaches a terminal.
+func TestTeamHostImport2061ApplyErrorTextIsSanitised(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamHostAssign"] = `{"errors":[{"message":"bad \u001b[31mRED\u001b]52;c;x\u0007 text","extensions":{"code":"HOST_ASSIGNMENT_NOT_PERMITTED"}}]}`
+	_, out, _ := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if strings.ContainsRune(out, 0x1b) || strings.ContainsRune(out, 0x07) {
+		t.Fatalf("control characters reached the terminal: %q", out)
+	}
+	if !strings.Contains(out, "applied Jonas") {
+		t.Fatalf("the applied line is missing:\n%s", out)
+	}
+}
+
+// Rodolfo P3: a mark the import did not make is kept, and says so.
+func TestTeamHostImport2061ApplyKeepsAnExistingLeaveAloneMark(t *testing.T) {
+	r := applyResponses2061()
+	r["GetWorkerLeaveAlone"] = `{"data":{"worker":{"id":"w1","leaveAlone":true}}}`
+	calls, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone"); len(got) != 0 {
+		t.Fatalf("overwrote an existing mark: %v", got)
+	}
+	if !strings.Contains(out, `"leaveAloneKept": true`) {
+		t.Fatalf("the report must say the mark was kept:\n%s", out)
 	}
 }
