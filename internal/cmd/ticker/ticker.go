@@ -575,6 +575,8 @@ A grant announcement is best-effort:
 FAILED leaves the subscription change standing; this command never retries it.`}
 	if unsubscribe {
 		c.Short = "Unsubscribe a worker from a ticker"
+	} else {
+		c.Long += "\nA short-lived worker is woken by its tasks, not by tickers. Subscribing it\nrefuses with TICKER_ON_SHORT_LIVED (exit 5); unsubscribing remains allowed."
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")

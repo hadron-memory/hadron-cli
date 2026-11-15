@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -25,8 +26,23 @@ func TestTickerShortLivedRefusal2107(t *testing.T) {
 		}
 		root.SetArgs(args)
 		err := root.Execute()
-		if exitcode.FromError(err) != exitcode.Conflict || err == nil || !strings.Contains(err.Error(), "a short-lived worker is woken by its tasks, not by tickers") || calls != 1 || out.Len() != 0 {
-			t.Fatalf("json=%v err=%v exit=%d calls=%d out=%s", jsonOutput, err, exitcode.FromError(err), calls, out)
+		if exitCodeFor(err) != exitcode.Conflict || err == nil || !strings.Contains(err.Error(), "a short-lived worker is woken by its tasks, not by tickers") || calls != 1 || out.Len() != 0 {
+			t.Fatalf("json=%v err=%v exit=%d calls=%d out=%s", jsonOutput, err, exitCodeFor(err), calls, out)
+		}
+		if got := renderError(f, err); got != exitcode.Conflict {
+			t.Fatalf("rendered exit %d", got)
+		}
+		if jsonOutput {
+			var envelope struct {
+				Error struct {
+					Code       int    `json:"code"`
+					ServerCode string `json:"serverCode"`
+					Message    string `json:"message"`
+				} `json:"error"`
+			}
+			if decodeErr := json.Unmarshal([]byte(out.String()), &envelope); decodeErr != nil || envelope.Error.Code != exitcode.Conflict || envelope.Error.ServerCode != "TICKER_ON_SHORT_LIVED" || envelope.Error.Message != err.Error() {
+				t.Fatalf("envelope=%s err=%v", out, decodeErr)
+			}
 		}
 	}
 }

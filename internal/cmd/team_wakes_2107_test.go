@@ -6,7 +6,7 @@ import (
 )
 
 func TestCancelledChildWakeLabel2107(t *testing.T) {
-	for _, event := range []string{"CHILD_CANCELLED", "FUTURE_CHILD_STATE"} {
+	for _, event := range []string{"CHILD_CANCELLED", "FUTURE_CHILD_STATE", strings.Repeat("FUTURE_", 50)} {
 		for _, jsonOutput := range []bool{false, true} {
 			wake := strings.ReplaceAll(c1279TickWake, "ASSIGNED", event)
 			args := []string{"team", "wakes", "due"}
@@ -19,7 +19,7 @@ func TestCancelledChildWakeLabel2107(t *testing.T) {
 			}
 			want := event
 			if event == "CHILD_CANCELLED" && !jsonOutput {
-				want = "TASK:t1:child-cancelled"
+				want = "TASK AT1.4 t1 CHILD_CANCELLED"
 			}
 			if !strings.Contains(out, want) {
 				t.Fatalf("event=%s json=%v want %q in %s", event, jsonOutput, want, out)

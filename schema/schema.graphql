@@ -433,7 +433,7 @@ type Agent {
   installationPolicy: InstallationPolicy!
 
   """
-  #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task that is not waiting on child tasks. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+  #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
   """
   lifecycle: AgentLifecycle!
 
@@ -584,7 +584,7 @@ enum AgentLifecycle {
   LONG_LIVED
 
   """
-  The worker's process should run only while it is the assignee of a pending or started task that is not waiting on child tasks.
+  The worker's process should run only while it is the assignee of a pending or started task (one waiting on its child tasks included).
   """
   SHORT_LIVED
 }
@@ -5631,7 +5631,7 @@ enum DesiredRunState {
 }
 
 """
-#4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first four come from the
+#4224 (S3 of #4229): why a worker's desired state is what it is. A closed set. The first three come from the
 Agent's lifecycle. RETIRED, HALTED, PAUSED, TEAM_PAUSED and RESETTING always win over the lifecycle, in that order,
 and always read STOPPED. LEAVE_ALONE wins over all of those, and SWEEP_OFF over everything: with either, nothing
 is desired (desired is null) and wouldBe says what the state would otherwise be.
@@ -5643,7 +5643,7 @@ enum DesiredStateReason {
   HALTED
 
   """
-  A worker of a SHORT_LIVED Agent that is the assignee of a pending task, or of a started task with no open child: RUNNING.
+  A worker of a SHORT_LIVED Agent that is the assignee of a pending or started task, including one waiting on its child tasks (the worker stays up and is woken by their events): RUNNING.
   """
   HOLDS_TASK
 
@@ -5676,11 +5676,6 @@ enum DesiredStateReason {
 
   """The App is under a team pause (App.teamPausedAt)."""
   TEAM_PAUSED
-
-  """
-  A worker of a SHORT_LIVED Agent whose every open task is started and waiting on an open child task (hrn:node:hadronmemory.com:specs:cor:agt:050:04): STOPPED.
-  """
-  WAITING_ON_CHILDREN
 }
 
 type DormantWithheld {
@@ -5781,7 +5776,7 @@ type DueTaskReason {
   """
   handle: String!
 
-  """The task's id (for CHILD_FINISHED, the child's)."""
+  """The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's)."""
   id: ID!
 
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
@@ -6727,7 +6722,11 @@ type HostOperation {
   """
   launchGrant: String
 
-  """A success's typed result: {worktree} for worktree.create."""
+  """
+  A success's typed result, by type: {worktree} for worktree.create, {sessionId} (the worker session the start's grant
+  bound) for worker.start, {handoff} (a boolean: whether a handoff was written) for worker.end. Null for worker.deliver,
+  worktree.remove and worker.reset-context, for a failure, and until the operation finishes.
+  """
   result: JSON
   status: HostOperationStatus!
   type: String!
@@ -15577,9 +15576,9 @@ type Query {
 
   """
   #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-  host's sweep reads this once per pass and compares it with what it sees. Until the platform holds which workers
-  a host runs (#4222), those are the workers the host's registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or
-  lapsed, with the family and worktrees it registered. Rows are ordered by worker name.
+  host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
+  registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
+  registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
   Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
   that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
   answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -19628,7 +19627,12 @@ enum TaskWakeEvent {
   ASSIGNED
 
   """
-  A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  """
+  CHILD_CANCELLED
+
+  """
+  A child task finished; the reason names the child. Due to the child's owner (hrn:node:hadronmemory.com:specs:cor:agt:050:16) and, #4234, to the parent's current assignee.
   """
   CHILD_FINISHED
 
@@ -21383,11 +21387,13 @@ type Worker {
   lastActiveAt: DateTime
 
   """
-  #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it.
+  #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it. WORKING-STATE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): null for a caller who may see only the worker's profile.
   """
-  leaveAlone: Boolean!
+  leaveAlone: Boolean
 
-  """When the worker was marked leave-alone; null when it is not marked."""
+  """
+  When the worker was marked leave-alone; null when it is not marked. WORKING-STATE field (#1149), masked like createdBy.
+  """
   leaveAloneAt: DateTime
 
   """

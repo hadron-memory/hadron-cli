@@ -102,7 +102,7 @@ func TestWakeEventWording(t *testing.T) {
 	for ev, want := range map[string]string{
 		"ASSIGNED": "assigned", "CHILD_FINISHED": "child finished", "ALARM": "alarm",
 		"END_SESSION": "end session", "MATCHED": "matched", "REASSIGNED": "reassigned",
-		"SOME_FUTURE_EVENT": "some future event",
+		"SOME_FUTURE_EVENT": "SOME_FUTURE_EVENT",
 	} {
 		if got := wakeEventWords(ev); got != want {
 			t.Errorf("%s -> %q, want %q", ev, got, want)

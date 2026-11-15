@@ -144,6 +144,8 @@ every reason (MENTION, TICK with its ticker, TASK with the task's handle and
 event, STOP with the notice), one seq range per channel, the unread counts and
 the proof that ` + "`team wakes ack`" + ` takes. It shows counts and ranges, never message
 text, and listing moves no read position.
+Cancelled children appear as TASK <handle> <id> CHILD_CANCELLED, alongside
+CHILD_FINISHED. Unknown event values are shown as returned by the server.
 
 --worker <name, URN or id> narrows to that worker; repeat it for several.
 Names resolve in the App first, so an unknown worker is refused (exit 4)
@@ -306,7 +308,9 @@ func reasonLabel(r dueWakeReasonDTO) string {
 	case r.Ticker != nil:
 		return r.Kind + " " + output.SafeCell(r.Ticker.Name)
 	case r.Task != nil:
-		return r.Kind + " " + taskRef(r.Task.Handle, r.Task.ID) + " " + r.Task.Event
+		// Event is a server enum. Preserve future tokens in full, while
+		// neutralizing controls in terminal text (JSON keeps the original).
+		return r.Kind + " " + taskRef(r.Task.Handle, r.Task.ID) + " " + output.SafeLine(r.Task.Event, len(r.Task.Event)+1)
 	case r.Stop != nil:
 		return r.Kind + " " + r.Stop.Notice + " " + r.Stop.Level
 	}
