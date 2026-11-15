@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,22 @@ type RegisteredWorker struct {
 type RegisteredHost struct {
 	HostID  string
 	Workers []RegisteredHostWorker
+	// Refused are the listed workers a checked registration left out (the
+	// App's setup source is SERVER and the platform did not assign them to
+	// this host), reported per row; the registration itself succeeded
+	// (hadron-cli#2091, hadron-server#4241).
+	Refused []RefusedWorker
+	// RefusedKnown is false when the server cannot report refusals (it
+	// predates hadron-server#4241): Refused is then unknown, not empty.
+	RefusedKnown bool
+}
+
+// RefusedWorker is one worker a registration left out, with the server's code
+// (HOST_WORKER_NOT_ASSIGNED). Both strings are made safe to print by the
+// adapter that reads them.
+type RefusedWorker struct {
+	Worker string
+	Code   string
 }
 
 // RegisteredHostWorker pairs a resolved worker id with its name.
@@ -187,6 +204,10 @@ type Poller struct {
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
+	// lastRefused is the refusal set last reported, so a steady one is said once.
+	lastRefused string
+	// refusalsUnknownSaid: the "server cannot report refusals" event was emitted.
+	refusalsUnknownSaid bool
 
 	// DeliveryStep, when set, is told how each delivery step's batch read
 	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
@@ -342,7 +363,46 @@ func (p *Poller) register(ctx context.Context) error {
 	p.mu.Lock()
 	p.workerRefs = refs
 	p.mu.Unlock()
+	if ans.RefusedKnown {
+		p.reportRefused(ans.Refused)
+	} else {
+		p.reportRefusalsUnknown()
+	}
 	return nil
+}
+
+// reportRefusalsUnknown says once that this server cannot tell which workers a
+// registration left out, so their absence is not evidence they were accepted.
+func (p *Poller) reportRefusalsUnknown() {
+	p.mu.Lock()
+	said := p.refusalsUnknownSaid
+	p.refusalsUnknownSaid = true
+	p.mu.Unlock()
+	if !said {
+		p.log("refusals-unknown", "", "", "", "this server does not report which workers a registration left out (it predates hadron-server#4241); the registration itself succeeded")
+	}
+}
+
+// reportRefused makes the per-worker refusals visible without failing the
+// registration or repeating itself every poll: one event per refused worker
+// when the set changes (hadron-cli#2091).
+func (p *Poller) reportRefused(refused []RefusedWorker) {
+	keys := make([]string, 0, len(refused))
+	for _, r := range refused {
+		keys = append(keys, r.Code+" "+r.Worker)
+	}
+	sort.Strings(keys)
+	key := strings.Join(keys, "\n")
+	p.mu.Lock()
+	changed := key != p.lastRefused
+	p.lastRefused = key
+	p.mu.Unlock()
+	if !changed {
+		return
+	}
+	for _, r := range refused {
+		p.log("worker-refused", "", "", "", r.Worker+": "+r.Code+" (left out of the registration; the platform's assignments decide which workers this host runs, see `hadron team host setup`)")
+	}
 }
 
 // refFor matches a registered worker back to the configured reference it
