@@ -4280,6 +4280,9 @@ fastest subscribed ticker** (each tick reason's own `tickDueAt` in `dueWakes`, t
 The monitoring due-wake read always sends preview:true (cli#1984): it reserves no wake budget,
 withholds no due wakes and posts no budget notice. It does not acknowledge or deliver wakes.
 The host delivery poller keeps its spending read; the public team wakes due preview flag is separate.
+Task wakes include CHILD_CANCELLED beside CHILD_FINISHED. The due list keeps
+the TASK <handle> <id> <event> format; delivery says "child cancelled". JSON
+keeps the server event, and unknown events print as returned by the server.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
@@ -4501,6 +4504,9 @@ These defaults and the management/read rules include Proposed corpus clauses;
 this describes shipped behavior, not a promotion to settled law. The server
 checks cadence, consent and authority; no local wake/budget simulation occurs.
 Adding every-tick can refuse the entire edit with TICKER_CADENCE_NEEDS_CONSENT.
+Subscribing a short-lived worker refuses with TICKER_ON_SHORT_LIVED (exit 5):
+a short-lived worker is woken by its tasks, not by tickers. Unsubscribe stays allowed.
+The JSON error envelope also carries `serverCode: "TICKER_ON_SHORT_LIVED"`.
 The CLI does not retry an uncertain write or attempt a narrower edit.
 
 JSON ticker objects use id, nullable urn, name, slug, appId, cadenceSeconds,

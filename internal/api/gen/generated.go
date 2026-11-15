@@ -13509,7 +13509,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -21050,12 +21050,16 @@ var AllAssetScanStatus = []AssetScanStatus{
 }
 
 type AssignHostWorkerInput struct {
-	AppRef string `json:"appRef"`
-	// The model family it runs as there, e.g. claude or codex.
+	// #4230 — the host-local account profile the launcher runs under, a profile token. Optional.
+	AccountProfile *string `json:"accountProfile"`
+	AppRef         string  `json:"appRef"`
+	// #4230 — the effort, a profile token. Optional.
+	Effort *string `json:"effort"`
+	// The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
 	Family string `json:"family"`
 	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
 	HostId string `json:"hostId"`
-	// The model, a name token of at most 128 characters. Optional. A record only: a start carries the workdir and family, not the model.
+	// The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
 	Model *string `json:"model,omitempty"`
 	// Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
 	Replace *bool `json:"replace,omitempty"`
@@ -21065,8 +21069,14 @@ type AssignHostWorkerInput struct {
 	Worker string `json:"worker"`
 }
 
+// GetAccountProfile returns AssignHostWorkerInput.AccountProfile, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetAccountProfile() *string { return v.AccountProfile }
+
 // GetAppRef returns AssignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
 func (v *AssignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetEffort returns AssignHostWorkerInput.Effort, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetEffort() *string { return v.Effort }
 
 // GetFamily returns AssignHostWorkerInput.Family, and is useful for accessing the field via an interface.
 func (v *AssignHostWorkerInput) GetFamily() string { return v.Family }
@@ -46756,7 +46766,7 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason s
 	// 0, or the alarm chain position woken.
 	ChainIndex int           `json:"chainIndex"`
 	Event      TaskWakeEvent `json:"event"`
-	// The task's id (for CHILD_FINISHED, the child's).
+	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
 	Id string `json:"id"`
 	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
 	Handle string `json:"handle"`
@@ -56174,9 +56184,11 @@ func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees
 // HostDesiredStateResponse is returned by HostDesiredState on success.
 type HostDesiredStateResponse struct {
 	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-	// host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
-	// registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
-	// registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
 	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
 	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
 	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -56951,9 +56963,11 @@ type HostRelaunchSnapshotResponse struct {
 	// The App authenticated by the current AppKey (null for JWT users without an App)
 	MyApp *HostRelaunchSnapshotMyApp `json:"myApp"`
 	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-	// host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
-	// registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
-	// registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
 	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
 	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
 	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -56975,8 +56989,9 @@ func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapsh
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type HostSetupAssignmentFields struct {
 	Id        string                           `json:"id"`
 	HostId    string                           `json:"hostId"`
@@ -90502,7 +90517,9 @@ const (
 	// An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
 	TaskWakeEventAlarm    TaskWakeEvent = "ALARM"
 	TaskWakeEventAssigned TaskWakeEvent = "ASSIGNED"
-	// A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	// #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	TaskWakeEventChildCancelled TaskWakeEvent = "CHILD_CANCELLED"
+	// A child task finished; the reason names the child. Due to the child's owner (hrn:node:hadronmemory.com:specs:cor:agt:050:16) and, #4234, to the parent's current assignee.
 	TaskWakeEventChildFinished TaskWakeEvent = "CHILD_FINISHED"
 	// #1709 — the task was cancelled and asks its assignee to end its session (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Due while that session is open and the platform has not yet ended it through a host.
 	TaskWakeEventEndSession TaskWakeEvent = "END_SESSION"
@@ -90514,6 +90531,7 @@ const (
 var AllTaskWakeEvent = []TaskWakeEvent{
 	TaskWakeEventAlarm,
 	TaskWakeEventAssigned,
+	TaskWakeEventChildCancelled,
 	TaskWakeEventChildFinished,
 	TaskWakeEventEndSession,
 	TaskWakeEventMatched,
@@ -94365,7 +94383,7 @@ func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStop
 //
 // #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
-	// The task's id (for CHILD_FINISHED, the child's).
+	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
 	Id string `json:"id"`
 	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
 	Handle string `json:"handle"`
@@ -95021,8 +95039,9 @@ func (v *TeamHeldWorkersResponse) GetHeldWorkers() *TeamHeldWorkersHeldWorkersWo
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
@@ -95146,8 +95165,9 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() 
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
@@ -95267,12 +95287,14 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premars
 
 // TeamHostAssignInstructedResponse is returned by TeamHostAssignInstructed on success.
 type TeamHostAssignInstructedResponse struct {
-	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
-	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
-	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
-	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
@@ -95284,12 +95306,14 @@ func (v *TeamHostAssignInstructedResponse) GetAssignHostWorker() *TeamHostAssign
 
 // TeamHostAssignResponse is returned by TeamHostAssign on success.
 type TeamHostAssignResponse struct {
-	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
-	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
-	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
-	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
@@ -95423,8 +95447,9 @@ func (v *TeamHostSetupHostSetup) GetAssignments() []*TeamHostSetupHostSetupAssig
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
