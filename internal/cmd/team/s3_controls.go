@@ -16,7 +16,7 @@ import (
 
 type workerLeaveAloneDTO struct {
 	WorkerID   string  `json:"workerId"`
-	LeaveAlone bool    `json:"leaveAlone"`
+	LeaveAlone *bool   `json:"leaveAlone"`
 	Reason     *string `json:"reason"`
 	By         *string `json:"by"`
 	At         *string `json:"at"`
@@ -55,9 +55,9 @@ input exits 2. Correct the input or ask the App manager; nothing is retried.
 
 A worker id or URN is resolved by the server; a name needs --app, the App
 context or this worktree's binding. --json prints workerId, leaveAlone and
-nullable reason, by and at. Existing worker get/list keep their earlier
-server compatibility and do not request these fields. Null reason/by
-can mean withheld working state; it does not prove that no marker exists.
+nullable leaveAlone, reason, by and at. Existing worker get/list keep their earlier
+server compatibility and do not request these fields. Null leaveAlone means unknown (not visible to you), never false. The server
+withholds all four working-state fields from a profile-only reader.
 
 ` + s3InstructionHelp,
 		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",
@@ -141,7 +141,8 @@ can mean withheld working state; it does not prove that no marker exists.
 					return exitcode.Newf(exitcode.Error, "server returned no leave-alone result; verify the worker before retrying")
 				}
 				v := r.SetWorkerLeaveAlone
-				d = workerLeaveAloneDTO{WorkerID: v.WorkerId, LeaveAlone: v.LeaveAlone, Reason: v.Reason, By: v.By, At: v.At}
+				marked := v.LeaveAlone
+				d = workerLeaveAloneDTO{WorkerID: v.WorkerId, LeaveAlone: &marked, Reason: v.Reason, By: v.By, At: v.At}
 			}
 			label := lazyAppLabel(cmd.Context(), f, scope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
@@ -150,7 +151,11 @@ can mean withheld working state; it does not prove that no marker exists.
 						return err
 					}
 				}
-				_, err := fmt.Fprintf(w, "worker: %s\nleave alone: %t\nreason: %s\nby: %s\nat: %s\n", output.SafeCell(d.WorkerID), d.LeaveAlone, output.SafeCell(dash(d.Reason)), output.SafeCell(dash(d.By)), output.SafeCell(dash(d.At)))
+				marker := "unknown (not visible to you)"
+				if d.LeaveAlone != nil {
+					marker = fmt.Sprint(*d.LeaveAlone)
+				}
+				_, err := fmt.Fprintf(w, "worker: %s\nleave alone: %s\nreason: %s\nby: %s\nat: %s\n", output.SafeCell(d.WorkerID), marker, output.SafeCell(dash(d.Reason)), output.SafeCell(dash(d.By)), output.SafeCell(dash(d.At)))
 				return err
 			})
 		},

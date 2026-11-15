@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -83,6 +84,23 @@ func TestS3LifecycleFallbackIsSpecific2067(t *testing.T) {
 		}
 		if len(callsFor(calls, "GetAgentLifecycle")) != 1 {
 			t.Fatalf("retried: %+v", *calls)
+		}
+	}
+}
+
+// Exporting newer SDL must not send unused input fields to older servers.
+func TestS3SchemaRefreshOmitsUnusedHealthFields2067(t *testing.T) {
+	b, err := json.Marshal(gen.WorkerTerminalReportInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(b, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"contextTokens", "contextMeasuredAt"} {
+		if _, ok := fields[key]; ok {
+			t.Fatalf("unused field %s sent by legacy health input: %s", key, b)
 		}
 	}
 }

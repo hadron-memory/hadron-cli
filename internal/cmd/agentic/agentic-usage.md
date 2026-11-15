@@ -6464,10 +6464,12 @@ marker without changing it. A write requires exactly one true switch;
 or the worktree binding; direct worker ids/URNs are resolved by the server
 without ambient App scope. `--json` returns
 `{"workerId":"…","leaveAlone":true,"reason":null,"by":"…","at":"…"}`.
-`reason`, `by`, `at` are nullable, and all three are null when cleared.
+`leaveAlone`, `reason`, `by`, `at` are nullable. All four are null for a
+profile-only reader; human output calls that marker unknown (not visible to
+you), never false. For a visible cleared marker, leaveAlone is false and
+the other three fields are null.
 Worker get/list keep their previous documents, DTOs and tables; use the new
-leave-alone command to read the marker. Reason/by may be withheld working
-state: null does not prove that no marker exists.
+leave-alone command to read the marker.
 
 `hadron team app sweep-mode [OFF|OBSERVE|APPLY]` reads with no argument and
 sets with one. OFF is the default and acts on no workers; OBSERVE reports

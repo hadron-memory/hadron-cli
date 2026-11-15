@@ -62,3 +62,7 @@ flag paths retain their earlier server compatibility. The second red-only
 commit pins the legacy documents, old-schema Agent get and read-only marker form.
 The final schema export still waits for #4242 to merge; any intervening server
 snapshot drift is generated from that pin and disclosed, never hand-edited.
+
+
+## Final S3 visibility fold
+Worker.leaveAlone is nullable: profile-only callers receive null for all four leaveAlone* fields. The isolated read DTO preserves JSON null and renders `unknown (not visible to you)` for the marker, while visible true/false and mutation replies retain boolean values. Existing worker get/list documents remain unchanged. Regression `TestS3WorkerMarkerHidden2067` reproduces the former false rendering before the fix. Candidate SDL export163d5cc4a is provisional until #4242 merges; final freeze requires the merge SHA.

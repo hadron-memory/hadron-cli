@@ -53537,13 +53537,13 @@ func (v *GetWorkerLeaveAloneResponse) GetWorker() *GetWorkerLeaveAloneWorker { r
 // by its id or by the computed `urn` below (#991).
 type GetWorkerLeaveAloneWorker struct {
 	Id string `json:"id"`
-	// #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it.
-	LeaveAlone bool `json:"leaveAlone"`
+	// #4224 (S3 of #4229): the leave-alone marker (setWorkerLeaveAlone). A host's sweep observes and reports a marked worker and never starts, stops or repairs it. WORKING-STATE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): null for a caller who may see only the worker's profile.
+	LeaveAlone *bool `json:"leaveAlone"`
 	// Why the worker is marked leave-alone, when a reason was given. WORKING-STATE field (#1149), masked like createdBy.
 	LeaveAloneReason *string `json:"leaveAloneReason"`
 	// The user who marked the worker leave-alone. WORKING-STATE field (#1149), masked like createdBy.
 	LeaveAloneBy *string `json:"leaveAloneBy"`
-	// When the worker was marked leave-alone; null when it is not marked.
+	// When the worker was marked leave-alone; null when it is not marked. WORKING-STATE field (#1149), masked like createdBy.
 	LeaveAloneAt *string `json:"leaveAloneAt"`
 }
 
@@ -53551,7 +53551,7 @@ type GetWorkerLeaveAloneWorker struct {
 func (v *GetWorkerLeaveAloneWorker) GetId() string { return v.Id }
 
 // GetLeaveAlone returns GetWorkerLeaveAloneWorker.LeaveAlone, and is useful for accessing the field via an interface.
-func (v *GetWorkerLeaveAloneWorker) GetLeaveAlone() bool { return v.LeaveAlone }
+func (v *GetWorkerLeaveAloneWorker) GetLeaveAlone() *bool { return v.LeaveAlone }
 
 // GetLeaveAloneReason returns GetWorkerLeaveAloneWorker.LeaveAloneReason, and is useful for accessing the field via an interface.
 func (v *GetWorkerLeaveAloneWorker) GetLeaveAloneReason() *string { return v.LeaveAloneReason }
@@ -56010,7 +56010,9 @@ type HostOperationFields struct {
 	IssuedAt         string                     `json:"issuedAt"`
 	CollectedAt      *string                    `json:"collectedAt"`
 	FinishedAt       *string                    `json:"finishedAt"`
-	// A success's typed result: {worktree} for worktree.create.
+	// A success's typed result, by type: {worktree} for worktree.create, {sessionId} (the worker session the start's grant
+	// bound) for worker.start, {handoff} (a boolean: whether a handoff was written) for worker.end. Null for worker.deliver,
+	// worktree.remove and worker.reset-context, for a failure, and until the operation finishes.
 	Result *json.RawMessage `json:"result"`
 	// Why it failed, as the host said it.
 	FailureReason *string `json:"failureReason"`
@@ -111499,6 +111501,11 @@ type WorkerTerminalReportInput struct {
 	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
+	// #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+	ContextMeasuredAt *string `json:"contextMeasuredAt,omitempty"`
+	// #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+	// when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+	ContextTokens *int `json:"contextTokens,omitempty"`
 	// When the worker's last turn ended, not after checkedAt.
 	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
@@ -111517,6 +111524,12 @@ func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetContextMeasuredAt returns WorkerTerminalReportInput.ContextMeasuredAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextMeasuredAt() *string { return v.ContextMeasuredAt }
+
+// GetContextTokens returns WorkerTerminalReportInput.ContextTokens, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextTokens() *int { return v.ContextTokens }
 
 // GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }
