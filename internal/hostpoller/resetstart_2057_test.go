@@ -147,7 +147,29 @@ func TestWorkerStartReportsAnInspectErrorAsItIs(t *testing.T) {
 	if r.outcome != Failed || !strings.Contains(r.reason, "untrusted repo config") || strings.Contains(r.reason, "does not exist") {
 		t.Fatalf("%+v", r)
 	}
+	if strings.HasPrefix(r.reason, CodeResetFailed) {
+		t.Fatalf("a worker that does not reset on start is not a reset refusal: %q", r.reason)
+	}
 	if len(host.launches) != 0 {
 		t.Fatal("nothing may launch on a tree that could not be inspected")
+	}
+}
+
+// Chip (1606a5d7): a worker that resets on start and whose tree cannot be inspected
+// is refused like every other reset refusal: the failure reason leads with
+// WORKTREE_RESET_FAILED and names the error, and nothing launches.
+func TestWorkerStartResetRefusalOnAnInspectErrorLeadsWithItsCode(t *testing.T) {
+	p, srv, host := testPoller(t)
+	withReset(p)
+	host.inspectErr = errors.New("could not examine x/.git: permission denied")
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	r := only(t, srv)
+	if r.outcome != Failed || !strings.HasPrefix(r.reason, CodeResetFailed+": ") || !strings.Contains(r.reason, "permission denied") || !strings.Contains(r.reason, "nothing was launched") {
+		t.Fatalf("%+v", r)
+	}
+	if len(host.launches) != 0 || len(host.resets) != 0 {
+		t.Fatalf("launches=%d resets=%v", len(host.launches), host.resets)
 	}
 }

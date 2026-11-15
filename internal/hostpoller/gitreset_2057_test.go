@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -863,8 +864,8 @@ func TestResetWorktreeRefusesARootWhoseRepositoryCannotBeRead(t *testing.T) {
 // .git entry that cannot be examined (a directory with no search permission here)
 // is not that: it goes to the config gate, whose read fails and refuses.
 func TestResetWorktreeRefusesADirectoryWhoseGitEntryCannotBeExamined(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root ignores directory permissions")
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs Unix directory permissions, and a non-root user")
 	}
 	_, clone := resetRepo(t)
 	if err := os.Chmod(clone, 0o000); err != nil {
@@ -905,7 +906,7 @@ func TestResetWorktreeRefusesWithTheErrorWhenTheGitEntryLookupFails(t *testing.T
 		"permission": &fs.PathError{Op: "lstat", Path: "x/.git", Err: syscall.EACCES},
 		"I/O":        &fs.PathError{Op: "lstat", Path: "x/.git", Err: syscall.EIO},
 	} {
-		lstatGit = func(string) (fs.FileInfo, error) { return nil, injected }
+		setLstatGit(t, func(string) (fs.FileInfo, error) { return nil, injected })
 		out, err := ResetWorktree(context.Background(), clone, resetNow)
 		if err != nil || out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "could not examine") || !strings.Contains(out.Detail, injected.(*fs.PathError).Err.Error()) {
 			t.Errorf("%s: the reset must refuse with the error: out=%+v err=%v", name, out, err)
@@ -913,7 +914,14 @@ func TestResetWorktreeRefusesWithTheErrorWhenTheGitEntryLookupFails(t *testing.T
 		if _, err := (ExecHost{}).Inspect(context.Background(), clone); err == nil || !strings.Contains(err.Error(), "could not examine") {
 			t.Errorf("%s: Inspect must return the error, not 'not a worktree': %v", name, err)
 		}
-		lstatGit = os.Lstat
 	}
-	lstatGit = os.Lstat
+}
+
+// setLstatGit swaps the .git lookup for one test and restores it when the test
+// ends (no test here runs in parallel, so the global cannot be observed by another).
+func setLstatGit(t *testing.T, fn func(string) (fs.FileInfo, error)) {
+	t.Helper()
+	was := lstatGit
+	lstatGit = fn
+	t.Cleanup(func() { lstatGit = was })
 }
