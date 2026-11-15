@@ -113,15 +113,14 @@ func measureClaude(root, worktree string, now time.Time) *Measurement {
 			files = append(files, filepath.Join(dir, e.Name()))
 		}
 	}
-	for _, p := range newestFirst(files) {
-		if m, ok := ClaudeFromFile(p, worktree, now); ok {
-			return m
-		}
-		// Only the newest transcript is the current session: an older
-		// file's reading would be stale, so stop at the first file.
+	// Only the newest transcript is the current session; an older file's
+	// reading would be stale, so no fallback to it.
+	newest := newestFirst(files)
+	if len(newest) == 0 {
 		return nil
 	}
-	return nil
+	m, _ := ClaudeFromFile(newest[0], worktree, now)
+	return m
 }
 
 func measureCodex(root, worktree string, now time.Time) *Measurement {

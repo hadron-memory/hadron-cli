@@ -754,6 +754,11 @@ enum AgentSchedulePreviewOutcome {
   Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
   """
   CANNOT_BE_ADOPTED
+
+  """
+  #3483: the caller is a worker-bound session and create would be refused with TRIGGER_GRANT_REQUIRED: it holds no live, signed schedule.create grant for this entry node in this App (hrn:node:hadronmemory.com:specs:cor:agt:010:01). Summary, hash and reason are null. Only while the grant check is on.
+  """
+  GRANT_REQUIRED
 }
 
 enum AgentSchedulePreviewReason {
@@ -1568,6 +1573,11 @@ type AgentTeamEvent {
 
   """The worker the event concerns, e.g. a new assignee."""
   subjectWorker: AgentTaskParty
+
+  """
+  The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
+  """
+  taskHandle: String
   taskId: ID
 
   """
@@ -1880,7 +1890,7 @@ type AiServiceConfig {
   params: JSON
 
   """
-  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
   """
   provider: String!
   updatedAt: DateTime
@@ -3489,6 +3499,10 @@ type BootPromptSigningPreviewRow {
   """
   agentUrn: String
   appId: ID!
+
+  """
+  Canonical v2 URN of this row's App (#4061), like agentUrn and workerUrn; a stored form that cannot be emitted is served as stored. hrn:node:hadronmemory.com:specs:cor:urn:010:01
+  """
   appUrn: String!
   changesToRevSeq: Int
   compiledNodeId: ID!
@@ -3920,7 +3934,7 @@ type ChatResponseResult {
   conversationHandoff: String
 
   """
-  Whether this turn returned from a detour; false until the detour-return slice ships. hrn:node:hadronmemory.com:specs:cor:cht:030:02
+  Whether this turn returned the chat from a detour to the conversation and stage the most recent active detour left. False when a completion rule fired instead, or routing was skipped. hrn:node:hadronmemory.com:specs:cor:cht:030:02
   """
   detourReturned: Boolean!
   displayMessage: String!
@@ -4577,6 +4591,10 @@ input CreateAgentTaskInput {
   format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
   task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
   names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+  #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
+  claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
+  matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:08 governs the first); a backlog task still takes no assignee.
   """
   externalId: String
 
@@ -6179,6 +6197,50 @@ type Grant {
   The person whose signature activated it; null while pending, and null once their account is erased (a deleted user, hrn:node:hadronmemory.com:specs:cor:acl:140:08).
   """
   verifiedBy: ID
+}
+
+"""
+#3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02): one registered action a grant can allow. The registry is written only by a deploy; no call creates, changes or deletes an action. There is no plain-language summary here (its own slice).
+"""
+type GrantAction {
+  """
+  The enforcement level the action DECLARES: what the platform promises, not an active guarantee. It says nothing about whether a gate enforces it today (schedule.create and webhook.create are not enforced until hadron-server#3483; the boot-prompt actions are checked where the grant is spent).
+  """
+  enforcement: String!
+
+  """A closed key naming who may issue a grant of this action."""
+  issuerRule: String!
+
+  """The dotted code, unique, e.g. schedule.create."""
+  name: String!
+
+  """The parameters a grant of this action must supply."""
+  parameters: [GrantActionParameter!]!
+
+  """Where the action comes from: PLATFORM today."""
+  source: String!
+
+  """The tool that performs it, if any."""
+  tool: String
+}
+
+"""
+#3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): one parameter an action declares.
+"""
+type GrantActionParameter {
+  """The parameter's name, as a grant's values name it."""
+  name: String!
+
+  """True when a wildcard value is refused for this parameter."""
+  refusesWildcard: Boolean!
+
+  """The kind of value it takes, e.g. node-ref."""
+  type: String!
+}
+
+type GrantActionsPage {
+  items: [GrantAction!]!
+  total: Int!
 }
 
 """#1747 — whether the team-chat post for a grant use went out."""
@@ -9312,12 +9374,15 @@ type Mutation {
   """
   Create a named, owner-scoped secret (#677). Gate per owner scope:
   user -> that user (ownerRef optional, defaults to the caller); org ->
-  org ADMIN; app -> app owner / org ADMIN; memory -> memory WRITE.
-  value is the secret payload — encrypted at rest, write-only, never
-  returned. kind selects validation: generic (opaque JSON) or
+  org ADMIN; app -> any member of the App, as a person (an App key, an
+  impersonated session and a run are refused; the value is stored as
+  version 1). value is the secret payload — encrypted at rest,
+  write-only, never returned; at most 32 KiB of stored JSON, counted in
+  bytes. kind selects validation: generic (opaque JSON) or
   webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
   origin binding). A run resolves the name via the CSS cascade
-  (memory -> app -> user -> org) at entitled scopes only.
+  (user -> org) at entitled scopes only; an App secret is never resolved
+  by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
   """
   createSecret(kind: String!, metadata: JSON, name: String!, ownerRef: ID, ownerType: String!, value: JSON!): Secret!
 
@@ -9719,7 +9784,7 @@ type Mutation {
   deleteScope(ref: ID!): Boolean!
 
   """
-  Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
+  Hard-delete a secret, every version with it; referencing runs fail their resolution loud (or fall through the cascade) afterwards. An unprotected App secret is deleted by its creator or whoever manages the App, each as a person.
   """
   deleteSecret(ref: ID!): Boolean!
 
@@ -12075,10 +12140,12 @@ type Mutation {
   updateScope(input: UpdateScopeInput!, ref: ID!): Scope!
 
   """
-  Overwrite a secret's value and/or metadata (v1 rotation — no
-  versioning). Name, kind, and owner are immutable — the cascade and
-  flow config reference the name; create a new name instead. The
-  effective (metadata, value) pair is re-validated per kind.
+  Change a secret's value and/or metadata. For an org or user secret a
+  value OVERWRITES (no versions). For an App secret a value ADDS the next
+  version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+  any member of the App may store. Name, kind, and owner are immutable —
+  the cascade and flow config reference the name; create a new name
+  instead. The effective (metadata, value) pair is re-validated per kind.
   """
   updateSecret(metadata: JSON, ref: ID!, value: JSON): Secret!
 
@@ -13965,6 +14032,11 @@ type Query {
   accountUsageProjection(account: String!, appRef: ID!, family: String, host: String, whatIf: AccountUsageWhatIfInput): AccountUsageProjection!
 
   """
+  #3708: one registered action by its exact name, read under the same gate as grantActions. An unknown name and every refused caller answer null.
+  """
+  action(appRef: String!, ref: ID!): GrantAction
+
+  """
   #3287 — an App's action-register index, computed at read: every code the App's Team Agent's
   chain maps, one row per code in code order, with its task loc resolved through the asking
   Agent's chain (hrn:node:hadronmemory.com:specs:cor:agt:110:03,
@@ -14091,8 +14163,9 @@ type Query {
   external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
   cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
   (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
-  the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
-  it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+  the release cleared (its task no longer holds it); a change before the release in this read's own order — the
+  (tx_id, created_at, id) key the page is served by, not wall-clock time — carries that id too, and a change after it in
+  that order (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
   oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
   appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
   to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
@@ -14164,7 +14237,8 @@ type Query {
     exactly as written. 1 to 100 ids; each entry passes the externalId check (1 to 512 characters, no unpaired
     surrogate), and ONE bad entry refuses the whole list with BAD_USER_INPUT naming its position (externalIds[i]), never
     its text; an empty list is BAD_USER_INPUT, never "no narrowing". At most one task holds an id, so with limit omitted
-    the page is as long as the list and answers every id; an id no task of this App holds matches nothing. Runs inside
+    — and offset omitted or 0 — the page is as long as the list and answers every id; an explicit offset windows the
+    batch like any list. An id no task of this App holds matches nothing. Runs inside
     the App read gate (hrn:node:hadronmemory.com:specs:cor:agt:050:21), so another App's task with the same id never
     appears. ANDed with every other filter, externalId included.
     """
@@ -14754,6 +14828,16 @@ type Query {
   chatAiConfigChoices(appRef: ID!): [ChatAiConfigChoice!]!
 
   """
+  #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
+  effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
+  config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+  Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
+  decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
+  The decision only: no key, id, name, provider or model.
+  """
+  chatEffectiveToolChoice(chatId: String!): ChatToolChoice
+
+  """
   Message history for a saved chat. Returns plain role/content pairs
   suitable for feeding back into an LLM.
   
@@ -14794,6 +14878,13 @@ type Query {
   chat id and serving switched off all get an empty page, never an error. Never returns a Chat.
   """
   chatServedPrompts(chatId: ID!, limit: Int, offset: Int): ServedPromptsPage!
+
+  """
+  #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): the chat turn's tool-choice decision for an UNSAVED (provider, model) pair, by the same one
+  predicate, judged verbatim. Pure: reads no config rows, decrypts nothing, calls no provider and meters no usage.
+  Any signed-in caller; no owner context is consulted. An unknown or unlisted provider or model answers FORCED, never a refusal.
+  """
+  chatToolChoiceFor(model: String!, provider: String!): ChatToolChoice!
 
   """#1606 — one comment by ID or URN; null when missing or unreadable."""
   comment(ref: ID!): Comment
@@ -15196,6 +15287,11 @@ type Query {
   Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
   """
   grant(ref: ID!): Grant
+
+  """
+  #3708 (hrn:node:hadronmemory.com:specs:cor:acl:140:02, ruling 0255 item 2): the registered actions, by name, for anyone in the named App: a participating person, or a bound worker session of that App. The App is named, never inferred. Every other caller (no credential, a non-participant, an unknown, malformed or deleted App, another App's or a retired worker, an App key, a headless run, an impersonated session even of a participant) gets an empty page, never an error. Read only; limit 0 returns the count only.
+  """
+  grantActions(appRef: String!, limit: Int, offset: Int): GrantActionsPage!
 
   """
   #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — one grant signing request; null when unknown or when its grant is not readable to the caller: a bound worker session in its own App, or a person acting as themselves who manages the grant's live, installed App (as appGrants reads it).
@@ -16000,15 +16096,23 @@ type Query {
   Fetch one secret's inspectable half (never the value). Null when the
   row does not exist OR the caller is not entitled to its owner scope —
   no existence disclosure. Entitlement: user -> that user; org -> org
-  member; app -> app owner or org member; memory -> memory READ.
+  member; app -> a member of the App (a person acting as themselves;
+  an App key and an impersonated session get null).
   """
   secret(ref: ID!): Secret
+
+  """
+  The audit events of ONE App secret, newest first, for any member of the App (hrn:node:hadronmemory.com:specs:cor:sec:010:05).
+  A non-member, an App key, a run and an impersonated session get an empty page, the same as a missing secret. Never a value.
+  """
+  secretEvents(limit: Int, offset: Int, ref: ID!): SecretEventsPage!
 
   """
   Paginated secret list for ONE owner scope (the hadron secret ls
   surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
   caller for ownerType user. An unresolvable ref or a non-entitled owner
-  yields an empty page — no disclosure. Name-ascending order (id
+  (for an App: anyone who is neither a member nor a manager of it, an App
+  key and an impersonated session) yields an empty page — no disclosure. Name-ascending order (id
   tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
   secrets(limit: Int, offset: Int, ownerRef: ID, ownerType: String!): SecretsPage!
@@ -17677,16 +17781,24 @@ type SearchScopeInfo {
 
 """
 One named, owner-scoped secret — the general secret store (#677).
-Polymorphic owner (user | org | app | memory). The value is encrypted
-at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-are the inspectable half (you can see THAT a secret exists and, for
+Polymorphic owner (user | org | app). The value is encrypted at rest and
+WRITE-ONLY: no field here ever returns it — kind + metadata are the
+inspectable half (you can see THAT a secret exists and, for
 webfetch-auth, WHERE it applies, without decrypting). A bare name
 resolves at run time via the CSS cascade, most-specific-first:
-memory -> app -> user -> org.
+user -> org. An App-owned secret is NEVER in that cascade: no run
+resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+secret keeps its values as versions: every store adds one
+(hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 """
 type Secret {
   createdAt: DateTime!
   createdBy: String
+
+  """
+  The newest version's number. App secrets only; null for org and user secrets (they have no versions).
+  """
+  currentVersion: Int
   id: ID!
 
   """Extensible kind; v1: generic | webfetch-auth."""
@@ -17699,10 +17811,69 @@ type Secret {
   name: String!
   ownerId: ID!
 
-  """Owner scope: user | org | app | memory."""
+  """Owner scope: user | org | app."""
   ownerType: String!
+
+  """
+  Whether changes need a person's change request. App secrets only; always false for org and user secrets.
+  """
+  protected: Boolean!
   updatedAt: DateTime!
   updatedBy: String
+
+  """
+  An App secret's kept versions, newest first: numbers, sizes and authorship, never a value. Paged (hrn:node:hadronmemory.com:specs:cor:api:120:04): default 20, cap 200, limit 0 counts only. Empty for org and user secrets.
+  """
+  versions(limit: Int, offset: Int): SecretVersionsPage!
+}
+
+"""
+One audit event of an App secret: who did what, when, with what outcome. Never a value.
+"""
+type SecretEvent {
+  actorUserId: String
+  at: DateTime!
+  id: ID!
+
+  """STORE | VERSION | METADATA | DELETE."""
+  kind: String!
+  outcome: String!
+  ownerId: ID!
+  ownerType: String!
+  secretId: ID!
+  secretName: String!
+  sessionId: String
+  versionNo: Int
+  workerId: String
+}
+
+type SecretEventsPage {
+  items: [SecretEvent!]!
+  total: Int!
+}
+
+"""
+One stored value of an App-owned secret, as metadata only: there is no field that returns the value or its ciphertext.
+"""
+type SecretVersion {
+  id: ID!
+
+  """Bytes of the stored value."""
+  sizeBytes: Int!
+
+  """Set when a newer version was stored; null on the current version."""
+  supersededAt: DateTime
+  versionNo: Int!
+  writtenAt: DateTime!
+  writtenByUserId: String
+  writtenByWorkerId: String
+}
+
+type SecretVersionsPage {
+  """Whether versions remain past this page."""
+  hasMore: Boolean!
+  items: [SecretVersion!]!
+  total: Int!
 }
 
 """Uniform paginated list shape (cor:api:120)."""
@@ -21319,6 +21490,17 @@ from checkedAt and reportedAt. Null until a host first reports; null to a reader
 type WorkerTerminal {
   """When the host classified the terminal."""
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens; judge its age from this. Null exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, as its host measured it. Null when the host could not measure
+  it (never 0), and on a report stored before hosts sent it. Shown only: it decides nothing.
+  """
+  contextTokens: Int
   host: WorkerTerminalHost!
   lastTurnAt: DateTime
   prompt: WorkerTerminalPrompt!
@@ -21409,6 +21591,17 @@ input WorkerTerminalReportInput {
   When the host classified the terminal, not more than two minutes ahead of the server.
   """
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+  when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+  """
+  contextTokens: Int
 
   """When the worker's last turn ended, not after checkedAt."""
   lastTurnAt: DateTime

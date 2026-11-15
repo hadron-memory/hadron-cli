@@ -225,6 +225,9 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 					}
 					dto.Reports = append(dto.Reports, r)
 					in := &gen.WorkerTerminalReportInput{Worker: id, Status: gen.WorkerTerminalState(r.Status), Prompt: gen.WorkerTerminalPrompt(r.Prompt), CheckedAt: r.CheckedAt, LastTurnAt: r.LastTurnAt}
+					if r.ContextTokens != nil && r.ContextMeasuredAt != nil {
+						in.ContextTokens, in.ContextMeasuredAt = r.ContextTokens, r.ContextMeasuredAt
+					}
 					if r.Reason != nil {
 						v := gen.WorkerTerminalReason(*r.Reason)
 						in.Reason = &v

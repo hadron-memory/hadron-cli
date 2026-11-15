@@ -2390,11 +2390,14 @@ const (
 	AgentSchedulePreviewOutcomeAdoptable AgentSchedulePreviewOutcome = "ADOPTABLE"
 	// Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
 	AgentSchedulePreviewOutcomeCannotBeAdopted AgentSchedulePreviewOutcome = "CANNOT_BE_ADOPTED"
+	// #3483: the caller is a worker-bound session and create would be refused with TRIGGER_GRANT_REQUIRED: it holds no live, signed schedule.create grant for this entry node in this App (hrn:node:hadronmemory.com:specs:cor:agt:010:01). Summary, hash and reason are null. Only while the grant check is on.
+	AgentSchedulePreviewOutcomeGrantRequired AgentSchedulePreviewOutcome = "GRANT_REQUIRED"
 )
 
 var AllAgentSchedulePreviewOutcome = []AgentSchedulePreviewOutcome{
 	AgentSchedulePreviewOutcomeAdoptable,
 	AgentSchedulePreviewOutcomeCannotBeAdopted,
+	AgentSchedulePreviewOutcomeGrantRequired,
 }
 
 type AgentSchedulePreviewReason string
@@ -15649,7 +15652,7 @@ type AiServiceConfigEndpointFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -15721,7 +15724,7 @@ type AiServiceConfigFields struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -34416,6 +34419,10 @@ type CreateAgentTaskInput struct {
 	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
 	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
 	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	// #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
+	// claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
+	// matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08 governs the first); a backlog task still takes no assignee.
 	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
@@ -39419,12 +39426,15 @@ func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return 
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -39534,12 +39544,15 @@ func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecret
 type CreateSecretResponse struct {
 	// Create a named, owner-scoped secret (#677). Gate per owner scope:
 	// user -> that user (ownerRef optional, defaults to the caller); org ->
-	// org ADMIN; app -> app owner / org ADMIN; memory -> memory WRITE.
-	// value is the secret payload — encrypted at rest, write-only, never
-	// returned. kind selects validation: generic (opaque JSON) or
+	// org ADMIN; app -> any member of the App, as a person (an App key, an
+	// impersonated session and a run are refused; the value is stored as
+	// version 1). value is the secret payload — encrypted at rest,
+	// write-only, never returned; at most 32 KiB of stored JSON, counted in
+	// bytes. kind selects validation: generic (opaque JSON) or
 	// webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
 	// origin binding). A run resolves the name via the CSS cascade
-	// (memory -> app -> user -> org) at entitled scopes only.
+	// (user -> org) at entitled scopes only; an App secret is never resolved
+	// by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
 	CreateSecret *CreateSecretCreateSecret `json:"createSecret"`
 }
 
@@ -44598,7 +44611,7 @@ func (v *DeleteScopeResponse) GetDeleteScope() bool { return v.DeleteScope }
 
 // DeleteSecretResponse is returned by DeleteSecret on success.
 type DeleteSecretResponse struct {
-	// Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
+	// Hard-delete a secret, every version with it; referencing runs fail their resolution loud (or fall through the cascade) afterwards. An unprotected App secret is deleted by its creator or whoever manages the App, each as a person.
 	DeleteSecret bool `json:"deleteSecret"`
 }
 
@@ -56400,8 +56413,9 @@ type IntakeExternalIdChangesResponse struct {
 	// external id, for a team's reconcile pass: an assignment (by hand or by the platform), a reassignment, a hand-back, a
 	// cancel, a finish and a release of the id. Each change is one team event, read inside the same gate as agentTeamEvents
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:21); anyone else is refused APP_NOT_FOUND. A RELEASED change carries the id
-	// the release cleared (its task no longer holds it); a change before the release carries that id too, and a change after
-	// it (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
+	// the release cleared (its task no longer holds it); a change before the release in this read's own order — the
+	// (tx_id, created_at, id) key the page is served by, not wall-clock time — carries that id too, and a change after it in
+	// that order (the task then holds none) is left out; every other change carries the id its task holds. Order is commit-safe,
 	// oldest first: a change is served only once the transaction that wrote it, and every older one, has ended, so it may
 	// appear a moment late but never behind a cursor already served. Pass nextCursor (or the last change's cursor) as after
 	// to continue; with after omitted the read starts at the oldest change. after is opaque: a value that is not a cursor of
@@ -69023,7 +69037,8 @@ func (v *OrgBootPromptSigningPreviewOrgBootPromptSigningPreview) GetRows() []*Or
 //
 // #2973 PR2: one served compiled boot prompt the switch would change. workerId is null on the install-level row (an uncustomised worker and a chat share it).
 type OrgBootPromptSigningPreviewOrgBootPromptSigningPreviewRowsBootPromptSigningPreviewRow struct {
-	AppId           string  `json:"appId"`
+	AppId string `json:"appId"`
+	// Canonical v2 URN of this row's App (#4061), like agentUrn and workerUrn; a stored form that cannot be emitted is served as stored. hrn:node:hadronmemory.com:specs:cor:urn:010:01
 	AppUrn          string  `json:"appUrn"`
 	AgentId         string  `json:"agentId"`
 	AgentName       string  `json:"agentName"`
@@ -75161,7 +75176,7 @@ type ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig struct {
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 	// ID of the owning HadronServer / Organization / App / Agent.
 	OwnerId string `json:"ownerId"`
-	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
 	Provider string `json:"provider"`
 	// Model identifier, passed verbatim to the provider.
 	Model     string `json:"model"`
@@ -79772,15 +79787,18 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretFields struct {
 	Id string `json:"id"`
-	// Owner scope: user | org | app | memory.
+	// Owner scope: user | org | app.
 	OwnerType string `json:"ownerType"`
 	OwnerId   string `json:"ownerId"`
 	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
@@ -79830,7 +79848,8 @@ type SecretResponse struct {
 	// Fetch one secret's inspectable half (never the value). Null when the
 	// row does not exist OR the caller is not entitled to its owner scope —
 	// no existence disclosure. Entitlement: user -> that user; org -> org
-	// member; app -> app owner or org member; memory -> memory READ.
+	// member; app -> a member of the App (a person acting as themselves;
+	// an App key and an impersonated session get null).
 	Secret *SecretSecret `json:"secret"`
 }
 
@@ -79841,12 +79860,15 @@ func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretSecret struct {
 	SecretFields `json:"-"`
 }
@@ -79957,7 +79979,8 @@ type SecretsResponse struct {
 	// Paginated secret list for ONE owner scope (the hadron secret ls
 	// surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
 	// caller for ownerType user. An unresolvable ref or a non-entitled owner
-	// yields an empty page — no disclosure. Name-ascending order (id
+	// (for an App: anyone who is neither a member nor a manager of it, an App
+	// key and an impersonated session) yields an empty page — no disclosure. Name-ascending order (id
 	// tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Secrets *SecretsSecretsSecretsPage `json:"secrets"`
 }
@@ -79986,12 +80009,15 @@ func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretsSecretsSecretsPageItemsSecret struct {
 	SecretFields `json:"-"`
 }
@@ -103717,10 +103743,12 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 
 // UpdateSecretResponse is returned by UpdateSecret on success.
 type UpdateSecretResponse struct {
-	// Overwrite a secret's value and/or metadata (v1 rotation — no
-	// versioning). Name, kind, and owner are immutable — the cascade and
-	// flow config reference the name; create a new name instead. The
-	// effective (metadata, value) pair is re-validated per kind.
+	// Change a secret's value and/or metadata. For an org or user secret a
+	// value OVERWRITES (no versions). For an App secret a value ADDS the next
+	// version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+	// any member of the App may store. Name, kind, and owner are immutable —
+	// the cascade and flow config reference the name; create a new name
+	// instead. The effective (metadata, value) pair is re-validated per kind.
 	UpdateSecret *UpdateSecretUpdateSecret `json:"updateSecret"`
 }
 
@@ -103731,12 +103759,15 @@ func (v *UpdateSecretResponse) GetUpdateSecret() *UpdateSecretUpdateSecret { ret
 // The GraphQL type's documentation follows.
 //
 // One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app | memory). The value is encrypted
-// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
-// are the inspectable half (you can see THAT a secret exists and, for
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
 // webfetch-auth, WHERE it applies, without decrypting). A bare name
 // resolves at run time via the CSS cascade, most-specific-first:
-// memory -> app -> user -> org.
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type UpdateSecretUpdateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -108571,6 +108602,11 @@ type WorkerTerminalReportInput struct {
 	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
+	// #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+	ContextMeasuredAt *string `json:"contextMeasuredAt,omitempty"`
+	// #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+	// when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+	ContextTokens *int `json:"contextTokens,omitempty"`
 	// When the worker's last turn ended, not after checkedAt.
 	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
@@ -108589,6 +108625,12 @@ func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetContextMeasuredAt returns WorkerTerminalReportInput.ContextMeasuredAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextMeasuredAt() *string { return v.ContextMeasuredAt }
+
+// GetContextTokens returns WorkerTerminalReportInput.ContextTokens, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextTokens() *int { return v.ContextTokens }
 
 // GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }

@@ -157,3 +157,12 @@ func TestMeasureFindsFilesByWorktreeAndFamily(t *testing.T) {
 		t.Errorf("unknown worktree: %+v", m)
 	}
 }
+
+func TestCodexZeroTurnFallsBackToPreviousNeverZero(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "rollout-z.jsonl")
+	write(t, p, codexTok("2026-11-15T10:00:00Z", 100, 100)+codexTok("2026-11-15T10:10:00Z", 0, 100))
+	m, ok := CodexFromFile(p, now)
+	if !ok || m.Tokens != 100 {
+		t.Fatalf("got %+v %v", m, ok)
+	}
+}
