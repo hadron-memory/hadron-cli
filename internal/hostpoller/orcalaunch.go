@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,8 +33,8 @@ import (
 //
 // The agent is not the poller's child, so it is identified, not owned:
 // Orca's reply names the terminal's process id, the process writes its own
-// pid and tty into the marker, and the pid it wrote must be that process (or,
-// under `sg`, a descendant of it), its stdin must be the tty it wrote, and its
+// pid and tty into the marker, and the pid it wrote must be that process (or
+// a descendant of it), its stdin must be the tty it wrote, and its
 // working directory must be the worktree. The pid is then pinned by pidfd, so
 // no later check can land on a reused number. Nothing is inferred from Orca's
 // ptyId (#2074, Rodolfo F1).
@@ -50,8 +51,6 @@ type OrcaLauncher struct {
 	StateDir string
 	// Proc pins the launched process (LinuxProcessControl in production).
 	Proc ProcessControl
-	// Group, when set, runs the command under `sg <group>`.
-	Group string
 	// MarkerWait bounds how long the launch waits for the marker (default 30s).
 	MarkerWait time.Duration
 	// StopWait bounds how long a stop waits for the process to go (default 10s).
@@ -105,7 +104,13 @@ func envNameRune(r rune, notFirst bool) bool {
 // agent runs plainly in Orca's terminal scope (Holger, 2026-11-15: as
 // Orca-conform as possible, no per-agent PID namespace), so the shell's $$
 // in the marker is the agent's own pid after the exec.
-func launchCommand(envFile, marker string, argv []string, group string) (string, error) {
+//
+// The go-gate (cli#2130): the command first waits, bounded by gateTries x
+// 0.1s, for the gate file, and starts nothing without it. Launch creates the
+// gate only once Orca's create reply has parsed with a handle, so a lost or
+// malformed reply (Orca may well have started the shell) can never leave an
+// agent running untracked: the shell gives up, and the launch file is gone.
+func launchCommand(envFile, marker, gate string, argv []string) (string, error) {
 	words := make([]string, 0, len(argv))
 	for _, a := range argv {
 		if a == PromptArg {
@@ -117,14 +122,53 @@ func launchCommand(envFile, marker string, argv []string, group string) (string,
 		}
 		words = append(words, shq(a))
 	}
-	inner := ". " + shq(envFile) + " && rm -f -- " + shq(envFile) +
+	// After the loop the gate is a HARD condition: running out of the wait
+	// never falls through to sourcing the launch file (Rook's §10 (1)).
+	inner := "i=0; while [ ! -f " + shq(gate) + " ] && [ \"$i\" -lt " + strconv.Itoa(gateTries) + " ]; do sleep 0.1; i=$((i+1)); done; " +
+		"[ -f " + shq(gate) + " ] && rm -f -- " + shq(gate) + " && " +
+		". " + shq(envFile) + " && rm -f -- " + shq(envFile) +
 		` && printf '%s %s\n' "$$" "$(tty)" > ` + shq(marker+".tmp") +
 		" && mv -f -- " + shq(marker+".tmp") + " " + shq(marker) +
 		" && exec " + strings.Join(words, " ")
-	if group == "" {
-		return inner, nil
+	return inner, nil
+}
+
+// removeLaunchFile is os.Remove; a test makes it a no-op to model a poller
+// that died before its cleanup, leaving the launch file behind. The gate,
+// not the cleanup, is what keeps that shell from starting an agent.
+var removeLaunchFile = os.Remove
+
+// gateTries bounds the command's wait for the gate: 600 x 0.1s, the 60s
+// bound on one Orca call, so a slow but successful create still starts. A
+// create slower than that fails closed: the shell gives up, no marker
+// appears and the launch closes the terminal. A test shortens it.
+var gateTries = 600
+
+// gateWindow is how long the command waits for the gate; Launch never
+// writes it in the last tenth of that wait (6s of 60s).
+func gateWindow() time.Duration { return time.Duration(gateTries) * 100 * time.Millisecond }
+
+// writeGateFile is writeGate; a test counts its calls to show that a late or
+// cancelled launch never writes a gate (cli#2136).
+var writeGateFile = writeGate
+
+// writeGate creates the gate atomically (a private temp file renamed into
+// place), so the command never sees a partial one (Wolfgang's (1)).
+func writeGate(gate string) error {
+	tmp := gate + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
 	}
-	return "exec sg " + shq(group) + " -c " + shq(inner), nil
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, gate); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // writeLaunchEnv writes the environment the command sources: one `export`
@@ -186,12 +230,16 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return nil, err
 	}
 	id := hex.EncodeToString(rb[:])
-	envFile, marker := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker")
-	defer func() { _ = os.Remove(envFile); _ = os.Remove(marker); _ = os.Remove(marker + ".tmp") }()
+	envFile, marker, gate := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker"), filepath.Join(dir, id+".go")
+	defer func() {
+		for _, f := range []string{envFile, marker, marker + ".tmp", gate, gate + ".tmp"} {
+			_ = removeLaunchFile(f)
+		}
+	}()
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
 		return nil, fmt.Errorf("writing the launch environment: %w", err)
 	}
-	cmd, err := launchCommand(envFile, marker, spec.Argv, l.Group)
+	cmd, err := launchCommand(envFile, marker, gate, spec.Argv)
 	if err != nil {
 		return nil, err
 	}
@@ -199,14 +247,26 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if spec.Title != "" {
 		argv = append(argv[:len(argv)-1], "--title", spec.Title, "--json")
 	}
-	code, out, errOut := l.Run(ctx, argv)
+	callStart := time.Now()
+	callCtx, cancelCall := context.WithTimeout(ctx, time.Minute)
+	code, out, errOut := l.Run(callCtx, argv)
+	callErr := callCtx.Err()
+	cancelCall()
 	var created orcaCreated
-	if json.Unmarshal([]byte(out), &created) != nil || code != 0 || !created.OK || created.Result.Terminal.Handle == "" {
+	decodeErr := json.Unmarshal([]byte(out), &created)
+	if decodeErr != nil || code != 0 || !created.OK || created.Result.Terminal.Handle == "" {
 		why := strings.TrimSpace(errOut)
 		if created.Error != nil && created.Error.Code != "" {
 			why = created.Error.Code
 		}
-		return nil, fmt.Errorf("orca did not create the terminal (%s)", firstNonEmpty(why, "no usable reply"))
+		cause := fmt.Errorf("orca did not create the terminal (%s)", firstNonEmpty(why, "no usable reply"))
+		if errors.Is(callErr, context.DeadlineExceeded) {
+			return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: cause}
+		}
+		if decodeErr == nil && created.Error != nil && (code != 0 || !created.OK) {
+			return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTerminalCreateRefused, Err: cause}
+		}
+		return nil, cause
 	}
 	handle, opid := created.Result.Terminal.Handle, created.Result.Terminal.ProcessID
 	fail := func(format string, a ...any) (*OrcaAgent, error) {
@@ -222,9 +282,31 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		}
 		return nil, errors.New(why + "; the terminal was closed")
 	}
+	// Only now, with the terminal's handle in hand, may the command start
+	// the agent (cli#2130). Before this point a failure leaves no agent: the
+	// shell waits, gives up, and stays an empty shell, which fail closes.
+	// Not on a cancelled launch, and not once the command may have stopped
+	// waiting (its window opened after callStart, so this is conservative).
+	if err := ctx.Err(); err != nil {
+		return fail("the launch was cancelled before its agent could start (%v); nothing was started", err)
+	}
+	if waited := time.Since(callStart); waited > gateWindow()-gateWindow()/10 {
+		return fail("Orca's create reply came after %s, too late for the command's %s wait; nothing was started", waited.Round(time.Millisecond), gateWindow())
+	}
+	if err := writeGateFile(gate); err != nil {
+		return fail("opening the launch gate: %v", err)
+	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {
-		return fail("%v", err)
+		agent, finalErr := fail("%v", err)
+		var classified interface{ RelaunchFailureReason() string }
+		if errors.As(err, &classified) {
+			return agent, &hostrelaunch.LaunchError{Code: classified.RelaunchFailureReason(), Err: finalErr}
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: finalErr}
+		}
+		return agent, finalErr
 	}
 	if l.onMarker != nil {
 		l.onMarker(envFile)
@@ -337,7 +419,7 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 			return parseMarker(string(b))
 		}
 		if !time.Now().Before(deadline) {
-			return 0, "", fmt.Errorf("the launched command did not start within %s (no marker)", wait)
+			return 0, "", &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: fmt.Errorf("the launched command did not start within %s (no marker)", wait)}
 		}
 		select {
 		case <-ctx.Done():
@@ -348,7 +430,8 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 }
 
 // isTerminalProcess: the pid the command wrote is the terminal's own process,
-// or (under sg) a descendant of it.
+// or a descendant of it (in case Orca's shell runs the typed text in a child;
+// the sg wrapper that needed it is gone, cli#2121).
 func isTerminalProcess(pid, terminalPID int) bool {
 	return pid == terminalPID || descendsFrom(pid, terminalPID)
 }
@@ -597,6 +680,13 @@ func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID s
 	if !ok {
 		return OrcaLaunchSpec{}, errors.New("the worker has no launcher profile")
 	}
+	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct)
+}
+
+// orcaProfileLaunchSpec is the shared builder with an immutable typed snapshot.
+// C5 prepares that snapshot without IO, then calls this only after claiming
+// its attempt. Normal worker.start uses this through orcaLaunchSpec too.
+func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile) (OrcaLaunchSpec, error) {
 	argv, err := LaunchArgv(prof, acct)
 	if err != nil {
 		return OrcaLaunchSpec{}, err
