@@ -270,7 +270,10 @@ func runSessionRecover(cmd *cobra.Command, f *cmdutil.Factory, mentionsLimit int
 		since, size, me := *state.ReadCursor, mentionsLimit, b.WorkerID
 		if page, err := gen.TeamChatReadPage(ctx, client, b.AppID, &since, &me, &size, nil, nil); err != nil {
 			fail("mentions", err)
-		} else if page != nil && page.TeamChatMessages != nil {
+		} else if page == nil || page.TeamChatMessages == nil {
+			// A null page is the server saying nothing, not "no messages".
+			fail("mentions", exitcode.Newf(exitcode.Unavailable, "the server returned no team-chat page for the mentions read"))
+		} else {
 			for _, m := range page.TeamChatMessages.Items {
 				if m != nil {
 					dto.Mentions.Items = append(dto.Mentions.Items, teamChatMessageDTOFromFields(m.TeamChatMessageFields))

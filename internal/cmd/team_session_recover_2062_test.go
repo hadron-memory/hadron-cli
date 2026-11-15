@@ -188,6 +188,22 @@ func TestSessionRecoverUsesTheWorkersMemoryID2062(t *testing.T) {
 	}
 }
 
+func TestSessionRecoverNullMentionsPageIsLoud2062(t *testing.T) {
+	r := recoverResponses2062()
+	r["TeamChatMessages"] = `{"data":{"teamChatMessages":null}}`
+	out, _, err := runRecover2062(t, r, "--json")
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("exit = %d (%v), want unavailable: a null page must not read as no mentions", exitCodeFor(err), err)
+	}
+	var dto struct {
+		Unavailable []struct{ Section string } `json:"unavailable"`
+	}
+	_ = json.Unmarshal([]byte(out), &dto)
+	if len(dto.Unavailable) != 1 || dto.Unavailable[0].Section != "mentions" {
+		t.Errorf("unavailable = %+v, want mentions", dto.Unavailable)
+	}
+}
+
 func TestSessionRecoverNeedsABinding2062(t *testing.T) {
 	teamGitDir(t)
 	srv, calls := attnServer(t, map[string]string{})
