@@ -4341,7 +4341,7 @@ that sentence. Onboard never casts, binds a session or writes a register row.
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
 After preflight a failure prints this partial record before nonzero exit;
-timeouts leave submitted work running. Inspect `team host ops` after ambiguous
+timeouts leave submitted work running. Inspect `team host ops` (its BY cell reads PLATFORM (DESIRED_RUNNING) for a no-task start of a long-lived worker; --json adds issuedReason only then; against a server older than #4257 the list omits it and says so once, a stderr note or a `warnings` entry in --json) after ambiguous
 submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention
@@ -5246,7 +5246,7 @@ that field (server bounds 300–86400, default 1800). Omitted preserves.
 team events --alarms names a task-less dark-worker alarm's worker and known
 reason (overdue or wake-unacked). A task-less alarm.coordinator-cadence shows
 coordinator <name>, with no reason suffix or payload evidence; a missing
-subject and other task-less types keep —. The same subject appears on alarm
+subject and other task-less types keep —; a task-less alarm.start-failing (wake handle START: the platform's starts of a long-lived worker keep failing) shows worker <name> the same way, its failure count and window only in --json. The same subject appears on alarm
 ack receipts. Metadata stays in --json exactly as returned and may be withheld.
 team alarm ack <eventId> acknowledges escalation; it does not end the episode.
 A dark episode ends when checks recover and no wake is unacknowledged past
