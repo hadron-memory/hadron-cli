@@ -22,10 +22,17 @@ import (
 func TestResetIdleProofRefusesUnboundNoTTY2074(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "claude")
-	if err := os.WriteFile(bin, []byte("#!/bin/bash\nexec -a claude /bin/sleep 300\n"), 0755); err != nil {
+	// Launch the native fixture directly. A shebang wrapper returns from
+	// Start before its later exec, racing the process-census positive control.
+	// Start's exec handshake now establishes the final agent image itself.
+	image, err := os.ReadFile("/bin/sleep")
+	if err != nil {
 		t.Fatal(err)
 	}
-	agent, err := (hostpoller.ExecHost{TerminateGrace: 50 * time.Millisecond}).Launch(context.Background(), hostpoller.LaunchSpec{Argv: []string{bin}, Dir: dir, Env: []string{"PATH=/usr/bin:/bin"}})
+	if err := os.WriteFile(bin, image, 0755); err != nil {
+		t.Fatal(err)
+	}
+	agent, err := (hostpoller.ExecHost{TerminateGrace: 50 * time.Millisecond}).Launch(context.Background(), hostpoller.LaunchSpec{Argv: []string{bin, "300"}, Dir: dir, Env: []string{"PATH=/usr/bin:/bin"}})
 	if err != nil {
 		t.Fatal(err)
 	}
