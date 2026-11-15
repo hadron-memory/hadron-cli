@@ -84,8 +84,9 @@ type OrcaLaunchConfig struct {
 	// OrcaBin is the absolute Orca CLI path.
 	OrcaBin string `yaml:"orca_bin"`
 	// Group is refused (cli#2121): it ran the command under `sg <group>`,
-	// and a process started through sg cannot be read through /proc by the
-	// poller, whatever the group, so it could never pass the launch proof.
+	// and the launch proof reads the process through /proc, which an
+	// sg-started process did not allow on the tested deployment (orca1, even
+	// for a group the poller already held). The proof does not support it.
 	// Kept only so the config names the reason instead of "unknown key".
 	Group string `yaml:"group"`
 }
@@ -373,7 +374,7 @@ const CodeOrcaGroupUnprovable = "ORCA_GROUP_UNPROVABLE"
 func (c *Config) validate() error {
 	var errs []string
 	if c.OrcaLaunch.Group != "" {
-		errs = append(errs, CodeOrcaGroupUnprovable+": orca_launch.group is not supported: a process started through sg cannot be read through /proc by the poller (whatever the group), so the launch could never prove its process (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
+		errs = append(errs, CodeOrcaGroupUnprovable+": orca_launch.group is not supported: the launch proves its process through /proc, which a process started through sg did not allow on the tested deployment (orca1, even for a group the poller already held) (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
 	}
 	if strings.TrimSpace(c.App) == "" {
 		errs = append(errs, "app is required")
