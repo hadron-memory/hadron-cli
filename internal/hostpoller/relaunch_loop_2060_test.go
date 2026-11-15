@@ -230,3 +230,24 @@ func TestUnknownSourceReadBreaksAbsenceContinuity2060(t *testing.T) {
 		t.Fatal("fresh continuity did not recover")
 	}
 }
+
+func TestDaemonReadinessRecheckedBeforeSpendingAttempt2060(t *testing.T) {
+	f := newLoopFixture2060(t)
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	checks := 0
+	f.p.relaunch.Ready = func(context.Context) error {
+		checks++
+		if checks > 1 {
+			return errors.New("daemon disappeared during target proofs")
+		}
+		return nil
+	}
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.launches) != 0 || len(f.journal["id-iris"].Attempts) != 0 {
+		t.Fatalf("lost daemon spent budget: launches=%d attempts=%d", len(f.launches), len(f.journal["id-iris"].Attempts))
+	}
+}
