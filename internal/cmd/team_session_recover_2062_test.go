@@ -233,3 +233,21 @@ func TestSessionRecoverTextOutput2062(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionRecoverStateNoteFailureIsLoud2062(t *testing.T) {
+	for _, op := range []string{"GetMemory", "GetNode"} {
+		r := recoverResponses2062()
+		r[op] = `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+		out, _, err := runRecover2062(t, r, "--json")
+		if exitCodeFor(err) != exitcode.Unavailable {
+			t.Fatalf("%s failing: exit = %d (%v), want unavailable", op, exitCodeFor(err), err)
+		}
+		var dto struct {
+			Unavailable []struct{ Section string } `json:"unavailable"`
+		}
+		_ = json.Unmarshal([]byte(out), &dto)
+		if len(dto.Unavailable) != 1 || dto.Unavailable[0].Section != "stateNote" {
+			t.Errorf("%s failing: unavailable = %+v, want stateNote", op, dto.Unavailable)
+		}
+	}
+}
