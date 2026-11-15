@@ -44,6 +44,17 @@ type hostUpFixture1389 struct {
 	refuse   string   // IssueHostOperation answers this error code (FORBIDDEN, UNAUTHENTICATED)
 	regErr   string   // HostRegistrations answers this error code
 	async    bool     // an issued operation is ISSUED; it completes on the next queue read
+	// cli#2069: per-operation queue scripts. On each queue read an ISSUED or
+	// COLLECTED operation takes its next scripted status (SUCCEEDED runs the
+	// host's half); a stalled one never moves.
+	transitions map[string][]string
+	stall       map[string]bool
+	// cli#1389 server adapter: when desiredSrv is set the command reads its
+	// desired state from the fake server (no --desired-state-file).
+	desiredSrv  map[string]any
+	desiredErr  string
+	desiredVars []map[string]json.RawMessage
+	onIssue     func() // runs after an issued operation is stored
 	registry []string // worker ids the host registration lists
 }
 
@@ -150,10 +161,34 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			b, _ := json.Marshal(map[string]any{"data": map[string]any{"hostOperations": map[string]any{"items": items, "hasNextPage": false}}})
 			_, _ = w.Write(b)
 			for _, op := range fx.stored {
-				if op["status"] == "ISSUED" {
-					fx.complete(op)
+				if op["status"] != "ISSUED" && op["status"] != "COLLECTED" {
+					continue
 				}
+				id, _ := op["id"].(string)
+				if fx.stall[id] {
+					continue
+				}
+				if seq := fx.transitions[id]; len(seq) > 0 {
+					fx.transitions[id] = seq[1:]
+					switch seq[0] {
+					case "SUCCEEDED":
+						fx.complete(op)
+					case "FAILED":
+						op["status"], op["failureReason"] = "FAILED", "git worktree add failed"
+					default:
+						op["status"] = seq[0]
+					}
+					continue
+				}
+				fx.complete(op)
 			}
+		case "HostDesiredState":
+			fx.desiredVars = append(fx.desiredVars, q.Vars)
+			if fx.desiredErr != "" {
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.desiredErr + `"}}]}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostDesiredState": fx.desiredSrv}})
 		case "IssueHostOperation":
 			if fx.refuse != "" {
 				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.refuse + `"}}]}`))
@@ -170,6 +205,9 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 				fx.complete(op)
 			}
 			fx.stored = append(fx.stored, op)
+			if fx.onIssue != nil {
+				fx.onIssue()
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"issueHostOperation": op}})
 		default:
 			if strings.HasPrefix(strings.TrimSpace(q.Query), "mutation") {
@@ -246,6 +284,7 @@ type hostUpOut1389 struct {
 	Skipped   []hostUpItem1389 `json:"skipped"`
 	Failed    []hostUpItem1389 `json:"failed"`
 	Error     *string          `json:"error"`
+	Source    string           `json:"source"`
 }
 
 // run executes `team host up --json` from a bound worktree and decodes stdout.
@@ -255,8 +294,12 @@ func (fx *hostUpFixture1389) run(extra ...string) (hostUpOut1389, string, error)
 	setTeamBindingServer(fx.t, fx.srv.URL)
 	f, out := testFactory(fx.t)
 	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"--server", fx.srv.URL, "team", "host", "up", "--host", "orca1", "--worktrees-root", fx.root,
-		"--desired-state-file", fx.desired, "--orca-bin", fx.orcaBin, "--timeout", "5s", "--json"}, extra...))
+	args := []string{"--server", fx.srv.URL, "team", "host", "up", "--host", "orca1", "--worktrees-root", fx.root,
+		"--orca-bin", fx.orcaBin, "--timeout", "5s", "--json"}
+	if fx.desiredSrv == nil && fx.desiredErr == "" {
+		args = append(args, "--desired-state-file", fx.desired)
+	}
+	root.SetArgs(append(args, extra...))
 	err := root.Execute()
 	var dto hostUpOut1389
 	if out.Len() > 0 {
