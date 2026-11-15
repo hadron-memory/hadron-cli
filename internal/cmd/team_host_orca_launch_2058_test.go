@@ -51,10 +51,14 @@ func TestTeamHostRunRefusesAnIncompleteOrcaWorker2058(t *testing.T) {
 			} else {
 				cfg = orcaWorkerConfig(t, tc.worker, tc.top)
 			}
+			srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg})
+			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
 			err := root.Execute()
+			if n := len(calls()); n != 0 {
+				t.Fatalf("%d server calls before the refusal", n)
+			}
 			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("exit %d (%v), want usage naming %q", exitCodeFor(err), err, tc.want)
 			}
@@ -113,10 +117,16 @@ func TestTeamHostRunRefusesOrcaLaunchGroup2121(t *testing.T) {
 		"with no Orca worker": writeHostConfig(t, "orca_launch:\n  orca_bin: /usr/bin/orca\n  group: incus\n"),
 	} {
 		t.Run(name, func(t *testing.T) {
+			// Hermetic (cli#2144): a fake server, and the refusal must come
+			// before any call to it.
+			srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg})
+			root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
 			err := root.Execute()
+			if n := len(calls()); n != 0 {
+				t.Fatalf("%d server calls before the refusal: %+v", n, calls())
+			}
 			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "ORCA_GROUP_UNPROVABLE") || !strings.Contains(err.Error(), "orca_launch.group") || !strings.Contains(err.Error(), "/proc") {
 				t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
 			}
