@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -13,9 +14,14 @@ func TestTaskWakeEvents2107(t *testing.T) {
 		"CHILD_CANCELLED":    "child cancelled",
 		"CHILD_FINISHED":     "child finished",
 		"FUTURE_CHILD_STATE": "FUTURE_CHILD_STATE",
+		"X\x1b[31m\nINJECT":  "X [31m INJECT",
 	} {
 		t.Run(event, func(t *testing.T) {
-			body := strings.ReplaceAll(wakePage2, "CHILD_FINISHED", event)
+			encoded, err := json.Marshal(event)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := strings.Replace(wakePage2, `"event":"CHILD_FINISHED"`, `"event":`+string(encoded), 1)
 			s, calls := deliveryFake(t, map[string][]string{"DueWakes": {body}})
 			page, err := s.Wakes(context.Background())
 			if err != nil || len(page.Wakes) != 1 {

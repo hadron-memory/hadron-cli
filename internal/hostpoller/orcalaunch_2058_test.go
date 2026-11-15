@@ -63,6 +63,14 @@ type fakeOrca struct {
 	ttyLie   bool               // the command reports a pts it is not on
 	// markerPID, when set, is the pid the command writes instead of its own.
 	markerPID string
+	// badReply, when set, is how create answers AFTER it has really started
+	// the command (cli#2130): "lost" (exit 1, no reply) or "malformed"
+	// (exit 0, unparseable stdout). The shell has had replyDelay to run.
+	badReply   string
+	replyDelay time.Duration
+	// beforeReply, when set, runs (unlocked) after the command has started
+	// and before a good reply: a slow Orca, or a cancel landing then.
+	beforeReply func()
 }
 
 func newFakeOrca(t *testing.T) *fakeOrca {
@@ -140,6 +148,20 @@ func (f *fakeOrca) run(_ context.Context, argv []string) (int, string, string) {
 		}
 		handle := fmt.Sprintf("term_%d", c.Process.Pid)
 		f.procs[handle] = c
+		if f.badReply != "" {
+			f.mu.Unlock()
+			time.Sleep(f.replyDelay)
+			f.mu.Lock()
+			if f.badReply == "lost" {
+				return 1, "", "post-create reply lost"
+			}
+			return 0, "{malformed create reply", ""
+		}
+		if f.beforeReply != nil {
+			f.mu.Unlock()
+			f.beforeReply()
+			f.mu.Lock()
+		}
 		b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"handle": handle, "processId": pid}}})
 		return 0, string(b), ""
 	case "terminal close":
@@ -340,11 +362,11 @@ func TestOrcaLaunchRefusesAProcessOutsideTheWorktree2058(t *testing.T) {
 }
 
 func TestLaunchCommandAndEnvGuards2058(t *testing.T) {
-	cmd, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "exec", PromptArg}, "incus")
+	cmd, err := launchCommand("/s/a.env", "/s/a.marker", "/s/a.go", []string{"codex", "exec", PromptArg}, "incus")
 	if err != nil || !strings.HasPrefix(cmd, "exec sg 'incus' -c '") || strings.Contains(cmd, "\n") {
 		t.Fatalf("group command %q %v", cmd, err)
 	}
-	if _, err := launchCommand("/s/a.env", "/s/a.marker", []string{"codex", "a\nb"}, ""); err == nil {
+	if _, err := launchCommand("/s/a.env", "/s/a.marker", "/s/a.go", []string{"codex", "a\nb"}, ""); err == nil {
 		t.Fatal("an argv word with a newline was accepted")
 	}
 	dir := t.TempDir()

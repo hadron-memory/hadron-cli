@@ -26,10 +26,18 @@ renders that answer without adding lifecycle checks or a wake selection.
 
 The schema and generated client are exported from the detached S11 merge
 `2c5a65f8b3f4a44e2b640a66ca48426b958db134` of hadron-server#4254. This is the
-merged provider contract required by #2107. The snapshot
-also carries S11's provider-side enum/documentation changes, including the
-removal of `WAITING_ON_CHILDREN` from `DesiredStateReason`; consumers decode
-server enums as strings, and no query shape or DTO changes here.
+merged provider contract required by #2107. The S11 delta adds
+`CHILD_CANCELLED` and documents both child-end events. `WAITING_ON_CHILDREN`
+was already absent from the CLI's base snapshot: this PR does not remove it,
+and no current schema or client reference remains.
+
+The full export also carries earlier merged provider changes: server#4247's
+terminal-repair outcomes/reasons and input/output fields, and server#4248's
+host-desired-state documentation. No new selection or command DTO is added.
+The CLI does not yet send `repairReason`; that capability is tracked by #2060
+and recorded in the coverage matrix. Its omission annotation preserves the
+existing health report wire format. No command switches on or validates the
+new repair enum values.
 
 ## Verification and scope
 
