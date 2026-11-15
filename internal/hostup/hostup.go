@@ -101,6 +101,10 @@ type Setup struct {
 	Branch     string
 	// Family is the model family worker.start launches.
 	Family string
+	// Problem, when set, is why the source could not give a usable setup
+	// (no worktree, several, or a malformed value). The worker is then
+	// reported SETUP_INVALID before the host is read for it.
+	Problem string
 }
 
 // Worker is one worker's desired state on a host.
@@ -345,6 +349,10 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	}
 	if w.Desired == Running && !runReasons[w.Reason] {
 		return skip(ReasonUnknownReason, "", "reason "+w.Reason)
+	}
+
+	if w.Setup.Problem != "" {
+		return skip(ReasonSetupInvalid, "", w.Setup.Problem)
 	}
 
 	obs, err := e.Observer.Observe(ctx, w)
