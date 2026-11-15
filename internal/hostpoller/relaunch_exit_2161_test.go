@@ -85,7 +85,12 @@ func (f *exitFixture2161) run(t *testing.T) {
 	f.p.sleep = func(ctx context.Context, _ time.Duration) error { <-ctx.Done(); return ctx.Err() }
 	f.done = make(chan error, 1)
 	go func() { f.done <- f.p.Run(ctx) }()
-	t.Cleanup(func() { cancel(); <-f.done })
+	t.Cleanup(func() {
+		cancel()
+		if err := <-f.done; err != nil {
+			t.Errorf("Run: %v", err)
+		}
+	})
 	f.waitFor(t, func() bool { return f.sweeps.Load() == 1 }, "the first sweep")
 }
 
@@ -127,7 +132,9 @@ func TestAContextResetExitRelaunchesAtOnceWithoutASecondSweep2161(t *testing.T) 
 		return a != nil && f.p.agents["id-iris"] == Agent(a) && f.p.agentSessions["id-iris"] == "still-open"
 	}, "the new agent to be tracked")
 	f.stop()
-	<-f.done
+	if err := <-f.done; err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 	f.done <- nil // for the cleanup
 	if _, err := os.Lstat(f.stamp); !os.IsNotExist(err) {
 		t.Fatalf("the stamp was not consumed: %v", err)
