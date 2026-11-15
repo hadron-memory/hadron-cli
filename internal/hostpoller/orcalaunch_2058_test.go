@@ -68,6 +68,9 @@ type fakeOrca struct {
 	// (exit 0, unparseable stdout). The shell has had replyDelay to run.
 	badReply   string
 	replyDelay time.Duration
+	// beforeReply, when set, runs (unlocked) after the command has started
+	// and before a good reply: a slow Orca, or a cancel landing then.
+	beforeReply func()
 }
 
 func newFakeOrca(t *testing.T) *fakeOrca {
@@ -153,6 +156,11 @@ func (f *fakeOrca) run(_ context.Context, argv []string) (int, string, string) {
 				return 1, "", "post-create reply lost"
 			}
 			return 0, "{malformed create reply", ""
+		}
+		if f.beforeReply != nil {
+			f.mu.Unlock()
+			f.beforeReply()
+			f.mu.Lock()
 		}
 		b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"handle": handle, "processId": pid}}})
 		return 0, string(b), ""

@@ -123,8 +123,10 @@ func launchCommand(envFile, marker, gate string, argv []string, group string) (s
 		}
 		words = append(words, shq(a))
 	}
-	inner := "i=0; while [ ! -e " + shq(gate) + " ] && [ \"$i\" -lt " + strconv.Itoa(gateTries) + " ]; do sleep 0.1; i=$((i+1)); done; " +
-		"[ -e " + shq(gate) + " ] && rm -f -- " + shq(gate) + " && " +
+	// After the loop the gate is a HARD condition: running out of the wait
+	// never falls through to sourcing the launch file (Rook's §10 (1)).
+	inner := "i=0; while [ ! -f " + shq(gate) + " ] && [ \"$i\" -lt " + strconv.Itoa(gateTries) + " ]; do sleep 0.1; i=$((i+1)); done; " +
+		"[ -f " + shq(gate) + " ] && rm -f -- " + shq(gate) + " && " +
 		". " + shq(envFile) + " && rm -f -- " + shq(envFile) +
 		` && printf '%s %s\n' "$$" "$(tty)" > ` + shq(marker+".tmp") +
 		" && mv -f -- " + shq(marker+".tmp") + " " + shq(marker) +
@@ -145,6 +147,29 @@ var removeLaunchFile = os.Remove
 // create slower than that fails closed: the shell gives up, no marker
 // appears and the launch closes the terminal. A test shortens it.
 var gateTries = 600
+
+// gateWindow is how long the command waits for the gate; Launch never
+// writes it in the last tenth of that wait (6s of 60s).
+func gateWindow() time.Duration { return time.Duration(gateTries) * 100 * time.Millisecond }
+
+// writeGate creates the gate atomically (a private temp file renamed into
+// place), so the command never sees a partial one (Wolfgang's (1)).
+func writeGate(gate string) error {
+	tmp := gate + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, gate); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
 
 // writeLaunchEnv writes the environment the command sources: one `export`
 // per variable, each value single-quoted. Created exclusively, 0600.
@@ -207,7 +232,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	id := hex.EncodeToString(rb[:])
 	envFile, marker, gate := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker"), filepath.Join(dir, id+".go")
 	defer func() {
-		for _, f := range []string{envFile, marker, marker + ".tmp", gate} {
+		for _, f := range []string{envFile, marker, marker + ".tmp", gate, gate + ".tmp"} {
 			_ = removeLaunchFile(f)
 		}
 	}()
@@ -222,6 +247,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if spec.Title != "" {
 		argv = append(argv[:len(argv)-1], "--title", spec.Title, "--json")
 	}
+	callStart := time.Now()
 	code, out, errOut := l.Run(ctx, argv)
 	var created orcaCreated
 	if json.Unmarshal([]byte(out), &created) != nil || code != 0 || !created.OK || created.Result.Terminal.Handle == "" {
@@ -246,12 +272,17 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return nil, errors.New(why + "; the terminal was closed")
 	}
 	// Only now, with the terminal's handle in hand, may the command start
-	// the agent (cli#2130). Before this point a failure leaves no agent.
-	g, err := os.OpenFile(gate, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return fail("opening the launch gate: %v", err)
+	// the agent (cli#2130). Before this point a failure leaves no agent: the
+	// shell waits, gives up, and stays an empty shell, which fail closes.
+	// Not on a cancelled launch, and not once the command may have stopped
+	// waiting (its window opened after callStart, so this is conservative).
+	if err := ctx.Err(); err != nil {
+		return fail("the launch was cancelled before its agent could start (%v); nothing was started", err)
 	}
-	if err := g.Close(); err != nil {
+	if waited := time.Since(callStart); waited > gateWindow()-gateWindow()/10 {
+		return fail("Orca's create reply came after %s, too late for the command's %s wait; nothing was started", waited.Round(time.Millisecond), gateWindow())
+	}
+	if err := writeGate(gate); err != nil {
 		return fail("opening the launch gate: %v", err)
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)

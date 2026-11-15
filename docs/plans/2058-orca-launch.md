@@ -57,11 +57,23 @@ What this gives up: a `pkill -f` from one terminal can reach an agent in another
 - **Tests:** the fake Orca now gives its shell a real pty (`/dev/ptmx`), as Orca does. The wiring test drives a real `worker.start` into a fake `orca` binary (Julius P3).
 
 ## The go-gate (cli#2130)
-Orca can start the terminal's shell and then lose or garble its create reply (Jibril's P2, reproduced by Chip against real Orca). Launch then has no handle, so it can close nothing. Before this, the shell had already sourced the launch file and exec'd the agent, which ran untracked: no `agents` entry, no stop, and a second start became possible once the orphan's cwd left the worktree.
+Orca can start the terminal's shell and then lose or garble its create reply (Jibril's P2, reproduced by Chip against real Orca). Launch then has no handle, so it can close nothing. Before this fix, the shell had already sourced the launch file and exec'd the agent. The agent then ran untracked: no `agents` entry, no stop, and a second start became possible once the orphan's cwd left the worktree. The fix makes "may have started" impossible instead of reconciling it (Wolfgang #109089, Rook #109091).
 
-The typed command now starts with a bounded wait (600 × 0.1s, the 60s Orca call bound) for a gate file `<id>.go`, and does nothing without it. Launch creates the gate (O_EXCL, 0600) only after the reply has parsed with a handle. So a lost or malformed reply means no agent ever starts. The shell gives up, the launch file is deleted, and at most an empty shell tab is left, which the health sweep's bare-shell close handles. The gate, not the cleanup, is what holds: a poller that dies before deleting the launch file still starts nothing. A create slower than 60s fails closed.
+- **The command waits for a gate.** The typed text starts with a bounded wait (600 × 0.1s) for `<id>.go`. After the wait, `[ -f <id>.go ]` is a **hard** condition, so running out never falls through to sourcing the launch file.
+- **Launch writes the gate only after a good reply.** That means a fully parsed `ok:true` reply with a handle, before `awaitMarker`, and never on any other path. It is written atomically (a private temp file, then a rename), in the 0700 launch directory.
+- **No gate when cancelled or late.** A cancelled launch writes none. A reply that comes in the last tenth of the window or later writes none, because the command may have stopped waiting. Both fail honestly ("nothing was started") and close the terminal, which held only an empty shell.
+- **An ambiguous reply.** A lost (non-zero) or malformed reply means Launch has no handle. The shell gives up and stays at its prompt as a bare shell; no agent, no grant. The launch file is deleted on return, but the gate, not that cleanup, is what holds: a poller that dies before cleaning up still starts nothing.
+- **The leftover tab.** It classifies as a bare shell. The health sweep closes a bare-shell tab when another, non-bare tab of the worktree remains, for example the retried start. A worktree whose every tab is a bare shell is reported `no_agent`. The shell deliberately does not exit: a terminal whose process has ended does not classify as a bare shell.
+- **The window.** 60s equals the bound on one `orca terminal create` call (`orcaLaunchCallTimeout`). Since the shell starts after the call does, any reply the poller accepts at all lands inside the command's wait. Orca's create latency has not been measured as a distribution (the probes so far returned within seconds). A create slower than 54s fails closed. QA records the measured latency.
+- **Residual (Rook's (5)).** A poller crash after the gate is written and before the agent is tracked leaves an untracked agent, the same as any crash after a launch. C5's absence census still has to cover that case.
 
-Pins (red first at efeedcef): a lost (non-zero) and a malformed (exit 0) reply after the shell really started, each with and without the cleanup, assert that no agent ever runs. Mutants killed: the command ignores the gate, the gate is created before the create, the gate is never created.
+**Pins** (red first at efeedcef):
+- A lost and a malformed reply after a real shell start, each with and without the cleanup: no agent.
+- A late good reply: no gate, a FAILED report, the terminal closed.
+- A cancel after a good reply: the same.
+- A gate that appears only after the command's wait: no agent, with the launch file still present.
+
+**Mutants killed:** no hard check, the command ignores the gate, the gate created before the create, a late reply writing it, a cancel writing it, the gate never written. Non-atomic writing at the same point is an equivalent mutant (not observable).
 
 ## Entry point for C5's relaunch (#2060)
 `Poller.orcaLaunchSpec(ref, w, dir, grant, taskID)` is the one builder of an Orca launch, and `worker.start` uses it with its grant. A relaunch under a still-open session passes no grant. The spec then carries no `HADRON_LAUNCH_GRANT`, and the first prompt says the session is still open, not to start a new one, and to run `hadron team session recover` (never a new bind, never `--resume`). The launch itself is `OrcaLaunchFunc`, which returns an `OrcaAgent` with the same proof, pin and authorized stop. Identity, two-sweep and rate-limit logic stay with C5.

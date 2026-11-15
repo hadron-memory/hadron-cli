@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,4 +58,81 @@ func TestOrcaLaunchStartsNoAgentWhenTheCreateReplyIsLostOrMalformed2130(t *testi
 			}
 		})
 	}
+}
+
+func shortGate(t *testing.T) {
+	t.Helper()
+	old := gateTries
+	gateTries = 10 // 1s
+	t.Cleanup(func() { gateTries = old })
+}
+
+func noAgentAfter(t *testing.T, out string, d time.Duration) {
+	t.Helper()
+	time.Sleep(d)
+	if _, err := os.Stat(out); err == nil {
+		b, _ := os.ReadFile(out)
+		t.Fatalf("an agent started:\n%s", b)
+	}
+}
+
+// Wolfgang's (2): a good create reply that arrives once the command may have
+// stopped waiting writes no gate; the launch fails honestly and closes the
+// terminal, which held only an empty shell.
+func TestOrcaLaunchWritesNoGateForALateCreateReply2130(t *testing.T) {
+	shortGate(t)
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	agentBin := fakeAgentScript(t, tools, out, true)
+	f := newFakeOrca(t)
+	f.beforeReply = func() { time.Sleep(1500 * time.Millisecond) }
+	a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || a != nil || !strings.Contains(err.Error(), "too late") || !strings.Contains(err.Error(), "nothing was started") || len(f.closed) != 1 {
+		t.Fatalf("a late reply: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+	noAgentAfter(t, out, 1500*time.Millisecond)
+}
+
+// Rook's (2): a launch cancelled after a good reply writes no gate.
+func TestOrcaLaunchWritesNoGateOnceCancelled2130(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	agentBin := fakeAgentScript(t, tools, out, true)
+	f := newFakeOrca(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f.beforeReply = cancel
+	a, err := orcaLauncherFor(t, f).Launch(ctx, OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || a != nil || !strings.Contains(err.Error(), "cancelled") || len(f.closed) != 1 {
+		t.Fatalf("a cancelled launch: agent=%v err=%v closed=%v", a, err, f.closed)
+	}
+	noAgentAfter(t, out, 1200*time.Millisecond)
+}
+
+// Rook's (1) and (4): the gate is a hard condition after the wait. A gate
+// that appears only once the command has stopped waiting starts nothing,
+// even with the launch file still there (a poller that died before cleanup).
+func TestOrcaLaunchCommandIgnoresAGateAfterItsWait2130(t *testing.T) {
+	shortGate(t)
+	old := removeLaunchFile
+	removeLaunchFile = func(string) error { return nil }
+	t.Cleanup(func() { removeLaunchFile = old })
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	agentBin := fakeAgentScript(t, tools, out, true)
+	f := newFakeOrca(t)
+	f.badReply = "lost"
+	l := orcaLauncherFor(t, f)
+	if _, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"}); err == nil {
+		t.Fatal("a lost reply was taken as a launch")
+	}
+	envs, _ := filepath.Glob(filepath.Join(l.StateDir, "launch", "*.env"))
+	if len(envs) != 1 {
+		t.Fatalf("launch files %v", envs)
+	}
+	time.Sleep(1500 * time.Millisecond) // past the command's 1s wait
+	if err := writeGate(strings.TrimSuffix(envs[0], ".env") + ".go"); err != nil {
+		t.Fatal(err)
+	}
+	noAgentAfter(t, out, 1500*time.Millisecond)
 }
