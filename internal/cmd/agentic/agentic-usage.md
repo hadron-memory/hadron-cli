@@ -551,7 +551,7 @@ hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team grant list [--limit N] [--offset N] | get <id> | actions [--limit N] [--offset N] | action <name> | request --action <name> --values <json|@file> --reason <text> [--holder worker|agent] [--holder-id <id>] [--starts-at <time>] [--expires-at <time>] [--max-uses <n>] | request-signature <grant-id> | signing-request get <request-id> | signing-request withdraw <request-id>   # worker-bound; see "Worker-own grants" below
-hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>]
+hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | recover [--mentions-limit N] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>]
 # cli#960: a bind whose resulting binding records no tool prints `warning: this binding has no tool recorded…` on STDERR (exit unchanged, --json stdout unchanged): `session log` then refuses, so pass --tool when you start a session that will log work; a resume of a session that already has a tool stays quiet without --tool
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH [--push]] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--wait <dur> [--poll-interval <dur>]] [--mentions-me | --mentions <ref>] [--thread <seq>] [--team-head <id> | --untagged | --tagged] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 # Team chat text keeps [seq] first, then RFC3339 at formatted as a UTC minute (2026-11-06T01:20Z). Missing/invalid times are omitted without failure; JSON at stays verbatim and read/cursor operations are unchanged.
@@ -2901,6 +2901,24 @@ Conventions:
   the session. Refusals keep their codes (`--json` `serverCode`), one write.
   `worker get` and every worker `--json` gain `signature` / `trailer`: a string
   (`""` = empty template) or `null` = WITHHELD (masked), never "empty".
+  **`team session recover [--mentions-limit N]` (cli#2062)** is the one
+  read-only call a fresh run makes instead of `session whoami`, `worker get`,
+  the state note, `chat read --mentions-me --since <watermark>` and `task mine`.
+  It sends NO `X-Hadron-Session` header, so it records no heartbeat, never
+  acknowledges, never advances the watermark (`team chat mark-read` does) and
+  never makes a session live. `--json` shape (keys always present):
+  `{worker:{id,urn,name,role,appId}, session:{id,startedAt,server,open,endedAt},
+  tasks:[{id,handle,status,priority,title,blocked,waitingOnChildren,parentTaskId}],
+  tasksMore, stateNote:{urn,updatedAt,content}|null, standingDirections:string|null,
+  mentions:{watermark,head,items:[chat message DTO, oldest first],more},
+  unavailable:[{section,reason}]}`. `tasks` = your PENDING and STARTED tasks
+  (up to 200). `stateNote` is the node `state` in your own working memory
+  (the worker's `memoryId`), `null` when there is none or no working memory is provisioned; the
+  `## Standing directions` section of it comes back verbatim in
+  `standingDirections`. `watermark` is the server read cursor, `null` when the
+  server reports none: null means unknown, not zero. A section that could not be read is listed in
+  `unavailable`, is null/empty, and the command exits 7 after printing the
+  rest: an unreadable section never means "nothing to do". No binding: exit 2.
   **Rendered values (cli#1525, hadron-server#2969, cor:agt:040:04):** `worker
   get` also prints the signature and trailer as the SERVER fills them, under
   `Signature:` / `Trailer:` ahead of the templates, and `--json` adds
