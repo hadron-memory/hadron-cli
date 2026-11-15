@@ -1,3 +1,5 @@
+//go:build linux
+
 package hostpoller
 
 import (
@@ -11,10 +13,13 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 )
 
-type loopSource2060 struct{ snapshot RelaunchSnapshot }
+type loopSource2060 struct {
+	snapshot RelaunchSnapshot
+	err      error
+}
 
 func (s *loopSource2060) RelaunchSnapshot(context.Context, string) (RelaunchSnapshot, error) {
-	return s.snapshot, nil
+	return s.snapshot, s.err
 }
 
 type loopJournal2060 map[string]hostrelaunch.Record
@@ -173,5 +178,55 @@ func TestDaemonUnavailableDoesNotSpendLaunchBudgetAndRecoversAfterReturn2060(t *
 	}
 	if len(f.launches) != 1 {
 		t.Fatalf("daemon return did not recover: %d", len(f.launches))
+	}
+}
+
+func TestPollerRestartRequiresTwoFreshAbsenceObservations2060(t *testing.T) {
+	f := newLoopFixture2060(t)
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	old := f.p
+	clone := New(old.cfg, old.server, old.host, old.state, old.key, nil)
+	clone.now = old.now
+	clone.EnableOrcaLaunch(old.orcaLaunch, old.profiles)
+	if err := clone.EnableRelaunch(*old.relaunch); err != nil {
+		t.Fatal(err)
+	}
+	f.p = clone
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.launches) != 0 {
+		t.Fatal("restart reused an old absence proof")
+	}
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.launches) != 1 {
+		t.Fatal("two fresh post-restart observations did not recover")
+	}
+}
+func TestUnknownSourceReadBreaksAbsenceContinuity2060(t *testing.T) {
+	f := newLoopFixture2060(t)
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	f.source.err = errors.New("source unavailable")
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	f.source.err = nil
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.launches) != 0 {
+		t.Fatal("unknown source pass bridged absence observations")
+	}
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.launches) != 1 {
+		t.Fatal("fresh continuity did not recover")
 	}
 }
