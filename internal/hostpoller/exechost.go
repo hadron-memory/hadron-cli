@@ -473,6 +473,11 @@ func (ExecHost) Occupied(_ context.Context, path string) (string, error) {
 	return occupied(path)
 }
 
+// ResetWorkspace is ResetWorktree at the current time.
+func (ExecHost) ResetWorkspace(ctx context.Context, path string) (ResetOutcome, error) {
+	return ResetWorktree(ctx, path, time.Now())
+}
+
 // Alive reports whether pid is a running process.
 func (ExecHost) Alive(pid int) bool { return processAlive(pid) }
 

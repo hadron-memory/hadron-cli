@@ -204,6 +204,34 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("a process is already working in %s (%s); nothing was launched", token, who))
 		return
 	}
+	// C2b (G6): the workspace is reset as part of starting, after every check
+	// that no process works in the tree (so nothing is moved under a running
+	// agent) and before the launch. A refusal reports the code, launches
+	// nothing and leaves the task waiting with the not-started alarm.
+	if w.resetsOnStart() {
+		out, err := p.host.ResetWorkspace(ctx, dir)
+		switch {
+		case err != nil:
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("%s: could not reset %s: %s; nothing was launched", CodeResetFailed, token, err.Error()))
+			return
+		case out.Refused():
+			p.log("reset-refused", op.ID, op.Type, "", fmt.Sprintf("%s in %s: %s", out.Code, token, out.Detail))
+			reason := fmt.Sprintf("%s: %s; nothing was launched", out.Code, out.Detail)
+			if len(out.Rescued) > 0 {
+				reason += " (rescue refs: " + strings.Join(out.Rescued, ", ") + ")"
+			}
+			p.finish(ctx, op, Failed, "", reason)
+			return
+		case out.Reset:
+			detail := fmt.Sprintf("reset %s to %s", token, out.Base)
+			if len(out.Rescued) > 0 {
+				detail += "; rescue refs: " + strings.Join(out.Rescued, ", ")
+			}
+			p.log("reset", op.ID, op.Type, "", detail)
+		default:
+			p.log("reset-skipped", op.ID, op.Type, "", fmt.Sprintf("%s has no Git work tree: no reset", token))
+		}
+	}
 	deadline := p.now().Add(LaunchGrantTTL)
 	agent, err := p.host.Launch(ctx, LaunchSpec{
 		Argv: w.Launch,

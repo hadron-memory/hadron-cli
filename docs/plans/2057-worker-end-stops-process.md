@@ -96,3 +96,17 @@ Residual, by design and already documented in `team host run`'s help: on a launc
 hold (a kernel or policy that refuses `waitid`, and the non-Linux unixes), the instant between the final
 authority check and the `kill(2)` itself is not serialized with the leader's exit; the 2 s lock-wait window
 that #2068 added is closed by the check above, and a hold-capable launch has no such gap.
+
+## C2b: workspace reset inside worker.start (G6)
+Behind `reset_on_start` (default off; transitional like `stop_on_end`, one lookup `resetsOnStart` that
+`Agent.lifecycle` replaces). It runs inside `worker.start` after every check that no process works in the
+tree and before the launch, so nothing is moved under a running agent and no new operation type exists.
+`ResetWorktree` (internal/hostpoller/gitreset.go): not a Git tree: no reset. Dirty or untracked:
+`WORKTREE_DIRTY`. Then fetch origin (a failure is `WORKTREE_RESET_FAILED`, never a guess), record
+`refs/hadron/rescue/<utc>/<branch>` for every local branch tip and a detached HEAD that no remote branch
+contains, refuse with `WORKTREE_UNPUSHED` when HEAD itself is on no remote branch (`git branch -r --contains`;
+the upstream/ahead rule of ruling 0012 would wrongly refuse a detached HEAD left at origin's tip by an earlier
+reset), then `checkout --detach origin/HEAD` (else origin/main). A refusal reports its code as the start's
+failure, so the task waits with the not-started alarm. Nothing is created or removed (cor:agt:070:06).
+Residual: a squash-merged and deleted remote branch reads as unpushed and refuses (the safe direction; the
+team merges with merge commits).
