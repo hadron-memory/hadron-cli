@@ -77,3 +77,11 @@ the server ending a session whose process was stopped (S2), a spec change
   its binding, move its working directory); each of those makes the host signal
   nothing and say so. The host also trusts the worktree's `.git` pointer, as every
   binding reader here already does; on orca1 the poller and the agents share one uid.
+- **Open without a check-then-open gap (blind delta).** On unix the lock is opened
+  relative to a descriptor for its directory (`O_NOFOLLOW|O_DIRECTORY`, then
+  `openat(..., O_NOFOLLOW)`), so a directory swapped for a link after the check is
+  refused. On Windows each open uses `FILE_FLAG_OPEN_REPARSE_POINT` and the handle's
+  attributes are checked, and the directory handle stays open (no delete-sharing) until
+  the file is open and checked, so the directory cannot be renamed or replaced between
+  the two opens. Not run on a Windows host (none available): it builds and vets clean,
+  and the reparse-attribute rule is pinned as a platform-neutral unit.
