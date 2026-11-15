@@ -64,23 +64,45 @@ func TestTeamHostRunRefusesAnIncompleteOrcaWorker2058(t *testing.T) {
 	}
 }
 
-// A valid Orca worker config runs: the launcher is wired and nothing is
-// refused at startup (no start is collected here, so Orca is never called).
+// The launcher is wired: a collected worker.start of an Orca worker reaches
+// the configured orca binary (terminal create), never the exec path, and the
+// start reports Orca's refusal (cli#2088 blind P3).
 func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
 	stubNamespacePreflight(t, nil)
-	cfg := orcaWorkerConfig(t, orcaProfile, orcaTop)
+	bin := t.TempDir()
+	log := filepath.Join(bin, "orca.log")
+	orca := filepath.Join(bin, "orca")
+	if err := os.WriteFile(orca, []byte("#!/bin/sh\nprintf '%s\\n' \"$1 $2\" >> '"+log+"'\necho '{\"ok\":false,\"error\":{\"code\":\"fake_refused\"}}'\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	top := "account_profiles:\n  holger: {bin: claude-holger}\norca_launch:\n  orca_bin: " + orca + "\n"
+	cfg := orcaWorkerConfig(t, orcaProfile+"    worktrees: [repo/iris]\n", top)
+	if err := os.MkdirAll(filepath.Join(filepath.Dir(cfg), "trees", "repo", "iris"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	start := strings.Replace(polledOpJSON("o1", "worker.start", "COLLECTED"), `"args":{}`, `"args":{"workerId":"wkr1","worktree":"repo/iris","family":"claude","taskId":"t1"}`, 1)
+	start = strings.Replace(start, `"failureReason":null}`, `"failureReason":null,"launchGrant":"hlg_grant"}`, 1)
 	srv, calls := hostServerFake(t, map[string]string{
 		"RegisterHost":          hostRegistrationAnswer,
-		"CollectHostOperations": `{"data":{"collectHostOperations":[]}}`,
+		"CollectHostOperations": `{"data":{"collectHostOperations":[` + start + `]}}`,
+		"ReportHostOperation":   `{"data":null,"errors":[{"message":"not bound yet","extensions":{"code":"HOST_OPERATION_NOT_DONE"}}]}`,
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("run --once with an Orca worker: %v", err)
+	_ = root.Execute()
+	got, _ := os.ReadFile(log)
+	if strings.TrimSpace(string(got)) != "terminal create" {
+		t.Fatalf("the Orca launcher was not used; orca calls %q\n%s", got, out.String())
 	}
-	if got := calls(); len(got) != 2 {
-		t.Fatalf("want register and collect; got %+v", got)
+	var reported bool
+	for _, c := range calls() {
+		if c.op == "ReportHostOperation" && strings.Contains(string(c.vars), "through Orca failed") && strings.Contains(string(c.vars), "fake_refused") {
+			reported = true
+		}
+	}
+	if !reported {
+		t.Fatalf("the start did not report Orca's refusal: %+v", calls())
 	}
 }
 

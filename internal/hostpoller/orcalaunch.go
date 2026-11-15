@@ -236,8 +236,16 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	handle, opid := created.Result.Terminal.Handle, created.Result.Terminal.ProcessID
 	fail := func(format string, a ...any) (*OrcaAgent, error) {
 		// Ours to close: this launch created it moments ago.
-		_, _, _ = l.Run(context.WithoutCancel(ctx), []string{"terminal", "close", "--terminal", handle, "--json"})
-		return nil, fmt.Errorf(format+"; the terminal was closed", a...)
+		why := fmt.Sprintf(format, a...)
+		if code, _, errOut := l.Run(context.WithoutCancel(ctx), []string{"terminal", "close", "--terminal", handle, "--json"}); code != 0 {
+			// The terminal may still run something this launch started. It
+			// is handed back as an agent that is NOT done, so the caller
+			// keeps it recorded (one agent per worktree holds) and a later
+			// stop retries the close (cli#2088 blind P2).
+			u := &OrcaAgent{l: l, handle: handle, done: make(chan struct{}), unclosed: true}
+			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply")}
+		}
+		return nil, errors.New(why + "; the terminal was closed")
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {
@@ -246,28 +254,54 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if l.onMarker != nil {
 		l.onMarker(envFile)
 	}
-	if opid <= 1 || !isTerminalProcess(pid, opid) {
-		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
+	if opid <= 1 {
+		return fail("Orca named no process for the terminal")
 	}
-	if tty != "" {
-		if fd0, err := os.Readlink("/proc/" + strconv.Itoa(pid) + "/fd/0"); err != nil || fd0 != tty {
-			return fail("pid %d's terminal is not the tty it reported", pid)
-		}
-	}
-	h, err := l.Proc.Observe(pid)
-	if errors.Is(err, syscall.ESRCH) {
-		// It already ran and exited (a short task, or a launcher that failed
-		// at once): the launch happened, and its agent is done. worker.start
-		// decides from the bind what that means; nothing is left to stop.
+	// Pin first: every later read is then of this process, or it is known
+	// gone. A launch whose process already exited (a short task, or a
+	// launcher that failed at once) happened, and its agent is done;
+	// worker.start decides from the bind what that means.
+	exited := func() (*OrcaAgent, error) {
 		a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, done: make(chan struct{})}
 		a.closeOnce.Do(func() { close(a.done) })
 		return a, nil
 	}
+	h, err := l.Proc.Observe(pid)
+	if errors.Is(err, syscall.ESRCH) {
+		return exited()
+	}
 	if err != nil {
 		return fail("pid %d could not be pinned: %v", pid, err)
 	}
-	// After the pin, the number is this process: its cwd is the worktree.
+	// Parentage after the pin (Rook's note on cli#2088): the number is this
+	// process, so its ancestry cannot be a later holder's.
+	if !isTerminalProcess(pid, opid) {
+		h.Close()
+		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
+	}
+	gone := func() bool {
+		t0, terr := l.Proc.Now()
+		if terr != nil {
+			return false
+		}
+		_, serr := h.SignalWithin(syscall.Signal(0), t0, time.Hour, l.Proc.Now)
+		return errors.Is(serr, syscall.ESRCH)
+	}
+	// The terminal association is required: an Orca terminal always has a
+	// pty, so a launch that reports none is not the terminal's (cli#2088
+	// blind P2), and its stdin must be that pty. Its cwd is the worktree. A
+	// read that fails because the pinned process has exited since is that
+	// exit, not a refusal.
+	fd0, ferr := os.Readlink("/proc/" + strconv.Itoa(pid) + "/fd/0")
 	cwd, cerr := os.Readlink("/proc/" + strconv.Itoa(pid) + "/cwd")
+	if (ferr != nil || cerr != nil) && gone() {
+		h.Close()
+		return exited()
+	}
+	if ferr != nil || fd0 != tty {
+		h.Close()
+		return fail("pid %d's terminal is not the tty it reported", pid)
+	}
 	root, rerr := filepath.EvalSymlinks(spec.Dir)
 	if cerr != nil || rerr != nil || !within(cwd, root) {
 		h.Close()
@@ -294,19 +328,7 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 	for {
 		b, err := os.ReadFile(marker)
 		if err == nil {
-			f := strings.Fields(strings.TrimSpace(string(b)))
-			if len(f) < 1 {
-				return 0, "", errors.New("the launch marker is empty")
-			}
-			pid, perr := strconv.Atoi(f[0])
-			if perr != nil || pid <= 1 {
-				return 0, "", errors.New("the launch marker names no process")
-			}
-			tty := ""
-			if len(f) == 2 && strings.HasPrefix(f[1], "/dev/") {
-				tty = f[1]
-			}
-			return pid, tty, nil
+			return parseMarker(string(b))
 		}
 		if !time.Now().Before(deadline) {
 			return 0, "", fmt.Errorf("the launched command did not start within %s (no marker)", wait)
@@ -323,6 +345,26 @@ func (l OrcaLauncher) awaitMarker(ctx context.Context, marker string) (int, stri
 // or (under sg) a descendant of it.
 func isTerminalProcess(pid, terminalPID int) bool {
 	return pid == terminalPID || descendsFrom(pid, terminalPID)
+}
+
+// markerTTYRE is the only tty a marker may name: a pts device.
+var markerTTYRE = regexp.MustCompile(`^/dev/pts/[0-9]+$`)
+
+// parseMarker reads exactly "<pid> <tty>\n" as the command wrote it; any
+// other shape (no tty, "not a tty", extra fields) is refused.
+func parseMarker(s string) (int, string, error) {
+	if !strings.HasSuffix(s, "\n") || strings.Count(s, "\n") != 1 {
+		return 0, "", errors.New("the launch marker is malformed")
+	}
+	pidText, tty, _ := strings.Cut(strings.TrimSuffix(s, "\n"), " ")
+	pid, err := strconv.Atoi(pidText)
+	if err != nil || pid <= 1 || strconv.Itoa(pid) != pidText {
+		return 0, "", errors.New("the launch marker names no process")
+	}
+	if !markerTTYRE.MatchString(tty) {
+		return 0, "", errors.New("the launched command has no terminal (its marker names no pts device)")
+	}
+	return pid, tty, nil
 }
 
 // descendsFrom reports whether pid's parent chain reaches ancestor (bounded).
@@ -353,6 +395,15 @@ func descendsFrom(pid, ancestor int) bool {
 	return false
 }
 
+// UnclosedLaunchError is a launch that could not be proven AND whose terminal
+// could not be closed: Launch returns it together with an agent that stays
+// recorded until a stop closes the terminal.
+type UnclosedLaunchError struct{ Handle, Why, CloseErr string }
+
+func (e *UnclosedLaunchError) Error() string {
+	return e.Why + "; closing Orca terminal " + e.Handle + " failed (" + e.CloseErr + "), so it stays recorded until a stop closes it"
+}
+
 // OrcaAgent is an agent running in an Orca terminal, identified by the
 // terminal's handle and its pinned process.
 type OrcaAgent struct {
@@ -365,6 +416,9 @@ type OrcaAgent struct {
 	mu        sync.Mutex
 	done      chan struct{}
 	closeOnce sync.Once
+	// unclosed: an unproven launch whose terminal could not be closed. No
+	// process is pinned; Done stays open until a stop closes the terminal.
+	unclosed bool
 }
 
 // watch closes done once the pinned process is gone: the terminal itself
@@ -372,6 +426,10 @@ type OrcaAgent struct {
 func (a *OrcaAgent) watch() {
 	for {
 		if a.gone() {
+			// The pidfd is released once the process is gone: a poller that
+			// launches for weeks must not leak one per run (cli#2088 blind P2).
+			// watch is the handle's only user after Launch returns.
+			a.h.Close()
 			a.closeOnce.Do(func() { close(a.done) })
 			return
 		}
@@ -416,6 +474,22 @@ func (a *OrcaAgent) TerminateWith(authorize Authorize) (bool, string) {
 		return true, ""
 	default:
 	}
+	if a.unclosed {
+		// Nothing was pinned: closing the terminal is the whole stop, and
+		// its success is the confirmation.
+		if authorize != nil {
+			release, ok := authorize()
+			if !ok {
+				return false, "the stop of Orca terminal " + a.handle + " was declined before closing it; it stays recorded"
+			}
+			defer release()
+		}
+		if code, _, errOut := a.l.Run(context.Background(), []string{"terminal", "close", "--terminal", a.handle, "--json"}); code != 0 {
+			return false, "closing Orca terminal " + a.handle + " failed again: " + firstNonEmpty(strings.TrimSpace(errOut), "no reply")
+		}
+		a.closeOnce.Do(func() { close(a.done) })
+		return true, "closed Orca terminal " + a.handle
+	}
 	if authorize != nil {
 		release, ok := authorize()
 		if !ok {
@@ -455,10 +529,10 @@ func (p *Poller) EnableOrcaLaunch(launch OrcaLaunchFunc, src ProfileSource) {
 func (l OrcaLauncher) LaunchFunc() OrcaLaunchFunc {
 	return func(ctx context.Context, spec OrcaLaunchSpec) (Agent, error) {
 		a, err := l.Launch(ctx, spec)
-		if err != nil {
-			return nil, err
+		if a == nil {
+			return nil, err // never a typed-nil Agent
 		}
-		return a, nil
+		return a, err // an unclosed launch: the agent and its error
 	}
 }
 

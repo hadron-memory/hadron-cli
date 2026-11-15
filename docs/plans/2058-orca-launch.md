@@ -57,6 +57,14 @@ The marker is written by the shell **before** `exec unshare`, so the pinned pid 
 
 `team host run` preflights the namespace at startup and refuses (exit 2) on a host that cannot create one. Tests pin the prefix in the typed text, the default, and the preflight refusal. Where namespaces are available, they also pin pid 1 inside, the host pid pinned, the pkill isolation, and the terminal close ending the agent.
 
+## Fix head after review (cli#2088)
+- **A tty is required** (Julius P2, Jamir F1). The marker is parsed strictly as exactly `<pid> /dev/pts/N\n`; anything else, including "not a tty", is refused. After the pidfd pin, the process's `fd/0` must be that pts.
+- **Pin first** (Rook's note). Parentage, tty and cwd are all checked after the pidfd pin, and a read lost because the pinned process has since exited counts as a finished launch.
+- **The pidfd is released** when the agent is gone (Julius P2, Jamir F2).
+- **A failed close is no longer reported as closed** (Julius P2). An unproven launch whose terminal won't close comes back as an `UnclosedLaunchError` together with an agent that is not done. `worker.start` records it, so the one-agent-per-worktree guard holds, and a later stop retries the close.
+- **Stop order:** authorize, then close, then release (Rook F1).
+- **Tests:** the fake Orca now gives its shell a real pty (`/dev/ptmx`), as Orca does. The wiring test drives a real `worker.start` into a fake `orca` binary (Julius P3).
+
 ## Entry point for C5's relaunch (#2060)
 `Poller.orcaLaunchSpec(ref, w, dir, grant, taskID)` is the one builder of an Orca launch, and `worker.start` uses it with its grant. A relaunch under a still-open session passes no grant. The spec then carries no `HADRON_LAUNCH_GRANT`, and the first prompt says the session is still open, not to start a new one, and to run `hadron team session recover` (never a new bind, never `--resume`). The launch itself is `OrcaLaunchFunc`, which returns an `OrcaAgent` with the same proof, pin and authorized stop. Identity, two-sweep and rate-limit logic stay with C5.
 

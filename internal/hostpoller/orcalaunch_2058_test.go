@@ -5,7 +5,9 @@ package hostpoller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +16,34 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
+
+// openPTY opens a pseudo-terminal pair: the master end, and the slave end a
+// shell takes as its controlling terminal.
+func openPTY() (*os.File, *os.File, error) {
+	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR|unix.O_NOCTTY, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	fd := int(master.Fd())
+	if err := unix.IoctlSetPointerInt(fd, unix.TIOCSPTLCK, 0); err != nil {
+		_ = master.Close()
+		return nil, nil, err
+	}
+	n, err := unix.IoctlGetInt(fd, unix.TIOCGPTN)
+	if err != nil {
+		_ = master.Close()
+		return nil, nil, err
+	}
+	slave, err := os.OpenFile(fmt.Sprintf("/dev/pts/%d", n), os.O_RDWR|unix.O_NOCTTY, 0)
+	if err != nil {
+		_ = master.Close()
+		return nil, nil, err
+	}
+	return master, slave, nil
+}
 
 // cli#2058 C3: a launch through Orca. The fake Orca below does what Orca's
 // terminal does with --command: it types the text into a login shell (here,
@@ -29,6 +58,8 @@ type fakeOrca struct {
 	procs    map[string]*exec.Cmd
 	pidFor   func(real int) int // what create reports as processId (default: the real pid)
 	runNoCmd bool               // create starts nothing (no marker will appear)
+	noPTY    bool               // the shell gets no terminal (Orca always gives one)
+	ttyLie   bool               // the command reports a pts it is not on
 }
 
 func newFakeOrca(t *testing.T) *fakeOrca {
@@ -68,12 +99,33 @@ func (f *fakeOrca) run(_ context.Context, argv []string) (int, string, string) {
 		if f.runNoCmd {
 			script = "exec sleep 60"
 		}
+		if f.ttyLie {
+			script = strings.Replace(script, `"$(tty)"`, `/dev/pts/999999`, 1)
+		}
 		c := exec.Command("bash", "--norc", "--noprofile", "-c", script)
 		c.Dir = dir
 		c.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
-		c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-		if err := c.Start(); err != nil {
-			return 1, "", err.Error()
+		// Like Orca: the shell runs on a pty of its own, as its controlling
+		// terminal (cli#2088 blind P2: the launch requires the association).
+		if f.noPTY {
+			c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			if err := c.Start(); err != nil {
+				return 1, "", err.Error()
+			}
+		} else {
+			master, slave, err := openPTY()
+			if err != nil {
+				return 1, "", err.Error()
+			}
+			c.Stdin, c.Stdout, c.Stderr = slave, slave, slave
+			c.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
+			if err := c.Start(); err != nil {
+				_ = master.Close()
+				_ = slave.Close()
+				return 1, "", err.Error()
+			}
+			_ = slave.Close()
+			go func() { _, _ = io.Copy(io.Discard, master); _ = master.Close() }()
 		}
 		go func() { _ = c.Wait() }()
 		pid := c.Process.Pid
@@ -392,5 +444,189 @@ func TestOrcaLaunchIsNamespacedByDefault2058(t *testing.T) {
 	_, _ = l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{"claude-worker", PromptArg}, Dir: t.TempDir(), Prompt: "go"})
 	if len(f.typed) != 1 || !strings.Contains(f.typed[0], "exec 'unshare' '--user'") || !strings.Contains(f.typed[0], "'--kill-child'") {
 		t.Fatalf("the default launch is not namespaced: %q", f.typed)
+	}
+}
+
+// cli#2088 blind P2: a launch that could not be proven AND whose terminal
+// would not close is handed back recorded and not done; a later stop retries
+// the close and only then is it done.
+func TestOrcaLaunchUnclosedTerminalStaysRecorded2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	f.runNoCmd = true // no marker: the launch cannot be proven
+	closeFails := true
+	l := orcaLauncherFor(t, f)
+	l.MarkerWait = 300 * time.Millisecond
+	l.Run = func(ctx context.Context, argv []string) (int, string, string) {
+		if len(argv) > 1 && argv[1] == "close" && closeFails {
+			return 1, "", "orca timed out"
+		}
+		return f.run(ctx, argv)
+	}
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	var unclosed *UnclosedLaunchError
+	if !errors.As(err, &unclosed) || a == nil {
+		t.Fatalf("a failed close must return the agent and an UnclosedLaunchError: agent=%v err=%v", a, err)
+	}
+	if strings.Contains(err.Error(), "the terminal was closed") || !strings.Contains(err.Error(), "stays recorded") {
+		t.Fatalf("the error claims a close that failed: %v", err)
+	}
+	select {
+	case <-a.Done():
+		t.Fatal("an unclosed launch reads as done")
+	default:
+	}
+	if stopped, _ := a.TerminateWith(nil); stopped {
+		t.Fatal("a stop reported confirmed while the close still fails")
+	}
+	closeFails = false
+	if stopped, detail := a.TerminateWith(nil); !stopped {
+		t.Fatalf("the retried close did not confirm: %s", detail)
+	}
+	select {
+	case <-a.Done():
+	default:
+		t.Fatal("Done is not closed after the retried close")
+	}
+}
+
+// The poller keeps an unclosed launch recorded (the one-agent-per-worktree
+// guard holds) while it reports the start failed.
+func TestWorkerStartRecordsAnUnclosedOrcaLaunch2088(t *testing.T) {
+	p, srv, host := testPoller(t)
+	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-holger"})
+	stuck := &OrcaAgent{handle: "term_x", done: make(chan struct{}), unclosed: true}
+	p.EnableOrcaLaunch(func(context.Context, OrcaLaunchSpec) (Agent, error) {
+		return stuck, &UnclosedLaunchError{Handle: "term_x", Why: "no marker", CloseErr: "timeout"}
+	}, ConfigProfiles{Cfg: p.cfg})
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "stays recorded") {
+		t.Fatalf("report %+v", r)
+	}
+	if !p.agentRunningIn("repo/iris") || len(host.launches) != 0 {
+		t.Fatal("the unclosed launch is not recorded against its worktree")
+	}
+}
+
+// cli#2088 blind P2: the pinned pidfd is released once the agent is gone.
+type countingProc struct {
+	LinuxProcessControl
+	mu     sync.Mutex
+	closes int
+}
+
+type countingHandle struct {
+	ProcessHandle
+	c *countingProc
+}
+
+func (h countingHandle) Close() {
+	h.c.mu.Lock()
+	h.c.closes++
+	h.c.mu.Unlock()
+	h.ProcessHandle.Close()
+}
+
+func (c *countingProc) Observe(pid int) (ProcessHandle, error) {
+	h, err := c.LinuxProcessControl.Observe(pid)
+	if err != nil {
+		return nil, err
+	}
+	return countingHandle{h, c}, nil
+}
+
+func TestOrcaAgentReleasesItsPidfd2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	out := filepath.Join(tools, "agent.out")
+	bin := filepath.Join(tools, "agent")
+	if err := os.WriteFile(bin, []byte("#!/bin/bash\necho started > "+shq(out)+"\nexec sleep 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakeOrca(t)
+	proc := &countingProc{}
+	l := orcaLauncherFor(t, f)
+	l.Proc = proc
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-a.Done():
+	case <-time.After(6 * time.Second):
+		t.Fatal("the agent never finished")
+	}
+	proc.mu.Lock()
+	defer proc.mu.Unlock()
+	if proc.closes != 1 {
+		t.Fatalf("pidfd closed %d times after the agent exited, want 1", proc.closes)
+	}
+}
+
+// cli#2088 blind P2: the marker must name a process AND a pts terminal,
+// exactly; a launch on no terminal is refused.
+func TestParseMarker2088(t *testing.T) {
+	if pid, tty, err := parseMarker("123 /dev/pts/4\n"); err != nil || pid != 123 || tty != "/dev/pts/4" {
+		t.Fatalf("a good marker: %d %q %v", pid, tty, err)
+	}
+	for _, bad := range []string{"123\n", "123 not a tty\n", "123 /dev/pts/4 x\n", "123 /dev/pts/4", "0 /dev/pts/1\n", "1 /dev/pts/1\n",
+		"+12 /dev/pts/1\n", "012 /dev/pts/1\n", "123 /dev/tty1\n", "123 /dev/pts/4\n456 /dev/pts/5\n", "123  /dev/pts/4\n", ""} {
+		if _, _, err := parseMarker(bad); err == nil {
+			t.Errorf("marker %q accepted", bad)
+		}
+	}
+}
+
+func TestOrcaLaunchRefusesALaunchWithNoTerminal2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	f.noPTY = true
+	_, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || !strings.Contains(err.Error(), "no terminal") || len(f.closed) != 1 {
+		t.Fatalf("a launch with no pty: err=%v closed=%v", err, f.closed)
+	}
+}
+
+// The tty the marker names must be the process's own stdin: a well-formed pts
+// that is not its terminal is refused (cli#2088 blind P2).
+func TestOrcaLaunchRefusesATTYThatIsNotTheProcesses2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	f.ttyLie = true
+	_, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err == nil || !strings.Contains(err.Error(), "not the tty it reported") || len(f.closed) != 1 {
+		t.Fatalf("a lying tty: err=%v closed=%v", err, f.closed)
+	}
+}
+
+// The authorization is held THROUGH the close, released only after it
+// (Rook F1 on cli#2088): a writer must not slip in between.
+func TestOrcaAgentHoldsTheAuthorizationThroughTheClose2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	agentBin := fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true)
+	f := newFakeOrca(t)
+	l := orcaLauncherFor(t, f)
+	var order []string
+	run := l.Run
+	l.Run = func(ctx context.Context, argv []string) (int, string, string) {
+		if len(argv) > 1 && argv[1] == "close" {
+			order = append(order, "close")
+		}
+		return run(ctx, argv)
+	}
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped, _ := a.TerminateWith(func() (func(), bool) {
+		order = append(order, "authorize")
+		return func() { order = append(order, "release") }, true
+	})
+	if !stopped || strings.Join(order, ",") != "authorize,close,release" {
+		t.Fatalf("stop order %v (stopped=%v), want authorize,close,release", order, stopped)
 	}
 }

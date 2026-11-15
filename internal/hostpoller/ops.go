@@ -213,6 +213,12 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		// cannot launch there launches nothing.
 		agent, err = p.orcaStart(ctx, op, ref, w, dir)
 		if err != nil {
+			if agent != nil {
+				// An unproven launch whose terminal could not be closed: it
+				// stays recorded, so the one-agent-per-worktree guard refuses
+				// a second launch there and a stop retries the close.
+				p.trackAgent(op.WorkerID, token, agent)
+			}
 			p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: "+err.Error())
 			return
 		}
