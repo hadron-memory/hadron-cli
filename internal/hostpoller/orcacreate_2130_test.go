@@ -43,16 +43,21 @@ func TestOrcaLaunchStartsNoAgentWhenTheCreateReplyIsLostOrMalformed2130(t *testi
 			old := gateTries
 			gateTries = 10
 			t.Cleanup(func() { gateTries = old })
-			a, err := orcaLauncherFor(t, f).Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go", Env: []string{"HADRON_LAUNCH_GRANT=hlg_secret"}})
+			l := orcaLauncherFor(t, f)
+			a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{agentBin, PromptArg}, Dir: wt, Prompt: "go", Env: []string{"HADRON_LAUNCH_GRANT=hlg_secret"}})
 			if err == nil || a != nil {
 				t.Fatalf("an ambiguous create must fail with no agent: agent=%v err=%v", a, err)
 			}
-			// Past the whole gate wait (10 x 0.1s after the shell starts).
-			time.Sleep(2500 * time.Millisecond)
-			if _, serr := os.Stat(out); serr == nil {
-				b, _ := os.ReadFile(out)
-				t.Fatalf("the agent started although the create reply was %s: it runs untracked\n%s", mode, b)
+			if !c.noCleanup {
+				// Rook's P3 (cli#2136): the launch file holds the grant and the
+				// prompt; it and any gate are gone when Launch returns.
+				left, _ := filepath.Glob(filepath.Join(l.StateDir, "launch", "*"))
+				if len(left) != 0 {
+					t.Fatalf("launch files left behind: %v", left)
+				}
 			}
+			// Past the whole gate wait (10 x 0.1s after the shell starts).
+			noAgentAfter(t, out, 2500*time.Millisecond)
 			if len(f.typed) != 1 {
 				t.Fatalf("creates %d, want 1", len(f.typed))
 			}
@@ -70,9 +75,13 @@ func shortGate(t *testing.T) {
 func noAgentAfter(t *testing.T, out string, d time.Duration) {
 	t.Helper()
 	time.Sleep(d)
-	if _, err := os.Stat(out); err == nil {
+	_, err := os.Stat(out)
+	if err == nil {
 		b, _ := os.ReadFile(out)
 		t.Fatalf("an agent started:\n%s", b)
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("could not tell whether an agent started: %v", err) // never a pass (cli#2136)
 	}
 }
 
