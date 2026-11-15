@@ -200,7 +200,11 @@ type Poller struct {
 	// taken for the agent (#1043). Absent when resets were not enabled at
 	// launch, or the observation failed; a reset then refuses.
 	agentIDs map[string]ProcessIdentity
-	wg       sync.WaitGroup
+	// agentSessions is the session each launched agent's start bound, as the
+	// server reported it (in memory only): worker.end stops a launched agent
+	// only for that session (#2057).
+	agentSessions map[string]string
+	wg            sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
@@ -236,6 +240,8 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
 		agentIDs:   map[string]ProcessIdentity{},
+
+		agentSessions: map[string]string{},
 	}
 }
 

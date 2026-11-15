@@ -66,8 +66,30 @@ func (m pinned) gone(ctrl LinuxProcessControl, t0 time.Duration) bool {
 	if _, err := m.h.SignalWithin(syscall.Signal(0), t0, stopSignalLease, ctrl.Now); err != nil {
 		return errors.Is(err, syscall.ESRCH)
 	}
-	st, ok := readStat(m.pid)
-	return !ok || st.start != m.h.Identity().StartTime || st.state == "Z"
+	st, err := statReader(m.pid)
+	if err != nil {
+		// Only a missing /proc entry is an exit; a permission, I/O or parse
+		// failure says nothing about the process.
+		return errors.Is(err, os.ErrNotExist)
+	}
+	return st.start != m.h.Identity().StartTime || st.state == "Z"
+}
+
+// statReader reads /proc/<pid>/stat; a test swaps it.
+var statReader = readStatErr
+
+// readStatErr is readStat with the failure kept: os.ErrNotExist for a process
+// that is gone, any other error for one that cannot be read or understood.
+func readStatErr(pid int) (procStatLine, error) {
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return procStatLine{}, err
+	}
+	st, ok := parseProcStat(string(b))
+	if !ok {
+		return procStatLine{}, fmt.Errorf("malformed /proc/%d/stat", pid)
+	}
+	return st, nil
 }
 
 // procStatLine is the part of /proc/<pid>/stat a stop decides on.
@@ -78,13 +100,16 @@ type procStatLine struct {
 }
 
 // readStat reads state, process group and start time (stat fields 3, 5 and
-// 22), counted after the LAST ')' since comm can hold spaces and parens.
+// 22); !ok for any failure (callers that must tell absence from a failure use
+// readStatErr).
 func readStat(pid int) (procStatLine, bool) {
-	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err != nil {
-		return procStatLine{}, false
-	}
-	s := string(b)
+	st, err := readStatErr(pid)
+	return st, err == nil
+}
+
+// parseProcStat counts the fields after the LAST ')' since comm can hold
+// spaces and parens.
+func parseProcStat(s string) (procStatLine, bool) {
 	i := strings.LastIndexByte(s, ')')
 	if i < 0 {
 		return procStatLine{}, false
@@ -250,6 +275,9 @@ func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, still
 	}
 	if allGone(grace) {
 		return AgentStop{PID: a.PID, Stopped: true, Detail: fmt.Sprintf("terminated %s, %s", name, scope)}
+	}
+	if still != nil && !still() {
+		return AgentStop{PID: a.PID, Detail: name + " ignored SIGTERM for " + grace.String() + " and was not killed: the worktree's session binding changed while this end was running"}
 	}
 	if whole {
 		// A member forked while the group was being terminated is in the

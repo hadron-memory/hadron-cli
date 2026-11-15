@@ -218,3 +218,53 @@ func startTicks(t *testing.T, pid int) int64 {
 	}
 	return n
 }
+
+// Blind delta P2: a successful probe followed by a stat read that FAILED is
+// not an exit; only a missing /proc entry is.
+func TestPinnedGoneAfterAProbeTreatsAFailedStatAsUnknown(t *testing.T) {
+	ctrl := LinuxProcessControl{}
+	was := statReader
+	defer func() { statReader = was }()
+	m := pinned{pid: 1, h: stopHandle{id: ProcessIdentity{PID: 1, StartTime: "5"}}}
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"no /proc entry": {os.ErrNotExist, true},
+		"permission":     {os.ErrPermission, false},
+		"io":             {errors.New("input/output error"), false},
+	} {
+		statReader = func(int) (procStatLine, error) { return procStatLine{}, tc.err }
+		if got := m.gone(ctrl, 0); got != tc.want {
+			t.Errorf("%s: gone = %v, want %v", name, got, tc.want)
+		}
+	}
+	statReader = func(int) (procStatLine, error) { return procStatLine{state: "Z", start: "5"}, nil }
+	if !m.gone(ctrl, 0) {
+		t.Error("a zombie cannot run")
+	}
+	statReader = func(int) (procStatLine, error) { return procStatLine{state: "S", start: "6"}, nil }
+	if !m.gone(ctrl, 0) {
+		t.Error("a replaced process is not the pinned one")
+	}
+	statReader = func(int) (procStatLine, error) { return procStatLine{state: "S", start: "5"}, nil }
+	if m.gone(ctrl, 0) {
+		t.Error("the same live process is not gone")
+	}
+}
+
+// The binding is asked again before SIGKILL: a replacement that bound during
+// the grace period is not killed by the earlier end.
+func TestStopAgentGroupDoesNotEscalateWhenTheBindingChangedDuringTheGrace(t *testing.T) {
+	root := t.TempDir()
+	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
+	ticks := startTicks(t, c.Process.Pid)
+	calls := 0
+	s := stopAgentGroup(WorktreeAgent{PID: c.Process.Pid, Display: "claude", StartTicks: ticks}, root, 300*time.Millisecond, func() bool { calls++; return calls == 1 })
+	if s.Stopped || !strings.Contains(s.Detail, "was not killed") {
+		t.Fatalf("stop = %+v", s)
+	}
+	if err := syscall.Kill(c.Process.Pid, 0); err != nil {
+		t.Fatalf("killed despite the binding change: %v", err)
+	}
+}

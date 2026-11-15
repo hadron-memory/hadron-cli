@@ -198,3 +198,54 @@ func TestWorkerEndRechecksTheBindingRightBeforeTheSignal(t *testing.T) {
 		t.Fatalf("%q", r.reason)
 	}
 }
+
+// Blind delta P1: a launched agent whose start bound a NEWER session than the
+// one being ended is not stopped, even with the binding cleared.
+func TestWorkerEndNeverStopsALaunchedAgentOfANewerSession(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess-newer"
+	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminations() != 0 {
+		t.Fatal("an end for an older session stopped the agent of a newer one")
+	}
+	if r := only(t, srv); !strings.Contains(r.reason, "another session") {
+		t.Fatalf("%q", r.reason)
+	}
+}
+
+// ... and the session the start bound is the one that may be ended.
+func TestWorkerEndStopsALaunchedAgentOfTheSessionBeingEnded(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess1"
+	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminations() != 1 {
+		t.Fatal("the agent of the session being ended was not stopped")
+	}
+}
+
+// Blind delta P1: launch metadata that is missing declines the stop.
+func TestWorkerEndDeclinesALaunchedAgentWithNoRecordedWorktree(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	p.agents["id-iris"] = agent // tracked in memory only: no worktree recorded anywhere
+	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminations() != 0 {
+		t.Fatal("an agent that could not be identified was stopped")
+	}
+	if r := only(t, srv); !strings.Contains(r.reason, "not recorded") {
+		t.Fatalf("%q", r.reason)
+	}
+}

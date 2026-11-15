@@ -242,9 +242,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		// issued after the event — is authoritative.
 		askExpired := exited(agent)
 		askPastDeadline := !p.now().Before(deadline)
-		_, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
+		bound, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
 		switch {
 		case err == nil:
+			if sid, ok := bound.Result["sessionId"].(string); ok && sid != "" {
+				p.mu.Lock()
+				p.agentSessions[op.WorkerID] = sid
+				p.mu.Unlock()
+			}
 			// The server recorded the bind: the agent IS the start, and
 			// nothing about it is stopped or forgotten.
 			if exited(agent) {
@@ -375,6 +380,7 @@ func (p *Poller) forgetAgent(op Operation) {
 	delete(p.agents, op.WorkerID)
 	delete(p.agentTrees, op.WorkerID)
 	delete(p.agentIDs, op.WorkerID)
+	delete(p.agentSessions, op.WorkerID)
 	p.mu.Unlock()
 	// The confirmed stop ends the launch's hold on its group number too
 	// (it reaps the leader it had kept unreaped); an unconfirmed one
@@ -529,13 +535,28 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	}
 	if agent != nil {
 		said := ""
-		// The launched agent runs in the tree it was started in; the same
-		// binding rules decide whether this end may stop it.
-		if t, ok := p.agentWorktree(op.WorkerID); ok {
-			if ok, why := allowed(t); !ok {
-				p.log("stop-skipped", op.ID, op.Type, "", why)
-				return why
-			}
+		// The launched agent runs in the tree it was started in. Without that
+		// identity nothing can be checked, so nothing is stopped; with it, the
+		// session its start bound must be the one being ended (when known: a
+		// restart forgets it, and the binding rules below then decide), and
+		// the same binding rules as a scanned agent apply.
+		t, ok := p.agentWorktree(op.WorkerID)
+		if !ok {
+			why := "the launched agent's worktree is not recorded, so it could not be identified and was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		p.mu.Lock()
+		launched := p.agentSessions[op.WorkerID]
+		p.mu.Unlock()
+		if launched != "" && session != "" && launched != session {
+			why := "the launched agent serves another session than the one being ended, so it was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
+		}
+		if ok, why := allowed(t); !ok {
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
 		}
 		stopped, detail := agent.Terminate()
 		said = fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
