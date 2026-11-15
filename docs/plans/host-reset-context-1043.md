@@ -166,8 +166,22 @@ from:
 - **Live-host activation:** deploying this wiring does not authorize changing
   orca1 configuration. That is a separate recorded authorization.
 - Recovery retains the existing collected-operation path: a re-delivered reset
-  with a persisted record calls `recoverReset` and reads the server phase. No
-  second recovery scheduler is added, and recovery never re-sends a stop.
+  with a persisted record calls `recoverReset` and reads the server phase.
+  The minimum server `22cd6369` already selects both `issued` and `collected`
+  operations on every collect; only `worker.start` can be withheld for a live
+  launch grant ([collector source](https://github.com/hadron-memory/hadron-server/blob/22cd6369/src/api/graphql/schema/resolvers.hostOperation.ts#L253)).
+  `TestHostResetRestartUsesRedeliveredOperation2057` starts a new CLI runner
+  with a persisted reset and no tracked agent, returns its COLLECTED operation,
+  and checks the phase read and final report for both `claimed` and `done`.
+  The existing recovery suite also covers `stop-granted` and `agent-stopped`
+  with the old process gone, relaunching without a second signal. No second
+  recovery scheduler is added, and recovery never re-sends a stop.
+
+Cross-platform builds retain the existing non-Linux `LinuxProcessControl`
+stub (`procctl_other.go`), which returns `ErrUnsupportedPlatform`. The config
+opt-in refuses on those platforms before registration. All five release
+cross-builds passed on the first CI-green candidate; no platform code was
+changed to resolve the review's build question.
 
 ## Minimum server
 

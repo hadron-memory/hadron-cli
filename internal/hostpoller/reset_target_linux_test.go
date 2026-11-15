@@ -23,6 +23,15 @@ func TestValidateResetTarget2057(t *testing.T) {
 	if err := ValidateResetTarget(target); err != nil {
 		t.Fatal(err)
 	}
+	alias := filepath.Join(t.TempDir(), "linked-tree")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Fatal(err)
+	}
+	linked := target
+	linked.Worktree = alias
+	if err := ValidateResetTarget(linked); err != nil {
+		t.Fatalf("symlinked worktree: %v", err)
+	}
 	wrong := target
 	wrong.Process.StartTime = "wrong"
 	if ValidateResetTarget(wrong) == nil {
@@ -58,15 +67,22 @@ func TestValidateResetTargetWrapper2057(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = syscall.Kill(-wrapper.Process.Pid, syscall.SIGKILL); _, _ = wrapper.Process.Wait() })
-	time.Sleep(150 * time.Millisecond)
 	h, err := (LinuxProcessControl{}).Observe(wrapper.Process.Pid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer h.Close()
 	target := ResetIdleTarget{Worktree: root, Family: "claude", Process: h.Identity()}
-	if err := ValidateResetTarget(target); err != nil {
-		t.Fatal(err)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		err := ValidateResetTarget(target)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("wrapper agent did not become ready: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	other := t.TempDir()
 	otherAgent := spawnAgent(t, other, "#!/bin/sh\nsleep 300 &\nwait\n")

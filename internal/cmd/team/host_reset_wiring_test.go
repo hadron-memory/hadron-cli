@@ -33,7 +33,7 @@ func (r *resetReader) ReadScreen(context.Context, string) *orcaterm.Screen {
 }
 
 func TestResetIdleProof2057(t *testing.T) {
-	for _, name := range []string{"idle", "claude idle", "unknown target", "unknown worker", "unknown pid", "unknown start", "unknown family", "missing directory", "wrong binding", "wrong worker binding", "unusable binding", "changed binding", "changed process", "unreadable list", "no terminal", "wrong directory", "empty handle", "unknown terminal", "duplicate", "wrong family", "disconnected", "read only", "changed terminal", "unreadable screen", "draft", "busy", "menu", "unknown screen"} {
+	for _, name := range []string{"idle", "claude idle", "unknown target", "unknown worker", "unknown pid", "unknown start", "unknown family", "missing directory", "wrong binding", "wrong worker binding", "unusable binding", "changed binding", "changed process", "unreadable list", "no terminal", "wrong directory", "empty handle", "unknown terminal", "duplicate", "wrong family", "disconnected", "read only", "changed terminal", "changed terminal family", "unreadable screen", "draft", "busy", "menu", "unknown screen"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			family := "codex"
@@ -95,6 +95,8 @@ func TestResetIdleProof2057(t *testing.T) {
 				r.rows[0].Connected = false
 			case "read only":
 				r.rows[0].Writable = false
+			case "changed terminal family":
+				r.after = func(r *resetReader) { other := "claude"; r.rows[0].AgentIdentity = &other }
 			case "changed terminal":
 				r.after = func(r *resetReader) { r.rows[0].Handle = "replacement" }
 			case "unreadable screen":
@@ -141,7 +143,7 @@ func TestResetIdleProof2057(t *testing.T) {
 					want = "TERMINAL_UNREADABLE"
 				case "no terminal", "wrong directory", "empty handle", "unknown terminal", "duplicate":
 					want = "TERMINAL_AMBIGUOUS"
-				case "wrong family", "disconnected", "read only", "changed terminal":
+				case "wrong family", "disconnected", "read only", "changed terminal", "changed terminal family":
 					want = "TERMINAL_CHANGED"
 				}
 				if err == nil || err.Error() != want {
@@ -150,7 +152,7 @@ func TestResetIdleProof2057(t *testing.T) {
 			}
 			if err != nil {
 				for _, secret := range []string{"secret detail", "secret draft", "secret unknown text"} {
-					if err.Error() == secret {
+					if strings.Contains(err.Error(), secret) {
 						t.Fatal("screen leaked")
 					}
 				}
