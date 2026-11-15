@@ -114,6 +114,21 @@ func TestTestClientOnlyConnectsToLoopback2144(t *testing.T) {
 		}
 		_ = resp.Body.Close()
 	}
+	// A name resolving to ::1 first and 127.0.0.1 second reaches an
+	// IPv4-only server: every loopback address is tried, not just the first.
+	both := loopbackOnlyClient(report, func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("::1")}, {IP: net.ParseIP("127.0.0.1")}}, nil
+	})
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	before4 := reported()
+	resp, err = both.Get("http://fixture.test:" + port + "/")
+	if err != nil {
+		t.Fatalf("::1 first broke an IPv4-only loopback server: %v", err)
+	}
+	_ = resp.Body.Close()
+	if reported() != before4 {
+		t.Fatal("a loopback fallback was reported")
+	}
 	// A loopback server redirecting outside: the redirect is refused and
 	// reported.
 	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
