@@ -20,12 +20,15 @@ func TestClassifyIdleCompactionBanner2126(t *testing.T) {
 		status ts.Status
 		reason ts.Reason
 	}{
-		"✻ banner":                          {"✻ " + idleCompactionBanner, ts.Idle, ""},
-		"● banner":                          {"● " + idleCompactionBanner, ts.Idle, ""},
-		"● banner, short form":              {"● Compacted while idle, before the prompt cache expired", ts.Idle, ""},
-		"● output line naming the banner":   {"● I saw \"Compacted while idle, before the prompt cache expired\" earlier", ts.Locked, ts.Unrecognized},
-		"● only the first words":            {"● Compacted while idle", ts.Locked, ts.Unrecognized},
-		"another glyph before the sentence": {"◆ " + idleCompactionBanner, ts.Locked, ts.Unrecognized},
+		"✻ banner":                        {"✻ " + idleCompactionBanner, ts.Idle, ""},
+		"● banner":                        {"● " + idleCompactionBanner, ts.Idle, ""},
+		"● banner, short form":            {"● Compacted while idle, before the prompt cache expired", ts.Idle, ""},
+		"● output line naming the banner": {"● I saw \"Compacted while idle, before the prompt cache expired\" earlier", ts.Locked, ts.Unrecognized},
+		"● only the first words":          {"● Compacted while idle", ts.Locked, ts.Unrecognized},
+		// cli#2129: the inner ● mid-line. Only the ^ anchor refuses this one; the row above
+		// quotes the sentence WITHOUT the glyph, so dropping the ^ survived it.
+		"● output line quoting the whole ● banner mid-line": {"● the banner was \"● Compacted while idle, before the prompt cache expired\"", ts.Locked, ts.Unrecognized},
+		"another glyph before the sentence":                 {"◆ " + idleCompactionBanner, ts.Locked, ts.Unrecognized},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := Classify(agent("claude"), fix(tail(c.line)), now)

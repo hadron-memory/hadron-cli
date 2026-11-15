@@ -85,7 +85,10 @@ func TestAgentLifecycleJSONContracts2114(t *testing.T) {
 		t.Errorf("a write that sent no lifecycle must omit the key:\n%s", out)
 	}
 	// Write receipt, lifecycle sent: the returned value.
-	_, out, _ = runTeamTask(t, map[string]string{"UpdateAgentWithLifecycle": `{"data":{"updateAgent":` + agentWithLifecycle2114("SHORT_LIVED") + `}}`}, "agent", "update", "agt1", "--lifecycle", "SHORT_LIVED", "--json")
+	_, out, err = runTeamTask(t, map[string]string{"UpdateAgentWithLifecycle": `{"data":{"updateAgent":` + agentWithLifecycle2114("SHORT_LIVED") + `}}`}, "agent", "update", "agt1", "--lifecycle", "SHORT_LIVED", "--json")
+	if err != nil {
+		t.Fatalf("a receipt followed by an error is not a success: %v", err)
+	}
 	if keys(out)["lifecycle"] != "SHORT_LIVED" {
 		t.Errorf("the returned lifecycle belongs in the receipt:\n%s", out)
 	}
@@ -101,7 +104,10 @@ func TestAgentLifecycleJSONContracts2114(t *testing.T) {
 		t.Errorf("get must say lifecycle: null when the server cannot report it:\n%s", out)
 	}
 	// get on a capable server: the value, exactly once.
-	_, out, _ = runTeamTask(t, map[string]string{"GetAgent": `{"data":{"agent":` + agentJSON + `}}`, "GetAgentLifecycle": `{"data":{"agent":` + agentWithLifecycle2114("LONG_LIVED") + `}}`}, "agent", "get", "agt1", "--json")
+	_, out, err = runTeamTask(t, map[string]string{"GetAgent": `{"data":{"agent":` + agentJSON + `}}`, "GetAgentLifecycle": `{"data":{"agent":` + agentWithLifecycle2114("LONG_LIVED") + `}}`}, "agent", "get", "agt1", "--json")
+	if err != nil {
+		t.Fatalf("a receipt followed by an error is not a success: %v", err)
+	}
 	if keys(out)["lifecycle"] != "LONG_LIVED" || strings.Count(out, `"lifecycle"`) != 1 {
 		t.Errorf("get carries the value once:\n%s", out)
 	}
