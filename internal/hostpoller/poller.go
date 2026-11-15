@@ -84,6 +84,9 @@ type RegisteredHost struct {
 	// this host), reported per row; the registration itself succeeded
 	// (hadron-cli#2091, hadron-server#4241).
 	Refused []RefusedWorker
+	// RefusedKnown is false when the server cannot report refusals (it
+	// predates hadron-server#4241): Refused is then unknown, not empty.
+	RefusedKnown bool
 }
 
 // RefusedWorker is one worker a registration left out, with the server's code
@@ -203,6 +206,8 @@ type Poller struct {
 	workerRefs map[string]string
 	// lastRefused is the refusal set last reported, so a steady one is said once.
 	lastRefused string
+	// refusalsUnknownSaid: the "server cannot report refusals" event was emitted.
+	refusalsUnknownSaid bool
 
 	// DeliveryStep, when set, is told how each delivery step's batch read
 	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
@@ -358,8 +363,24 @@ func (p *Poller) register(ctx context.Context) error {
 	p.mu.Lock()
 	p.workerRefs = refs
 	p.mu.Unlock()
-	p.reportRefused(ans.Refused)
+	if ans.RefusedKnown {
+		p.reportRefused(ans.Refused)
+	} else {
+		p.reportRefusalsUnknown()
+	}
 	return nil
+}
+
+// reportRefusalsUnknown says once that this server cannot tell which workers a
+// registration left out, so their absence is not evidence they were accepted.
+func (p *Poller) reportRefusalsUnknown() {
+	p.mu.Lock()
+	said := p.refusalsUnknownSaid
+	p.refusalsUnknownSaid = true
+	p.mu.Unlock()
+	if !said {
+		p.log("refusals-unknown", "", "", "", "this server does not report which workers a registration left out (it predates hadron-server#4241); the registration itself succeeded")
+	}
 }
 
 // reportRefused makes the per-worker refusals visible without failing the

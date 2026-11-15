@@ -12,11 +12,16 @@ import (
 // per-worker refusals, selecting the field on registerHost's own answer only.
 
 func TestRegisterHostSelectsRefusedWorkersAndNothingSharedChanges(t *testing.T) {
-	if !strings.Contains(gen.RegisterHost_Operation, "refusedWorkers") {
-		t.Fatal("registerHost must select refusedWorkers")
+	if !strings.Contains(gen.RegisterHostWithRefused_Operation, "refusedWorkers") {
+		t.Fatal("the extended registration must select refusedWorkers")
 	}
-	if strings.Contains(gen.HostRegistrations_Operation, "refusedWorkers") {
-		t.Fatal("the shared registration fields (reads) must not select refusedWorkers: it is empty on every read and absent on older servers")
+	// A server without hadron-server#4241 refuses any document naming the
+	// field, which would take every host poller down: the plain registration
+	// and the shared fields never name it (Wolfgang, #108251).
+	for name, doc := range map[string]string{"RegisterHost": gen.RegisterHost_Operation, "HostRegistrations": gen.HostRegistrations_Operation} {
+		if strings.Contains(doc, "refusedWorkers") {
+			t.Fatalf("%s must not select refusedWorkers", name)
+		}
 	}
 }
 
@@ -27,6 +32,39 @@ func registrationWithRefused2091(workers, refused string) string {
 }
 
 const irisRegistered2091 = `{"workerId":"wkr1","worker":{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","name":"Iris"},"family":"claude","worktrees":[]}`
+
+const skewRefusal2091 = `{"errors":[{"message":"Cannot query field \"refusedWorkers\" on type \"HostRegistration\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+
+// An old server (no hadron-server#4241): the extended document is refused as
+// schema skew, the plain registration is made and succeeds, collection goes
+// on, and the poller says once that refusals are unknown.
+func TestTeamHostRunAgainstAnOldServerStillRegistersAndSaysRefusalsAreUnknown(t *testing.T) {
+	cfg := writeHostConfig(t, "")
+	srv, calls := hostServerFake(t, map[string]string{
+		"RegisterHostWithRefused": skewRefusal2091,
+		"RegisterHost":            hostRegistrationAnswer,
+		"CollectHostOperations":   `{"data":{"collectHostOperations":[]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an old server must not fail the registration: %v", err)
+	}
+	var ops []string
+	for _, c := range calls() {
+		ops = append(ops, c.op)
+		if c.auth != "Bearer hk_host_key" || c.session != "" {
+			t.Fatalf("%s: host key only, no session: %q %q", c.op, c.auth, c.session)
+		}
+	}
+	if strings.Join(ops, ",") != "RegisterHostWithRefused,RegisterHost,CollectHostOperations" {
+		t.Fatalf("calls = %v", ops)
+	}
+	if strings.Count(out.String(), "refusals-unknown") != 1 || strings.Contains(out.String(), "worker-refused") {
+		t.Fatalf("refusals are reported as unknown, once:\n%s", out.String())
+	}
+}
 
 func TestTeamHostRunSurfacesRefusedWorkersWithoutFailing(t *testing.T) {
 	for _, tc := range []struct {
@@ -40,8 +78,8 @@ func TestTeamHostRunSurfacesRefusedWorkersWithoutFailing(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := writeHostConfig(t, "")
 			srv, calls := hostServerFake(t, map[string]string{
-				"RegisterHost":          registrationWithRefused2091(tc.workers, tc.refused),
-				"CollectHostOperations": `{"data":{"collectHostOperations":[]}}`,
+				"RegisterHostWithRefused": registrationWithRefused2091(tc.workers, tc.refused),
+				"CollectHostOperations":   `{"data":{"collectHostOperations":[]}}`,
 			})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -50,7 +88,7 @@ func TestTeamHostRunSurfacesRefusedWorkersWithoutFailing(t *testing.T) {
 				t.Fatalf("a per-row refusal must not fail the poll: %v", err)
 			}
 			got := calls()
-			if len(got) != 2 || got[0].op != "RegisterHost" || got[1].op != "CollectHostOperations" {
+			if len(got) != 2 || got[0].op != "RegisterHostWithRefused" || got[1].op != "CollectHostOperations" {
 				t.Fatalf("collection proceeds after a refusal: %+v", got)
 			}
 			for _, c := range got {
@@ -73,8 +111,8 @@ func TestTeamHostRunSurfacesRefusedWorkersWithoutFailing(t *testing.T) {
 func TestTeamHostRunRefusalTextIsMadeSafeToPrint(t *testing.T) {
 	cfg := writeHostConfig(t, "")
 	srv, _ := hostServerFake(t, map[string]string{
-		"RegisterHost":          registrationWithRefused2091(``, `{"worker":"Evil\u001b[31m","code":"X\u0007"}`),
-		"CollectHostOperations": `{"data":{"collectHostOperations":[]}}`,
+		"RegisterHostWithRefused": registrationWithRefused2091(``, `{"worker":"Evil\u001b[31m","code":"X\u0007"}`),
+		"CollectHostOperations":   `{"data":{"collectHostOperations":[]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

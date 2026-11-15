@@ -1465,6 +1465,8 @@ type refusingServer struct {
 	*fakeServer
 	sets [][]RefusedWorker
 	n    int
+	// unknown: the server cannot report refusals (it predates #4241).
+	unknown bool
 }
 
 func (s *refusingServer) Register(ctx context.Context, r Registration) (RegisteredHost, error) {
@@ -1474,6 +1476,7 @@ func (s *refusingServer) Register(ctx context.Context, r Registration) (Register
 	if s.n < len(s.sets) {
 		ans.Refused = s.sets[s.n]
 	}
+	ans.RefusedKnown = !s.unknown
 	s.n++
 	return ans, err
 }
@@ -1514,5 +1517,28 @@ func TestPollerReportsRegistrationRefusalsOnceAndOnlyOnChange(t *testing.T) {
 	}
 	if len(srv.regs) != len(wantAfter) {
 		t.Fatalf("every poll registers once: %d", len(srv.regs))
+	}
+}
+
+func TestPollerSaysOnceThatRefusalsAreUnknownOnAnOldServer(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var kinds []string
+	p.emit = func(e Event) { mu.Lock(); kinds = append(kinds, e.Kind); mu.Unlock() }
+	p.server = &refusingServer{fakeServer: srv, unknown: true}
+	for i := 0; i < 3; i++ {
+		step(t, p)
+	}
+	n := 0
+	for _, k := range kinds {
+		if k == "refusals-unknown" {
+			n++
+		}
+		if k == "worker-refused" {
+			t.Fatal("an unknown set is never reported as refused workers")
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d refusals-unknown events over three polls, want exactly one (%v)", n, kinds)
 	}
 }

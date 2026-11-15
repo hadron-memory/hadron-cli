@@ -141,10 +141,23 @@ mutation RegisterHost(
 ) {
   registerHost(input: $input) {
     ...HostRegistrationFields
-    # #4222 / cli#2091: on registerHost's own answer only (empty on every read,
-    # so the shared fragment is NOT widened): under a SERVER setup source, the
-    # listed workers the platform did not assign to this host. The registration
-    # itself succeeded with the rest.
+  }
+}
+
+# #4222 / cli#2091: the same registration, also asking for refusedWorkers: under
+# a SERVER setup source, the listed workers the platform did not assign to this
+# host. A SEPARATE document, because a server without hadron-server#4241 refuses
+# any query naming the field, which would take every host poller down. The
+# poller tries this one first and, on a schema-skew refusal, falls back to
+# RegisterHost once and remembers it (hostServer.Register). Never widen
+# RegisterHost or HostRegistrationFields with the field.
+# @genqlient(for: "RegisterHostInput.workers", omitempty: false)
+# @genqlient(for: "RegisterHostInput.capabilities", omitempty: true)
+mutation RegisterHostWithRefused(
+  $input: RegisterHostInput!
+) {
+  registerHost(input: $input) {
+    ...HostRegistrationFields
     refusedWorkers {
       worker
       code
