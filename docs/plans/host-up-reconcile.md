@@ -51,6 +51,26 @@ every later step `NOT_ATTEMPTED`, and the run exits with the mapped code.
 - **The worker's repo** comes from the desired state's `setup.repo` (the addendum's default, `TeamRole.repos` on the server). A worker with no repo and no worktree is `NO_WORKTREE_SOURCE`, never created.
 - **The lock** is an OS file lock at `<config dir>/host-up.<sha256(host)[:8]>.lock`, taken without waiting and only by `--apply`. A dry run never needs it.
 
+## Server adapter (second PR: closes #1389 and #2069)
+
+The default source is now the server's `hostDesiredState(appRef, hostId)` (S3, hadron-server#4242, snapshot pinned at e34194de until it merges). `--desired-state-file` stays for tests and offline dry runs. The DTO gains `source` (`server` or `file`).
+
+Mapping, server row to engine worker:
+- `openSessionId` becomes the session.
+- `family` becomes the setup family.
+- A null `desired` stays empty, so the engine never acts. Its `reason` (`LEAVE_ALONE`/`SWEEP_OFF`) is one of the never-act reasons, and any other reason with a null `desired` reads `UNKNOWN_DESIRED`.
+- `worktrees` must hold exactly one host name token, which becomes the setup worktree. Zero, several or a malformed value sets `Setup.Problem`, and the engine reports `SETUP_INVALID` before reading the host for that worker.
+- There is no repo until S1a (#4222), so a missing worktree is `NO_WORKTREE_SOURCE`.
+- An answer for another host is exit 1, because it is the server's fault, not usage.
+
+Decisions taken without Holger: exactly one registered worktree, else `SETUP_INVALID`; no worktree creation from the server source before S1a.
+
+#2069: the fake queue scripts per-operation transitions and stalls. The tests cover:
+- a stalled operation that times out, reported with its id and left running;
+- ISSUED → COLLECTED → SUCCEEDED;
+- an adopted operation that ends FAILED, with no new mutation;
+- the polled operation followed over a newer identical one (Rook's G1).
+
 ## Fix head after review (cli#2064)
 
 - The onboard queue's active-only filter keeps the operation it is polling, so an operation issued or adopted while ISSUED is followed to SUCCEEDED/FAILED (Jake, local P1).
