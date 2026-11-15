@@ -51,11 +51,23 @@ every later step `NOT_ATTEMPTED`, and the run exits with the mapped code.
 - **The worker's repo** comes from the desired state's `setup.repo` (the addendum's default, `TeamRole.repos` on the server). A worker with no repo and no worktree is `NO_WORKTREE_SOURCE`, never created.
 - **The lock** is an OS file lock at `<config dir>/host-up.<sha256(host)[:8]>.lock`, taken without waiting and only by `--apply`. A dry run never needs it.
 
+## Fix head after review (cli#2064)
+
+- The onboard queue's active-only filter keeps the operation it is polling, so an operation issued or adopted while ISSUED is followed to SUCCEEDED/FAILED (Jake, local P1).
+- The desired-state file must end after its JSON document; a stray `]`, `}` or anything else exits 2 (Julius, blind P2).
+- `--worker` resolves an exact id first, else a name only one worker has; a shared name refuses (Julius, blind P2).
+- An agent terminal counts whether or not Orca reports it connected (Julius, blind P3: uncertain counts as present).
+- The fake queue can complete operations asynchronously; tests cover adoption of an in-flight operation and a conflicting one (Julius, blind P3).
+- Every operation is issued as the person running the command, never as a worker bound to the worktree, and `--as-person` is gone: a worker actor cannot start a worker, so a worker-attributed run could create a worktree and then be refused the start. No request, read or write, carries `X-Hadron-Session` (Rook, §10 P2; pinned by an apply from a bound worktree).
+- The exit-3 abort arm is pinned beside the exit-8 one (Rook, §10 P3).
+- A refused registration read stops the run with its own code, read once, before anything is issued; only plain engine errors become exit 2, a coded server error keeps its code (Rook, §10 note).
+
 ## Never
 
 Cast, bind, rebind, `session start`/`end`, `--force`, remove a worktree, call
-an Orca create or launch verb, or send `X-Hadron-Session` (all reads use the
-plain command context; pinned by the dry-run test).
+an Orca create or launch verb, or send `X-Hadron-Session` (reads use the plain
+command context and the issuing mutation goes out as the person; pinned by the
+dry-run and apply tests, both from a bound worktree).
 
 ## Tests
 

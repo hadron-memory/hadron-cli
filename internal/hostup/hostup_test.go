@@ -255,3 +255,25 @@ func TestLock(t *testing.T) {
 	}
 	again()
 }
+
+// cli#2064 blind P2: an exact id wins over another worker's name, and a name
+// two workers share is refused.
+func TestSelectWorkerIsUnique(t *testing.T) {
+	workers := []Worker{{WorkerID: "jonas", Name: "Zed"}, {WorkerID: "w2", Name: "Jonas"}, {WorkerID: "w3", Name: "iris"}, {WorkerID: "w4", Name: "Iris"}}
+	if w, err := selectWorker(workers, "jonas"); err != nil || w == nil || w.Name != "Zed" {
+		t.Fatalf("exact id: %+v %v", w, err)
+	}
+	if w, err := selectWorker(workers, "JONAS"); err != nil || w == nil || w.WorkerID != "w2" {
+		t.Fatalf("name, any case: %+v %v", w, err)
+	}
+	if _, err := selectWorker(workers, "IRIS"); err == nil {
+		t.Fatal("a shared name selected a worker")
+	}
+	if w, err := selectWorker(workers, "nobody"); err != nil || w != nil {
+		t.Fatalf("no match: %+v %v", w, err)
+	}
+	e := Engine{Source: fakeSource{snap: Snapshot{HostID: "h1", SweepMode: SweepApply, Workers: workers}}, Observer: fakeObserver{}, Actuator: queueActuator()}
+	if _, err := e.Run(context.Background(), Options{HostID: "h1", Only: "iris"}); err == nil {
+		t.Fatal("Run acted on an ambiguous --worker")
+	}
+}

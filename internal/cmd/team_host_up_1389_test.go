@@ -41,7 +41,9 @@ type hostUpFixture1389 struct {
 	calls    []attnCall
 	issued   []map[string]any
 	stored   []map[string]any
-	refuse   bool     // IssueHostOperation answers FORBIDDEN
+	refuse   string   // IssueHostOperation answers this error code (FORBIDDEN, UNAUTHENTICATED)
+	regErr   string   // HostRegistrations answers this error code
+	async    bool     // an issued operation is ISSUED; it completes on the next queue read
 	registry []string // worker ids the host registration lists
 }
 
@@ -73,13 +75,18 @@ func (fx *hostUpFixture1389) writeDesired(sweepMode string, workers ...hostUpWor
 // present makes a worker's worktree exist, with n live agent terminals in it.
 func (fx *hostUpFixture1389) present(name string, terminals int) {
 	fx.t.Helper()
+	fx.presentTerminals(name, terminals, true)
+}
+
+func (fx *hostUpFixture1389) presentTerminals(name string, terminals int, connected bool) {
+	fx.t.Helper()
 	dir := fx.dir(name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		fx.t.Fatal(err)
 	}
 	rows := []map[string]any{}
 	for i := 0; i < terminals; i++ {
-		rows = append(rows, map[string]any{"handle": fmt.Sprint("term", i), "worktreePath": dir, "agentIdentity": "claude", "connected": true, "writable": true})
+		rows = append(rows, map[string]any{"handle": fmt.Sprint("term", i), "worktreePath": dir, "agentIdentity": "claude", "connected": connected, "writable": true})
 	}
 	raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminals": rows}})
 	if err := os.WriteFile(filepath.Join(dir, ".terminals.json"), raw, 0o600); err != nil {
@@ -120,6 +127,10 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 		w.Header().Set("Content-Type", "application/json")
 		switch q.Op {
 		case "HostRegistrations":
+			if fx.regErr != "" {
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.regErr + `"}}]}`))
+				return
+			}
 			workers := []map[string]any{}
 			for _, id := range fx.registry {
 				workers = append(workers, map[string]any{"workerId": id, "worker": map[string]any{"id": id, "name": id}, "family": "claude", "worktrees": []string{}})
@@ -136,10 +147,16 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 					items = append(items, op)
 				}
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostOperations": map[string]any{"items": items, "hasNextPage": false}}})
+			b, _ := json.Marshal(map[string]any{"data": map[string]any{"hostOperations": map[string]any{"items": items, "hasNextPage": false}}})
+			_, _ = w.Write(b)
+			for _, op := range fx.stored {
+				if op["status"] == "ISSUED" {
+					fx.complete(op)
+				}
+			}
 		case "IssueHostOperation":
-			if fx.refuse {
-				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`))
+			if fx.refuse != "" {
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.refuse + `"}}]}`))
 				return
 			}
 			var in map[string]any
@@ -148,17 +165,9 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			worker := in["worker"].(string)
 			args := in["args"].(map[string]any)
 			args["workerId"] = worker
-			op := map[string]any{"id": fmt.Sprint("hop", len(fx.stored)+1), "appId": "capp100000000000000000000", "hostId": in["hostId"], "workerId": worker, "type": in["type"], "args": args, "status": "SUCCEEDED"}
-			// The host poller's half: the worktree appears, then the agent.
-			switch in["type"] {
-			case "worktree.create":
-				op["result"] = map[string]any{"worktree": "hadron-cli/" + args["label"].(string)}
-				if err := os.MkdirAll(filepath.Join(fx.root, "hadron-cli", args["label"].(string)), 0o700); err != nil {
-					t.Error(err)
-				}
-			case "worker.start":
-				fx.present(filepath.Base(args["worktree"].(string)), 1)
-				fx.bindInDesired(worker)
+			op := map[string]any{"id": fmt.Sprint("hop", len(fx.stored)+1), "appId": "capp100000000000000000000", "hostId": in["hostId"], "workerId": worker, "type": in["type"], "args": args, "status": "ISSUED"}
+			if !fx.async {
+				fx.complete(op)
 			}
 			fx.stored = append(fx.stored, op)
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"issueHostOperation": op}})
@@ -178,6 +187,23 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 	}))
 	t.Cleanup(fx.srv.Close)
 	return fx
+}
+
+// complete is the host poller's half of an operation: the worktree appears,
+// or the agent starts and binds; the operation SUCCEEDS.
+func (fx *hostUpFixture1389) complete(op map[string]any) {
+	args := op["args"].(map[string]any)
+	switch op["type"] {
+	case "worktree.create":
+		op["result"] = map[string]any{"worktree": "hadron-cli/" + args["label"].(string)}
+		if err := os.MkdirAll(filepath.Join(fx.root, "hadron-cli", args["label"].(string)), 0o700); err != nil {
+			fx.t.Error(err)
+		}
+	case "worker.start":
+		fx.present(filepath.Base(args["worktree"].(string)), 1)
+		fx.bindInDesired(op["workerId"].(string))
+	}
+	op["status"] = "SUCCEEDED"
 }
 
 // bindInDesired is the server's half of a start: the worker now has a session.
@@ -338,9 +364,16 @@ func TestTeamHostUpDryRunPlansOnlyWhatIsMissing1389(t *testing.T) {
 func TestTeamHostUpApplyThenIdempotent1389(t *testing.T) {
 	fx := newHostUpFixture1389(t)
 	fx.irisRunningJonasMissing()
-	dto, raw, err := fx.run("--apply", "--as-person")
+	// From a bound worktree, with no flag: every call, the issuing
+	// mutation included, goes out as the person (cli#2064 §10 P2).
+	dto, raw, err := fx.run("--apply")
 	if err != nil {
 		t.Fatalf("%v\n%s", err, raw)
+	}
+	for _, c := range fx.calls {
+		if c.Session != "" {
+			t.Fatalf("%s carried X-Hadron-Session %q from the bound worktree", c.Op, c.Session)
+		}
 	}
 	if dto.DryRun {
 		t.Fatal("dryRun is true on --apply")
@@ -488,23 +521,54 @@ func TestTeamHostUpOneWorker1389(t *testing.T) {
 // code, and the run stops there: one attempt, nothing issued, the rest of the
 // plan reported as not attempted.
 func TestTeamHostUpRefusalStopsTheRun1389(t *testing.T) {
+	for _, tc := range []struct {
+		code string
+		exit int
+	}{{"FORBIDDEN", exitcode.Forbidden}, {"UNAUTHENTICATED", exitcode.AuthRequired}} {
+		t.Run(tc.code, func(t *testing.T) {
+			fx := newHostUpFixture1389(t)
+			fx.present("Iris", 0)
+			fx.writeDesired("APPLY",
+				hostUpWorker1389{ID: "wkr-iris", Name: "Iris", Desired: "RUNNING", Reason: "LONG_LIVED"},
+				hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED"})
+			fx.refuse = tc.code
+			dto, raw, err := fx.run("--apply")
+			if exitCodeFor(err) != tc.exit {
+				t.Fatalf("exit %d (%v), want %d\n%s", exitCodeFor(err), err, tc.exit, raw)
+			}
+			wantItems1389(t, "failed", dto.Failed, "Iris worker.start REFUSED", "Jonas worktree.create NOT_ATTEMPTED", "Jonas worker.start NOT_ATTEMPTED")
+			wantItems1389(t, "applied", dto.Applied)
+			if m := fx.mutations(); !reflect.DeepEqual(m, []string{"IssueHostOperation"}) {
+				t.Fatalf("mutations = %v, want one refused attempt", m)
+			}
+			if len(fx.issued) != 0 || dto.Error == nil {
+				t.Fatalf("issued = %v, error = %v", fx.issued, dto.Error)
+			}
+		})
+	}
+}
+
+// §10 note on cli#2064: a refused registration read ends the run with its
+// code, read once, before anything is issued.
+func TestTeamHostUpRefusedRegistrationReadStopsTheRun2064(t *testing.T) {
 	fx := newHostUpFixture1389(t)
-	fx.present("Iris", 0)
-	fx.writeDesired("APPLY",
-		hostUpWorker1389{ID: "wkr-iris", Name: "Iris", Desired: "RUNNING", Reason: "LONG_LIVED"},
-		hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED"})
-	fx.refuse = true
-	dto, raw, err := fx.run("--apply")
+	fx.irisRunningJonasMissing()
+	fx.regErr = "FORBIDDEN"
+	_, raw, err := fx.run("--apply")
 	if exitCodeFor(err) != exitcode.Forbidden {
 		t.Fatalf("exit %d (%v), want %d\n%s", exitCodeFor(err), err, exitcode.Forbidden, raw)
 	}
-	wantItems1389(t, "failed", dto.Failed, "Iris worker.start REFUSED", "Jonas worktree.create NOT_ATTEMPTED", "Jonas worker.start NOT_ATTEMPTED")
-	wantItems1389(t, "applied", dto.Applied)
-	if m := fx.mutations(); !reflect.DeepEqual(m, []string{"IssueHostOperation"}) {
-		t.Fatalf("mutations = %v, want one refused attempt", m)
+	reads := 0
+	for _, c := range fx.calls {
+		if c.Op == "HostRegistrations" {
+			reads++
+		}
 	}
-	if len(fx.issued) != 0 || dto.Error == nil {
-		t.Fatalf("issued = %v, error = %v", fx.issued, dto.Error)
+	if reads != 1 {
+		t.Fatalf("HostRegistrations read %d times, want once", reads)
+	}
+	if m := fx.mutations(); len(m) != 0 {
+		t.Fatalf("mutations: %v", m)
 	}
 }
 
@@ -570,6 +634,11 @@ func TestTeamHostUpUsage1389(t *testing.T) {
 		"worker no name":  `{"hostId":"orca1","sweepMode":"APPLY","workers":[{"workerId":"w","desired":"RUNNING","reason":"LONG_LIVED"}]}`,
 		"not a document":  `nope`,
 		"second document": `{"hostId":"orca1","sweepMode":"APPLY","workers":[]} {}`,
+		// cli#2064 blind P2: a stray closing delimiter or garbage after the
+		// document passed dec.More.
+		"trailing ]":    `{"hostId":"orca1","sweepMode":"APPLY","workers":[]}]`,
+		"trailing }":    `{"hostId":"orca1","sweepMode":"APPLY","workers":[]}}`,
+		"trailing junk": `{"hostId":"orca1","sweepMode":"APPLY","workers":[]} x`,
 	} {
 		if err := os.WriteFile(fx.desired, []byte(doc), 0o600); err != nil {
 			t.Fatal(err)
@@ -599,5 +668,96 @@ func TestTeamHostUpAgenticUsage1389(t *testing.T) {
 		if !strings.Contains(section, want) {
 			t.Errorf("the Host up section lacks %q", want)
 		}
+	}
+}
+
+// cli#2064 local P1: an operation that is ISSUED when issued and completes
+// later is followed to its outcome, not lost as "disappeared".
+func TestTeamHostUpFollowsAnOperationToItsOutcome2064(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.async = true
+	fx.irisRunningJonasMissing()
+	dto, raw, err := fx.run("--apply")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	wantItems1389(t, "applied", dto.Applied, "Jonas worktree.create WORKTREE_MISSING", "Jonas worker.start NO_SESSION")
+	wantItems1389(t, "failed", dto.Failed)
+	if len(fx.issued) != 2 {
+		t.Fatalf("issued = %v", fx.issued)
+	}
+}
+
+// cli#2064 blind P3: an identical operation already in flight is adopted and
+// waited on, with no new mutation; a conflicting one in flight refuses.
+func TestTeamHostUpAdoptsAnInFlightOperation2064(t *testing.T) {
+	inFlight := func(fx *hostUpFixture1389, family string) {
+		fx.stored = append(fx.stored, map[string]any{"id": "hop-live", "appId": "capp100000000000000000000", "hostId": "orca1", "workerId": "wkr-jonas",
+			"type": "worker.start", "args": map[string]any{"workerId": "wkr-jonas", "worktree": "hadron-cli/jonas", "family": family}, "status": "ISSUED"})
+	}
+	t.Run("identical is adopted", func(t *testing.T) {
+		fx := newHostUpFixture1389(t)
+		fx.present("Jonas", 0)
+		fx.writeDesired("APPLY", hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED"})
+		inFlight(fx, "claude")
+		dto, raw, err := fx.run("--apply")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, raw)
+		}
+		wantItems1389(t, "applied", dto.Applied, "Jonas worker.start NO_SESSION")
+		if id := dto.Applied[0].OperationID; id == nil || *id != "hop-live" {
+			t.Fatalf("operationId = %v, want the adopted hop-live", id)
+		}
+		if m := fx.mutations(); len(m) != 0 {
+			t.Fatalf("adoption sent mutations: %v", m)
+		}
+	})
+	t.Run("conflicting refuses", func(t *testing.T) {
+		fx := newHostUpFixture1389(t)
+		fx.present("Jonas", 0)
+		fx.writeDesired("APPLY", hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED"})
+		inFlight(fx, "codex")
+		dto, raw, err := fx.run("--apply")
+		if exitCodeFor(err) != exitcode.Error {
+			t.Fatalf("exit %d (%v)\n%s", exitCodeFor(err), err, raw)
+		}
+		wantItems1389(t, "failed", dto.Failed, "Jonas worker.start ACTION_FAILED")
+		if dto.Failed[0].Detail == nil || !strings.Contains(*dto.Failed[0].Detail, "conflicting active worker.start") {
+			t.Fatalf("detail = %v", dto.Failed[0].Detail)
+		}
+		if m := fx.mutations(); len(m) != 0 {
+			t.Fatalf("mutations: %v", m)
+		}
+	})
+}
+
+// cli#2064 blind P3: a disconnected agent terminal still counts as an agent,
+// so no second one is started beside it.
+func TestTeamHostUpDisconnectedTerminalCountsAsAnAgent2064(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.presentTerminals("Jonas", 1, false)
+	fx.writeDesired("APPLY", hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED"})
+	dto, raw, err := fx.run("--apply")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	wantItems1389(t, "skipped", dto.Skipped, "Jonas - TERMINAL_WITHOUT_SESSION")
+	if m := fx.mutations(); len(m) != 0 {
+		t.Fatalf("mutations: %v", m)
+	}
+}
+
+// cli#2064 blind P2: --worker never selects two workers.
+func TestTeamHostUpAmbiguousWorkerRefuses2064(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.writeDesired("APPLY",
+		hostUpWorker1389{ID: "wkr-iris", Name: "Iris", Desired: "RUNNING", Reason: "LONG_LIVED"},
+		hostUpWorker1389{ID: "wkr-iris2", Name: "IRIS", Desired: "RUNNING", Reason: "LONG_LIVED"})
+	_, raw, err := fx.run("--apply", "--worker", "iris")
+	if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "more than one worker") {
+		t.Fatalf("exit %d (%v), want usage\n%s", exitCodeFor(err), err, raw)
+	}
+	if m := fx.mutations(); len(m) != 0 {
+		t.Fatalf("mutations: %v", m)
 	}
 }

@@ -140,7 +140,8 @@ type Observation struct {
 }
 
 // Observer reads the host. An error means "could not tell", and the engine
-// then plans nothing for that worker.
+// then plans nothing for that worker; an *AbortError stops the whole run
+// before anything is applied.
 type Observer interface {
 	Observe(ctx context.Context, w Worker) (Observation, error)
 }
@@ -235,24 +236,28 @@ func (e Engine) Run(ctx context.Context, o Options) (Result, error) {
 	workers := append([]Worker(nil), snap.Workers...)
 	sort.SliceStable(workers, func(i, j int) bool { return workers[i].Name < workers[j].Name })
 	if o.Only != "" {
-		var one []Worker
-		for _, w := range workers {
-			if strings.EqualFold(w.WorkerID, o.Only) || strings.EqualFold(w.Name, o.Only) {
-				one = append(one, w)
-			}
+		one, err := selectWorker(workers, o.Only)
+		if err != nil {
+			return res, err
 		}
-		if len(one) == 0 {
+		if one == nil {
 			res.Skipped = append(res.Skipped, Item{Worker: o.Only, Reason: ReasonNotOnHost, Detail: "not among the workers this host should run; nothing is created for it"})
+			workers = nil
+		} else {
+			workers = []Worker{*one}
 		}
-		workers = one
 	}
 
 	var plan []plannedStep
 	for _, w := range workers {
 		steps, skip, fail := e.plan(ctx, snap.SweepMode, w)
+		if fail != nil && fail.abort != nil {
+			// Nothing has been applied yet; the plan so far is reported.
+			return res, fail.abort
+		}
 		switch {
 		case fail != nil:
-			res.Failed = append(res.Failed, *fail)
+			res.Failed = append(res.Failed, fail.Item)
 		case skip != nil:
 			res.Skipped = append(res.Skipped, *skip)
 		}
@@ -291,14 +296,44 @@ func (e Engine) Run(ctx context.Context, o Options) (Result, error) {
 	return res, abort
 }
 
+// selectWorker resolves --worker to exactly one worker (cli#2064 blind P2):
+// an exact id wins; otherwise the name must match one worker, ignoring case.
+// A name two workers share is refused, never acted on for both. nil, nil is
+// no match at all.
+func selectWorker(workers []Worker, ref string) (*Worker, error) {
+	for i := range workers {
+		if workers[i].WorkerID == ref {
+			return &workers[i], nil
+		}
+	}
+	var match *Worker
+	for i := range workers {
+		if !strings.EqualFold(workers[i].Name, ref) {
+			continue
+		}
+		if match != nil {
+			return nil, errors.New("--worker " + ref + " matches more than one worker by name; pass the worker's id")
+		}
+		match = &workers[i]
+	}
+	return match, nil
+}
+
 func item(w Worker, s Step) Item {
 	return Item{WorkerID: w.WorkerID, Worker: w.Name, Action: s.Action, Reason: s.Reason, Args: s.Args}
 }
 
+// failure is a worker that could not be observed; abort is set when the
+// Observer said the whole run must stop (an AbortError).
+type failure struct {
+	Item
+	abort error
+}
+
 // plan decides one worker: the steps to take, or why it is skipped, or that it
 // could not be observed. Exactly one of the three is set.
-func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *Item, *Item) {
-	skip := func(reason, action, detail string) ([]Step, *Item, *Item) {
+func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *Item, *failure) {
+	skip := func(reason, action, detail string) ([]Step, *Item, *failure) {
 		return nil, &Item{WorkerID: w.WorkerID, Worker: w.Name, Action: action, Reason: reason, Detail: detail}, nil
 	}
 	// The platform's stop reasons win before anything is read from the host.
@@ -314,7 +349,12 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 
 	obs, err := e.Observer.Observe(ctx, w)
 	if err != nil {
-		return nil, nil, &Item{WorkerID: w.WorkerID, Worker: w.Name, Reason: ReasonObserveFailed, Detail: err.Error()}
+		f := &failure{Item: Item{WorkerID: w.WorkerID, Worker: w.Name, Reason: ReasonObserveFailed, Detail: err.Error()}}
+		var ab *AbortError
+		if errors.As(err, &ab) {
+			f.abort = ab.Err
+		}
+		return nil, nil, f
 	}
 	session := w.SessionID != ""
 

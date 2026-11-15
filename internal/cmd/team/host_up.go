@@ -41,7 +41,7 @@ import (
 
 type hostUpOptions struct {
 	host, worker, desiredFile, root, orcaBin string
-	apply, dryRun, asPerson                  bool
+	apply, dryRun                            bool
 	timeout                                  time.Duration
 }
 
@@ -118,25 +118,26 @@ Each worker appears once per list, with a reason code:
 
 --apply takes a per-host lock: a second applying run on the same host exits 5
 at once instead of waiting. An operation already in flight for a worker is
-adopted, not issued twice. Starting a worker needs whoever manages the App;
---as-person issues as you instead of the worktree's bound worker. A refusal
-of your credential stops the run: nothing further is issued (exit 3 or 8).
+adopted, not issued twice. Every operation is issued as you, never as a
+worker bound to this worktree, and no request carries the worker session:
+starting a worker needs whoever manages the App. A refusal of your
+credential, on the registration read or on an operation, stops the run:
+nothing further is issued (exit 3 or 8).
 
 Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
 reachable here; 4 --worker names a worker this host should not run; 5 another
 run holds the lock.`,
 		Example: `  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json
-  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply --as-person`,
+  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
 	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "JSON file holding the host's desired state (required until the server holds it)")
-	cmd.Flags().StringVar(&o.worker, "worker", "", "reconcile only this worker (name or id)")
+	cmd.Flags().StringVar(&o.worker, "worker", "", "reconcile only this worker: its id, or a name only one worker has")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "print the plan and issue nothing (the default)")
 	cmd.Flags().BoolVar(&o.apply, "apply", false, "carry the plan out")
-	cmd.Flags().BoolVar(&o.asPerson, "as-person", false, "issue as yourself, not the bound worker")
 	cmd.Flags().StringVar(&o.orcaBin, "orca-bin", "orca", "the Orca CLI to read terminals with")
 	cmd.Flags().DurationVar(&o.timeout, "timeout", 2*time.Minute, "bound for each queue operation (1s to 30m)")
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "apply")
@@ -190,7 +191,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	engine := hostup.Engine{
 		Source:   source,
 		Observer: &hostUpObserver{client: client, app: scope.Ref, host: o.host, root: o.root, runner: runner},
-		Actuator: &hostUpQueue{client: client, app: scope.Ref, host: o.host, timeout: o.timeout, asPerson: o.asPerson},
+		Actuator: &hostUpQueue{client: client, app: scope.Ref, host: o.host, timeout: o.timeout},
 	}
 	res, runErr := engine.Run(ctx, hostup.Options{HostID: o.host, Apply: o.apply, Only: o.worker})
 
@@ -201,9 +202,11 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	switch {
 	case runErr != nil:
-		// The engine's own refusals are plain errors; a server refusal that
-		// stopped the apply arrives already coded.
-		if exitcode.FromError(runErr) == exitcode.Error {
+		// The engine's own refusals (another host's document, an ambiguous
+		// --worker) are plain errors and usage; a server refusal arrives
+		// already coded and keeps its code.
+		var coded *exitcode.CodedError
+		if !errors.As(runErr, &coded) {
 			runErr = exitcode.New(exitcode.Usage, runErr)
 		}
 	case len(res.Failed) > 0:
@@ -312,8 +315,12 @@ func loadHostUpFile(path string) (hostup.Source, error) {
 	if err := dec.Decode(&file); err != nil {
 		return nil, exitcode.Newf(exitcode.Usage, "--desired-state-file is not a desired-state document: %v", err)
 	}
-	if dec.More() {
-		return nil, exitcode.Newf(exitcode.Usage, "--desired-state-file holds more than one JSON document")
+	// dec.More reports only whether an array or object continues, so a stray
+	// "]" or "}" after the document passed it (cli#2064 blind P2). The end of
+	// input is the only thing allowed after the document.
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, exitcode.Newf(exitcode.Usage, "--desired-state-file holds something after its JSON document")
 	}
 	snap := hostup.Snapshot{HostID: file.HostID, SweepMode: file.SweepMode}
 	seen := map[string]bool{}
@@ -359,7 +366,9 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 	if o.registered == nil {
 		r, err := gen.HostRegistrations(ctx, o.client, o.app)
 		if err != nil {
-			return obs, api.MapError(err)
+			// The host's own registration is the same read for every worker:
+			// a refusal ends the run with its code, read once (§10 note).
+			return obs, &hostup.AbortError{Err: api.MapError(err)}
 		}
 		registered := map[string]bool{}
 		for _, h := range r.HostRegistrations {
@@ -400,7 +409,10 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 		return obs, fmt.Errorf("orca did not list the terminals of %s", dir)
 	}
 	for _, term := range env.Result.Terminals {
-		if filepath.Clean(term.WorktreePath) == filepath.Clean(dir) && term.AgentIdentity != nil && *term.AgentIdentity != "" && term.Connected {
+		// Connected or not: a terminal Orca lost the connection to may still
+		// hold a running agent, and a start beside it could make two
+		// (cli#2064 blind P3). Uncertain counts as present.
+		if filepath.Clean(term.WorktreePath) == filepath.Clean(dir) && term.AgentIdentity != nil && *term.AgentIdentity != "" {
 			obs.AgentTerminals++
 		}
 	}
@@ -415,7 +427,6 @@ type hostUpQueue struct {
 	client    graphql.Client
 	app, host string
 	timeout   time.Duration
-	asPerson  bool
 }
 
 func (q *hostUpQueue) Supports(action string) bool {
@@ -423,9 +434,12 @@ func (q *hostUpQueue) Supports(action string) bool {
 }
 
 func (q *hostUpQueue) Apply(ctx context.Context, w hostup.Worker, s hostup.Step) (string, error) {
-	if q.asPerson {
-		ctx = withAsPerson(ctx)
-	}
+	// Always as the person running the command, never as the worker bound
+	// to this worktree (cli#2064 §10 P2): starting a worker is the App
+	// manager's, which no worker actor is, so a worker-attributed run could
+	// create a worktree and then be refused the start. As the person, no
+	// request this command makes carries X-Hadron-Session.
+	ctx = withAsPerson(ctx)
 	queue := &onboardQueue{client: q.client, app: q.app, host: q.host, worker: w.WorkerID, activeOnly: true}
 	err := queue.ensure(ctx, onboardStep{Type: s.Action, Args: s.Args}, q.timeout)
 	ref := ""
