@@ -760,6 +760,26 @@ func IsUnknownInputFieldOnly(err error, inputType string, fields ...string) bool
 	return true
 }
 
+// IsDefiniteRefusal reports whether err is the server ANSWERING with a coded
+// refusal of the operation: a non-empty GraphQL error list in which every error
+// carries a code other than INTERNAL_SERVER_ERROR. Only then is it safe to say
+// the operation did not take effect. A transport failure, a timeout, a
+// malformed answer or an internal error can follow a commit, so they are an
+// unknown outcome, not a refusal (cli#2108).
+func IsDefiniteRefusal(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		c := extensionCode(e)
+		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
+			return false
+		}
+	}
+	return true
+}
+
 // IsSchemaSkew reports whether err is the server rejecting a query this build
 // sends (a GraphQL validation failure) — the server lacks an operation or
 // field. A command that needs a more specific sentence than MapError's generic
