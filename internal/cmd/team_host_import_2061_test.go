@@ -104,3 +104,39 @@ func TestTeamHostImport2061RequiresFromAndHost(t *testing.T) {
 		t.Errorf("a missing file must be a usage error: %v", err)
 	}
 }
+
+// Today's production server has no hostSetup (hadron-server#4241): the dry run
+// still works and says so.
+func TestTeamHostImport2061OldServerWithoutHostSetup(t *testing.T) {
+	r := importResponses2061()
+	r["TeamHostSetup"] = `{"errors":[{"message":"Cannot query field \"hostSetup\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	calls, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+	if err != nil {
+		t.Fatalf("a dry run must not fail on a server without hostSetup: %v", err)
+	}
+	noCall2080(t, calls, "TeamHostAssign", "TeamHostAssignInstructed", "TeamHostSetSource")
+	var got struct {
+		HostSetup string         `json:"hostSetup"`
+		Counts    map[string]int `json:"counts"`
+		Entries   []struct {
+			Ref, Action string
+			Reason      *string
+		} `json:"entries"`
+	}
+	if e := json.Unmarshal([]byte(out), &got); e != nil {
+		t.Fatalf("not JSON: %v\n%s", e, out)
+	}
+	if got.HostSetup != "missing" || got.Counts["unchecked"] != 2 || got.Counts["create"] != 0 {
+		t.Fatalf("report = %+v", got)
+	}
+	for _, e := range got.Entries {
+		if e.Action == "unchecked" && (e.Reason == nil || !strings.Contains(*e.Reason, "server lacks host setup")) {
+			t.Errorf("%s: reason %v", e.Ref, e.Reason)
+		}
+	}
+	// A different failure is still an error.
+	r["TeamHostSetup"] = `{"errors":[{"message":"nope","extensions":{"code":"FORBIDDEN"}}]}`
+	if _, _, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1"); err == nil {
+		t.Fatal("a FORBIDDEN read must not be reported as a missing server feature")
+	}
+}

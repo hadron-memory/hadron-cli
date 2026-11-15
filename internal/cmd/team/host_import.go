@@ -30,6 +30,10 @@ const (
 	importExisting = "unchanged" // the server already holds exactly this assignment
 	importDiffers  = "differs"   // the server holds another one: needs --replace, never forced
 	importSkip     = "skip"      // the entry cannot become an assignment as written
+	// importUnchecked: the entry could become an assignment, but the server
+	// lacks hostSetup (it predates hadron-server#4241), so what it holds is
+	// unknown. Reported, never an error: a dry run works against today's server.
+	importUnchecked = "unchecked"
 )
 
 type importLaunchDTO struct {
@@ -58,10 +62,14 @@ type importEntryDTO struct {
 }
 
 type importReportDTO struct {
-	AppRef  string           `json:"appRef"`
-	HostID  string           `json:"hostId"`
-	Applied bool             `json:"applied"`
-	Entries []importEntryDTO `json:"entries"`
+	AppRef string `json:"appRef"`
+	HostID string `json:"hostId"`
+	// HostSetup is "available", or "missing" when the server lacks the
+	// hostSetup read (before hadron-server#4241): the assignments are then
+	// unknown and entries read "unchecked".
+	HostSetup string           `json:"hostSetup"`
+	Applied   bool             `json:"applied"`
+	Entries   []importEntryDTO `json:"entries"`
 	// Missing are the roster workers the file has no entry for.
 	Missing []string       `json:"missing"`
 	Counts  map[string]int `json:"counts"`
@@ -95,7 +103,7 @@ func matchRoster(ref string, roster []importRoster) *importRoster {
 
 // planHostImport turns a host configuration into one entry per worker. Pure:
 // no clock, no network. Entries are ordered by ref.
-func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []importExisting1) ([]importEntryDTO, []string) {
+func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []importExisting1, setupKnown bool) ([]importEntryDTO, []string) {
 	haveByWorker := map[string]importExisting1{}
 	for _, e := range existing {
 		haveByWorker[e.WorkerID] = e
@@ -141,6 +149,13 @@ func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []im
 			continue
 		}
 		e.Workdir = &wd
+		if !setupKnown {
+			e.Action = importUnchecked
+			reason := "server lacks host setup: what it holds for this worker is unknown"
+			e.Reason = &reason
+			entries = append(entries, e)
+			continue
+		}
 		if have, ok := haveByWorker[r.ID]; ok {
 			if have.Workdir == wd && have.Family == e.Family {
 				e.Action = importExisting
@@ -205,7 +220,7 @@ var hostImportWriter = func(cmd *cobra.Command, f *cmdutil.Factory, appRef, host
 }
 
 func countActions(entries []importEntryDTO) map[string]int {
-	c := map[string]int{importCreate: 0, importExisting: 0, importDiffers: 0, importSkip: 0}
+	c := map[string]int{importCreate: 0, importExisting: 0, importDiffers: 0, importSkip: 0, importUnchecked: 0}
 	for _, e := range entries {
 		c[e.Action]++
 	}
@@ -225,6 +240,8 @@ per entry, what an apply would do:
   create     no assignment on the server; an apply creates it
   unchanged  the server already holds exactly this assignment
   differs    the server holds another one; an import never replaces it
+  unchecked  the server lacks hostSetup (before hadron-server#4241), so what it
+             holds is unknown; the dry run still works and says so
   skip       the entry cannot become an assignment as written (no roster
              worker, no or several worktrees, a malformed token), with why
 
@@ -278,9 +295,15 @@ eligible for the sweep. Nothing is written by the refusal.`,
 					}
 				}
 			}
+			setupKnown := true
 			hs, err := gen.TeamHostSetup(ctx, client, scope.Ref, &hostID)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				// A server from before hadron-server#4241 has no hostSetup: say
+				// so and plan without it, as a dry run must still work there.
+				if !api.IsFrameworkValidationOnlyFor(err, "hostSetup") {
+					return api.MapErrorKeepingCode(err)
+				}
+				setupKnown = false
 			}
 			var existing []importExisting1
 			if hs != nil && hs.HostSetup != nil {
@@ -290,8 +313,8 @@ eligible for the sweep. Nothing is written by the refusal.`,
 					}
 				}
 			}
-			entries, missing := planHostImport(cfg, roster, existing)
-			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, Entries: entries, Missing: missing, Counts: countActions(entries)}
+			entries, missing := planHostImport(cfg, roster, existing, setupKnown)
+			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, HostSetup: map[bool]string{true: "available", false: "missing"}[setupKnown], Entries: entries, Missing: missing, Counts: countActions(entries)}
 			if dto.Entries == nil {
 				dto.Entries = []importEntryDTO{}
 			}
@@ -308,12 +331,17 @@ eligible for the sweep. Nothing is written by the refusal.`,
 				dto.Applied = true
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if dto.HostSetup == "missing" {
+					if _, err := fmt.Fprintln(w, "server lacks host setup: existing assignments are unknown, so entries read unchecked"); err != nil {
+						return err
+					}
+				}
 				verb := "dry run"
 				if dto.Applied {
 					verb = "applied"
 				}
-				if _, err := fmt.Fprintf(w, "host %s (%s): %d create, %d unchanged, %d differs, %d skip; %d roster workers have no entry\n",
-					output.SafeCell(hostID), verb, dto.Counts[importCreate], dto.Counts[importExisting], dto.Counts[importDiffers], dto.Counts[importSkip], len(dto.Missing)); err != nil {
+				if _, err := fmt.Fprintf(w, "host %s (%s): %d create, %d unchanged, %d differs, %d unchecked, %d skip; %d roster workers have no entry\n",
+					output.SafeCell(hostID), verb, dto.Counts[importCreate], dto.Counts[importExisting], dto.Counts[importDiffers], dto.Counts[importUnchecked], dto.Counts[importSkip], len(dto.Missing)); err != nil {
 					return err
 				}
 				t := output.NewTable(w, "REF", "ACTION", "WORKDIR", "FAMILY", "LAUNCH", "PROFILE", "WHY")

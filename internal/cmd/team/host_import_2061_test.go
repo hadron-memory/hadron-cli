@@ -31,7 +31,7 @@ func TestPlanHostImportActions(t *testing.T) {
 	existing := []importExisting1{{WorkerID: "w1", Workdir: "iris-1", Family: "claude"}, {WorkerID: "w3", Workdir: "other", Family: "claude"}}
 	// "w-by-id" is matched by id, not name.
 	roster[6].ID = "w-by-id"
-	entries, missing := planHostImport(cfg, roster, existing)
+	entries, missing := planHostImport(cfg, roster, existing, true)
 	got := map[string]importEntryDTO{}
 	for _, e := range entries {
 		got[e.Ref] = e
@@ -68,7 +68,7 @@ func TestPlanHostImportUsesProfileSeamWhenItMaps(t *testing.T) {
 	entries, _ := planHostImport(cfg2061(map[string]hostpoller.WorkerConfig{
 		"Iris":  {Family: "claude", Launch: []string{"claude"}, Worktrees: []string{"i"}},
 		"Jonas": {Family: "codex", Launch: []string{"weird-wrapper"}, Worktrees: []string{"j"}},
-	}), []importRoster{{ID: "1", Name: "Iris"}, {ID: "2", Name: "Jonas"}}, nil)
+	}), []importRoster{{ID: "1", Name: "Iris"}, {ID: "2", Name: "Jonas"}}, nil, true)
 	if entries[0].Profile == nil || *entries[0].Profile != "claude-default" || entries[0].ProfileStatus != "mapped" {
 		t.Errorf("mapped line: %+v", entries[0])
 	}
@@ -127,5 +127,19 @@ func TestApplyHostImportStopsAtFirstFailureBeforeAssigning(t *testing.T) {
 	})
 	if err == nil || assigned {
 		t.Fatalf("a failed leave-alone must stop before the assignment: err=%v assigned=%v", err, assigned)
+	}
+}
+
+func TestPlanHostImportWithoutServerHostSetupIsUncheckedNotCreate(t *testing.T) {
+	entries, _ := planHostImport(cfg2061(map[string]hostpoller.WorkerConfig{
+		"Iris": {Family: "claude", Launch: []string{"claude"}, Worktrees: []string{"i"}},
+		"Mo":   {Family: "claude", Launch: []string{"claude"}},
+	}), []importRoster{{ID: "1", Name: "Iris"}, {ID: "2", Name: "Mo"}}, nil, false)
+	got := map[string]string{}
+	for _, e := range entries {
+		got[e.Ref] = e.Action
+	}
+	if got["Iris"] != importUnchecked || got["Mo"] != importSkip {
+		t.Fatalf("%v: with no server data a valid entry is unchecked (never create), a bad one is still skip", got)
 	}
 }
