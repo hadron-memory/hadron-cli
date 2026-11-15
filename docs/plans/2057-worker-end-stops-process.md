@@ -97,6 +97,19 @@ hold (a kernel or policy that refuses `waitid`, and the non-Linux unixes), the i
 authority check and the `kill(2)` itself is not serialized with the leader's exit; the 2 s lock-wait window
 that #2068 added is closed by the check above, and a hold-capable launch has no such gap.
 
+## #2099: Windows checks exit after authorization too
+The Windows launch stop checks `Done` and the waiter's recorded exit again after
+authorization returns, before `taskkill /PID /T /F`. A launch that exited during
+the binding-lock wait is reported as already exited, with no process touched;
+the authorization is released and taskkill is not run. The portable decision
+is shared with Windows production code so its interleavings run on Linux tests;
+the Windows adapter has a separate test, cross-compiled but not run here.
+This does not retain a process handle or establish identity atomically with
+taskkill: the remaining final-check-to-taskkill PID-reuse window and descendant
+tracking after the leader exits still need a handle/Job Object design. The
+binding lock continues to span synchronous taskkill; its duration is the
+separate follow-up #2087. No Windows runtime or PID-reuse reproduction is claimed.
+
 ## C2b: workspace reset inside worker.start (G6)
 Behind `reset_on_start` (default off; transitional like `stop_on_end`, one lookup `resetsOnStart` that
 `Agent.lifecycle` replaces). It runs inside `worker.start` after every check that no process works in the
