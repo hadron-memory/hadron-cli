@@ -83,7 +83,8 @@ type Journal interface {
 	Save(string, Record) error
 }
 
-// Result has closed codes, never raw launcher output, prompts or environment.
+// Result has closed status codes and optional diagnostic causes. Adapters must
+// bound and redact causes before exposing them; causes may include launcher errors.
 type Result struct {
 	LocalCause, NoticeCause   string
 	Status, Reason, Reference string
@@ -187,6 +188,22 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if !t.valid() || r.Current == nil || r.Binding == nil || r.Probe == nil || r.Prepare == nil || r.Journal == nil || (!r.DryRun && (r.Lock == nil || r.Sweep == 0)) {
 		return out, errors.New("relaunch safety dependencies or target are incomplete")
 	}
+	var release func()
+	unlock := func() {
+		if release != nil {
+			fn := release
+			release = nil
+			fn()
+		}
+	}
+	if notice := r.Notice; notice != nil {
+		r.Notice = func(ctx context.Context, t Target, result Result) error {
+			// Tracking and admission release happen before repair network I/O.
+			// Reporting is metadata only and revalidates its own target.
+			unlock()
+			return notice(ctx, t, result)
+		}
+	}
 	// Nothing logged or notified by a dry run, including failures.
 	defer func() {
 		if err != nil {
@@ -223,13 +240,14 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		out.Status, out.Reason = Planned, "TERMINAL_MISSING"
 		return out, nil
 	}
-	unlock, e := r.Lock(ctx, t)
+	releaseFn, e := r.Lock(ctx, t)
 	if e != nil {
 		return out, e
 	}
-	if unlock == nil {
+	if releaseFn == nil {
 		return out, errors.New("relaunch lock supplied no release")
 	}
+	release = releaseFn
 	defer unlock()
 	if reason, e := r.guard(ctx, t); reason != "" {
 		out.Reason = reason

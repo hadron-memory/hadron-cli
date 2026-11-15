@@ -2,9 +2,22 @@
 
 The periodic host poller owns relaunch. It shares C3's tracked agents, pidfd
 identities and worktree launch reservation. There is no new RPC, inbox or
-independent trigger. Host-up and C1 report RELAUNCH_PENDING_POLLER only with a
-proven live poller association; otherwise they report RELAUNCH_UNPROVEN. Their
-actuator cannot launch an open-session worker.
+independent trigger. The current host-up CLI has no adapter proving a live
+poller association: it reports RELAUNCH_UNPROVEN and never triggers recovery.
+The engine retains a PollerConnected extension point for a future in-process
+caller, but RELAUNCH_PENDING_POLLER is not a current CLI result. Its actuator
+cannot launch an open-session worker.
+
+Each periodic tick may start one owned recovery job; a busy job makes later
+ticks skip recovery without building a backlog. Registration, collection and
+delivery continue while a launch or repair report waits. Run cancels and joins
+the job on exit, including fatal check-in errors; a one-shot poll waits for it.
+The first guard uses that job's discovery snapshot, so healthy workers add no
+host-wide snapshot reads. Guards after admission and before/after launch still
+read fresh state. A recovery sweep means an actual owned pass, not a tick that
+skipped a busy job. Only completed observations contribute to continuity.
+An owned live agent is tracked before admission and binding release; repair
+network I/O follows release.
 
 An applying sweep reads canonical App identity through myApp and desired host
 state without a session header. The source server, host, worker, open session,
@@ -80,21 +93,38 @@ independent QA gate includes real-process cases and a private-container PTY
 daemon death and recovery, with Sonnet-class execution. Never kill the shared
 host daemon or invoke a paid provider for this work.
 
-C3 #2088 is the launch dependency, currently incorporated through 9e715787.
-The full repository suite, focused race suites, full lint, schema-check,
-Windows/Darwin vet and eight targeted guard mutants plus an equivalent control
-pass. The first full run caught a C3 fake missing the new snapshot response
-(fixed) and a separately tracked #2042 zombie-group test failure; no production
-process guard was weakened. C5 remains unfrozen pending dependency status,
-hosted CI and independent seats. Schedule: T2 plus security; Jerry BLIND, Jonas
-LOCAL, Rodolfo security, Colin QA, subject to fresh roster/register checks.
-No activation or production relaunch is claimed. No platform citation is minted.
+Independent review and QA receipts belong to PR #2120 at their exact tested
+heads. The fix cycle covers healthy-worker snapshot fan-out, collector progress
+during blocked recovery, cancellation and joining, shared admission, and the
+production pidfd verifier. The CLI remains built and off pending the coordinator's
+activation gate. No platform citation is minted.
 
+Known launch limit: #2130 tracks an ambiguous Orca create reply that can leave an
+untracked agent. A moved-out orphan is invisible to this worktree's absence census.
+C3's approved go-gate fix removes that reply-loss path; C5 needs no separate
+blocking-record adapter. Until #2130 merges it remains an activation precondition.
+A poller crash after permission to start and before tracking can still leave an
+untracked agent. The census detects a recognized agent whose cwd remains in this
+worktree, including subdirectories; it does not prove global absence of processes
+that moved elsewhere or use an unrecognized executable. Account wrappers must
+ultimately exec a recognized agent; rejecting every wrapper basename would also
+reject supported account launchers.
 
-The host-wide desired snapshot is small and contains no prompts/transcripts,
-but repeated per-worker freshness checks repeat the full host projection.
-A pass uses one discovery read and up to five snapshots plus one repair
-mutation per worker that launches. At 100 workers and an estimated 20–40 KB
-snapshot this is roughly 10–20 MB during a complete recovery pass; this is an
-estimate, not a measured benchmark. Targeted host-key worker reads are filed
-as nonblocking server follow-on #4260; generic honest failure codes are #4259.
+Live QA at the initial frozen head recovered one agent in the same open session
+after private daemon loss, both with Git and in a separate no-Git folder. The
+async recovery fix requires a new live acceptance receipt. Live HALTED execution
+remains limited by STOP_SIGNAL_UNAVAILABLE; compiled controls independently pin
+refusal. #2131 retains an unconfirmed empty-journal observation: available logs
+do not establish a product or fixture cause, and clean repeats do not explain it.
+
+Binding and source server URLs must use the same spelling apart from a trailing
+slash. Different aliases are not inferred to identify the same deployment.
+
+The host-wide desired snapshot contains no prompts or transcripts. Healthy
+workers share one discovery snapshot. A launched worker requires up to four
+additional fresh snapshots and one repair mutation. Colin's independent report
+adapter measurement used 16,311-byte snapshots and 101 reads plus 100 writes
+for 100 reports; that component measurement excludes runner guards and launch
+preflight, so it is not a complete recovery benchmark. Targeted host-key worker
+reads are filed as nonblocking server follow-on #4260; generic honest failure
+codes are #4259.

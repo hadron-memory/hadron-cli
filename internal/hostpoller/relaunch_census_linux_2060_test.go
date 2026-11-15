@@ -119,3 +119,17 @@ func TestRelaunchCensusOnlyProvenKernelOrExitedEmptyEntriesAreHarmless2060(t *te
 		})
 	}
 }
+
+func TestRelaunchCensusIncludesSubdirectoryButNotPrefixSibling2120(t *testing.T) {
+	proc, work := t.TempDir(), t.TempDir()
+	sub := filepath.Join(work, "nested")
+	if err := os.MkdirAll(sub, 0700); err != nil {
+		t.Fatal(err)
+	}
+	censusFixture2060(t, proc, sub, 31337)
+	censusFixture2060(t, proc, work+"-sibling", 31338)
+	agents, err := strictRelaunchCensus(context.Background(), proc, work, func(context.Context) error { return nil })
+	if err != nil || len(agents) != 1 || agents[0].PID != 31337 {
+		t.Fatalf("subdirectory/sibling census=%+v err=%v", agents, err)
+	}
+}

@@ -196,3 +196,158 @@ func TestProductionVerifyRequiresOwnUniqueLiveIdentity2120(t *testing.T) {
 		t.Fatal("accepted stale pinned identity")
 	}
 }
+
+// collectServer2120 preserves the real Server interface while controlling the
+// next collection failure. The recovery source is separate, as in production.
+type collectServer2120 struct {
+	Server
+	collect func(context.Context) ([]Operation, error)
+}
+
+func (s *collectServer2120) Collect(ctx context.Context) ([]Operation, error) { return s.collect(ctx) }
+
+func TestFatalCheckInCancelsAndJoinsRecovery2120(t *testing.T) {
+	f := newLoopFixture2060(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := f.p.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	f.p.Wait()
+	started, stopped := make(chan struct{}), make(chan struct{})
+	f.p.orcaLaunch = func(jobCtx context.Context, _ OrcaLaunchSpec) (Agent, error) {
+		close(started)
+		<-jobCtx.Done()
+		close(stopped)
+		return nil, jobCtx.Err()
+	}
+	fatal := errors.New("host key no longer authorized")
+	calls := 0
+	base := f.p.server
+	f.p.server = &collectServer2120{Server: base, collect: func(ctx context.Context) ([]Operation, error) {
+		calls++
+		if calls == 2 {
+			return nil, fatal
+		}
+		return base.Collect(ctx)
+	}}
+	f.p.Fatal = func(err error) bool { return errors.Is(err, fatal) }
+	f.p.sleep = func(ctx context.Context, _ time.Duration) error {
+		select {
+		case <-started:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	err := f.p.Run(ctx)
+	if !errors.Is(err, fatal) || ctx.Err() != nil {
+		t.Fatalf("fatal exit failed to cancel/join job before parent deadline: %v parent=%v", err, ctx.Err())
+	}
+	select {
+	case <-stopped:
+	default:
+		t.Fatal("Run returned with its recovery launch still active")
+	}
+}
+
+type journalHook2120 struct {
+	hostrelaunch.Journal
+	afterSave func(hostrelaunch.Record)
+}
+
+func (j journalHook2120) Save(worker string, record hostrelaunch.Record) error {
+	if err := j.Journal.Save(worker, record); err != nil {
+		return err
+	}
+	j.afterSave(record)
+	return nil
+}
+
+func TestCancelledRecoveryPassBreaksObservationContinuity2120(t *testing.T) {
+	f := newLoopFixture2060(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	open := f.p.relaunch.OpenJournal
+	f.p.relaunch.OpenJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
+		j, g, close, err := open()
+		return journalHook2120{Journal: j, afterSave: func(r hostrelaunch.Record) {
+			if r.AbsentFor != "" && len(r.Attempts) == 0 {
+				cancel()
+			}
+		}}, g, close, err
+	}
+	if err := f.p.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	f.p.Wait()
+	if f.journal["id-iris"].AbsentFor == "" {
+		t.Fatal("fixture never persisted the interrupted observation")
+	}
+	if err := f.p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	f.p.Wait()
+	if len(f.launches) != 0 || len(f.journal["id-iris"].Attempts) != 0 {
+		t.Fatal("cancelled observation bridged into a new launch")
+	}
+}
+
+func TestUntrackedRecognizedAgentPreventsRecovery2120(t *testing.T) {
+	f := newLoopFixture2060(t)
+	proc := t.TempDir()
+	censusFixture2060(t, proc, f.p.cfg.WorktreePath("repo/iris"), 31337)
+	f.p.relaunch.Probe = func(ctx context.Context, target hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		rows, err := strictRelaunchCensus(ctx, proc, target.Worktree, func(ctx context.Context) error { return ctx.Err() })
+		out := hostrelaunch.Observation{Proven: err == nil, PIDs: []int{}}
+		for _, row := range rows {
+			out.PIDs = append(out.PIDs, row.PID)
+		}
+		return out, err
+	}
+	for i := 0; i < 3; i++ {
+		if err := f.p.Step(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		f.p.Wait()
+	}
+	if len(f.p.agents) != 0 || len(f.launches) != 0 || len(f.journal["id-iris"].Attempts) != 0 {
+		t.Fatal("empty tracking was treated as absence despite a recognized live census process")
+	}
+}
+
+func TestRelaunchTargetRequiresFamilyRegistrationAndRoot2120(t *testing.T) {
+	for _, name := range []string{"family", "registration", "root", "multiple"} {
+		t.Run(name, func(t *testing.T) {
+			f := newLoopFixture2060(t)
+			if err := f.p.register(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			switch name {
+			case "family":
+				f.source.snapshot.Workers[0].Family = "codex"
+			case "registration":
+				token := "repo/not-registered"
+				if err := os.MkdirAll(f.p.cfg.WorktreePath(token), 0700); err != nil {
+					t.Fatal(err)
+				}
+				f.source.snapshot.Workers[0].Worktrees = []string{token}
+			case "root":
+				dir := f.p.cfg.WorktreePath("repo/iris")
+				if err := os.Remove(dir); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(t.TempDir(), dir); err != nil {
+					t.Fatal(err)
+				}
+			case "multiple":
+				f.source.snapshot.Workers[0].Worktrees = []string{"repo/iris", "repo/other"}
+			}
+			f.p.relaunchStep(context.Background())
+			f.p.Wait()
+			if len(f.journal) != 0 || len(f.launches) != 0 {
+				t.Fatalf("%s bypassed target derivation", name)
+			}
+		})
+	}
+}

@@ -185,6 +185,13 @@ func TestChangeDuringLockOrAttemptClaimRefuses2060(t *testing.T) {
 			if r.Status != Skipped || f.starts != 0 {
 				t.Fatal(r)
 			}
+			wantAttempts := 1
+			if stage == "lock" {
+				wantAttempts = 0
+			}
+			if got := len(f.store.rows[f.target.WorkerID].Attempts); got != wantAttempts {
+				t.Fatalf("%s: attempts=%d want%d", stage, got, wantAttempts)
+			}
 		})
 	}
 }
@@ -256,7 +263,7 @@ func TestJournalFailurePreventsLaunch2060(t *testing.T) {
 	}
 }
 func TestPostLaunchMustBeExactlyOwnProcess2060(t *testing.T) {
-	cases := map[string]func(*fixture){"none": func(f *fixture) { f.post.PIDs = nil }, "two": func(f *fixture) { f.post.PIDs = []int{42, 43} }, "unproven": func(f *fixture) { f.post.Proven = false }, "foreign": func(f *fixture) { f.post.PIDs = []int{99} }, "binding-drift": func(f *fixture) { f.onStart = func() { f.binding.SessionID = "new" } }, "server-pause": func(f *fixture) { f.onStart = func() { f.desired.Reason = "PAUSED" } }}
+	cases := map[string]func(*fixture){"none": func(f *fixture) { f.post.PIDs = nil }, "two": func(f *fixture) { f.post.PIDs = []int{42, 43} }, "unproven": func(f *fixture) { f.post.Proven = false }, "foreign": func(f *fixture) { f.post.PIDs = []int{99} }, "binding-drift": func(f *fixture) { f.onStart = func() { f.binding.SessionID = "new" } }, "server-pause": func(f *fixture) { f.onStart = func() { f.desired.Reason = "PAUSED" } }, "server-session": func(f *fixture) { f.onStart = func() { f.desired.SessionID = "rotated" } }}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)

@@ -178,9 +178,12 @@ type Event struct {
 
 // Poller is one host's loop.
 type Poller struct {
-	relaunchEpoch      string
-	relaunch           *RelaunchDependencies
-	relaunchMu         sync.Mutex
+	relaunchEpoch string
+	relaunch      *RelaunchDependencies
+	relaunchMu    sync.Mutex
+	// relaunchCancel is guarded by mu. A fatal check-in cancels the owned
+	// recovery job before joining it, without cancelling unrelated operations.
+	relaunchCancel     context.CancelFunc
 	launchingWorktrees map[string]bool
 	cfg                *Config
 	server             Server
@@ -310,6 +313,7 @@ func (p *Poller) Run(ctx context.Context) error {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
 			if p.Fatal != nil && p.Fatal(err) {
+				p.cancelRelaunch()
 				p.wg.Wait()
 				return err
 			}

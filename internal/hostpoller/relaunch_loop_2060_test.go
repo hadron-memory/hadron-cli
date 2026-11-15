@@ -115,6 +115,7 @@ func TestPeriodicRelaunchUsesTwoSweepsFreshPromptAndTracksOpenSession2060(t *tes
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 0 {
 		t.Fatal("first observation launched")
 	}
@@ -124,6 +125,7 @@ func TestPeriodicRelaunchUsesTwoSweepsFreshPromptAndTracksOpenSession2060(t *tes
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 1 {
 		t.Fatalf("launches=%d", len(f.launches))
 	}
@@ -142,6 +144,7 @@ func TestPeriodicRelaunchUsesTwoSweepsFreshPromptAndTracksOpenSession2060(t *tes
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 1 {
 		t.Fatal("live tracked agent relaunched")
 	}
@@ -151,10 +154,12 @@ func TestPeriodicRelaunchRefusesPauseBetweenAbsenceSweeps2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	f.source.snapshot.Workers[0].Reason = "PAUSED"
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 0 {
 		t.Fatal("paused worker launched")
 	}
@@ -166,15 +171,20 @@ func TestDaemonUnavailableDoesNotSpendLaunchBudgetAndRecoversAfterReturn2060(t *
 		if err := f.p.Step(context.Background()); err != nil {
 			t.Fatal(err)
 		}
+		f.p.Wait()
 	}
 	if len(f.launches) != 0 || len(f.journal["id-iris"].Attempts) != 0 {
 		t.Fatal("daemon outage consumed launch budget")
+	}
+	if f.journal["id-iris"].AbsentFor != "" {
+		t.Fatal("daemon outage recorded an absence observation")
 	}
 	f.ready = true
 	for i := 0; i < 2; i++ {
 		if err := f.p.Step(context.Background()); err != nil {
 			t.Fatal(err)
 		}
+		f.p.Wait()
 	}
 	if len(f.launches) != 1 {
 		t.Fatalf("daemon return did not recover: %d", len(f.launches))
@@ -186,6 +196,7 @@ func TestPollerRestartRequiresTwoFreshAbsenceObservations2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	old := f.p
 	clone := New(old.cfg, old.server, old.host, old.state, old.key, nil)
 	clone.now = old.now
@@ -197,12 +208,14 @@ func TestPollerRestartRequiresTwoFreshAbsenceObservations2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 0 {
 		t.Fatal("restart reused an old absence proof")
 	}
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 1 {
 		t.Fatal("two fresh post-restart observations did not recover")
 	}
@@ -212,20 +225,24 @@ func TestUnknownSourceReadBreaksAbsenceContinuity2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	f.source.err = errors.New("source unavailable")
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	f.source.err = nil
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 0 {
 		t.Fatal("unknown source pass bridged absence observations")
 	}
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 1 {
 		t.Fatal("fresh continuity did not recover")
 	}
@@ -236,6 +253,7 @@ func TestDaemonReadinessRecheckedBeforeSpendingAttempt2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	checks := 0
 	f.p.relaunch.Ready = func(context.Context) error {
 		checks++
@@ -247,6 +265,7 @@ func TestDaemonReadinessRecheckedBeforeSpendingAttempt2060(t *testing.T) {
 	if err := f.p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	f.p.Wait()
 	if len(f.launches) != 0 || len(f.journal["id-iris"].Attempts) != 0 {
 		t.Fatalf("lost daemon spent budget: launches=%d attempts=%d", len(f.launches), len(f.journal["id-iris"].Attempts))
 	}

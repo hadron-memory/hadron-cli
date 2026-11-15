@@ -42,6 +42,8 @@ const SweepApply = "APPLY"
 const (
 	ActionWorktreeCreate = "worktree.create"
 	ActionWorkerStart    = "worker.start"
+	// ActionWorkerRelaunch labels skipped work in reconciliation output. The
+	// CLI never plans or applies it; the periodic poller is the launch owner.
 	ActionWorkerRelaunch = "worker.relaunch"
 )
 
@@ -156,8 +158,9 @@ type Source interface {
 
 // Observation is what the host shows for one worker.
 type Observation struct {
-	// PollerConnected is set only by an adapter with a live association to the
-	// existing host poller. Terminal metadata or a state file alone is not proof.
+	// PollerConnected is an engine extension point for an in-process adapter
+	// with a proven live association. The current CLI observer never sets it:
+	// host up reports RELAUNCH_UNPROVEN. Metadata or a state file is not proof.
 	PollerConnected bool
 	// Registered: the host's registration lists this worker.
 	Registered bool

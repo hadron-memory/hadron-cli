@@ -70,11 +70,47 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 }
 
 func (p *Poller) relaunchStep(ctx context.Context) {
-	if p.relaunch == nil {
+	if p.relaunch == nil || !p.relaunchMu.TryLock() {
 		return
 	}
-	p.relaunchMu.Lock()
-	defer p.relaunchMu.Unlock()
+	// Collection and delivery must not await a recovery launch. There is one
+	// owned pass at most, with no backlog of ticks. Wait (including --once)
+	// joins it; normal cancellation and a fatal check-in stop it.
+	jobCtx, cancel := context.WithCancel(ctx)
+	p.mu.Lock()
+	p.relaunchCancel = cancel
+	p.mu.Unlock()
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		defer p.relaunchMu.Unlock()
+		defer func() {
+			cancel()
+			p.mu.Lock()
+			p.relaunchCancel = nil
+			p.mu.Unlock()
+		}()
+		p.relaunchPass(jobCtx)
+	}()
+}
+
+func (p *Poller) cancelRelaunch() {
+	p.mu.Lock()
+	cancel := p.relaunchCancel
+	p.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (p *Poller) relaunchPass(ctx context.Context) {
+	defer func() {
+		if ctx.Err() != nil {
+			// A partially observed cancelled pass cannot join two absence
+			// observations if this poller is subsequently used again.
+			p.relaunchEpoch = ""
+		}
+	}()
 	d := p.relaunch
 	hostID := p.state.RegisteredHostID()
 	initial, err := d.Source.RelaunchSnapshot(ctx, hostID)
@@ -120,9 +156,19 @@ func (p *Poller) relaunchStep(ctx context.Context) {
 			continue
 		} // normal worker.start owns a new session
 		var launched Agent
+		firstSnapshot := true
 		runner := hostrelaunch.Runner{Sweep: generation, Now: p.now, Journal: journal, BeforeAttempt: d.Ready,
 			Current: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Desired, error) {
-				snap, e := d.Source.RelaunchSnapshot(ctx, t.HostID)
+				// The discovery snapshot is already a current read for the first
+				// guard. Healthy workers need no repeated host-wide fetch. Every
+				// guard after admission and before/after launch still reads fresh.
+				snap := initial
+				var e error
+				if firstSnapshot {
+					firstSnapshot = false
+				} else {
+					snap, e = d.Source.RelaunchSnapshot(ctx, t.HostID)
+				}
 				if e != nil {
 					return hostrelaunch.Desired{}, e
 				}

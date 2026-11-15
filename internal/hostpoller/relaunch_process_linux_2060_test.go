@@ -79,6 +79,7 @@ func TestPeriodicRelaunchPinsRealProcessInPlainDirectory2060(t *testing.T) {
 		if err := p.Step(context.Background()); err != nil {
 			t.Fatal(err)
 		}
+		p.Wait()
 	}
 	if made == nil {
 		t.Fatal("no real agent launched")

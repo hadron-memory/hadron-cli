@@ -4399,9 +4399,9 @@ Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
 `SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
 worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
 session is never started again: with its agent terminal gone it is reported
-`RELAUNCH_UNPROVEN` when no running poller is connected, or
-`RELAUNCH_PENDING_POLLER` when its live poller association is proven.
-Only the poller relaunches an agent; reconciliation only reports.
+`RELAUNCH_UNPROVEN`. The current CLI has no adapter proving a live poller
+association, so it does not report `RELAUNCH_PENDING_POLLER` or trigger a
+recovery. Only the periodic poller relaunches an agent; reconciliation reports.
 
 With typed `launch_via: orca` profiles, the Linux poller's periodic pass may
 recover that same open session after two consecutive proven-absent sweeps.
@@ -4449,7 +4449,7 @@ failed; exit 4 when `--worker` names a worker the host is not meant to run
 Reason codes, which are added to and never repurposed:
 - planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
 - skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
-  `RELAUNCH_UNPROVEN`, `RELAUNCH_PENDING_POLLER`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `RELAUNCH_UNPROVEN`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
   `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
   `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
 - failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`

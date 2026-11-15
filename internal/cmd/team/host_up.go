@@ -129,15 +129,16 @@ WHAT IT NEVER DOES:
   RETIRED or SWEEP_OFF is reported and not touched. Nothing is planned unless
   the desired state's sweepMode is APPLY. A worker with an open session is
   never started again: if its agent terminal is gone it is reported
-  (RELAUNCH_UNPROVEN) when no running poller is connected. Only the poller
-  relaunches an agent; a connected poller reports RELAUNCH_PENDING_POLLER.
+  (RELAUNCH_UNPROVEN). This CLI has no adapter proving a live connection to
+  the poller, and does not report RELAUNCH_PENDING_POLLER. Only the periodic
+  poller relaunches an agent; this command does not trigger it.
   A worker it could not observe is reported as failed and not acted on.
 
 Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
   applied  the planned reason, with the host operation's id
   skipped  IN_SYNC, SWEEP_NOT_APPLY, NOT_ON_HOST, NOT_REGISTERED, STOP_PENDING,
-           RELAUNCH_UNPROVEN, RELAUNCH_PENDING_POLLER, SESSION_WITHOUT_WORKTREE,
+           RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
            TERMINAL_WITHOUT_SESSION, DUPLICATE_AGENTS, NO_WORKTREE_SOURCE,
            SETUP_INVALID, NOT_ASSIGNED, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
            or the platform's own reason
