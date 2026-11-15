@@ -20,7 +20,8 @@ const importRoster2061 = `{"data":{"teamRoster":{"appId":"capp100000000000000000
 
 func importResponses2061() map[string]string {
 	r := responses2080()
-	r["TeamRoster"] = importRoster2061
+	r["TeamHostImportRoster"] = importRoster2061
+	r["TeamAppIdentity"] = teamAppIdentityJSON
 	// The server already holds Iris exactly as the file says.
 	r["TeamHostSetup"] = `{"data":{"hostSetup":{"source":"HOST","assignments":[{"id":"a9","hostId":"orca1","workerId":"w2","worker":{"name":"Iris"},"workdir":"iris-1","family":"claude","model":null,"createdAt":"2026-11-15T10:00:00Z","updatedAt":"2026-11-15T10:00:00Z"}]}}}`
 	return r
@@ -56,7 +57,7 @@ func TestTeamHostImport2061DryRunWritesNothingAndReports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, op := range []string{"TeamHostAssign", "TeamHostAssignInstructed", "TeamHostSetSource", "TeamHostUnassign"} {
+	for _, op := range []string{"TeamHostAssign", "TeamHostAssignInstructed", "TeamHostSetSource", "TeamHostUnassign", "TeamRoster"} {
 		noCall2080(t, calls, op)
 	}
 	if strings.Contains(out, "SECRET_LAUNCH_ARG") {
@@ -154,20 +155,70 @@ func TestTeamHostImport2061DiffersTextShowsTheServersAssignment(t *testing.T) {
 	}
 }
 
-func TestTeamHostImport2061WarnsWhenTheFileNamesAnotherApp(t *testing.T) {
-	_, out, err := runTeamTask(t, importResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+func TestTeamHostImport2061AppWarningFollowsServerIdentity(t *testing.T) {
+	warnings := func(identity string) ([]string, string) {
+		r := importResponses2061()
+		r["TeamAppIdentity"] = identity
+		_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			FileApp  string   `json:"fileApp"`
+			Warnings []string `json:"warnings"`
+		}
+		if e := json.Unmarshal([]byte(out), &got); e != nil {
+			t.Fatal(e)
+		}
+		return got.Warnings, got.FileApp
+	}
+	if w, file := warnings(teamAppIdentityJSON); len(w) != 0 || file != "hrn:app:t:t" {
+		t.Fatalf("a file App that resolves to the App read must not warn: %v %q", w, file)
+	}
+	if w, _ := warnings(`{"data":{"app":null}}`); len(w) != 1 || !strings.Contains(w[0], "hrn:app:t:t") {
+		t.Fatalf("an unresolvable file App must warn: %v", w)
+	}
+}
+
+// Jabari F2: an unknown roster is an error, never an all-skip plan.
+func TestTeamHostImport2061NullRosterIsAnError(t *testing.T) {
+	for name, resp := range map[string]string{"null": `{"data":{"teamRoster":null}}`, "missing": `{"data":{}}`} {
+		r := importResponses2061()
+		r["TeamHostImportRoster"] = resp
+		_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+		if err == nil || strings.Contains(out, `"entries"`) {
+			t.Errorf("%s: err=%v out=%s: must fail before planning", name, err, out)
+		}
+	}
+}
+
+// Jabari F3: through the command, two aliases of one worker are a conflict when
+// they ask for different things; the same worktree under two names is the host
+// runtime's own refusal (a worktree belongs to one worker), reported as usage.
+func TestTeamHostImport2061AliasesThroughTheCommand(t *testing.T) {
+	write := func(body string) string {
+		dir := t.TempDir()
+		y := "server: http://127.0.0.1:1\napp: hrn:app:t:t\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n" + body
+		p := filepath.Join(dir, "host.yaml")
+		if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	conflict := write("  Jonas:\n    family: claude\n    launch: [c]\n    worktrees: [jonas-1]\n  hrn:worker:t:t:jonas:\n    family: claude\n    launch: [c]\n    worktrees: [jonas-2]\n")
+	_, out, err := runTeamTask(t, importResponses2061(), "team", "host", "import", "--from", conflict, "--host", "orca1", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got struct {
-		FileApp  string   `json:"fileApp"`
-		Warnings []string `json:"warnings"`
+		Counts map[string]int `json:"counts"`
 	}
-	if e := json.Unmarshal([]byte(out), &got); e != nil {
-		t.Fatal(e)
+	if e := json.Unmarshal([]byte(out), &got); e != nil || got.Counts["conflict"] != 2 || got.Counts["create"] != 0 {
+		t.Fatalf("different asks for one worker must conflict: %v %s", e, out)
 	}
-	if got.FileApp != "hrn:app:t:t" || len(got.Warnings) != 1 || !strings.Contains(got.Warnings[0], "hrn:app:t:t") {
-		t.Fatalf("%+v", got)
+	same := write("  Jonas:\n    family: claude\n    launch: [c]\n    worktrees: [jonas-1]\n  hrn:worker:t:t:jonas:\n    family: claude\n    launch: [c]\n    worktrees: [jonas-1]\n")
+	if _, _, err := runTeamTask(t, importResponses2061(), "team", "host", "import", "--from", same, "--host", "orca1"); err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("one worktree under two names is refused when the file loads: %v", err)
 	}
 }
 

@@ -2,8 +2,11 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
@@ -173,15 +176,38 @@ func TestPlanHostImportDuplicateAliasesOfOneWorker(t *testing.T) {
 	}
 }
 
-func TestAppMismatchWarning(t *testing.T) {
-	if w := appMismatchWarning("hrn:app:t:team", "Team (hrn:app:t:team) (from --app)"); w != "" {
-		t.Errorf("matching App warned: %s", w)
+// fakeAppClient answers TeamAppIdentity per ref, so identities (not text) are compared.
+type fakeAppClient struct{ ids map[string]string }
+
+func (c fakeAppClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
+	ref, _ := req.Variables.(interface{ GetAppRef() string })
+	var r string
+	if ref != nil {
+		r = ref.GetAppRef()
 	}
-	if w := appMismatchWarning("", "anything"); w != "" {
+	id, ok := c.ids[r]
+	body := `{"app":null}`
+	if ok {
+		body = `{"app":{"id":"` + id + `","urn":"` + r + `","name":"n"}}`
+	}
+	return json.Unmarshal([]byte(body), resp.Data)
+}
+
+// Jabari F1: identity, not text. hrn:app:t:team is a prefix of hrn:app:t:team-two.
+func TestImportAppWarningComparesIdentitiesNotText(t *testing.T) {
+	c := fakeAppClient{ids: map[string]string{"hrn:app:t:team": "capp1", "hrn:app:t:team-two": "capp10", "capp1": "capp1", "capp10": "capp10"}}
+	ctx := context.Background()
+	if w := importAppWarning(ctx, c, "hrn:app:t:team", "capp1"); w != "" {
+		t.Errorf("the same App by two spellings warned: %s", w)
+	}
+	if w := importAppWarning(ctx, c, "hrn:app:t:team", "capp10"); w == "" {
+		t.Error("a different App whose name contains the file's text must warn")
+	}
+	if w := importAppWarning(ctx, c, "hrn:app:t:ghost", "capp1"); w == "" {
+		t.Error("an App the server does not resolve must warn")
+	}
+	if w := importAppWarning(ctx, c, "", "capp1"); w != "" {
 		t.Errorf("a file without an app key has nothing to compare: %s", w)
-	}
-	if w := appMismatchWarning("hrn:app:t:other", "Team (hrn:app:t:team) (from --app)"); w == "" {
-		t.Error("a different App must warn")
 	}
 }
 

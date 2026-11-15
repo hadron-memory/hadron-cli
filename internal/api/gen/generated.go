@@ -94494,6 +94494,75 @@ func (v *TeamHostAssignResponse) GetAssignHostWorker() *TeamHostAssignAssignHost
 	return v.AssignHostWorker
 }
 
+// TeamHostImportRosterResponse is returned by TeamHostImportRoster on success.
+type TeamHostImportRosterResponse struct {
+	// #1707 — every worker's derived state in an App (plan design:agent-tasks
+	// §7.4), computed server-side so the CLI and portal render one answer. Plan-
+	// derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+	TeamRoster *TeamHostImportRosterTeamRoster `json:"teamRoster"`
+}
+
+// GetTeamRoster returns TeamHostImportRosterResponse.TeamRoster, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterResponse) GetTeamRoster() *TeamHostImportRosterTeamRoster {
+	return v.TeamRoster
+}
+
+// TeamHostImportRosterTeamRoster includes the requested fields of the GraphQL type TeamRoster.
+// The GraphQL type's documentation follows.
+//
+// #1707 — the team roster of one App.
+type TeamHostImportRosterTeamRoster struct {
+	Workers []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry `json:"workers"`
+}
+
+// GetWorkers returns TeamHostImportRosterTeamRoster.Workers, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRoster) GetWorkers() []*TeamHostImportRosterTeamRosterWorkersTeamRosterEntry {
+	return v.Workers
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntry includes the requested fields of the GraphQL type TeamRosterEntry.
+// The GraphQL type's documentation follows.
+//
+// #1707 — one worker on the team roster.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntry struct {
+	Worker *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty `json:"worker"`
+}
+
+// GetWorker returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntry) GetWorker() *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetName returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamHostImportRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
 // TeamHostSetSourceInstructedResponse is returned by TeamHostSetSourceInstructed on success.
 type TeamHostSetSourceInstructedResponse struct {
 	// #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
@@ -121316,6 +121385,14 @@ func (v *__TeamHostAssignInstructedInput) GetInput() *AssignHostWorkerInput { re
 
 // GetInstruction returns __TeamHostAssignInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__TeamHostAssignInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
+// __TeamHostImportRosterInput is used internally by genqlient
+type __TeamHostImportRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamHostImportRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostImportRosterInput) GetAppRef() string { return v.AppRef }
 
 // __TeamHostSetSourceInput is used internally by genqlient
 type __TeamHostSetSourceInput struct {
@@ -159037,6 +159114,48 @@ func TeamHostAssignInstructed(
 	}
 
 	data_ = &TeamHostAssignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostImportRoster.
+const TeamHostImportRoster_Operation = `
+query TeamHostImportRoster ($appRef: ID!) {
+	teamRoster(appRef: $appRef) {
+		workers {
+			worker {
+				id
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+// Host import (hadron-cli#2061): only who the roster workers ARE, never their
+// operational state, so an unrelated roster field can not fail an import.
+func TeamHostImportRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamHostImportRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostImportRoster",
+		Query:  TeamHostImportRoster_Operation,
+		Variables: &__TeamHostImportRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamHostImportRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

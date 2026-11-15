@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -274,13 +275,26 @@ var hostImportWriter = func(cmd *cobra.Command, f *cmdutil.Factory, appRef, host
 	return hostImportWrites{} // LeaveAlone nil: refused by applyHostImport
 }
 
-// appMismatchWarning says so when the App the file names is not the App being
-// read: the roster and assignments come from the active App, not from the file.
-func appMismatchWarning(fileApp, readApp string) string {
-	if strings.TrimSpace(fileApp) == "" || strings.Contains(strings.ToLower(readApp), strings.ToLower(fileApp)) {
+// importAppWarning says so when the App the file names is not the App being
+// read: the roster and assignments come from the active App, not from the
+// file. Both are resolved on the server and compared by identity, never by
+// text (hrn:app:t:team is a prefix of hrn:app:t:team-two).
+func importAppWarning(ctx context.Context, client graphql.Client, fileApp, readRef string) string {
+	if strings.TrimSpace(fileApp) == "" {
 		return ""
 	}
-	return fmt.Sprintf("the file names App %s but this report reads %s: the roster and assignments come from the active App (--app chooses it)", fileApp, readApp)
+	file, err := gen.TeamAppIdentity(ctx, client, fileApp)
+	if err != nil || file == nil || file.App == nil {
+		return fmt.Sprintf("the file names App %s, which this server does not resolve: the report reads the active App (--app chooses it)", fileApp)
+	}
+	readID := readRef
+	if read, err := gen.TeamAppIdentity(ctx, client, readRef); err == nil && read != nil && read.App != nil {
+		readID = read.App.Id
+	}
+	if file.App.Id == readID {
+		return ""
+	}
+	return fmt.Sprintf("the file names App %s (%s) but this report reads another App (%s): the roster and assignments come from the active App (--app chooses it)", fileApp, file.App.Urn, readID)
 }
 
 func countActions(entries []importEntryDTO) map[string]int {
@@ -342,23 +356,26 @@ eligible for the sweep. Nothing is written by the refusal.`,
 				return err
 			}
 			ctx := cmd.Context()
-			rr, err := gen.TeamRoster(ctx, client, scope.Ref)
+			rr, err := gen.TeamHostImportRoster(ctx, client, scope.Ref)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
+			if rr == nil || rr.TeamRoster == nil {
+				// An empty roster would plan every entry as "no roster worker":
+				// refuse an unknown roster instead (cli#2094 LOCAL F2).
+				return exitcode.Newf(exitcode.Error, "server returned no roster; nothing planned")
+			}
 			var roster []importRoster
-			if rr != nil && rr.TeamRoster != nil {
-				for _, w := range rr.TeamRoster.Workers {
-					if w != nil && w.Worker != nil {
-						ir := importRoster{ID: w.Worker.Id}
-						if w.Worker.Name != nil {
-							ir.Name = *w.Worker.Name
-						}
-						if w.Worker.Urn != nil {
-							ir.URN = *w.Worker.Urn
-						}
-						roster = append(roster, ir)
+			for _, w := range rr.TeamRoster.Workers {
+				if w != nil && w.Worker != nil {
+					ir := importRoster{ID: w.Worker.Id}
+					if w.Worker.Name != nil {
+						ir.Name = *w.Worker.Name
 					}
+					if w.Worker.Urn != nil {
+						ir.URN = *w.Worker.Urn
+					}
+					roster = append(roster, ir)
 				}
 			}
 			setupKnown := true
@@ -387,7 +404,7 @@ eligible for the sweep. Nothing is written by the refusal.`,
 			entries, missing := planHostImport(cfg, roster, existing, setupKnown)
 			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, HostSetup: map[bool]string{true: "available", false: "missing"}[setupKnown], Entries: entries, Missing: missing, Counts: countActions(entries)}
 			dto.FileApp, dto.Warnings = cfg.App, []string{}
-			if w := appMismatchWarning(cfg.App, describeApp(ctx, f, scope.Ref)); w != "" {
+			if w := importAppWarning(ctx, client, cfg.App, scope.Ref); w != "" {
 				dto.Warnings = append(dto.Warnings, w)
 			}
 			if dto.Entries == nil {
