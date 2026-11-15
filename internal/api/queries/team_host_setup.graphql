@@ -62,3 +62,17 @@ mutation TeamHostSetSource($appRef: String!, $source: HostSetupSource!) {
 mutation TeamHostSetSourceInstructed($appRef: String!, $source: HostSetupSource!, $instruction: ActInstructionInput!) {
   setHostSetupSource(appRef: $appRef, source: $source, instruction: $instruction)
 }
+
+# Host import (hadron-cli#2061): only who the roster workers ARE, never their
+# operational state, so an unrelated roster field can not fail an import.
+query TeamHostImportRoster($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    workers {
+      worker {
+        id
+        name
+        urn
+      }
+    }
+  }
+}
