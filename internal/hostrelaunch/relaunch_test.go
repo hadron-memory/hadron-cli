@@ -235,9 +235,13 @@ func TestUnprovenOrExistingProcessNeverLaunches2060(t *testing.T) {
 	for _, obs := range []Observation{{}, {Proven: true, PIDs: []int{9}}, {Proven: true, PIDs: []int{9, 10}}, {Proven: true, PIDs: []int{0}}} {
 		f := newFixture(t)
 		f.runner.Probe = func(context.Context, Target) (Observation, error) { return obs, nil }
-		r := f.run(t, 1)
-		if r.Status != Skipped || f.starts != 0 {
-			t.Fatal(r)
+		for sweep := uint64(1); sweep <= 2; sweep++ {
+			r := f.run(t, sweep)
+			// Pending is also Skipped. A first-sweep no-launch assertion alone
+			// cannot distinguish a working refusal from the continuity delay.
+			if r.Status != Skipped || r.Reason == Pending || f.starts != 0 || f.locks != 0 || f.store.saves != 0 {
+				t.Fatalf("%+v starts=%d locks=%d saves=%d", r, f.starts, f.locks, f.store.saves)
+			}
 		}
 	}
 }
