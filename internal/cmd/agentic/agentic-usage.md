@@ -4478,7 +4478,11 @@ Agent's workers get a fresh context after each task (cor:agt:050:27). Explicit
 true/false is sent; omission preserves. `agent get` and Agent JSON read back
 resetContextAfterTask. The flag only records the setting: nothing resets
 unless a host with a `worker.reset-context` handler acts on it (#1043), and
-`team host run` has none. Same edit authority as `--uses-tasks`.
+`team host run` enables that handler on Linux only when its config explicitly
+declares the capability and supplies an absolute `reset_context.orca_bin`.
+The reader proves the exact worker/session/worktree/process and an idle, empty
+terminal; ambiguous or unreadable evidence refuses. Installing the CLI does
+not activate a live host. Same edit authority as `--uses-tasks`.
 
 `agent create --uses-tasks[=false] --reset-context-after-task[=false]` (cli#58
 slice 2) set the same two settings at creation. Pass a flag only to choose a

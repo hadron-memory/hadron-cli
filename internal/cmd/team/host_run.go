@@ -297,11 +297,14 @@ re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
 Capabilities are an explicit full declaration on every registration refresh:
-add capabilities: [worker.reset-context] only for a driver that actually
-implements that operation. Omitted or [] means none. THIS POLLER DOES NOT
-implement worker.reset-context: leave capabilities empty for this runner;
-unknown operations remain failed. Declaring a capability adds no handler; this runner warns on stderr for
-every unimplemented declaration before registering.
+Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
+wires the reset handler and requires reset_context.orca_bin to name an
+absolute Orca binary path. This idle reader is independent of chat delivery.
+The handler only resets an agent this poller launched, after proving its
+process identity, worktree binding and idle terminal with an empty composer.
+Uncertainty refuses the reset. Live-host activation requires its own recorded
+authorization; installing this CLI does not enable it. Unknown declarations
+still warn on stderr before registration and add no handler.
 
 The configuration (YAML):
 
@@ -311,6 +314,10 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
+  # Optional Linux reset opt-in (requires a separate live-host authorization):
+  # capabilities: [worker.reset-context]
+  # reset_context:
+  #   orca_bin: /absolute/path/to/orca
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
@@ -321,6 +328,7 @@ The configuration (YAML):
       end_wait: 15m
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
+      # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
 
 Moving a host from the Orca attention router: see
@@ -358,8 +366,11 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return err
 			}
-			// Declaring a capability does not acquire a new operation handler.
+			// Only implemented declarations avoid the unsupported warning.
 			for _, capability := range cfg.Capabilities {
+				if capability == hostpoller.CapabilityResetContext {
+					continue
+				}
 				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
 					return err
 				}
@@ -373,6 +384,9 @@ per line; --json prints each as a JSON object.`,
 			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			if err := wireResets(p, cfg, srv); err != nil {
+				return err
+			}
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
 			}

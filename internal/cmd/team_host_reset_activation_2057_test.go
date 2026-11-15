@@ -16,9 +16,9 @@ import (
 func TestHostResetCapabilityWiresOnlyOnDeclaration2057(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "off", true: "declared"}[enabled], func(t *testing.T) {
-			extra := ""
+			extra := "reset_context:\n  orca_bin: /fake/orca\n"
 			if enabled {
-				extra = "capabilities: [worker.reset-context]\nreset_context:\n  orca_bin: /fake/orca\n"
+				extra = "capabilities: [worker.reset-context]\n" + extra
 			}
 			cfg := writeHostConfig(t, extra)
 			raw, _ := os.ReadFile(cfg)

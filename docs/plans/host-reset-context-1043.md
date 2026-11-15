@@ -16,11 +16,15 @@ exported from `22cd6369`.
 
 ## What landed
 
-Nothing user-visible. The handler is in `team host run`'s poller, and it
-is **off**:
+The handler is in `team host run`'s poller and defaults **off**. C2c (#2057)
+wires `EnableResets` before any launch when the operator explicitly sets
+`capabilities: [worker.reset-context]` and an absolute
+`reset_context.orca_bin` on Linux. The terminal reader is independent of chat
+delivery and refuses ambiguity, a changed binding/process, busy screens,
+drafts, menus or unreadable evidence.
 
-- `EnableResets` has no production caller, so a collected
-  `worker.reset-context` answers `HOST_UNSUPPORTED` before anything else.
+- Without that declaration a collected `worker.reset-context` still answers
+  `HOST_UNSUPPORTED` before anything else.
 - Registration still declares exactly the configured capabilities.
   Advertising `worker.reset-context` is a separate, authorized activation
   (issue body, scope item 3). Until then the server never issues the
@@ -159,13 +163,11 @@ from:
 
 ## Still out of scope
 
-- **Activation:** declaring the capability, wiring `EnableResets` and an
-  idle prover into `team host run`. These need their own authorization.
-  Activation must also wire the restart pass, `pendingRecoveries`, which
-  has no production caller yet. `EnableResets` must come before the first
-  launch, so each agent is tracked with a launch-time identity.
-- **A terminal-read idle prover.** Without one, every reset refuses
-  `NOT_IDLE`.
+- **Live-host activation:** deploying this wiring does not authorize changing
+  orca1 configuration. That is a separate recorded authorization.
+- Recovery retains the existing collected-operation path: a re-delivered reset
+  with a persisted record calls `recoverReset` and reads the server phase. No
+  second recovery scheduler is added, and recovery never re-sends a stop.
 
 ## Minimum server
 

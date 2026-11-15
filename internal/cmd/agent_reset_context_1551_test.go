@@ -119,7 +119,7 @@ func TestAgentGetShowsResetContextAfterTask(t *testing.T) {
 }
 
 // Acceptance 5: help says the flag only records the setting.
-func TestAgentUpdateResetContextAfterTaskHelpSaysInert(t *testing.T) {
+func TestAgentUpdateResetContextAfterTaskHelpExplainsHostOptIn(t *testing.T) {
 	f, _ := testFactory(t)
 	cmd, _, err := NewRootCmd(f).Find([]string{"agent", "update"})
 	if err != nil {
@@ -132,7 +132,7 @@ func TestAgentUpdateResetContextAfterTaskHelpSaysInert(t *testing.T) {
 	if !strings.Contains(fl.Usage, "Recorded only") || !strings.Contains(fl.Usage, "omitted keeps the current value") {
 		t.Fatalf("usage: %q", fl.Usage)
 	}
-	if !strings.Contains(cmd.Long, "It does not reset anything by itself") || !strings.Contains(cmd.Long, "no visible effect today") {
+	if !strings.Contains(cmd.Long, "It does not reset anything by itself") || !strings.Contains(cmd.Long, "explicitly declares worker.reset-context") || !strings.Contains(cmd.Long, "reset_context.orca_bin") {
 		t.Fatalf("Long: %s", cmd.Long)
 	}
 }
