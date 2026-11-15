@@ -256,7 +256,15 @@ reports every outcome. One poller per host or container.
                    refused before launching when any process is working in the
                    tree (Linux /proc, the pid and a short redacted argv
                    named), and a start that fails stops the process group it
-                   launched and leaves no agents entry in the state file
+                   launched and leaves no agents entry in the state file.
+                   With launch_via: orca (default exec; Linux; TRANSITIONAL)
+                   it launches through an Orca terminal instead, from the
+                   worker's launcher_profile and fixed per-family templates,
+                   always fresh (never --resume), the grant and first prompt
+                   passed through a 0600 file beside the state, never typed;
+                   each agent runs in its own user/PID namespace (unshare),
+                   so a pkill by one worker reaches only its own processes;
+                   it never falls back to the exec path
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -392,6 +400,19 @@ The configuration (YAML):
       stop_wait: 60s                # the wait before a stopping end acts
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
+    # Through Orca (hadron-cli#2058; launch is not needed then):
+    # iris:
+    #   family: claude
+    #   launch_via: orca
+    #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
+    #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
+    #   worktrees: [hadron-cli/iris]
+  # account_profiles:                # account name -> launcher (and Codex home)
+  #   holger: {bin: claude-holger}
+  #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
+  # orca_launch:
+  #   orca_bin: /absolute/path/to/orca
+  #   group: incus                    # optional: run the command under sg
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
@@ -451,6 +472,9 @@ per line; --json prints each as a JSON object.`,
 			}
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
+			}
+			if err := wireOrcaLaunch(p, cfg); err != nil {
+				return err
 			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
