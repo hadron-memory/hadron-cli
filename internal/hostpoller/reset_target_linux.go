@@ -10,6 +10,7 @@ import (
 // ValidateResetTarget reuses C2a's process census/stat reader. The one logical
 // agent in the target worktree must belong to the launch's own process group.
 // A foreground wrapper is allowed; a detached or ambiguous agent is not.
+// This is process validation only, never a terminal association or idle proof.
 func ValidateResetTarget(t ResetIdleTarget) error {
 	root, err := readStatErr(t.Process.PID)
 	if err != nil || root.start != t.Process.StartTime || root.state == "Z" || root.pgrp != t.Process.PID {

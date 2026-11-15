@@ -298,12 +298,16 @@ server with that fix.
 
 Capabilities are an explicit full declaration on every registration refresh:
 Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
-wires the reset handler and requires reset_context.orca_bin to name an
-absolute Orca binary path. This idle reader is independent of chat delivery.
-The handler only resets an agent this poller launched, after proving its
-process identity, worktree binding and idle terminal with an empty composer.
-Uncertainty refuses the reset. Live-host activation requires its own recorded
-authorization; installing this CLI does not enable it. Unknown declarations
+wires the reset protocol and requires an absolute reset_context.orca_bin
+(reserved for the C3 reader). This driver cannot yet bind an Orca terminal
+and its controlling tty to the process it launched. It therefore remains
+built and off: even a matching binding/process refuses NOT_IDLE:
+TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
+same worktree proves nothing about that process. C3 (hadron-cli#2058) owns
+the terminal-aware success path; enabling a config cannot bypass this refusal.
+Existing Git/identity refusals and no-signal recovery of recorded resets stay.
+Leave the capability unset until that path is built and separately authorized.
+Installing this CLI grants no live-host activation. Unknown declarations
 still warn on stderr before registration and add no handler.
 
 The configuration (YAML):
@@ -314,7 +318,7 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
-  # Optional Linux reset opt-in (requires a separate live-host authorization):
+  # Reserved C3 reset configuration; this build stays fail-closed, no activation:
   # capabilities: [worker.reset-context]
   # reset_context:
   #   orca_bin: /absolute/path/to/orca

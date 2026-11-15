@@ -55,11 +55,11 @@ type Config struct {
 	// Delivery turns on chat delivery into this host's Orca terminals
 	// (cli#907). Absent, the poller carries out host operations only.
 	Delivery DeliveryConfig `yaml:"delivery"`
-	// ResetContext supplies the read-only Orca proof for an explicitly declared reset capability.
+	// ResetContext reserves the C3 reader path for an explicitly declared reset capability.
 	ResetContext ResetContextConfig `yaml:"reset_context"`
 }
 
-// ResetContextConfig does not activate resets: Capabilities is the explicit switch.
+// ResetContextConfig neither activates resets nor proves a terminal/process binding.
 type ResetContextConfig struct {
 	OrcaBin string `yaml:"orca_bin"`
 }

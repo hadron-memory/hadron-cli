@@ -19,9 +19,10 @@ exported from `22cd6369`.
 The handler is in `team host run`'s poller and defaults **off**. C2c (#2057)
 wires `EnableResets` before any launch when the operator explicitly sets
 `capabilities: [worker.reset-context]` and an absolute
-`reset_context.orca_bin` on Linux. The terminal reader is independent of chat
-delivery and refuses ambiguity, a changed binding/process, busy screens,
-drafts, menus or unreadable evidence.
+`reset_context.orca_bin` on Linux. The reserved reader is independent of chat
+delivery. The driver cannot prove terminal/process association, so no current
+target can pass: a matching binding/process refuses `NOT_IDLE: TARGET_UNBOUND`
+before any new claim or stop, regardless of an unrelated idle screen.
 
 - Without that declaration a collected `worker.reset-context` still answers
   `HOST_UNSUPPORTED` before anything else.
@@ -189,3 +190,24 @@ The reset operations select `ContextReset.checkpointNode`, so they need
 hadron-server `22cd6369` or later; an older server rejects the document.
 Only the handler sends them, and it is off; activation must not come
 before that server is deployed.
+
+## C2c security fold: built and off
+
+Rodolfo's #2074 F1 reproduced a real `ExecHost.Launch` process with no
+controlling tty (`tty_nr=0`) passing on an unrelated idle screen at the same
+worktree. A process census, family and worktree are not a terminal binding.
+Orca's `ptyId` is an application identifier; it supplies no kernel-tty/PID
+association this driver can verify. The screen-based success path is removed:
+the current prover has no successful return path and reads no screen. This
+refuses non-tty targets and every other unbound target, rather than guessing.
+
+Wolfgang #108018/#108026 chose fail-closed, built/off. A real success path
+belongs to C3 (#2058), with a verifiable controlling-tty/Orca-pty association,
+unit + tmux probes and independent review. Note posted on #2058:
+https://github.com/hadron-memory/hadron-cli/issues/2058#issuecomment-6894959775 .
+No activation. Existing no-signal recovery for already recorded resets stays;
+unit tests with injected idle provers do not certify production reset success.
+
+Red-only `37f1cae0` reproduces the no-tty/unrelated-screen acceptance before
+the fix. The final callback must refuse that real private process and every
+current unbound target without reading a terminal or authorizing a stop.

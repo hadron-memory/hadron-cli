@@ -12,7 +12,7 @@ func TestResetIdleTargetAtBothProofs2057(t *testing.T) {
 	n := 0
 	x.p.resetDeps.Idle = func(_ context.Context, got ResetIdleTarget) error {
 		n++
-		want := ResetIdleTarget{WorkerRef: "iris", WorkerID: "id-iris", SessionID: "s1", Worktree: x.p.cfg.WorktreePath("repo/iris"), Family: "claude", Process: oldIdentity}
+		want := ResetIdleTarget{WorkerRef: "iris", WorkerID: "id-iris", SessionID: "s-distinct-2074", Worktree: x.p.cfg.WorktreePath("repo/iris"), Family: "claude", Process: oldIdentity}
 		if got != want {
 			t.Fatalf("proof %d: got %+v want %+v", n, got, want)
 		}
@@ -21,7 +21,9 @@ func TestResetIdleTargetAtBothProofs2057(t *testing.T) {
 		}
 		return nil
 	}
-	x.p.workerResetContext(context.Background(), resetOp())
+	op := resetOp()
+	op.Args["sessionId"] = "s-distinct-2074"
+	x.p.workerResetContext(context.Background(), op)
 	if n != 2 {
 		t.Fatalf("proof count %d", n)
 	}
