@@ -115,8 +115,40 @@ func TestResetNoTTYAgentFixture2074(t *testing.T) {
 	if ready == "" {
 		t.Skip("subprocess fixture")
 	}
-	if err := os.WriteFile(ready, []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
+	if err := publishResetFixtureReady2074(ready, os.Getpid(), nil); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Minute)
+}
+
+// The hook holds the exact create-to-write window from Jerry F1 open.
+func TestResetFixtureReadyPublishesAtomically2098(t *testing.T) {
+	ready := filepath.Join(t.TempDir(), "ready")
+	exposed := false
+	err := publishResetFixtureReady2074(ready, 12345, func() {
+		_, err := os.Stat(ready)
+		exposed = !os.IsNotExist(err)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exposed {
+		t.Fatal("readiness is visible before its PID is complete")
+	}
+	got, err := os.ReadFile(ready)
+	if err != nil || string(got) != "12345" {
+		t.Fatalf("published readiness %q: %v", got, err)
+	}
+}
+func publishResetFixtureReady2074(ready string, pid int, beforeWrite func()) error {
+	f, err := os.OpenFile(ready, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	if beforeWrite != nil {
+		beforeWrite()
+	}
+	_, err = f.WriteString(strconv.Itoa(pid))
+	return err
 }
