@@ -54,12 +54,28 @@ func TestLockBindingUsesTheWritersLockFile(t *testing.T) {
 }
 
 func TestLockBindingWithNoBindingLocationHoldsNothing(t *testing.T) {
-	for name, d := range map[string]string{"plain dir, no cache": t.TempDir(), "no such dir": filepath.Join(t.TempDir(), "gone")} {
-		release, err := LockBinding(d, time.Second)
-		if err != nil || release == nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		release()
+	release, err := LockBinding(filepath.Join(t.TempDir(), "gone"), time.Second)
+	if err != nil || release == nil {
+		t.Fatalf("%v", err)
+	}
+	release()
+}
+
+// Blind P1: a plain directory with no cache yet still gets a real lock, so a
+// bind that creates the cache during the stop waits on it.
+func TestLockBindingCreatesAPlainDirectoryCacheAndLocksIt(t *testing.T) {
+	d := t.TempDir()
+	release, err := LockBinding(d, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	info, err := os.Stat(filepath.Join(d, plainCacheName))
+	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("the cache must exist, owner-only: %v %v", info, err)
+	}
+	if _, err := LockBinding(d, 50*time.Millisecond); !errors.Is(err, ErrBindingLockBusy) {
+		t.Fatalf("a bind racing the stop must find the lock held: %v", err)
 	}
 }
 

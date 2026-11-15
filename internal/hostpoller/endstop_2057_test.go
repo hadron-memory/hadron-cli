@@ -325,3 +325,37 @@ func TestRelaunchRecordsTheSessionTheResetNames(t *testing.T) {
 		t.Fatalf("recorded session %q, want %q", got, want)
 	}
 }
+
+// plainAgent implements only the original Agent interface: it cannot be
+// stopped under the binding lock.
+type plainAgent struct {
+	done       chan struct{}
+	terminated int
+}
+
+func (a *plainAgent) Done() <-chan struct{} { return a.done }
+func (a *plainAgent) ExitDetail() string    { return "" }
+func (a *plainAgent) PID() int              { return 4343 }
+func (a *plainAgent) Terminate() (bool, string) {
+	a.terminated++
+	return true, ""
+}
+
+// Blind P2: an agent that cannot be stopped under the lock is declined, never
+// stopped through an unguarded Terminate.
+func TestWorkerEndDeclinesAnAgentThatCannotStopUnderTheLock(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &plainAgent{done: make(chan struct{})}
+	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess1"
+	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminated != 0 {
+		t.Fatal("an agent without an authorized stop was terminated")
+	}
+	if r := only(t, srv); !strings.Contains(r.reason, "cannot be stopped under") {
+		t.Fatalf("%q", r.reason)
+	}
+}

@@ -23,10 +23,11 @@ var ErrBindingLockBusy = errors.New("the worktree's session binding is being wri
 // for longer than one read and one signal (hadron-cli#2068). The kernel
 // drops the lock when the descriptor closes, including on process death.
 //
-// A worktree with no binding location (a plain directory with no cache yet,
-// or no worktree at all) has nothing to lock: the release is a no-op and the
-// error is nil, as there is no writer to exclude. An unreadable .git pointer
-// is an error: nothing can be said about who writes there.
+// A path that is not a worktree or a plain directory at all has no binding
+// location and nothing to lock: the release is a no-op and the error nil. A
+// plain directory's cache is created if missing so the lock always exists. An
+// unreadable .git pointer is an error: nothing can be said about who writes
+// there.
 func LockBinding(worktree string, wait time.Duration) (release func(), err error) {
 	dir, state := bindingDir(worktree)
 	switch state {
@@ -35,9 +36,13 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 	case bindingDirUnusable:
 		return nil, errors.New("the worktree's .git pointer cannot be read")
 	case bindingDirPlain:
+		// A plain directory's cache is created by the first bind, under this
+		// same lock. Create it here, owner-only, as that bind does, so the
+		// lock exists for both sides before anyone reads or writes: a bind
+		// that races the stop then waits on this lock instead of slipping by.
 		dir = filepath.Join(worktree, plainCacheName)
-		if info, serr := os.Stat(dir); serr != nil || !info.IsDir() {
-			return func() {}, nil // no cache, no binding, nobody to exclude yet
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, fmt.Errorf("creating the session binding cache: %w", err)
 		}
 	}
 	path := filepath.Join(dir, bindingLockFileName)

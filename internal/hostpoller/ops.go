@@ -581,23 +581,25 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			p.log("stop-skipped", op.ID, op.Type, "", why)
 			return why
 		}
-		var stopped bool
-		var detail string
-		if tw, ok := agent.(interface {
+		tw, ok := agent.(interface {
 			TerminateWith(Authorize) (bool, string)
-		}); ok {
-			// Authorize before each signal, holding the binding lock through
-			// it, and never across the grace between SIGTERM and SIGKILL.
-			stopped, detail = tw.TerminateWith(p.authorizeStop(t, func() bool {
-				if ok, _ := identified(); !ok {
-					return false
-				}
-				ok, _ := allowed(t)
-				return ok
-			}, op))
-		} else {
-			stopped, detail = agent.Terminate()
+		})
+		if !ok {
+			// An agent that cannot be stopped under the binding lock is not
+			// stopped at all: no silent fall back to an unguarded Terminate.
+			why := "the launched agent cannot be stopped under the session-binding lock, so it was not touched"
+			p.log("stop-skipped", op.ID, op.Type, "", why)
+			return why
 		}
+		// Authorize before each signal, holding the binding lock through it,
+		// and never across the grace between SIGTERM and SIGKILL.
+		stopped, detail := tw.TerminateWith(p.authorizeStop(t, func() bool {
+			if ok, _ := identified(); !ok {
+				return false
+			}
+			ok, _ := allowed(t)
+			return ok
+		}, op))
 		said = fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
 		if !stopped {
 			said = fmt.Sprintf("the agent this host launched (pid %d) could not be confirmed stopped and its records are kept", agent.PID())

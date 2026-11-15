@@ -140,9 +140,6 @@ type execAgent struct {
 	pid    int
 	grace  time.Duration
 	cmd    *exec.Cmd
-	// authorize, set only for the span of a TerminateWith, is asked before
-	// each signal (under mu, as stop holds it).
-	authorize Authorize
 	// watcherDone is allocated at launch and closes exactly once — when
 	// the drain watcher exits, or when the waiter finishes without arming
 	// one — so tests can wait out a watcher before swapping the scan
@@ -456,7 +453,7 @@ func (a *execAgent) PID() int { return a.pid }
 // group, never a process that took a reused number (#1474). The platform
 // stop in detach_unix/detach_windows carries the per-OS details.
 func (a *execAgent) Terminate() (bool, string) {
-	return a.stop()
+	return a.stopAuthorized(nil)
 }
 
 // TerminateWith is Terminate with a check before every signal: authorize
@@ -465,15 +462,9 @@ func (a *execAgent) Terminate() (bool, string) {
 // refusal signals nothing further and reports the stop unconfirmed, with the
 // agent's records kept (hadron-cli#2068).
 func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
-	a.mu.Lock()
-	a.authorize = authorize
-	a.mu.Unlock()
-	defer func() {
-		a.mu.Lock()
-		a.authorize = nil
-		a.mu.Unlock()
-	}()
-	return a.stop()
+	// The authorization travels with the call, never in the agent's state, so
+	// concurrent stops cannot overwrite or clear each other's.
+	return a.stopAuthorized(authorize)
 }
 
 // Occupied looks for a process whose working directory is inside path, via
