@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -38,6 +39,17 @@ func regServer2091(t *testing.T, answers map[string]string) (*hostServer, func()
 		mu.Unlock()
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
+		}
+		// "STATUS <code> <body>" answers with that HTTP status and a plain body
+		// (a gateway/server failure, not a GraphQL answer).
+		if strings.HasPrefix(resp, "STATUS ") {
+			parts := strings.SplitN(resp, " ", 3)
+			code, _ := strconv.Atoi(parts[1])
+			w.WriteHeader(code)
+			if len(parts) == 3 {
+				_, _ = w.Write([]byte(parts[2]))
+			}
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(resp))
@@ -196,4 +208,41 @@ func TestRegisterFallbackEdgeCases(t *testing.T) {
 			t.Fatalf("calls = %v, want %s (nothing pinned by the failed fallback; pinned after the successful one)", ops(), want)
 		}
 	})
+}
+
+// cli#2104 P3 3: a transport or server failure is not schema skew. It is the
+// registration's own failure: no fallback document, nothing pinned.
+func TestRegisterDoesNotFallBackOnATransportOrServerFailure(t *testing.T) {
+	for name, answer := range map[string]string{
+		"gateway 502":     "STATUS 502 Bad Gateway",
+		"server 500":      "STATUS 500 internal error",
+		"unavailable 503": "STATUS 503 ",
+		"non-JSON 200":    "<html>not graphql</html>",
+	} {
+		s, ops := regServer2091(t, map[string]string{"RegisterHostWithRefused": answer})
+		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+			t.Errorf("%s: a failed registration is an error", name)
+		}
+		if strings.Join(ops(), ",") != "RegisterHostWithRefused" {
+			t.Errorf("%s: calls = %v, want only the extended document", name, ops())
+		}
+		if s.noRefusedAt.Load() != 0 {
+			t.Errorf("%s: a transport failure must pin nothing", name)
+		}
+	}
+}
+
+// Skew that names another field still takes the plain document, and a
+// registration failure on THAT document is returned and pins nothing.
+func TestRegisterPinsNothingWhenThePlainDocumentFailsWithAServerError(t *testing.T) {
+	s, ops := regServer2091(t, map[string]string{
+		"RegisterHostWithRefused": skew2091,
+		"RegisterHost":            "STATUS 502 Bad Gateway",
+	})
+	if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+		t.Fatal("a failed plain registration is an error")
+	}
+	if strings.Join(ops(), ",") != "RegisterHostWithRefused,RegisterHost" || s.noRefusedAt.Load() != 0 {
+		t.Fatalf("calls = %v pinned=%d", ops(), s.noRefusedAt.Load())
+	}
 }
