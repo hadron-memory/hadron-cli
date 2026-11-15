@@ -508,7 +508,7 @@ func groupGone(pgid int) bool {
 // the leader is live and aborts to unconfirmed at the first sight of the
 // exit, keeping every record: the reuse residual documented in host_run's
 // help. Windows gates on Done instead (detach_windows.go).
-func (a *execAgent) stop() (bool, string) {
+func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
 	if a.confirmed.Load() {
 		return true, "" // a confirmed stop stays confirmed; a repeat signals nothing
 	}
@@ -531,7 +531,7 @@ func (a *execAgent) stop() (bool, string) {
 		}
 		return false, fmt.Sprintf("the launch (pid %d) could not be tracked through its exit; its stop is left unconfirmed and its records kept", a.pid)
 	}
-	stopped, detail := a.terminateGroup()
+	stopped, detail := a.terminateGroup(authorize)
 	if stopped {
 		a.confirmed.Store(true)
 		if a.exited.Load() {
@@ -571,7 +571,7 @@ func (a *execAgent) stopAuthorityGone() bool {
 // longer own (#1474). SIGTERM, a bounded grace, SIGKILL, then a short
 // fixed wait; stopped is false whenever the group could not be confirmed
 // empty. Called with a.mu held.
-func (a *execAgent) terminateGroup() (stopped bool, detail string) {
+func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail string) {
 	pid := a.pid
 	if a.drained() {
 		// The group is already gone: nothing was running, nothing was
@@ -585,7 +585,9 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	if a.stopAuthorityGone() {
 		return false, a.unconfirmedDetail()
 	}
-	if err := signalGroup(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := a.signalAuthorized(authorize, pid, syscall.SIGTERM); errors.Is(err, errStopDeclined) {
+		return false, declinedDetail(pid)
+	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
 	}
 	if a.drainedOrAuthorityLost(a.grace) {
@@ -597,7 +599,9 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	if a.stopAuthorityGone() {
 		return false, a.unconfirmedDetail()
 	}
-	if err := signalGroup(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := a.signalAuthorized(authorize, pid, syscall.SIGKILL); errors.Is(err, errStopDeclined) {
+		return false, declinedDetail(pid)
+	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, a.grace, err)
 	}
 	if a.drainedOrAuthorityLost(postKillWait) {
@@ -607,6 +611,21 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
 	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+}
+
+// signalAuthorized sends one signal to the launch's group, first asking the
+// authorization TerminateWith installed (none: a plain Terminate) and holding
+// what it grants only until the signal is sent. Called with a.mu held.
+func (a *execAgent) signalAuthorized(authorize Authorize, pid int, sig syscall.Signal) error {
+	if authorize == nil {
+		return signalGroup(pid, sig)
+	}
+	release, ok := authorize()
+	if !ok {
+		return errStopDeclined
+	}
+	defer release()
+	return signalGroup(pid, sig)
 }
 
 // unconfirmedDetail is the no-hold launch's abort wording: records kept,

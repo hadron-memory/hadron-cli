@@ -1,6 +1,7 @@
 package hostpoller
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -275,7 +276,7 @@ func TestWorkerEndDeclinesALaunchedAgentWhenASessionIsUnknown(t *testing.T) {
 		if agent.terminations() != 0 {
 			t.Errorf("%s: an agent that could not be identified was stopped", name)
 		}
-		if r := only(t, srv); !strings.Contains(r.reason, "not known") {
+		if r := only(t, srv); !strings.Contains(r.reason, "could not be identified") {
 			t.Errorf("%s: %q", name, r.reason)
 		}
 	}
@@ -306,5 +307,97 @@ func TestWorkerEndUsesTheSessionTheStartBound(t *testing.T) {
 		if got := host.agent.terminations(); got != tc.want {
 			t.Errorf("%s: terminations = %d, want %d", name, got, tc.want)
 		}
+	}
+}
+
+// #2070: the context-reset relaunch records the session the reset names (a
+// reset keeps the session), so a stopping end can identify that agent.
+func TestRelaunchRecordsTheSessionTheResetNames(t *testing.T) {
+	x, _ := relaunchFixture(t)
+	op := resetOp()
+	if _, code, detail := x.p.relaunchAgent(context.Background(), op, irisCfg(x), "repo/iris", oldIdentity, "hrn:node:acme.com:iris:sheds:auto-1"); code != "" {
+		t.Fatalf("%s: %s", code, detail)
+	}
+	x.p.mu.Lock()
+	got := x.p.agentSessions["id-iris"]
+	x.p.mu.Unlock()
+	if want := argString(op, "sessionId"); want == "" || got != want {
+		t.Fatalf("recorded session %q, want %q", got, want)
+	}
+}
+
+// plainAgent implements only the original Agent interface: it cannot be
+// stopped under the binding lock.
+type plainAgent struct {
+	done       chan struct{}
+	terminated int
+}
+
+func (a *plainAgent) Done() <-chan struct{} { return a.done }
+func (a *plainAgent) ExitDetail() string    { return "" }
+func (a *plainAgent) PID() int              { return 4343 }
+func (a *plainAgent) Terminate() (bool, string) {
+	a.terminated++
+	return true, ""
+}
+
+// Blind P2: an agent that cannot be stopped under the lock is declined, never
+// stopped through an unguarded Terminate.
+func TestWorkerEndDeclinesAnAgentThatCannotStopUnderTheLock(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &plainAgent{done: make(chan struct{})}
+	p.trackAgent("id-iris", "repo/iris", agent)
+	p.agentSessions["id-iris"] = "sess1"
+	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminated != 0 {
+		t.Fatal("an agent without an authorized stop was terminated")
+	}
+	if r := only(t, srv); !strings.Contains(r.reason, "cannot be stopped under") {
+		t.Fatalf("%q", r.reason)
+	}
+}
+
+// Jill's local P2 on 7a7aa948: a run that exited on its own leaves its session
+// recorded, and the next launch must not inherit it.
+func TestTrackAgentDoesNotInheritAnEarlierRunsSession(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	first := &fakeAgent{done: make(chan struct{}), pid: 4100}
+	p.trackAgent("id-iris", "repo/iris", first)
+	p.agentSessions["id-iris"] = "sess-old"
+	close(first.done) // exited on its own
+	second := &fakeAgent{done: make(chan struct{}), pid: 4200}
+	p.trackAgent("id-iris", "repo/iris", second) // a launch whose session is not recorded
+	p.bound = func(string) delivery.Binding { return delivery.Binding{WorkerID: "id-iris", SessionID: "sess1"} }
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if second.terminations() != 1 {
+		t.Fatalf("the second run was declined by the first run's session (terminations=%d): identification by binding never ran", second.terminations())
+	}
+	if _, left := p.agentSessions["id-iris"]; left {
+		t.Error("a stale session survived the new launch")
+	}
+}
+
+// §10 F2: an unrecorded launch is identified again UNDER the lock, immediately
+// before each signal: a binding that empties after the first check declines.
+func TestWorkerEndRechecksAnUnrecordedLaunchUnderTheLock(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	p.trackAgent("id-iris", "repo/iris", agent) // no recorded session
+	b := delivery.Binding{WorkerID: "id-iris", SessionID: "sess1"}
+	p.bound = func(string) delivery.Binding { return b }
+	p.lockBinding = func(string, time.Duration) (func(), error) {
+		b = delivery.Binding{} // the binding goes empty before the signal
+		return func() {}, nil
+	}
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminations() != 0 {
+		t.Fatal("an unrecorded launch was stopped after its binding stopped identifying it")
 	}
 }
