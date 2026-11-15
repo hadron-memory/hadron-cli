@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -387,17 +388,24 @@ func (p *Poller) reportRefusalsUnknown() {
 // registration or repeating itself every poll: one event per refused worker
 // when the set changes (hadron-cli#2091).
 func (p *Poller) reportRefused(refused []RefusedWorker) {
+	// Each pair is quoted, so no two different sets share a key (a worker
+	// containing a space cannot pose as a different code and worker).
 	keys := make([]string, 0, len(refused))
 	for _, r := range refused {
-		keys = append(keys, r.Code+" "+r.Worker)
+		keys = append(keys, strconv.Quote(r.Code)+":"+strconv.Quote(r.Worker))
 	}
 	sort.Strings(keys)
-	key := strings.Join(keys, "\n")
+	key := strings.Join(keys, ",")
 	p.mu.Lock()
-	changed := key != p.lastRefused
+	previous := p.lastRefused
+	changed := key != previous
 	p.lastRefused = key
 	p.mu.Unlock()
 	if !changed {
+		return
+	}
+	if len(refused) == 0 && previous != "" {
+		p.log("worker-refusals-cleared", "", "", "", "no worker is left out of this host's registration now")
 		return
 	}
 	for _, r := range refused {
