@@ -40,6 +40,8 @@ type churnProc struct {
 	// changes group between passes).
 	dyn  func(pass, pid int) (churnStat, bool)
 	gone func(pass, pid int) bool
+	// lastPid models the kernel's pid counter per pass (default: a steady, rising counter).
+	lastPid func(pass int) (int, error)
 	// unlistedFrom: a pid stops being LISTED from this pass on (reaped for good).
 	unlistedFrom map[int]int
 	pass         int
@@ -48,8 +50,15 @@ type churnProc struct {
 
 func (f *churnProc) install(t *testing.T) {
 	t.Helper()
-	oldDir, oldStat := readProcDir, readGroupStatFn
-	t.Cleanup(func() { readProcDir, readGroupStatFn = oldDir, oldStat })
+	oldDir, oldStat, oldLast := readProcDir, readGroupStatFn, readLastPid
+	t.Cleanup(func() { readProcDir, readGroupStatFn, readLastPid = oldDir, oldStat, oldLast })
+	readLastPid = func() (int, error) {
+		// Read at the START of a pass, before its listing: the pass about to run.
+		if f.lastPid != nil {
+			return f.lastPid(f.lists)
+		}
+		return 100000 + f.lists, nil
+	}
 	readProcDir = func(string) ([]os.DirEntry, error) {
 		f.lists++
 		f.pass = f.lists - 1
@@ -303,5 +312,102 @@ func TestALongRunOfVoidPassesStillSettlesOnTheFirstCleanPass2042(t *testing.T) {
 	}
 	if maxGroupScanPasses <= voidPasses {
 		t.Fatalf("the bound (%d) must exceed a realistic run of void passes (%d)", maxGroupScanPasses, voidPasses)
+	}
+}
+
+// Jibril P1/P2: the pid COUNTER wrapping between passes means a cached pid
+// number may now name another process. Pid 150 is an other-session outsider in
+// pass 0; the counter wraps; 150 is reused by a process that joins the group,
+// forks a runnable child (listed only from pass 2) and dies before its stat read.
+// The cached proof must not suppress the void: the scan must not answer drained
+// before the child is listed.
+func TestAWrappedPidCounterDistrustsEveryCachedOutsider2042(t *testing.T) {
+	f := churnHost(1)
+	f.pids = append(f.pids, 150)
+	f.stats[150] = churnStat{churnOther, churnOther, 'S', 1} // another session, alive in pass 0
+	f.stats[301] = churnStat{churnPgid, churnPgid, 'S', 1}   // the late child
+	f.gone = func(pass, pid int) bool { return pid == 150 && pass >= 1 }
+	f.lastPid = func(pass int) (int, error) {
+		if pass == 0 {
+			return 4000000, nil
+		}
+		return 300 + pass, nil // wrapped: numbers are being handed out again from the bottom
+	}
+	f.install(t)
+	list := readProcDir
+	readProcDir = func(path string) ([]os.DirEntry, error) {
+		es, err := list(path)
+		if f.pass >= 2 {
+			es = append(es, churnEntry{"301"})
+		}
+		return es, err
+	}
+	if !groupHasOtherMembers(churnPgid, churnPgid) {
+		t.Fatalf("answered drained after %d listings although the pid counter wrapped and a cached outsider vanished", f.lists)
+	}
+}
+
+// An unreadable pid counter proves nothing: no cached outsider is trusted, so
+// churn voids every pass and the scan stays conservative.
+func TestAnUnreadablePidCounterTrustsNoCachedOutsider2042(t *testing.T) {
+	f := churnHost(40)
+	f.gone = func(pass, pid int) bool {
+		if pid < 200 {
+			return false
+		}
+		return ((pid-200)-3*pass%40+40)%40 < 3
+	}
+	f.lastPid = func(int) (int, error) { return 0, fs.ErrPermission }
+	f.install(t)
+	if !groupHasOtherMembers(churnPgid, churnPgid) {
+		t.Fatal("with no pid counter nothing is proven: the scan must stay conservative")
+	}
+	if f.lists != maxGroupScanPasses {
+		t.Fatalf("every pass must be void, used %d of %d", f.lists, maxGroupScanPasses)
+	}
+}
+
+// A counter that cannot be read in ONE pass leaves that pass without a baseline: the
+// proofs cached before it (error pass) and during it (no reading to compare
+// against) must both be dropped, so the next pass trusts nothing it carried over.
+func TestAPassWithNoPidCounterReadingDropsTheProofsAroundIt2042(t *testing.T) {
+	for name, tc := range map[string]struct {
+		errPass int
+		// when pid 150 first exists and when it vanishes
+		appears, vanishes int
+	}{
+		"error in the pass that caches": {errPass: 1, appears: 1, vanishes: 2},
+		"error right before the vanish": {errPass: 1, appears: 0, vanishes: 1},
+	} {
+		f := churnHost(1)
+		f.pids = append(f.pids, 150)
+		f.stats[150] = churnStat{churnOther, churnOther, 'S', 1}
+		f.stats[301] = churnStat{churnPgid, churnPgid, 'S', 1}
+		f.gone = func(pass, pid int) bool {
+			return pid == 150 && (pass < tc.appears || pass >= tc.vanishes)
+		}
+		f.lastPid = func(pass int) (int, error) {
+			if pass == tc.errPass {
+				return 0, fs.ErrPermission
+			}
+			return 1000 + pass, nil
+		}
+		f.install(t)
+		list := readProcDir
+		readProcDir = func(path string) ([]os.DirEntry, error) {
+			es, err := list(path)
+			if f.pass < tc.vanishes {
+				// a fresh never-readable pid keeps these passes void, so a LATER
+				// pass is the one that would lean on a cached proof
+				es = append(es, churnEntry{strconv.Itoa(9000 + f.pass)})
+			}
+			if f.pass >= tc.vanishes+1 {
+				es = append(es, churnEntry{"301"}) // first listed after 150 died
+			}
+			return es, err
+		}
+		if !groupHasOtherMembers(churnPgid, churnPgid) {
+			t.Errorf("%s: answered drained after %d listings before the late child was listed", name, f.lists)
+		}
 	}
 }

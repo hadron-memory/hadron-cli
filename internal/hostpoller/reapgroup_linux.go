@@ -175,7 +175,22 @@ var readGroupStatFn = readGroupStatSession
 func groupHasOtherMembers(pgid, leader int) bool {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
 	nonMembers := map[int]bool{}
+	lastPid := -1
 	for pass := 0; ; pass++ {
+		// A cached "outside the group" proof names a pid NUMBER. It can only name
+		// another process if the kernel handed that number out again, and it hands
+		// them out in order, so that needs the counter to wrap past it. If the
+		// counter moved backwards between passes (or cannot be read), no cached
+		// proof is trusted any more (#2042, the pid-reuse case).
+		cur, perr := readLastPid()
+		if perr != nil || (lastPid >= 0 && cur < lastPid) || (pass > 0 && lastPid < 0) {
+			clear(nonMembers)
+		}
+		if perr != nil {
+			lastPid = -1
+		} else {
+			lastPid = cur
+		}
 		found, void, zs := scanGroupOnce(pgid, leader, prevZ, nonMembers)
 		if !void {
 			return found
@@ -185,6 +200,21 @@ func groupHasOtherMembers(pgid, leader int) bool {
 		}
 		prevZ = zs
 	}
+}
+
+// readLastPid is the last pid the kernel allocated in this pid namespace (the
+// fifth field of /proc/loadavg), as a package var so a test can model the
+// counter wrapping.
+var readLastPid = func() (int, error) {
+	b, err := os.ReadFile("/proc/loadavg")
+	if err != nil {
+		return 0, err
+	}
+	f := strings.Fields(string(b))
+	if len(f) < 5 {
+		return 0, fmt.Errorf("malformed /proc/loadavg")
+	}
+	return strconv.Atoi(f[4])
 }
 
 // scanGroupOnce is one listing of /proc: found reports whether a running
