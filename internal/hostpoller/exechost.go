@@ -91,7 +91,9 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 	// Not a worktree root (a plain directory, or a subdirectory, inside some
 	// enclosing repository): that repository's config is not this worker's
 	// business, so nothing about it is read or refused.
-	if !isWorktreeRoot(ctx, path) {
+	if root, err := isWorktreeRoot(ctx, path); err != nil {
+		return st, err // could not tell: refused, not "not a worktree"
+	} else if !root {
 		return st, nil
 	}
 	top, err := git(ctx, path, "rev-parse", "--show-toplevel")

@@ -3,10 +3,12 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -869,27 +871,49 @@ func TestResetWorktreeRefusesADirectoryWhoseGitEntryCannotBeExamined(t *testing.
 		t.Fatal(err)
 	}
 	defer func() { _ = os.Chmod(clone, 0o755) }()
-	if !isWorktreeRoot(context.Background(), clone) {
-		t.Fatal("an unexaminable .git entry was taken for 'no tree of its own'")
+	if _, err := isWorktreeRoot(context.Background(), clone); err == nil {
+		t.Fatal("an unexaminable .git entry was taken for a definite answer")
 	}
 	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err == nil && (out.Reset || out.Code == "") {
-		t.Fatalf("a directory that could not be examined was taken for a worker without Git: out=%+v", out)
+	if err != nil || out.Reset || out.Code != CodeResetFailed {
+		t.Fatalf("a directory that could not be examined must refuse, not start as a worker without Git: out=%+v err=%v", out, err)
 	}
 }
 
 func TestIsWorktreeRootIsFalseOnlyForADefiniteMissingEntry(t *testing.T) {
+	ctx := context.Background()
 	plain := t.TempDir()
-	if isWorktreeRoot(context.Background(), plain) {
-		t.Fatal("a directory with no .git entry is not a root")
+	if root, err := isWorktreeRoot(ctx, plain); root || err != nil {
+		t.Fatalf("a directory with no .git entry is a definite no tree: root=%v err=%v", root, err)
 	}
 	file := filepath.Join(t.TempDir(), "file")
 	_ = os.WriteFile(file, []byte("x"), 0o644)
-	if isWorktreeRoot(context.Background(), file) {
-		t.Fatal("a path whose parent is a file (ENOTDIR) has no entry")
+	if root, err := isWorktreeRoot(ctx, file); root || err != nil {
+		t.Fatalf("a path whose parent is a file (ENOTDIR) has no entry: root=%v err=%v", root, err)
 	}
 	_, clone := resetRepo(t)
-	if !isWorktreeRoot(context.Background(), clone) {
-		t.Fatal("a repository with a .git entry is a root")
+	if root, err := isWorktreeRoot(ctx, clone); !root || err != nil {
+		t.Fatalf("a repository with a .git entry is a root: root=%v err=%v", root, err)
 	}
+}
+
+// Wolfgang #108499: an Lstat error other than not-found REFUSES, with the error:
+// pinned with an injected one, for the reset and for Inspect.
+func TestResetWorktreeRefusesWithTheErrorWhenTheGitEntryLookupFails(t *testing.T) {
+	_, clone := resetRepo(t)
+	for name, injected := range map[string]error{
+		"permission": &fs.PathError{Op: "lstat", Path: "x/.git", Err: syscall.EACCES},
+		"I/O":        &fs.PathError{Op: "lstat", Path: "x/.git", Err: syscall.EIO},
+	} {
+		lstatGit = func(string) (fs.FileInfo, error) { return nil, injected }
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil || out.Reset || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "could not examine") || !strings.Contains(out.Detail, injected.(*fs.PathError).Err.Error()) {
+			t.Errorf("%s: the reset must refuse with the error: out=%+v err=%v", name, out, err)
+		}
+		if _, err := (ExecHost{}).Inspect(context.Background(), clone); err == nil || !strings.Contains(err.Error(), "could not examine") {
+			t.Errorf("%s: Inspect must return the error, not 'not a worktree': %v", name, err)
+		}
+		lstatGit = os.Lstat
+	}
+	lstatGit = os.Lstat
 }

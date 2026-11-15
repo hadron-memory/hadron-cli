@@ -61,7 +61,9 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	// inside some enclosing repository is "inside a work tree" to git, and a reset
 	// there would move the ENCLOSING repository: such a worker has no tree of its
 	// own, so it is treated as a worker without Git (no reset, nothing refused).
-	if !isWorktreeRoot(ctx, dir) {
+	if root, err := isWorktreeRoot(ctx, dir); err != nil {
+		return refuse(CodeResetFailed, err.Error()+"; nothing was moved"), nil
+	} else if !root {
 		return ResetOutcome{}, nil
 	}
 	// The worktree's git config is untrusted: any key outside the allowlist
@@ -306,11 +308,18 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 // repository's own core.worktree: a tree whose config redirects its work tree
 // elsewhere would read as "not a root" and slip past silently; with the entry
 // present it goes through the config allowlist, which refuses core.worktree.
-func isWorktreeRoot(_ context.Context, dir string) bool {
-	_, err := os.Lstat(filepath.Join(dir, ".git"))
-	// Only a definite "there is no such entry" means no tree of its own. A
-	// permission or I/O failure says nothing, so the directory goes on to the
-	// config gate (whose read then fails and refuses) instead of being taken
-	// for a worker without Git.
-	return err == nil || (!errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR))
+func isWorktreeRoot(_ context.Context, dir string) (bool, error) {
+	_, err := lstatGit(filepath.Join(dir, ".git"))
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR):
+		return false, nil // a definite "no such entry": no tree of its own
+	}
+	// Anything else (a permission or I/O failure) says nothing about whether
+	// there is a tree: it REFUSES, with the error, and is never a worker without Git.
+	return false, fmt.Errorf("could not examine %s: %w", filepath.Join(dir, ".git"), err)
 }
+
+// lstatGit is the metadata lookup behind isWorktreeRoot; a test injects errors.
+var lstatGit = os.Lstat
