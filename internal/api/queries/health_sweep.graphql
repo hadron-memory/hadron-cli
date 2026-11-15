@@ -5,6 +5,8 @@
 # @genqlient(for: "WorkerTerminalReportInput.lastTurnAt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.attempt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.repair", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.contextTokens", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.contextMeasuredAt", omitempty: true)
 mutation HealthSweepSetTerminals(
   $input: SetHostWorkerTerminalsInput!
 ) {

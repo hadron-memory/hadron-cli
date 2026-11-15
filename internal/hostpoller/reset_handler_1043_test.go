@@ -94,7 +94,7 @@ func newResetFixture(t *testing.T) *resetFixture {
 			x.gitDir = dir
 			return x.git, x.gitErr
 		},
-		Idle: func(ctx context.Context, ref string) error { return x.idle(ctx, ref) },
+		Idle: func(ctx context.Context, target ResetIdleTarget) error { return x.idle(ctx, target.WorkerRef) },
 	})
 	// Tracked with resets enabled, as a launch would be: its identity is
 	// observed then. The count starts after it.
