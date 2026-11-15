@@ -806,15 +806,18 @@ func contains(list []string, s string) bool {
 
 // bindingLockWait bounds how long a stop waits for a binding writer: a bind
 // holds the lock for one write, so this is generous, and a writer is never made
-// to wait on the stopper longer than one read and one signal (#2068).
+// to wait on Unix beyond one read and signal (#2068). On Windows the
+// authority spans synchronous taskkill; this constant bounds acquisition only.
 const bindingLockWait = 2 * time.Second
 
 // authorizeStop is the Authorize for one worktree: before each signal it takes
 // the worktree's session-binding lock (the lock `team session start` holds
 // while it writes), re-reads the binding under it through check, and returns
-// the release the caller invokes right after the signal. A lock that cannot be
+// the release the caller invokes after the action (a Unix signal syscall or
+// the synchronous Windows taskkill runner). A lock that cannot be
 // taken within bindingLockWait declines the stop, and so does a check that no
-// longer passes; both are logged. Nothing here holds the lock across a wait.
+// longer passes; both are logged. Unix releases before grace waits; Windows
+// keeps authority until its taskkill runner returns, including cancellation.
 func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Authorize {
 	return func() (func(), bool) {
 		release, err := p.lockBinding(p.cfg.WorktreePath(token), bindingLockWait)

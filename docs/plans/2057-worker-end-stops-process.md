@@ -59,10 +59,13 @@ the server ending a session whose process was stopped (S2), a spec change
 - **Lock (#2068).** `delivery.LockBinding` takes the same `hadron-team-session.lock`
   `session start` writes under (flock / LockFileEx, a bounded try-lock, 2 s). Every
   signal is preceded by `Authorize`: take the lock, re-read the binding under it,
-  signal, release at once. Never held across the SIGTERM grace or any wait. For a
-  launched agent, `execAgent.TerminateWith` asks before SIGTERM and again before
+  on Unix signal and release at once, before the SIGTERM grace or any wait.
+  On Windows the authorization instead spans the synchronous taskkill command,
+  including waiting for it to return (bounded cancellation described below). On Unix
+  `execAgent.TerminateWith` asks before SIGTERM and again before
   SIGKILL. A lock that cannot be taken declines the stop and the report says so.
-  A plain directory with no binding cache has nothing to lock.
+  A plain directory without a binding cache creates and locks that cache before
+  checking the binding.
 - **Session identity (#2070).** The reset relaunch records the session the reset names;
   a launch the server had already finished has none recorded, so only a binding that
   names this worker AND the session being ended identifies it (an empty binding declines).
@@ -107,8 +110,37 @@ the Windows adapter has a separate test, cross-compiled but not run here.
 This does not retain a process handle or establish identity atomically with
 taskkill: the remaining final-check-to-taskkill PID-reuse window and descendant
 tracking after the leader exits still need a handle/Job Object design. The
-binding lock continues to span synchronous taskkill; its duration is the
-separate follow-up #2087. No Windows runtime or PID-reuse reproduction is claimed.
+binding lock continues to span synchronous taskkill, as described for #2087 below.
+No Windows runtime or PID-reuse reproduction is claimed.
+
+## #2087 and #2106: Windows command lifetime and test coverage
+Keep binding authorization until the taskkill runner returns. Releasing before
+starting it would reopen the binding-versus-kill race: a new session could bind
+while the old session's numeric taskkill is still about to act. Unix's short
+signal syscall followed by a separate grace wait is a different boundary.
+
+Taskkill receives a cancellation deadline of 10 seconds. The Windows command
+uses CommandContext to terminate the helper on cancellation, with a 1-second
+WaitDelay for retained output pipes. These request cancellation and limit pipe
+draining; they are not a hard real-time guarantee about OS scheduling/reaping.
+Authority is NOT released on a timer or by an abandoned runner goroutine: the
+runner must return first. A deadline makes the stop unconfirmed and keeps its
+records, even if the runner returns a successful exit status afterward. Taskkill
+may already have killed some targets when cancellation happens; the timeout
+report does not claim that nothing was touched. Live success and ordinary
+failure still propagate as before; refusal still invokes no runner.
+
+The shared stop decision is named stopTreeAuthorized. One helper describes an
+exit observed after authorization without reading the waiter's mutex-protected
+exit status: the waiter can be blocked on that mutex after publishing exited.
+The pre-existing already-Done path deliberately remains silent success. Portable
+tests cover nil authorization and success/failure propagation, a blocking runner
+through deadline and return, and the REAL no-hold waiter using a private child
+process while its exit publication is held before Done. Windows adapter tests
+pin both exit states and an injected blocking taskkill with its deadline and
+held/released authorization. These adapter tests are cross-compiled here; no
+Windows runtime or measured taskkill latency is claimed. The final-check-to-
+taskkill numeric-PID race still requires a held-handle/Job Object design.
 
 ## C2b: workspace reset inside worker.start (G6)
 Behind `reset_on_start` (default off; transitional like `stop_on_end`, one lookup `resetsOnStart` that
@@ -220,3 +252,13 @@ repository's own `core.worktree`: a root whose config redirects its work tree el
 past silently. With the entry present the tree goes through the config allowlist, which refuses `core.worktree` by name;
 a plain directory or a subdirectory of a work tree has no entry of its own and stays a worker without Git. A root whose
 repository cannot be read fails closed (the allowlist read refuses), never a worker without Git.
+
+### A broken .git is not a worker without Git (hadron-cli#2119)
+The root check decides by the directory's own `.git` entry; an entry that is there must also work. An EMPTY `.git`
+directory (no HEAD, config or objects) is skipped by git's repository discovery: standalone, git answered "not a
+repository" and the reset took the no-Git branch (the agent launched into an un-reset tree); inside an enclosing
+repository, git resolved the OUTER one and the reset fetched and checked out that (QA's reproduction over verified
+HTTPS). Now, after the config allowlist, `ownRepoProblem` requires `rev-parse --show-toplevel` to succeed and to equal
+the directory (symlinks resolved); otherwise `ResetWorktree` refuses `WORKTREE_RESET_FAILED` and `Inspect` returns
+`BrokenRepoError`, never "not a worktree". A plain child with no `.git` of its own is still a worker without Git; valid
+roots, linked worktrees and symlinked roots are unchanged; an invalid `.git` FILE already refused.

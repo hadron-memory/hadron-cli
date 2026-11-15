@@ -55605,7 +55605,7 @@ func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResu
 // HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
 // The GraphQL type's documentation follows.
 //
-// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK or REPAIR_ATTEMPT_INVALID.
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
 type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
 	// The worker as the host named it.
 	Worker string `json:"worker"`
@@ -56174,9 +56174,11 @@ func (v *HostDesiredStateHostDesiredStateWorkersWorkerDesiredState) GetWorktrees
 // HostDesiredStateResponse is returned by HostDesiredState on success.
 type HostDesiredStateResponse struct {
 	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
-	// host's sweep reads this once per pass and compares it with what it sees. A host's workers are the ones its
-	// registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01), live or lapsed, with the family and worktrees it
-	// registered; reading the platform's own assignments (hostSetup, #4222) when hostSetupSource is server is a follow-up. Rows are ordered by worker name.
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
 	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
 	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
 	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
@@ -112568,17 +112570,62 @@ const (
 	WorkerTerminalRepairNoSnapshot WorkerTerminalRepair = "NO_SNAPSHOT"
 	// The host relaunched the worker; carries attempt.
 	WorkerTerminalRepairRelaunched WorkerTerminalRepair = "RELAUNCHED"
+	// #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
+	// (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT) and attempt.
+	WorkerTerminalRepairRelaunchFailed WorkerTerminalRepair = "RELAUNCH_FAILED"
+	// #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
+	// refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
+	WorkerTerminalRepairRelaunchRefused WorkerTerminalRepair = "RELAUNCH_REFUSED"
 )
 
 var AllWorkerTerminalRepair = []WorkerTerminalRepair{
 	WorkerTerminalRepairCapReached,
 	WorkerTerminalRepairNoSnapshot,
 	WorkerTerminalRepairRelaunched,
+	WorkerTerminalRepairRelaunchFailed,
+	WorkerTerminalRepairRelaunchRefused,
+}
+
+// #4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
+// the last three with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+type WorkerTerminalRepairReason string
+
+const (
+	// Another agent is already running in the worker's place.
+	WorkerTerminalRepairReasonDuplicateAgent WorkerTerminalRepairReason = "DUPLICATE_AGENT"
+	// The worker is halted.
+	WorkerTerminalRepairReasonHalted WorkerTerminalRepairReason = "HALTED"
+	// The worker's identity does not match its launch snapshot.
+	WorkerTerminalRepairReasonIdentityMismatch WorkerTerminalRepairReason = "IDENTITY_MISMATCH"
+	// The launcher exited non-zero.
+	WorkerTerminalRepairReasonLaunchExitNonzero WorkerTerminalRepairReason = "LAUNCH_EXIT_NONZERO"
+	// The worker is marked leave-alone.
+	WorkerTerminalRepairReasonLeaveAlone WorkerTerminalRepairReason = "LEAVE_ALONE"
+	// The worker has no launcher profile.
+	WorkerTerminalRepairReasonNoLauncherProfile WorkerTerminalRepairReason = "NO_LAUNCHER_PROFILE"
+	// The worker is paused.
+	WorkerTerminalRepairReasonPaused WorkerTerminalRepairReason = "PAUSED"
+	// Orca refused to create the terminal.
+	WorkerTerminalRepairReasonTerminalCreateRefused WorkerTerminalRepairReason = "TERMINAL_CREATE_REFUSED"
+	// The relaunch timed out.
+	WorkerTerminalRepairReasonTimeout WorkerTerminalRepairReason = "TIMEOUT"
+)
+
+var AllWorkerTerminalRepairReason = []WorkerTerminalRepairReason{
+	WorkerTerminalRepairReasonDuplicateAgent,
+	WorkerTerminalRepairReasonHalted,
+	WorkerTerminalRepairReasonIdentityMismatch,
+	WorkerTerminalRepairReasonLaunchExitNonzero,
+	WorkerTerminalRepairReasonLeaveAlone,
+	WorkerTerminalRepairReasonNoLauncherProfile,
+	WorkerTerminalRepairReasonPaused,
+	WorkerTerminalRepairReasonTerminalCreateRefused,
+	WorkerTerminalRepairReasonTimeout,
 }
 
 // #2771 — one worker's terminal report. There is no free-text field.
 type WorkerTerminalReportInput struct {
-	// The relaunch's attempt number, at least 1: required with RELAUNCHED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
+	// The relaunch's attempt number, at least 1: required with RELAUNCHED, RELAUNCH_REFUSED and RELAUNCH_FAILED, refused (REPAIR_ATTEMPT_INVALID) otherwise.
 	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
@@ -112595,7 +112642,10 @@ type WorkerTerminalReportInput struct {
 	// #4041 (V82) — the outcome of the host's repair of a dark worker. Valid only with status dark; on a busy, idle or
 	// locked report that worker's report is refused (REPAIR_NOT_DARK) and the rest of the batch is stored.
 	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
-	Status WorkerTerminalState   `json:"status"`
+	// #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
+	// outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
+	RepairReason *WorkerTerminalRepairReason `json:"repairReason"`
+	Status       WorkerTerminalState         `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
 }
@@ -112623,6 +112673,11 @@ func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v
 
 // GetRepair returns WorkerTerminalReportInput.Repair, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetRepair() *WorkerTerminalRepair { return v.Repair }
+
+// GetRepairReason returns WorkerTerminalReportInput.RepairReason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetRepairReason() *WorkerTerminalRepairReason {
+	return v.RepairReason
+}
 
 // GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }

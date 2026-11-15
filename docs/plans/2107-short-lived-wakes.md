@@ -22,9 +22,9 @@ renders that answer without adding lifecycle checks or a wake selection.
 
 ## Provider pin
 
-The schema and generated client are exported from the detached S11 head
-`6d0c10a701329f05d2836f7d62417aba8260d421` of hadron-server#4254. Re-pin at its
-merge SHA before final readiness; #2107 depends on that merge. The snapshot
+The schema and generated client are exported from the detached S11 merge
+`2c5a65f8b3f4a44e2b640a66ca48426b958db134` of hadron-server#4254. This is the
+merged provider contract required by #2107. The snapshot
 also carries S11's provider-side enum/documentation changes, including the
 removal of `WAITING_ON_CHILDREN` from `DesiredStateReason`; consumers decode
 server enums as strings, and no query shape or DTO changes here.
