@@ -140,3 +140,33 @@ func TestTeamHostImport2061OldServerWithoutHostSetup(t *testing.T) {
 		t.Fatal("a FORBIDDEN read must not be reported as a missing server feature")
 	}
 }
+
+// Jamir P3: a human reading a differs row sees what the server holds.
+func TestTeamHostImport2061DiffersTextShowsTheServersAssignment(t *testing.T) {
+	r := importResponses2061()
+	r["TeamHostSetup"] = strings.Replace(r["TeamHostSetup"], `"workdir":"iris-1"`, `"workdir":"iris-OLD"`, 1)
+	_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "differs") || !strings.Contains(out, "server: iris-OLD/claude") {
+		t.Fatalf("the table must show the server's assignment:\n%s", out)
+	}
+}
+
+func TestTeamHostImport2061WarnsWhenTheFileNamesAnotherApp(t *testing.T) {
+	_, out, err := runTeamTask(t, importResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		FileApp  string   `json:"fileApp"`
+		Warnings []string `json:"warnings"`
+	}
+	if e := json.Unmarshal([]byte(out), &got); e != nil {
+		t.Fatal(e)
+	}
+	if got.FileApp != "hrn:app:t:t" || len(got.Warnings) != 1 || !strings.Contains(got.Warnings[0], "hrn:app:t:t") {
+		t.Fatalf("%+v", got)
+	}
+}

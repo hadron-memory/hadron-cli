@@ -143,3 +143,94 @@ func TestPlanHostImportWithoutServerHostSetupIsUncheckedNotCreate(t *testing.T) 
 		t.Fatalf("%v: with no server data a valid entry is unchecked (never create), a bad one is still skip", got)
 	}
 }
+
+// Jamir P2: a name and its id/URN in one file are one worker.
+func TestPlanHostImportDuplicateAliasesOfOneWorker(t *testing.T) {
+	roster := []importRoster{{ID: "w1", Name: "Iris", URN: "hrn:worker:t:t:iris"}}
+	same, _ := planHostImport(cfg2061(map[string]hostpoller.WorkerConfig{
+		"Iris":                {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
+		"hrn:worker:t:t:iris": {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
+	}), roster, nil, true)
+	c := map[string]int{}
+	for _, e := range same {
+		c[e.Action]++
+	}
+	if c[importCreate] != 1 || c[importSkip] != 1 {
+		t.Fatalf("identical aliases must be written once: %+v", same)
+	}
+	conflict, _ := planHostImport(cfg2061(map[string]hostpoller.WorkerConfig{
+		"Iris":                {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
+		"hrn:worker:t:t:iris": {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-2"}},
+		"w1":                  {Family: "codex", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
+	}), roster, nil, true)
+	for _, e := range conflict {
+		if e.Action != importConflict || e.Reason == nil {
+			t.Errorf("%s: a conflicting alias must read conflict with a reason, got %+v", e.Ref, e)
+		}
+	}
+	if countActions(conflict)[importCreate] != 0 {
+		t.Fatalf("nothing in a conflict may be a create: %+v", conflict)
+	}
+}
+
+func TestAppMismatchWarning(t *testing.T) {
+	if w := appMismatchWarning("hrn:app:t:team", "Team (hrn:app:t:team) (from --app)"); w != "" {
+		t.Errorf("matching App warned: %s", w)
+	}
+	if w := appMismatchWarning("", "anything"); w != "" {
+		t.Errorf("a file without an app key has nothing to compare: %s", w)
+	}
+	if w := appMismatchWarning("hrn:app:t:other", "Team (hrn:app:t:team) (from --app)"); w == "" {
+		t.Error("a different App must warn")
+	}
+}
+
+// Jamir P3: the idempotence claim is exercised by replanning from the server's
+// state after the apply, not by editing the plan by hand.
+func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
+	cfg := cfg2061(map[string]hostpoller.WorkerConfig{
+		"Iris": {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
+		"Kit":  {Family: "codex", Launch: []string{"c"}, Worktrees: []string{"kit-1"}},
+	})
+	roster := []importRoster{{ID: "w1", Name: "Iris"}, {ID: "w2", Name: "Kit"}}
+	server := []importExisting1{}
+	w := hostImportWrites{
+		LeaveAlone: func(context.Context, string) error { return nil },
+		Assign: func(_ context.Context, ref, wd, fam string) error {
+			id := map[string]string{"Iris": "w1", "Kit": "w2"}[ref]
+			server = append(server, importExisting1{WorkerID: id, Workdir: wd, Family: fam})
+			return nil
+		},
+	}
+	entries, _ := planHostImport(cfg, roster, server, true)
+	if err := applyHostImport(context.Background(), entries, w); err != nil || len(server) != 2 {
+		t.Fatalf("first apply: err=%v server=%v", err, server)
+	}
+	again, _ := planHostImport(cfg, roster, server, true)
+	if c := countActions(again); c[importCreate] != 0 || c[importExisting] != 2 {
+		t.Fatalf("replanned from the server's state: %+v", c)
+	}
+	before := len(server)
+	if err := applyHostImport(context.Background(), again, w); err != nil || len(server) != before {
+		t.Fatalf("second apply wrote: err=%v", err)
+	}
+}
+
+func TestApplyAssignFailureAfterLeaveAloneLeavesLaterEntriesUntouched(t *testing.T) {
+	wd := func(s string) *string { return &s }
+	entries := []importEntryDTO{
+		{Ref: "A", Action: importCreate, Workdir: wd("a"), Family: "claude"},
+		{Ref: "B", Action: importCreate, Workdir: wd("b"), Family: "claude"},
+	}
+	var log []string
+	err := applyHostImport(context.Background(), entries, hostImportWrites{
+		LeaveAlone: func(_ context.Context, r string) error { log = append(log, "leave:"+r); return nil },
+		Assign: func(_ context.Context, r, _, _ string) error {
+			log = append(log, "assign:"+r)
+			return errors.New("boom")
+		},
+	})
+	if err == nil || len(log) != 2 || log[0] != "leave:A" || log[1] != "assign:A" {
+		t.Fatalf("err=%v log=%v: stop at the failed assign; B must be untouched (A stays leave-alone, which is the safe state)", err, log)
+	}
+}

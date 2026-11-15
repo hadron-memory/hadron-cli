@@ -30,6 +30,10 @@ const (
 	importExisting = "unchanged" // the server already holds exactly this assignment
 	importDiffers  = "differs"   // the server holds another one: needs --replace, never forced
 	importSkip     = "skip"      // the entry cannot become an assignment as written
+	// importConflict: two entries of the file resolve to the SAME roster worker
+	// (a name and its id or URN) and ask for different things; both are
+	// reported and neither is written.
+	importConflict = "conflict"
 	// importUnchecked: the entry could become an assignment, but the server
 	// lacks hostSetup (it predates hadron-server#4241), so what it holds is
 	// unknown. Reported, never an error: a dry run works against today's server.
@@ -59,6 +63,7 @@ type importEntryDTO struct {
 	ProfileStatus string   `json:"profileStatus"`
 	Existing      *string  `json:"existing"` // for "differs": the server's workdir/family
 	Warnings      []string `json:"warnings"`
+	workerID      string   // the roster worker this entry resolved to (not serialized)
 }
 
 type importReportDTO struct {
@@ -67,9 +72,13 @@ type importReportDTO struct {
 	// HostSetup is "available", or "missing" when the server lacks the
 	// hostSetup read (before hadron-server#4241): the assignments are then
 	// unknown and entries read "unchecked".
-	HostSetup string           `json:"hostSetup"`
-	Applied   bool             `json:"applied"`
-	Entries   []importEntryDTO `json:"entries"`
+	HostSetup string `json:"hostSetup"`
+	// FileApp is the App the host file names (its app key); the report reads
+	// AppRef. A mismatch is warned about, never silently trusted.
+	FileApp  string           `json:"fileApp"`
+	Warnings []string         `json:"warnings"`
+	Applied  bool             `json:"applied"`
+	Entries  []importEntryDTO `json:"entries"`
 	// Missing are the roster workers the file has no entry for.
 	Missing []string       `json:"missing"`
 	Counts  map[string]int `json:"counts"`
@@ -129,6 +138,7 @@ func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []im
 		}
 		name := r.Name
 		e.Worker = &name
+		e.workerID = r.ID
 		matched[r.ID] = true
 		switch len(w.Worktrees) {
 		case 0:
@@ -172,6 +182,7 @@ func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []im
 		entries = append(entries, e)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Ref < entries[j].Ref })
+	markDuplicateWorkers(entries)
 	var missing []string
 	for _, r := range roster {
 		if !matched[r.ID] {
@@ -180,6 +191,50 @@ func planHostImport(cfg *hostpoller.Config, roster []importRoster, existing []im
 	}
 	sort.Strings(missing)
 	return entries, missing
+}
+
+// markDuplicateWorkers handles two file entries that resolve to one roster
+// worker. Asking for the same thing twice reads "skip: duplicate" on the later
+// one; asking for different things marks BOTH "conflict". Neither is written.
+func markDuplicateWorkers(entries []importEntryDTO) {
+	byWorker := map[string][]int{}
+	for i, e := range entries {
+		if e.workerID != "" && e.Workdir != nil {
+			byWorker[e.workerID] = append(byWorker[e.workerID], i)
+		}
+	}
+	for _, idx := range byWorker {
+		if len(idx) < 2 {
+			continue
+		}
+		first := entries[idx[0]]
+		same := true
+		for _, i := range idx[1:] {
+			if *entries[i].Workdir != *first.Workdir || entries[i].Family != first.Family {
+				same = false
+			}
+		}
+		for n, i := range idx {
+			var reason string
+			if same {
+				if n == 0 {
+					continue
+				}
+				reason = "the same worker as entry " + first.Ref + " (identical request): written once, from that entry"
+				entries[i].Action = importSkip
+			} else {
+				others := []string{}
+				for _, j := range idx {
+					if j != i {
+						others = append(others, entries[j].Ref)
+					}
+				}
+				reason = "names the same worker as " + strings.Join(others, ", ") + " with a different workdir or family: nothing is written for it"
+				entries[i].Action = importConflict
+			}
+			entries[i].Reason = &reason
+		}
+	}
 }
 
 // hostImportWrites are the two writes an apply makes, injected so the flow is
@@ -219,8 +274,17 @@ var hostImportWriter = func(cmd *cobra.Command, f *cmdutil.Factory, appRef, host
 	return hostImportWrites{} // LeaveAlone nil: refused by applyHostImport
 }
 
+// appMismatchWarning says so when the App the file names is not the App being
+// read: the roster and assignments come from the active App, not from the file.
+func appMismatchWarning(fileApp, readApp string) string {
+	if strings.TrimSpace(fileApp) == "" || strings.Contains(strings.ToLower(readApp), strings.ToLower(fileApp)) {
+		return ""
+	}
+	return fmt.Sprintf("the file names App %s but this report reads %s: the roster and assignments come from the active App (--app chooses it)", fileApp, readApp)
+}
+
 func countActions(entries []importEntryDTO) map[string]int {
-	c := map[string]int{importCreate: 0, importExisting: 0, importDiffers: 0, importSkip: 0, importUnchecked: 0}
+	c := map[string]int{importCreate: 0, importExisting: 0, importDiffers: 0, importSkip: 0, importUnchecked: 0, importConflict: 0}
 	for _, e := range entries {
 		c[e.Action]++
 	}
@@ -242,6 +306,8 @@ per entry, what an apply would do:
   differs    the server holds another one; an import never replaces it
   unchecked  the server lacks hostSetup (before hadron-server#4241), so what it
              holds is unknown; the dry run still works and says so
+  conflict   two entries name the same worker (a name and its id or URN) and
+             ask for different things; neither is written
   skip       the entry cannot become an assignment as written (no roster
              worker, no or several worktrees, a malformed token), with why
 
@@ -315,6 +381,10 @@ eligible for the sweep. Nothing is written by the refusal.`,
 			}
 			entries, missing := planHostImport(cfg, roster, existing, setupKnown)
 			dto := importReportDTO{AppRef: scope.Ref, HostID: hostID, HostSetup: map[bool]string{true: "available", false: "missing"}[setupKnown], Entries: entries, Missing: missing, Counts: countActions(entries)}
+			dto.FileApp, dto.Warnings = cfg.App, []string{}
+			if w := appMismatchWarning(cfg.App, describeApp(ctx, f, scope.Ref)); w != "" {
+				dto.Warnings = append(dto.Warnings, w)
+			}
 			if dto.Entries == nil {
 				dto.Entries = []importEntryDTO{}
 			}
@@ -336,12 +406,17 @@ eligible for the sweep. Nothing is written by the refusal.`,
 						return err
 					}
 				}
+				for _, warn := range dto.Warnings {
+					if _, err := fmt.Fprintf(w, "warning: %s\n", output.SafeCell(warn)); err != nil {
+						return err
+					}
+				}
 				verb := "dry run"
 				if dto.Applied {
 					verb = "applied"
 				}
-				if _, err := fmt.Fprintf(w, "host %s (%s): %d create, %d unchanged, %d differs, %d unchecked, %d skip; %d roster workers have no entry\n",
-					output.SafeCell(hostID), verb, dto.Counts[importCreate], dto.Counts[importExisting], dto.Counts[importDiffers], dto.Counts[importUnchecked], dto.Counts[importSkip], len(dto.Missing)); err != nil {
+				if _, err := fmt.Fprintf(w, "host %s (%s): %d create, %d unchanged, %d differs, %d unchecked, %d conflict, %d skip; %d roster workers have no entry\n",
+					output.SafeCell(hostID), verb, dto.Counts[importCreate], dto.Counts[importExisting], dto.Counts[importDiffers], dto.Counts[importUnchecked], dto.Counts[importConflict], dto.Counts[importSkip], len(dto.Missing)); err != nil {
 					return err
 				}
 				t := output.NewTable(w, "REF", "ACTION", "WORKDIR", "FAMILY", "LAUNCH", "PROFILE", "WHY")
@@ -349,6 +424,9 @@ eligible for the sweep. Nothing is written by the refusal.`,
 					why, wd, prof := "", "-", "unmapped"
 					if e.Reason != nil {
 						why = *e.Reason
+					}
+					if e.Existing != nil {
+						why += " (server: " + *e.Existing + ")"
 					}
 					if e.Workdir != nil {
 						wd = *e.Workdir
