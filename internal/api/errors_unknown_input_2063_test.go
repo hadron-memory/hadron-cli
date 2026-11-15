@@ -36,3 +36,26 @@ func TestIsUnknownInputFieldOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestIsDefiniteRefusal(t *testing.T) {
+	coded := func(c string) *gqlerror.Error {
+		return &gqlerror.Error{Message: "m", Extensions: map[string]any{"code": c}}
+	}
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"coded refusal":  {gqlerror.List{coded("HOST_ASSIGNMENT_NOT_PERMITTED")}, true},
+		"two coded":      {gqlerror.List{coded("FORBIDDEN"), coded("BAD_USER_INPUT")}, true},
+		"internal":       {gqlerror.List{coded("INTERNAL_SERVER_ERROR")}, false},
+		"mixed internal": {gqlerror.List{coded("FORBIDDEN"), coded("INTERNAL_SERVER_ERROR")}, false},
+		"no code":        {gqlerror.List{{Message: "m"}}, false},
+		"transport":      {errors.New("connection reset"), false},
+		"nil":            {nil, false},
+		"empty list":     {gqlerror.List{}, false},
+	} {
+		if got := IsDefiniteRefusal(tc.err); got != tc.want {
+			t.Errorf("%s: %v, want %v", name, got, tc.want)
+		}
+	}
+}
