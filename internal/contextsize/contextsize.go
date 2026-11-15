@@ -68,6 +68,19 @@ func DefaultRoots() Roots {
 	return r
 }
 
+// Measurer owns the discovery work shared by one health sweep.
+// The zero value is ready to use; do not retain it across sweeps.
+type Measurer struct{}
+
+func (m *Measurer) Measure(family string, worktrees []string, roots Roots, now time.Time) *Measurement {
+	return Measure(family, worktrees, roots, now)
+}
+
+// Filesystem seams let tests replace a rollout at the open boundary and count
+// archive traversal without timing-based races or performance assertions.
+var openContextFile = openRegular
+var walkCodexSessions = filepath.WalkDir
+
 // Measure returns the newest context-size reading for a worker running the
 // given model family in any of the worktrees, or nil. Only the families
 // "claude" and "codex" have a measurer; every other family returns nil.
@@ -128,7 +141,7 @@ func measureCodex(root, worktree string, now time.Time) *Measurement {
 		return nil
 	}
 	var files []string
-	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	_ = walkCodexSessions(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -234,7 +247,7 @@ func plausible(tokens int, at time.Time, now time.Time) bool {
 // Claude Code transcript whose own cwd is worktree. Context is input +
 // cache-read + cache-creation input tokens of that turn.
 func ClaudeFromFile(path, worktree string, now time.Time) (*Measurement, bool) {
-	f, size, err := openRegular(path)
+	f, size, err := openContextFile(path)
 	if err != nil {
 		return nil, false
 	}
@@ -279,7 +292,7 @@ func ClaudeFromFile(path, worktree string, now time.Time) (*Measurement, bool) {
 }
 
 func codexCwdIs(path, worktree string) bool {
-	f, size, err := openRegular(path)
+	f, size, err := openContextFile(path)
 	if err != nil {
 		return false
 	}
@@ -314,7 +327,7 @@ func codexCwdIs(path, worktree string) bool {
 // context is the last turn's input tokens (Codex counts cached input inside
 // input_tokens), not the running total, which only grows.
 func CodexFromFile(path string, now time.Time) (*Measurement, bool) {
-	f, size, err := openRegular(path)
+	f, size, err := openContextFile(path)
 	if err != nil {
 		return nil, false
 	}
