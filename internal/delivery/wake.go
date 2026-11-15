@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 	"strings"
 	"time"
 	"unicode"
@@ -339,10 +340,11 @@ func renderTask(t *TaskReason) string {
 	return fmt.Sprintf("%s %s (no task)", TaskPrefix, oneLine(t.Event))
 }
 
-// oneLine folds control characters (a newline would submit early) and runs
-// of space into one space.
+// oneLine folds control characters (a newline would submit early), the format
+// characters a terminal would render as reordered or hidden text (output.Neutralised,
+// the same rule `team wakes due` applies, #2154) and runs of space into one space.
 func oneLine(s string) string {
-	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) }), " ")
+	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || output.Neutralised(c) }), " ")
 }
 
 // WakeServer is acknowledgeWakes, for one proof C1 itself read. An error
