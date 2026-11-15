@@ -33,8 +33,11 @@ func resetStepFrom(f *gen.ContextResetStepFields) (hostpoller.ResetStep, error) 
 
 func resetFrom(r *gen.ContextResetFields) hostpoller.ContextReset {
 	out := hostpoller.ContextReset{
-		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId, TaskID: r.TaskId,
+		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId, Cause: r.Cause,
 		StopGranted: r.StopGrantedAt != nil,
+	}
+	if r.TaskId != nil {
+		out.TaskID = *r.TaskId // null for a context-cap reset (#2117)
 	}
 	if r.Reason != nil {
 		out.Reason = *r.Reason
@@ -86,10 +89,14 @@ func (s *hostServer) ClaimReset(ctx context.Context, resetID string, epoch int, 
 }
 
 func (s *hostServer) RegisterResetRecovery(ctx context.Context, resetID string, epoch int, cp hostpoller.ResetCheckpoint, sessionID, taskID string) (hostpoller.ResetStep, error) {
-	resp, err := gen.RegisterContextResetRecovery(ctx, s.client, &gen.RegisterContextResetRecoveryInput{
-		AppRef: s.app, ResetId: resetID, Epoch: epoch, SessionId: sessionID, TaskId: taskID,
+	in := &gen.RegisterContextResetRecoveryInput{
+		AppRef: s.app, ResetId: resetID, Epoch: epoch, SessionId: sessionID,
 		Checkpoint: &gen.ContextResetCheckpointInput{Title: cp.Title, Content: cp.Content},
-	})
+	}
+	if taskID != "" { // a context-cap reset names no task: omit it, never send null or ""
+		in.TaskId = &taskID
+	}
+	resp, err := gen.RegisterContextResetRecovery(ctx, s.client, in)
 	if err != nil {
 		return hostpoller.ResetStep{}, resetStepErr(err)
 	}
