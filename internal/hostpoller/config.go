@@ -82,6 +82,17 @@ type WorkerConfig struct {
 	// EndWait bounds how long worker.end waits for the session to end
 	// (default 15m).
 	EndWait string `yaml:"end_wait"`
+	// StopOnEnd says whether worker.end also stops the worker's agent
+	// process on this host (hadron-cli#2057 C2a): never (the default: the
+	// end only prompts, as before), manager (stop only when a person who
+	// manages the App issued the end, never the platform's own or a worker's),
+	// or always (a short-lived worker: every end stops it).
+	StopOnEnd string `yaml:"stop_on_end"`
+	// StopWait bounds how long a stopping worker.end gives a delivered end
+	// prompt before it stops the process (default 60s). With no end prompt,
+	// or one that failed, there is nothing to wait for and the stop is
+	// immediate.
+	StopWait string `yaml:"stop_wait"`
 	// Recover is an optional argv that hands a relaunched agent its recovery
 	// prompt after a worker.reset-context (#1043), the way End prompts an
 	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
@@ -294,6 +305,16 @@ func (c *Config) validate() error {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
 		}
+		switch w.StopOnEnd {
+		case "", StopOnEndNever, StopOnEndManager, StopOnEndAlways:
+		default:
+			errs = append(errs, fmt.Sprintf("worker %q: stop_on_end %q must be %s, %s or %s", ref, w.StopOnEnd, StopOnEndNever, StopOnEndManager, StopOnEndAlways))
+		}
+		if w.StopWait != "" {
+			if d, err := time.ParseDuration(w.StopWait); err != nil || d <= 0 {
+				errs = append(errs, fmt.Sprintf("worker %q: stop_wait %q is not a positive duration", ref, w.StopWait))
+			}
+		}
 		if w.TUI != "" && w.TUI != "claude" && w.TUI != "codex" {
 			errs = append(errs, fmt.Sprintf("worker %q: tui %q must be claude or codex", ref, w.TUI))
 		}
@@ -340,6 +361,42 @@ func (w WorkerConfig) endWait() time.Duration {
 		return d
 	}
 	return defaultEndWait
+}
+
+// The stop_on_end values (hadron-cli#2057 C2a).
+const (
+	StopOnEndNever   = "never"
+	StopOnEndManager = "manager"
+	StopOnEndAlways  = "always"
+)
+
+// defaultStopWait is how long a stopping worker.end gives a delivered end
+// prompt (#2057: 60 s, so a short-lived worker's process is gone well inside
+// the epic's two minutes).
+const defaultStopWait = 60 * time.Second
+
+// stopsOnEnd reports whether a worker.end from this issuer also stops the
+// worker's process. Anything but an explicit always or manager is never, and
+// manager needs a NAMED issuer other than the platform: an operation whose
+// issuer did not reach the host stops nothing.
+func (w WorkerConfig) stopsOnEnd(issuedBy string) bool {
+	switch w.StopOnEnd {
+	case StopOnEndAlways:
+		return true
+	case StopOnEndManager:
+		// A WORKER issuer is a bound reports-to worker, which never manages
+		// the App (cor:agt:050:09): only a person's end is a manager's.
+		return issuedBy == IssuedByUser
+	}
+	return false
+}
+
+// stopWait is the bounded wait a stopping worker.end gives its end prompt.
+func (w WorkerConfig) stopWait() time.Duration {
+	if d, err := time.ParseDuration(w.StopWait); err == nil && d > 0 {
+		return d
+	}
+	return defaultStopWait
 }
 
 // ReadHostKey returns the host:operate key from key_file. Never from
