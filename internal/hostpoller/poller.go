@@ -266,6 +266,12 @@ type Poller struct {
 	// resetStopWait bounds how long the old agent has to exit after the
 	// one stop; zero means defaultResetStopWait.
 	resetStopWait time.Duration
+
+	// Exit relaunch (cli#2161): exitWake is made by EnableRelaunch and wakes
+	// the run loop when a tracked agent exits; exited holds those agents by
+	// worker id until an exit pass takes them.
+	exitWake chan struct{}
+	exited   map[string]Agent
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -318,10 +324,48 @@ func (p *Poller) Run(ctx context.Context) error {
 				return err
 			}
 		}
-		if err := p.sleep(ctx, interval); err != nil {
+		if err := p.pause(ctx, interval); err != nil {
 			p.wg.Wait()
 			return nil
 		}
+	}
+}
+
+// pause sleeps out the interval. An exit wake (cli#2161) runs the exit passes
+// at once and sleeps on to the same deadline: it never brings the next
+// check-in forward.
+func (p *Poller) pause(ctx context.Context, interval time.Duration) error {
+	if p.exitWake == nil {
+		return p.sleep(ctx, interval)
+	}
+	deadline := time.Now().Add(interval)
+	for {
+		left := time.Until(deadline)
+		if left <= 0 {
+			return ctx.Err()
+		}
+		sctx, cancel := context.WithCancel(ctx)
+		stop, woke := make(chan struct{}), make(chan bool, 1)
+		go func() {
+			select {
+			case <-p.exitWake:
+				cancel()
+				woke <- true
+			case <-stop:
+				woke <- false
+			}
+		}()
+		err := p.sleep(sctx, left)
+		close(stop)
+		woken := <-woke // the watcher has finished: a wake is never lost
+		cancel()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !woken {
+			return err
+		}
+		p.relaunchExitStep(ctx)
 	}
 }
 

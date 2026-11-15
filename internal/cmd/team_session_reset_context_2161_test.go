@@ -17,7 +17,7 @@ import (
 // then the claim, then a relaunch stamp beside the binding for the poller,
 // then the command ends its own agent (or says to exit).
 
-func runResetContext(t *testing.T, url string, args ...string) (string, string, error) {
+func runResetContext(t *testing.T, url string, args ...string) (string, error) {
 	t.Helper()
 	f, out := testFactory(t)
 	var errOut strings.Builder
@@ -25,7 +25,7 @@ func runResetContext(t *testing.T, url string, args ...string) (string, string, 
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "session", "reset-context", "--server", url}, args...))
 	err := root.Execute()
-	return out.String(), errOut.String(), err
+	return out.String(), err
 }
 
 type resetContextDTO struct {
@@ -42,7 +42,7 @@ func TestResetContextWritesTheCheckpointClaimThenTheRelaunchStamp2161(t *testing
 	t.Setenv(team.AgentPIDEnv, "") // not launched by Orca: nothing is signalled
 	url, rig := shedServer(t, nil)
 	before := time.Now().UTC().Add(-time.Second)
-	out, _, err := runResetContext(t, url, "--json")
+	out, err := runResetContext(t, url, "--json")
 	if err != nil {
 		t.Fatalf("reset-context: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestResetContextWithoutACheckpointAsksForNoRelaunch2161(t *testing.T) {
 	bindWorktree(t)
 	t.Setenv(team.AgentPIDEnv, "")
 	url, _ := shedServer(t, map[string]string{"CreateNode": `{"errors":[{"message":"boom"}]}`})
-	out, _, err := runResetContext(t, url, "--json")
+	out, err := runResetContext(t, url, "--json")
 	if err != nil {
 		t.Fatalf("reset-context: %v", err)
 	}

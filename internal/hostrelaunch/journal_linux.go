@@ -37,7 +37,19 @@ type FileJournal struct {
 	closed bool
 }
 
-func OpenJournal(path string, dry bool) (_ *FileJournal, err error) {
+func OpenJournal(path string, dry bool) (*FileJournal, error) {
+	return openJournal(path, dry, !dry)
+}
+
+// OpenJournalHeld takes the run lock as an applying open does but claims no
+// generation (cli#2161): an exit pass observes one worker, not a sweep, so it
+// must not break the absence continuity of the workers it never looked at.
+// Its Sweep is the last sweep's generation, 0 when no sweep ever ran.
+func OpenJournalHeld(path string) (*FileJournal, error) {
+	return openJournal(path, false, false)
+}
+
+func openJournal(path string, dry, advance bool) (_ *FileJournal, err error) {
 	if !filepath.IsAbs(path) {
 		return nil, errors.New("relaunch journal path must be absolute")
 	}
@@ -99,7 +111,7 @@ func OpenJournal(path string, dry bool) (_ *FileJournal, err error) {
 			return nil, e
 		}
 	}
-	if !dry {
+	if advance {
 		if s.state.Generation == math.MaxUint64 {
 			return nil, errors.New("relaunch generation exhausted")
 		}
