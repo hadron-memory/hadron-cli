@@ -591,6 +591,7 @@ hadron team wake-settings get --worker <id-or-URN> | set --worker <id-or-URN> [-
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] [--host-report-timeout-minutes N|default] [--session-end-grace-minutes N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED); host report timeout (5..1440, cor:agt:070:02) and session-end grace (1..1440, cor:agt:050:10) are range-checked before any call (exit 2, nothing sent, even alongside valid flags); get/--json show the server-returned values (sessionEndGraceMinutes, hostReportTimeoutMinutes; platform defaults 10 and 60 today), never client-computed (cli#983)
 hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
 hadron team host run --config <host.yaml> [--once] | status --config <host.yaml> | report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run [--stale-after 10m])   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8; delivery.enabled (cli#907): each poll also reads the host's chat batches (key also needs attention:deliver) and types each only into an empty agent composer via orca_bin, then acks it; events delivery-delivered|reconciled|held|deferred|skipped|error (codes, ids, spans; never text or proof); a read APP_KEY_SCOPE_REQUIRED turns delivery off for the run (delivery-off event, exit unaffected); holds are UNREPORTED to the server until cli#940 (no server alarm); a message over 131,071 UTF-8 bytes fails delivery-error too-long-to-type (never truncated or acked, stays due) and, oldest first, blocks that worker's later chat until hadron-server#2121; tick/task/stop wakes (cli#1178, cli#1629): each poll also reads dueWakes with accepts MENTION|TICK|TASK|STOP on the whole-lane first page (no workerRefs, no after), which declares the host's lane as a stop consumer, and types each wake's TICK/TASK reasons as one own-prefixed line, recorded before acknowledgeWakes; a wake naming channels or a MENTION is typed once and by default held from ack (delivery.ack_mixed opts into deployed A′ as described below); a refused or unconfirmed send leaves no blocking record (the next pass sends fresh; our own unsubmitted line is Enter-submitted or cleared, never retyped); status --json delivery.workers[].unreported; per worker also lastAgeSeconds, heldSince (start of the current run of holds; only a delivered or reconciled event ends it; null when none) and heldOver30m (text row: "HELD OVER 30m: no delivery since <time>") and notRevisited (a held record whose newest event is older than three poll intervals: no newer local event, so the hold may be stale; the cause is not recorded: the server may list no wake for that worker, or the poller stopped or its reads failed; text: "NOT RE-EVALUATED") (cli#1178, cli#1322); stop notices (cli#1629): a STOP reason's notice is typed first in the server's wording, at most once per eventId, through the same empty-composer guard, and never with Escape or any interrupt key (interrupt: true changes nothing sent); a HALT that cannot be typed (draft, question, unknown screen, unsubmitted line, changed incarnation, no terminal) is neither typed nor acked, stays due, and is recorded once per notice in <state>/delivery/stop-dropped (ids and codes only); report-stops flags each such record with one team-chat post authored by the live session bound in the current worktree, which must be --reporter-worker's (no binding, ended or another worker: nothing posted, exit 7, reports stay pending; never as you), tagging the halted worker's reportsTo, else its holder; at most one post per notice, never silently none, NOT exactly-once (an intent is written before posting, a retry first finds an earlier post, a TEAM_CHAT_DUPLICATE refusal records its earlierSeq; an accepted seq and its author are saved before read-back, then retries only read that seq and never re-post; a mismatch stays failed/pending with "needs a person", and a later matching read-back can finish it; one run per outbox); its reads never move a read mark; a failed report exits 7; recorded-seq failures add reason (readback-mismatch, readback-not-found, invalid-accepted-record, readback-unavailable) and optional field (author, body, author,body), never body text/author id/hash/length; .lastfail is only a last-run observation, never posting authority; diagnosticError lastfail-write-failed or lastfail-remove-failed changes neither result nor exit; --dry-run takes no lock, calls no server and writes nothing: pending/stale plus needsPerson and records (cached mismatch/not-found/invalid-record observations only, oldest heldAt/eventId first, cap50, recordsTotal/recordsTruncated), lastObservedAt is the cached time, not since/current state; missing/unreadable/stale cache stays pending without needsPerson, and reported markers win; human cached rows end with “as last observed by report-stops, not a current check or a final diagnosis”; no recovery/certification command
+hadron team host up --host <id> --worktrees-root <path> --desired-state-file <file> [--dry-run | --apply] [--worker <ref>] [--as-person] [--orca-bin <path>] [--timeout 2m]   # cli#1389: reconcile one host's workers through the typed queue; dry-run default; see "## Host up"
 hadron team health sweep --config <host.yaml>   # code-only terminal health reporting (cli#1181); uses host key_file (0600) and the terminal-status@1 command JSON, no alarm/cadence/install or terminal typing; json {reports,refused,renames,dryRun}; --dry-run (default on) lists tab titles it would set to the worker name, the timer passes --dry-run=false (cli#2017); exits 0/1/3/7/8/10 (usage 2), per-item refusals exit 0
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
@@ -4320,6 +4321,54 @@ submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention
 delivery to be checked.
+
+## Host up
+
+`hadron team host up` (cli#1389, epic hadron-server#4229) reconciles one host:
+for each worker the host should run it checks the host registration, the
+worktree under `--worktrees-root`, the Orca agent terminals in it and the
+worker session, and plans only what is missing. The default (`--dry-run`) issues
+nothing and changes nothing: the request log shows reads only. `--apply` carries
+the plan out through the typed host-operation queue (cor:agt:070:05):
+`worktree.create` when the worktree is missing, then `worker.start`. It never
+calls a direct Orca create or launch, never casts, binds, rebinds or ends a
+worker, and never removes anything. `--worker <ref>` (name or id) narrows the
+run to one worker.
+
+The desired state comes from `--desired-state-file` until the server holds it
+(hadron-server#4222, #4224); the flag goes away when the server source lands.
+The file is strict (unknown keys, duplicate workers and non-token setup values
+exit 2) and its `hostId` must equal `--host`:
+`{"hostId","sweepMode","workers":[{"workerId","name","desired":"RUNNING"|"STOPPED","reason","wouldBe","sessionId","setup":{"worktree","repo","baseBranch","branch","family"}}]}`.
+
+Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
+`LEAVE_ALONE`, `HALTED`, `PAUSED`, `TEAM_PAUSED`, `RESETTING`, `RETIRED` or
+`SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
+worker is started only for `LONG_LIVED` or `HOLDS_TASK`. A worker with an open
+session is never started again: with its agent terminal gone it is reported
+`RELAUNCH_UNAVAILABLE` until the host-local relaunch ships (hadron-cli#2060).
+An identical operation still in flight is adopted, never issued twice; a
+finished one is not reused. No request carries `X-Hadron-Session`.
+
+`--apply` takes a per-host lock (`<config dir>/host-up.<hash>.lock`, an OS
+lock released when the process ends): a second applying run exits 5 at once and
+issues nothing. A credential refusal (exit 3 or 8) stops the run: the refused
+step is `REFUSED` and every later step `NOT_ATTEMPTED`. Exit 1 when any step
+failed; exit 4 when `--worker` names a worker the host is not meant to run
+(reported `NOT_ON_HOST`); exit 2 outside reachable Orca.
+
+`--json` returns `{"appRef","hostId","dryRun","sweepMode","planned":[],"applied":[],"skipped":[],"failed":[],"error"}`.
+`sweepMode` and `error` are nullable. Each item is
+`{"workerId","worker","action","reason","args":{},"operationId","detail"}`
+(`workerId` null only for `NOT_ON_HOST`; `action` null for a skip with no step;
+`operationId` set on applied and failed steps that reached the queue).
+Reason codes, which are added to and never repurposed:
+- planned / applied: `WORKTREE_MISSING` (worktree.create), `NO_SESSION` (worker.start)
+- skipped: `IN_SYNC`, `SWEEP_NOT_APPLY`, `NOT_ON_HOST`, `NOT_REGISTERED`, `STOP_PENDING`,
+  `RELAUNCH_UNAVAILABLE`, `SESSION_WITHOUT_WORKTREE`, `TERMINAL_WITHOUT_SESSION`,
+  `DUPLICATE_AGENTS`, `NO_WORKTREE_SOURCE`, `SETUP_INVALID`, `UNKNOWN_DESIRED`,
+  `UNKNOWN_REASON`, `ACTION_UNAVAILABLE`, or the platform's own stop reason
+- failed: `OBSERVE_FAILED`, `ACTION_FAILED`, `REFUSED`, `NOT_ATTEMPTED`
 
 ## Worker reporting relationships
 

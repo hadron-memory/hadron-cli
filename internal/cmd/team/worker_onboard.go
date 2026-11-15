@@ -411,6 +411,12 @@ type onboardQueue struct {
 	client            graphql.Client
 	app, host, worker string
 	last              *gen.HostOperationFields
+	// activeOnly (cli#1389) reuses an identical operation only while it is
+	// still in flight. Onboard runs once per worker, so an identical finished
+	// operation is its own earlier run and is reused. `host up` reconciles
+	// over and over: last week's succeeded worker.start says nothing about a
+	// worker that has died since, and must not stand in for a new one.
+	activeOnly bool
 }
 
 // Find every page: an older matching operation must not be re-issued merely
@@ -438,12 +444,16 @@ func (q *onboardQueue) find(ctx context.Context, step onboardStep) (*gen.HostOpe
 				return nil, exitcode.Newf(exitcode.Error, "cannot interpret existing host operation %s", op.Id)
 			}
 			delete(args, "workerId")
+			active := op.Status == gen.HostOperationStatusIssued || op.Status == gen.HostOperationStatusCollected
+			if q.activeOnly && !active {
+				continue
+			}
 			if reflect.DeepEqual(args, step.Args) {
 				if found == nil {
 					copied := op
 					found = &copied
 				}
-			} else if op.Status == gen.HostOperationStatusIssued || op.Status == gen.HostOperationStatusCollected {
+			} else if active {
 				return nil, exitcode.Newf(exitcode.Usage, "conflicting active %s operation %s; inspect team host ops", step.Type, op.Id)
 			}
 		}
