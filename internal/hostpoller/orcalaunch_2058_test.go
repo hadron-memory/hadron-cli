@@ -63,6 +63,11 @@ type fakeOrca struct {
 	ttyLie   bool               // the command reports a pts it is not on
 	// markerPID, when set, is the pid the command writes instead of its own.
 	markerPID string
+	// badReply, when set, is how create answers AFTER it has really started
+	// the command (cli#2130): "lost" (exit 1, no reply) or "malformed"
+	// (exit 0, unparseable stdout). The shell has had replyDelay to run.
+	badReply   string
+	replyDelay time.Duration
 }
 
 func newFakeOrca(t *testing.T) *fakeOrca {
@@ -140,6 +145,15 @@ func (f *fakeOrca) run(_ context.Context, argv []string) (int, string, string) {
 		}
 		handle := fmt.Sprintf("term_%d", c.Process.Pid)
 		f.procs[handle] = c
+		if f.badReply != "" {
+			f.mu.Unlock()
+			time.Sleep(f.replyDelay)
+			f.mu.Lock()
+			if f.badReply == "lost" {
+				return 1, "", "post-create reply lost"
+			}
+			return 0, "{malformed create reply", ""
+		}
 		b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"handle": handle, "processId": pid}}})
 		return 0, string(b), ""
 	case "terminal close":
