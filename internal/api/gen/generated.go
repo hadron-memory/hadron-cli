@@ -74294,6 +74294,13 @@ func (v *RegisterHostInput) GetWorkers() []*RegisterHostWorkerInput { return v.W
 // #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
 type RegisterHostRegisterHostHostRegistration struct {
 	HostRegistrationFields `json:"-"`
+	// #4222 — on registerHost's own answer only (empty on every read): the workers the host listed that were left out because the App's hostSetupSource is SERVER and the platform did not assign them to this host. The registration itself succeeded with the rest.
+	RefusedWorkers []*RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+}
+
+// GetRefusedWorkers returns RegisterHostRegisterHostHostRegistration.RefusedWorkers, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetRefusedWorkers() []*RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal {
+	return v.RefusedWorkers
 }
 
 // GetHostId returns RegisterHostRegisterHostHostRegistration.HostId, and is useful for accessing the field via an interface.
@@ -74357,6 +74364,8 @@ func (v *RegisterHostRegisterHostHostRegistration) UnmarshalJSON(b []byte) error
 }
 
 type __premarshalRegisterHostRegisterHostHostRegistration struct {
+	RefusedWorkers []*RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal `json:"refusedWorkers"`
+
 	HostId string `json:"hostId"`
 
 	Label string `json:"label"`
@@ -74383,6 +74392,7 @@ func (v *RegisterHostRegisterHostHostRegistration) MarshalJSON() ([]byte, error)
 func (v *RegisterHostRegisterHostHostRegistration) __premarshalJSON() (*__premarshalRegisterHostRegisterHostHostRegistration, error) {
 	var retval __premarshalRegisterHostRegisterHostHostRegistration
 
+	retval.RefusedWorkers = v.RefusedWorkers
 	retval.HostId = v.HostRegistrationFields.HostId
 	retval.Label = v.HostRegistrationFields.Label
 	retval.PollIntervalSeconds = v.HostRegistrationFields.PollIntervalSeconds
@@ -74391,6 +74401,26 @@ func (v *RegisterHostRegisterHostHostRegistration) __premarshalJSON() (*__premar
 	retval.Live = v.HostRegistrationFields.Live
 	retval.Workers = v.HostRegistrationFields.Workers
 	return &retval, nil
+}
+
+// RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal includes the requested fields of the GraphQL type HostRegistrationRefusal.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker a checked registration left out. code is HOST_WORKER_NOT_ASSIGNED, whatever the reason (unassigned, assigned to another host, retired, of another App, or naming nothing).
+type RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetWorker() string {
+	return v.Worker
+}
+
+// GetCode returns RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal.Code, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistrationRefusedWorkersHostRegistrationRefusal) GetCode() string {
+	return v.Code
 }
 
 // RegisterHostResponse is returned by RegisterHost on success.
@@ -94685,22 +94715,22 @@ func (v *TeamHostSetupResponse) GetHostSetup() *TeamHostSetupHostSetup { return 
 // TeamHostUnassignInstructedResponse is returned by TeamHostUnassignInstructed on success.
 type TeamHostUnassignInstructedResponse struct {
 	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
-	UnassignHostWorker bool `json:"unassignHostWorker"`
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
 }
 
 // GetUnassignHostWorker returns TeamHostUnassignInstructedResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
-func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() bool {
+func (v *TeamHostUnassignInstructedResponse) GetUnassignHostWorker() *bool {
 	return v.UnassignHostWorker
 }
 
 // TeamHostUnassignResponse is returned by TeamHostUnassign on success.
 type TeamHostUnassignResponse struct {
 	// #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
-	UnassignHostWorker bool `json:"unassignHostWorker"`
+	UnassignHostWorker *bool `json:"unassignHostWorker"`
 }
 
 // GetUnassignHostWorker returns TeamHostUnassignResponse.UnassignHostWorker, and is useful for accessing the field via an interface.
-func (v *TeamHostUnassignResponse) GetUnassignHostWorker() bool { return v.UnassignHostWorker }
+func (v *TeamHostUnassignResponse) GetUnassignHostWorker() *bool { return v.UnassignHostWorker }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -151259,6 +151289,10 @@ const RegisterHost_Operation = `
 mutation RegisterHost ($input: RegisterHostInput!) {
 	registerHost(input: $input) {
 		... HostRegistrationFields
+		refusedWorkers {
+			worker
+			code
+		}
 	}
 }
 fragment HostRegistrationFields on HostRegistration {

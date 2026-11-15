@@ -4,24 +4,55 @@ package hostpoller
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
 )
 
+// holdlessReadyTimeout is how long holdlessLaunch waits for the agent's ready
+// file. A variable so the failure-path test below can force the timeout fast.
+var holdlessReadyTimeout = 5 * time.Second
+
+// holdlessLaunchedPID is the pid of the last agent holdlessLaunch started, so
+// the failure-path test can look for a leaked group after a t.Fatal.
+var holdlessLaunchedPID atomic.Int32
+
 // holdlessLaunch launches a long-running agent as a launch that took no zombie
 // hold (the waitid refusal forced), counting every signal the stop sends. The
-// returned cleanup restores the package hooks. The agent's shell keeps a live
-// child (sleep) in the group, and a process-group number is never reused while
-// any member of the group exists, so the test's own final group kill below can
-// only ever reach this launch's own group.
+// agent's shell keeps a live child (sleep) in the group, and a process-group
+// number is never reused while any member of the group exists, so the test's
+// own final group kill below can only ever reach this launch's own group.
+//
+// Cleanup is registered with t.Cleanup BEFORE anything that can fail the test:
+// the hooks are restored and the launch's own group is killed even when the
+// readiness wait times out and t.Fatalf leaves before this returns
+// (hadron-cli#2089). The returned func runs the same cleanup early and is
+// idempotent, so a caller's `defer done()` is still fine. These hooks are
+// package variables shared by every test; none in this package is parallel
+// (`git grep t.Parallel -- internal/hostpoller` is empty), which is a property
+// of the suite today, not a protection.
 func holdlessLaunch(t *testing.T, script string) (*execAgent, *atomic.Int32, func()) {
 	t.Helper()
 	realWait, realSignal := waitLeaderExit, signalGroup
+	var once sync.Once
+	var pid atomic.Int32
+	cleanup := func() {
+		once.Do(func() {
+			if p := int(pid.Load()); p > 0 {
+				_ = realSignal(p, syscall.SIGKILL) // the group still holds our sleep child: its number is ours
+			}
+			waitLeaderExit, signalGroup = realWait, realSignal
+		})
+	}
+	t.Cleanup(cleanup)
 	waitLeaderExit = func(int) (leaderExit, error) { return leaderExit{kind: unknownStatus}, syscall.ENOSYS } // no hold
 	signals := &atomic.Int32{}
 	signalGroup = func(pgid int, sig syscall.Signal) error {
@@ -33,14 +64,67 @@ func holdlessLaunch(t *testing.T, script string) (*execAgent, *atomic.Int32, fun
 	a, err := ExecHost{TerminateGrace: 200 * time.Millisecond}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"sh", "-c", script, ready}, Dir: dir, Env: os.Environ()})
 	if err != nil {
-		waitLeaderExit, signalGroup = realWait, realSignal
+		cleanup()
 		t.Fatal(err)
 	}
-	waitFor(t, "the agent to start", func() bool { _, err := os.Stat(ready); return err == nil })
-	return a.(*execAgent), signals, func() {
-		_ = realSignal(a.PID(), syscall.SIGKILL) // the group still holds our sleep child: its number is ours
-		waitLeaderExit, signalGroup = realWait, realSignal
+	pid.Store(int32(a.PID()))
+	holdlessLaunchedPID.Store(int32(a.PID()))
+	waitForWithin(t, holdlessReadyTimeout, "the agent to start", func() bool { _, err := os.Stat(ready); return err == nil })
+	return a.(*execAgent), signals, cleanup
+}
+
+// hadron-cli#2089: a readiness timeout inside holdlessLaunch must still restore
+// both hooks and collect the launch's own group. The failing case runs in a
+// child test process (it ends in t.Fatalf), and reports what its last cleanup
+// found; the parent checks the report.
+func TestHoldlessLaunchCleansUpWhenTheReadinessWaitTimesOut(t *testing.T) {
+	if os.Getenv("HADRON_HOLDLESS_FAIL_CHILD") == "1" {
+		holdlessFailureChild(t)
+		return
 	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHoldlessLaunchCleansUpWhenTheReadinessWaitTimesOut$", "-test.v")
+	cmd.Env = append(os.Environ(), "HADRON_HOLDLESS_FAIL_CHILD=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("the child was meant to fail on its readiness timeout:\n%s", out)
+	}
+	got := string(out)
+	if !strings.Contains(got, "timed out waiting for the agent to start") {
+		t.Fatalf("the child did not fail the way the test needs:\n%s", got)
+	}
+	for _, want := range []string{"HOOKS-RESTORED", "GROUP-GONE"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("after a readiness timeout the cleanup did not report %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "LEAK") {
+		t.Fatalf("the child reported a leak:\n%s", got)
+	}
+}
+
+func holdlessFailureChild(t *testing.T) {
+	origWait, origSignal := reflect.ValueOf(waitLeaderExit).Pointer(), reflect.ValueOf(signalGroup).Pointer()
+	// Registered first, so it runs last: after the helper's own cleanup.
+	t.Cleanup(func() {
+		if reflect.ValueOf(waitLeaderExit).Pointer() == origWait && reflect.ValueOf(signalGroup).Pointer() == origSignal {
+			fmt.Println("HOOKS-RESTORED")
+		} else {
+			fmt.Println("LEAK hooks still replaced")
+		}
+		pid := int(holdlessLaunchedPID.Load())
+		for i := 0; i < 100; i++ {
+			if err := syscall.Kill(-pid, 0); err == syscall.ESRCH {
+				fmt.Println("GROUP-GONE")
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		fmt.Println("LEAK group still alive")
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	})
+	holdlessReadyTimeout = 300 * time.Millisecond
+	// The agent never touches its ready file: the readiness wait times out.
+	holdlessLaunch(t, `sleep 300 & while :; do sleep 1; done`)
 }
 
 // hadron-cli#2082: on a launch with no zombie hold, the leader's exit frees the

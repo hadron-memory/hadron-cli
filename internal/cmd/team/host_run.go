@@ -79,6 +79,14 @@ func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (h
 		}
 		out.Workers = append(out.Workers, rw)
 	}
+	// Per-row refusals are text from the server: made safe to print, and the
+	// worker is only ever shown, never used to decide anything.
+	for _, r := range resp.RegisterHost.RefusedWorkers {
+		if r == nil {
+			continue
+		}
+		out.Refused = append(out.Refused, hostpoller.RefusedWorker{Worker: output.SafeCell(r.Worker), Code: output.SafeCell(r.Code)})
+	}
 	return out, nil
 }
 

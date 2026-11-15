@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,19 @@ type RegisteredWorker struct {
 type RegisteredHost struct {
 	HostID  string
 	Workers []RegisteredHostWorker
+	// Refused are the listed workers a checked registration left out (the
+	// App's setup source is SERVER and the platform did not assign them to
+	// this host), reported per row; the registration itself succeeded
+	// (hadron-cli#2091, hadron-server#4241).
+	Refused []RefusedWorker
+}
+
+// RefusedWorker is one worker a registration left out, with the server's code
+// (HOST_WORKER_NOT_ASSIGNED). Both strings are made safe to print by the
+// adapter that reads them.
+type RefusedWorker struct {
+	Worker string
+	Code   string
 }
 
 // RegisteredHostWorker pairs a resolved worker id with its name.
@@ -187,6 +201,8 @@ type Poller struct {
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
+	// lastRefused is the refusal set last reported, so a steady one is said once.
+	lastRefused string
 
 	// DeliveryStep, when set, is told how each delivery step's batch read
 	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
@@ -342,7 +358,30 @@ func (p *Poller) register(ctx context.Context) error {
 	p.mu.Lock()
 	p.workerRefs = refs
 	p.mu.Unlock()
+	p.reportRefused(ans.Refused)
 	return nil
+}
+
+// reportRefused makes the per-worker refusals visible without failing the
+// registration or repeating itself every poll: one event per refused worker
+// when the set changes (hadron-cli#2091).
+func (p *Poller) reportRefused(refused []RefusedWorker) {
+	keys := make([]string, 0, len(refused))
+	for _, r := range refused {
+		keys = append(keys, r.Code+" "+r.Worker)
+	}
+	sort.Strings(keys)
+	key := strings.Join(keys, "\n")
+	p.mu.Lock()
+	changed := key != p.lastRefused
+	p.lastRefused = key
+	p.mu.Unlock()
+	if !changed {
+		return
+	}
+	for _, r := range refused {
+		p.log("worker-refused", "", "", "", r.Worker+": "+r.Code+" (left out of the registration; the platform's assignments decide which workers this host runs, see `hadron team host setup`)")
+	}
 }
 
 // refFor matches a registered worker back to the configured reference it

@@ -141,6 +141,14 @@ mutation RegisterHost(
 ) {
   registerHost(input: $input) {
     ...HostRegistrationFields
+    # #4222 / cli#2091: on registerHost's own answer only (empty on every read,
+    # so the shared fragment is NOT widened): under a SERVER setup source, the
+    # listed workers the platform did not assign to this host. The registration
+    # itself succeeded with the rest.
+    refusedWorkers {
+      worker
+      code
+    }
   }
 }
 

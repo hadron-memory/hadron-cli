@@ -1459,3 +1459,60 @@ func TestStepCollectsOncePerStepEvenOnAFullPage(t *testing.T) {
 		}
 	}
 }
+
+// refusingServer answers each registration with the next refusal set.
+type refusingServer struct {
+	*fakeServer
+	sets [][]RefusedWorker
+	n    int
+}
+
+func (s *refusingServer) Register(ctx context.Context, r Registration) (RegisteredHost, error) {
+	ans, err := s.fakeServer.Register(ctx, r)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.n < len(s.sets) {
+		ans.Refused = s.sets[s.n]
+	}
+	s.n++
+	return ans, err
+}
+
+// hadron-cli#2091: a registration's per-worker refusals are visible, once per
+// change, and never fail the poll (cor:agt:070:01, hadron-server#4241).
+func TestPollerReportsRegistrationRefusalsOnceAndOnlyOnChange(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var events []Event
+	p.emit = func(e Event) { mu.Lock(); events = append(events, e); mu.Unlock() }
+	a := RefusedWorker{Worker: "Synthetic", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	b := RefusedWorker{Worker: "Other", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	rs := &refusingServer{fakeServer: srv, sets: [][]RefusedWorker{nil, {a}, {a}, {b, a}, {a, b}, nil}}
+	p.server = rs
+	refused := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		var got []string
+		for _, e := range events {
+			if e.Kind == "worker-refused" {
+				got = append(got, e.Detail)
+			}
+		}
+		return got
+	}
+	wantAfter := []int{0, 1, 1, 3, 3, 3} // empty; new set; same set (silent); changed set; same set in another order (silent); cleared (silent)
+	for i, want := range wantAfter {
+		step(t, p)
+		if got := refused(); len(got) != want {
+			t.Fatalf("after poll %d: %d refusal events %v, want %d", i+1, len(got), got, want)
+		}
+	}
+	for _, d := range refused() {
+		if !strings.Contains(d, "HOST_WORKER_NOT_ASSIGNED") {
+			t.Fatalf("a refusal event must carry the server's code: %q", d)
+		}
+	}
+	if len(srv.regs) != len(wantAfter) {
+		t.Fatalf("every poll registers once: %d", len(srv.regs))
+	}
+}
