@@ -70,6 +70,9 @@ type OrcaLauncher struct {
 	// onMarker, for tests, runs when the marker is read, with the launch's
 	// environment file path.
 	onMarker func(envFile string)
+	// afterReads, for tests, runs after the identity reads and before the
+	// liveness check that makes them count.
+	afterReads func(pid int)
 }
 
 // OrcaLaunchSpec is one launch.
@@ -273,12 +276,6 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	if err != nil {
 		return fail("pid %d could not be pinned: %v", pid, err)
 	}
-	// Parentage after the pin (Rook's note on cli#2088): the number is this
-	// process, so its ancestry cannot be a later holder's.
-	if !isTerminalProcess(pid, opid) {
-		h.Close()
-		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
-	}
 	gone := func() bool {
 		t0, terr := l.Proc.Now()
 		if terr != nil {
@@ -287,16 +284,28 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		_, serr := h.SignalWithin(syscall.Signal(0), t0, time.Hour, l.Proc.Now)
 		return errors.Is(serr, syscall.ESRCH)
 	}
-	// The terminal association is required: an Orca terminal always has a
-	// pty, so a launch that reports none is not the terminal's (cli#2088
-	// blind P2), and its stdin must be that pty. Its cwd is the worktree. A
-	// read that fails because the pinned process has exited since is that
-	// exit, not a refusal.
+	// The identity reads go by number through /proc, which a pidfd does not
+	// bind: if the pinned process exited during them, its pid could have been
+	// reused and a read could be another process's (cli#2088 blind delta P2).
+	// So all of them are made first, and only then is the pinned process
+	// checked alive: a live pidfd holds its pid, so a process alive after the
+	// reads was the process read. One gone by then is a launch whose agent is
+	// done, never a proven one. Then: the parentage (the terminal's process or
+	// its descendant), the terminal association (an Orca terminal always has a
+	// pty, cli#2088 blind P2; stdin must be that pty), and the cwd.
+	parent := isTerminalProcess(pid, opid)
 	fd0, ferr := os.Readlink("/proc/" + strconv.Itoa(pid) + "/fd/0")
 	cwd, cerr := os.Readlink("/proc/" + strconv.Itoa(pid) + "/cwd")
-	if (ferr != nil || cerr != nil) && gone() {
+	if l.afterReads != nil {
+		l.afterReads(pid)
+	}
+	if gone() {
 		h.Close()
 		return exited()
+	}
+	if !parent {
+		h.Close()
+		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
 	}
 	if ferr != nil || fd0 != tty {
 		h.Close()

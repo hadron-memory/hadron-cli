@@ -59,7 +59,7 @@ The marker is written by the shell **before** `exec unshare`, so the pinned pid 
 
 ## Fix head after review (cli#2088)
 - **A tty is required** (Julius P2, Jamir F1). The marker is parsed strictly as exactly `<pid> /dev/pts/N\n`; anything else, including "not a tty", is refused. After the pidfd pin, the process's `fd/0` must be that pts.
-- **Pin first** (Rook's note). Parentage, tty and cwd are all checked after the pidfd pin, and a read lost because the pinned process has since exited counts as a finished launch.
+- **Pin, read, then prove alive** (Rook's note; Julius's delta P2). A pidfd does not bind `/proc/<pid>` reads, so a process that exits during them could hand its pid to another. The parentage, `fd/0` and cwd reads are all made after the pin, and only then is the pinned process checked alive. A live pidfd holds its pid, so a process alive after the reads was the one read. A process gone by then is a launch whose agent is done, never a proven running one.
 - **The pidfd is released** when the agent is gone (Julius P2, Jamir F2).
 - **A failed close is no longer reported as closed** (Julius P2). An unproven launch whose terminal won't close comes back as an `UnclosedLaunchError` together with an agent that is not done. `worker.start` records it, so the one-agent-per-worktree guard holds, and a later stop retries the close.
 - **Stop order:** authorize, then close, then release (Rook F1).

@@ -630,3 +630,33 @@ func TestOrcaAgentHoldsTheAuthorizationThroughTheClose2088(t *testing.T) {
 		t.Fatalf("stop order %v (stopped=%v), want authorize,close,release", order, stopped)
 	}
 }
+
+// cli#2088 blind delta P2: the identity reads go by number through /proc, so a
+// process that exits during them may hand its pid to another. A launch whose
+// pinned process is gone after the reads is never returned as a proven, running
+// agent: it is a finished one. (The exit lands between the reads and the
+// liveness check that makes them count.)
+func TestOrcaLaunchDoesNotTrustReadsOfAProcessThatExitedDuringThem2088(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	bin := filepath.Join(tools, "agent")
+	if err := os.WriteFile(bin, []byte("#!/bin/bash\nexec sleep 30\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakeOrca(t)
+	l := orcaLauncherFor(t, f)
+	l.afterReads = func(pid int) {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		for i := 0; i < 200 && syscall.Kill(pid, 0) == nil; i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatalf("a launch whose agent exited is done, not refused: %v", err)
+	}
+	select {
+	case <-a.Done():
+	default:
+		t.Fatal("reads of a process that exited during them were trusted: the agent came back running")
+	}
+}
