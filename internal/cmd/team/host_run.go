@@ -510,7 +510,7 @@ per line; --json prints each as a JSON object.`,
 				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
 			}
 			emit := hostEventPrinter(f)
-			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{OnDrain: emit}, state, key, emit)
 			if err := wireResets(p, cfg, srv); err != nil {
 				return err
 			}
