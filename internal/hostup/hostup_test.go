@@ -277,3 +277,30 @@ func TestSelectWorkerIsUnique(t *testing.T) {
 		t.Fatal("Run acted on an ambiguous --worker")
 	}
 }
+
+// cli#1389 server adapter: a setup the source could not make usable is
+// reported SETUP_INVALID before the host is read for that worker.
+type countingObserver struct {
+	fakeObserver
+	asked []string
+}
+
+func (o *countingObserver) Observe(ctx context.Context, w Worker) (Observation, error) {
+	o.asked = append(o.asked, w.WorkerID)
+	return o.fakeObserver.Observe(ctx, w)
+}
+
+func TestSetupProblemIsReportedBeforeTheHostIsRead(t *testing.T) {
+	obs := &countingObserver{fakeObserver: fakeObserver{"ok": {Registered: true, WorktreeExists: true}}}
+	e := Engine{Source: fakeSource{snap: Snapshot{HostID: "h1", SweepMode: SweepApply, Workers: []Worker{
+		{WorkerID: "bad", Name: "Bad", Desired: Running, Reason: "LONG_LIVED", Setup: Setup{Problem: "the host registers 2 worktrees"}},
+		{WorkerID: "ok", Name: "Ok", Desired: Running, Reason: "LONG_LIVED", Setup: setup("ok")},
+	}}}, Observer: obs, Actuator: queueActuator()}
+	res := run(t, e, Options{})
+	if got := lines(res.Skipped); !reflect.DeepEqual(got, []string{"Bad  SETUP_INVALID"}) || res.Skipped[0].Detail != "the host registers 2 worktrees" {
+		t.Fatalf("skipped = %q %+v", got, res.Skipped)
+	}
+	if !reflect.DeepEqual(obs.asked, []string{"ok"}) {
+		t.Fatalf("observed %v; a worker with a setup problem must not be read", obs.asked)
+	}
+}

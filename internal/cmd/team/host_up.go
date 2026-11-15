@@ -28,9 +28,10 @@ import (
 // `team host up` (cli#1389, epic hadron-server#4229): the command over the
 // hostup reconcile engine. This file holds the three seams' real halves:
 //
-//	the desired-state source   a JSON file for now (--desired-state-file);
-//	                           the server's hostDesiredState replaces it once
-//	                           hadron-server#4222 and #4224 land
+//	the desired-state source   the server's hostDesiredState (S3,
+//	                           hadron-server#4242), or a JSON file in the
+//	                           engine's shape (--desired-state-file) for tests
+//	                           and offline dry runs
 //	the observer               the App's host registrations, the worktrees
 //	                           root on disk, and Orca's terminal list
 //	the actuator               worker onboard's typed-queue steps (cor:agt:070:05)
@@ -59,6 +60,8 @@ type hostUpDTO struct {
 	Failed    []hostUpItemDTO `json:"failed"`
 	// Error is why the run ended non-zero, else null.
 	Error *string `json:"error"`
+	// Source is where the desired state came from: "server" or "file".
+	Source string `json:"source"`
 }
 
 type hostUpItemDTO struct {
@@ -77,7 +80,7 @@ type hostUpItemDTO struct {
 func newCmdTeamHostUp(f *cmdutil.Factory) *cobra.Command {
 	var o hostUpOptions
 	cmd := &cobra.Command{
-		Use:   "up --host <id> --worktrees-root <path> --desired-state-file <file> [--dry-run | --apply] [--worker <ref>]",
+		Use:   "up --host <id> --worktrees-root <path> [--desired-state-file <file>] [--dry-run | --apply] [--worker <ref>]",
 		Short: "Bring a host's workers to the state they should be in",
 		Long: `Reconcile one host: for every worker the host should run, check its host
 registration, its worktree, its agent terminal and its worker session, and
@@ -87,10 +90,18 @@ queue (cor:agt:070:05): worktree.create when the worktree is missing, then
 worker.start. There is no direct Orca create or launch call.
 
 WHERE THE DESIRED STATE COMES FROM:
-  --desired-state-file <file> is required for now. The server will hold each
-  host's desired state (hadron-server#4222, #4224); until that ships, this
-  flag reads the same shape from a JSON file, and it goes away when the
-  server source lands. The file's hostId must equal --host. Shape:
+  By default, the server: hostDesiredState for the App and --host (S3,
+  hadron-server#4224). A worker whose desired is null (LEAVE_ALONE, SWEEP_OFF)
+  is reported under that reason and never acted on. Until the platform holds
+  each host's setup (hadron-server#4222) the server names a worker's
+  registered worktrees but no repo, so:
+    - exactly one registered worktree is the one acted on; none, several, or a
+      value that is not a host name token is SETUP_INVALID, reported before
+      the host is read for that worker;
+    - a missing worktree is NO_WORKTREE_SOURCE, never created.
+  --desired-state-file <file> reads the engine's shape from a JSON file
+  instead (tests, offline dry runs), including the repo a worktree.create
+  needs. The answer's hostId must equal --host either way. File shape:
     {"hostId":"orca1","sweepMode":"APPLY","workers":[{"workerId":"…",
      "name":"Iris","desired":"RUNNING","reason":"LONG_LIVED","wouldBe":null,
      "sessionId":null,"setup":{"worktree":"hadron-cli/iris",
@@ -134,7 +145,7 @@ run holds the lock.`,
 	}
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
-	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "JSON file holding the host's desired state (required until the server holds it)")
+	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "read the desired state from this JSON file instead of the server")
 	cmd.Flags().StringVar(&o.worker, "worker", "", "reconcile only this worker: its id, or a name only one worker has")
 	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "print the plan and issue nothing (the default)")
 	cmd.Flags().BoolVar(&o.apply, "apply", false, "carry the plan out")
@@ -145,7 +156,7 @@ run holds the lock.`,
 }
 
 func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
-	for _, v := range []struct{ name, value string }{{"host", o.host}, {"worktrees-root", o.root}, {"desired-state-file", o.desiredFile}} {
+	for _, v := range []struct{ name, value string }{{"host", o.host}, {"worktrees-root", o.root}} {
 		if strings.TrimSpace(v.value) == "" {
 			return exitcode.Newf(exitcode.Usage, "--%s is required", v.name)
 		}
@@ -154,9 +165,14 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 		return exitcode.Newf(exitcode.Usage, "--worktrees-root must be absolute; --timeout must be 1s to 30m")
 	}
 	ctx := cmd.Context()
-	source, err := loadHostUpFile(o.desiredFile)
-	if err != nil {
-		return err
+	var source hostup.Source
+	sourceName := "server"
+	if o.desiredFile != "" {
+		s, err := loadHostUpFile(o.desiredFile)
+		if err != nil {
+			return err
+		}
+		source, sourceName = s, "file"
 	}
 	b, err := readBindingOrNilWithApp(ctx, f)
 	if err != nil {
@@ -173,6 +189,9 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return err
+	}
+	if source == nil {
+		source = hostUpServerSource{client: client, app: scope.Ref}
 	}
 	if o.apply {
 		dir, err := config.Dir()
@@ -195,7 +214,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	res, runErr := engine.Run(ctx, hostup.Options{HostID: o.host, Apply: o.apply, Only: o.worker})
 
-	dto := hostUpDTO{AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply,
+	dto := hostUpDTO{AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
 		Planned: hostUpItems(res.Planned), Applied: hostUpItems(res.Applied), Skipped: hostUpItems(res.Skipped), Failed: hostUpItems(res.Failed)}
 	if res.SweepMode != "" {
 		dto.SweepMode = &res.SweepMode
@@ -292,6 +311,74 @@ type hostUpFileWorker struct {
 		Branch     string `json:"branch"`
 		Family     string `json:"family"`
 	} `json:"setup"`
+}
+
+// hostUpServerSource reads hostDesiredState (S3, hadron-server#4242). A read
+// on the plain context: never the worker session.
+type hostUpServerSource struct {
+	client graphql.Client
+	app    string
+}
+
+func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (hostup.Snapshot, error) {
+	r, err := gen.HostDesiredState(ctx, s.client, s.app, hostID)
+	if err != nil {
+		return hostup.Snapshot{}, api.MapError(err)
+	}
+	// The schema says non-null, but a successful answer without it (a null or
+	// missing field) must not be dereferenced: it is the server's failure,
+	// reported like any other, and nothing is planned (cli#2077 blind P2).
+	if r == nil || r.HostDesiredState == nil {
+		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server answered without a desired state for host %s; nothing planned", hostID)
+	}
+	d := r.HostDesiredState
+	if d.HostId != hostID {
+		// Not usage: the server answered for a host nobody asked about.
+		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server's desired state is for host %s, not %s; nothing planned", d.HostId, hostID)
+	}
+	snap := hostup.Snapshot{HostID: d.HostId, SweepMode: string(d.SweepMode)}
+	for _, w := range d.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostup.Worker{WorkerID: w.WorkerId, Name: w.Name, Reason: string(w.Reason),
+			Setup: hostup.Setup{Family: w.Family}}
+		// Act only on a non-null desired: null (LEAVE_ALONE, SWEEP_OFF) stays
+		// "" and the engine never acts on it.
+		if w.Desired != nil {
+			hw.Desired = string(*w.Desired)
+		}
+		if w.WouldBe != nil {
+			hw.WouldBe = string(*w.WouldBe)
+		}
+		if w.OpenSessionId != nil {
+			hw.SessionID = *w.OpenSessionId
+		}
+		hw.Setup.Worktree, hw.Setup.Problem = serverWorktree(w.Worktrees, w.Family)
+		snap.Workers = append(snap.Workers, hw)
+	}
+	return snap, nil
+}
+
+// serverWorktree picks the one worktree a worker is reconciled in, from the
+// tokens its host registered. Until the platform holds the host's setup
+// (hadron-server#4222) there is no other source, so exactly one is required:
+// none or several is a problem the engine reports, and so is a value that is
+// not a host name token (the server's answer is checked like the file).
+func serverWorktree(trees []string, family string) (string, string) {
+	if family == "" || !hostpoller.ValidNameToken(family) {
+		return "", "the server names no usable model family for this worker"
+	}
+	switch len(trees) {
+	case 0:
+		return "", "the host registers no worktree for this worker"
+	case 1:
+		if !hostpoller.ValidNameToken(trees[0]) {
+			return "", "the registered worktree is not a host name token"
+		}
+		return trees[0], ""
+	}
+	return "", fmt.Sprintf("the host registers %d worktrees for this worker; host up acts on a worker with exactly one", len(trees))
 }
 
 type hostUpFileSource struct{ snap hostup.Snapshot }
