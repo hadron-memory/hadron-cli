@@ -260,12 +260,13 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 			inputs := []*gen.WorkerTerminalReportInput{}
 			matched := map[string]bool{}
 			display := map[string]string{}
+			contextMeasurer := &contextsize.Measurer{}
 			for _, r := range rows {
 				if id, ok := names[r.Worker]; ok {
 					display[id] = r.Worker
 					matched[id] = true
 					r.Worker = id
-					if m := healthContext(cfg, state, id, display[id]); m != nil {
+					if m := healthContext(cfg, state, id, display[id], contextMeasurer); m != nil {
 						tokens, at := m.Tokens, m.MeasuredAt.Format(time.RFC3339Nano)
 						r.ContextTokens, r.ContextMeasuredAt = &tokens, &at
 					}
@@ -427,8 +428,8 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 }
 
 // healthContextMeasurer is the measurement seam; tests replace it.
-var healthContextMeasurer = func(family string, worktrees []string, roots contextsize.Roots) *contextsize.Measurement {
-	return contextsize.Measure(family, worktrees, roots, time.Now())
+var healthContextMeasurer = func(measurer *contextsize.Measurer, family string, worktrees []string, roots contextsize.Roots) *contextsize.Measurement {
+	return measurer.Measure(family, worktrees, roots, time.Now())
 }
 
 // healthContextRoots is where this worker's launcher writes: the worker's
@@ -447,13 +448,13 @@ func healthContextRoots(w hostpoller.WorkerConfig) contextsize.Roots {
 // healthContext measures one registered worker's context size from what its
 // launcher wrote on this host. nil means "not measured": an unconfigured
 // worker, a family without a measurer, or any file that cannot be proven.
-func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name string) *contextsize.Measurement {
+func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name string, measurer *contextsize.Measurer) *contextsize.Measurement {
 	ref := cfg.RefFor(id, "", name)
 	if ref == "" {
 		return nil
 	}
 	rec := cfg.Recipient(state, ref, id)
-	return healthContextMeasurer(cfg.Workers[ref].Family, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
+	return healthContextMeasurer(measurer, cfg.Workers[ref].Family, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
 }
 
 func healthSafeError(err error) error {
