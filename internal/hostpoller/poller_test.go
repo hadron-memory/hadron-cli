@@ -1485,3 +1485,86 @@ func TestStepCollectsOncePerStepEvenOnAFullPage(t *testing.T) {
 		}
 	}
 }
+
+// refusingServer answers each registration with the next refusal set.
+type refusingServer struct {
+	*fakeServer
+	sets [][]RefusedWorker
+	n    int
+	// unknown: the server cannot report refusals (it predates #4241).
+	unknown bool
+}
+
+func (s *refusingServer) Register(ctx context.Context, r Registration) (RegisteredHost, error) {
+	ans, err := s.fakeServer.Register(ctx, r)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.n < len(s.sets) {
+		ans.Refused = s.sets[s.n]
+	}
+	ans.RefusedKnown = !s.unknown
+	s.n++
+	return ans, err
+}
+
+// hadron-cli#2091: a registration's per-worker refusals are visible, once per
+// change, and never fail the poll (cor:agt:070:01, hadron-server#4241).
+func TestPollerReportsRegistrationRefusalsOnceAndOnlyOnChange(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var events []Event
+	p.emit = func(e Event) { mu.Lock(); events = append(events, e); mu.Unlock() }
+	a := RefusedWorker{Worker: "Synthetic", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	b := RefusedWorker{Worker: "Other", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	rs := &refusingServer{fakeServer: srv, sets: [][]RefusedWorker{nil, {a}, {a}, {b, a}, {a, b}, nil}}
+	p.server = rs
+	refused := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		var got []string
+		for _, e := range events {
+			if e.Kind == "worker-refused" {
+				got = append(got, e.Detail)
+			}
+		}
+		return got
+	}
+	wantAfter := []int{0, 1, 1, 3, 3, 3} // empty; new set; same set (silent); changed set; same set in another order (silent); cleared (silent)
+	for i, want := range wantAfter {
+		step(t, p)
+		if got := refused(); len(got) != want {
+			t.Fatalf("after poll %d: %d refusal events %v, want %d", i+1, len(got), got, want)
+		}
+	}
+	for _, d := range refused() {
+		if !strings.Contains(d, "HOST_WORKER_NOT_ASSIGNED") {
+			t.Fatalf("a refusal event must carry the server's code: %q", d)
+		}
+	}
+	if len(srv.regs) != len(wantAfter) {
+		t.Fatalf("every poll registers once: %d", len(srv.regs))
+	}
+}
+
+func TestPollerSaysOnceThatRefusalsAreUnknownOnAnOldServer(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var kinds []string
+	p.emit = func(e Event) { mu.Lock(); kinds = append(kinds, e.Kind); mu.Unlock() }
+	p.server = &refusingServer{fakeServer: srv, unknown: true}
+	for i := 0; i < 3; i++ {
+		step(t, p)
+	}
+	n := 0
+	for _, k := range kinds {
+		if k == "refusals-unknown" {
+			n++
+		}
+		if k == "worker-refused" {
+			t.Fatal("an unknown set is never reported as refused workers")
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d refusals-unknown events over three polls, want exactly one (%v)", n, kinds)
+	}
+}
