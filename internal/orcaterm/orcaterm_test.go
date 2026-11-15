@@ -429,3 +429,31 @@ func TestScreenAgentFamily(t *testing.T) {
 		}
 	}
 }
+
+// cli#2058 C3: the launcher's guard admits only create and close; it neither
+// reads nor types, and delivery's and the sweep's guards still refuse create.
+func TestLaunchGuardAllowsOnlyCreateAndClose2058(t *testing.T) {
+	var ran [][]string
+	run := LaunchGuard(func(_ context.Context, argv []string) Result {
+		ran = append(ran, argv)
+		return Result{Stdout: `{"ok":true}`}
+	})
+	for _, argv := range [][]string{{"terminal", "send"}, {"terminal", "read"}, {"terminal", "list"}, {"agent", "launch"}, {"terminal"}, {}} {
+		if res := run(context.Background(), argv); res.Code != 1 || res.Stdout != "" {
+			t.Errorf("%v: got %+v, want refused", argv, res)
+		}
+	}
+	for _, argv := range [][]string{{"terminal", "create", "--json"}, {"terminal", "close", "--terminal", "h"}} {
+		if res := run(context.Background(), argv); res.Code != 0 {
+			t.Errorf("%v refused", argv)
+		}
+	}
+	if len(ran) != 2 {
+		t.Fatalf("ran %v", ran)
+	}
+	for _, g := range []func(Runner) Runner{Guard, SweepGuard} {
+		if res := g(func(context.Context, []string) Result { return Result{} })(context.Background(), []string{"terminal", "create"}); res.Code != 1 {
+			t.Error("a non-launch guard admits terminal create")
+		}
+	}
+}
