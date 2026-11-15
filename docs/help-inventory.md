@@ -484,13 +484,16 @@ section between the markers.
 | `team health sweep` |  |  | n | #1054 |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 |  | unread |  |
 | `team host` |  |  | n | #1054 |  | unread |  |
+| `team host assign` |  |  | y | #1054 |  | unread |  |
 | `team host availability` |  |  | y | #1054 |  | unread |  |
 | `team host issue` |  |  | y | #1054 |  | unread |  |
 | `team host list` | ls |  | n | #1054 |  | unread |  |
 | `team host ops` |  |  | n | #1054 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 |  | unread |  |
 | `team host run` |  |  | n | #1054 |  | unread |  |
+| `team host setup` |  |  | y | #1054 |  | unread |  |
 | `team host status` |  |  | n | #1054 |  | unread |  |
+| `team host unassign` |  |  | y | #1054 |  | unread |  |
 | `team host up` |  |  | y | #1054 |  | unread |  |
 | `team init` |  |  | y | #1054 |  | unread |  |
 | `team pause` |  |  | y | #1054 |  | unread |  |
