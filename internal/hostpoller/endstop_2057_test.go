@@ -381,3 +381,23 @@ func TestTrackAgentDoesNotInheritAnEarlierRunsSession(t *testing.T) {
 		t.Error("a stale session survived the new launch")
 	}
 }
+
+// §10 F2: an unrecorded launch is identified again UNDER the lock, immediately
+// before each signal: a binding that empties after the first check declines.
+func TestWorkerEndRechecksAnUnrecordedLaunchUnderTheLock(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	withStop(p, StopOnEndAlways)
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	p.trackAgent("id-iris", "repo/iris", agent) // no recorded session
+	b := delivery.Binding{WorkerID: "id-iris", SessionID: "sess1"}
+	p.bound = func(string) delivery.Binding { return b }
+	p.lockBinding = func(string, time.Duration) (func(), error) {
+		b = delivery.Binding{} // the binding goes empty before the signal
+		return func() {}, nil
+	}
+	srv.batches = [][]Operation{{stopOp(IssuedByUser)}}
+	step(t, p)
+	if agent.terminations() != 0 {
+		t.Fatal("an unrecorded launch was stopped after its binding stopped identifying it")
+	}
+}

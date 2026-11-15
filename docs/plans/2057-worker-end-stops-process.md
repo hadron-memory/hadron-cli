@@ -66,3 +66,14 @@ the server ending a session whose process was stopped (S2), a spec change
 - **Session identity (#2070).** The reset relaunch records the session the reset names;
   a launch the server had already finished has none recorded, so only a binding that
   names this worker AND the session being ended identifies it (an empty binding declines).
+
+## Security review (§10) on #2073
+- The stop creates and locks inside a tree the worker can write, so `LockBinding`
+  follows no link: `Mkdir` (not `MkdirAll`) for a plain cache, `Lstat` the lock
+  location and the lock file (a link or non-regular file is refused), `O_NOFOLLOW`
+  on unix, and an `fstat` regular-file check after the open.
+- **Residual, stated plainly:** the stop is fail-safe, not containment. A hostile
+  agent can still decline its own stop (hold the lock for the 2 s bound, rewrite
+  its binding, move its working directory); each of those makes the host signal
+  nothing and say so. The host also trusts the worktree's `.git` pointer, as every
+  binding reader here already does; on orca1 the poller and the agents share one uid.

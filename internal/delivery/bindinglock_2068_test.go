@@ -93,3 +93,47 @@ func TestLockBindingInAPlainDirectoryCacheLocksThere(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// §10 F1: the poller creates and locks inside a tree the worker writes, so a
+// link planted there must be refused, never followed.
+func TestLockBindingRefusesALinkedCacheDirectory(t *testing.T) {
+	outside := t.TempDir()
+	d := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(d, plainCacheName)); err != nil {
+		t.Skip("no symlinks")
+	}
+	if _, err := LockBinding(d, time.Second); err == nil {
+		t.Fatal("a symlinked cache directory was followed")
+	}
+	if _, err := os.Stat(filepath.Join(outside, bindingLockFileName)); err == nil {
+		t.Fatal("a lock file was created through the link")
+	}
+}
+
+func TestLockBindingRefusesALinkedLockFile(t *testing.T) {
+	d := gitTree(t)
+	target := filepath.Join(t.TempDir(), "victim")
+	if err := os.Symlink(target, filepath.Join(d, ".git", bindingLockFileName)); err != nil {
+		t.Skip("no symlinks")
+	}
+	if _, err := LockBinding(d, time.Second); err == nil {
+		t.Fatal("a symlinked lock file was opened")
+	}
+	if _, err := os.Stat(target); err == nil {
+		t.Fatal("a file was created at the link's target")
+	}
+}
+
+func TestLockBindingRefusesALinkedGitDirectory(t *testing.T) {
+	d := t.TempDir()
+	real := t.TempDir()
+	if err := os.Symlink(real, filepath.Join(d, ".git")); err != nil {
+		t.Skip("no symlinks")
+	}
+	if _, err := LockBinding(d, time.Second); err == nil {
+		t.Fatal("a symlinked .git directory was followed")
+	}
+	if _, err := os.Stat(filepath.Join(real, bindingLockFileName)); err == nil {
+		t.Fatal("a lock file was created through the link")
+	}
+}

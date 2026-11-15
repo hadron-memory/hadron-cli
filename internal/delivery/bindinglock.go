@@ -40,15 +40,32 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 		// same lock. Create it here, owner-only, as that bind does, so the
 		// lock exists for both sides before anyone reads or writes: a bind
 		// that races the stop then waits on this lock instead of slipping by.
+		// The tree is writable by the worker, so nothing here follows a link:
+		// the cache is made with Mkdir (never MkdirAll) and must be a real
+		// directory afterwards.
 		dir = filepath.Join(worktree, plainCacheName)
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("creating the session binding cache: %w", err)
+		if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
+			if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+				return nil, fmt.Errorf("creating the session binding cache: %w", err)
+			}
 		}
 	}
+	// Whatever holds the lock must be a real directory, never a link into
+	// somewhere the poller should not create files.
+	if info, err := os.Lstat(dir); err != nil || !info.IsDir() {
+		return nil, errors.New("the session binding location is not a plain directory (a link or a file?), so it was not locked")
+	}
 	path := filepath.Join(dir, bindingLockFileName)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's git dir or cache
+	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
+		return nil, errors.New("the session binding lock is not a regular file (a link?), so it was not taken")
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|noFollow, 0o600) // #nosec G304 — derived from the worktree's git dir or cache; a link is refused above and by noFollow
 	if err != nil {
 		return nil, fmt.Errorf("opening the session binding lock: %w", err)
+	}
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		_ = f.Close()
+		return nil, errors.New("the session binding lock is not a regular file, so it was not taken")
 	}
 	deadline := time.Now().Add(wait)
 	for {
