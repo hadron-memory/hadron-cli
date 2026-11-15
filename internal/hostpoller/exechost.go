@@ -34,6 +34,13 @@ type UntrustedConfigError struct{ Why string }
 
 func (e *UntrustedConfigError) Error() string { return "untrusted repo config: " + e.Why }
 
+// BrokenRepoError is a worker directory with its own .git entry that git cannot
+// use as a repository whose top level is that directory (hadron-cli#2119): not "a
+// directory without Git". Nothing was run on it.
+type BrokenRepoError struct{ Why string }
+
+func (e *BrokenRepoError) Error() string { return "broken repository: " + e.Why }
+
 // git runs one command on a repository the worker can write to, with the
 // hardened configuration and the transport allowlist (hadron-cli#2057 §10): the
 // same rule as the reset's for EVERY git call this host makes. A repository whose
