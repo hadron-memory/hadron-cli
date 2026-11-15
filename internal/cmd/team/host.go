@@ -130,6 +130,7 @@ granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <h
 	cmd.AddCommand(newCmdTeamHostAssign(f))
 	cmd.AddCommand(newCmdTeamHostUnassign(f))
 	cmd.AddCommand(newCmdTeamHostSetup(f))
+	cmd.AddCommand(newCmdTeamHostImport(f))
 	return cmd
 }
 
