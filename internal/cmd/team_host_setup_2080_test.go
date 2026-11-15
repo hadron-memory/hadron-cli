@@ -125,9 +125,40 @@ func TestTeamHostAssign2080TokensAreRefusedBeforeAnyRequest(t *testing.T) {
 			if err == nil || exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("want exit %d, got %v (exit %d)", exitcode.Usage, err, exitCodeFor(err))
 			}
-			noCall2080(t, calls, "TeamHostAssign", "TeamHostAssignInstructed")
+			if len(*calls) != 0 {
+				t.Fatalf("a refused token must send no request at all, got %v", *calls)
+			}
 			if strings.Contains(out, "✓") {
 				t.Fatalf("receipt before refusal: %q", out)
+			}
+		})
+	}
+}
+
+// The family that was validated is the family that is sent (BLIND P2, Jamir).
+func TestTeamHostAssign2080FamilyIsSentAsValidated(t *testing.T) {
+	calls, _, err := runTeamTask(t, responses2080(), "team", "host", "assign", "Jonas", "--host", "orca1", "--workdir", "jonas-3", "--family", " CLAUDE ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in := findCall(t, calls, "TeamHostAssign").Vars["input"].(map[string]any); in["family"] != "claude" {
+		t.Fatalf("family = %v, want the validated lowercase token", in["family"])
+	}
+}
+
+// A null or missing hostSetup is a server failure (exit 1), never a panic and
+// never a partial success (QA F1, Colin; BLIND P2, Jamir).
+func TestTeamHostSetup2080NullResultIsAServerFailure(t *testing.T) {
+	for name, resp := range map[string]string{"null": `{"data":{"hostSetup":null}}`, "missing": `{"data":{}}`} {
+		t.Run(name, func(t *testing.T) {
+			r := responses2080()
+			r["TeamHostSetup"] = resp
+			_, out, err := runTeamTask(t, r, "team", "host", "setup", "--json")
+			if err == nil || exitCodeFor(err) != exitcode.Error {
+				t.Fatalf("want exit %d, got %v (exit %d)", exitcode.Error, err, exitCodeFor(err))
+			}
+			if strings.TrimSpace(out) != "" {
+				t.Fatalf("partial output: %q", out)
 			}
 		})
 	}

@@ -139,7 +139,10 @@ assignment.
 			if !hostSetupToken(workdir) {
 				return exitcode.Newf(exitcode.Usage, "--workdir is %s, the name the host knows the directory by, never a path; got %q", hostSetupTokenRule, workdir)
 			}
-			if !hostSetupFamilyRe.MatchString(strings.ToLower(family)) {
+			// The server's family is a lowercase token (it normalizes case); send
+			// exactly the value that was validated.
+			family = strings.ToLower(family)
+			if !hostSetupFamilyRe.MatchString(family) {
 				return exitcode.Newf(exitcode.Usage, "--family is a model family token such as claude or codex; got %q", family)
 			}
 			input := gen.AssignHostWorkerInput{HostId: hostID, Workdir: workdir, Family: family, Worker: worker}
@@ -382,7 +385,7 @@ func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) err
 	if err != nil {
 		return api.MapErrorKeepingCode(err)
 	}
-	if resp == nil {
+	if resp == nil || resp.HostSetup == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no host setup")
 	}
 	d := hostSetupDTO{AppRef: scope.Ref, Source: string(resp.HostSetup.Source), Assignments: []hostAssignmentDTO{}}
