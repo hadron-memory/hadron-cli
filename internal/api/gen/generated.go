@@ -33895,7 +33895,10 @@ func (v *ContextResetContextReset) GetWorkerId() string { return v.ContextResetF
 func (v *ContextResetContextReset) GetSessionId() string { return v.ContextResetFields.SessionId }
 
 // GetTaskId returns ContextResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetTaskId() string { return v.ContextResetFields.TaskId }
+func (v *ContextResetContextReset) GetTaskId() *string { return v.ContextResetFields.TaskId }
+
+// GetCause returns ContextResetContextReset.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetCause() string { return v.ContextResetFields.Cause }
 
 // GetStopGrantedAt returns ContextResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopGrantedAt() *string {
@@ -33951,7 +33954,9 @@ type __premarshalContextResetContextReset struct {
 
 	SessionId string `json:"sessionId"`
 
-	TaskId string `json:"taskId"`
+	TaskId *string `json:"taskId"`
+
+	Cause string `json:"cause"`
 
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
@@ -33980,6 +33985,7 @@ func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextReset
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
+	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
 	retval.EndedAt = v.ContextResetFields.EndedAt
@@ -33999,7 +34005,10 @@ type ContextResetFields struct {
 	Reason    *string `json:"reason"`
 	WorkerId  string  `json:"workerId"`
 	SessionId string  `json:"sessionId"`
-	TaskId    string  `json:"taskId"`
+	// Null for a reset with no task: one asked for by the Agent's context cap (#4225).
+	TaskId *string `json:"taskId"`
+	// #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
+	Cause string `json:"cause"`
 	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
 	StopGrantedAt *string `json:"stopGrantedAt"`
 	StopLeaseMs   *int    `json:"stopLeaseMs"`
@@ -34027,7 +34036,10 @@ func (v *ContextResetFields) GetWorkerId() string { return v.WorkerId }
 func (v *ContextResetFields) GetSessionId() string { return v.SessionId }
 
 // GetTaskId returns ContextResetFields.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetTaskId() string { return v.TaskId }
+func (v *ContextResetFields) GetTaskId() *string { return v.TaskId }
+
+// GetCause returns ContextResetFields.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetCause() string { return v.Cause }
 
 // GetStopGrantedAt returns ContextResetFields.StopGrantedAt, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt }
@@ -34116,8 +34128,13 @@ func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string {
 }
 
 // GetTaskId returns ContextResetStepFieldsResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetTaskId() string {
+func (v *ContextResetStepFieldsResetContextReset) GetTaskId() *string {
 	return v.ContextResetFields.TaskId
+}
+
+// GetCause returns ContextResetStepFieldsResetContextReset.Cause, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetCause() string {
+	return v.ContextResetFields.Cause
 }
 
 // GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
@@ -34178,7 +34195,9 @@ type __premarshalContextResetStepFieldsResetContextReset struct {
 
 	SessionId string `json:"sessionId"`
 
-	TaskId string `json:"taskId"`
+	TaskId *string `json:"taskId"`
+
+	Cause string `json:"cause"`
 
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
@@ -34207,6 +34226,7 @@ func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premars
 	retval.WorkerId = v.ContextResetFields.WorkerId
 	retval.SessionId = v.ContextResetFields.SessionId
 	retval.TaskId = v.ContextResetFields.TaskId
+	retval.Cause = v.ContextResetFields.Cause
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
 	retval.EndedAt = v.ContextResetFields.EndedAt
@@ -74899,7 +74919,8 @@ type RegisterContextResetRecoveryInput struct {
 	ResetId        string  `json:"resetId"`
 	// The reset's own session and task.
 	SessionId string `json:"sessionId"`
-	TaskId    string `json:"taskId"`
+	// The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
+	TaskId *string `json:"taskId,omitempty"`
 }
 
 // GetAppRef returns RegisterContextResetRecoveryInput.AppRef, and is useful for accessing the field via an interface.
@@ -74923,7 +74944,7 @@ func (v *RegisterContextResetRecoveryInput) GetResetId() string { return v.Reset
 func (v *RegisterContextResetRecoveryInput) GetSessionId() string { return v.SessionId }
 
 // GetTaskId returns RegisterContextResetRecoveryInput.TaskId, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetTaskId() string { return v.TaskId }
+func (v *RegisterContextResetRecoveryInput) GetTaskId() *string { return v.TaskId }
 
 // RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
 // The GraphQL type's documentation follows.
@@ -133457,6 +133478,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -136005,6 +136027,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -137735,6 +137758,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -153567,6 +153591,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -153577,6 +153602,8 @@ fragment ContextResetFields on ContextReset {
 // #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
 // never names one (checkpointNode). Exactly one is allowed: checkpointNode is
 // omitted, not sent as null, when unset (checkpoint already is).
+// #4258: a context-cap reset has no task; taskId is OMITTED then (an omitted
+// field is "none", never an explicit null).
 func RegisterContextResetRecovery(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -154461,6 +154488,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -154516,6 +154544,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -154570,6 +154599,7 @@ fragment ContextResetFields on ContextReset {
 	workerId
 	sessionId
 	taskId
+	cause
 	stopGrantedAt
 	stopLeaseMs
 	endedAt
@@ -161515,6 +161545,7 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 }
 `
 
+// #4230 (server main, tracked by #2157): optional like model; omitted, never null, so an existing assignment is preserved.
 func TeamHostAssign(
 	ctx_ context.Context,
 	client_ graphql.Client,

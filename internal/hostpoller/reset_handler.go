@@ -59,7 +59,9 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("HOST_UNSUPPORTED", "this host's reset handler has no process control or Git reader")
 		return
 	}
-	for _, a := range []string{"resetId", "sessionId", "taskId"} {
+	// taskId is NOT required: a context-cap reset (hadron-server#4258) names
+	// none (absent, null or empty, all read as ""). resetId and sessionId stay.
+	for _, a := range []string{"resetId", "sessionId"} {
 		if argString(op, a) == "" {
 			refuse("HOST_UNSUPPORTED", "malformed operation: it names no "+a)
 			return
