@@ -571,18 +571,44 @@ const bindingFileName = "hadron-team-session.json"
 // it has none (the file does not exist), or unusableBinding when it has one
 // that cannot be trusted.
 func BoundWorker(worktree string) string {
+	worker, _ := boundIDs(worktree)
+	return worker
+}
+
+// Binding is what a worktree's session binding names (hadron-cli#2057).
+type Binding struct {
+	// WorkerID is "" when the worktree has no binding file.
+	WorkerID string
+	// SessionID is "" when there is no binding or it names no session.
+	SessionID string
+	// Unusable is a binding file that exists but cannot be trusted
+	// (unreadable, not JSON, naming no worker): never the same as none.
+	Unusable bool
+}
+
+// WorktreeBinding reads the worker and session a worktree's session binding
+// names, by the same rules as BoundWorker.
+func WorktreeBinding(worktree string) Binding {
+	worker, session := boundIDs(worktree)
+	if worker == unusableBinding {
+		return Binding{Unusable: true}
+	}
+	return Binding{WorkerID: worker, SessionID: session}
+}
+
+func boundIDs(worktree string) (worker, session string) {
 	gitDir := filepath.Join(worktree, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
 		if isPlainDir(worktree) {
-			return plainBoundWorker(worktree)
+			return plainBoundIDs(worktree)
 		}
-		return ""
+		return "", ""
 	}
 	if !info.IsDir() {
 		b, err := os.ReadFile(gitDir)
 		if err != nil {
-			return unusableBinding
+			return unusableBinding, ""
 		}
 		pointer := trimGitdir(string(b))
 		if filepath.IsAbs(pointer) {
@@ -591,5 +617,5 @@ func BoundWorker(worktree string) string {
 			gitDir = filepath.Join(worktree, pointer)
 		}
 	}
-	return readBinding(filepath.Join(gitDir, bindingFileName))
+	return readBindingIDs(filepath.Join(gitDir, bindingFileName))
 }

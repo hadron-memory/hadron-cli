@@ -20,21 +20,29 @@ func trimGitdir(s string) string {
 // delay, typing into another worker's terminal breaches the floor.
 const unusableBinding = "\x00unreadable-binding"
 
-// readBinding is the workerId a session binding file names: "" when the file
-// does not exist, unusableBinding when it exists but is unusable.
-func readBinding(path string) string {
+// readBindingIDs is the workerId a session binding file names — "" when the
+// file does not exist, unusableBinding when it exists but is unusable — plus the session id the same file names ("" when
+// the worker is "" or unusableBinding, or the file names no session).
+func readBindingIDs(path string) (worker, session string) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return ""
+			return "", ""
 		}
-		return unusableBinding
+		return unusableBinding, ""
 	}
+	return parseBinding(b)
+}
+
+// parseBinding reads a binding file's worker and session ids: unusableBinding
+// for anything that is not JSON naming a worker.
+func parseBinding(b []byte) (worker, session string) {
 	var binding struct {
-		WorkerID string `json:"workerId"`
+		WorkerID  string `json:"workerId"`
+		SessionID string `json:"sessionId"`
 	}
 	if json.Unmarshal(b, &binding) != nil || binding.WorkerID == "" {
-		return unusableBinding
+		return unusableBinding, ""
 	}
-	return binding.WorkerID
+	return binding.WorkerID, binding.SessionID
 }
