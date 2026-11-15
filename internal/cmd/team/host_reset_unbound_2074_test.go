@@ -141,14 +141,20 @@ func TestResetFixtureReadyPublishesAtomically2098(t *testing.T) {
 	}
 }
 func publishResetFixtureReady2074(ready string, pid int, beforeWrite func()) error {
-	f, err := os.OpenFile(ready, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.CreateTemp(filepath.Dir(ready), ".ready-*")
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }()
+	temp := f.Name()
+	defer func() { _ = f.Close(); _ = os.Remove(temp) }()
 	if beforeWrite != nil {
 		beforeWrite()
 	}
-	_, err = f.WriteString(strconv.Itoa(pid))
-	return err
+	if _, err = f.WriteString(strconv.Itoa(pid)); err != nil {
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temp, ready)
 }
