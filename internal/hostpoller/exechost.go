@@ -103,13 +103,15 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 	} else if !root {
 		return st, nil
 	}
-	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
-	var untrusted *UntrustedConfigError
-	if errors.As(err, &untrusted) {
-		return st, err // refused, not "not a worktree": no command ran
+	// The directory has a .git entry of its own: the config allowlist first (an
+	// untrusted config runs nothing), then it must resolve to a valid repository
+	// whose work tree IS the directory. Anything else is a broken repository,
+	// refused with the reason, never "not a worktree" (hadron-cli#2119).
+	if why := untrustedRepoConfig(ctx, path); why != "" {
+		return st, &UntrustedConfigError{Why: why}
 	}
-	if err != nil || !samePath(top, path) {
-		return st, nil
+	if why := ownRepoProblem(ctx, path); why != "" {
+		return st, &BrokenRepoError{Why: why}
 	}
 	st.IsWorktree = true
 	if b, err := git(ctx, path, "symbolic-ref", "--short", "-q", "HEAD"); err == nil {

@@ -51,8 +51,8 @@ func TestResetRefusesAStandaloneBrokenGitDirectory2119(t *testing.T) {
 	if err != nil || out.Reset || out.Code != CodeResetFailed {
 		t.Fatalf("a broken .git must refuse, not be a worker without Git: out=%+v err=%v", out, err)
 	}
-	if !strings.Contains(out.Detail, ".git") {
-		t.Fatalf("the refusal must name the .git entry: %q", out.Detail)
+	if !strings.Contains(out.Detail, ".git entry") || !strings.Contains(out.Detail, "not a usable repository (") {
+		t.Fatalf("the refusal must say the .git entry is not a usable repository: %q", out.Detail)
 	}
 }
 
@@ -61,6 +61,9 @@ func TestResetRefusesABrokenGitDirectoryInsideAnEnclosingRepository2119(t *testi
 	out, err := ResetWorktree(context.Background(), worker, resetNow)
 	if err != nil || out.Reset || out.Code != CodeResetFailed {
 		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if !strings.Contains(out.Detail, "enclosing one") {
+		t.Fatalf("the refusal must say git fell back to an enclosing repository: %q", out.Detail)
 	}
 	if got := gitIn(t, outer, "rev-parse", "HEAD"); got != head {
 		t.Fatalf("the ENCLOSING repository moved: %s -> %s", head, got)
