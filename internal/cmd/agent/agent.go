@@ -19,8 +19,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// agentDTO is the stable --json shape for an agent.
-type agentDTO struct {
+// agentBaseDTO is every field of the stable --json agent shape except
+// lifecycle, which write receipts and `agent get` represent DIFFERENTLY (omitted
+// when not sent vs an explicit null) and so each declares exactly once, below.
+type agentBaseDTO struct {
 	ID             string   `json:"id"`
 	URN            string   `json:"urn"`
 	Name           string   `json:"name"`
@@ -43,7 +45,6 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
-	Lifecycle               *string `json:"lifecycle,omitempty"`
 	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
 	// host with a worker.reset-context handler acts on it (#1043).
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
@@ -57,6 +58,14 @@ type agentDTO struct {
 	// the roles an App it is installed in may offer. [] when none came back.
 	MemberRoles []string `json:"memberRoles"`
 	CreatedAt   string   `json:"createdAt"`
+}
+
+// agentDTO is the --json shape of write receipts, lists and clones: lifecycle
+// is present only when the server returned it (a write that sent --lifecycle),
+// and omitted otherwise.
+type agentDTO struct {
+	agentBaseDTO
+	Lifecycle *string `json:"lifecycle,omitempty"`
 }
 
 type registerDefaultsDTO struct {
@@ -78,7 +87,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 	if a.RegisterDefaults != nil {
 		reg = &registerDefaultsDTO{MentionOnly: a.RegisterDefaults.MentionOnly}
 	}
-	return agentDTO{
+	return agentDTO{agentBaseDTO: agentBaseDTO{
 		MemberRoles: roles, ListedOnMarketplace: a.ListedOnMarketplace, RegisterDefaults: reg,
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
@@ -87,7 +96,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
-	}
+	}}
 }
 
 // memberRolesArg turns --member-roles into the wire value: nil when the flag
@@ -422,8 +431,10 @@ func writeOfferReadiness(w io.Writer, r *OfferReadinessDTO) {
 
 // Origin is get-only; null deliberately does not identify a concealment reason.
 type agentGetDTO struct {
+	// Lifecycle is `get`'s ONLY lifecycle field: an explicit null when the
+	// server cannot report it (it predates #4242), never omitted.
 	Lifecycle *string `json:"lifecycle"`
-	agentDTO
+	agentBaseDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
 	OfferReadiness *OfferReadinessDTO `json:"offerReadiness"`
@@ -464,7 +475,7 @@ flag keeps the legacy create/update documents unchanged.`,
 			if resp.Agent == nil {
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
-			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
+			dto := agentGetDTO{agentBaseDTO: agentDTOFromFields(resp.Agent.AgentFields).agentBaseDTO, ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
 			life, lifeErr := gen.GetAgentLifecycle(cmd.Context(), client, resp.Agent.Id)
 			if lifeErr != nil && !api.IsFrameworkValidationOnlyFor(lifeErr, "lifecycle") {
 				return api.MapError(lifeErr)
@@ -1005,9 +1016,23 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 
 func emitAgent(f *cmdutil.Factory, dto agentDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "%s agent %s (%s)\n", verb, dto.Name, dto.URN)
-		return err
+		if _, err := fmt.Fprintf(w, "%s agent %s (%s)\n", verb, dto.Name, dto.URN); err != nil {
+			return err
+		}
+		return writeLifecycleLine(w, dto.Lifecycle)
 	})
+}
+
+// writeLifecycleLine confirms the lifecycle the SERVER returned for a write that
+// sent --lifecycle, in the same words `agent get` uses. A write that did not
+// send it (the legacy document, nothing returned) prints nothing: the receipt
+// never claims a lifecycle the server did not say (cli#2114).
+func writeLifecycleLine(w io.Writer, lifecycle *string) error {
+	if lifecycle == nil {
+		return nil
+	}
+	_, err := fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(*lifecycle))
+	return err
 }
 
 // agentInstallDTO reports the --install-into outcome.
@@ -1114,6 +1139,9 @@ func installIncompleteError(cause error, appRef, agentID string) error {
 func emitCreatedAgent(f *cmdutil.Factory, dto agentCreateDTO) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if _, err := fmt.Fprintf(w, "✓ created agent %s (%s)\n", dto.Name, dto.URN); err != nil {
+			return err
+		}
+		if err := writeLifecycleLine(w, dto.Lifecycle); err != nil {
 			return err
 		}
 		if dto.Install == nil || dto.Install.Status != "installed" {
