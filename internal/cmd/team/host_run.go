@@ -313,11 +313,18 @@ re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
 Capabilities are an explicit full declaration on every registration refresh:
-add capabilities: [worker.reset-context] only for a driver that actually
-implements that operation. Omitted or [] means none. THIS POLLER DOES NOT
-implement worker.reset-context: leave capabilities empty for this runner;
-unknown operations remain failed. Declaring a capability adds no handler; this runner warns on stderr for
-every unimplemented declaration before registering.
+Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
+wires the reset protocol and requires an absolute reset_context.orca_bin
+(reserved for the C3 reader). This driver cannot yet bind an Orca terminal
+and its controlling tty to the process it launched. It therefore remains
+built and off: even a matching binding/process refuses NOT_IDLE:
+TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
+same worktree proves nothing about that process. C3 (hadron-cli#2058) owns
+the terminal-aware success path; enabling a config cannot bypass this refusal.
+Existing Git/identity refusals and no-signal recovery of recorded resets stay.
+Leave the capability unset until that path is built and separately authorized.
+Installing this CLI grants no live-host activation. Unknown declarations
+still warn on stderr before registration and add no handler.
 
 The configuration (YAML):
 
@@ -327,6 +334,10 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
+  # Reserved C3 reset configuration; this build stays fail-closed, no activation:
+  # capabilities: [worker.reset-context]
+  # reset_context:
+  #   orca_bin: /absolute/path/to/orca
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
@@ -338,6 +349,7 @@ The configuration (YAML):
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
       reset_on_start: false         # true: reset the existing worktree at worker.start
+      # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
 
 Moving a host from the Orca attention router: see
@@ -375,8 +387,11 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return err
 			}
-			// Declaring a capability does not acquire a new operation handler.
+			// Only implemented declarations avoid the unsupported warning.
 			for _, capability := range cfg.Capabilities {
+				if capability == hostpoller.CapabilityResetContext {
+					continue
+				}
 				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
 					return err
 				}
@@ -390,6 +405,9 @@ per line; --json prints each as a JSON object.`,
 			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			if err := wireResets(p, cfg, srv); err != nil {
+				return err
+			}
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
 			}

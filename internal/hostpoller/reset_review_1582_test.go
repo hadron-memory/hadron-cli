@@ -86,7 +86,7 @@ func TestResetRecoveryRelaunchesBesideAnExitedAgent1043(t *testing.T) {
 // the stop and nothing is signalled.
 func TestResetActivityAfterTheClaimSendsNothing1043(t *testing.T) {
 	x := newFwdFixture(t)
-	x.p.resetDeps.Idle = func(context.Context, string) error {
+	x.p.resetDeps.Idle = func(context.Context, ResetIdleTarget) error {
 		if len(x.fr.calls) > 0 { // the claim went out
 			return errors.New("BUSY: the agent began working")
 		}

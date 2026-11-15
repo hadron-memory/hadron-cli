@@ -3125,6 +3125,36 @@ type AssetsPage {
   total: Int!
 }
 
+input AssignHostWorkerInput {
+  appRef: String!
+
+  """The model family it runs as there, e.g. claude or codex."""
+  family: String!
+
+  """
+  The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+  """
+  hostId: String!
+
+  """
+  The model, a name token of at most 128 characters. Optional. A record only: a start carries the workdir and family, not the model.
+  """
+  model: String
+
+  """
+  Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
+  """
+  replace: Boolean
+
+  """
+  The name the host knows the working directory by: a name token (letters, digits and . _ / @ + -, starting with a letter or digit, no .., // or trailing /), at most 256 characters.
+  """
+  workdir: String!
+
+  """The worker: its id, URN or name within the App."""
+  worker: String!
+}
+
 """
 The resolved principal for the credential presented on THIS request
 (issue #562). Exposes the AuthContext the server already resolves per
@@ -6754,8 +6784,23 @@ type HostRegistration {
   live: Boolean!
   pollIntervalSeconds: Int!
   refreshedAt: DateTime!
+
+  """
+  #4222 — on registerHost's own answer only (empty on every read): the workers the host listed that were left out because the App's hostSetupSource is SERVER and the platform did not assign them to this host. The registration itself succeeded with the rest.
+  """
+  refusedWorkers: [HostRegistrationRefusal!]!
   registeredAt: DateTime!
   workers: [HostRegistrationWorker!]!
+}
+
+"""
+#4222 — one worker a checked registration left out. code is HOST_WORKER_NOT_ASSIGNED, whatever the reason (unassigned, assigned to another host, retired, of another App, or naming nothing).
+"""
+type HostRegistrationRefusal {
+  code: String!
+
+  """The worker as the host named it."""
+  worker: String!
 }
 
 """
@@ -6766,6 +6811,42 @@ type HostRegistrationWorker {
   worker: Worker
   workerId: ID!
   worktrees: [String!]!
+}
+
+"""
+#4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+"""
+type HostSetup {
+  assignments: [HostWorkerAssignment!]!
+  source: HostSetupSource!
+}
+
+"""
+#4222 — who states which workers a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). HOST: the host, at registration (the default, as before). SERVER: the platform's assignments; a registration is checked against them and a start uses them.
+"""
+enum HostSetupSource {
+  HOST
+  SERVER
+}
+
+"""
+#4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
+workdir and family, never the model.
+"""
+type HostWorkerAssignment {
+  createdAt: DateTime!
+  createdByUserId: ID!
+  family: String!
+  hostId: String!
+  id: ID!
+  model: String
+  updatedAt: DateTime!
+  workdir: String!
+  worker: Worker
+  workerId: ID!
 }
 
 enum IdentifyUserMethod {
@@ -8409,6 +8490,17 @@ type Mutation {
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+
+  """
+  #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
+  model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+  A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+  Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
+  HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+  already assigned to that host and replace is not set. A refusal writes nothing.
+  """
+  assignHostWorker(input: AssignHostWorkerInput!, instruction: ActInstructionInput): HostWorkerAssignment!
 
   """
   #3448 — seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
@@ -10769,6 +10861,8 @@ type Mutation {
   host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
   of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
   scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+  #4222: while the App's hostSetupSource is SERVER, a listed worker the platform did not assign to this host is
+  left out and reported in refusedWorkers (HOST_WORKER_NOT_ASSIGNED) instead; the registration still succeeds.
   """
   registerHost(input: RegisterHostInput!): HostRegistration!
 
@@ -11459,6 +11553,16 @@ type Mutation {
   setDecisionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): DecisionLog!
 
   """
+  #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
+  (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
+  host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
+  a worker is started only on a host it is assigned to whose registration lists the assigned workdir, in that
+  workdir and as the assigned family; with none, nothing is issued and the task waits
+  (hrn:node:hadronmemory.com:specs:cor:agt:070:08). Takes effect at the next registration and start decision.
+  """
+  setHostSetupSource(appRef: String!, instruction: ActInstructionInput, source: HostSetupSource!): HostSetupSource!
+
+  """
   #1709 — a host marks a worker it registers UNAVAILABLE, only as OUT_OF_TOKENS or HOST_DOWN, or clears a mark it set
   itself (hrn:node:hadronmemory.com:specs:cor:agt:060:08). It never replaces or clears anyone else's mark, a stall
   among them: AVAILABILITY_NOT_PERMITTED.
@@ -11770,6 +11874,11 @@ type Mutation {
   Run an entry node now (MANUAL trigger) — same launch gate + kernel as a schedule.
   """
   triggerAppRun(input: TriggerAppRunInput!): AppRun!
+
+  """
+  #4222 — remove a worker's assignment to a host. Whoever manages the App, as for assignHostWorker (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). True when one was removed, false when there was none; a retired worker's assignment is removable.
+  """
+  unassignHostWorker(input: UnassignHostWorkerInput!, instruction: ActInstructionInput): Boolean!
 
   """
   Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
@@ -15487,6 +15596,16 @@ type Query {
   #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
   """
   hostRegistrations(appRef: String!): [HostRegistration!]!
+
+  """
+  #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+  the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+  App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+  own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+  no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+  FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+  """
+  hostSetup(appRef: String!, hostId: String): HostSetup!
 
   """
   One admin-impersonation audit record by id. Resolvable to the session's
@@ -20407,6 +20526,12 @@ input TriggerAppRunInput {
   runAsSelf: Boolean
 }
 
+input UnassignHostWorkerInput {
+  appRef: String!
+  hostId: String!
+  worker: String!
+}
+
 """
 Return shape for the uninstallAgentFromApp mutation. The Agent's
 per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
@@ -21726,6 +21851,17 @@ from checkedAt and reportedAt. Null until a host first reports; null to a reader
 type WorkerTerminal {
   """When the host classified the terminal."""
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens; judge its age from this. Null exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, as its host measured it. Null when the host could not measure
+  it (never 0), and on a report stored before hosts sent it. Shown only: it decides nothing.
+  """
+  contextTokens: Int
   host: WorkerTerminalHost!
   lastTurnAt: DateTime
   prompt: WorkerTerminalPrompt!
@@ -21816,6 +21952,17 @@ input WorkerTerminalReportInput {
   When the host classified the terminal, not more than two minutes ahead of the server.
   """
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+  when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+  """
+  contextTokens: Int
 
   """When the worker's last turn ended, not after checkedAt."""
   lastTurnAt: DateTime
