@@ -16,7 +16,9 @@ renders that answer without adding lifecycle checks or a wake selection.
   error chain retains the server code, also exposed as `serverCode` in the
   JSON error envelope. No retry or partial success output.
   `ticker unsubscribe` keeps its existing behavior.
-- No GraphQL query document changes. `DueWakes` and `TeamDueWakes` already
+- No GraphQL selection changes. The health-sweep input annotation omits
+  the newly exported optional `repairReason` when unset, preserving its
+  existing wire format. `DueWakes` and `TeamDueWakes` already
   select the event; a new enum member requires no server-new selection.
   Old-server responses and future enum strings use the same decoders.
 

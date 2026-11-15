@@ -112644,7 +112644,7 @@ type WorkerTerminalReportInput struct {
 	Repair *WorkerTerminalRepair `json:"repair,omitempty"`
 	// #4247 — why the relaunch was refused or failed: required with RELAUNCH_REFUSED and RELAUNCH_FAILED (from that
 	// outcome's own set), refused (REPAIR_REASON_INVALID) with any other outcome or none. Stored on the report with the outcome.
-	RepairReason *WorkerTerminalRepairReason `json:"repairReason"`
+	RepairReason *WorkerTerminalRepairReason `json:"repairReason,omitempty"`
 	Status       WorkerTerminalState         `json:"status"`
 	// A worker this host registers: its id, URN or name within the App.
 	Worker string `json:"worker"`
