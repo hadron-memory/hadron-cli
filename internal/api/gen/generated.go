@@ -146092,7 +146092,6 @@ mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
 `
 
 // Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
-// #4247 (arrives with the schema refresh of #2117): repairReason is optional like repair; omitted, never null.
 func HealthSweepSetTerminals(
 	ctx_ context.Context,
 	client_ graphql.Client,
