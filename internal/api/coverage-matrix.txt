@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 231: 190 command, 16 gap, 25 excluded
+[Query] 232: 190 command, 17 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -138,6 +138,7 @@ heldWorkers  command team worker held
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
 homeAssistantInstances  command ha list
+hostDesiredState  gap #1389
 hostOperations  command team host ops
 hostRegistrations  command team host list
 impersonationSession  command admin impersonation get
@@ -259,7 +260,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 351: 294 command, 43 gap, 14 excluded
+[Mutation] 353: 296 command, 43 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -524,6 +525,7 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
+setAppSweepMode  command team app sweep-mode
 setAppTickerSettings  command team ticker settings set
 setAssetPublicLink  command asset public-link
 setAutomationReadGrant  command automation grant set
@@ -543,6 +545,7 @@ setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
 setWorkerAvailability  command team availability set
 setWorkerBootPrompt  command team worker set-boot-prompt
+setWorkerLeaveAlone  command team worker leave-alone
 setWorkerReportsTo  command team worker set-reports-to
 setWorkerWakeSettings  command team wake-settings set
 softDeleteAsset  command asset rm

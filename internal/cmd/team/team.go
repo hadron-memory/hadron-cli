@@ -116,6 +116,7 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	cmd.AddCommand(newCmdTeamWakes(f))
 	cmd.AddCommand(newCmdTeamWakeSettings(f))
 	cmd.AddCommand(newCmdTeamHost(f))
+	cmd.AddCommand(newCmdTeamApp(f))
 	cmd.AddCommand(newCmdTeamHealth(f))
 	cmd.AddCommand(newCmdTeamUsage(f))
 	cmd.AddCommand(newCmdTeamGrant(f))
@@ -152,6 +153,10 @@ func reportsToLabel(ref *workerRefDTO, retired bool, known bool) string {
 }
 
 type workerDTO struct {
+	LeaveAlone       bool          `json:"leaveAlone"`
+	LeaveAloneReason *string       `json:"leaveAloneReason"`
+	LeaveAloneBy     *string       `json:"leaveAloneBy"`
+	LeaveAloneAt     *string       `json:"leaveAloneAt"`
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
 	// TeamPlacement is the recorded reporting CHOICE (cli#933): REPORTS_TO,
@@ -244,6 +249,7 @@ type workerDTO struct {
 
 func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	dto := workerDTO{
+		LeaveAlone: w.LeaveAlone, LeaveAloneReason: w.LeaveAloneReason, LeaveAloneBy: w.LeaveAloneBy, LeaveAloneAt: w.LeaveAloneAt,
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
 		Prompt:    w.Prompt,
@@ -275,6 +281,10 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 // answer that looks like an answer, which is worse than an honest absence.
 // `worker get` is the prompt surface, as the shipped task nodes already say.
 type workerRosterDTO struct {
+	LeaveAlone       bool          `json:"leaveAlone"`
+	LeaveAloneReason *string       `json:"leaveAloneReason"`
+	LeaveAloneBy     *string       `json:"leaveAloneBy"`
+	LeaveAloneAt     *string       `json:"leaveAloneAt"`
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
 	// TeamPlacement: same field and null-means-withheld semantics as workerDTO.
@@ -323,6 +333,7 @@ type workerRosterDTO struct {
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 	dto := workerRosterDTO{
+		LeaveAlone: w.LeaveAlone, LeaveAloneReason: w.LeaveAloneReason, LeaveAloneBy: w.LeaveAloneBy, LeaveAloneAt: w.LeaveAloneAt,
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
 		Repos:          nonNilRepos(w.Repos),

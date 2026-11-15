@@ -346,7 +346,7 @@ func TestS3Selections2067(t *testing.T) {
 		}
 		return false
 	}
-	for _, op := range []string{gen.GetAgent_Operation, gen.UpdateAgent_Operation} {
+	for _, op := range []string{gen.GetAgent_Operation, gen.CreateAgent_Operation, gen.UpdateAgent_Operation} {
 		if !hasField(op, "lifecycle") {
 			t.Fatal("agent operation drops lifecycle")
 		}

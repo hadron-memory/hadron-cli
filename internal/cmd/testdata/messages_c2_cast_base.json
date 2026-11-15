@@ -1,4 +1,8 @@
 {
+  "leaveAlone": false,
+  "leaveAloneReason": null,
+  "leaveAloneBy": null,
+  "leaveAloneAt": null,
   "reportsTo": null,
   "reportsToRetired": false,
   "teamPlacement": null,

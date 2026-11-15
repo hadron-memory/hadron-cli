@@ -24,6 +24,10 @@ fragment ChannelCheckFields on WorkerCheckStatus {
 }
 
 fragment WorkerFields on Worker {
+  leaveAlone
+  leaveAloneReason
+  leaveAloneBy
+  leaveAloneAt
   id
   # The address (#991): derived from the App's URN plus the permanent slug,
   # computed rather than stored. Null only when the App's URN predates the
@@ -473,6 +477,10 @@ query GetWorkerRetireAdvisory($ref: ID!) {
 # surface, which is what the shipped task nodes already tell readers.
 
 fragment WorkerRosterFields on Worker {
+  leaveAlone
+  leaveAloneReason
+  leaveAloneBy
+  leaveAloneAt
   id
   urn
   # Carried here too, unlike `prompt`: the trim this projection exists for was

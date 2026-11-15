@@ -1540,7 +1540,7 @@ func codeForExtension(code string) int {
 	// refusal is a permission one, not a usage one — the caller cannot fix
 	// it by rewording the argument.
 	case code == "TASK_NOT_OWNER" || code == "TASK_NOT_ASSIGNEE" ||
-		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED":
+		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED" || code == "WORKER_LEAVE_ALONE_NOT_PERMITTED":
 		return exitcode.Forbidden
 	// Host operations (hadron-cli#871 over server #1876, cor:agt:070:03/:05).
 	// Who may issue a worktree operation is the server's rule — a

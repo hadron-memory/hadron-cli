@@ -43,6 +43,7 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
+	Lifecycle               string  `json:"lifecycle"`
 	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
 	// host with a worker.reset-context handler acts on it (#1043).
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
@@ -85,7 +86,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, Lifecycle: string(a.Lifecycle), ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -441,7 +442,9 @@ For a system memory ID, one optional memory read adds its server-returned URN
 to text and the JSON systemMemoryUrn key. If unavailable (including older
 servers), output keeps the ID alone and omits that key without a warning.
 The "reset context after task" line (JSON resetContextAfterTask) shows the
-setting recorded by agent update --reset-context-after-task.`,
+setting recorded by agent update --reset-context-after-task.
+The lifecycle line (JSON lifecycle) shows LONG_LIVED or SHORT_LIVED as
+recorded by agent update --lifecycle; it does not report a running process.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -481,6 +484,7 @@ setting recorded by agent update --reset-context-after-task.`,
 				}
 				writeOfferReadiness(w, dto.OfferReadiness)
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
+				fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(dto.Lifecycle))
 				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
 				fmt.Fprintf(w, "  listed on marketplace: %t\n", dto.ListedOnMarketplace)
 				if dto.RegisterDefaults != nil {
@@ -519,7 +523,7 @@ func registerRetiredPersonaPromptFlags(cmd *cobra.Command) {
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemMemory string
-	var personaRole, installInto string
+	var personaRole, installInto, lifecycle string
 	var surfaces, memberRoles []string
 	var ownerMe, createUsesTasks, createReset bool
 	cmd := &cobra.Command{
@@ -531,6 +535,10 @@ ADMIN). Otherwise the agent is user-owned, in your own @handle namespace (spec
 agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
 and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
 exclusive.
+
+--lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while
+they hold a runnable task. Omitted takes the server default LONG_LIVED.
+This records desired behaviour; an enabled host sweep acts on it.
 
 A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
 (#535). --install-into <app> does that second step in the same run — the
@@ -626,6 +634,10 @@ staging servers.`,
 			if err != nil {
 				return err
 			}
+			lifecycleArg, err := agentLifecycleArg(cmd, lifecycle)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -637,7 +649,7 @@ staging servers.`,
 			if cmd.Flags().Changed("reset-context-after-task") {
 				resetArg = &createReset
 			}
-			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
+			resp, err := gen.CreateAgent(cmd.Context(), client, name, lifecycleArg, optStr(org),
 				optStr(description), at, av, optStr(systemMemory), surfaces,
 				optStr(personaRole), rolesArg, usesTasksArg, resetArg)
 			if err != nil {
@@ -681,6 +693,7 @@ staging servers.`,
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted uses server default LONG_LIVED; requires S3 server)")
 	cmd.Flags().BoolVar(&createUsesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks (server default true when left out; =false is sent as false)")
 	cmd.Flags().BoolVar(&createReset, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (server default false when left out). Recorded only: it takes effect where the workers' host supports it")
 	registerRetiredPersonaPromptFlags(cmd)
@@ -690,9 +703,22 @@ staging servers.`,
 	return cmd
 }
 
+// agentLifecycleArg keeps omission distinct from an explicitly empty flag.
+// The same enum and omission contract applies to create and update.
+func agentLifecycleArg(cmd *cobra.Command, raw string) (*gen.AgentLifecycle, error) {
+	if !cmd.Flags().Changed("lifecycle") {
+		return nil, nil
+	}
+	if raw != "LONG_LIVED" && raw != "SHORT_LIVED" {
+		return nil, exitcode.Newf(exitcode.Usage, "--lifecycle must be LONG_LIVED or SHORT_LIVED (omit the flag to keep the default/current value)")
+	}
+	value := gen.AgentLifecycle(raw)
+	return &value, nil
+}
+
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemMemory, urn string
-	var personaRole string
+	var personaRole, lifecycle string
 	var usesTasks, resetContextAfterTask, listedOnMarketplace, registerMentionOnly, clearRegisterDefaults bool
 	var tasksIndex, processesIndex string
 	var surfaces, memberRoles []string
@@ -700,6 +726,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
 		Long: `Update an agent. Only the fields you pass change.
+
+--lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while they
+hold a runnable task. Omitted preserves the server value (default LONG_LIVED).
+The server checks the same permission as --uses-tasks. This records desired
+behaviour; a host sweep must support it and be enabled to act on it.
 
 --persona-role is metadata. Write the Agent source at boot:source in its system
 memory, then use hadron agent compile and hadron node approve. New Agents
@@ -734,9 +765,13 @@ before anything is sent.`,
 				return err
 			}
 			changed := cmd.Flags().Changed
+			lifecycleArg, err := agentLifecycleArg(cmd, lifecycle)
+			if err != nil {
+				return err
+			}
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") && !changed("uses-tasks") && !changed("reset-context-after-task") &&
+				!changed("lifecycle") && !changed("persona-role") && !changed("uses-tasks") && !changed("reset-context-after-task") &&
 				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") &&
 				!changed("listed-on-marketplace") && !changed("register-mention-only") && !changed("clear-register-defaults") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
@@ -776,7 +811,7 @@ before anything is sent.`,
 			var updated *gen.AgentFields
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") ||
+				changed("lifecycle") || changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") ||
 				changed("listed-on-marketplace") || registerArg != nil {
 				var usesTasksArg, resetArg, listedArg *bool
 				if changed("uses-tasks") {
@@ -788,7 +823,7 @@ before anything is sent.`,
 				if changed("listed-on-marketplace") {
 					listedArg = &listedOnMarketplace
 				}
-				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
+				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0], lifecycleArg,
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 					at, av,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
@@ -817,6 +852,7 @@ before anything is sent.`,
 			return emitAgent(f, agentDTOFromFields(*fields), "✓ updated")
 		},
 	}
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted preserves; requires S3 server)")
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
