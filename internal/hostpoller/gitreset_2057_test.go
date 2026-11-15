@@ -844,12 +844,52 @@ func TestResetWorktreeRefusesARootWhoseConfigRedirectsItsWorkTree(t *testing.T) 
 // fails closed, never a worker without Git (Jamir's P3 at a4e836e8).
 func TestResetWorktreeRefusesARootWhoseRepositoryCannotBeRead(t *testing.T) {
 	_, clone := resetRepo(t)
-	_ = os.WriteFile(filepath.Join(clone, ".git", "config"), []byte("[core\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(clone, ".git", "config"), []byte("[core\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	out, err := ResetWorktree(context.Background(), clone, resetNow)
 	if err == nil && (out.Reset || out.Code == "") {
 		t.Fatalf("a broken repository was taken for a worker without Git: out=%+v", out)
 	}
-	if st, e := (ExecHost{}).Inspect(context.Background(), clone); e == nil && st.IsWorktree {
-		t.Fatalf("Inspect took a broken repository for a healthy worktree: %+v", st)
+	var untrusted *UntrustedConfigError
+	if st, e := (ExecHost{}).Inspect(context.Background(), clone); !errors.As(e, &untrusted) {
+		t.Fatalf("Inspect must refuse a repository it cannot read, not report success or 'not a worktree': st=%+v err=%v", st, e)
+	}
+}
+
+// Jamir (6d9278d5): only a definite "no such entry" means a worker without Git. A
+// .git entry that cannot be examined (a directory with no search permission here)
+// is not that: it goes to the config gate, whose read fails and refuses.
+func TestResetWorktreeRefusesADirectoryWhoseGitEntryCannotBeExamined(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	_, clone := resetRepo(t)
+	if err := os.Chmod(clone, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chmod(clone, 0o755) }()
+	if !isWorktreeRoot(context.Background(), clone) {
+		t.Fatal("an unexaminable .git entry was taken for 'no tree of its own'")
+	}
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err == nil && (out.Reset || out.Code == "") {
+		t.Fatalf("a directory that could not be examined was taken for a worker without Git: out=%+v", out)
+	}
+}
+
+func TestIsWorktreeRootIsFalseOnlyForADefiniteMissingEntry(t *testing.T) {
+	plain := t.TempDir()
+	if isWorktreeRoot(context.Background(), plain) {
+		t.Fatal("a directory with no .git entry is not a root")
+	}
+	file := filepath.Join(t.TempDir(), "file")
+	_ = os.WriteFile(file, []byte("x"), 0o644)
+	if isWorktreeRoot(context.Background(), file) {
+		t.Fatal("a path whose parent is a file (ENOTDIR) has no entry")
+	}
+	_, clone := resetRepo(t)
+	if !isWorktreeRoot(context.Background(), clone) {
+		t.Fatal("a repository with a .git entry is a root")
 	}
 }

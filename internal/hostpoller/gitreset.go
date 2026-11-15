@@ -2,10 +2,13 @@ package hostpoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -305,5 +308,9 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 // present it goes through the config allowlist, which refuses core.worktree.
 func isWorktreeRoot(_ context.Context, dir string) bool {
 	_, err := os.Lstat(filepath.Join(dir, ".git"))
-	return err == nil
+	// Only a definite "there is no such entry" means no tree of its own. A
+	// permission or I/O failure says nothing, so the directory goes on to the
+	// config gate (whose read then fails and refuses) instead of being taken
+	// for a worker without Git.
+	return err == nil || (!errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR))
 }
