@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/contextsize"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
 const health2063OK = `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"u"}],"refused":[]}}}`
@@ -34,7 +35,7 @@ func TestHealth2063SendsBothFieldsTogether(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
 	var gotFamily string
-	healthContextMeasurer = func(family string, _ []string) *contextsize.Measurement {
+	healthContextMeasurer = func(family string, _ []string, _ contextsize.Roots) *contextsize.Measurement {
 		gotFamily = family
 		return &contextsize.Measurement{Tokens: 183412, MeasuredAt: at}
 	}
@@ -51,7 +52,7 @@ func TestHealth2063SendsBothFieldsTogether(t *testing.T) {
 func TestHealth2063NoMeasurementSendsNeitherField(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string) *contextsize.Measurement { return nil }
+	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement { return nil }
 	sent, out := health2063Run(t)
 	rep := health2063Report(t, sent)
 	if _, ok := rep["contextTokens"]; ok {
@@ -73,7 +74,7 @@ func TestHealth2063RequestCarriesNoTranscriptText(t *testing.T) {
 	// The fixture's worktrees_root is its own temp dir; find it through the reader.
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(family string, trees []string) *contextsize.Measurement {
+	healthContextMeasurer = func(family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
 		if len(trees) != 1 {
 			t.Fatalf("trees %v", trees)
 		}
@@ -85,7 +86,7 @@ func TestHealth2063RequestCarriesNoTranscriptText(t *testing.T) {
 		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return contextsize.Measure(family, trees, contextsize.DefaultRoots(), time.Date(2026, 10, 31, 2, 0, 0, 0, time.UTC))
+		return contextsize.Measure(family, trees, roots, time.Date(2026, 10, 31, 2, 0, 0, 0, time.UTC))
 	}
 	sent, out := health2063Run(t)
 	rep := health2063Report(t, sent)
@@ -105,7 +106,7 @@ func jsonStr(s string) string { b, _ := json.Marshal(s); return string(b) }
 func TestHealth2063OldServerStillStoresTerminalHealth(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string) *contextsize.Measurement {
+	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement {
 		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
 	}
 	out, n, sent, err := health1181RunFixture(t, "OLDSERVER", 0, true, "", health2063Idle, `{"hostId":"own"}`)
@@ -125,7 +126,7 @@ func TestHealth2063OldServerStillStoresTerminalHealth(t *testing.T) {
 func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string) *contextsize.Measurement { return nil }
+	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement { return nil }
 	_, n, _, err := health1181RunFixture(t, "OLDSERVER_ALWAYS", 0, true, "", health2063Idle, `{"hostId":"own"}`)
 	if err == nil || n != 1 {
 		t.Fatalf("err=%v writes=%d (an unmeasured batch must not be retried)", err, n)
@@ -137,7 +138,7 @@ func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
 func TestHealth2063ExecutionErrorsAreNeverRetried(t *testing.T) {
 	old := healthContextMeasurer
 	defer func() { healthContextMeasurer = old }()
-	healthContextMeasurer = func(string, []string) *contextsize.Measurement {
+	healthContextMeasurer = func(string, []string, contextsize.Roots) *contextsize.Measurement {
 		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
 	}
 	for name, wire := range map[string]string{
@@ -149,5 +150,44 @@ func TestHealth2063ExecutionErrorsAreNeverRetried(t *testing.T) {
 		if err == nil || n != 1 {
 			t.Errorf("%s: err=%v attempts=%d, want one failed attempt", name, err, n)
 		}
+	}
+}
+
+// Jill P2: on a host whose Codex workers write under an account home, the
+// worker's own codex_home decides where the rollout is read, not the sweep's env.
+func TestHealth2063WorkerCodexHomeDecidesTheRoot(t *testing.T) {
+	account := t.TempDir()
+	t.Setenv("CODEX_HOME", t.TempDir()) // the sweep's own home: empty
+	health1181WorkerExtra = "    codex_home: " + jsonStr(account) + "\n"
+	defer func() { health1181WorkerExtra = "" }()
+	old := healthContextMeasurer
+	defer func() { healthContextMeasurer = old }()
+	healthContextMeasurer = func(family string, trees []string, roots contextsize.Roots) *contextsize.Measurement {
+		if roots.CodexSessions != filepath.Join(account, "sessions") {
+			t.Errorf("codex root %q, want the worker's account home", roots.CodexSessions)
+		}
+		p := filepath.Join(roots.CodexSessions, "2026", "10", "31", "rollout-a.jsonl")
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		body := `{"timestamp":"2026-10-31T01:00:00Z","type":"session_meta","payload":{"cwd":` + jsonStr(trees[0]) + `}}` + "\n" +
+			`{"timestamp":"2026-10-31T01:31:00Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":4242}}}}` + "\n"
+		_ = os.WriteFile(p, []byte(body), 0o600)
+		return contextsize.Measure(family, trees, roots, time.Date(2026, 10, 31, 2, 0, 0, 0, time.UTC))
+	}
+	sent, _ := health2063Run(t)
+	if rep := health2063Report(t, sent); rep["contextTokens"] != float64(4242) {
+		t.Fatalf("report %v", rep)
+	}
+}
+
+func TestHealth2063RootsDefaultWhenWorkerConfiguresNone(t *testing.T) {
+	t.Setenv("CODEX_HOME", "/sweep/codex")
+	t.Setenv("CLAUDE_CONFIG_DIR", "/sweep/claude")
+	got := healthContextRoots(hostpoller.WorkerConfig{})
+	if got.CodexSessions != "/sweep/codex/sessions" || got.ClaudeProjects != "/sweep/claude/projects" {
+		t.Fatalf("%+v", got)
+	}
+	got = healthContextRoots(hostpoller.WorkerConfig{CodexHome: "/a/h", ClaudeConfigDir: "/a/c"})
+	if got.CodexSessions != "/a/h/sessions" || got.ClaudeProjects != "/a/c/projects" {
+		t.Fatalf("%+v", got)
 	}
 }

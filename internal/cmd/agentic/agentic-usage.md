@@ -5262,6 +5262,11 @@ or sent. The JSON receipt shows both fields (omitted when not measured).
 A server from before hadron-server#4238 refuses the whole batch for the unknown
 fields; the sweep then retries once without them (only for that validation error),
 so terminal health still stores and the receipt shows no context fields.
+The sweep reads the sweep process's own `CODEX_HOME` / `CLAUDE_CONFIG_DIR` / `~`
+unless the worker's host-YAML entry sets `codex_home` and/or `claude_config_dir`
+(absolute paths; sessions are read from `<codex_home>/sessions` and
+`<claude_config_dir>/projects`). Set them where the launcher gives a worker its own
+account home (Orca does for Codex workers); otherwise those workers read as not measured.
 
 ### Team health install (cli#1374)
 

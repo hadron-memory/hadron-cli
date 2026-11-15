@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -426,8 +427,21 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 }
 
 // healthContextMeasurer is the measurement seam; tests replace it.
-var healthContextMeasurer = func(family string, worktrees []string) *contextsize.Measurement {
-	return contextsize.Measure(family, worktrees, contextsize.DefaultRoots(), time.Now())
+var healthContextMeasurer = func(family string, worktrees []string, roots contextsize.Roots) *contextsize.Measurement {
+	return contextsize.Measure(family, worktrees, roots, time.Now())
+}
+
+// healthContextRoots is where this worker's launcher writes: the worker's
+// configured homes, else the sweep's own defaults.
+func healthContextRoots(w hostpoller.WorkerConfig) contextsize.Roots {
+	roots := contextsize.DefaultRoots()
+	if w.CodexHome != "" {
+		roots.CodexSessions = filepath.Join(w.CodexHome, "sessions")
+	}
+	if w.ClaudeConfigDir != "" {
+		roots.ClaudeProjects = filepath.Join(w.ClaudeConfigDir, "projects")
+	}
+	return roots
 }
 
 // healthContext measures one registered worker's context size from what its
@@ -439,7 +453,7 @@ func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name str
 		return nil
 	}
 	rec := cfg.Recipient(state, ref, id)
-	return healthContextMeasurer(cfg.Workers[ref].Family, rec.Worktrees)
+	return healthContextMeasurer(cfg.Workers[ref].Family, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
 }
 
 func healthSafeError(err error) error {

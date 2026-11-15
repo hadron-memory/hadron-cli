@@ -55,6 +55,9 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 
 const health1181Registrations = `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`
 
+// health1181WorkerExtra is extra YAML lines for the fixture worker (tests set and reset it).
+var health1181WorkerExtra string
+
 func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bool, registrations, status, state string) (string, int, map[string]any, error) {
 	if registrations == "" {
 		registrations = health1181Registrations
@@ -114,7 +117,7 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 			t.Fatal(e)
 		}
 	}
-	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n", srv.URL, dir)
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n%s", srv.URL, dir, health1181WorkerExtra)
 	path := filepath.Join(dir, "host.yaml")
 	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
 		t.Fatal(e)
