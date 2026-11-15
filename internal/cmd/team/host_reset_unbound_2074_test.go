@@ -81,7 +81,18 @@ func TestResetIdleProofRefusesUnboundNoTTY2074(t *testing.T) {
 	}
 	target := hostpoller.ResetIdleTarget{WorkerRef: "worker:probe", WorkerID: "w-private", SessionID: "s-private-2074", Worktree: dir, Family: "claude", Process: h.Identity()}
 	if err := hostpoller.ValidateResetTarget(target); err != nil {
-		t.Fatalf("real process identity is not a valid control: %v", err)
+		// These are post-failure diagnostics, not the validator's own
+		// earlier census. Only this fixture's PID and private directory
+		// are inspected; no environment or real agent data is printed.
+		agents := hostpoller.ScanWorktreeAgents(dir)
+		pids := make([]int, 0, len(agents))
+		for _, a := range agents {
+			pids = append(pids, a.PID)
+		}
+		cwd, cwdErr := os.Readlink(fmt.Sprintf("/proc/%d/cwd", agent.PID()))
+		argv, argvErr := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", agent.PID()))
+		t.Fatalf("ready real process is not a valid control: %v; target=%+v; post-failure census=%d pids=%v cwd=%q (%v) argv=%q (%v)",
+			err, h.Identity(), len(agents), pids, cwd, cwdErr, argv, argvErr)
 	}
 	family := "claude"
 	rule := "────────────────────────────────────────────────────────────"
