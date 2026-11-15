@@ -3,6 +3,7 @@
 package hostrelaunch
 
 import (
+	"context"
 	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func TestJournalPersistsGenerationAttemptsAndExcludesConcurrentRuns2060(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 	got, err := s.Load("worker")
 	if err != nil || s.Sweep() != 2 || len(got.Attempts) != 1 || !got.Attempts[0].Equal(at) || got.AbsentSweep != 1 {
 		t.Fatalf("%+v %v sweep=%d", got, err, s.Sweep())
@@ -53,7 +54,7 @@ func TestJournalDryRunCreatesAndChangesNothing2060(t *testing.T) {
 	if err := s.Save("w", Record{}); err == nil {
 		t.Fatal("dry write admitted")
 	}
-	s.Close()
+	_ = s.Close()
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatal("dry run created directory", err)
 	}
@@ -61,7 +62,7 @@ func TestJournalDryRunCreatesAndChangesNothing2060(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Close()
+	_ = s.Close()
 	before, err := os.ReadFile(filepath.Join(dir, "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +71,7 @@ func TestJournalDryRunCreatesAndChangesNothing2060(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Close()
+	_ = s.Close()
 	after, err := os.ReadFile(filepath.Join(dir, "state.json"))
 	if err != nil || string(before) != string(after) {
 		t.Fatal("dry run changed journal", err)
@@ -109,7 +110,7 @@ func TestJournalRefusesCorruptionAndLinks2060(t *testing.T) {
 				makeJournalFIFO(t, filepath.Join(dir, "state.json"))
 			}
 			if s, err := OpenJournal(dir, false); err == nil {
-				s.Close()
+				_ = s.Close()
 				t.Fatal("unsafe journal accepted")
 			}
 		})
@@ -120,5 +121,56 @@ func makeJournalFIFO(t *testing.T, p string) {
 	t.Helper()
 	if err := unix.Mkfifo(p, 0600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestJournalRestartCannotResetAttemptCap2060(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "relaunch")
+	f := newFixture(t)
+	for pass := 1; pass <= 8; pass++ {
+		// Model the newly launched process dying before the next sweep.
+		f.launched = false
+		store, err := OpenJournal(dir, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.runner.Journal = store
+		f.runner.Sweep = store.Sweep()
+		result, err := f.runner.Execute(context.Background(), f.target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if pass == 8 && result.Reason != RateLimited {
+			t.Fatalf("restart lost cap: %+v", result)
+		}
+		if err := store.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f.starts != 3 {
+		t.Fatalf("%d launches, want cap 3", f.starts)
+	}
+}
+
+func TestJournalUnobservedSweepBreaksAbsenceContinuity2060(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "relaunch")
+	f := newFixture(t)
+	for pass := 1; pass <= 3; pass++ {
+		store, err := OpenJournal(dir, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if pass != 2 {
+			f.runner.Journal = store
+			f.runner.Sweep = store.Sweep()
+			result, err := f.runner.Execute(context.Background(), f.target)
+			if err != nil || result.Reason != Pending {
+				t.Fatalf("pass %d: %+v %v", pass, result, err)
+			}
+		}
+		_ = store.Close()
+	}
+	if f.starts != 0 {
+		t.Fatal("unobserved sweep authorized launch")
 	}
 }
