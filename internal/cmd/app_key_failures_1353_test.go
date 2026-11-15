@@ -269,7 +269,7 @@ func TestAppKey1353RevokeTransportDiagnostics(t *testing.T) {
 		}))
 		defer srv.Close()
 		f, out := testFactory(t)
-		// testFactory shares http.DefaultClient; change only this command's copy.
+		// testFactory's client is shared by the whole test; change only this command's copy.
 		client := *f.HTTPClient
 		client.Timeout = time.Second
 		f.HTTPClient = &client

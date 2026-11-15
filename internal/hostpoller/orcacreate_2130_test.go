@@ -51,7 +51,12 @@ func TestOrcaLaunchStartsNoAgentWhenTheCreateReplyIsLostOrMalformed2130(t *testi
 			if !c.noCleanup {
 				// Rook's P3 (cli#2136): the launch file holds the grant and the
 				// prompt; it and any gate are gone when Launch returns.
-				left, _ := filepath.Glob(filepath.Join(l.StateDir, "launch", "*"))
+				// ReadDir, not Glob: an unreadable directory must fail, never
+				// read as "nothing left" (cli#2144, Jibril's P3).
+				left, err := os.ReadDir(filepath.Join(l.StateDir, "launch"))
+				if err != nil {
+					t.Fatalf("reading the launch directory: %v", err)
+				}
 				if len(left) != 0 {
 					t.Fatalf("launch files left behind: %v", left)
 				}
