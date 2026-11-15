@@ -53,11 +53,16 @@ absence requires two sweeps plus a strict zero-agent host proc census.
 Unreadable proc, ambiguous cwd, scan errors or unknown visibility report
 RELAUNCH_UNPROVEN and never launch. No launch adapter is enabled yet.
 
-The host-namespace guard still needs a trusted host-init namespace identity.
-Comparing self to /proc/1 alone cannot establish host membership when proc
-was remounted inside an agent namespace: both refer to that inner namespace.
-This caveat is routed in #108551. Unknown host-init identity remains unproven;
-no local PID-number or executable-name heuristic grants launch authority.
+Wolfgang confirmed the source in #108559: the host poller captures its own
+/proc/self/ns/pid identity at startup, under the host launch contract that
+it is never launched under unshare. The constructor now captures the nsfs
+device/inode pair once; failed capture remains unknown. HostPIDNamespace
+exposes that immutable snapshot and VerifyCallerPIDNamespace checks the
+caller's namespace against it. The host-up adapter must read the witness
+through that existing poller, never create a new caller-local Poller as proof.
+A missing or mismatched witness refuses RELAUNCH_UNPROVEN. No proc/1 read is
+used. Namespace mismatch/error tests and the live startup-capture test pass.
+Transport through the running poller and the relaunch adapter remain unwired.
 
 The intended adapter must compose C3's typed launch with an empty grant and
 its fresh recovery prompt: preserve the open session, run session recover,

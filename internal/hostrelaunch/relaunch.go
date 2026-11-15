@@ -22,7 +22,7 @@ const (
 	Pending          = "RELAUNCH_PENDING_CONTINUITY"
 	RateLimited      = "RELAUNCH_RATE_LIMITED"
 	IdentityChanged  = "RELAUNCH_IDENTITY_CHANGED"
-	Unproven         = "RELAUNCH_PROCESS_UNPROVEN"
+	Unproven         = "RELAUNCH_UNPROVEN"
 	AgentPresent     = "RELAUNCH_AGENT_PRESENT"
 	DuplicateAgents  = "DUPLICATE_AGENTS"
 	NoProfile        = "NO_LAUNCHER_PROFILE"

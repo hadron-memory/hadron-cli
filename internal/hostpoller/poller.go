@@ -154,14 +154,16 @@ type Event struct {
 
 // Poller is one host's loop.
 type Poller struct {
-	cfg    *Config
-	server Server
-	host   Host
-	state  *State
-	key    string
-	emit   func(Event)
-	now    func() time.Time
-	sleep  func(context.Context, time.Duration) error
+	// Immutable startup witness, read only through the running host poller.
+	pidNamespace PIDNamespaceIdentity
+	cfg          *Config
+	server       Server
+	host         Host
+	state        *State
+	key          string
+	emit         func(Event)
+	now          func() time.Time
+	sleep        func(context.Context, time.Duration) error
 	// bound reads the session binding of a worktree path (worker.end's stop
 	// identifies a process by its worktree and that binding, #2057).
 	bound func(path string) delivery.Binding
@@ -231,8 +233,10 @@ type Poller struct {
 // New builds a poller. key is the host key, kept only to scrub it from
 // launched agents' environments (defence in depth: it is never put there).
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
+	namespace, _ := currentPIDNamespace() // Unknown stays zero and refuses relaunch.
 	return &Poller{
-		cfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
+		pidNamespace: namespace,
+		cfg:          cfg, server: server, host: host, state: state, key: key, emit: emit,
 		now:         time.Now,
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,

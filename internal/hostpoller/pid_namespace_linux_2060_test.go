@@ -17,6 +17,9 @@ func TestPollerCapturesOwnPIDNamespace2060(t *testing.T) {
 	if !ok || captured != current {
 		t.Fatalf("captured=%+v current=%+v known=%v", captured, current, ok)
 	}
+	if err := VerifyCallerPIDNamespace(captured); err != nil {
+		t.Fatal(err)
+	}
 	p.pidNamespace = PIDNamespaceIdentity{}
 	if _, ok := p.HostPIDNamespace(); ok {
 		t.Fatal("zero snapshot claimed trusted")
