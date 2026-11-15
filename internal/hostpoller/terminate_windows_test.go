@@ -43,3 +43,21 @@ func TestTerminateAfterExitRunsNoTaskkill(t *testing.T) {
 		t.Errorf("an exited launch is never taskkilled: %d calls", calls)
 	}
 }
+
+// #2099: exercise the Windows adapter as well as the portable decision. The
+// callback models a binding-lock wait that finishes after this launch exited.
+func TestTerminateWithExitDuringAuthorizationRunsNoTaskkill(t *testing.T) {
+	a := &execAgent{done: make(chan struct{}), pid: 4242}
+	old := runTaskkill
+	calls := 0
+	runTaskkill = func(int) ([]byte, error) { calls++; return nil, nil }
+	t.Cleanup(func() { runTaskkill = old })
+	released := 0
+	stopped, detail := a.TerminateWith(func() (func(), bool) {
+		close(a.done)
+		return func() { released++ }, true
+	})
+	if !stopped || calls != 0 || released != 1 || detail == "" {
+		t.Fatalf("stopped=%v taskkill calls=%d releases=%d detail=%q", stopped, calls, released, detail)
+	}
+}
