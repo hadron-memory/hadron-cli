@@ -70,8 +70,11 @@ func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome
 	if err != nil {
 		return refuse(CodeResetFailed, err.Error()), nil
 	}
+	if url, _, err := runGitTree(ctx, dir, "config", "--get", "remote."+remote+".url"); err != nil || !resetURLOK(url) {
+		return refuse(CodeResetFailed, fmt.Sprintf("remote %s is not an https://, ssh:// or user@host: URL (%q); nothing was fetched or moved", remote, url)), nil
+	}
 	fctx, cancel := context.WithTimeout(ctx, resetFetchTimeout)
-	_, errOut, err := runGitTree(fctx, dir, "fetch", "--quiet", "--prune", remote)
+	_, errOut, err := runGitTree(fctx, dir, "fetch", "--quiet", "--prune", "--no-recurse-submodules", "--upload-pack=git-upload-pack", remote)
 	cancel()
 	if err != nil {
 		return refuse(CodeResetFailed, fmt.Sprintf("git fetch %s failed: %s", remote, firstNonEmpty(errOut, err.Error()))), nil
@@ -229,7 +232,7 @@ func createRescueRef(ctx context.Context, dir, ref, sha string) (string, error) 
 func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err error) {
 	lctx, cancel := context.WithTimeout(ctx, resetFetchTimeout)
 	defer cancel()
-	out, errOut, lerr := runGitTree(lctx, dir, "ls-remote", "--symref", remote, "HEAD")
+	out, errOut, lerr := runGitTree(lctx, dir, "ls-remote", "--upload-pack=git-upload-pack", "--symref", remote, "HEAD")
 	if lerr != nil {
 		return "", "", fmt.Errorf("could not read %s's default branch: %s", remote, firstNonEmpty(errOut, lerr.Error()))
 	}

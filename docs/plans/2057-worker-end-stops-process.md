@@ -140,3 +140,17 @@ fetch); what the REPOSITORY's local and worktree config adds is handled by class
   proxy|vcs` (git keeps the FIRST value, so a later override does not replace it; found by probing).
 One test per class: hook, filter, fsmonitor, uploadpack and its siblings, ext transport, ssh command, credential
 helper; askpass is pinned structurally (a prompt cannot be provoked from a local fixture).
+
+### C2b review round 3: the allowlist (Wolfgang #108163/#108170, Rook #108165/#108166)
+The worktree's git config is untrusted; the reset allowlists rather than chasing names.
+- **Transports:** `protocol.allow=never` with only `protocol.https.allow` and `protocol.ssh.allow` `always`, and
+  `GIT_ALLOW_PROTOCOL=https:ssh`, in production. The reset's remote URL must be `https://`, `ssh://` or
+  `user@host:path`; anything else (a local path, `file://`, `ext::`, `git://`, `http://`) refuses before the fetch.
+  The tests' local fixtures run through a test-only seam (`localRemotesForTests`, flipped only in a `_test.go`).
+- **Explicit commands:** `--upload-pack=git-upload-pack` on `fetch` and on `ls-remote` (git keeps the first config
+  value, so a `-c` cannot replace the repository's `remote.*.uploadpack`; the command-line option wins);
+  `--no-recurse-submodules`.
+- **Refused, not overridden** (redirection poisons the clean base the next task starts from; no `-c` unsets them):
+  a repository `url.*.insteadOf` / `pushInsteadOf`, `http.*proxy`, `http.*sslVerify=false`, `remote.*.proxy|vcs`, and
+  a repository credential helper.
+- The user's own global and system git config is kept (a private remote's credential helper lives there).

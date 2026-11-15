@@ -107,13 +107,29 @@ func upstreamRemote(ctx context.Context, dir string) (string, error) {
 // credential helper lives there; what the REPOSITORY's config adds is neutralised
 // by repoOverrides, class by class.
 func hardenedGit() []string {
+	base := hardenedGitBase()
+	if localRemotesForTests {
+		// Test-only seam: the fixtures fetch from a local path.
+		base = append(base, "-c", "protocol.file.allow=always")
+	}
+	return base
+}
+
+// localRemotesForTests lets a test fetch from a local path. It is false in
+// production: a team remote is https or ssh (the redirection and transport
+// allowlist of hadron-cli#2057 §10); only a _test.go file ever sets it.
+var localRemotesForTests bool
+
+func hardenedGitBase() []string {
 	return []string{
 		"-c", "core.hooksPath=" + os.DevNull,
 		"-c", "core.fsmonitor=false",
 		"-c", "core.sshCommand=ssh",
 		"-c", "core.askPass=",
 		"-c", "core.gitProxy=",
-		"-c", "protocol.ext.allow=never",
+		"-c", "protocol.allow=never",
+		"-c", "protocol.https.allow=always",
+		"-c", "protocol.ssh.allow=always",
 		"-c", "fetch.recurseSubmodules=false",
 		"-c", "submodule.recurse=false",
 		"-c", "gc.auto=0",
@@ -124,9 +140,13 @@ func hardenedGit() []string {
 // gitEnv is the environment of every git run on a worker-writable tree: no
 // prompt, and only the transports a team remote uses (ext:: runs a command).
 func gitEnv() []string {
+	protos := "https:ssh"
+	if localRemotesForTests {
+		protos = "file:https:ssh"
+	}
 	return append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0",
-		"GIT_ALLOW_PROTOCOL=file:http:https:ssh:git",
+		"GIT_ALLOW_PROTOCOL="+protos,
 		"GIT_ASKPASS=", "SSH_ASKPASS=",
 	)
 }
@@ -142,11 +162,14 @@ func withRepoOverrides(ctx context.Context, args []string) context.Context {
 // repoOverrides reads the WORKER-WRITABLE scopes of dir's git config (local, and
 // worktree when it differs) and returns -c arguments that neutralise every
 // setting in them that can run a command: a filter driver's smudge, clean and
-// process; a diff driver's textconv and external. Two classes cannot be
-// neutralised and are reported as a refusal instead: a repository credential
-// helper (an empty helper clears the whole list, the user's own included) and a
-// remote's uploadpack, receivepack, proxy or vcs (git keeps the first value, so
-// an override cannot replace the repository's). Reading config executes nothing.
+// process; a diff driver's textconv and external. What cannot be neutralised, or
+// would redirect the fetch (so poison the clean base the next task starts from),
+// is reported as a refusal instead: a repository credential helper (an empty
+// helper clears the whole list, the user's own included), a remote's proxy or
+// vcs (git keeps the first value, so an override cannot replace the repository's),
+// url.*.insteadOf / pushInsteadOf, an http proxy, and TLS verification turned
+// off. A remote's uploadpack is not refused: both network calls pass an explicit
+// --upload-pack, which wins. Reading config executes nothing.
 func repoOverrides(ctx context.Context, dir string) (args []string, refusal string) {
 	seen := map[string]bool{}
 	var filters = map[string]bool{}
@@ -156,7 +179,7 @@ func repoOverrides(ctx context.Context, dir string) (args []string, refusal stri
 			continue // not a git tree, or no such scope: nothing to read
 		}
 		for _, entry := range strings.Split(out, "\x00") {
-			key, _, _ := strings.Cut(entry, "\n")
+			key, value, _ := strings.Cut(entry, "\n")
 			if key == "" || seen[key] {
 				continue
 			}
@@ -173,11 +196,17 @@ func repoOverrides(ctx context.Context, dir string) (args []string, refusal stri
 			case section == "filter" && (name == "smudge" || name == "clean" || name == "process"):
 				args = append(args, "-c", key+"=")
 				filters[sub] = true
-			case section == "remote" && (name == "uploadpack" || name == "receivepack" || name == "proxy" || name == "vcs"):
-				// Git keeps the FIRST value of these ("more than one uploadpack
-				// given, using the first"), so a later -c cannot replace the
-				// repository's: refuse rather than run it.
-				refusal = "the repository's own config sets " + key + ", which runs a program as the poller and cannot be overridden"
+			case section == "remote" && (name == "proxy" || name == "vcs"):
+				// A proxy redirects the fetch; a vcs names a remote helper program.
+				// Git keeps the FIRST value of remote.* keys, so a later -c cannot
+				// replace the repository's: refuse rather than follow it.
+				refusal = "the repository's own config sets " + key + ", which redirects or runs a program for the fetch and cannot be overridden"
+			case section == "url" && (name == "insteadof" || name == "pushinsteadof"):
+				refusal = "the repository's own config rewrites remote URLs (" + key + "), which could point the fetch at another host"
+			case section == "http" && strings.Contains(name, "proxy"):
+				refusal = "the repository's own config sets a proxy (" + key + "), which could point the fetch at another host"
+			case section == "http" && name == "sslverify" && strings.EqualFold(strings.TrimSpace(value), "false"):
+				refusal = "the repository's own config turns TLS verification off (" + key + ")"
 			case section == "diff" && (name == "textconv" || name == "external"):
 				args = append(args, "-c", key+"=")
 			case section == "credential" && name == "helper":
@@ -218,4 +247,21 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+// resetURLOK says whether a remote URL is one a team remote uses: https, ssh, or
+// user@host:path (scp-like). Anything else (a local path, file://, ext::, git://,
+// http://) is refused before the fetch.
+func resetURLOK(url string) bool {
+	u := strings.TrimSpace(url)
+	switch {
+	case strings.HasPrefix(u, "https://"), strings.HasPrefix(u, "ssh://"):
+		return true
+	case localRemotesForTests && (strings.HasPrefix(u, "/") || strings.HasPrefix(u, "file://")):
+		return true
+	}
+	// scp-like: user@host:path, with no scheme and no slash before the colon.
+	at := strings.Index(u, "@")
+	colon := strings.Index(u, ":")
+	return at > 0 && colon > at+1 && !strings.Contains(u[:colon], "/") && !strings.Contains(u, "::")
 }

@@ -378,16 +378,33 @@ func TestResetWorktreeRunsNoCheckoutFilter(t *testing.T) {
 	mustNotHaveRun(t, marker, "a checkout filter")
 }
 
-// remote.<name>.uploadpack names a program the fetch runs on a local origin. Git
-// keeps the FIRST value, so a -c cannot replace it: the reset refuses, before
-// fetching, and the program never runs.
-func TestResetWorktreeRefusesAConfiguredUploadPack(t *testing.T) {
+// remote.<name>.uploadpack names a program the fetch would run on a local origin.
+// Both network calls pass an explicit --upload-pack, which wins: the reset still
+// succeeds and the program never runs. (Git keeps the FIRST config value, so a -c
+// override could not replace it; the command-line option can.)
+func TestResetWorktreeIgnoresAConfiguredUploadPack(t *testing.T) {
+	origin, clone := resetRepo(t)
+	tip := advanceOrigin(t, origin)
+	script, marker := markerScript(t, "exec git-upload-pack \"$@\"\n")
+	gitIn(t, clone, "config", "remote.origin.uploadpack", script)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("the default upload-pack must still fetch: out=%+v err=%v", out, err)
+	}
+	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != tip {
+		t.Fatalf("HEAD %s, want the fetched tip %s", head, tip)
+	}
+	mustNotHaveRun(t, marker, "remote.origin.uploadpack")
+}
+
+// A remote's proxy and vcs (a remote-helper program) redirect or run something
+// for the fetch and cannot be overridden: refused before anything is touched.
+func TestResetWorktreeRefusesARemoteProxyOrVcs(t *testing.T) {
 	origin, clone := resetRepo(t)
 	advanceOrigin(t, origin)
 	before := gitIn(t, clone, "rev-parse", "HEAD")
-	script, marker := markerScript(t, "exec git-upload-pack \"$@\"\n")
-	for _, key := range []string{"uploadpack", "receivepack", "proxy", "vcs"} {
-		gitIn(t, clone, "config", "remote.origin."+key, script)
+	for _, key := range []string{"proxy", "vcs"} {
+		gitIn(t, clone, "config", "remote.origin."+key, "evil")
 		out, err := ResetWorktree(context.Background(), clone, resetNow)
 		if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "remote.origin."+key) {
 			t.Fatalf("%s: out=%+v err=%v", key, out, err)
@@ -397,7 +414,66 @@ func TestResetWorktreeRefusesAConfiguredUploadPack(t *testing.T) {
 	if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
 		t.Fatal("a refused reset moved HEAD")
 	}
-	mustNotHaveRun(t, marker, "remote.origin.uploadpack")
+}
+
+// Redirection poisons the clean base the next task starts from (integrity, not
+// execution): the repository's own url rewrites, http proxies and disabled TLS
+// verification refuse the reset.
+func TestResetWorktreeRefusesRedirectionConfig(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	before := gitIn(t, clone, "rev-parse", "HEAD")
+	for name, kv := range map[string][2]string{
+		"insteadOf":     {"url.https://evil.example/.insteadOf", "https://github.com/"},
+		"pushInsteadOf": {"url.https://evil.example/.pushInsteadOf", "https://github.com/"},
+		"http.proxy":    {"http.proxy", "http://evil.example:3128"},
+		"scoped proxy":  {"http.https://github.com/.proxy", "http://evil.example:3128"},
+		"sslVerify off": {"http.sslVerify", "false"},
+	} {
+		gitIn(t, clone, "config", kv[0], kv[1])
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil || out.Code != CodeResetFailed {
+			t.Errorf("%s: out=%+v err=%v", name, out, err)
+		}
+		gitIn(t, clone, "config", "--unset-all", kv[0])
+	}
+	// TLS verification left ON is not a redirection.
+	gitIn(t, clone, "config", "http.sslVerify", "true")
+	if out, err := ResetWorktree(context.Background(), clone, resetNow); err != nil || !out.Reset {
+		t.Errorf("sslVerify=true must not refuse: out=%+v err=%v", out, err)
+	}
+	if after := gitIn(t, clone, "rev-parse", "HEAD"); after == before {
+		t.Log("the final run moved HEAD as expected")
+	}
+}
+
+// Production allows only https, ssh and user@host: remotes; the tests' local
+// fixtures are a test-only seam, switched OFF here.
+func TestResetWorktreeRefusesAnythingButAnHTTPSOrSSHRemoteInProduction(t *testing.T) {
+	localRemotesForTests = false
+	defer func() { localRemotesForTests = true }()
+	for url, ok := range map[string]bool{
+		"https://github.com/hadron-memory/hadron-cli.git": true,
+		"ssh://git@github.com/hadron-memory/x.git":        true,
+		"git@github.com:hadron-memory/hadron-cli.git":     true,
+		"http://github.com/x.git":                         false,
+		"git://github.com/x.git":                          false,
+		"file:///srv/repo.git":                            false,
+		"/srv/repo.git":                                   false,
+		"ext::sh -c touch /tmp/x":                         false,
+		"ftp://example.com/x.git":                         false,
+		"../relative.git":                                 false,
+		"":                                                false,
+	} {
+		if got := resetURLOK(url); got != ok {
+			t.Errorf("resetURLOK(%q) = %v, want %v", url, got, ok)
+		}
+	}
+	_, clone := resetRepo(t)
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "not an https://") {
+		t.Fatalf("a local-path origin must be refused in production: out=%+v err=%v", out, err)
+	}
 }
 
 // An ext:: remote runs a command; the transport allowlist refuses it even when
@@ -482,12 +558,37 @@ func TestGitEnvKeepsTheUsersOwnConfig(t *testing.T) {
 // core.askPass is cleared as well.
 func TestGitRunsNeverReachAnAskPassProgram(t *testing.T) {
 	env := strings.Join(gitEnv(), "\n")
-	for _, want := range []string{"GIT_ASKPASS=\n", "SSH_ASKPASS=\n", "GIT_TERMINAL_PROMPT=0", "GIT_ALLOW_PROTOCOL=file:http:https:ssh:git"} {
+	for _, want := range []string{"GIT_ASKPASS=\n", "SSH_ASKPASS=\n", "GIT_TERMINAL_PROMPT=0", "GIT_ALLOW_PROTOCOL=file:https:ssh"} {
 		if !strings.Contains(env+"\n", want) {
 			t.Errorf("gitEnv lacks %q", want)
 		}
 	}
 	if !strings.Contains(strings.Join(hardenedGit(), " "), "core.askPass=") {
 		t.Error("core.askPass is not cleared")
+	}
+}
+
+// The production transport allowlist is exactly https and ssh (the tests' local
+// path is a seam switched off here), and submodule recursion is off.
+func TestGitRunsAllowOnlyTheTeamTransportsInProduction(t *testing.T) {
+	localRemotesForTests = false
+	defer func() { localRemotesForTests = true }()
+	var allow string
+	for _, kv := range gitEnv() {
+		if v, ok := strings.CutPrefix(kv, "GIT_ALLOW_PROTOCOL="); ok {
+			allow = v
+		}
+	}
+	if allow != "https:ssh" {
+		t.Fatalf("GIT_ALLOW_PROTOCOL = %q, want exactly https:ssh", allow)
+	}
+	cfg := strings.Join(hardenedGit(), " ")
+	for _, want := range []string{"protocol.allow=never", "protocol.https.allow=always", "protocol.ssh.allow=always", "fetch.recurseSubmodules=false", "submodule.recurse=false"} {
+		if !strings.Contains(cfg, want) {
+			t.Errorf("hardenedGit lacks %q", want)
+		}
+	}
+	if strings.Contains(cfg, "protocol.file.allow") {
+		t.Error("the local-path transport leaked into production")
 	}
 }
