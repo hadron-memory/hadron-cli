@@ -246,3 +246,65 @@ func TestAProcessThatJoinsTheGroupLaterIsDetected2042(t *testing.T) {
 		t.Fatalf("a process that joined the group and runs must read as undrained (after %d listings)", f.lists)
 	}
 }
+
+// hadron-cli#2142: the reason CODE of a "members" answer comes from the pass that
+// decided it, never from text read from /proc.
+func TestMembershipReportsTheReasonCodeOfTheDecidingPass2142(t *testing.T) {
+	why := func(f *churnProc) (bool, drainWhy) {
+		f.install(t)
+		return groupMembership(churnPgid, churnPgid)
+	}
+	// a running member
+	f := churnHost(2)
+	f.pids = append(f.pids, 150)
+	f.stats[150] = churnStat{churnPgid, 'S', 1}
+	if m, w := why(f); !m || w != whyLiveMember {
+		t.Errorf("running member: %v %q", m, w)
+	}
+	// a never-seen pid vanishing in every pass
+	f = churnHost(2)
+	f.install(t)
+	withFreshVanisher(f, 1<<30)
+	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyUnseenPid {
+		t.Errorf("unseen pid: %v %q", m, w)
+	}
+	// a Z member seen for the first time on every pass (a new one each pass)
+	f = churnHost(2)
+	f.dyn = func(pass, pid int) (churnStat, bool) {
+		if pid >= 600 && pid < 700 {
+			return churnStat{churnPgid, 'Z', 1}, true
+		}
+		return churnStat{}, false
+	}
+	f.install(t)
+	list := readProcDir
+	readProcDir = func(path string) ([]os.DirEntry, error) {
+		es, err := list(path)
+		es = append(es, churnEntry{strconv.Itoa(600 + f.pass)})
+		return es, err
+	}
+	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyLateFork {
+		t.Errorf("late fork: %v %q", m, w)
+	}
+	// an unreadable /proc
+	f = churnHost(1)
+	f.install(t)
+	readProcDir = func(string) ([]os.DirEntry, error) { return nil, fs.ErrPermission }
+	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyUnreadable {
+		t.Errorf("unreadable: %v %q", m, w)
+	}
+}
+
+// A group member seen as a zombie that VANISHES while the pass is void for no
+// other reason is a vanished MEMBER, not an unseen pid.
+func TestAVanishedZombieMemberIsCodedAsAVanishedMember2142(t *testing.T) {
+	// In pass 1 the vanished pid WAS in the previous pass's Z set: that is the member code.
+	f2 := churnHost(1)
+	f2.gone = func(pass, pid int) bool { return pid == churnMember && pass == 1 }
+	f2.install(t)
+	_, _, zs, _ := scanGroupOnce(churnPgid, churnPgid, nil)
+	_, void, _, why := scanGroupOnce(churnPgid, churnPgid, zs)
+	if !void || why != whyVanishedMember {
+		t.Fatalf("void=%v why=%q, want vanished-member", void, why)
+	}
+}

@@ -28,3 +28,6 @@ func leaderZombieAlone(int) bool { return false }
 // site is gated on the hold) and the stub exists only so the shared code
 // type-checks.
 func groupHasOtherMembers(pgid, leader int) bool { return true }
+
+// groupMembership has no oracle here either (see groupHasOtherMembers).
+func groupMembership(pgid, leader int) (bool, drainWhy) { return true, whyUnreadable }
