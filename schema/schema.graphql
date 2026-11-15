@@ -21851,6 +21851,17 @@ from checkedAt and reportedAt. Null until a host first reports; null to a reader
 type WorkerTerminal {
   """When the host classified the terminal."""
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens; judge its age from this. Null exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, as its host measured it. Null when the host could not measure
+  it (never 0), and on a report stored before hosts sent it. Shown only: it decides nothing.
+  """
+  contextTokens: Int
   host: WorkerTerminalHost!
   lastTurnAt: DateTime
   prompt: WorkerTerminalPrompt!
@@ -21941,6 +21952,17 @@ input WorkerTerminalReportInput {
   When the host classified the terminal, not more than two minutes ahead of the server.
   """
   checkedAt: DateTime!
+
+  """
+  #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+  """
+  contextMeasuredAt: DateTime
+
+  """
+  #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+  when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+  """
+  contextTokens: Int
 
   """When the worker's last turn ended, not after checkedAt."""
   lastTurnAt: DateTime

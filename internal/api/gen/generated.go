@@ -111559,6 +111559,11 @@ type WorkerTerminalReportInput struct {
 	Attempt *int `json:"attempt,omitempty"`
 	// When the host classified the terminal, not more than two minutes ahead of the server.
 	CheckedAt string `json:"checkedAt"`
+	// #4225 — when the host measured contextTokens, not more than two minutes ahead of the server. Sent exactly when contextTokens is.
+	ContextMeasuredAt *string `json:"contextMeasuredAt,omitempty"`
+	// #4225 — the size of the worker's context in tokens, measured on the host: a whole number from 1. Null or omitted
+	// when the host cannot measure this worker, never 0. A number only: no transcript text is sent.
+	ContextTokens *int `json:"contextTokens,omitempty"`
 	// When the worker's last turn ended, not after checkedAt.
 	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
 	Prompt     WorkerTerminalPrompt `json:"prompt"`
@@ -111577,6 +111582,12 @@ func (v *WorkerTerminalReportInput) GetAttempt() *int { return v.Attempt }
 
 // GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetContextMeasuredAt returns WorkerTerminalReportInput.ContextMeasuredAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextMeasuredAt() *string { return v.ContextMeasuredAt }
+
+// GetContextTokens returns WorkerTerminalReportInput.ContextTokens, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetContextTokens() *int { return v.ContextTokens }
 
 // GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
 func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }

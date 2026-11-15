@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/contextsize"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -30,6 +32,10 @@ type healthReport struct {
 	Reason     *string `json:"reason"`
 	LastTurnAt *string `json:"lastTurnAt"`
 	CheckedAt  string  `json:"checkedAt"`
+	// ContextTokens and ContextMeasuredAt travel together or not at all
+	// (hadron-cli#2063): absent means "not measured", never 0.
+	ContextTokens     *int    `json:"contextTokens,omitempty"`
+	ContextMeasuredAt *string `json:"contextMeasuredAt,omitempty"`
 }
 type healthRefusal struct {
 	Worker string `json:"worker"`
@@ -115,7 +121,7 @@ func decodeHealthStatus(raw []byte) ([]healthReport, error) {
 				return bad()
 			}
 		}
-		out = append(out, healthReport{r.Worker, r.Status, r.Prompt, r.Reason, r.LastTurnAt, r.CheckedAt})
+		out = append(out, healthReport{Worker: r.Worker, Status: r.Status, Prompt: r.Prompt, Reason: r.Reason, LastTurnAt: r.LastTurnAt, CheckedAt: r.CheckedAt})
 	}
 	return out, nil
 }
@@ -259,8 +265,15 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 					display[id] = r.Worker
 					matched[id] = true
 					r.Worker = id
+					if m := healthContext(cfg, state, id, display[id]); m != nil {
+						tokens, at := m.Tokens, m.MeasuredAt.Format(time.RFC3339Nano)
+						r.ContextTokens, r.ContextMeasuredAt = &tokens, &at
+					}
 					dto.Reports = append(dto.Reports, r)
 					in := &gen.WorkerTerminalReportInput{Worker: id, Status: gen.WorkerTerminalState(r.Status), Prompt: gen.WorkerTerminalPrompt(r.Prompt), CheckedAt: r.CheckedAt, LastTurnAt: r.LastTurnAt}
+					if r.ContextTokens != nil && r.ContextMeasuredAt != nil {
+						in.ContextTokens, in.ContextMeasuredAt = r.ContextTokens, r.ContextMeasuredAt
+					}
 					if r.Reason != nil {
 						v := gen.WorkerTerminalReason(*r.Reason)
 						in.Reason = &v
@@ -278,6 +291,25 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 			}
 			if len(inputs) > 0 {
 				resp, err := gen.HealthSweepSetTerminals(c.Context(), server.client, &gen.SetHostWorkerTerminalsInput{AppRef: cfg.App, Reports: inputs})
+				if err != nil && api.IsUnknownInputFieldOnly(err, "WorkerTerminalReportInput", "contextTokens", "contextMeasuredAt") {
+					// A server from before hadron-server#4238 refuses the whole
+					// batch at validation for the unknown fields. Terminal health
+					// outranks context size: send the same reports without the
+					// pair, once (cli#2063).
+					stripped := false
+					for _, in := range inputs {
+						if in.ContextTokens != nil || in.ContextMeasuredAt != nil {
+							in.ContextTokens, in.ContextMeasuredAt = nil, nil
+							stripped = true
+						}
+					}
+					if stripped {
+						for i := range dto.Reports {
+							dto.Reports[i].ContextTokens, dto.Reports[i].ContextMeasuredAt = nil, nil
+						}
+						resp, err = gen.HealthSweepSetTerminals(c.Context(), server.client, &gen.SetHostWorkerTerminalsInput{AppRef: cfg.App, Reports: inputs})
+					}
+				}
 				if err != nil {
 					return healthSafeError(err)
 				}
@@ -393,6 +425,37 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 	group.AddCommand(healthInstallCmds(f)...)
 	return group
 }
+
+// healthContextMeasurer is the measurement seam; tests replace it.
+var healthContextMeasurer = func(family string, worktrees []string, roots contextsize.Roots) *contextsize.Measurement {
+	return contextsize.Measure(family, worktrees, roots, time.Now())
+}
+
+// healthContextRoots is where this worker's launcher writes: the worker's
+// configured homes, else the sweep's own defaults.
+func healthContextRoots(w hostpoller.WorkerConfig) contextsize.Roots {
+	roots := contextsize.DefaultRoots()
+	if w.CodexHome != "" {
+		roots.CodexSessions = filepath.Join(w.CodexHome, "sessions")
+	}
+	if w.ClaudeConfigDir != "" {
+		roots.ClaudeProjects = filepath.Join(w.ClaudeConfigDir, "projects")
+	}
+	return roots
+}
+
+// healthContext measures one registered worker's context size from what its
+// launcher wrote on this host. nil means "not measured": an unconfigured
+// worker, a family without a measurer, or any file that cannot be proven.
+func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name string) *contextsize.Measurement {
+	ref := cfg.RefFor(id, "", name)
+	if ref == "" {
+		return nil
+	}
+	rec := cfg.Recipient(state, ref, id)
+	return healthContextMeasurer(cfg.Workers[ref].Family, rec.Worktrees, healthContextRoots(cfg.Workers[ref]))
+}
+
 func healthSafeError(err error) error {
 	code := exitcode.FromError(api.MapError(err))
 	switch code {

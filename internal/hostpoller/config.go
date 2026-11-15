@@ -125,6 +125,13 @@ type WorkerConfig struct {
 	// the model family does not say (a glm worker runs in Claude Code).
 	// Delivery holds a terminal that shows anything else.
 	TUI string `yaml:"tui"`
+	// CodexHome and ClaudeConfigDir are where THIS worker's launcher writes its
+	// Codex rollouts (<codex_home>/sessions) and Claude transcripts
+	// (<claude_config_dir>/projects), when that is not the health sweep's own
+	// CODEX_HOME / CLAUDE_CONFIG_DIR / ~ (hadron-cli#2063: Orca gives each Codex
+	// worker an account home). Only the context-size measurement reads them.
+	CodexHome       string `yaml:"codex_home"`
+	ClaudeConfigDir string `yaml:"claude_config_dir"`
 }
 
 // familyAliases are the provider names the server folds into the family a
@@ -310,6 +317,11 @@ func (c *Config) validate() error {
 				errs = append(errs, fmt.Sprintf("worktree %q is listed for both %q and %q: a worktree belongs to one worker", t, o, ref))
 			}
 			owner[t] = ref
+		}
+		for k, p := range map[string]string{"codex_home": w.CodexHome, "claude_config_dir": w.ClaudeConfigDir} {
+			if p != "" && !filepath.IsAbs(p) {
+				errs = append(errs, fmt.Sprintf("worker %q: %s must be an absolute path", ref, k))
+			}
 		}
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))

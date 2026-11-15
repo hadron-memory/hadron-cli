@@ -5265,6 +5265,27 @@ workers, or a missing status row for any registered worker, refuse the whole
 batch before writing (exit 1). Other hosts' status rows are ignored. JSON reports
 are the sent reports, including any refused by the server; read refused too.
 
+Context size (cli#2063): each report may also carry `contextTokens` and
+`contextMeasuredAt`, sent together or not at all and never 0. The host reads them
+from what the worker's launcher wrote locally, for a worktree it configured for
+that worker: family `claude` = input + cache-read + cache-creation tokens of the
+latest main-thread assistant turn in the newest transcript under
+`$CLAUDE_CONFIG_DIR|~/.claude/projects`; family `codex` = the latest token_count
+event's last-turn `input_tokens` in the newest rollout under
+`$CODEX_HOME|~/.codex/sessions`. `contextMeasuredAt` is that record's own time. Any
+other family, or a file that is missing, malformed, not attributable to the worktree
+(the file's own cwd must equal it) or dated over 2 minutes ahead, sends neither
+field and the row still reports. Only numbers are read; no transcript text is held
+or sent. The JSON receipt shows both fields (omitted when not measured).
+A server from before hadron-server#4238 refuses the whole batch for the unknown
+fields; the sweep then retries once without them (only for that validation error),
+so terminal health still stores and the receipt shows no context fields.
+The sweep reads the sweep process's own `CODEX_HOME` / `CLAUDE_CONFIG_DIR` / `~`
+unless the worker's host-YAML entry sets `codex_home` and/or `claude_config_dir`
+(absolute paths; sessions are read from `<codex_home>/sessions` and
+`<claude_config_dir>/projects`). Set them where the launcher gives a worker its own
+account home (Orca does for Codex workers); otherwise those workers read as not measured.
+
 ### Team health install (cli#1374)
 
 `hadron team health install --config <host.yaml> --interval <Nm>` writes one fixed

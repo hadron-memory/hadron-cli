@@ -726,6 +726,40 @@ func isValidationErrorFor(e *gqlerror.Error, name string) bool {
 		strings.Contains(e.Message, "Unknown argument")
 }
 
+// IsUnknownInputFieldOnly reports whether err is a GraphQL envelope in which
+// EVERY error is the server's variable-coercion refusal of one of fields as
+// not defined by the input type — an older server that lacks exactly those
+// input fields (`Field "<f>" is not defined by type "<inputType>"`). It is a
+// pre-execution refusal, so nothing was stored and a resend is safe. An error
+// with a path (it came from a resolver, possibly after a write), any other code
+// than BAD_USER_INPUT / GRAPHQL_VALIDATION_FAILED, any other message, transport
+// failures and a mixed envelope are all NOT this (cli#2063).
+func IsUnknownInputFieldOnly(err error, inputType string, fields ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 0 {
+			return false
+		}
+		if c := extensionCode(e); c != "" && c != "BAD_USER_INPUT" && c != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+		matched := false
+		for _, f := range fields {
+			if strings.Contains(e.Message, `Field "`+f+`" is not defined by type "`+inputType+`"`) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
 // IsSchemaSkew reports whether err is the server rejecting a query this build
 // sends (a GraphQL validation failure) — the server lacks an operation or
 // field. A command that needs a more specific sentence than MapError's generic
