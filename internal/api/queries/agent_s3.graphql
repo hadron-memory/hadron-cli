@@ -1,0 +1,115 @@
+# S3-only documents. Keep AgentFields and legacy mutations valid on older servers.
+query GetAgentLifecycle($ref: ID!) {
+  agent(ref: $ref) { id lifecycle }
+}
+
+mutation CreateAgentWithLifecycle(
+  $name: String!
+  # @genqlient(omitempty: true)
+  $lifecycle: AgentLifecycle
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemMemoryId: String
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+) {
+  createAgent(
+    name: $name
+    lifecycle: $lifecycle
+    orgId: $orgId
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemMemoryId: $systemMemoryId
+    surfaces: $surfaces
+    personaRole: $personaRole
+    memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+  ) {
+    ...AgentFields
+    lifecycle
+  }
+}
+
+mutation UpdateAgentWithLifecycle(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $lifecycle: AgentLifecycle
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemMemoryId: String
+  # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
+  # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
+  # "empty slice gets omitted" case is unreachable here; explicit clear-the-set
+  # support would need a dedicated flag (a later #58 slice).
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $urn: String
+  # An unset role is omitted and preserved; the shared prompt follows the
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # #1551: omitted preserves; an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: the server ignores null, so this never sends null; omitted
+  # preserves, an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $listedOnMarketplace: Boolean
+  # THREE states (omit preserves / object sets / null clears): the variable is
+  # bound to gqltypes.RegisterDefaultsInput, whose MarshalJSON emits the null.
+  # omitempty drops only the nil pointer. Never default it.
+  # @genqlient(omitempty: true)
+  $registerDefaults: RegisterDefaultsInput
+) {
+  updateAgent(
+    ref: $ref
+    lifecycle: $lifecycle
+    name: $name
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemMemoryId: $systemMemoryId
+    surfaces: $surfaces
+    urn: $urn
+    personaRole: $personaRole
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+    memberRoles: $memberRoles
+    listedOnMarketplace: $listedOnMarketplace
+    registerDefaults: $registerDefaults
+  ) {
+    ...AgentFields
+    lifecycle
+  }
+}
+
