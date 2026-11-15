@@ -467,16 +467,21 @@ func (l OrcaLauncher) LaunchFunc() OrcaLaunchFunc {
 var promptTaskRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 // FirstPrompt is the fixed first prompt of a fresh run (G9: always fresh,
-// never a resumed conversation): bind through the launch grant, then the task
-// the start names, or, with none (a relaunch), the recovery routine.
-func FirstPrompt(workerRef, family, taskID string) string {
+// never a resumed conversation). A start with a launch grant binds through
+// it first, then carries the task it names or, with none (a long-lived
+// worker the platform starts, G2), recovers. A relaunch has no grant (C5:
+// the worker's session is still open and is never bound again): it only
+// recovers.
+func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
+	recover := "run hadron team session recover and act on what it reports; never resume an earlier conversation."
+	if !hasGrant {
+		return "Hadron relaunched worker " + workerRef + " in its own worktree. Its worker session is still open, so do not start a new one: " + recover
+	}
 	tool := "claude-code"
 	if CanonicalFamily(family) == "codex" {
 		tool = "codex"
 	}
-	// A start with no task is a long-lived worker's relaunch (G2, C5): it
-	// recovers from its own records, never a resumed conversation (G9).
-	next := "then run hadron team session recover and act on what it reports; never resume an earlier conversation."
+	next := "then " + recover
 	if promptTaskRE.MatchString(taskID) {
 		next = "then start and carry your task: hadron team task start " + taskID + " (and follow your briefing)."
 	}
@@ -484,37 +489,55 @@ func FirstPrompt(workerRef, family, taskID string) string {
 		" (the launch grant is in HADRON_LAUNCH_GRANT, so no --as is needed); " + next
 }
 
-// orcaStart is worker.start's Orca path: the profile's argv, the explicit
-// environment (grant, disk temp, Codex home), the fixed first prompt.
+// orcaStart is worker.start's Orca path.
 func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string) (Agent, error) {
 	if p.orcaLaunch == nil || p.profiles == nil {
 		return nil, errors.New("this poller has no Orca launcher (orca_launch is not wired)")
 	}
-	prof, acct, ok, err := p.profiles.Profile(ref)
+	spec, err := p.orcaLaunchSpec(ref, w, dir, op.LaunchGrant, argString(op, "taskId"))
 	if err != nil {
 		return nil, err
 	}
+	return p.orcaLaunch(ctx, spec)
+}
+
+// orcaLaunchSpec is the ONE builder of an Orca launch: the profile's argv,
+// the explicit environment (disk temp, Codex home, and the grant when there
+// is one), and the fixed first prompt. worker.start passes its grant; a
+// relaunch under a still-open session (C5, #2060) passes none, so the agent
+// gets no grant and the recover-only prompt.
+func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string) (OrcaLaunchSpec, error) {
+	if p.profiles == nil {
+		return OrcaLaunchSpec{}, errors.New("this poller has no launcher profiles")
+	}
+	prof, acct, ok, err := p.profiles.Profile(ref)
+	if err != nil {
+		return OrcaLaunchSpec{}, err
+	}
 	if !ok {
-		return nil, errors.New("the worker has no launcher profile")
+		return OrcaLaunchSpec{}, errors.New("the worker has no launcher profile")
 	}
 	argv, err := LaunchArgv(prof, acct)
 	if err != nil {
-		return nil, err
+		return OrcaLaunchSpec{}, err
 	}
 	if err := os.MkdirAll(w.DiskTmp, 0o700); err != nil {
-		return nil, fmt.Errorf("preparing disk_tmp: %w", err)
+		return OrcaLaunchSpec{}, fmt.Errorf("preparing disk_tmp: %w", err)
 	}
-	env := []string{
-		launchGrantEnvVar + "=" + op.LaunchGrant,
-		"TMPDIR=" + w.DiskTmp,
-		"CLAUDE_CODE_TMPDIR=" + w.DiskTmp,
-		"NODE_COMPILE_CACHE=" + filepath.Join(w.DiskTmp, "node-compile-cache"),
+	var env []string
+	if grant != "" {
+		env = append(env, launchGrantEnvVar+"="+grant)
 	}
+	env = append(env,
+		"TMPDIR="+w.DiskTmp,
+		"CLAUDE_CODE_TMPDIR="+w.DiskTmp,
+		"NODE_COMPILE_CACHE="+filepath.Join(w.DiskTmp, "node-compile-cache"),
+	)
 	if acct.CodexHome != "" {
 		env = append(env, "CODEX_HOME="+acct.CodexHome)
 	}
-	return p.orcaLaunch(ctx, OrcaLaunchSpec{
+	return OrcaLaunchSpec{
 		Argv: argv, Dir: dir, Env: env, Title: ref,
-		Prompt: FirstPrompt(ref, prof.Family, argString(op, "taskId")),
-	})
+		Prompt: FirstPrompt(ref, prof.Family, taskID, grant != ""),
+	}, nil
 }

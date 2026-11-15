@@ -123,11 +123,11 @@ func TestWorkerStartThroughOrcaNeverFallsBack2058(t *testing.T) {
 // The first prompt is a template: a task id that is not a plain token is not
 // interpolated; a start with no task points at the briefing's routine.
 func TestFirstPrompt2058(t *testing.T) {
-	if p := FirstPrompt("iris", "claude", "AT0.75"); !strings.Contains(p, "hadron team task start AT0.75") || !strings.Contains(p, "--tool claude-code") {
+	if p := FirstPrompt("iris", "claude", "AT0.75", true); !strings.Contains(p, "hadron team task start AT0.75") || !strings.Contains(p, "--tool claude-code") {
 		t.Fatalf("%q", p)
 	}
 	for _, bad := range []string{"", "x; rm -rf /", "a\nb", "$(id)"} {
-		p := FirstPrompt("iris", "claude", bad)
+		p := FirstPrompt("iris", "claude", bad, true)
 		if strings.Contains(p, "task start") {
 			t.Fatalf("task id %q was interpolated: %q", bad, p)
 		}
@@ -171,5 +171,30 @@ func TestOrcaWorkerValidation2058(t *testing.T) {
 		if err := c.validate(); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+}
+
+// C5 entry (#2060): a relaunch under a still-open session has no grant, so
+// the spec carries no grant and a prompt that recovers without binding again.
+func TestOrcaLaunchSpecForARelaunch2058(t *testing.T) {
+	p, _, _ := testPoller(t)
+	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-holger"})
+	p.EnableOrcaLaunch((&recordedOrca{}).launch, ConfigProfiles{Cfg: p.cfg})
+	spec, err := p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kv := range spec.Env {
+		if strings.HasPrefix(kv, launchGrantEnvVar+"=") {
+			t.Fatalf("a relaunch carries a grant: %q", kv)
+		}
+	}
+	if strings.Contains(spec.Prompt, "session start") || !strings.Contains(spec.Prompt, "hadron team session recover") || !strings.Contains(spec.Prompt, "still open") {
+		t.Fatalf("relaunch prompt %q", spec.Prompt)
+	}
+	// A grant-bearing start with no task binds first, then recovers (G2).
+	spec, err = p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "hlg_g", "")
+	if err != nil || !strings.Contains(spec.Prompt, "session start") || !strings.Contains(spec.Prompt, "session recover") || spec.Env[0] != launchGrantEnvVar+"=hlg_g" {
+		t.Fatalf("G2 start spec %+v %v", spec, err)
 	}
 }

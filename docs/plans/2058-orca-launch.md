@@ -57,6 +57,9 @@ The marker is written by the shell **before** `exec unshare`, so the pinned pid 
 
 `team host run` preflights the namespace at startup and refuses (exit 2) on a host that cannot create one. Tests pin the prefix in the typed text, the default, and the preflight refusal. Where namespaces are available, they also pin pid 1 inside, the host pid pinned, the pkill isolation, and the terminal close ending the agent.
 
+## Entry point for C5's relaunch (#2060)
+`Poller.orcaLaunchSpec(ref, w, dir, grant, taskID)` is the one builder of an Orca launch, and `worker.start` uses it with its grant. A relaunch under a still-open session passes no grant. The spec then carries no `HADRON_LAUNCH_GRANT`, and the first prompt says the session is still open, not to start a new one, and to run `hadron team session recover` (never a new bind, never `--resume`). The launch itself is `OrcaLaunchFunc`, which returns an `OrcaAgent` with the same proof, pin and authorized stop. Identity, two-sweep and rate-limit logic stay with C5.
+
 ## Restarts
 An Orca terminal does not restart a crashed agent. Restarts come from the sweep (C5 #2060, C1 #2056), not from the launcher.
 
