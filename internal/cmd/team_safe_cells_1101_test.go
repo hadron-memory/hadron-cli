@@ -311,7 +311,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 			{"worker-family", "claude"},
 			{"worktree", "jonas-2"},
 		}},
-		{"host-ops", []string{"host", "ops"}, fixed(hostResponses()), "HostOperations", []cellAttack{
+		{"host-ops", []string{"host", "ops"}, fixed(hostResponses()), "HostOperationsWithReason", []cellAttack{
 			{"worker", "Jonas"},
 			{"id", "hop1"},
 			{"issued-at", "2026-10-14T01:00:00Z"},

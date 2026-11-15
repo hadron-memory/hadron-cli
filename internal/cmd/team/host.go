@@ -9,6 +9,7 @@ package team
 // (cor:agt:070:03), and a plan login never travels in one (Holger, #10777).
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -72,6 +74,40 @@ type hostOperationDTO struct {
 	FailureReason *string         `json:"failureReason"`
 }
 
+// readHostOperations reads one page of the App's host operations with the
+// server's reason for each (#4231), and, when the server is older than #4257 and
+// rejects that one field, reads it again without. Any other refusal is the
+// answer. The poller's own operations never select the field.
+func readHostOperations(ctx context.Context, client graphql.Client, appRef string, hostID *string, status *gen.HostOperationStatus, worker *string, first *int, after *string) (hostOperationPageDTO, error) {
+	page := hostOperationPageDTO{Items: []hostOperationDTO{}}
+	resp, err := gen.HostOperationsWithReason(ctx, client, appRef, hostID, status, worker, first, after)
+	if err == nil {
+		page.HasNextPage, page.EndCursor = resp.HostOperations.HasNextPage, resp.HostOperations.EndCursor
+		for _, o := range resp.HostOperations.Items {
+			if o != nil {
+				dto := hostOperationDTOFrom(&o.HostOperationFields)
+				dto.IssuedReason = o.IssuedReason
+				page.Items = append(page.Items, dto)
+			}
+		}
+		return page, nil
+	}
+	if !api.IsFrameworkValidationOnlyFor(err, "issuedReason") {
+		return page, err
+	}
+	plain, err := gen.HostOperations(ctx, client, appRef, hostID, status, worker, first, after)
+	if err != nil {
+		return page, err
+	}
+	page.HasNextPage, page.EndCursor = plain.HostOperations.HasNextPage, plain.HostOperations.EndCursor
+	for _, o := range plain.HostOperations.Items {
+		if o != nil {
+			page.Items = append(page.Items, hostOperationDTOFrom(&o.HostOperationFields))
+		}
+	}
+	return page, nil
+}
+
 // hostOpByCell is who issued the operation, and, when the server says why no
 // task did (#4231), the reason beside it: PLATFORM (DESIRED_RUNNING). Without
 // a reason it is the issuer alone, as before.
@@ -109,7 +145,6 @@ func hostOperationDTOFrom(o *gen.HostOperationFields) hostOperationDTO {
 		IssuedBy:         string(o.IssuedBy),
 		IssuedByUserID:   o.IssuedByUserId,
 		IssuedByWorkerID: o.IssuedByWorkerId,
-		IssuedReason:     o.IssuedReason,
 		IssuedAt:         o.IssuedAt,
 		CollectedAt:      o.CollectedAt,
 		FinishedAt:       o.FinishedAt,
@@ -260,7 +295,7 @@ type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none. Whoever reads the App's tasks and events may.
+server names none; a server older than #4257 has no such field, and the list then reads without it. Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -303,19 +338,9 @@ the original cursor from --json.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.HostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
+			page, err := readHostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
 			if err != nil {
 				return api.MapError(err)
-			}
-			page := hostOperationPageDTO{
-				Items:       []hostOperationDTO{},
-				HasNextPage: resp.HostOperations.HasNextPage,
-				EndCursor:   resp.HostOperations.EndCursor,
-			}
-			for _, o := range resp.HostOperations.Items {
-				if o != nil {
-					page.Items = append(page.Items, hostOperationDTOFrom(&o.HostOperationFields))
-				}
 			}
 			return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
