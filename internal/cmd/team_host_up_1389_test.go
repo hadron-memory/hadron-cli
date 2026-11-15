@@ -53,6 +53,7 @@ type hostUpFixture1389 struct {
 	// desired state from the fake server (no --desired-state-file).
 	desiredSrv  map[string]any
 	desiredErr  string
+	desiredRaw  string // answered verbatim when set (a malformed success)
 	desiredVars []map[string]json.RawMessage
 	onIssue     func()   // runs after an issued operation is stored
 	registry    []string // worker ids the host registration lists
@@ -184,6 +185,10 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			}
 		case "HostDesiredState":
 			fx.desiredVars = append(fx.desiredVars, q.Vars)
+			if fx.desiredRaw != "" {
+				_, _ = w.Write([]byte(fx.desiredRaw))
+				return
+			}
 			if fx.desiredErr != "" {
 				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.desiredErr + `"}}]}`))
 				return
@@ -304,7 +309,7 @@ func (fx *hostUpFixture1389) run(extra ...string) (hostUpOut1389, string, error)
 	root := NewRootCmd(f)
 	args := []string{"--server", fx.srv.URL, "team", "host", "up", "--host", "orca1", "--worktrees-root", fx.root,
 		"--orca-bin", fx.orcaBin, "--timeout", "5s", "--json"}
-	if fx.desiredSrv == nil && fx.desiredErr == "" {
+	if fx.desiredSrv == nil && fx.desiredErr == "" && fx.desiredRaw == "" {
 		args = append(args, "--desired-state-file", fx.desired)
 	}
 	root.SetArgs(append(args, extra...))

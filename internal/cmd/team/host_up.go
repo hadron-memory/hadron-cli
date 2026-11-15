@@ -325,6 +325,12 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 	if err != nil {
 		return hostup.Snapshot{}, api.MapError(err)
 	}
+	// The schema says non-null, but a successful answer without it (a null or
+	// missing field) must not be dereferenced: it is the server's failure,
+	// reported like any other, and nothing is planned (cli#2077 blind P2).
+	if r == nil || r.HostDesiredState == nil {
+		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server answered without a desired state for host %s; nothing planned", hostID)
+	}
 	d := r.HostDesiredState
 	if d.HostId != hostID {
 		// Not usage: the server answered for a host nobody asked about.

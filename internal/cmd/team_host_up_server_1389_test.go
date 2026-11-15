@@ -280,3 +280,50 @@ func TestTeamHostUpServerSweepModeGatesThePlan1389(t *testing.T) {
 		})
 	}
 }
+
+// cli#2077 blind P2: a successful answer without the desired state (a null
+// or missing field) is a server failure, exit 1 with a JSON result, never a
+// panic, and nothing is issued.
+func TestTeamHostUpMalformedServerAnswer2077(t *testing.T) {
+	for name, raw := range map[string]string{
+		"null field":    `{"data":{"hostDesiredState":null}}`,
+		"missing field": `{"data":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			fx := newHostUpFixture1389(t)
+			fx.desiredRaw = raw
+			dto, out, err := fx.run("--apply")
+			if exitCodeFor(err) != exitcode.Error {
+				t.Fatalf("exit %d (%v)\n%s", exitCodeFor(err), err, out)
+			}
+			if dto.Error == nil || dto.Source != "server" {
+				t.Fatalf("no JSON result for the failure: %s", out)
+			}
+			if m := fx.mutations(); len(m) != 0 {
+				t.Fatalf("mutations: %v", m)
+			}
+		})
+	}
+}
+
+// cli#2077 blind P3: an empty or malformed model family is SETUP_INVALID,
+// reported before the host is read, like a bad worktree.
+func TestTeamHostUpServerFamilyIsValidated2077(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	empty := serverWorker1389("wkr-iris", "Iris", "RUNNING", "LONG_LIVED", "", "hadron-cli/iris")
+	empty["family"] = ""
+	bad := serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "LONG_LIVED", "", "hadron-cli/jonas")
+	bad["family"] = "../claude"
+	fx.serverState("APPLY", empty, bad)
+	dto, raw, err := fx.run("--apply")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	wantItems1389(t, "skipped", dto.Skipped, "Iris - SETUP_INVALID", "Jonas - SETUP_INVALID")
+	if log := orcaLog1389(t, fx); strings.Contains(log, "terminal list") {
+		t.Fatalf("the host was read for an invalid family:\n%s", log)
+	}
+	if m := fx.mutations(); len(m) != 0 {
+		t.Fatalf("mutations: %v", m)
+	}
+}
