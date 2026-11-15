@@ -550,13 +550,30 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 		p.mu.Lock()
 		launched := p.agentSessions[op.WorkerID]
 		p.mu.Unlock()
-		if launched == "" || session == "" {
-			why := "the session of the launched agent or of this end is not known, so the agent could not be identified and was not touched"
+		if session == "" {
+			why := "this end names no session, so the launched agent could not be identified and was not touched"
 			p.log("stop-skipped", op.ID, op.Type, "", why)
 			return why
 		}
-		if launched != session {
-			why := "the launched agent serves another session than the one being ended, so it was not touched"
+		// identified answers whether the launched agent is the one serving the
+		// session being ended: by the session its start (or its reset
+		// relaunch) recorded; when that is not recorded (a start the server
+		// had already finished), only a binding that names this worker AND
+		// this session proves it, and an empty binding does not.
+		identified := func() (bool, string) {
+			if launched != "" {
+				if launched != session {
+					return false, "the launched agent serves another session than the one being ended, so it was not touched"
+				}
+				return true, ""
+			}
+			b := p.bound(p.cfg.WorktreePath(t))
+			if b.Unusable || b.WorkerID != op.WorkerID || b.SessionID == "" || b.SessionID != session {
+				return false, "the session of the launched agent is not recorded and the worktree's binding does not name this session, so the agent could not be identified and was not touched"
+			}
+			return true, ""
+		}
+		if ok, why := identified(); !ok {
 			p.log("stop-skipped", op.ID, op.Type, "", why)
 			return why
 		}
@@ -564,7 +581,23 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			p.log("stop-skipped", op.ID, op.Type, "", why)
 			return why
 		}
-		stopped, detail := agent.Terminate()
+		var stopped bool
+		var detail string
+		if tw, ok := agent.(interface {
+			TerminateWith(Authorize) (bool, string)
+		}); ok {
+			// Authorize before each signal, holding the binding lock through
+			// it, and never across the grace between SIGTERM and SIGKILL.
+			stopped, detail = tw.TerminateWith(p.authorizeStop(t, func() bool {
+				if ok, _ := identified(); !ok {
+					return false
+				}
+				ok, _ := allowed(t)
+				return ok
+			}, op))
+		} else {
+			stopped, detail = agent.Terminate()
+		}
 		said = fmt.Sprintf("stopped the agent this host launched (pid %d)", agent.PID())
 		if !stopped {
 			said = fmt.Sprintf("the agent this host launched (pid %d) could not be confirmed stopped and its records are kept", agent.PID())
@@ -599,7 +632,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			say("stop-skipped", why)
 			continue
 		}
-		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t), func() bool { ok, _ := allowed(t); return ok })
+		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
 		if err != nil {
 			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
 			continue
@@ -704,4 +737,30 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// bindingLockWait bounds how long a stop waits for a binding writer: a bind
+// holds the lock for one write, so this is generous, and a writer is never made
+// to wait on the stopper longer than one read and one signal (#2068).
+const bindingLockWait = 2 * time.Second
+
+// authorizeStop is the Authorize for one worktree: before each signal it takes
+// the worktree's session-binding lock (the lock `team session start` holds
+// while it writes), re-reads the binding under it through check, and returns
+// the release the caller invokes right after the signal. A lock that cannot be
+// taken within bindingLockWait declines the stop, and so does a check that no
+// longer passes; both are logged. Nothing here holds the lock across a wait.
+func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Authorize {
+	return func() (func(), bool) {
+		release, err := p.lockBinding(p.cfg.WorktreePath(token), bindingLockWait)
+		if err != nil {
+			p.log("stop-skipped", op.ID, op.Type, "", fmt.Sprintf("the session binding of worktree %s could not be locked, so nothing was signalled: %v", token, err))
+			return nil, false
+		}
+		if !check() {
+			release()
+			return nil, false
+		}
+		return release, true
+	}
 }

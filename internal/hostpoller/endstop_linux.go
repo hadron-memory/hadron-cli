@@ -21,12 +21,12 @@ import (
 // The agents are the /proc census the duplicate sweep uses
 // (ScanWorktreeAgents, #2027): one entry per logical agent whose working
 // directory is in the tree.
-func (h ExecHost) StopAgents(_ context.Context, path string, still func() bool) ([]AgentStop, error) {
+func (h ExecHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
 	grace := h.TerminateGrace
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	return stopWorktreeAgents(path, grace, still)
+	return stopWorktreeAgents(path, grace, authorize)
 }
 
 // stopSignalLease is the pinned-signal window ProcessHandle wants. A stop
@@ -34,7 +34,7 @@ func (h ExecHost) StopAgents(_ context.Context, path string, still func() bool) 
 // procedure.
 const stopSignalLease = time.Hour
 
-func stopWorktreeAgents(path string, grace time.Duration, still func() bool) ([]AgentStop, error) {
+func stopWorktreeAgents(path string, grace time.Duration, authorize Authorize) ([]AgentStop, error) {
 	root, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func stopWorktreeAgents(path string, grace time.Duration, still func() bool) ([]
 	}
 	out := []AgentStop{}
 	for _, a := range ScanWorktreeAgents(root) {
-		out = append(out, stopAgentGroup(a, root, grace, still))
+		out = append(out, stopAgentGroup(a, root, grace, authorize))
 	}
 	return out, nil
 }
@@ -181,12 +181,12 @@ func pinGroup(ctrl LinuxProcessControl, pgid int, root string, skip map[int]bool
 // signal goes through a pidfd, so a number that was reaped and reused is
 // never signalled. When the agent's group is not the worker's alone, only
 // the agent process itself is signalled and the detail says so.
-func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration, still func() bool) AgentStop {
-	return stopAgentGroupWith(a, root, grace, still, LinuxProcessControl{}.Observe)
+func stopAgentGroup(a WorktreeAgent, root string, grace time.Duration, authorize Authorize) AgentStop {
+	return stopAgentGroupWith(a, root, grace, authorize, LinuxProcessControl{}.Observe)
 }
 
 // stopAgentGroupWith is stopAgentGroup with the process pin injectable.
-func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, still func() bool, observe func(int) (ProcessHandle, error)) AgentStop {
+func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, authorize Authorize, observe func(int) (ProcessHandle, error)) AgentStop {
 	name := fmt.Sprintf("pid %d (%s)", a.PID, a.Display)
 	ctrl := LinuxProcessControl{}
 	t0, err := ctrl.Now()
@@ -267,17 +267,27 @@ func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, still
 			time.Sleep(groupPollInterval)
 		}
 	}
-	if still != nil && !still() {
-		return AgentStop{PID: a.PID, Detail: name + " was not touched: the worktree's session binding changed while this end was running"}
+	if authorize == nil {
+		authorize = allow
 	}
-	if err := signal(syscall.SIGTERM); err != nil && !allGone(0) {
+	// signalHeld sends one signal with the binding held unchanged from the
+	// check through the signal, and released before anything waits.
+	signalHeld := func(sig syscall.Signal) (err error, declined bool) {
+		release, ok := authorize()
+		if !ok {
+			return nil, true
+		}
+		defer release()
+		return signal(sig), false
+	}
+	const changed = "the worktree's session binding changed, or could not be locked, while this end was running"
+	if err, declined := signalHeld(syscall.SIGTERM); declined {
+		return AgentStop{PID: a.PID, Detail: name + " was not touched: " + changed}
+	} else if err != nil && !allGone(0) {
 		return AgentStop{PID: a.PID, Detail: fmt.Sprintf("%s could not be stopped: %v", name, err)}
 	}
 	if allGone(grace) {
 		return AgentStop{PID: a.PID, Stopped: true, Detail: fmt.Sprintf("terminated %s, %s", name, scope)}
-	}
-	if still != nil && !still() {
-		return AgentStop{PID: a.PID, Detail: name + " ignored SIGTERM for " + grace.String() + " and was not killed: the worktree's session binding changed while this end was running"}
 	}
 	if whole {
 		// A member forked while the group was being terminated is in the
@@ -291,7 +301,9 @@ func stopAgentGroupWith(a WorktreeAgent, root string, grace time.Duration, still
 			}
 		}
 	}
-	if err := signal(syscall.SIGKILL); err != nil && !allGone(0) {
+	if err, declined := signalHeld(syscall.SIGKILL); declined {
+		return AgentStop{PID: a.PID, Detail: name + " ignored SIGTERM for " + grace.String() + " and was not killed: " + changed}
+	} else if err != nil && !allGone(0) {
 		return AgentStop{PID: a.PID, Detail: fmt.Sprintf("%s ignored SIGTERM for %s and SIGKILL failed: %v", name, grace, err)}
 	}
 	if allGone(postKillWait) {

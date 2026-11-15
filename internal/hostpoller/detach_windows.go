@@ -55,6 +55,14 @@ func (a *execAgent) stop() (bool, string) {
 		return true, ""
 	default:
 	}
+	if a.authorize != nil {
+		// One forceful action here, so one authorization, held through it.
+		release, ok := a.authorize()
+		if !ok {
+			return false, declinedDetail(a.pid)
+		}
+		defer release()
+	}
 	return terminateGroup(a.pid, 0)
 }
 

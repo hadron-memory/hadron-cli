@@ -585,7 +585,9 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	if a.stopAuthorityGone() {
 		return false, a.unconfirmedDetail()
 	}
-	if err := signalGroup(pid, syscall.SIGTERM); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := a.signalAuthorized(pid, syscall.SIGTERM); errors.Is(err, errStopDeclined) {
+		return false, declinedDetail(pid)
+	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
 	}
 	if a.drainedOrAuthorityLost(a.grace) {
@@ -597,7 +599,9 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 	if a.stopAuthorityGone() {
 		return false, a.unconfirmedDetail()
 	}
-	if err := signalGroup(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := a.signalAuthorized(pid, syscall.SIGKILL); errors.Is(err, errStopDeclined) {
+		return false, declinedDetail(pid)
+	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, a.grace, err)
 	}
 	if a.drainedOrAuthorityLost(postKillWait) {
@@ -607,6 +611,21 @@ func (a *execAgent) terminateGroup() (stopped bool, detail string) {
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
 	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+}
+
+// signalAuthorized sends one signal to the launch's group, first asking the
+// authorization TerminateWith installed (none: a plain Terminate) and holding
+// what it grants only until the signal is sent. Called with a.mu held.
+func (a *execAgent) signalAuthorized(pid int, sig syscall.Signal) error {
+	if a.authorize == nil {
+		return signalGroup(pid, sig)
+	}
+	release, ok := a.authorize()
+	if !ok {
+		return errStopDeclined
+	}
+	defer release()
+	return signalGroup(pid, sig)
 }
 
 // unconfirmedDetail is the no-hold launch's abort wording: records kept,

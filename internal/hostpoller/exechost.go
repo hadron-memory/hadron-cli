@@ -140,6 +140,9 @@ type execAgent struct {
 	pid    int
 	grace  time.Duration
 	cmd    *exec.Cmd
+	// authorize, set only for the span of a TerminateWith, is asked before
+	// each signal (under mu, as stop holds it).
+	authorize Authorize
 	// watcherDone is allocated at launch and closes exactly once — when
 	// the drain watcher exits, or when the waiter finishes without arming
 	// one — so tests can wait out a watcher before swapping the scan
@@ -456,6 +459,23 @@ func (a *execAgent) Terminate() (bool, string) {
 	return a.stop()
 }
 
+// TerminateWith is Terminate with a check before every signal: authorize
+// decides, immediately before SIGTERM and again before SIGKILL, whether the
+// stop may still go on, and its release runs right after that one signal. A
+// refusal signals nothing further and reports the stop unconfirmed, with the
+// agent's records kept (hadron-cli#2068).
+func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
+	a.mu.Lock()
+	a.authorize = authorize
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		a.authorize = nil
+		a.mu.Unlock()
+	}()
+	return a.stop()
+}
+
 // Occupied looks for a process whose working directory is inside path, via
 // /proc (Linux). Without /proc it cannot tell and reports none.
 func (ExecHost) Occupied(_ context.Context, path string) (string, error) {
@@ -484,4 +504,12 @@ func (h ExecHost) Prompt(ctx context.Context, argv []string, dir string, env []s
 		return err
 	}
 	return nil
+}
+
+// errStopDeclined: the authorization asked before a signal said no, so nothing
+// was sent.
+var errStopDeclined = errors.New("the stop was not authorized")
+
+func declinedDetail(pid int) string {
+	return fmt.Sprintf("the stop of the launched process group (pid %d) was declined before a signal: the worktree's session binding changed, or could not be locked; nothing further was signalled and its records are kept", pid)
 }
