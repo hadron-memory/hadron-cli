@@ -99,3 +99,35 @@ func TestHealth2063RequestCarriesNoTranscriptText(t *testing.T) {
 }
 
 func jsonStr(s string) string { b, _ := json.Marshal(s); return string(b) }
+
+// A server from before #4238 refuses the whole batch for the unknown pair; the
+// sweep must still store terminal health, without the pair, in one retry.
+func TestHealth2063OldServerStillStoresTerminalHealth(t *testing.T) {
+	old := healthContextMeasurer
+	defer func() { healthContextMeasurer = old }()
+	healthContextMeasurer = func(string, []string) *contextsize.Measurement {
+		return &contextsize.Measurement{Tokens: 100, MeasuredAt: time.Date(2026, 10, 31, 1, 0, 0, 0, time.UTC)}
+	}
+	out, n, sent, err := health1181RunFixture(t, "OLDSERVER", 0, true, "", health2063Idle, `{"hostId":"own"}`)
+	if err != nil || n != 2 {
+		t.Fatalf("err=%v writes=%d (want one refused attempt then one store)", err, n)
+	}
+	rep := health2063Report(t, sent)
+	if _, ok := rep["contextTokens"]; ok {
+		t.Fatalf("retry still carries the pair: %v", rep)
+	}
+	if _, ok := rep["contextMeasuredAt"]; ok || strings.Contains(out, "contextTokens") {
+		t.Fatalf("retry/receipt still carries the pair: %v %s", rep, out)
+	}
+}
+
+// Any other failure is not retried, and an unmeasured batch is never retried.
+func TestHealth2063OnlyTheUnknownFieldRefusalIsRetried(t *testing.T) {
+	old := healthContextMeasurer
+	defer func() { healthContextMeasurer = old }()
+	healthContextMeasurer = func(string, []string) *contextsize.Measurement { return nil }
+	_, n, _, err := health1181RunFixture(t, "OLDSERVER_ALWAYS", 0, true, "", health2063Idle, `{"hostId":"own"}`)
+	if err == nil || n != 1 {
+		t.Fatalf("err=%v writes=%d (an unmeasured batch must not be retried)", err, n)
+	}
+}

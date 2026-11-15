@@ -84,6 +84,16 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 			writes++
 			sent = q.Variables
 			mu.Unlock()
+			if wire == "OLDSERVER" || wire == "OLDSERVER_ALWAYS" {
+				// A pre-#4238 server validates the variables against a schema without the pair.
+				raw, _ := json.Marshal(q.Variables)
+				if wire == "OLDSERVER_ALWAYS" || strings.Contains(string(raw), "contextTokens") || strings.Contains(string(raw), "contextMeasuredAt") {
+					_, _ = io.WriteString(w, `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"contextMeasuredAt\" is not defined by type \"WorkerTerminalReportInput\"."}]}`)
+					return
+				}
+				_, _ = io.WriteString(w, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"u"}],"refused":[]}}}`)
+				return
+			}
 			if wire == "DROP" {
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				_ = conn.Close()

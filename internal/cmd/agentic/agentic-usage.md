@@ -5259,6 +5259,9 @@ other family, or a file that is missing, malformed, not attributable to the work
 (the file's own cwd must equal it) or dated over 2 minutes ahead, sends neither
 field and the row still reports. Only numbers are read; no transcript text is held
 or sent. The JSON receipt shows both fields (omitted when not measured).
+A server from before hadron-server#4238 refuses the whole batch for the unknown
+fields; the sweep then retries once without them (only for that validation error),
+so terminal health still stores and the receipt shows no context fields.
 
 ### Team health install (cli#1374)
 

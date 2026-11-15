@@ -290,6 +290,25 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 			}
 			if len(inputs) > 0 {
 				resp, err := gen.HealthSweepSetTerminals(c.Context(), server.client, &gen.SetHostWorkerTerminalsInput{AppRef: cfg.App, Reports: inputs})
+				if err != nil && rejectsContextFields(err) {
+					// A server from before hadron-server#4238 refuses the whole
+					// batch at validation for the unknown fields. Terminal health
+					// outranks context size: send the same reports without the
+					// pair, once (cli#2063).
+					stripped := false
+					for _, in := range inputs {
+						if in.ContextTokens != nil || in.ContextMeasuredAt != nil {
+							in.ContextTokens, in.ContextMeasuredAt = nil, nil
+							stripped = true
+						}
+					}
+					if stripped {
+						for i := range dto.Reports {
+							dto.Reports[i].ContextTokens, dto.Reports[i].ContextMeasuredAt = nil, nil
+						}
+						resp, err = gen.HealthSweepSetTerminals(c.Context(), server.client, &gen.SetHostWorkerTerminalsInput{AppRef: cfg.App, Reports: inputs})
+					}
+				}
 				if err != nil {
 					return healthSafeError(err)
 				}
@@ -421,6 +440,15 @@ func healthContext(cfg *hostpoller.Config, state *hostpoller.State, id, name str
 	}
 	rec := cfg.Recipient(state, ref, id)
 	return healthContextMeasurer(cfg.Workers[ref].Family, rec.Worktrees)
+}
+
+// rejectsContextFields reports whether the server refused the batch at GraphQL
+// validation because it does not know the context fields, i.e. it predates
+// hadron-server#4238. Any other failure is not this one and is never retried.
+func rejectsContextFields(err error) bool {
+	m := err.Error()
+	return (strings.Contains(m, "contextTokens") || strings.Contains(m, "contextMeasuredAt")) &&
+		(strings.Contains(m, "not defined by type") || strings.Contains(m, "Unknown field") || strings.Contains(m, "unknown field"))
 }
 
 func healthSafeError(err error) error {
