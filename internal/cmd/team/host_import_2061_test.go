@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
@@ -77,59 +78,6 @@ func TestPlanHostImportUsesProfileSeamWhenItMaps(t *testing.T) {
 	}
 	if entries[1].Profile != nil || entries[1].ProfileStatus != "unmapped" {
 		t.Errorf("an unknown line must stay unmapped, never guessed: %+v", entries[1])
-	}
-}
-
-func TestApplyHostImportRefusesWithoutLeaveAloneAndWritesNothing(t *testing.T) {
-	wd := "w"
-	entries := []importEntryDTO{{Ref: "Iris", Action: importCreate, Workdir: &wd, Family: "claude"}}
-	assigned := 0
-	err := applyHostImport(context.Background(), entries, hostImportWrites{Assign: func(context.Context, string, string, string) error { assigned++; return nil }})
-	if !errors.Is(err, errLeaveAloneUnavailable) || assigned != 0 {
-		t.Fatalf("err=%v assigned=%d: an assign without a leave-alone write must not happen", err, assigned)
-	}
-}
-
-func TestApplyHostImportOrderAndIdempotence(t *testing.T) {
-	wd := func(s string) *string { return &s }
-	entries := []importEntryDTO{
-		{Ref: "A", Action: importCreate, Workdir: wd("a"), Family: "claude"},
-		{Ref: "B", Action: importExisting, Workdir: wd("b"), Family: "claude"},
-		{Ref: "C", Action: importDiffers, Workdir: wd("c"), Family: "claude"},
-		{Ref: "D", Action: importSkip},
-	}
-	var log []string
-	w := hostImportWrites{
-		LeaveAlone: func(_ context.Context, ref string) error { log = append(log, "leave:"+ref); return nil },
-		Assign: func(_ context.Context, ref, d, f string) error {
-			log = append(log, "assign:"+ref+":"+d+":"+f)
-			return nil
-		},
-	}
-	if err := applyHostImport(context.Background(), entries, w); err != nil {
-		t.Fatal(err)
-	}
-	if len(log) != 2 || log[0] != "leave:A" || log[1] != "assign:A:a:claude" {
-		t.Fatalf("only create entries are written, leave-alone first: %v", log)
-	}
-	// A re-run plans from the server's state: the created entry is now "unchanged".
-	entries[0].Action = importExisting
-	log = nil
-	if err := applyHostImport(context.Background(), entries, w); err != nil || len(log) != 0 {
-		t.Fatalf("a second apply must write nothing: %v %v", err, log)
-	}
-}
-
-func TestApplyHostImportStopsAtFirstFailureBeforeAssigning(t *testing.T) {
-	wd := "w"
-	entries := []importEntryDTO{{Ref: "A", Action: importCreate, Workdir: &wd, Family: "claude"}}
-	assigned := false
-	err := applyHostImport(context.Background(), entries, hostImportWrites{
-		LeaveAlone: func(context.Context, string) error { return errors.New("boom") },
-		Assign:     func(context.Context, string, string, string) error { assigned = true; return nil },
-	})
-	if err == nil || assigned {
-		t.Fatalf("a failed leave-alone must stop before the assignment: err=%v assigned=%v", err, assigned)
 	}
 }
 
@@ -213,6 +161,103 @@ func TestImportAppWarningComparesIdentitiesNotText(t *testing.T) {
 
 // Jamir P3: the idempotence claim is exercised by replanning from the server's
 // state after the apply, not by editing the plan by hand.
+func entry2061(ref, id, wd string) importEntryDTO {
+	w := wd
+	return importEntryDTO{Ref: ref, Action: importCreate, Workdir: &w, Family: "claude", workerID: id}
+}
+
+type recWrites2061 struct {
+	log        []string
+	failLeave  map[string]error
+	failAssign map[string]error
+}
+
+func (r *recWrites2061) writes() hostImportWrites {
+	return hostImportWrites{
+		LeaveAlone: func(_ context.Context, id string) error {
+			r.log = append(r.log, "leave:"+id)
+			return r.failLeave[id]
+		},
+		Assign: func(_ context.Context, id, wd, fam string) error {
+			r.log = append(r.log, "assign:"+id+":"+wd+":"+fam)
+			return r.failAssign[id]
+		},
+		Systemic: func(err error) bool { return err.Error() == "systemic" },
+	}
+}
+
+func TestApplyWritesLeaveAloneBeforeAssignPerWorkerOnlyForCreates(t *testing.T) {
+	d := "d"
+	entries := []importEntryDTO{
+		entry2061("A", "w1", "a"),
+		{Ref: "B", Action: importExisting, Workdir: &d, Family: "claude", workerID: "w2"},
+		{Ref: "C", Action: importDiffers, Workdir: &d, Family: "claude", workerID: "w3"},
+		{Ref: "D", Action: importConflict, workerID: "w4"},
+		entry2061("E", "w5", "e"),
+	}
+	r := &recWrites2061{}
+	if err := applyHostImport(context.Background(), entries, r.writes()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"leave:w1", "assign:w1:a:claude", "leave:w5", "assign:w5:e:claude"}
+	if len(r.log) != len(want) {
+		t.Fatalf("log = %v, want %v", r.log, want)
+	}
+	for i := range want {
+		if r.log[i] != want[i] {
+			t.Fatalf("log = %v, want %v", r.log, want)
+		}
+	}
+	if a := entries[0].Applied; a == nil || !a.LeaveAlone || !a.Assigned || a.Error != nil {
+		t.Fatalf("applied = %+v", a)
+	}
+	if entries[1].Applied != nil || entries[2].Applied != nil || entries[3].Applied != nil {
+		t.Fatal("only create entries are written")
+	}
+}
+
+// The half-state of a refusal is always the SAFE one: marked leave-alone, not assigned.
+func TestApplyAssignRefusalLeavesAMarkedUnassignedWorkerAndOthersStillRun(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w2", "b")}
+	r := &recWrites2061{failAssign: map[string]error{"w1": errors.New("HOST_ASSIGNMENT_NOT_PERMITTED")}}
+	err := applyHostImport(context.Background(), entries, r.writes())
+	if !errors.Is(err, errApplyIncomplete) {
+		t.Fatalf("err = %v, want the incomplete error", err)
+	}
+	a, b := entries[0].Applied, entries[1].Applied
+	if !a.LeaveAlone || a.Assigned || a.Error == nil {
+		t.Fatalf("A = %+v: marked, not assigned, with the reason", a)
+	}
+	if !b.LeaveAlone || !b.Assigned || b.Error != nil {
+		t.Fatalf("B = %+v: a refusal on A must not stop B", b)
+	}
+}
+
+func TestApplyLeaveAloneFailureNeverAssigns(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a")}
+	r := &recWrites2061{failLeave: map[string]error{"w1": errors.New("nope")}}
+	if err := applyHostImport(context.Background(), entries, r.writes()); !errors.Is(err, errApplyIncomplete) {
+		t.Fatalf("err = %v", err)
+	}
+	for _, l := range r.log {
+		if strings.HasPrefix(l, "assign:") {
+			t.Fatalf("assigned a worker that could not be marked leave-alone: %v", r.log)
+		}
+	}
+	if entries[0].Applied.LeaveAlone || entries[0].Applied.Assigned {
+		t.Fatalf("applied = %+v", entries[0].Applied)
+	}
+}
+
+func TestApplySystemicFailureStopsTheRun(t *testing.T) {
+	entries := []importEntryDTO{entry2061("A", "w1", "a"), entry2061("B", "w2", "b"), entry2061("C", "w3", "c")}
+	r := &recWrites2061{failLeave: map[string]error{"w1": errors.New("systemic")}}
+	_ = applyHostImport(context.Background(), entries, r.writes())
+	if len(r.log) != 1 || entries[1].Applied != nil || entries[2].Applied != nil {
+		t.Fatalf("a failure that repeats for every entry must stop the run: %v", r.log)
+	}
+}
+
 func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
 	cfg := cfg2061(map[string]hostpoller.WorkerConfig{
 		"Iris": {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"iris-1"}},
@@ -222,8 +267,7 @@ func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
 	server := []importExisting1{}
 	w := hostImportWrites{
 		LeaveAlone: func(context.Context, string) error { return nil },
-		Assign: func(_ context.Context, ref, wd, fam string) error {
-			id := map[string]string{"Iris": "w1", "Kit": "w2"}[ref]
+		Assign: func(_ context.Context, id, wd, fam string) error {
 			server = append(server, importExisting1{WorkerID: id, Workdir: wd, Family: fam})
 			return nil
 		},
@@ -237,26 +281,9 @@ func TestApplyThenReplanWritesNothingTheSecondTime(t *testing.T) {
 		t.Fatalf("replanned from the server's state: %+v", c)
 	}
 	before := len(server)
-	if err := applyHostImport(context.Background(), again, w); err != nil || len(server) != before {
-		t.Fatalf("second apply wrote: err=%v", err)
-	}
-}
-
-func TestApplyAssignFailureAfterLeaveAloneLeavesLaterEntriesUntouched(t *testing.T) {
-	wd := func(s string) *string { return &s }
-	entries := []importEntryDTO{
-		{Ref: "A", Action: importCreate, Workdir: wd("a"), Family: "claude"},
-		{Ref: "B", Action: importCreate, Workdir: wd("b"), Family: "claude"},
-	}
-	var log []string
-	err := applyHostImport(context.Background(), entries, hostImportWrites{
-		LeaveAlone: func(_ context.Context, r string) error { log = append(log, "leave:"+r); return nil },
-		Assign: func(_ context.Context, r, _, _ string) error {
-			log = append(log, "assign:"+r)
-			return errors.New("boom")
-		},
-	})
-	if err == nil || len(log) != 2 || log[0] != "leave:A" || log[1] != "assign:A" {
-		t.Fatalf("err=%v log=%v: stop at the failed assign; B must be untouched (A stays leave-alone, which is the safe state)", err, log)
+	calls := 0
+	w.LeaveAlone = func(context.Context, string) error { calls++; return nil }
+	if err := applyHostImport(context.Background(), again, w); err != nil || len(server) != before || calls != 0 {
+		t.Fatalf("second apply wrote: err=%v leave-alone calls=%d", err, calls)
 	}
 }

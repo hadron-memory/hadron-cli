@@ -64,7 +64,9 @@ type importEntryDTO struct {
 	ProfileStatus string   `json:"profileStatus"`
 	Existing      *string  `json:"existing"` // for "differs": the server's workdir/family
 	Warnings      []string `json:"warnings"`
-	workerID      string   // the roster worker this entry resolved to (not serialized)
+	// Applied is set by an apply, on "create" entries only.
+	Applied  *importAppliedDTO `json:"applied"`
+	workerID string            // the roster worker this entry resolved to (not serialized)
 }
 
 type importReportDTO struct {
@@ -238,41 +240,101 @@ func markDuplicateWorkers(entries []importEntryDTO) {
 	}
 }
 
-// hostImportWrites are the two writes an apply makes, injected so the flow is
-// testable without a server.
+// hostImportWrites are the two writes an apply makes for one worker, by the
+// roster worker's ID (never a name), injected so the flow is testable.
+// Systemic says a failure will repeat for every entry (no authority, server
+// unreachable), so the apply stops instead of trying all of them.
 type hostImportWrites struct {
-	Assign     func(ctx context.Context, workerRef, workdir, family string) error
-	LeaveAlone func(ctx context.Context, workerRef string) error
+	Assign     func(ctx context.Context, workerID, workdir, family string) error
+	LeaveAlone func(ctx context.Context, workerID string) error
+	Systemic   func(error) bool
 }
 
-var errLeaveAloneUnavailable = errors.New("marking imported workers leave-alone needs the lifecycle write from hadron-cli#2072 (C9), which is not in this build")
+// importAppliedDTO is what an apply did for one "create" entry. LeaveAlone
+// true with Assigned false is the SAFE half-state (marked, not assigned): the
+// sweep leaves that worker alone, and a re-run completes it.
+type importAppliedDTO struct {
+	LeaveAlone bool    `json:"leaveAlone"`
+	Assigned   bool    `json:"assigned"`
+	Error      *string `json:"error"`
+}
 
-// applyHostImport performs the plan's "create" entries. It first proves the
-// leave-alone write exists: without it a worker would become assigned while
-// still eligible for the sweep, so nothing is written at all. Re-running it
-// is idempotent: only entries that are still "create" are written.
+var errApplyIncomplete = errors.New("some entries were not applied")
+
+// applyHostImport performs the plan's "create" entries, one worker at a time:
+// leave-alone FIRST, then the assignment, so a worker is never assigned while
+// still eligible for the sweep. A refusal on one entry is recorded on it and
+// the others still run, unless the failure is systemic. Re-running is
+// idempotent: it plans from the server's state, where finished entries read
+// "unchanged" and are not written again. It never replaces a "differs".
 func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImportWrites) error {
 	if w.LeaveAlone == nil || w.Assign == nil {
-		return errLeaveAloneUnavailable
+		return errors.New("an apply needs both writes")
 	}
-	for _, e := range entries {
-		if e.Action != importCreate || e.Workdir == nil {
+	failed := 0
+	for i := range entries {
+		e := &entries[i]
+		if e.Action != importCreate || e.Workdir == nil || e.workerID == "" {
 			continue
 		}
-		if err := w.LeaveAlone(ctx, e.Ref); err != nil {
-			return fmt.Errorf("leave-alone for %s: %w", e.Ref, err)
+		res := &importAppliedDTO{}
+		e.Applied = res
+		fail := func(err error) bool {
+			msg := err.Error()
+			res.Error = &msg
+			failed++
+			return w.Systemic != nil && w.Systemic(err)
 		}
-		if err := w.Assign(ctx, e.Ref, *e.Workdir, e.Family); err != nil {
-			return fmt.Errorf("assign %s: %w", e.Ref, err)
+		if err := w.LeaveAlone(ctx, e.workerID); err != nil {
+			if fail(err) {
+				break
+			}
+			continue
 		}
+		res.LeaveAlone = true
+		if err := w.Assign(ctx, e.workerID, *e.Workdir, e.Family); err != nil {
+			if fail(err) {
+				break
+			}
+			continue
+		}
+		res.Assigned = true
+	}
+	if failed > 0 {
+		return errApplyIncomplete
 	}
 	return nil
 }
 
-// hostImportWriter is the production writer set; the leave-alone write is
-// absent until C9 (#2072) merges, so an apply refuses before writing.
-var hostImportWriter = func(cmd *cobra.Command, f *cmdutil.Factory, appRef, hostID string) hostImportWrites {
-	return hostImportWrites{} // LeaveAlone nil: refused by applyHostImport
+const importLeaveAloneReason = "imported from host.yaml (hadron-cli#2061); the sweep leaves it alone until its lane is released"
+
+// hostImportWriter is the production writer set: the signed-in manager's own
+// writes (assignHostWorker, setWorkerLeaveAlone), by worker id.
+var hostImportWriter = func(client graphql.Client, appRef, hostID string) hostImportWrites {
+	return hostImportWrites{
+		LeaveAlone: func(ctx context.Context, workerID string) error {
+			reason := importLeaveAloneReason
+			_, err := gen.SetWorkerLeaveAlone(ctx, client, &gen.SetWorkerLeaveAloneInput{Worker: workerID, LeaveAlone: true, Reason: &reason}, nil)
+			if err != nil {
+				return api.MapErrorKeepingCode(err)
+			}
+			return nil
+		},
+		Assign: func(ctx context.Context, workerID, workdir, family string) error {
+			_, err := gen.TeamHostAssign(ctx, client, &gen.AssignHostWorkerInput{AppRef: appRef, Worker: workerID, HostId: hostID, Workdir: workdir, Family: family})
+			if err != nil {
+				return api.MapErrorKeepingCode(err)
+			}
+			return nil
+		},
+		Systemic: func(err error) bool {
+			switch exitcode.FromError(err) {
+			case exitcode.AuthRequired, exitcode.Forbidden, exitcode.Unavailable:
+				return true
+			}
+			return false
+		},
+	}
 }
 
 // importAppWarning says so when the App the file names is not the App being
@@ -307,10 +369,10 @@ func countActions(entries []importEntryDTO) map[string]int {
 
 func newCmdTeamHostImport(f *cmdutil.Factory) *cobra.Command {
 	var from, hostID string
-	var apply bool
+	var apply, yes bool
 	cmd := &cobra.Command{
-		Use:   "import --from <host.yaml> --host <host-id> [--apply]",
-		Short: "Plan (dry run) the server assignments a host.yaml implies",
+		Use:   "import --from <host.yaml> --host <host-id> [--apply [--yes]]",
+		Short: "Plan, or with --apply write, the server assignments a host.yaml implies",
 		Long: `Read an existing host YAML and report the S1a assignments it implies for one
 host of the App. WITHOUT --apply nothing is written, ever: the report says,
 per entry, what an apply would do:
@@ -333,9 +395,19 @@ as program and argument count only, never its arguments; its launcher profile
 the file, not the one a live host reads. The cutover and rollback steps are in
 the runbook node coordination:team-on-orca-cutover-runbook.
 
---apply is refused until the leave-alone write (hadron-cli#2072) is in this
-build: assigning a worker without marking it leave-alone would make it
-eligible for the sweep. Nothing is written by the refusal.`,
+--apply writes the "create" entries, one worker at a time: the worker is marked
+leave-alone FIRST (so the sweep never acts on it), then the assignment is
+created. These are the signed-in manager's own writes. It asks before writing
+(--yes when not interactive) and never replaces a "differs". A refusal on one
+entry is recorded on it (applied.error) and the others still run, except a
+failure that would repeat for all of them (no authority, server unreachable),
+which stops the run. Exit 1 when any entry failed; a re-run completes them and
+writes nothing for the entries now "unchanged" (idempotent). Marked but not
+assigned is the safe half-state. --apply is refused, nothing written, when the
+server lacks host setup. The report's applied.assigned entries are what a
+rollback undoes: "team host unassign <worker> --host <id>" and "team worker
+leave-alone <worker> --off" (see the runbook). Never run it against a live
+host without the runbook: the orca1 import is the host manager's step.`,
 		Example: `  hadron team host import --from ./host.yaml.copy --host orca1
   hadron team host import --from ./host.yaml.copy --host orca1 --json`,
 		Args: cobra.NoArgs,
@@ -413,16 +485,23 @@ eligible for the sweep. Nothing is written by the refusal.`,
 			if dto.Missing == nil {
 				dto.Missing = []string{}
 			}
+			var applyErr error
 			if apply {
-				if err := applyHostImport(ctx, entries, hostImportWriter(cmd, f, scope.Ref, hostID)); err != nil {
-					if errors.Is(err, errLeaveAloneUnavailable) {
-						return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: %v", err)
+				if !setupKnown {
+					return exitcode.Newf(exitcode.Usage, "--apply refused, nothing written: the server lacks host setup (it predates hadron-server#4241)")
+				}
+				if dto.Counts[importCreate] > 0 {
+					if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Assign %d workers to host %s and mark each leave-alone?", dto.Counts[importCreate], hostID)); err != nil {
+						return err
 					}
-					return exitcode.Newf(exitcode.Error, "%v", err)
+					applyErr = applyHostImport(ctx, entries, hostImportWriter(client, scope.Ref, hostID))
+					if applyErr != nil && !errors.Is(applyErr, errApplyIncomplete) {
+						return exitcode.Newf(exitcode.Error, "%v", applyErr)
+					}
 				}
 				dto.Applied = true
 			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			werr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.HostSetup == "missing" {
 					if _, err := fmt.Fprintln(w, "server lacks host setup: existing assignments are unknown, so entries read unchecked"); err != nil {
 						return err
@@ -461,6 +540,21 @@ eligible for the sweep. Nothing is written by the refusal.`,
 				if err := t.Flush(); err != nil {
 					return err
 				}
+				for _, e := range dto.Entries {
+					if e.Applied == nil {
+						continue
+					}
+					res := "assigned and leave-alone"
+					switch {
+					case e.Applied.Error != nil && e.Applied.LeaveAlone:
+						res = "leave-alone set, NOT assigned: " + *e.Applied.Error
+					case e.Applied.Error != nil:
+						res = "NOT written: " + *e.Applied.Error
+					}
+					if _, err := fmt.Fprintf(w, "applied %s: %s\n", output.SafeCell(e.Ref), output.SafeCell(res)); err != nil {
+						return err
+					}
+				}
 				for _, m := range dto.Missing {
 					if _, err := fmt.Fprintf(w, "no entry: %s\n", output.SafeCell(m)); err != nil {
 						return err
@@ -468,10 +562,18 @@ eligible for the sweep. Nothing is written by the refusal.`,
 				}
 				return nil
 			})
+			if werr != nil {
+				return werr
+			}
+			if applyErr != nil {
+				return exitcode.Newf(exitcode.Error, "apply incomplete: some entries failed (see the report); a re-run completes them")
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "the host YAML to read (required; use a copy)")
 	cmd.Flags().StringVar(&hostID, "host", "", "the host's id within the App (required)")
-	cmd.Flags().BoolVar(&apply, "apply", false, "write the assignments (refused until the leave-alone write is available)")
+	cmd.Flags().BoolVar(&apply, "apply", false, "write the assignments and mark each worker leave-alone (default: dry run)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "do not prompt before --apply (required when not interactive)")
 	return cmd
 }

@@ -82,19 +82,6 @@ func TestTeamHostImport2061DryRunWritesNothingAndReports(t *testing.T) {
 	}
 }
 
-func TestTeamHostImport2061ApplyRefusedBeforeAnyWrite(t *testing.T) {
-	calls, _, err := runTeamTask(t, importResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply")
-	if err == nil || exitCodeFor(err) != exitcode.Usage {
-		t.Fatalf("err = %v, want a usage refusal", err)
-	}
-	for _, op := range []string{"TeamHostAssign", "TeamHostAssignInstructed", "TeamHostSetSource"} {
-		noCall2080(t, calls, op)
-	}
-	if !strings.Contains(err.Error(), "nothing written") {
-		t.Fatalf("refusal must say nothing was written: %v", err)
-	}
-}
-
 func TestTeamHostImport2061RequiresFromAndHost(t *testing.T) {
 	for _, args := range [][]string{{"team", "host", "import", "--host", "orca1"}, {"team", "host", "import", "--from", "x.yaml"}} {
 		if _, _, err := runTeamTask(t, importResponses2061(), args...); err == nil || exitCodeFor(err) != exitcode.Usage {
@@ -234,5 +221,122 @@ func TestTeamHostImport2061NullHostSetupIsAnErrorNotAFalseCreatePlan(t *testing.
 		if err == nil || strings.Contains(out, `"create"`) {
 			t.Errorf("%s: err=%v out=%s: must fail, never plan creates", name, err, out)
 		}
+	}
+}
+
+const leaveAloneOK2061 = `{"data":{"setWorkerLeaveAlone":{"workerId":"w1","leaveAlone":true,"reason":"r","by":"u","at":"2026-11-15T10:00:00Z"}}}`
+
+func applyResponses2061() map[string]string {
+	r := importResponses2061()
+	r["SetWorkerLeaveAlone"] = leaveAloneOK2061
+	return r
+}
+
+func ops2061(calls *[]attnCall, want ...string) []string {
+	var got []string
+	for _, c := range *calls {
+		for _, w := range want {
+			if c.Op == w {
+				got = append(got, c.Op)
+			}
+		}
+	}
+	return got
+}
+
+func TestTeamHostImport2061ApplyMarksLeaveAloneThenAssignsOnlyTheCreates(t *testing.T) {
+	calls, out, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	// Jonas is the only create (Iris is unchanged, Ghost has no roster worker).
+	got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign")
+	if len(got) != 2 || got[0] != "SetWorkerLeaveAlone" || got[1] != "TeamHostAssign" {
+		t.Fatalf("writes = %v, want leave-alone THEN assign, once each", got)
+	}
+	la := findCall(t, calls, "SetWorkerLeaveAlone").Vars["input"].(map[string]any)
+	if la["worker"] != "w1" || la["leaveAlone"] != true || la["reason"] == nil {
+		t.Fatalf("leave-alone input = %v", la)
+	}
+	if _, ok := la["appRef"]; ok {
+		t.Fatalf("a worker id needs no appRef: %v", la)
+	}
+	as := findCall(t, calls, "TeamHostAssign").Vars["input"].(map[string]any)
+	for k, v := range map[string]any{"appRef": "capp100000000000000000000", "worker": "w1", "hostId": "orca1", "workdir": "jonas-1", "family": "codex"} {
+		if as[k] != v {
+			t.Fatalf("assign input[%s] = %v, want %v (%v)", k, as[k], v, as)
+		}
+	}
+	if _, ok := as["model"]; ok {
+		t.Fatalf("no model is in the file: %v", as)
+	}
+	var rep struct {
+		Applied bool `json:"applied"`
+		Entries []struct {
+			Ref     string `json:"ref"`
+			Applied *struct {
+				LeaveAlone bool `json:"leaveAlone"`
+				Assigned   bool `json:"assigned"`
+			} `json:"applied"`
+		} `json:"entries"`
+	}
+	if e := json.Unmarshal([]byte(out), &rep); e != nil || !rep.Applied {
+		t.Fatalf("report: %v %s", e, out)
+	}
+	for _, e := range rep.Entries {
+		if e.Ref == "Jonas" && (e.Applied == nil || !e.Applied.LeaveAlone || !e.Applied.Assigned) {
+			t.Fatalf("Jonas = %+v", e)
+		}
+		if e.Ref != "Jonas" && e.Applied != nil {
+			t.Fatalf("%s must not be written", e.Ref)
+		}
+	}
+}
+
+func TestTeamHostImport2061ApplyNeedsYesWhenNotInteractive(t *testing.T) {
+	calls, _, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply")
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("err = %v, want a usage refusal", err)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("written without confirmation: %v", got)
+	}
+}
+
+func TestTeamHostImport2061ApplyRefusedOnAServerWithoutHostSetup(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamHostSetup"] = `{"errors":[{"message":"Cannot query field \"hostSetup\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	calls, _, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "nothing written") {
+		t.Fatalf("err = %v", err)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("written: %v", got)
+	}
+}
+
+// A manager-write refusal leaves the SAFE half-state, reported, exit 1.
+func TestTeamHostImport2061ApplyAssignRefusalIsReportedAndFails(t *testing.T) {
+	r := applyResponses2061()
+	r["TeamHostAssign"] = `{"errors":[{"message":"not yours to manage","extensions":{"code":"HOST_ASSIGNMENT_NOT_PERMITTED"}}]}`
+	calls, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+	if err == nil || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("err = %v, want exit 1", err)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone"); len(got) != 1 {
+		t.Fatalf("leave-alone must still have been set (the safe half-state): %v", got)
+	}
+	if !strings.Contains(out, `"assigned": false`) || !strings.Contains(out, `"leaveAlone": true`) || !strings.Contains(out, "not yours to manage") {
+		t.Fatalf("the report must show marked-not-assigned with the reason:\n%s", out)
+	}
+}
+
+func TestTeamHostImport2061DryRunStillWritesNothing(t *testing.T) {
+	calls, _, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ops2061(calls, "SetWorkerLeaveAlone", "TeamHostAssign"); len(got) != 0 {
+		t.Fatalf("a dry run wrote: %v", got)
 	}
 }
