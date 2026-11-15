@@ -151,103 +151,61 @@ func gitEnv() []string {
 	)
 }
 
-type repoOverridesKey struct{}
-
-// withRepoOverrides carries the repository-config overrides of one tree on the
-// context, so every git run of one operation applies them.
-func withRepoOverrides(ctx context.Context, args []string) context.Context {
-	return context.WithValue(ctx, repoOverridesKey{}, args)
-}
-
-// repoOverrides reads the WORKER-WRITABLE scopes of dir's git config (local, and
-// worktree when it differs) and returns -c arguments that neutralise every
-// setting in them that can run a command: a filter driver's smudge, clean and
-// process; a diff driver's textconv and external. What cannot be neutralised, or
-// would redirect the fetch (so poison the clean base the next task starts from),
-// is reported as a refusal instead: a repository credential helper (an empty
-// helper clears the whole list, the user's own included), a remote's proxy or
-// vcs (git keeps the first value, so an override cannot replace the repository's),
-// url.*.insteadOf / pushInsteadOf, an http proxy, and TLS verification turned
-// off. A remote's uploadpack is not refused: both network calls pass an explicit
-// --upload-pack, which wins. Reading config executes nothing.
-func repoOverrides(ctx context.Context, dir string) (args []string, refusal string) {
-	if _, errOut, err := runGitRaw(ctx, dir, nil, "rev-parse", "--git-dir"); err != nil {
+// untrustedRepoConfig is the repository-config ALLOWLIST (hadron-cli#2057 §10,
+// Wolfgang #108206): the worktree's git config is untrusted, so instead of
+// chasing the keys that can run a command (hooks, filters, helpers, proxies,
+// includes, drivers, transports...) every key in the worker-writable scopes of
+// dir's config (local, and worktree for a linked worktree) must be one of a
+// small set of inert ones. It returns the first key outside the set, or an
+// explanation when the config cannot be read (nothing unread is trusted); ""
+// means the config is trusted. Reading config executes nothing. Includes are
+// expanded for the read, and include.* is itself outside the set.
+//
+// The set is what a real clone carries: core.repositoryformatversion, filemode,
+// bare, logallrefupdates, ignorecase, precomposeunicode, symlinks;
+// remote.<name>.url and fetch, remote.pushdefault; branch.<name>.remote, merge,
+// base, pushremote; push.autosetupremote; user.name, user.email;
+// extensions.worktreeconfig. (base, pushremote, symlinks, pushdefault and
+// push.autosetupremote are additions to the ruled list: every orca1 clone
+// carries them, and refusing them would refuse every reset.)
+func untrustedRepoConfig(ctx context.Context, dir string) string {
+	if _, errOut, err := runGitRaw(ctx, dir, "rev-parse", "--git-dir"); err != nil {
 		if strings.Contains(strings.ToLower(errOut), "not a git repository") || errors.Is(err, exec.ErrNotFound) {
-			return nil, "" // no repository, no repository config
+			return "" // no repository, no repository config
 		}
-		return nil, "could not read the repository (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so its config could not be checked"
+		return "could not read the repository (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so its config could not be checked"
 	}
-	seen := map[string]bool{}
-	filters := map[string]bool{}
-	last := map[string]string{} // the EFFECTIVE value of a key: the last one read, worktree after local
-	hasValue := map[string]bool{}
+	// config.worktree is applied by git only when extensions.worktreeConfig is
+	// on; without it `config --worktree` is an error in a linked worktree, and
+	// there is no such scope to check. With it, the scope is checked like local.
+	worktreeScope := false
 	for _, scope := range []string{"--local", "--worktree"} {
-		// --includes: an explicit scope does not expand include.path /
-		// includeIf by default, and an included file is as much the worker's
-		// as the config that names it.
-		out, errOut, err := runGitRaw(ctx, dir, nil, "config", scope, "--includes", "--list", "-z")
+		if scope == "--worktree" && !worktreeScope {
+			break
+		}
+		out, errOut, err := runGitRaw(ctx, dir, "config", scope, "--includes", "--list", "-z")
 		if err != nil {
-			// A repository with extensions.worktreeConfig and no config.worktree
-			// has nothing in that scope; anything else fails closed.
+			// extensions.worktreeConfig on, no config.worktree yet: nothing in
+			// that scope. Anything else fails closed.
 			if scope == "--worktree" && (strings.Contains(errOut, "unable to read config file") || strings.Contains(errOut, "No such file")) {
 				continue
 			}
-			return nil, "could not read the repository's " + strings.TrimPrefix(scope, "--") + " config (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so it could not be checked"
+			return "could not read the repository's " + strings.TrimPrefix(scope, "--") + " config (" + firstNonEmpty(strings.TrimSpace(errOut), err.Error()) + "), so it could not be checked"
 		}
 		for _, entry := range strings.Split(out, "\x00") {
-			key, value, withValue := strings.Cut(entry, "\n")
+			key, value, _ := strings.Cut(entry, "\n")
 			if key == "" {
 				continue
 			}
-			last[key], hasValue[key] = value, withValue
-			if seen[key] {
-				continue
+			if !inertConfigKey(key) {
+				return "the repository's own config sets " + key + ", which is not on the allowlist of inert keys; nothing was run, fetched or moved"
 			}
-			seen[key] = true
-			section, rest, ok := strings.Cut(key, ".")
-			if !ok {
-				continue
-			}
-			sub, name := "", rest
-			if i := strings.LastIndex(rest, "."); i >= 0 {
-				sub, name = rest[:i], rest[i+1:]
-			}
-			switch {
-			case section == "filter" && (name == "smudge" || name == "clean" || name == "process"):
-				args = append(args, "-c", key+"=")
-				filters[sub] = true
-			case section == "diff" && (name == "textconv" || name == "external"):
-				args = append(args, "-c", key+"=")
-			case section == "credential" && name == "helper":
-				refusal = "the repository's own config sets a credential helper (" + key + "), which would run as the poller and cannot be neutralised without resetting the host user's helper"
-			case section == "remote" && (name == "proxy" || name == "vcs"):
-				// A proxy redirects the fetch; a vcs names a remote helper program.
-				// Git keeps the FIRST value of remote.* keys, so a later -c cannot
-				// replace the repository's: refuse rather than follow it.
-				refusal = "the repository's own config sets " + key + ", which redirects or runs a program for the fetch and cannot be overridden"
-			case section == "url" && (name == "insteadof" || name == "pushinsteadof"):
-				refusal = "the repository's own config rewrites remote URLs (" + key + "), which could point the fetch at another host"
-			case section == "http" && strings.Contains(name, "proxy"):
-				refusal = "the repository's own config sets a proxy (" + key + "), which could point the fetch at another host"
+			if scope == "--local" && key == "extensions.worktreeconfig" && !gitBoolFalse(value) {
+				worktreeScope = true
 			}
 		}
 	}
-	// TLS verification is judged on the EFFECTIVE value of each key (git uses the
-	// last one), in any of git's spellings of false.
-	for key, v := range last {
-		section, rest, _ := strings.Cut(key, ".")
-		name := rest
-		if i := strings.LastIndex(rest, "."); i >= 0 {
-			name = rest[i+1:]
-		}
-		if section == "http" && name == "sslverify" && hasValue[key] && gitBoolFalse(v) {
-			refusal = "the repository's own config turns TLS verification off (" + key + ")"
-		}
-	}
-	for sub := range filters {
-		args = append(args, "-c", "filter."+sub+".required=false")
-	}
-	return args, refusal
+	return ""
 }
 
 // gitBoolFalse reports whether v is one of git's spellings of false: false, no,
@@ -260,33 +218,56 @@ func gitBoolFalse(v string) bool {
 	return false
 }
 
+// inertConfigKey reports whether key (as git lists it: lowercase section and
+// variable, case-preserved subsection) is one a clone carries and that can run
+// nothing.
+func inertConfigKey(key string) bool {
+	section, rest, ok := strings.Cut(key, ".")
+	if !ok {
+		return false
+	}
+	sub, name := "", rest
+	if i := strings.LastIndex(rest, "."); i >= 0 {
+		sub, name = rest[:i], rest[i+1:]
+	}
+	switch section {
+	case "core":
+		switch name {
+		case "repositoryformatversion", "filemode", "bare", "logallrefupdates", "ignorecase", "precomposeunicode", "symlinks":
+			return sub == ""
+		}
+	case "remote":
+		if sub != "" {
+			return name == "url" || name == "fetch"
+		}
+		return name == "pushdefault"
+	case "branch":
+		return sub != "" && (name == "remote" || name == "merge" || name == "base" || name == "pushremote")
+	case "push":
+		return sub == "" && name == "autosetupremote"
+	case "user":
+		return sub == "" && (name == "name" || name == "email")
+	case "extensions":
+		return sub == "" && name == "worktreeconfig"
+	}
+	return false
+}
+
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {
-	out, errOut, err := runGitRaw(ctx, dir, repoArgs(ctx), args...)
+	out, errOut, err := runGitRaw(ctx, dir, args...)
 	return strings.TrimSpace(out), strings.TrimSpace(errOut), err
 }
 
-func repoArgs(ctx context.Context) []string {
-	a, _ := ctx.Value(repoOverridesKey{}).([]string)
-	return a
-}
-
-// runGitRaw runs git with the hardened configuration plus extra -c arguments and
-// returns its output untrimmed.
-func runGitRaw(ctx context.Context, dir string, extra []string, args ...string) (string, string, error) {
-	argv := append(append(append([]string{}, hardenedGit()...), extra...), "-C", dir)
+// runGitRaw runs git with the hardened configuration and returns its output
+// untrimmed.
+func runGitRaw(ctx context.Context, dir string, args ...string) (string, string, error) {
+	argv := append(append([]string{}, hardenedGit()...), "-C", dir)
 	cmd := exec.CommandContext(ctx, "git", append(argv, args...)...)
 	cmd.Env = gitEnv()
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
 	return out.String(), errb.String(), err
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 // resetURLOK says whether a remote URL is one a team remote uses: https, ssh, or
@@ -304,4 +285,11 @@ func resetURLOK(url string) bool {
 	at := strings.Index(u, "@")
 	colon := strings.Index(u, ":")
 	return at > 0 && colon > at+1 && !strings.Contains(u[:colon], "/") && !strings.Contains(u, "::")
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }

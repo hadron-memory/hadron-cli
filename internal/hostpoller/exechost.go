@@ -27,21 +27,24 @@ type ExecHost struct {
 	TerminateGrace time.Duration
 }
 
+// UntrustedConfigError is a repository refused because its own git config holds
+// a key outside the allowlist of inert ones (hadron-cli#2057 §10). It is not
+// "this is not a worktree": Inspect reports it, and nothing was run.
+type UntrustedConfigError struct{ Why string }
+
+func (e *UntrustedConfigError) Error() string { return "untrusted repo config: " + e.Why }
+
 // git runs one command on a repository the worker can write to, with the
-// hardened configuration, the repository's own command-running config
-// neutralised, and the transport allowlist (hadron-cli#2057 §10): the same rule
-// as the reset's, for every git call this host makes, so `status` never runs a
-// worker's clean filter and a fetch never follows a worker's proxy. A repository
-// config that cannot be neutralised refuses the commands that touch the network.
+// hardened configuration and the transport allowlist (hadron-cli#2057 §10): the
+// same rule as the reset's for EVERY git call this host makes. A repository whose
+// own config holds a key outside the allowlist is refused outright, before the
+// command runs: `status` never runs a worker's clean filter, a fetch never
+// follows a worker's proxy, `worktree add` never runs a smudge filter.
 func git(ctx context.Context, dir string, args ...string) (string, error) {
-	over, refusal := repoOverrides(ctx, dir)
-	if refusal != "" && len(args) > 0 {
-		switch args[0] {
-		case "fetch", "ls-remote", "pull", "push", "clone":
-			return "", errors.New(refusal)
-		}
+	if why := untrustedRepoConfig(ctx, dir); why != "" {
+		return "", &UntrustedConfigError{Why: why}
 	}
-	out, errOut, err := runGitRaw(ctx, dir, over, args...)
+	out, errOut, err := runGitRaw(ctx, dir, args...)
 	if err != nil {
 		msg := strings.TrimSpace(errOut)
 		if msg == "" {
@@ -86,6 +89,10 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 	}
 	st.Exists = true
 	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
+	var untrusted *UntrustedConfigError
+	if errors.As(err, &untrusted) {
+		return st, err // refused, not "not a worktree": no command ran
+	}
 	if err != nil || !samePath(top, path) {
 		return st, nil
 	}

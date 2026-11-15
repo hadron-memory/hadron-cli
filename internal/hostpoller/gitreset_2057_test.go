@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -298,33 +299,6 @@ func TestResetWorktreeFollowsTheRemotesCurrentDefaultBranch(t *testing.T) {
 	}
 }
 
-// Security (§10): a hook or config line planted in the worker-writable repo
-// never runs as the poller.
-func TestResetWorktreeRunsNoRepositoryHooks(t *testing.T) {
-	origin, clone := resetRepo(t)
-	advanceOrigin(t, origin) // so the checkout actually moves HEAD
-	hooks := filepath.Join(t.TempDir(), "hooks")
-	if err := os.MkdirAll(hooks, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	marker := filepath.Join(t.TempDir(), "ran")
-	hook := "#!/bin/sh\ntouch " + marker + "\n"
-	for _, name := range []string{"post-checkout", "reference-transaction", "post-merge"} {
-		if err := os.WriteFile(filepath.Join(hooks, name), []byte(hook), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	gitIn(t, clone, "config", "core.hooksPath", hooks)
-	gitIn(t, clone, "config", "core.fsmonitor", "touch "+marker+"; true")
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || !out.Reset {
-		t.Fatalf("out=%+v err=%v", out, err)
-	}
-	if _, err := os.Stat(marker); err == nil {
-		t.Fatal("a hook or fsmonitor command from the worker-writable repository ran as the poller")
-	}
-}
-
 func TestResetWorktreeNeedsAnOriginRemoteSpecifically(t *testing.T) {
 	_, clone := resetRepo(t)
 	gitIn(t, clone, "remote", "rename", "origin", "upstream")
@@ -351,99 +325,6 @@ func mustNotHaveRun(t *testing.T, marker, what string) {
 	t.Helper()
 	if _, err := os.Stat(marker); err == nil {
 		t.Fatalf("%s ran as the poller", what)
-	}
-}
-
-// A checkout filter (smudge) the worker configures and .gitattributes selects.
-func TestResetWorktreeRunsNoCheckoutFilter(t *testing.T) {
-	origin, clone := resetRepo(t)
-	script, marker := markerScript(t, "cat\n")
-	other := filepath.Join(t.TempDir(), "other")
-	gitIn(t, filepath.Dir(other), "clone", "-q", origin, other)
-	_ = os.WriteFile(filepath.Join(other, ".gitattributes"), []byte("*.dat filter=evil\n"), 0o644)
-	_ = os.WriteFile(filepath.Join(other, "x.dat"), []byte("payload\n"), 0o644)
-	gitIn(t, other, "add", ".")
-	gitIn(t, other, "commit", "-q", "-m", "filtered file")
-	gitIn(t, other, "push", "-q", "origin", "main")
-	gitIn(t, clone, "config", "filter.evil.smudge", script)
-	gitIn(t, clone, "config", "filter.evil.clean", script)
-	gitIn(t, clone, "config", "filter.evil.process", script)
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || !out.Reset {
-		t.Fatalf("out=%+v err=%v", out, err)
-	}
-	if _, err := os.Stat(filepath.Join(clone, "x.dat")); err != nil {
-		t.Fatal("the matching file must have been materialized for the probe to mean anything")
-	}
-	mustNotHaveRun(t, marker, "a checkout filter")
-}
-
-// remote.<name>.uploadpack names a program the fetch would run on a local origin.
-// Both network calls pass an explicit --upload-pack, which wins: the reset still
-// succeeds and the program never runs. (Git keeps the FIRST config value, so a -c
-// override could not replace it; the command-line option can.)
-func TestResetWorktreeIgnoresAConfiguredUploadPack(t *testing.T) {
-	origin, clone := resetRepo(t)
-	tip := advanceOrigin(t, origin)
-	script, marker := markerScript(t, "exec git-upload-pack \"$@\"\n")
-	gitIn(t, clone, "config", "remote.origin.uploadpack", script)
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || !out.Reset {
-		t.Fatalf("the default upload-pack must still fetch: out=%+v err=%v", out, err)
-	}
-	if head := gitIn(t, clone, "rev-parse", "HEAD"); head != tip {
-		t.Fatalf("HEAD %s, want the fetched tip %s", head, tip)
-	}
-	mustNotHaveRun(t, marker, "remote.origin.uploadpack")
-}
-
-// A remote's proxy and vcs (a remote-helper program) redirect or run something
-// for the fetch and cannot be overridden: refused before anything is touched.
-func TestResetWorktreeRefusesARemoteProxyOrVcs(t *testing.T) {
-	origin, clone := resetRepo(t)
-	advanceOrigin(t, origin)
-	before := gitIn(t, clone, "rev-parse", "HEAD")
-	for _, key := range []string{"proxy", "vcs"} {
-		gitIn(t, clone, "config", "remote.origin."+key, "evil")
-		out, err := ResetWorktree(context.Background(), clone, resetNow)
-		if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "remote.origin."+key) {
-			t.Fatalf("%s: out=%+v err=%v", key, out, err)
-		}
-		gitIn(t, clone, "config", "--unset", "remote.origin."+key)
-	}
-	if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
-		t.Fatal("a refused reset moved HEAD")
-	}
-}
-
-// Redirection poisons the clean base the next task starts from (integrity, not
-// execution): the repository's own url rewrites, http proxies and disabled TLS
-// verification refuse the reset.
-func TestResetWorktreeRefusesRedirectionConfig(t *testing.T) {
-	origin, clone := resetRepo(t)
-	advanceOrigin(t, origin)
-	before := gitIn(t, clone, "rev-parse", "HEAD")
-	for name, kv := range map[string][2]string{
-		"insteadOf":     {"url.https://evil.example/.insteadOf", "https://github.com/"},
-		"pushInsteadOf": {"url.https://evil.example/.pushInsteadOf", "https://github.com/"},
-		"http.proxy":    {"http.proxy", "http://evil.example:3128"},
-		"scoped proxy":  {"http.https://github.com/.proxy", "http://evil.example:3128"},
-		"sslVerify off": {"http.sslVerify", "false"},
-	} {
-		gitIn(t, clone, "config", kv[0], kv[1])
-		out, err := ResetWorktree(context.Background(), clone, resetNow)
-		if err != nil || out.Code != CodeResetFailed {
-			t.Errorf("%s: out=%+v err=%v", name, out, err)
-		}
-		gitIn(t, clone, "config", "--unset-all", kv[0])
-	}
-	// TLS verification left ON is not a redirection.
-	gitIn(t, clone, "config", "http.sslVerify", "true")
-	if out, err := ResetWorktree(context.Background(), clone, resetNow); err != nil || !out.Reset {
-		t.Errorf("sslVerify=true must not refuse: out=%+v err=%v", out, err)
-	}
-	if after := gitIn(t, clone, "rev-parse", "HEAD"); after == before {
-		t.Log("the final run moved HEAD as expected")
 	}
 }
 
@@ -474,52 +355,6 @@ func TestResetWorktreeRefusesAnythingButAnHTTPSOrSSHRemoteInProduction(t *testin
 	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "not an https://") {
 		t.Fatalf("a local-path origin must be refused in production: out=%+v err=%v", out, err)
 	}
-}
-
-// An ext:: remote runs a command; the transport allowlist refuses it even when
-// the repository's config says protocol.ext.allow=always.
-func TestResetWorktreeRunsNoExtTransport(t *testing.T) {
-	_, clone := resetRepo(t)
-	script, marker := markerScript(t, "")
-	gitIn(t, clone, "config", "protocol.ext.allow", "always")
-	gitIn(t, clone, "remote", "set-url", "origin", "ext::"+script)
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || out.Code != CodeResetFailed {
-		t.Fatalf("out=%+v err=%v", out, err)
-	}
-	mustNotHaveRun(t, marker, "an ext:: remote")
-}
-
-// core.sshCommand is replaced by plain ssh for the fetch.
-func TestResetWorktreeRunsNoConfiguredSSHCommand(t *testing.T) {
-	_, clone := resetRepo(t)
-	script, marker := markerScript(t, "exit 1\n")
-	gitIn(t, clone, "config", "core.sshCommand", script)
-	gitIn(t, clone, "remote", "set-url", "origin", "ssh://127.0.0.1:1/none.git")
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || out.Code != CodeResetFailed {
-		t.Fatalf("out=%+v err=%v", out, err)
-	}
-	mustNotHaveRun(t, marker, "core.sshCommand")
-}
-
-// A credential helper in the repository's own config cannot be neutralised
-// without resetting the user's own, so the reset refuses before touching
-// anything and the helper never runs.
-func TestResetWorktreeRefusesARepositoryCredentialHelper(t *testing.T) {
-	origin, clone := resetRepo(t)
-	advanceOrigin(t, origin)
-	before := gitIn(t, clone, "rev-parse", "HEAD")
-	script, marker := markerScript(t, "")
-	gitIn(t, clone, "config", "credential.helper", "!"+script)
-	out, err := ResetWorktree(context.Background(), clone, resetNow)
-	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "credential helper") {
-		t.Fatalf("out=%+v err=%v", out, err)
-	}
-	if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
-		t.Fatal("a refused reset moved HEAD")
-	}
-	mustNotHaveRun(t, marker, "a repository credential helper")
 }
 
 // The poller user's OWN global credential helper is not cleared (a private
@@ -595,113 +430,6 @@ func filterRepo(t *testing.T) (origin, clone, script, marker string) {
 	return origin, clone, script, marker
 }
 
-// Blind P1 (delta): a filter reached through include.path or includeIf is as
-// much the worker's as one in the config itself; an explicit-scope config read
-// does not expand includes unless asked.
-func TestResetWorktreeRunsNoFilterReachedThroughAConfigInclude(t *testing.T) {
-	for name, wire := range map[string]func(t *testing.T, clone, incFile string){
-		"include.path": func(t *testing.T, clone, inc string) { gitIn(t, clone, "config", "include.path", inc) },
-		"includeIf": func(t *testing.T, clone, inc string) {
-			gitIn(t, clone, "config", "includeIf.gitdir:"+filepath.Join(clone, ".git")+".path", inc)
-		},
-	} {
-		_, clone, script, marker := filterRepo(t)
-		inc := filepath.Join(t.TempDir(), "included.cfg")
-		_ = os.WriteFile(inc, []byte("[filter \"evil\"]\n\tsmudge = "+script+"\n\tclean = "+script+"\n"), 0o644)
-		wire(t, clone, inc)
-		out, err := ResetWorktree(context.Background(), clone, resetNow)
-		if err != nil || !out.Reset {
-			t.Fatalf("%s: out=%+v err=%v", name, out, err)
-		}
-		if _, err := os.Stat(filepath.Join(clone, "x.dat")); err != nil {
-			t.Fatalf("%s: the matching file must be materialized for the probe to mean anything", name)
-		}
-		mustNotHaveRun(t, marker, "an included filter ("+name+")")
-	}
-}
-
-// Blind P2 (delta): git uses the LAST value of a key and several spellings of
-// false; the check judges the effective value in every spelling.
-func TestResetWorktreeJudgesTheEffectiveTLSSetting(t *testing.T) {
-	for name, tc := range map[string]struct {
-		values  []string
-		refused bool
-	}{
-		"true then false": {[]string{"true", "false"}, true},
-		"false then true": {[]string{"false", "true"}, false},
-		"no":              {[]string{"no"}, true},
-		"off":             {[]string{"off"}, true},
-		"zero":            {[]string{"0"}, true},
-		"False uppercase": {[]string{"FALSE"}, true},
-		"true":            {[]string{"true"}, false},
-		"yes":             {[]string{"yes"}, false},
-		"one":             {[]string{"1"}, false},
-	} {
-		_, clone := resetRepo(t)
-		for _, v := range tc.values {
-			gitIn(t, clone, "config", "--add", "http.sslVerify", v)
-		}
-		out, err := ResetWorktree(context.Background(), clone, resetNow)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if got := out.Code == CodeResetFailed && strings.Contains(out.Detail, "TLS"); got != tc.refused {
-			t.Errorf("%s: refused=%v, want %v (%+v)", name, got, tc.refused, out)
-		}
-	}
-	// An include that turns it off is effective too.
-	_, clone := resetRepo(t)
-	inc := filepath.Join(t.TempDir(), "tls.cfg")
-	_ = os.WriteFile(inc, []byte("[http]\n\tsslVerify = false\n"), 0o644)
-	gitIn(t, clone, "config", "include.path", inc)
-	if out, _ := ResetWorktree(context.Background(), clone, resetNow); out.Code != CodeResetFailed || !strings.Contains(out.Detail, "TLS") {
-		t.Errorf("an included sslVerify=false must refuse: %+v", out)
-	}
-}
-
-// Chip's QA intake on ab8925f2: the host's OTHER git calls (Inspect before the
-// reset, worktree.create, worktree.remove) are the same exposure: `status` runs
-// a worker's clean filter on a stat-dirty file.
-func TestExecHostInspectRunsNoCleanFilter(t *testing.T) {
-	_, clone, script, marker := filterRepo(t)
-	gitIn(t, clone, "pull", "-q", "--ff-only", "origin", "main") // x.dat is tracked and filtered
-	gitIn(t, clone, "config", "filter.evil.clean", script)
-	_ = os.Chtimes(filepath.Join(clone, "x.dat"), time.Now().Add(time.Hour), time.Now().Add(time.Hour)) // stat-dirty: git re-reads it
-	if _, err := (ExecHost{}).Inspect(context.Background(), clone); err != nil {
-		t.Fatal(err)
-	}
-	mustNotHaveRun(t, marker, "a clean filter during Inspect")
-}
-
-func TestExecHostCreateWorktreeRunsNoSmudgeFilter(t *testing.T) {
-	_, clone, script, marker := filterRepo(t)
-	gitIn(t, clone, "config", "filter.evil.smudge", script)
-	gitIn(t, clone, "config", "filter.evil.clean", script)
-	target := filepath.Join(t.TempDir(), "wt")
-	if err := (ExecHost{}).CreateWorktree(context.Background(), clone, target, "work/new", "main"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(target, "x.dat")); err != nil {
-		t.Fatal("the filtered file must be checked out for the probe to mean anything")
-	}
-	mustNotHaveRun(t, marker, "a smudge filter during worktree.create")
-}
-
-// A repository config that cannot be neutralised refuses the host's network git
-// commands, not only the reset.
-func TestExecHostGitRefusesNetworkCommandsUnderARepositoryCredentialHelper(t *testing.T) {
-	_, clone := resetRepo(t)
-	script, marker := markerScript(t, "")
-	gitIn(t, clone, "config", "credential.helper", "!"+script)
-	if _, err := git(context.Background(), clone, "fetch", "--quiet", "origin"); err == nil || !strings.Contains(err.Error(), "credential helper") {
-		t.Fatalf("err = %v", err)
-	}
-	mustNotHaveRun(t, marker, "a repository credential helper")
-	if _, err := git(context.Background(), clone, "status", "--porcelain"); err != nil {
-		t.Fatalf("a read-only command is not refused: %v", err)
-	}
-}
-
 // A config that cannot be read cannot be checked, so the reset fails closed:
 // an include with a syntax error is a refusal, never "no overrides".
 func TestResetWorktreeFailsClosedWhenTheRepositoryConfigCannotBeRead(t *testing.T) {
@@ -717,5 +445,179 @@ func TestResetWorktreeFailsClosedWhenTheRepositoryConfigCannotBeRead(t *testing.
 	}
 	if after, e := exec.Command("git", "-C", clone, "-c", "include.path=", "rev-parse", "HEAD").Output(); e == nil && strings.TrimSpace(string(after)) != before {
 		t.Fatal("a refused reset moved HEAD")
+	}
+}
+
+// ---- §10: the repository config ALLOWLIST (Wolfgang #108206) ----
+
+// Every key outside the small set of inert ones refuses the reset before a
+// single command runs on the tree: nothing is chased by name. One row per class
+// of key that can run something or redirect the fetch.
+func TestResetWorktreeRefusesAnyRepositoryConfigKeyOutsideTheAllowlist(t *testing.T) {
+	script, marker := markerScript(t, "")
+	harmless := filepath.Join(t.TempDir(), "harmless.cfg")
+	_ = os.WriteFile(harmless, []byte("[user]\n\tname = x\n"), 0o644)
+	hooks := t.TempDir()
+	_ = os.WriteFile(filepath.Join(hooks, "post-checkout"), []byte("#!/bin/sh\ntouch "+marker+"\n"), 0o755)
+	for name, kv := range map[string][2]string{
+		"hooks path":           {"core.hooksPath", hooks},
+		"fsmonitor":            {"core.fsmonitor", "touch " + marker + "; true"},
+		"ssh command":          {"core.sshCommand", script},
+		"askpass":              {"core.askPass", script},
+		"git proxy":            {"core.gitProxy", script},
+		"pager":                {"core.pager", script},
+		"filter smudge":        {"filter.evil.smudge", script},
+		"filter clean":         {"filter.evil.clean", script},
+		"filter process":       {"filter.evil.process", script},
+		"filter required":      {"filter.evil.required", "true"},
+		"diff textconv":        {"diff.evil.textconv", script},
+		"merge driver":         {"merge.evil.driver", script},
+		"upload pack":          {"remote.origin.uploadpack", script},
+		"receive pack":         {"remote.origin.receivepack", script},
+		"remote proxy":         {"remote.origin.proxy", "http://evil.example:3128"},
+		"remote vcs":           {"remote.origin.vcs", "evil"},
+		"credential helper":    {"credential.helper", "!" + script},
+		"url rewrite":          {"url.https://evil.example/.insteadOf", "https://github.com/"},
+		"push url rewrite":     {"url.https://evil.example/.pushInsteadOf", "https://github.com/"},
+		"http proxy":           {"http.proxy", "http://evil.example:3128"},
+		"scoped http proxy":    {"http.https://github.com/.proxy", "http://evil.example:3128"},
+		"tls verification off": {"http.sslVerify", "false"},
+		"tls verification on":  {"http.sslVerify", "true"}, // not on the list either: http.* is refused whole
+		"ext transport":        {"protocol.ext.allow", "always"},
+		"alias":                {"alias.co", "!" + script},
+		"include":              {"include.path", harmless},
+		"conditional include":  {"includeIf.gitdir:**.path", harmless},
+		"submodule":            {"submodule.recurse", "true"},
+		"sparse checkout":      {"core.sparseCheckout", "true"},
+		"attributes file":      {"core.attributesFile", script},
+		"gc":                   {"gc.auto", "1"},
+		"fetch":                {"fetch.recurseSubmodules", "true"},
+	} {
+		origin, clone := resetRepo(t)
+		advanceOrigin(t, origin)
+		before := gitIn(t, clone, "rev-parse", "HEAD")
+		gitIn(t, clone, "config", kv[0], kv[1])
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil || out.Code != CodeResetFailed || out.Reset {
+			t.Errorf("%s (%s): out=%+v err=%v", name, kv[0], out, err)
+			continue
+		}
+		if !strings.Contains(out.Detail, "allowlist") || !strings.Contains(strings.ToLower(out.Detail), strings.ToLower(strings.SplitN(kv[0], ".", 2)[0])) {
+			t.Errorf("%s: the refusal must name the key: %q", name, out.Detail)
+		}
+		if after := gitIn(t, clone, "rev-parse", "HEAD"); after != before {
+			t.Errorf("%s: a refused reset moved HEAD", name)
+		}
+		mustNotHaveRun(t, marker, name)
+	}
+}
+
+// A filter the checkout would actually exercise: the matching file is in the
+// fetched commit. The reset refuses before it runs a single command, so the
+// file is never materialized and the filter never runs; same through an include.
+func TestResetWorktreeNeverReachesACheckoutFilter(t *testing.T) {
+	for name, wire := range map[string]func(t *testing.T, clone, script string){
+		"direct": func(t *testing.T, clone, script string) {
+			gitIn(t, clone, "config", "filter.evil.smudge", script)
+			gitIn(t, clone, "config", "filter.evil.clean", script)
+		},
+		"through include.path": func(t *testing.T, clone, script string) {
+			inc := filepath.Join(t.TempDir(), "included.cfg")
+			_ = os.WriteFile(inc, []byte("[filter \"evil\"]\n\tsmudge = "+script+"\n"), 0o644)
+			gitIn(t, clone, "config", "include.path", inc)
+		},
+	} {
+		_, clone, script, marker := filterRepo(t)
+		wire(t, clone, script)
+		out, err := ResetWorktree(context.Background(), clone, resetNow)
+		if err != nil || out.Code != CodeResetFailed {
+			t.Fatalf("%s: out=%+v err=%v", name, out, err)
+		}
+		if _, err := os.Stat(filepath.Join(clone, "x.dat")); err == nil {
+			t.Fatalf("%s: the filtered file was materialized", name)
+		}
+		mustNotHaveRun(t, marker, "a checkout filter ("+name+")")
+	}
+}
+
+// What a real clone carries is trusted: the reset must not refuse every repo.
+func TestResetWorktreeAcceptsTheConfigRealClonesCarry(t *testing.T) {
+	_, clone := resetRepo(t)
+	for k, v := range map[string]string{
+		"branch.feature.base":       "main",
+		"branch.feature.pushremote": "origin",
+		"branch.feature.remote":     "origin",
+		"branch.feature.merge":      "refs/heads/feature",
+		"push.autosetupremote":      "true",
+		"remote.pushdefault":        "origin",
+		"remote.upstream.url":       "https://github.com/other/repo.git",
+		"remote.upstream.fetch":     "+refs/heads/*:refs/remotes/upstream/*",
+		"user.name":                 "Someone",
+		"user.email":                "someone@example.com",
+		"core.symlinks":             "true",
+		"core.ignorecase":           "false",
+		"core.precomposeunicode":    "true",
+	} {
+		gitIn(t, clone, "config", k, v)
+	}
+	out, err := ResetWorktree(context.Background(), clone, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+}
+
+// config.worktree (extensions.worktreeConfig) is a worker-writable scope git
+// applies: the same allowlist covers it. Without the extension there is no such
+// scope, and a plain linked worktree must not be refused.
+func TestResetWorktreeChecksTheWorktreeConfigScopeToo(t *testing.T) {
+	_, clone := resetRepo(t)
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitIn(t, clone, "worktree", "add", "-q", "--detach", linked)
+	if out, err := ResetWorktree(context.Background(), linked, resetNow); err != nil || !out.Reset {
+		t.Fatalf("a linked worktree with no worktreeConfig extension must reset: out=%+v err=%v", out, err)
+	}
+	gitIn(t, clone, "config", "extensions.worktreeConfig", "true")
+	if out, err := ResetWorktree(context.Background(), linked, resetNow); err != nil || !out.Reset {
+		t.Fatalf("the extension on and no config.worktree is an empty scope: out=%+v err=%v", out, err)
+	}
+	script, marker := markerScript(t, "cat\n")
+	gitIn(t, linked, "config", "--worktree", "filter.evil.smudge", script)
+	out, err := ResetWorktree(context.Background(), linked, resetNow)
+	if err != nil || out.Code != CodeResetFailed || !strings.Contains(out.Detail, "filter.evil.smudge") {
+		t.Fatalf("a filter in config.worktree must refuse: out=%+v err=%v", out, err)
+	}
+	mustNotHaveRun(t, marker, "a filter in config.worktree")
+}
+
+// Chip's QA intake on ab8925f2 and Wolfgang's rule: the host's OTHER git calls
+// go through the same gate. Inspect (the pre-reset snapshot) reports the
+// untrusted config without running `git status`; worktree.create and any other
+// command are refused likewise.
+func TestExecHostGitCallsRefuseAnUntrustedRepositoryConfig(t *testing.T) {
+	_, clone, script, marker := filterRepo(t)
+	gitIn(t, clone, "pull", "-q", "--ff-only", "origin", "main") // x.dat is tracked and filtered
+	gitIn(t, clone, "config", "filter.evil.clean", script)
+	gitIn(t, clone, "config", "filter.evil.smudge", script)
+	_ = os.Chtimes(filepath.Join(clone, "x.dat"), time.Now().Add(time.Hour), time.Now().Add(time.Hour)) // stat-dirty: status would re-hash it
+
+	_, err := (ExecHost{}).Inspect(context.Background(), clone)
+	var untrusted *UntrustedConfigError
+	if !errors.As(err, &untrusted) || !strings.Contains(untrusted.Why, "filter.evil.clean") {
+		t.Fatalf("Inspect must report the untrusted config, not 'not a worktree': %v", err)
+	}
+	if err := (ExecHost{}).CreateWorktree(context.Background(), clone, filepath.Join(t.TempDir(), "wt"), "work/new", "main"); err == nil {
+		t.Fatal("worktree.create ran in a repository with an untrusted config")
+	}
+	if _, err := git(context.Background(), clone, "status", "--porcelain"); !errors.As(err, &untrusted) {
+		t.Fatalf("git() must refuse every command: %v", err)
+	}
+	mustNotHaveRun(t, marker, "a filter during the host's git calls")
+}
+
+// The host's git calls are allowed on a clean config: the same real clone keys.
+func TestExecHostGitCallsRunOnATrustedConfig(t *testing.T) {
+	_, clone := resetRepo(t)
+	if st, err := (ExecHost{}).Inspect(context.Background(), clone); err != nil || !st.IsWorktree {
+		t.Fatalf("st=%+v err=%v", st, err)
 	}
 }

@@ -165,3 +165,19 @@ The worktree's git config is untrusted; the reset allowlists rather than chasing
   own) now goes through the one hardened runner: `status` no longer runs a worker's clean filter, `worktree add` no
   longer runs its smudge filter, and a repository config that cannot be neutralised refuses the host's network
   commands (found by QA's compiled-CLI run).
+
+### C2b review round 5: an allowlist, not a denylist (Wolfgang #108206)
+The list kept growing (hooks, filters, uploadpack, includes, TLS, the pre-reset `status`), so the approach changed.
+- **One gate for every git call the host makes in a worker tree** (`ExecHost.git`: `Inspect` before the reset,
+  `worktree.create`, `worktree.remove`, and the reset's own): before it, the repository's own local config (and
+  `config.worktree` when `extensions.worktreeConfig` is on) is read with includes expanded, and every key must be one
+  of a small set of inert ones; anything else refuses, naming the key, before a command runs. `Inspect` reports it
+  (`UntrustedConfigError`) rather than "not a worktree". A config that cannot be read refuses too.
+- **The set:** `core.repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|precomposeunicode|symlinks`,
+  `remote.<n>.url|fetch`, `remote.pushdefault`, `branch.<n>.remote|merge|base|pushremote`, `push.autosetupremote`,
+  `user.name|email`, `extensions.worktreeconfig`. Five are additions to the ruled list (`symlinks`, `base`,
+  `pushremote`, `pushdefault`, `autosetupremote`): a survey of this host's clones shows every one carries
+  `branch.*.base` and `push.autosetupremote`, so the ruled list alone would refuse every reset.
+- The denylist (per-driver overrides, refusal classes) is gone: everything it caught is outside the set. What stays is
+  the fixed hardening (`core.hooksPath`, `core.fsmonitor`, ssh and askpass cleared, the transport allowlist and
+  remote-URL check), as defence in depth for what git reads from global and system config and from `.gitattributes`.
