@@ -4402,6 +4402,29 @@ session is never started again: with its agent terminal gone it is reported
 `RELAUNCH_UNPROVEN` when no running poller is connected, or
 `RELAUNCH_PENDING_POLLER` when its live poller association is proven.
 Only the poller relaunches an agent; reconciliation only reports.
+
+With typed `launch_via: orca` profiles, the Linux poller's periodic pass may
+recover that same open session after two consecutive proven-absent sweeps.
+It requires matching App/server/worker/session/worktree bindings, fresh
+RUNNING desired state under APPLY, a strict process census, and exactly one
+running own-user `orca-daemon-*.scope` plus a successful terminal list.
+Missing systemd proof, a failed list, or zero/multiple scopes refuses
+`RELAUNCH_UNPROVEN`, spending no launch attempt. The daemon is checked again
+before each attempt. At most three attempts per worker per rolling hour are
+persisted before launch, including failed attempts; restart preserves that
+budget and requires two fresh absence observations. The launch uses a fresh
+recover prompt, never a new bind or `--resume`, then verifies its own pinned
+process and rechecks desired state and binding. Failed verification stops
+only that launch. Plain worktree bindings need no Git.
+
+Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
+`attempt` and the absence observation's `checkedAt`, plus a terminal handle
+when known. `noticeFailed` with `localCause` or `noticeCause` means a local
+failure could not be represented or delivered as a typed server repair.
+Setup/disk failures and unproven post-launch identity currently have no honest
+generic server reason; they remain local, never a false `CAP_REACHED` or a
+borrowed failure code. No daemon controls or separate relaunch RPC are added.
+
 An identical operation still in flight is adopted, never issued twice, and
 followed to its outcome; a finished one is not reused; a conflicting one in
 flight fails that worker's step (`ACTION_FAILED`). Every operation is issued

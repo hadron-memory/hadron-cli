@@ -1,86 +1,82 @@
-# C5 host-local relaunch (#2060), work in progress
+# C5 host-local relaunch (#2060)
 
-This branch contains the guarded relaunch core and Linux journal. It does
-not yet wire the periodic production relaunch adapter. Host-up reconciliation
-now only reports missing agents; its obsolete config-flag proposal was
-superseded by Wolfgang #108587.
-No activation or successful production relaunch is claimed.
+The periodic host poller owns relaunch. It shares C3's tracked agents, pidfd
+identities and worktree launch reservation. There is no new RPC, inbox or
+independent trigger. Host-up and C1 report RELAUNCH_PENDING_POLLER only with a
+proven live poller association; otherwise they report RELAUNCH_UNPROVEN. Their
+actuator cannot launch an open-session worker.
 
-The pure `internal/hostrelaunch` Runner consumes an exact App, host, worker,
-open session, server and absolute worktree identity. It rechecks desired
-RUNNING/APPLY state, binding identity and process evidence before and after
-acquiring the worktree launch lock. Stops, unknown reasons and unproven
-observations refuse. A typed profile snapshot supplies the launch callback;
-its preparation must not write or launch anything. Dry runs acquire no locks,
-write no journal, and emit no notice or session log.
+An applying sweep reads canonical App identity through myApp and desired host
+state without a session header. The source server, host, worker, open session,
+absolute registered worktree and complete on-disk binding must agree. Plain
+worktree bindings work without Git. Only RUNNING LONG_LIVED or HOLDS_TASK rows
+under APPLY may proceed. Pauses, halts, leave-alone, unknown state, incomplete
+bindings and ambiguous identities refuse. Profiles and accounts come from the
+poller configuration until S1b; preparation snapshots them without disk writes.
+The launch uses that same immutable snapshot, an empty grant and a fresh
+session-recover prompt: no bind, force, end or resume.
 
-An applying sweep claims a persisted generation. Two adjacent generations
-must observe absence under the same identity and profile. An intervening
-sweep without that observation breaks continuity. Attempts are per worker,
-across sessions and profiles, persisted before launch and limited to three
-per rolling hour. Future timestamps remain counted when the clock moves
-backward. After launch the adapter must identify exactly the returned pinned
-agent and recheck desired state and binding. Failure rolls back only that
-returned agent, never another terminal selected by family or worktree.
+Two adjacent persisted sweep generations must prove zero matching agents with
+the same identity and profile. A per-poller epoch requires two fresh observations
+after restart or source failure, while preserving the attempt budget. Strict
+Linux proc scans include the caller and ancestors and refuse partial live reads,
+PID identity changes or unknown visibility. Verified kernel threads and exited
+processes do not count as live agents. Ambiguous wrapper chains refuse rather
+than collapse into one process. Existing observational cleanup scans are unchanged.
+There is no host-global or cross-process start fence; the reservation serializes
+C3 and C5 inside this poller. Fresh proofs still surround admission and launch.
 
-The Linux journal holds a nonblocking kernel run lock, uses private owned
-directories and regular files, refuses links/FIFOs/corrupt or oversized JSON,
-and writes through an fd-anchored temporary file, fsync and atomic rename.
-Every applying open persists its generation, including empty sweeps. Read-only
-opens never create directories, lock files or state. Restart tests pin the
-attempt cap and absence-continuity interruption; race tests and package lint
-pass. Other OS storage adapters are not provided on this branch.
+Before spending an attempt, Linux must prove exactly one running own-user
+orca-daemon scope through systemd AND obtain a successful terminal list. Missing
+systemd proof, zero or multiple scopes, or list failure yields RELAUNCH_UNPROVEN
+and launches nothing (Wolfgang #108866). Serve readiness alone is insufficient.
+A private-container measurement is assigned separately to establish actual Orca
+behavior after PTY-daemon death. A less restrictive check belongs to a follow-on.
 
-The separate strict census helper requires an explicit observer-authority
-callback before and after its scan. It includes the caller and its ancestors,
-refuses partial live entries and PID identity changes, and retains no argv
-in its receipt. Raw multiple matches conservatively refuse, including ambiguous
-shim chains. Empty live command lines are unproven, not assumed harmless.
-The existing observational duplicate-cleanup scan is unchanged.
+Attempts are persisted before acting, at most three per worker per rolling hour,
+across sessions, profiles and poller restarts. Future timestamps remain counted
+on clock rollback. The journal requires private owned directories and regular
+0600 files, refuses links/FIFOs/corrupt or oversized JSON, uses a run-level flock
+and fd-anchored atomic replacement with fsync. Dry runs create no directories,
+locks, journal writes, repair notices or session logs.
 
-## Integration dependencies
+C3 runs plainly in Orca's terminal scope, without a per-agent PID namespace.
+Resource caps remain; the old claim that pkill costs only one run is withdrawn
+(Holger via #108664). After this launch alone, a bounded cold-start wait allows
+proven zero to become the one pinned agent. Unknown evidence or a foreign or
+extra process refuses immediately. The default verifier requires the sole agent
+PID to equal the returned live pidfd-pinned identity. It then rechecks desired
+state and binding. Failure stops only the returned agent; any still-live returned
+agent is tracked before releasing admission. There is no second launch retry
+inside an attempt. Profiles that fork a separate agent instead of exec require
+additional identity support; family and cwd alone never authorize adoption.
 
-Jill confirmed in team chat #108530 that C3 supplies typed launch profiles,
-`orcaLaunchSpec`, host-side pidfd-pinned OrcaAgent identity, Done and Terminal.
-Only the launched agent is placed in the private PID namespace. The poller
-normally remains outside it. C3 serializes its own in-memory agents under
-p.mu, but supplies neither a host-global census witness nor a cross-process
-start lock. No tracked agent after a poller restart is not absence proof.
-A host-up process invoked inside an agent namespace cannot infer host-global
-absence from its local proc view. Wolfgang's ruling (#108541) selects fail-closed operation without a new
-Orca census or global lock: relaunch only inside the host-namespace poller,
-sharing p.agents/p.mu; tracked absence requires pinned Done, and untracked
-absence requires two sweeps plus a strict zero-agent host proc census.
-Unreadable proc, ambiguous cwd, scan errors or unknown visibility report
-RELAUNCH_UNPROVEN and never launch. No launch adapter is enabled yet.
+The schema is exported from merged server revision
+10559e7e034e421bd23ac0fcc745ca92f7c77c26 (#4249). Typed repair notices use
+RELAUNCH_REFUSED and RELAUNCH_FAILED only with a supported observed reason.
+CAP_REACHED means the actual rolling cap was reached. The report timestamp is
+the earlier proven absence observation, not a claim that a newly launched agent
+is dark. Optional repairReason is omitted from legacy requests, never sent as
+null. Repair transport and server refusals remain visible; a notice is marked
+sent only after confirmed acceptance. Local deduplication is not a durable
+outbox guarantee.
 
-Holger's ruling relayed in #108664 supersedes the PID-namespace design:
-no per-agent PID namespace is used. C5's namespace snapshot, verifier and
-tests are removed. C3's updated dependency will run the agent plainly in
-Orca's terminal scope and pin that agent PID directly. Scope resource caps
-remain; the old claim that a pkill costs only one run is withdrawn.
+Known contract limit (Wolfgang #108826): setup/disk errors or an unproven
+post-launch identity can be FAILED without a typed failure reason. They remain
+local with noticeFailed and a bounded, credential-redacted local cause in JSON
+and logs. No borrowed code or false CAP_REACHED is sent. Peter owns the generic
+server failure-reason follow-on; C5 does not wait for it.
 
-After the Orca daemon returns, C5's periodic check and C1 must bring every
-should-run worker back. #108668 adds a private container daemon-kill/recovery
-acceptance leg to #2056. This is not authorization to kill the shared host's
-daemon or call a paid provider.
+Author tests cover pure guards, journal safety and restart budgets, strict
+census, session-header removal, wire omissions and reports, shared admission,
+readiness failures and a private native PID/TTY cold-start fixture without Git.
+That fixture is not a real Orca container or daemon-recovery acceptance. The
+independent QA gate includes real-process cases and a private-container PTY
+daemon death and recovery, with Sonnet-class execution. Never kill the shared
+host daemon or invoke a paid provider for this work.
 
-The intended adapter must compose C3's typed launch with an empty grant and
-its fresh recovery prompt: preserve the open session, run session recover,
-never bind, force, end or resume. It must share C3 tracking/serialization,
-keep typed preparation free of disk_tmp writes during dry run, preserve crash
-work, and verify exactly one process after launch. Profiles come from the poller config pending S1b. Wolfgang #108587 supersedes
-the earlier optional host-up config source: no new local RPC or trigger.
-The periodic poller loop alone relaunches, sharing p.agents/p.mu. Host-up and
-C1 report RELAUNCH_PENDING_POLLER when connected or RELAUNCH_UNPROVEN
-without a proven poller association. Their actuator cannot execute relaunch.
-
-Server #4247 supplies honest refused/failed repair outcomes. Until its merge,
-those outcomes must remain an injectable seam and appear as closed JSON/log
-reason codes, never an existing false CAP_REACHED notice (#108275). The
-session logging principal and final notice adapter remain integration work.
-
-Review schedule: T2 plus security. Named seats at freeze: Jerry BLIND,
-Jill LOCAL, Rodolfo security and Colin QA. No seats are requested while this
-branch remains incomplete. Existing platform contracts are consumed here;
-this branch does not mint or change a platform spec citation.
+C3 #2088 is the launch dependency, currently incorporated through 9e715787.
+C5 remains unfinished and unfrozen pending broader author checks, dependency
+status and independent seats. Schedule: T2 plus security; Jerry BLIND, Jonas
+LOCAL, Rodolfo security, Colin QA, subject to fresh roster/register checks.
+No activation or production relaunch is claimed. No platform citation is minted.
