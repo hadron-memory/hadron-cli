@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // hadron-cli#2143 (S8 of #4229, server#4257): the platform starts a long-lived
@@ -16,7 +18,7 @@ func hostOpWithReason2143(reason string) string {
 
 func TestHostOpsShowsTheIssuedReason2143(t *testing.T) {
 	r := hostResponses()
-	r["HostOperations"] = `{"data":{"hostOperations":{"items":[` + hostOpWithReason2143(`"DESIRED_RUNNING"`) + `,` + hostOpJSON + `],"hasNextPage":false,"endCursor":null}}}`
+	r["HostOperationsWithReason"] = `{"data":{"hostOperations":{"items":[` + hostOpWithReason2143(`"DESIRED_RUNNING"`) + `,` + hostOpJSON + `],"hasNextPage":false,"endCursor":null}}}`
 	_, out, err := runTeamTask(t, r, "team", "host", "ops")
 	if err != nil {
 		t.Fatal(err)
@@ -52,11 +54,52 @@ func TestHostOpsShowsTheIssuedReason2143(t *testing.T) {
 	}
 }
 
-// An older server has no issuedReason field: the response simply lacks it.
-func TestHostOpsToleratesAServerWithoutIssuedReason2143(t *testing.T) {
-	_, out, err := runTeamTask(t, hostResponses(), "team", "host", "ops")
-	if err != nil || strings.Contains(out, "(") && strings.Contains(out, "WORKER (") {
-		t.Fatalf("%v\n%s", err, out)
+// A server older than #4257 rejects the field it has never heard of. host ops
+// then asks again without it (Julius, local P2 on #2145): the list still reads.
+func TestHostOpsFallsBackOnAServerWithoutIssuedReason2143(t *testing.T) {
+	r := hostResponses()
+	r["HostOperationsWithReason"] = `{"errors":[{"message":"Cannot query field \"issuedReason\" on type \"HostOperation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	calls, out, err := runTeamTask(t, r, "team", "host", "ops")
+	if err != nil {
+		t.Fatalf("an older server must still list: %v", err)
+	}
+	if !strings.Contains(out, "hop1") || strings.Contains(out, "(") && strings.Contains(out, "WORKER (") {
+		t.Fatalf("plain list expected:\n%s", out)
+	}
+	if len(callsFor(calls, "HostOperationsWithReason")) != 1 || len(callsFor(calls, "HostOperations")) != 1 {
+		t.Fatalf("one try with the reason, one without: %+v", *calls)
+	}
+	_, out, err = runTeamTask(t, r, "team", "host", "ops", "--json")
+	if err != nil || strings.Contains(out, "issuedReason") {
+		t.Fatalf("no reason key from an older server: %v\n%s", err, out)
+	}
+}
+
+// Only a rejection of that one field falls back: any other refusal is the answer.
+func TestHostOpsDoesNotRetryOtherRefusals2143(t *testing.T) {
+	r := hostResponses()
+	r["HostOperationsWithReason"] = `{"errors":[{"message":"no.","extensions":{"code":"FORBIDDEN"}}]}`
+	calls, _, err := runTeamTask(t, r, "team", "host", "ops")
+	if err == nil {
+		t.Fatal("a refusal must surface")
+	}
+	if len(callsFor(calls, "HostOperations")) != 0 {
+		t.Fatalf("a refusal other than the unknown field must not be retried: %+v", *calls)
+	}
+}
+
+// The poller's own operations (collect, report) and issue never select a field
+// an older server lacks: a host must keep polling across a server upgrade.
+func TestHostPollerOperationsDoNotSelectIssuedReason2143(t *testing.T) {
+	for name, q := range map[string]string{
+		"HostOperations":        gen.HostOperations_Operation,
+		"CollectHostOperations": gen.CollectHostOperations_Operation,
+		"ReportHostOperation":   gen.ReportHostOperation_Operation,
+		"IssueHostOperation":    gen.IssueHostOperation_Operation,
+	} {
+		if strings.Contains(q, "issuedReason") {
+			t.Errorf("%s selects issuedReason; an older server would reject it", name)
+		}
 	}
 }
 
