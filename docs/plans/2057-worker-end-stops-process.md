@@ -85,3 +85,14 @@ the server ending a session whose process was stopped (S2), a spec change
   the file is open and checked, so the directory cannot be renamed or replaced between
   the two opens. Not run on a Windows host (none available): it builds and vets clean,
   and the reparse-attribute rule is pinned as a platform-neutral unit.
+
+## #2082: authority is proved again after the lock wait
+`signalAuthorized` re-checks `stopAuthorityGone()` once the authorization (the binding lock, which can wait up
+to 2 s) is held and immediately before the signal. On a launch without the zombie hold the leader's exit frees
+the group's number unserialized with a stop, so a leader that exits during the wait could otherwise leave the
+numeric group signal to reach a reused group. A lost authority signals nothing and reports the stop unconfirmed,
+records kept.
+Residual, by design and already documented in `team host run`'s help: on a launch that could not take the zombie
+hold (a kernel or policy that refuses `waitid`, and the non-Linux unixes), the instant between the final
+authority check and the `kill(2)` itself is not serialized with the leader's exit; the 2 s lock-wait window
+that #2068 added is closed by the check above, and a hold-capable launch has no such gap.
