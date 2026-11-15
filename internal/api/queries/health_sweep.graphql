@@ -1,8 +1,10 @@
+# @genqlient(for: "WorkerTerminalReportInput.repairReason", omitempty: true)
 # Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
 # @genqlient(for: "WorkerTerminalReportInput.reason", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.lastTurnAt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.attempt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.repair", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.repairReason", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.contextTokens", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.contextMeasuredAt", omitempty: true)
 mutation HealthSweepSetTerminals(

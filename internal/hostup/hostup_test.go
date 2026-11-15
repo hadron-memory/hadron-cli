@@ -94,8 +94,8 @@ func TestPlanTable(t *testing.T) {
 		{"missing worktree", running("LONG_LIVED", ""), with(reg, false, 0), nil, "", "planned", []string{"W worktree.create WORKTREE_MISSING", "W worker.start NO_SESSION"}},
 		{"missing terminal, no session", running("HOLDS_TASK", ""), with(reg, true, 0), nil, "", "planned", []string{"W worker.start NO_SESSION"}},
 		{"missing register row", running("LONG_LIVED", ""), with(Observation{}, true, 0), nil, "", "skipped", []string{"W  NOT_REGISTERED"}},
-		{"session, terminal gone", running("LONG_LIVED", "s"), with(reg, true, 0), nil, "", "skipped", []string{"W worker.relaunch RELAUNCH_UNAVAILABLE"}},
-		{"session, terminal gone, relaunch available", running("LONG_LIVED", "s"), with(reg, true, 0), relaunch, "", "planned", []string{"W worker.relaunch TERMINAL_MISSING"}},
+		{"session, terminal gone", running("LONG_LIVED", "s"), with(reg, true, 0), nil, "", "skipped", []string{"W worker.relaunch RELAUNCH_UNPROVEN"}},
+		{"session, terminal gone, relaunch available", running("LONG_LIVED", "s"), with(reg, true, 0), relaunch, "", "skipped", []string{"W worker.relaunch RELAUNCH_UNPROVEN"}},
 		{"session, worktree gone", running("LONG_LIVED", "s"), with(reg, false, 0), relaunch, "", "skipped", []string{"W  SESSION_WITHOUT_WORKTREE"}},
 		{"terminal without session", running("LONG_LIVED", ""), with(reg, true, 1), nil, "", "skipped", []string{"W  TERMINAL_WITHOUT_SESSION"}},
 		{"two agents", running("LONG_LIVED", "s"), with(reg, true, 2), nil, "", "skipped", []string{"W  DUPLICATE_AGENTS"}},
@@ -302,6 +302,30 @@ func TestSetupProblemIsReportedBeforeTheHostIsRead(t *testing.T) {
 	}
 	if !reflect.DeepEqual(obs.asked, []string{"ok"}) {
 		t.Fatalf("observed %v; a worker with a setup problem must not be read", obs.asked)
+	}
+}
+
+// C5 routing ruling #108587: even a capable actuator may not launch here.
+func TestHostUpNeverExecutesRelaunch2060(t *testing.T) {
+	w := Worker{WorkerID: "w", Name: "W", Desired: Running, Reason: "LONG_LIVED", SessionID: "open", Setup: setup("w")}
+	a := &fakeActuator{supports: map[string]bool{ActionWorkerRelaunch: true}}
+	e := Engine{Source: fakeSource{snap: Snapshot{HostID: "h1", SweepMode: "APPLY", Workers: []Worker{w}}}, Observer: fakeObserver{"w": {Registered: true, WorktreeExists: true}}, Actuator: a}
+	result := run(t, e, Options{Apply: true})
+	if len(a.applied) != 0 || len(result.Applied) != 0 || len(result.Planned) != 0 {
+		t.Fatalf("host up launched outside poller: %+v calls=%v", result, a.applied)
+	}
+	if len(result.Skipped) != 1 || result.Skipped[0].Reason != "RELAUNCH_UNPROVEN" {
+		t.Fatalf("unknown poller did not refuse: %+v", result)
+	}
+}
+
+func TestConnectedPollerStillOnlyReportsRelaunch2060(t *testing.T) {
+	w := Worker{WorkerID: "w", Name: "W", Desired: Running, Reason: "HOLDS_TASK", SessionID: "open", Setup: setup("w")}
+	a := &fakeActuator{supports: map[string]bool{ActionWorkerRelaunch: true}}
+	e := Engine{Source: fakeSource{snap: Snapshot{HostID: "h1", SweepMode: "APPLY", Workers: []Worker{w}}}, Observer: fakeObserver{"w": {Registered: true, WorktreeExists: true, PollerConnected: true}}, Actuator: a}
+	result := run(t, e, Options{Apply: true})
+	if len(a.applied) != 0 || len(result.Planned) != 0 || len(result.Applied) != 0 || len(result.Skipped) != 1 || result.Skipped[0].Reason != "RELAUNCH_PENDING_POLLER" {
+		t.Fatalf("connected poller was bypassed: %+v", result)
 	}
 }
 
