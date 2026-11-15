@@ -366,9 +366,10 @@ func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(
 }
 
 // CodeOrcaGroupUnprovable leads the config refusal of orca_launch.group
-// (cli#2121): an sg-launched process is uninspectable through /proc, so the
-// launch proof can't pass. Reversible if a proof channel that works under sg
-// turns up.
+// (cli#2121): a process started through sg did not allow the /proc read the
+// launch proof needs, as observed on orca1 (even for a group the poller
+// already held), so the proof can't pass there. Reversible if a proof channel
+// that works under sg turns up, or if another deployment shows otherwise.
 const CodeOrcaGroupUnprovable = "ORCA_GROUP_UNPROVABLE"
 
 func (c *Config) validate() error {

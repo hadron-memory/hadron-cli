@@ -111,9 +111,10 @@ func TestTeamHostRunWiresTheOrcaLauncher2058(t *testing.T) {
 }
 
 // cli#2121: orca_launch.group would run the command under sg, and a process
-// started through sg cannot be read through /proc by the poller whatever the
-// group (probed on orca1), so it could never pass the launch proof. The
-// config refuses it at load, saying why, with or without an Orca worker.
+// started through sg did not allow the poller's /proc read on orca1, even for
+// a group the poller already held (probed there), so it could not pass the
+// launch proof on that deployment. The config refuses it at load, saying why,
+// with or without an Orca worker.
 func TestTeamHostRunRefusesOrcaLaunchGroup2121(t *testing.T) {
 	for name, cfg := range map[string]string{
 		"with an Orca worker": orcaWorkerConfig(t, orcaProfile, orcaTop+"  group: incus\n"),

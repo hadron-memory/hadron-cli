@@ -310,6 +310,10 @@ func reasonLabel(r dueWakeReasonDTO) string {
 	case r.Task != nil:
 		// Event is a server enum. Preserve future tokens in full, while
 		// neutralizing controls in terminal text (JSON keeps the original).
+		// SafeLine truncates when it meets a rune after maxRunes kept ones, and
+		// len(event) counts BYTES, which is never fewer than the event's runes,
+		// so len(event)+1 is a bound no event reaches: unknown labels (Unicode
+		// included) are sanitized, never shortened (#2141).
 		return r.Kind + " " + taskRef(r.Task.Handle, r.Task.ID) + " " + output.SafeLine(r.Task.Event, len(r.Task.Event)+1)
 	case r.Stop != nil:
 		return r.Kind + " " + r.Stop.Notice + " " + r.Stop.Level
