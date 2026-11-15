@@ -135,6 +135,18 @@ type fakeHost struct {
 	entered chan struct{}
 	// beforeLaunch, when set, runs as Launch is entered.
 	beforeLaunch func()
+	// stopped records every path StopAgents was asked about; stops/stopErr
+	// are its answers (#2057).
+	stopped []string
+	stops   []AgentStop
+	stopErr error
+}
+
+func (h *fakeHost) StopAgents(_ context.Context, path string) ([]AgentStop, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.stopped = append(h.stopped, path)
+	return h.stops, h.stopErr
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {

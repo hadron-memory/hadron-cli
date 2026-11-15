@@ -1,0 +1,46 @@
+# worker.end stops the worker's process (C2a of hadron-cli#2057)
+
+Slice of the Team on Orca epic (hadron-server#4229). Design as built.
+
+## What changed
+`worker.end` used to prompt, wait `end_wait` (15 m) and report FAILED; it never
+touched the process. With the per-worker host-config field `stop_on_end` it now
+also stops the worker's agent.
+
+- `stop_on_end: never` (default, today's behaviour) | `manager` (only when the
+  operation's issuer is a USER or WORKER, i.e. someone who manages the App, not
+  the PLATFORM's own) | `always` (a short-lived worker). `WorkerConfig.stopsOnEnd`
+  is the only lookup: **transitional**, removed with `host.yaml` (C4); S3's
+  `Agent.lifecycle` replaces it. Decision recorded by Wolfgang (#107617).
+- Wait: after a *delivered* end prompt, `stop_wait` (default 60 s) instead of
+  `end_wait`, cut short if the launched agent exits. No end prompt, or one that
+  failed: nobody was asked, so the stop is immediate. The host cannot read
+  "session ended", so the bound is all it has.
+- Outcome code unchanged: still FAILED, the server records an ended session as
+  success (cor:agt:020:10: the host ends no session). The stop result (pid,
+  SIGTERM/SIGKILL, or "not touched" and why) is in the report's reason.
+  A session still open when its process is stopped stays open: S2
+  (hadron-server#4223) ends it server-side.
+
+## Which process
+1. The agent this poller launched: `Agent.Terminate()` (its own launch group;
+   records dropped only on a confirmed stop).
+2. Otherwise (a `worker-supervise` terminal agent, or a launch from before a
+   restart): `ScanWorktreeAgents` (#2027's /proc cwd census, not a second
+   implementation) over the worker's registered worktrees. A tree is skipped
+   when its session binding names another worker, another session than the one
+   being ended, or cannot be read. No binding (the worker ended its session) is
+   the worker's own tree by this host's config.
+
+## How it stops
+`ExecHost.StopAgents` (Linux): every signal through a pidfd, with the start time
+re-proved, so a reused pid is never signalled. The agent's process group is
+signalled as a group only when every member works inside the worktree and none
+is the caller or its ancestor; otherwise only the agent process, and the detail
+says so. SIGTERM, `TerminateGrace` (5 s), SIGKILL, 2 s. Other platforms: no
+`/proc`/pidfd, nothing is touched and the report says so.
+
+## Not in this slice
+C2b (workspace reset inside `worker.start`), C2c (wire `worker.reset-context`),
+the server ending a session whose process was stopped (S2), a spec change
+(client-only host config; the rule it serves, cor:agt:050:10, is unchanged).
