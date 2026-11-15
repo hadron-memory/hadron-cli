@@ -31,6 +31,9 @@ query TeamHostSetup(
 
 # @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
 # @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
+# #4230 (server main, tracked by #2157): optional like model; omitted, never null, so an existing assignment is preserved.
+# @genqlient(for: "AssignHostWorkerInput.accountProfile", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.effort", omitempty: true)
 mutation TeamHostAssign(
   $input: AssignHostWorkerInput!
 ) {

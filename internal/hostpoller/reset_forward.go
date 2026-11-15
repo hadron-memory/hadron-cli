@@ -61,7 +61,7 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 		p.log("state-failed", op.ID, op.Type, "", err.Error())
 	}
 
-	cp := resetCheckpoint(op, ref, token, git)
+	cp := resetCheckpoint(op, ref, token, git, claim.Reset.Cause)
 	reg, ok := step(func() (ResetStep, error) {
 		return p.resets.RegisterResetRecovery(ctx, resetID, epoch, cp, argString(op, "sessionId"), argString(op, "taskId"))
 	})
@@ -138,13 +138,23 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 // resetCheckpoint is the checkpoint the server writes for the host: ids
 // and the worktree's push state only, never the agent's environment or a
 // credential. The agent's own handoff, if it wrote one, is in its memory.
-func resetCheckpoint(op Operation, ref, token string, git GitTreeState) ResetCheckpoint {
+func resetCheckpoint(op Operation, ref, token string, git GitTreeState, claimCause string) ResetCheckpoint {
 	var b strings.Builder
 	b.WriteString("# Context reset checkpoint\n\n")
 	b.WriteString("Written by the host before resetting this worker's context (hadron-cli#1043). The binding and session are kept; read this, then your newest handoff, and continue.\n\n")
 	fmt.Fprintf(&b, "- worker: %s (%s)\n", ref, op.WorkerID)
 	fmt.Fprintf(&b, "- session: %s\n", argString(op, "sessionId"))
-	fmt.Fprintf(&b, "- finished task: %s\n", argString(op, "taskId"))
+	if task := argString(op, "taskId"); task != "" {
+		fmt.Fprintf(&b, "- finished task: %s\n", task)
+	} else if cause := resetCause(op, claimCause); cause != "" {
+		// A context-cap reset belongs to no task: say why it happened instead,
+		// so the relaunched agent knows (hadron-cli#2117). The claim's own
+		// ContextReset carries it, and so do the operation's args (hadron-server
+		// #4258, a closed set: context-cap or task-end).
+		fmt.Fprintf(&b, "- reset because: %s (this reset names no task)\n", cause)
+	} else {
+		b.WriteString("- this reset names no task (the server did not say why it was asked for)\n")
+	}
 	fmt.Fprintf(&b, "- reset: %s (operation %s)\n", argString(op, "resetId"), op.ID)
 	fmt.Fprintf(&b, "- worktree: %s\n", token)
 	if git.InGit {
@@ -153,4 +163,14 @@ func resetCheckpoint(op Operation, ref, token string, git GitTreeState) ResetChe
 		b.WriteString("- not a Git worktree\n")
 	}
 	return ResetCheckpoint{Title: "Context reset " + argString(op, "resetId"), Content: b.String()}
+}
+
+// resetCause is why the reset was asked for: the claim's ContextReset says (it
+// is the server's record), and the operation's args carry the same word, used
+// when the claim does not (hadron-cli#2117). Empty when neither says.
+func resetCause(op Operation, claimCause string) string {
+	if claimCause != "" {
+		return claimCause
+	}
+	return argString(op, "cause")
 }
