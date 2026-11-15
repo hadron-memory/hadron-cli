@@ -129,8 +129,15 @@ func TestSweepRecordCompatibilityAndRefusals2056(t *testing.T) {
 }
 
 func TestSweepInstallUsesOneMinuteUnitsWithoutCredential2056(t *testing.T) {
-	_, _, home := healthHarness(t, "systemctl", "orca")
-	cfg := hostConfig(t, "")
+	// Installation resolves Orca against the saved PATH/config, independently
+	// of the fake scheduler's Which. Never borrow a developer's real Orca.
+	t.Setenv("PATH", "/nonexistent")
+	orca := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, _, home := healthHarness(t, "systemctl")
+	cfg := hostConfig(t, orca)
 	io, _, _ := output.Test()
 	f := &cmdutil.Factory{IOStreams: io}
 	c := newCmdTeamHostSweep(f)
