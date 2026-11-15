@@ -565,8 +565,10 @@ creation. Pass them only to choose a value: left out, the server default stands
 (uses tasks true, reset context after task false); an explicit =false is sent as
 false. --reset-context-after-task records a setting only. The program that
 runs your workers (their host) does the reset, and only a host that supports it
-acts on the setting; the hadron CLI's own worker runner does not yet
-(hadron-cli#1043).
+acts on the setting. team host run wires the protocol on Linux when its config
+explicitly declares worker.reset-context and supplies reset_context.orca_bin,
+but currently refuses new resets: it cannot prove a terminal/process binding.
+The terminal-aware success path belongs to C3 (hadron-cli#2058).
 
 Server compatibility: every agent create now sends a document that takes
 usesTasks and resetContextAfterTask, even when neither flag is named, so it
@@ -708,8 +710,10 @@ start without a prompt.
 --reset-context-after-task records a setting on the Agent (default false);
 hadron agent get shows it. It does not reset anything by itself. The program
 that runs your workers (their host) does the reset, and only a host that
-supports it acts on the setting. The hadron CLI's own worker runner does not
-support it yet (hadron-cli#1043), so setting it has no visible effect today.
+supports it acts on the setting. team host run wires the protocol on Linux
+when its config explicitly declares worker.reset-context and supplies
+reset_context.orca_bin, but currently refuses new resets without a verifiable
+terminal/process binding. C3 (hadron-cli#2058) owns the success path.
 Turn it off with --reset-context-after-task=false. agent create takes the same
 flag, to set it at creation.
 

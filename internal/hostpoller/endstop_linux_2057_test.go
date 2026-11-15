@@ -58,18 +58,6 @@ func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	waitFor(t, "the agent's child to be gone (the whole group must go)", func() bool { return !groupHasOtherMembers(c.Process.Pid, c.Process.Pid) })
 }
 
-// waitFor polls cond for up to five seconds.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
 func TestStopWorktreeAgentsKillsAnAgentThatIgnoresSIGTERM(t *testing.T) {
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
