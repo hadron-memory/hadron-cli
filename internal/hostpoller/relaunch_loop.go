@@ -120,7 +120,7 @@ func (p *Poller) relaunchStep(ctx context.Context) {
 			continue
 		} // normal worker.start owns a new session
 		var launched Agent
-		runner := hostrelaunch.Runner{Sweep: generation, Now: p.now, Journal: journal,
+		runner := hostrelaunch.Runner{Sweep: generation, Now: p.now, Journal: journal, BeforeAttempt: d.Ready,
 			Current: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Desired, error) {
 				snap, e := d.Source.RelaunchSnapshot(ctx, t.HostID)
 				if e != nil {

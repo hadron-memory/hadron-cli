@@ -97,14 +97,16 @@ type Result struct {
 // applying run (dry runs never increment it). A skipped intervening sweep then
 // breaks continuity even when that worker never reaches Execute.
 type Runner struct {
-	Sweep   uint64
-	DryRun  bool
-	Now     func() time.Time
-	Journal Journal
-	Current func(context.Context, Target) (Desired, error)
-	Binding func(context.Context, Target) (Binding, error)
-	Probe   func(context.Context, Target) (Observation, error)
-	Prepare func(context.Context, Target) (Prepared, error)
+	// BeforeAttempt rechecks transient launch prerequisites before charging budget.
+	BeforeAttempt func(context.Context) error
+	Sweep         uint64
+	DryRun        bool
+	Now           func() time.Time
+	Journal       Journal
+	Current       func(context.Context, Target) (Desired, error)
+	Binding       func(context.Context, Target) (Binding, error)
+	Probe         func(context.Context, Target) (Observation, error)
+	Prepare       func(context.Context, Target) (Prepared, error)
 	// Lock must serialize this worktree with C3 starts, not just other C5 calls.
 	Lock func(context.Context, Target) (func(), error)
 	// Notice is nil until the server's honest outcome surface is available.
@@ -270,6 +272,12 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		}
 		out.Reason = Pending
 		return out, nil
+	}
+	if r.BeforeAttempt != nil {
+		if e := r.BeforeAttempt(ctx); e != nil {
+			out.Reason = Unproven
+			return out, e
+		}
 	}
 	// Claim before even the last guard. A refused/failed attempt is not free.
 	rec.AbsentFor, rec.AbsentSweep = "", 0
