@@ -191,3 +191,12 @@ The list kept growing (hooks, filters, uploadpack, includes, TLS, the pre-reset 
   host git call re-reads it.
 - The occupancy check and the checkout are not one atomic step (the window the launch has always had).
 - #2095 (contextsize, from merged C8) is not this PR's.
+
+### C2b: the worker directory must be a worktree root (Julius's LOCAL P2, Wolfgang #108365)
+`rev-parse --is-inside-work-tree` is true for a plain directory (or a subdirectory) inside some enclosing repository,
+and a reset there would move that repository. `ResetWorktree` first requires `git rev-parse --show-toplevel` to equal
+the worker's directory (symlinks resolved); otherwise the worker is a worker without Git: no reset, nothing refused,
+and the enclosing repository's state, branch, rescue refs and config are not touched or judged. `Inspect` follows the
+same rule (such a directory is not a worktree and the enclosing repository's config is not refused). Only a definite
+"not a repository" or a different top level means "no tree"; an answer that cannot be read falls through to the config
+gate, which refuses.

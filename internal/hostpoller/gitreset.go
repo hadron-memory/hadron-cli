@@ -52,6 +52,13 @@ func (o ResetOutcome) Refused() bool { return o.Code != "" }
 // Order matters: the refusals come first, from the tree as it stands, so a
 // refused start moves nothing; the fetch only updates remote-tracking refs.
 func ResetWorktree(ctx context.Context, dir string, now time.Time) (ResetOutcome, error) {
+	// The worker's directory must itself be a worktree root. A plain directory
+	// inside some enclosing repository is "inside a work tree" to git, and a reset
+	// there would move the ENCLOSING repository: such a worker has no tree of its
+	// own, so it is treated as a worker without Git (no reset, nothing refused).
+	if !isWorktreeRoot(ctx, dir) {
+		return ResetOutcome{}, nil
+	}
 	// The worktree's git config is untrusted: any key outside the allowlist
 	// refuses before a single command runs on the tree.
 	if why := untrustedRepoConfig(ctx, dir); why != "" {
@@ -284,4 +291,21 @@ func resetBase(ctx context.Context, dir, remote string) (ref, sha string, err er
 		return "", "", fmt.Errorf("the fetched %s/%s (%.12s) is not the tip %s reports for its default branch (%.12s); nothing was moved", remote, branch, sha, remote, head)
 	}
 	return remote + "/" + branch, sha, nil
+}
+
+// isWorktreeRoot reports whether dir is, or might be, the top level of a git
+// work tree. It is false only when git DEFINITELY says otherwise: dir is not in
+// a repository at all, or it is a plain directory or a subdirectory inside one
+// (the enclosing repository's top level is somewhere else). An answer that cannot
+// be read (a broken config, say) is "might be", so the config gate that follows
+// refuses it instead of the directory being taken for a worker without Git.
+func isWorktreeRoot(ctx context.Context, dir string) bool {
+	top, errOut, err := runGitTree(ctx, dir, "rev-parse", "--show-toplevel")
+	switch {
+	case err == nil:
+		return top != "" && samePath(top, dir)
+	case strings.Contains(strings.ToLower(errOut), "not a git repository"):
+		return false
+	}
+	return true
 }

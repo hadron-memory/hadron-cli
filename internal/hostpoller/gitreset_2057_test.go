@@ -711,3 +711,108 @@ func TestResetWorktreeRechecksTheConfigBeforeTheCommandsThatMatter(t *testing.T)
 		mustNotHaveRun(t, marker, "a filter planted "+name)
 	}
 }
+
+// ---- Julius's LOCAL P2 (0c5974b8): a plain directory INSIDE a repository ----
+
+// A worker whose directory is a plain (non-Git) child of some enclosing
+// repository has no tree of its own: git says it is "inside a work tree", but a
+// reset there would move the ENCLOSING repository. Such a worker is a worker
+// without Git: no reset, nothing refused, and the enclosing repository is left
+// exactly as it was, whatever state or config it is in.
+func TestResetWorktreeNeverTouchesTheRepositoryEnclosingAPlainChild(t *testing.T) {
+	for name, setup := range map[string]func(t *testing.T, origin, clone string){
+		"clean and pushed": func(t *testing.T, origin, clone string) { advanceOrigin(t, origin) },
+		"dirty": func(t *testing.T, origin, clone string) {
+			_ = os.WriteFile(filepath.Join(clone, "a.txt"), []byte("edited\n"), 0o644)
+		},
+		"unpushed commits": func(t *testing.T, origin, clone string) {
+			gitIn(t, clone, "checkout", "-q", "-b", "work")
+			_ = os.WriteFile(filepath.Join(clone, "w.txt"), []byte("w\n"), 0o644)
+			gitIn(t, clone, "add", ".")
+			gitIn(t, clone, "commit", "-q", "-m", "work")
+		},
+		"untrusted config": func(t *testing.T, origin, clone string) {
+			gitIn(t, clone, "config", "core.hooksPath", "/nowhere")
+			gitIn(t, clone, "config", "filter.evil.smudge", "false")
+		},
+	} {
+		origin, clone := resetRepo(t)
+		setup(t, origin, clone)
+		child := filepath.Join(clone, "agents", "notes") // a plain directory inside the repository (untracked, no .git of its own)
+		if err := os.MkdirAll(child, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		_ = os.WriteFile(filepath.Join(child, "n.md"), []byte("n\n"), 0o644)
+		headBefore := gitIn(t, clone, "rev-parse", "HEAD")
+		branchBefore := gitIn(t, clone, "branch", "--show-current")
+		statusBefore := gitIn(t, clone, "status", "--porcelain")
+		out, err := ResetWorktree(context.Background(), child, resetNow)
+		if err != nil || out.Reset || out.Refused() {
+			t.Errorf("%s: a plain child of a repository is a worker without Git: out=%+v err=%v", name, out, err)
+		}
+		if got := gitIn(t, clone, "rev-parse", "HEAD"); got != headBefore {
+			t.Errorf("%s: the ENCLOSING repository's HEAD moved", name)
+		}
+		if got := gitIn(t, clone, "branch", "--show-current"); got != branchBefore {
+			t.Errorf("%s: the enclosing repository changed branch (%q -> %q)", name, branchBefore, got)
+		}
+		if got := gitIn(t, clone, "status", "--porcelain"); got != statusBefore {
+			t.Errorf("%s: the enclosing repository's working tree changed", name)
+		}
+		if refs := gitIn(t, clone, "for-each-ref", "refs/hadron/rescue"); refs != "" {
+			t.Errorf("%s: rescue refs were written in the enclosing repository: %q", name, refs)
+		}
+		if _, err := os.Stat(filepath.Join(child, "n.md")); err != nil {
+			t.Errorf("%s: the child's own file was touched", name)
+		}
+	}
+}
+
+// A real subdirectory of a work tree is not the root either.
+func TestResetWorktreeLeavesASubdirectoryOfAWorkTreeAlone(t *testing.T) {
+	origin, clone := resetRepo(t)
+	advanceOrigin(t, origin)
+	sub := filepath.Join(clone, "sub")
+	_ = os.MkdirAll(sub, 0o755)
+	_ = os.WriteFile(filepath.Join(sub, "f.txt"), []byte("f\n"), 0o644)
+	gitIn(t, clone, "add", ".")
+	gitIn(t, clone, "commit", "-q", "-m", "sub")
+	head := gitIn(t, clone, "rev-parse", "HEAD")
+	out, err := ResetWorktree(context.Background(), sub, resetNow)
+	if err != nil || out.Reset || out.Refused() {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if got := gitIn(t, clone, "rev-parse", "HEAD"); got != head {
+		t.Fatal("the enclosing repository moved")
+	}
+}
+
+// The root itself still resets, also when reached through a symlink.
+func TestResetWorktreeStillResetsTheRootReachedThroughASymlink(t *testing.T) {
+	origin, clone := resetRepo(t)
+	tip := advanceOrigin(t, origin)
+	link := filepath.Join(t.TempDir(), "via-link")
+	if err := os.Symlink(clone, link); err != nil {
+		t.Skip("no symlinks")
+	}
+	out, err := ResetWorktree(context.Background(), link, resetNow)
+	if err != nil || !out.Reset {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if got := gitIn(t, clone, "rev-parse", "HEAD"); got != tip {
+		t.Fatalf("HEAD %s, want %s", got, tip)
+	}
+}
+
+// The host's other git calls follow the same rule: a plain child of a repository
+// is not a worktree, and the enclosing repository's config is not its business.
+func TestExecHostInspectOfAPlainChildOfARepositoryIsNotAWorktreeAndNotRefused(t *testing.T) {
+	_, clone := resetRepo(t)
+	gitIn(t, clone, "config", "filter.evil.smudge", "false")
+	child := filepath.Join(clone, "plain")
+	_ = os.MkdirAll(child, 0o755)
+	st, err := (ExecHost{}).Inspect(context.Background(), child)
+	if err != nil || !st.Exists || st.IsWorktree {
+		t.Fatalf("st=%+v err=%v", st, err)
+	}
+}
