@@ -25,6 +25,11 @@ type Host interface {
 	Occupied(ctx context.Context, path string) (string, error)
 	// Alive reports whether a process id is still running.
 	Alive(pid int) bool
+	// ResetWorkspace brings an existing worktree back to a clean base at task
+	// start (hadron-cli#2057 C2b): refused when dirty or when HEAD is on no
+	// remote branch, rescue refs kept, nothing created or removed. A directory
+	// with no Git is left alone (Reset false, no refusal).
+	ResetWorkspace(ctx context.Context, path string) (ResetOutcome, error)
 	// StopAgents stops every agent process working inside path that this
 	// host did not launch itself (hadron-cli#2057 C2a: an agent started from
 	// a terminal is not the poller's child), each with its process group:

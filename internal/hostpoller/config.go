@@ -105,6 +105,13 @@ type WorkerConfig struct {
 	// manages the App issued the end, never the platform's own or a worker's),
 	// or always (a short-lived worker: every end stops it).
 	StopOnEnd string `yaml:"stop_on_end"`
+	// ResetOnStart makes worker.start bring the worker's existing worktree back to
+	// a clean base before it launches the agent (hadron-cli#2057 C2b; G6: part of
+	// starting, no new operation type): a dirty tree or a HEAD on no remote branch
+	// refuses the start, a worker without Git starts with no reset. Default off.
+	// TRANSITIONAL like stop_on_end: it is meant for a short-lived worker, and
+	// goes with host.yaml when Agent.lifecycle reaches the host (S3).
+	ResetOnStart bool `yaml:"reset_on_start"`
 	// StopWait bounds how long a stopping worker.end gives a delivered end
 	// prompt before it stops the process (default 60s). With no end prompt,
 	// or one that failed, there is nothing to wait for and the stop is
@@ -422,6 +429,11 @@ func (w WorkerConfig) stopsOnEnd(issuedBy string) bool {
 	}
 	return false
 }
+
+// resetsOnStart is the one lookup for "this worker's tree is reset at start":
+// the seam Agent.lifecycle replaces (a SHORT_LIVED agent resets), as stopsOnEnd
+// is for the stop.
+func (w WorkerConfig) resetsOnStart() bool { return w.ResetOnStart }
 
 // stopWait is the bounded wait a stopping worker.end gives its end prompt.
 func (w WorkerConfig) stopWait() time.Duration {

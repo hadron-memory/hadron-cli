@@ -1,7 +1,6 @@
 package hostpoller
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -28,18 +27,32 @@ type ExecHost struct {
 	TerminateGrace time.Duration
 }
 
+// UntrustedConfigError is a repository refused because its own git config holds
+// a key outside the allowlist of inert ones (hadron-cli#2057 §10). It is not
+// "this is not a worktree": Inspect reports it, and nothing was run.
+type UntrustedConfigError struct{ Why string }
+
+func (e *UntrustedConfigError) Error() string { return "untrusted repo config: " + e.Why }
+
+// git runs one command on a repository the worker can write to, with the
+// hardened configuration and the transport allowlist (hadron-cli#2057 §10): the
+// same rule as the reset's for EVERY git call this host makes. A repository whose
+// own config holds a key outside the allowlist is refused outright, before the
+// command runs: `status` never runs a worker's clean filter, a fetch never
+// follows a worker's proxy, `worktree add` never runs a smudge filter.
 func git(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	var out, errb bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errb
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(errb.String())
+	if why := untrustedRepoConfig(ctx, dir); why != "" {
+		return "", &UntrustedConfigError{Why: why}
+	}
+	out, errOut, err := runGitRaw(ctx, dir, args...)
+	if err != nil {
+		msg := strings.TrimSpace(errOut)
 		if msg == "" {
 			msg = err.Error()
 		}
 		return "", errors.New(msg)
 	}
-	return strings.TrimSpace(out.String()), nil
+	return strings.TrimSpace(out), nil
 }
 
 // CreateWorktree fetches the base from origin, then adds the worktree on a
@@ -75,7 +88,19 @@ func (ExecHost) Inspect(ctx context.Context, path string) (WorktreeState, error)
 		return st, err
 	}
 	st.Exists = true
+	// Not a worktree root (a plain directory, or a subdirectory, inside some
+	// enclosing repository): that repository's config is not this worker's
+	// business, so nothing about it is read or refused.
+	if root, err := isWorktreeRoot(ctx, path); err != nil {
+		return st, err // could not tell: refused, not "not a worktree"
+	} else if !root {
+		return st, nil
+	}
 	top, err := git(ctx, path, "rev-parse", "--show-toplevel")
+	var untrusted *UntrustedConfigError
+	if errors.As(err, &untrusted) {
+		return st, err // refused, not "not a worktree": no command ran
+	}
 	if err != nil || !samePath(top, path) {
 		return st, nil
 	}
@@ -471,6 +496,11 @@ func (a *execAgent) TerminateWith(authorize Authorize) (bool, string) {
 // /proc (Linux). Without /proc it cannot tell and reports none.
 func (ExecHost) Occupied(_ context.Context, path string) (string, error) {
 	return occupied(path)
+}
+
+// ResetWorkspace is ResetWorktree at the current time.
+func (ExecHost) ResetWorkspace(ctx context.Context, path string) (ResetOutcome, error) {
+	return ResetWorktree(ctx, path, time.Now())
 }
 
 // Alive reports whether pid is a running process.
