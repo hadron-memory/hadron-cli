@@ -46,10 +46,18 @@ normally remains outside it. C3 serializes its own in-memory agents under
 p.mu, but supplies neither a host-global census witness nor a cross-process
 start lock. No tracked agent after a poller restart is not absence proof.
 A host-up process invoked inside an agent namespace cannot infer host-global
-absence from its local proc view. These limits require an authoritative
-observer association and shared start serialization, or an explicitly
-restricted fail-closed scope. The decision is routed to Wolfgang (#108533).
-No default authority witness or enabled launch adapter is supplied here.
+absence from its local proc view. Wolfgang's ruling (#108541) selects fail-closed operation without a new
+Orca census or global lock: relaunch only inside the host-namespace poller,
+sharing p.agents/p.mu; tracked absence requires pinned Done, and untracked
+absence requires two sweeps plus a strict zero-agent host proc census.
+Unreadable proc, ambiguous cwd, scan errors or unknown visibility report
+RELAUNCH_UNPROVEN and never launch. No launch adapter is enabled yet.
+
+The host-namespace guard still needs a trusted host-init namespace identity.
+Comparing self to /proc/1 alone cannot establish host membership when proc
+was remounted inside an agent namespace: both refer to that inner namespace.
+This caveat is routed in #108551. Unknown host-init identity remains unproven;
+no local PID-number or executable-name heuristic grants launch authority.
 
 The intended adapter must compose C3's typed launch with an empty grant and
 its fresh recovery prompt: preserve the open session, run session recover,
