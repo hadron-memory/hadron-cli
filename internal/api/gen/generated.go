@@ -5306,6 +5306,7 @@ type AgentTaskFields struct {
 	CancelledAt *string `json:"cancelledAt"`
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
+	// #4223: not read for a worker of a SHORT_LIVED Agent (Agent.lifecycle), whose session ends with its last open task.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
 	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 	// Set only on a finished task.
@@ -21050,12 +21051,16 @@ var AllAssetScanStatus = []AssetScanStatus{
 }
 
 type AssignHostWorkerInput struct {
-	AppRef string `json:"appRef"`
-	// The model family it runs as there, e.g. claude or codex.
+	// #4230 — the host-local account profile the launcher runs under, a profile token. Optional.
+	AccountProfile *string `json:"accountProfile,omitempty"`
+	AppRef         string  `json:"appRef"`
+	// #4230 — the effort, a profile token. Optional.
+	Effort *string `json:"effort,omitempty"`
+	// The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
 	Family string `json:"family"`
 	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
 	HostId string `json:"hostId"`
-	// The model, a name token of at most 128 characters. Optional. A record only: a start carries the workdir and family, not the model.
+	// The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
 	Model *string `json:"model,omitempty"`
 	// Change an existing assignment of this worker to this host instead of refusing HOST_ASSIGNMENT_EXISTS.
 	Replace *bool `json:"replace,omitempty"`
@@ -21065,8 +21070,14 @@ type AssignHostWorkerInput struct {
 	Worker string `json:"worker"`
 }
 
+// GetAccountProfile returns AssignHostWorkerInput.AccountProfile, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetAccountProfile() *string { return v.AccountProfile }
+
 // GetAppRef returns AssignHostWorkerInput.AppRef, and is useful for accessing the field via an interface.
 func (v *AssignHostWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetEffort returns AssignHostWorkerInput.Effort, and is useful for accessing the field via an interface.
+func (v *AssignHostWorkerInput) GetEffort() *string { return v.Effort }
 
 // GetFamily returns AssignHostWorkerInput.Family, and is useful for accessing the field via an interface.
 func (v *AssignHostWorkerInput) GetFamily() string { return v.Family }
@@ -35175,7 +35186,7 @@ func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhook
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type CreateAgentWithLifecycleCreateAgent struct {
 	AgentFields `json:"-"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
@@ -49565,7 +49576,7 @@ func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSub
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type GetAgentLifecycleAgent struct {
 	Id string `json:"id"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
@@ -57207,18 +57218,23 @@ func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapsh
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type HostSetupAssignmentFields struct {
-	Id        string                           `json:"id"`
-	HostId    string                           `json:"hostId"`
-	WorkerId  string                           `json:"workerId"`
-	Worker    *HostSetupAssignmentFieldsWorker `json:"worker"`
-	Workdir   string                           `json:"workdir"`
-	Family    string                           `json:"family"`
-	Model     *string                          `json:"model"`
-	CreatedAt string                           `json:"createdAt"`
-	UpdatedAt string                           `json:"updatedAt"`
+	Id       string                           `json:"id"`
+	HostId   string                           `json:"hostId"`
+	WorkerId string                           `json:"workerId"`
+	Worker   *HostSetupAssignmentFieldsWorker `json:"worker"`
+	Workdir  string                           `json:"workdir"`
+	Family   string                           `json:"family"`
+	Model    *string                          `json:"model"`
+	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+	Effort *string `json:"effort"`
+	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+	AccountProfile *string `json:"accountProfile"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      string  `json:"updatedAt"`
 }
 
 // GetId returns HostSetupAssignmentFields.Id, and is useful for accessing the field via an interface.
@@ -57241,6 +57257,12 @@ func (v *HostSetupAssignmentFields) GetFamily() string { return v.Family }
 
 // GetModel returns HostSetupAssignmentFields.Model, and is useful for accessing the field via an interface.
 func (v *HostSetupAssignmentFields) GetModel() *string { return v.Model }
+
+// GetEffort returns HostSetupAssignmentFields.Effort, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetEffort() *string { return v.Effort }
+
+// GetAccountProfile returns HostSetupAssignmentFields.AccountProfile, and is useful for accessing the field via an interface.
+func (v *HostSetupAssignmentFields) GetAccountProfile() *string { return v.AccountProfile }
 
 // GetCreatedAt returns HostSetupAssignmentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *HostSetupAssignmentFields) GetCreatedAt() string { return v.CreatedAt }
@@ -86757,7 +86779,7 @@ func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarsh
 
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
-	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamPause *SetTeamPauseSetTeamPause `json:"setTeamPause"`
 }
 
@@ -95256,8 +95278,9 @@ func (v *TeamHeldWorkersResponse) GetHeldWorkers() *TeamHeldWorkersHeldWorkersWo
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
@@ -95295,6 +95318,16 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetFamily() string 
 // GetModel returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
 func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetModel() *string {
 	return v.HostSetupAssignmentFields.Model
+}
+
+// GetEffort returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
+	return v.HostSetupAssignmentFields.Effort
+}
+
+// GetAccountProfile returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
+	return v.HostSetupAssignmentFields.AccountProfile
 }
 
 // GetCreatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
@@ -95347,6 +95380,10 @@ type __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
 
 	Model *string `json:"model"`
 
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95370,6 +95407,8 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() 
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.Effort = v.HostSetupAssignmentFields.Effort
+	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -95381,8 +95420,9 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() 
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
@@ -95420,6 +95460,16 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetFamily
 // GetModel returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
 func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetModel() *string {
 	return v.HostSetupAssignmentFields.Model
+}
+
+// GetEffort returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
+	return v.HostSetupAssignmentFields.Effort
+}
+
+// GetAccountProfile returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
+	return v.HostSetupAssignmentFields.AccountProfile
 }
 
 // GetCreatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
@@ -95472,6 +95522,10 @@ type __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment st
 
 	Model *string `json:"model"`
 
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95495,6 +95549,8 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premars
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.Effort = v.HostSetupAssignmentFields.Effort
+	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -95502,12 +95558,14 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premars
 
 // TeamHostAssignInstructedResponse is returned by TeamHostAssignInstructed on success.
 type TeamHostAssignInstructedResponse struct {
-	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
-	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
-	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
-	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
@@ -95519,12 +95577,14 @@ func (v *TeamHostAssignInstructedResponse) GetAssignHostWorker() *TeamHostAssign
 
 // TeamHostAssignResponse is returned by TeamHostAssign on success.
 type TeamHostAssignResponse struct {
-	// #4222 — assign a worker to a host of its App: the workdir it runs in there, its model family and, optionally, its
-	// model (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed). Whoever manages the App
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
-	// Refused BAD_HOST_ASSIGNMENT_ARGS (a field that is not its token shape: a path, an option, a command),
-	// HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
@@ -95658,8 +95718,9 @@ func (v *TeamHostSetupHostSetup) GetAssignments() []*TeamHostSetupHostSetupAssig
 // #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
 // workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
 // name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
-// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). model is optional and a record only: a start carries the
-// workdir and family, never the model.
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
 type TeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
 	HostSetupAssignmentFields `json:"-"`
 }
@@ -95697,6 +95758,16 @@ func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetFamily() stri
 // GetModel returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
 func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetModel() *string {
 	return v.HostSetupAssignmentFields.Model
+}
+
+// GetEffort returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetEffort() *string {
+	return v.HostSetupAssignmentFields.Effort
+}
+
+// GetAccountProfile returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetAccountProfile() *string {
+	return v.HostSetupAssignmentFields.AccountProfile
 }
 
 // GetCreatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
@@ -95749,6 +95820,10 @@ type __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
 
 	Model *string `json:"model"`
 
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95772,6 +95847,8 @@ func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) __premarshalJSON
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.Effort = v.HostSetupAssignmentFields.Effort
+	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -102950,7 +103027,7 @@ func (v *UpdateAgentWithLifecycleResponse) GetUpdateAgent() *UpdateAgentWithLife
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type UpdateAgentWithLifecycleUpdateAgent struct {
 	AgentFields `json:"-"`
-	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. Set by whoever manages the Agent, like usesTasks.
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
 	Lifecycle AgentLifecycle `json:"lifecycle"`
 }
 
@@ -112907,7 +112984,7 @@ const (
 	// The host relaunched the worker; carries attempt.
 	WorkerTerminalRepairRelaunched WorkerTerminalRepair = "RELAUNCHED"
 	// #4247 — the host tried to relaunch the worker and it did not come up. Carries repairReason from the failure set
-	// (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT) and attempt.
+	// (LAUNCH_EXIT_NONZERO, TERMINAL_CREATE_REFUSED, TIMEOUT, SETUP_FAILED, VERIFY_FAILED) and attempt.
 	WorkerTerminalRepairRelaunchFailed WorkerTerminalRepair = "RELAUNCH_FAILED"
 	// #4247 — the host did not relaunch the worker because a safety check declined it. Carries repairReason from the
 	// refusal set (IDENTITY_MISMATCH, DUPLICATE_AGENT, PAUSED, HALTED, LEAVE_ALONE, NO_LAUNCHER_PROFILE) and attempt.
@@ -112923,7 +113000,7 @@ var AllWorkerTerminalRepair = []WorkerTerminalRepair{
 }
 
 // #4247 — why a relaunch was refused or failed. A closed set, never free text. The first six go with RELAUNCH_REFUSED,
-// the last three with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
+// the last five with RELAUNCH_FAILED; a reason from the other set is refused (REPAIR_REASON_INVALID).
 type WorkerTerminalRepairReason string
 
 const (
@@ -112941,10 +113018,14 @@ const (
 	WorkerTerminalRepairReasonNoLauncherProfile WorkerTerminalRepairReason = "NO_LAUNCHER_PROFILE"
 	// The worker is paused.
 	WorkerTerminalRepairReasonPaused WorkerTerminalRepairReason = "PAUSED"
+	// #4259 — the host could not prepare the launch (a setup or disk error); the launcher never ran.
+	WorkerTerminalRepairReasonSetupFailed WorkerTerminalRepairReason = "SETUP_FAILED"
 	// Orca refused to create the terminal.
 	WorkerTerminalRepairReasonTerminalCreateRefused WorkerTerminalRepairReason = "TERMINAL_CREATE_REFUSED"
 	// The relaunch timed out.
 	WorkerTerminalRepairReasonTimeout WorkerTerminalRepairReason = "TIMEOUT"
+	// #4259 — the launcher ran, but the host could not prove the agent came up.
+	WorkerTerminalRepairReasonVerifyFailed WorkerTerminalRepairReason = "VERIFY_FAILED"
 )
 
 var AllWorkerTerminalRepairReason = []WorkerTerminalRepairReason{
@@ -112955,8 +113036,10 @@ var AllWorkerTerminalRepairReason = []WorkerTerminalRepairReason{
 	WorkerTerminalRepairReasonLeaveAlone,
 	WorkerTerminalRepairReasonNoLauncherProfile,
 	WorkerTerminalRepairReasonPaused,
+	WorkerTerminalRepairReasonSetupFailed,
 	WorkerTerminalRepairReasonTerminalCreateRefused,
 	WorkerTerminalRepairReasonTimeout,
+	WorkerTerminalRepairReasonVerifyFailed,
 }
 
 // #2771 — one worker's terminal report. There is no free-text field.
@@ -161132,11 +161215,16 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
+	effort
+	accountProfile
 	createdAt
 	updatedAt
 }
 `
 
+// S1b: an omitted profile flag is OMITTED, never sent as null (the server reads a
+// present null on a replace as "clear"). The input type is shared with the
+// instructed document below, so these tags cover both.
 func TeamHostAssign(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -161179,6 +161267,8 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
+	effort
+	accountProfile
 	createdAt
 	updatedAt
 }
@@ -161343,6 +161433,8 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
+	effort
+	accountProfile
 	createdAt
 	updatedAt
 }

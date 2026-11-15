@@ -12,6 +12,10 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
   workdir
   family
   model
+  # S1b (hadron-server#4230, hadron-cli#2157): the launcher profile the assignment
+  # records. Null when unset.
+  effort
+  accountProfile
   createdAt
   updatedAt
 }
@@ -31,6 +35,11 @@ query TeamHostSetup(
 
 # @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
 # @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
+# S1b: an omitted profile flag is OMITTED, never sent as null (the server reads a
+# present null on a replace as "clear"). The input type is shared with the
+# instructed document below, so these tags cover both.
+# @genqlient(for: "AssignHostWorkerInput.effort", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.accountProfile", omitempty: true)
 mutation TeamHostAssign(
   $input: AssignHostWorkerInput!
 ) {

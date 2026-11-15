@@ -549,3 +549,19 @@ func TestTeamHostImport2061MatchingServerNeitherWarnsNorBlocksTheApply(t *testin
 		t.Fatalf("the apply must have written: %v", got)
 	}
 }
+
+// hadron-cli#2157: the import creates assignments with workdir and family only. It
+// must leave the launcher profile OUT of the request (never null): a profile is set
+// with `team host assign`, and a null on the wire could clear one.
+func TestTeamHostImportApplyOmitsTheLauncherProfile2157(t *testing.T) {
+	calls, out, err := runTeamTask(t, applyResponses2061(), "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	in := findCall(t, calls, "TeamHostAssign").Vars["input"].(map[string]any)
+	for _, k := range []string{"model", "effort", "accountProfile", "replace"} {
+		if v, ok := in[k]; ok {
+			t.Fatalf("the import sent %q = %v: only workdir and family are the file's to say", k, v)
+		}
+	}
+}

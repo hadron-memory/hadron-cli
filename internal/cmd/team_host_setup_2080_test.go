@@ -96,7 +96,13 @@ func TestTeamHostAssign2080JSON(t *testing.T) {
 			t.Fatalf("%s = %v, want %v in %v", k, got[k], w, got)
 		}
 	}
-	if len(got) != 9 {
+	// The two S1b profile keys are always present, null when unset (#2157).
+	for _, k := range []string{"effort", "accountProfile"} {
+		if v, ok := got[k]; !ok || v != nil {
+			t.Fatalf("%s = %v (present %v), want an explicit null", k, v, ok)
+		}
+	}
+	if len(got) != 11 {
 		t.Fatalf("keys = %v", got)
 	}
 }
