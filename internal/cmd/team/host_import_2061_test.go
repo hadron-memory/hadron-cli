@@ -503,3 +503,34 @@ func TestApplyReadFailureIsNeverUnknownEvenWhenSystemic(t *testing.T) {
 		t.Fatalf("applied = %+v: a read cannot have written anything", a)
 	}
 }
+
+// cli#2116: an explicit id/urn beats another worker's NAME, in either roster order.
+func TestMatchRosterExplicitIDOrURNBeatsANameCollision(t *testing.T) {
+	owner := importRoster{ID: "A", Name: "Owner", URN: "hrn:worker:t:t:owner"}
+	for name, ref := range map[string]string{"id": "A", "urn": "hrn:worker:t:t:owner"} {
+		decoy := importRoster{ID: "B", Name: ref, URN: "hrn:worker:t:t:decoy"}
+		for order, roster := range map[string][]importRoster{"decoy first": {decoy, owner}, "owner first": {owner, decoy}} {
+			got := matchRoster(ref, roster)
+			if got == nil || got.ID != "A" {
+				t.Errorf("%s/%s: matched %+v, want the owner", name, order, got)
+			}
+		}
+	}
+	// A plain name still matches, case-insensitively, when no id/urn does.
+	if got := matchRoster("owner", []importRoster{owner}); got == nil || got.ID != "A" {
+		t.Errorf("name fallback: %+v", got)
+	}
+	if got := matchRoster("nobody", []importRoster{owner}); got != nil {
+		t.Errorf("no match must be nil: %+v", got)
+	}
+}
+
+func TestPlanHostImportTargetsTheExplicitWorkerNotTheNameCollision(t *testing.T) {
+	roster := []importRoster{{ID: "B", Name: "A", URN: "u-b"}, {ID: "A", Name: "Owner", URN: "u-a"}}
+	entries, _ := planHostImport(cfg2061(map[string]hostpoller.WorkerConfig{
+		"A": {Family: "claude", Launch: []string{"c"}, Worktrees: []string{"w-1"}},
+	}), roster, nil, true)
+	if len(entries) != 1 || entries[0].workerID != "A" || entries[0].Action != importCreate {
+		t.Fatalf("entries = %+v: the create must target worker A, not the one NAMED A", entries)
+	}
+}

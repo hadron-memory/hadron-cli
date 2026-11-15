@@ -104,9 +104,15 @@ func launchShape(argv []string) importLaunchDTO {
 }
 
 func matchRoster(ref string, roster []importRoster) *importRoster {
+	// An explicit ID or URN wins over a name, whatever the roster order: a
+	// worker may be NAMED like another worker's id (cli#2116).
 	for i := range roster {
-		r := roster[i]
-		if ref == r.ID || (r.URN != "" && ref == r.URN) || strings.EqualFold(ref, r.Name) {
+		if ref == roster[i].ID || (roster[i].URN != "" && ref == roster[i].URN) {
+			return &roster[i]
+		}
+	}
+	for i := range roster {
+		if strings.EqualFold(ref, roster[i].Name) {
 			return &roster[i]
 		}
 	}
