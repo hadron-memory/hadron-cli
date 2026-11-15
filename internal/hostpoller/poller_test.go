@@ -160,9 +160,29 @@ type fakeHost struct {
 	// betweenCheckAndStop runs inside StopAgents, before its still check:
 	// the window in which a replacement session can bind.
 	betweenCheckAndStop func()
+	// inspectErr fails Inspect (an untrusted repo config, say).
+	inspectErr error
+	// resets records the paths ResetWorkspace was asked about; resetOut/resetErr
+	// are its answers; resetOrder, when set, is told "reset" at the call so a
+	// test can pin it before the launch.
+	resets     []string
+	resetOut   ResetOutcome
+	resetErr   error
+	resetOrder func(string)
 	// whileHeld runs inside StopAgents at the moment of the signal, after the
 	// authorization granted it and before the release (#2068).
 	whileHeld func()
+}
+
+// ResetWorkspace records the call and answers resetOut/resetErr (#2057 C2b).
+func (h *fakeHost) ResetWorkspace(_ context.Context, path string) (ResetOutcome, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.resets = append(h.resets, path)
+	if h.resetOrder != nil {
+		h.resetOrder("reset")
+	}
+	return h.resetOut, h.resetErr
 }
 
 func (h *fakeHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
@@ -208,6 +228,9 @@ func (h *fakeHost) CreateWorktree(_ context.Context, _, path, branch, _ string) 
 func (h *fakeHost) Inspect(_ context.Context, path string) (WorktreeState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.inspectErr != nil {
+		return WorktreeState{}, h.inspectErr
+	}
 	return h.trees[path], nil
 }
 
@@ -233,6 +256,9 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	defer h.mu.Unlock()
 	if h.launchErr != nil {
 		return nil, h.launchErr
+	}
+	if h.resetOrder != nil {
+		h.resetOrder("launch")
 	}
 	h.launches = append(h.launches, spec)
 	if h.agent == nil {
