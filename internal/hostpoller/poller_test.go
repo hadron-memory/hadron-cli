@@ -1568,3 +1568,32 @@ func TestPollerSaysOnceThatRefusalsAreUnknownOnAnOldServer(t *testing.T) {
 		t.Fatalf("%d refusals-unknown events over three polls, want exactly one (%v)", n, kinds)
 	}
 }
+
+// cli#2100: a refused set that empties is said once; two different refusal
+// sets never share an identity just because their strings join alike.
+func TestPollerSaysWhenRefusalsClearAndNeverConfusesDifferentSets(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var kinds []string
+	p.emit = func(e Event) { mu.Lock(); kinds = append(kinds, e.Kind); mu.Unlock() }
+	one := RefusedWorker{Worker: "B C", Code: "A"}
+	other := RefusedWorker{Worker: "C", Code: "A B"} // the old space-joined key was identical
+	p.server = &refusingServer{fakeServer: srv, sets: [][]RefusedWorker{{one}, {other}, nil, nil, {one}}}
+	count := func(kind string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		n := 0
+		for _, k := range kinds {
+			if k == kind {
+				n++
+			}
+		}
+		return n
+	}
+	for i, want := range []struct{ refused, cleared int }{{1, 0}, {2, 0}, {2, 1}, {2, 1}, {3, 1}} {
+		step(t, p)
+		if count("worker-refused") != want.refused || count("worker-refusals-cleared") != want.cleared {
+			t.Fatalf("after poll %d: refused=%d cleared=%d, want %+v (%v)", i+1, count("worker-refused"), count("worker-refusals-cleared"), want, kinds)
+		}
+	}
+}
