@@ -401,3 +401,42 @@ func TestTeamHostImport2061ApplyKeepsAnExistingLeaveAloneMark(t *testing.T) {
 		t.Fatalf("the report must say the mark was kept:\n%s", out)
 	}
 }
+
+// Jibril P2 (and Joaquin P2): through the command, a null or contradictory
+// answer to either write is never reported as written and never advances to the
+// dependent write.
+func TestTeamHostImport2061ApplyUnconfirmedAnswersNeverAdvance(t *testing.T) {
+	leave := map[string]string{
+		"null leave-alone":        `{"data":{"setWorkerLeaveAlone":null}}`,
+		"leave-alone false":       `{"data":{"setWorkerLeaveAlone":{"workerId":"w1","leaveAlone":false}}}`,
+		"leave-alone other id":    `{"data":{"setWorkerLeaveAlone":{"workerId":"w9","leaveAlone":true}}}`,
+		"missing leave-alone key": `{"data":{}}`,
+	}
+	for name, body := range leave {
+		r := applyResponses2061()
+		r["SetWorkerLeaveAlone"] = body
+		calls, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+		if err == nil || exitCodeFor(err) != exitcode.Error {
+			t.Errorf("%s: err = %v, want exit 1", name, err)
+		}
+		if got := ops2061(calls, "TeamHostAssign"); len(got) != 0 {
+			t.Errorf("%s: assigned a worker whose mark was not confirmed: %v", name, got)
+		}
+		if strings.Contains(out, `"leaveAlone": true`) || strings.Contains(out, `"assigned": true`) {
+			t.Errorf("%s: reported a write the server did not confirm:\n%s", name, out)
+		}
+	}
+	assign := map[string]string{
+		"null assign":      `{"data":{"assignHostWorker":null}}`,
+		"assign other dir": `{"data":{"assignHostWorker":{"id":"a1","hostId":"orca1","workerId":"w1","workdir":"elsewhere","family":"codex","createdAt":"x","updatedAt":"x"}}}`,
+		"assign other id":  `{"data":{"assignHostWorker":{"id":"a1","hostId":"orca1","workerId":"w9","workdir":"jonas-1","family":"codex","createdAt":"x","updatedAt":"x"}}}`,
+	}
+	for name, body := range assign {
+		r := applyResponses2061()
+		r["TeamHostAssign"] = body
+		_, out, err := runTeamTask(t, r, "team", "host", "import", "--from", hostYAML2061(t), "--host", "orca1", "--apply", "--yes", "--json")
+		if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(out, `"assigned": true`) || !strings.Contains(out, `"unknown": true`) {
+			t.Errorf("%s: err=%v out=%s", name, err, out)
+		}
+	}
+}
