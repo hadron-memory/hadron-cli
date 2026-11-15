@@ -137,3 +137,51 @@ func TestLockBindingRefusesALinkedGitDirectory(t *testing.T) {
 		t.Fatal("a lock file was created through the link")
 	}
 }
+
+// Blind delta P2: a directory swapped for a link AFTER the check and before the
+// open is not followed: the file is never created where it was not validated.
+func TestLockBindingRefusesADirectorySwappedForALinkBeforeTheOpen(t *testing.T) {
+	d := gitTree(t)
+	outside := t.TempDir()
+	lockOpenHook = func(dir string) {
+		if err := os.Rename(dir, dir+".moved"); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink(outside, dir); err != nil {
+			t.Error(err)
+		}
+	}
+	defer func() { lockOpenHook = nil }()
+	if _, err := LockBinding(d, time.Second); err == nil {
+		t.Fatal("a directory swapped for a link was followed")
+	}
+	if _, err := os.Stat(filepath.Join(outside, bindingLockFileName)); err == nil {
+		t.Fatal("the lock was created through the swapped link")
+	}
+}
+
+// #2079: the Windows refusal rule, pinned on every platform. A handle whose
+// attributes carry the reparse-point bit is refused; plain files and
+// directories are not.
+func TestRefusesAttributesRefusesAReparsePoint(t *testing.T) {
+	const (
+		attrDirectory = 0x10
+		attrArchive   = 0x20
+		attrReparse   = 0x400
+	)
+	for name, tc := range map[string]struct {
+		attrs   uint32
+		refused bool
+	}{
+		"regular file":            {attrArchive, false},
+		"directory":               {attrDirectory, false},
+		"symlink or junction":     {attrReparse, true},
+		"directory link":          {attrDirectory | attrReparse, true},
+		"file with a reparse tag": {attrArchive | attrReparse, true},
+	} {
+		if err := refusesAttributes(tc.attrs); (err != nil) != tc.refused {
+			t.Errorf("%s: refused=%v, want %v", name, err != nil, tc.refused)
+		}
+	}
+}
