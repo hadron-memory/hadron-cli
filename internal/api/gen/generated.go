@@ -72955,7 +72955,7 @@ func (v *PRVerdictRecordReviewVerdictPrProtocolResult) __premarshalJSON() (*__pr
 
 // PRVerdictResponse is returned by PRVerdict on success.
 type PRVerdictResponse struct {
-	// #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate.
+	// #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate. #4235: the review.verdict event also carries reviewerFamily, reviewerModel and modelReportedAt, copied from the recording worker's session (its self-report, not verified), null where none is recorded or a person records it; no argument sets them and readiness never reads them (hrn:node:hadronmemory.com:specs:cor:agt:130:02).
 	RecordReviewVerdict *PRVerdictRecordReviewVerdictPrProtocolResult `json:"recordReviewVerdict"`
 }
 
@@ -97682,6 +97682,157 @@ type TeamRequestGrantSignatureResponse struct {
 // GetRequestGrantSignature returns TeamRequestGrantSignatureResponse.RequestGrantSignature, and is useful for accessing the field via an interface.
 func (v *TeamRequestGrantSignatureResponse) GetRequestGrantSignature() *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest {
 	return v.RequestGrantSignature
+}
+
+// TeamReviewQualityReportResponse is returned by TeamReviewQualityReport on success.
+type TeamReviewQualityReportResponse struct {
+	// #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model
+	// (hrn:node:hadronmemory.com:specs:cor:agt:130:06). month is YYYY-MM, a UTC calendar month; anything else is
+	// BAD_USER_INPUT. A review is one finished review-seat task carrying at least one verdict; its latest verdict
+	// (hrn:node:hadronmemory.com:specs:cor:agt:130:02) decides its row and its month, and its findings are the seat task's
+	// result findings with their latest dispositions (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Findings and
+	// dispositions recorded after the month still count in it, so the answer for a past month can change: asOf says when it
+	// was worked out. Readers: as the App's tasks and events are read (hrn:node:hadronmemory.com:specs:cor:agt:050:21 and
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:23): the App's participants and its own key; anyone else is refused
+	// APP_NOT_FOUND. Descriptive only: never an input to readiness or matching
+	// (hrn:node:hadronmemory.com:specs:cor:agt:130:03).
+	ReviewQualityReport *TeamReviewQualityReportReviewQualityReport `json:"reviewQualityReport"`
+}
+
+// GetReviewQualityReport returns TeamReviewQualityReportResponse.ReviewQualityReport, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportResponse) GetReviewQualityReport() *TeamReviewQualityReportReviewQualityReport {
+	return v.ReviewQualityReport
+}
+
+// TeamReviewQualityReportReviewQualityReport includes the requested fields of the GraphQL type ReviewQualityReport.
+// The GraphQL type's documentation follows.
+//
+// #4281 — an App's review quality measures for one UTC calendar month (hrn:node:hadronmemory.com:specs:cor:agt:130:06).
+type TeamReviewQualityReportReviewQualityReport struct {
+	// The month asked for, YYYY-MM.
+	Month string `json:"month"`
+	// When the numbers were worked out (the database clock). A past month's numbers can still change after this.
+	AsOf string `json:"asOf"`
+	// One row per family and model, a reported model apart from an unreported one, ordered by family, model, then reported first; the not-recorded row, when there is one, is last. Empty when the month has no reviews.
+	Rows []*TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow `json:"rows"`
+}
+
+// GetMonth returns TeamReviewQualityReportReviewQualityReport.Month, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReport) GetMonth() string { return v.Month }
+
+// GetAsOf returns TeamReviewQualityReportReviewQualityReport.AsOf, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReport) GetAsOf() string { return v.AsOf }
+
+// GetRows returns TeamReviewQualityReportReviewQualityReport.Rows, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReport) GetRows() []*TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow {
+	return v.Rows
+}
+
+// TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow includes the requested fields of the GraphQL type ReviewQualityRow.
+// The GraphQL type's documentation follows.
+//
+// #4281 — one reviewer row of the review quality measures (hrn:node:hadronmemory.com:specs:cor:agt:130:06). Every
+// ratio comes with its numerator and denominator: findingsPerReview = findings / reviews; shareConfirmed =
+// confirmedFindings / findings; defectsMissedPerApprovingReview = defectsMissed / approvingReviews.
+type TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow struct {
+	// False for the one not-recorded row: the reviews whose verdict carries no model family or no model (a person's verdict, a worker with no open session, a session that recorded none, or a verdict from before the snapshot existed). They are never counted under a family.
+	Recorded bool `json:"recorded"`
+	// The reviewer's model family as the verdict recorded it (a self-report); null on the not-recorded row.
+	Family *string `json:"family"`
+	// The reviewer's model as the verdict recorded it (a self-report); null on the not-recorded row.
+	Model *string `json:"model"`
+	// Whether the session had reported its model when the verdict was recorded (the verdict's modelReportedAt is set); null on the not-recorded row.
+	ModelReported *bool `json:"modelReported"`
+	// Finished review seats whose latest verdict falls in the month.
+	Reviews int `json:"reviews"`
+	// All findings on those seats' tasks.
+	Findings int `json:"findings"`
+	// findings / reviews.
+	FindingsPerReview float64 `json:"findingsPerReview"`
+	// Findings whose latest disposition is fixed, accepted or deferred.
+	ConfirmedFindings int `json:"confirmedFindings"`
+	// Findings whose latest disposition is rejected: not confirmed.
+	RejectedFindings int `json:"rejectedFindings"`
+	// Findings with no disposition yet: their own count, in neither of the two above.
+	UndisposedFindings int `json:"undisposedFindings"`
+	// confirmedFindings / findings; null when there are no findings.
+	ShareConfirmed *float64 `json:"shareConfirmed"`
+	// Reviews whose latest verdict is APPROVE, PASS or CARRY.
+	ApprovingReviews int `json:"approvingReviews"`
+	// #4287 — defects missed by the approving reviews, from the defect links (linkDefectToPullRequest, #4280): an approving review misses each defect linked to its PR whose introducedAtHead is the head it approved or an earlier one, in the order the PR's heads were first frozen, and every defect linked with no introducedAtHead. A head approved before the defect was introduced never contained it. 0 when nothing is linked.
+	DefectsMissed int `json:"defectsMissed"`
+	// defectsMissed / approvingReviews; null only when there is no approving review.
+	DefectsMissedPerApprovingReview *float64 `json:"defectsMissedPerApprovingReview"`
+}
+
+// GetRecorded returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.Recorded, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetRecorded() bool {
+	return v.Recorded
+}
+
+// GetFamily returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.Family, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetFamily() *string {
+	return v.Family
+}
+
+// GetModel returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.Model, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetModel() *string {
+	return v.Model
+}
+
+// GetModelReported returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.ModelReported, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetModelReported() *bool {
+	return v.ModelReported
+}
+
+// GetReviews returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.Reviews, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetReviews() int {
+	return v.Reviews
+}
+
+// GetFindings returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.Findings, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetFindings() int {
+	return v.Findings
+}
+
+// GetFindingsPerReview returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.FindingsPerReview, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetFindingsPerReview() float64 {
+	return v.FindingsPerReview
+}
+
+// GetConfirmedFindings returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.ConfirmedFindings, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetConfirmedFindings() int {
+	return v.ConfirmedFindings
+}
+
+// GetRejectedFindings returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.RejectedFindings, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetRejectedFindings() int {
+	return v.RejectedFindings
+}
+
+// GetUndisposedFindings returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.UndisposedFindings, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetUndisposedFindings() int {
+	return v.UndisposedFindings
+}
+
+// GetShareConfirmed returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.ShareConfirmed, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetShareConfirmed() *float64 {
+	return v.ShareConfirmed
+}
+
+// GetApprovingReviews returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.ApprovingReviews, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetApprovingReviews() int {
+	return v.ApprovingReviews
+}
+
+// GetDefectsMissed returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.DefectsMissed, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetDefectsMissed() int {
+	return v.DefectsMissed
+}
+
+// GetDefectsMissedPerApprovingReview returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.DefectsMissedPerApprovingReview, and is useful for accessing the field via an interface.
+func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetDefectsMissedPerApprovingReview() *float64 {
+	return v.DefectsMissedPerApprovingReview
 }
 
 // ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
@@ -124788,6 +124939,18 @@ type __TeamRequestGrantSignatureInput struct {
 
 // GetGrantRef returns __TeamRequestGrantSignatureInput.GrantRef, and is useful for accessing the field via an interface.
 func (v *__TeamRequestGrantSignatureInput) GetGrantRef() string { return v.GrantRef }
+
+// __TeamReviewQualityReportInput is used internally by genqlient
+type __TeamReviewQualityReportInput struct {
+	AppRef string `json:"appRef"`
+	Month  string `json:"month"`
+}
+
+// GetAppRef returns __TeamReviewQualityReportInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamReviewQualityReportInput) GetAppRef() string { return v.AppRef }
+
+// GetMonth returns __TeamReviewQualityReportInput.Month, and is useful for accessing the field via an interface.
+func (v *__TeamReviewQualityReportInput) GetMonth() string { return v.Month }
 
 // __TeamRolesInput is used internally by genqlient
 type __TeamRolesInput struct {
@@ -164030,6 +164193,60 @@ func TeamRequestGrantSignature(
 	}
 
 	data_ = &TeamRequestGrantSignatureResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamReviewQualityReport.
+const TeamReviewQualityReport_Operation = `
+query TeamReviewQualityReport ($appRef: ID!, $month: String!) {
+	reviewQualityReport(appRef: $appRef, month: $month) {
+		month
+		asOf
+		rows {
+			recorded
+			family
+			model
+			modelReported
+			reviews
+			findings
+			findingsPerReview
+			confirmedFindings
+			rejectedFindings
+			undisposedFindings
+			shareConfirmed
+			approvingReviews
+			defectsMissed
+			defectsMissedPerApprovingReview
+		}
+	}
+}
+`
+
+// #4281 / hadron-cli#2190: one month of review-quality measures, read only.
+func TeamReviewQualityReport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	month string,
+) (data_ *TeamReviewQualityReportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamReviewQualityReport",
+		Query:  TeamReviewQualityReport_Operation,
+		Variables: &__TeamReviewQualityReportInput{
+			AppRef: appRef,
+			Month:  month,
+		},
+	}
+
+	data_ = &TeamReviewQualityReportResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

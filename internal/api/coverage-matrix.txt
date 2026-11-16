@@ -26,7 +26,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 234: 193 command, 16 gap, 25 excluded
+[Query] 235: 194 command, 16 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -210,6 +210,7 @@ resendSenders  command org resend-sender list
 resolveAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 resolveAiServiceConfigs  command ai-config list
 resolveUrn  command node get
+reviewQualityReport  command team review-stats
 scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
@@ -262,7 +263,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 300 command, 43 gap, 14 excluded
+[Mutation] 358: 300 command, 44 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -433,6 +434,7 @@ joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
+linkDefectToPullRequest  gap #2189: S12b CLI companion not yet implemented
 linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready

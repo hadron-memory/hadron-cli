@@ -43,3 +43,27 @@ query GetWorkerLeaveAlone(
     leaveAloneAt
   }
 }
+
+# #4281 / hadron-cli#2190: one month of review-quality measures, read only.
+query TeamReviewQualityReport($appRef: ID!, $month: String!) {
+  reviewQualityReport(appRef: $appRef, month: $month) {
+    month
+    asOf
+    rows {
+      recorded
+      family
+      model
+      modelReported
+      reviews
+      findings
+      findingsPerReview
+      confirmedFindings
+      rejectedFindings
+      undisposedFindings
+      shareConfirmed
+      approvingReviews
+      defectsMissed
+      defectsMissedPerApprovingReview
+    }
+  }
+}

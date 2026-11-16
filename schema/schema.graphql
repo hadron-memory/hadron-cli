@@ -5585,6 +5585,29 @@ type DecisionWithdrawal {
 }
 
 """
+#4280 — a defect linked to the pull request it escaped from (the review.defect-linked event on the PR's build task).
+"""
+type DefectLink {
+  """
+  False when the pair was already linked: this is the existing link, and nothing was written.
+  """
+  created: Boolean!
+
+  """The defect's issue URL, as given."""
+  defect: String!
+
+  """The review.defect-linked event that records the link."""
+  eventId: ID!
+
+  """The head that introduced the defect, or null when the link names none."""
+  introducedAtHead: String
+  linkedAt: DateTime!
+
+  """The PR's build task."""
+  taskId: ID!
+}
+
+"""
 Return shape for deleteMemoryShare. Both fields are RESOLVED primary
 keys, so a caller who passed a URN / email / handle can correlate the
 deletion. granteeId is the caller themselves on the self-removal path.
@@ -10574,6 +10597,11 @@ type Mutation {
   liftTeamStopSignal(appRef: String!, id: ID!, instruction: ActInstructionInput): LiftStopSignalResult!
 
   """
+  #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+  """
+  linkDefectToPullRequest(defectRef: String!, instruction: ActInstructionInput, introducedAtHead: String, prTaskRef: ID!): DefectLink!
+
+  """
   Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
   
   Accepts the entity's ID or URN.
@@ -10871,7 +10899,7 @@ type Mutation {
   recordReadyCall(head: String!, taskRef: ID!): PrProtocolResult!
 
   """
-  #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate.
+  #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate. #4235: the review.verdict event also carries reviewerFamily, reviewerModel and modelReportedAt, copied from the recording worker's session (its self-report, not verified), null where none is recorded or a person records it; no argument sets them and readiness never reads them (hrn:node:hadronmemory.com:specs:cor:agt:130:02).
   """
   recordReviewVerdict(head: String!, node: String, receipt: String, taskRef: ID!, verdict: ReviewVerdict!): PrProtocolResult!
 
@@ -16445,6 +16473,20 @@ type Query {
   resolveUrn(urn: String!): UrnResolution
 
   """
+  #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model
+  (hrn:node:hadronmemory.com:specs:cor:agt:130:06). month is YYYY-MM, a UTC calendar month; anything else is
+  BAD_USER_INPUT. A review is one finished review-seat task carrying at least one verdict; its latest verdict
+  (hrn:node:hadronmemory.com:specs:cor:agt:130:02) decides its row and its month, and its findings are the seat task's
+  result findings with their latest dispositions (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Findings and
+  dispositions recorded after the month still count in it, so the answer for a past month can change: asOf says when it
+  was worked out. Readers: as the App's tasks and events are read (hrn:node:hadronmemory.com:specs:cor:agt:050:21 and
+  hrn:node:hadronmemory.com:specs:cor:agt:050:23): the App's participants and its own key; anyone else is refused
+  APP_NOT_FOUND. Descriptive only: never an input to readiness or matching
+  (hrn:node:hadronmemory.com:specs:cor:agt:130:03).
+  """
+  reviewQualityReport(appRef: ID!, month: String!): ReviewQualityReport!
+
+  """
   Spec 049 Phase 2 — the uniform single-scope read (cor:api:120). 'ref' is
   the scope's ID (a Scope has no URN yet). Null when missing OR when you may
   not read it — no existence disclosure. Read gate: an org scope to that
@@ -17811,6 +17853,87 @@ type ResumeSessionResult {
 enum ResumeSource {
   CLAIM
   LIVE_SESSION
+}
+
+"""
+#4281 — an App's review quality measures for one UTC calendar month (hrn:node:hadronmemory.com:specs:cor:agt:130:06).
+"""
+type ReviewQualityReport {
+  """
+  When the numbers were worked out (the database clock). A past month's numbers can still change after this.
+  """
+  asOf: DateTime!
+
+  """The month asked for, YYYY-MM."""
+  month: String!
+
+  """
+  One row per family and model, a reported model apart from an unreported one, ordered by family, model, then reported first; the not-recorded row, when there is one, is last. Empty when the month has no reviews.
+  """
+  rows: [ReviewQualityRow!]!
+}
+
+"""
+#4281 — one reviewer row of the review quality measures (hrn:node:hadronmemory.com:specs:cor:agt:130:06). Every
+ratio comes with its numerator and denominator: findingsPerReview = findings / reviews; shareConfirmed =
+confirmedFindings / findings; defectsMissedPerApprovingReview = defectsMissed / approvingReviews.
+"""
+type ReviewQualityRow {
+  """Reviews whose latest verdict is APPROVE, PASS or CARRY."""
+  approvingReviews: Int!
+
+  """Findings whose latest disposition is fixed, accepted or deferred."""
+  confirmedFindings: Int!
+
+  """
+  #4287 — defects missed by the approving reviews, from the defect links (linkDefectToPullRequest, #4280): an approving review misses each defect linked to its PR whose introducedAtHead is the head it approved or an earlier one, in the order the PR's heads were first frozen, and every defect linked with no introducedAtHead. A head approved before the defect was introduced never contained it. 0 when nothing is linked.
+  """
+  defectsMissed: Int!
+
+  """
+  defectsMissed / approvingReviews; null only when there is no approving review.
+  """
+  defectsMissedPerApprovingReview: Float
+
+  """
+  The reviewer's model family as the verdict recorded it (a self-report); null on the not-recorded row.
+  """
+  family: String
+
+  """All findings on those seats' tasks."""
+  findings: Int!
+
+  """findings / reviews."""
+  findingsPerReview: Float!
+
+  """
+  The reviewer's model as the verdict recorded it (a self-report); null on the not-recorded row.
+  """
+  model: String
+
+  """
+  Whether the session had reported its model when the verdict was recorded (the verdict's modelReportedAt is set); null on the not-recorded row.
+  """
+  modelReported: Boolean
+
+  """
+  False for the one not-recorded row: the reviews whose verdict carries no model family or no model (a person's verdict, a worker with no open session, a session that recorded none, or a verdict from before the snapshot existed). They are never counted under a family.
+  """
+  recorded: Boolean!
+
+  """Findings whose latest disposition is rejected: not confirmed."""
+  rejectedFindings: Int!
+
+  """Finished review seats whose latest verdict falls in the month."""
+  reviews: Int!
+
+  """confirmedFindings / findings; null when there are no findings."""
+  shareConfirmed: Float
+
+  """
+  Findings with no disposition yet: their own count, in neither of the two above.
+  """
+  undisposedFindings: Int!
 }
 
 """
