@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func newExitFixture2161(t *testing.T) *exitFixture2161 {
 
 func (f *exitFixture2161) writeStamp(t *testing.T, worker, session string, age time.Duration) {
 	t.Helper()
-	b, err := json.Marshal(delivery.RelaunchStamp{Version: 1, WorkerID: worker, SessionID: session, Checkpoint: "hrn:node:acme.com:iris:checkpoints:2026-10-14-1200", RequestedAt: f.p.now().Add(-age)})
+	b, err := json.Marshal(delivery.RelaunchStamp{Version: 1, WorkerID: worker, SessionID: session, Checkpoint: checkpoint2161, RequestedAt: f.p.now().Add(-age)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,6 +76,8 @@ func (f *exitFixture2161) writeStamp(t *testing.T, worker, session string, age t
 		t.Fatal(err)
 	}
 }
+
+const checkpoint2161 = "hrn:node:acme.com:iris:checkpoints:2026-10-14-120000"
 
 // run starts the poller with an interval sleep that never ends by itself, so
 // a second sweep can only come from the exit, never from the clock.
@@ -138,6 +141,11 @@ func TestAContextResetExitRelaunchesAtOnceWithoutASecondSweep2161(t *testing.T) 
 	f.done <- nil // for the cleanup
 	if _, err := os.Lstat(f.stamp); !os.IsNotExist(err) {
 		t.Fatalf("the stamp was not consumed: %v", err)
+	}
+	// `session recover` does not read checkpoints: the first prompt names it
+	// (found while answering Jibril's claim P3).
+	if p := f.launches[0].Prompt; !strings.Contains(p, "session recover") || !strings.Contains(p, "hadron node get "+checkpoint2161) {
+		t.Fatalf("the relaunch prompt does not point at the checkpoint: %q", p)
 	}
 	if rec := f.journal["id-iris"]; len(rec.Attempts) != 1 {
 		t.Fatalf("the relaunch was not charged to the cap: %+v", rec)
@@ -204,4 +212,55 @@ func TestAStampAloneNeverLaunches2161(t *testing.T) {
 	if n := f.launchCount(); n != 0 {
 		t.Fatalf("launched %d while the tracked agent runs", n)
 	}
+}
+
+// holdSource blocks a relaunch job's source read until released.
+type holdSource2161 struct {
+	inner   RelaunchSource
+	entered chan struct{}
+	release chan struct{}
+	once    atomic.Bool
+}
+
+func (h *holdSource2161) RelaunchSnapshot(ctx context.Context, host string) (RelaunchSnapshot, error) {
+	if h.once.CompareAndSwap(false, true) {
+		close(h.entered)
+		<-h.release
+	}
+	return h.inner.RelaunchSnapshot(ctx, host)
+}
+
+// Jibril's and Julius's P2: an exit while another relaunch job holds the
+// lock. The run loop takes the wake, its exit step finds the lock busy, and
+// the exit must be woken again once that job ends, not left for the next
+// check-in (which never comes here: the interval sleep never ends).
+func TestAnExitDuringABusyRelaunchJobIsWokenAgain2161(t *testing.T) {
+	f := newExitFixture2161(t)
+	f.run(t)
+	// The first sweep's job has released the lock before the source is
+	// swapped (the mutex orders the write before the next job's read).
+	for !f.p.relaunchMu.TryLock() {
+		time.Sleep(5 * time.Millisecond)
+	}
+	hold := &holdSource2161{inner: f.p.relaunch.Source, entered: make(chan struct{}), release: make(chan struct{})}
+	f.p.relaunch.Source = hold
+	f.p.relaunchMu.Unlock()
+	f.p.relaunchStep(context.Background()) // a sweep job, now blocked in its source read
+	<-hold.entered
+	f.writeStamp(t, "id-iris", "still-open", time.Second)
+	close(f.old.done)
+	// The wake is taken by the run loop, whose exit step finds the lock busy.
+	deadline := time.Now().Add(5 * time.Second)
+	for len(f.p.exitWake) > 0 || !f.p.exitsPending() {
+		if time.Now().After(deadline) {
+			t.Fatal("the exit was never recorded and its wake never taken")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	time.Sleep(300 * time.Millisecond) // the woken exit step runs and returns on the busy lock
+	if f.launchCount() != 0 {
+		t.Fatal("launched while the other job held the lock")
+	}
+	close(hold.release)
+	f.waitFor(t, func() bool { return f.launched.Load() == 1 }, "the exit to be relaunched once the busy job ended")
 }
