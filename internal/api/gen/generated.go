@@ -57830,6 +57830,153 @@ var AllHostSetupSource = []HostSetupSource{
 	HostSetupSourceServer,
 }
 
+// HostSweepIdentityHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostSweepIdentityHostDesiredState struct {
+	HostId string `json:"hostId"`
+}
+
+// GetHostId returns HostSweepIdentityHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityHostDesiredState) GetHostId() string { return v.HostId }
+
+// HostSweepIdentityResponse is returned by HostSweepIdentity on success.
+type HostSweepIdentityResponse struct {
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	HostDesiredState *HostSweepIdentityHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetHostDesiredState returns HostSweepIdentityResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostSweepIdentityResponse) GetHostDesiredState() *HostSweepIdentityHostDesiredState {
+	return v.HostDesiredState
+}
+
+type HostSweepRunLineInput struct {
+	Outcome SweepRunOutcome `json:"outcome"`
+	Reason  string          `json:"reason"`
+	Worker  string          `json:"worker"`
+}
+
+// GetOutcome returns HostSweepRunLineInput.Outcome, and is useful for accessing the field via an interface.
+func (v *HostSweepRunLineInput) GetOutcome() SweepRunOutcome { return v.Outcome }
+
+// GetReason returns HostSweepRunLineInput.Reason, and is useful for accessing the field via an interface.
+func (v *HostSweepRunLineInput) GetReason() string { return v.Reason }
+
+// GetWorker returns HostSweepRunLineInput.Worker, and is useful for accessing the field via an interface.
+func (v *HostSweepRunLineInput) GetWorker() string { return v.Worker }
+
+// HostSweepRunsHostSweepRunsHostSweepRun includes the requested fields of the GraphQL type HostSweepRun.
+// The GraphQL type's documentation follows.
+//
+// #4233 (S10 of #4229): one run of a host's sweep, as the host reported it.
+type HostSweepRunsHostSweepRunsHostSweepRun struct {
+	Id     string `json:"id"`
+	HostId string `json:"hostId"`
+	// The host's own token for the run.
+	RunId     string `json:"runId"`
+	StartedAt string `json:"startedAt"`
+	EndedAt   string `json:"endedAt"`
+	// OBSERVE or APPLY; a sweep in mode OFF records nothing.
+	Mode    SweepMode `json:"mode"`
+	Planned int       `json:"planned"`
+	Applied int       `json:"applied"`
+	Skipped int       `json:"skipped"`
+	Failed  int       `json:"failed"`
+	// When the server stored the run.
+	RecordedAt string `json:"recordedAt"`
+	// At most 50 lines.
+	Lines []*HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine `json:"lines"`
+}
+
+// GetId returns HostSweepRunsHostSweepRunsHostSweepRun.Id, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetId() string { return v.Id }
+
+// GetHostId returns HostSweepRunsHostSweepRunsHostSweepRun.HostId, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetHostId() string { return v.HostId }
+
+// GetRunId returns HostSweepRunsHostSweepRunsHostSweepRun.RunId, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetRunId() string { return v.RunId }
+
+// GetStartedAt returns HostSweepRunsHostSweepRunsHostSweepRun.StartedAt, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetStartedAt() string { return v.StartedAt }
+
+// GetEndedAt returns HostSweepRunsHostSweepRunsHostSweepRun.EndedAt, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetEndedAt() string { return v.EndedAt }
+
+// GetMode returns HostSweepRunsHostSweepRunsHostSweepRun.Mode, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetMode() SweepMode { return v.Mode }
+
+// GetPlanned returns HostSweepRunsHostSweepRunsHostSweepRun.Planned, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetPlanned() int { return v.Planned }
+
+// GetApplied returns HostSweepRunsHostSweepRunsHostSweepRun.Applied, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetApplied() int { return v.Applied }
+
+// GetSkipped returns HostSweepRunsHostSweepRunsHostSweepRun.Skipped, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetSkipped() int { return v.Skipped }
+
+// GetFailed returns HostSweepRunsHostSweepRunsHostSweepRun.Failed, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetFailed() int { return v.Failed }
+
+// GetRecordedAt returns HostSweepRunsHostSweepRunsHostSweepRun.RecordedAt, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetRecordedAt() string { return v.RecordedAt }
+
+// GetLines returns HostSweepRunsHostSweepRunsHostSweepRun.Lines, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRun) GetLines() []*HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine {
+	return v.Lines
+}
+
+// HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine includes the requested fields of the GraphQL type HostSweepRunLine.
+// The GraphQL type's documentation follows.
+//
+// #4233: one worker's line in a sweep run: the worker as the host named it, what became of it, and a reason code.
+type HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine struct {
+	Worker  string          `json:"worker"`
+	Outcome SweepRunOutcome `json:"outcome"`
+	// A code (capital letters, digits, underscores), never text.
+	Reason string `json:"reason"`
+}
+
+// GetWorker returns HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine.Worker, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine) GetWorker() string {
+	return v.Worker
+}
+
+// GetOutcome returns HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine.Outcome, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine) GetOutcome() SweepRunOutcome {
+	return v.Outcome
+}
+
+// GetReason returns HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine.Reason, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsHostSweepRunsHostSweepRunLinesHostSweepRunLine) GetReason() string {
+	return v.Reason
+}
+
+// HostSweepRunsResponse is returned by HostSweepRuns on success.
+type HostSweepRunsResponse struct {
+	// #4233 (S10 of #4229) — the recorded runs of one host's sweep, newest first: when each ran, its mode, the counts
+	// planned, applied, skipped and failed, and up to 50 per-worker lines with reason codes. Read by whoever reads the
+	// App's tasks and events (a participant, the App's own key) and by a host key for ITS OWN host only: another host
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. limit is 1 to 100 (default 20). Reads only.
+	HostSweepRuns []*HostSweepRunsHostSweepRunsHostSweepRun `json:"hostSweepRuns"`
+}
+
+// GetHostSweepRuns returns HostSweepRunsResponse.HostSweepRuns, and is useful for accessing the field via an interface.
+func (v *HostSweepRunsResponse) GetHostSweepRuns() []*HostSweepRunsHostSweepRunsHostSweepRun {
+	return v.HostSweepRuns
+}
+
 // HostUpWorkerReposResponse is returned by HostUpWorkerRepos on success.
 type HostUpWorkerReposResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -74388,6 +74535,85 @@ type RecordContentValidationResponse struct {
 // GetRecordNodeContentValidationReport returns RecordContentValidationResponse.RecordNodeContentValidationReport, and is useful for accessing the field via an interface.
 func (v *RecordContentValidationResponse) GetRecordNodeContentValidationReport() *RecordContentValidationRecordNodeContentValidationReportNodeContentValidationReportReceipt {
 	return v.RecordNodeContentValidationReport
+}
+
+type RecordHostSweepRunInput struct {
+	AppRef  string `json:"appRef"`
+	Applied int    `json:"applied"`
+	// Not before startedAt, not more than two minutes ahead of the server, and within an hour of startedAt.
+	EndedAt string `json:"endedAt"`
+	Failed  int    `json:"failed"`
+	// At most 50.
+	Lines []*HostSweepRunLineInput `json:"lines,omitempty"`
+	// OBSERVE or APPLY.
+	Mode    SweepMode `json:"mode"`
+	Planned int       `json:"planned"`
+	// A token of 1 to 64 letters, digits and . _ : - that names this run for this host; a replay is the same run.
+	RunId     string `json:"runId"`
+	Skipped   int    `json:"skipped"`
+	StartedAt string `json:"startedAt"`
+}
+
+// GetAppRef returns RecordHostSweepRunInput.AppRef, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetAppRef() string { return v.AppRef }
+
+// GetApplied returns RecordHostSweepRunInput.Applied, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetApplied() int { return v.Applied }
+
+// GetEndedAt returns RecordHostSweepRunInput.EndedAt, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetEndedAt() string { return v.EndedAt }
+
+// GetFailed returns RecordHostSweepRunInput.Failed, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetFailed() int { return v.Failed }
+
+// GetLines returns RecordHostSweepRunInput.Lines, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetLines() []*HostSweepRunLineInput { return v.Lines }
+
+// GetMode returns RecordHostSweepRunInput.Mode, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetMode() SweepMode { return v.Mode }
+
+// GetPlanned returns RecordHostSweepRunInput.Planned, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetPlanned() int { return v.Planned }
+
+// GetRunId returns RecordHostSweepRunInput.RunId, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetRunId() string { return v.RunId }
+
+// GetSkipped returns RecordHostSweepRunInput.Skipped, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetSkipped() int { return v.Skipped }
+
+// GetStartedAt returns RecordHostSweepRunInput.StartedAt, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunInput) GetStartedAt() string { return v.StartedAt }
+
+// RecordHostSweepRunRecordHostSweepRun includes the requested fields of the GraphQL type HostSweepRun.
+// The GraphQL type's documentation follows.
+//
+// #4233 (S10 of #4229): one run of a host's sweep, as the host reported it.
+type RecordHostSweepRunRecordHostSweepRun struct {
+	Id string `json:"id"`
+	// The host's own token for the run.
+	RunId string `json:"runId"`
+}
+
+// GetId returns RecordHostSweepRunRecordHostSweepRun.Id, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunRecordHostSweepRun) GetId() string { return v.Id }
+
+// GetRunId returns RecordHostSweepRunRecordHostSweepRun.RunId, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunRecordHostSweepRun) GetRunId() string { return v.RunId }
+
+// RecordHostSweepRunResponse is returned by RecordHostSweepRun on success.
+type RecordHostSweepRunResponse struct {
+	// #4233 (S10 of #4229) — a host records one run of its sweep. The host key only (HOST_KEY_REQUIRED otherwise); the
+	// host is the key's own. The whole report is validated first and a malformed one stores nothing (BAD_USER_INPUT): a
+	// mode of OBSERVE or APPLY, counts from 0, at most 50 lines of worker token, outcome and reason code, and no free
+	// text. The same runId for the same host is the same run: a replay returns it and changes nothing. A run that applied
+	// or failed something produces ONE summary post in the App's team chat, from the platform, and a run that changed
+	// nothing posts nothing. Recording a run ends the host's stale-sweep alarm episode.
+	RecordHostSweepRun *RecordHostSweepRunRecordHostSweepRun `json:"recordHostSweepRun"`
+}
+
+// GetRecordHostSweepRun returns RecordHostSweepRunResponse.RecordHostSweepRun, and is useful for accessing the field via an interface.
+func (v *RecordHostSweepRunResponse) GetRecordHostSweepRun() *RecordHostSweepRunRecordHostSweepRun {
+	return v.RecordHostSweepRun
 }
 
 // RecordSessionOutcomeRecordSessionOutcomeSession includes the requested fields of the GraphQL type Session.
@@ -91178,6 +91404,21 @@ var AllSweepMode = []SweepMode{
 	SweepModeApply,
 	SweepModeObserve,
 	SweepModeOff,
+}
+
+// #4233: what a sweep did to one worker in one run.
+type SweepRunOutcome string
+
+const (
+	SweepRunOutcomeApplied SweepRunOutcome = "APPLIED"
+	SweepRunOutcomeFailed  SweepRunOutcome = "FAILED"
+	SweepRunOutcomeSkipped SweepRunOutcome = "SKIPPED"
+)
+
+var AllSweepRunOutcome = []SweepRunOutcome{
+	SweepRunOutcomeApplied,
+	SweepRunOutcomeFailed,
+	SweepRunOutcomeSkipped,
 }
 
 // SyncMemoryResponse is returned by SyncMemory on success.
@@ -120836,6 +121077,34 @@ func (v *__HostRelaunchVerifyFailureInput) GetCheckedAt() string { return v.Chec
 // GetAttempt returns __HostRelaunchVerifyFailureInput.Attempt, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchVerifyFailureInput) GetAttempt() int { return v.Attempt }
 
+// __HostSweepIdentityInput is used internally by genqlient
+type __HostSweepIdentityInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostSweepIdentityInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostSweepIdentityInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostSweepIdentityInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostSweepIdentityInput) GetHostId() string { return v.HostId }
+
+// __HostSweepRunsInput is used internally by genqlient
+type __HostSweepRunsInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+	Limit  *int   `json:"limit"`
+}
+
+// GetAppRef returns __HostSweepRunsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostSweepRunsInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostSweepRunsInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostSweepRunsInput) GetHostId() string { return v.HostId }
+
+// GetLimit returns __HostSweepRunsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__HostSweepRunsInput) GetLimit() *int { return v.Limit }
+
 // __HostUpWorkerReposInput is used internally by genqlient
 type __HostUpWorkerReposInput struct {
 	Ref string `json:"ref"`
@@ -122135,6 +122404,14 @@ func (v *__RecordContentValidationInput) GetOutcome() NodeContentValidationOutco
 
 // GetRunId returns __RecordContentValidationInput.RunId, and is useful for accessing the field via an interface.
 func (v *__RecordContentValidationInput) GetRunId() *string { return v.RunId }
+
+// __RecordHostSweepRunInput is used internally by genqlient
+type __RecordHostSweepRunInput struct {
+	Input *RecordHostSweepRunInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RecordHostSweepRunInput.Input, and is useful for accessing the field via an interface.
+func (v *__RecordHostSweepRunInput) GetInput() *RecordHostSweepRunInput { return v.Input }
 
 // __RecordSessionOutcomeInput is used internally by genqlient
 type __RecordSessionOutcomeInput struct {
@@ -148753,6 +149030,96 @@ func HostRelaunchVerifyFailure(
 	return data_, err_
 }
 
+// The query executed by HostSweepIdentity.
+const HostSweepIdentity_Operation = `
+query HostSweepIdentity ($appRef: String!, $hostId: String!) {
+	hostDesiredState(appRef: $appRef, hostId: $hostId) {
+		hostId
+	}
+}
+`
+
+// Separate from the S10 write, so schema fallback never changes reconciliation.
+func HostSweepIdentity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostSweepIdentityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostSweepIdentity",
+		Query:  HostSweepIdentity_Operation,
+		Variables: &__HostSweepIdentityInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostSweepIdentityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostSweepRuns.
+const HostSweepRuns_Operation = `
+query HostSweepRuns ($appRef: String!, $hostId: String!, $limit: Int) {
+	hostSweepRuns(appRef: $appRef, hostId: $hostId, limit: $limit) {
+		id
+		hostId
+		runId
+		startedAt
+		endedAt
+		mode
+		planned
+		applied
+		skipped
+		failed
+		recordedAt
+		lines {
+			worker
+			outcome
+			reason
+		}
+	}
+}
+`
+
+func HostSweepRuns(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+	limit *int,
+) (data_ *HostSweepRunsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostSweepRuns",
+		Query:  HostSweepRuns_Operation,
+		Variables: &__HostSweepRunsInput{
+			AppRef: appRef,
+			HostId: hostId,
+			Limit:  limit,
+		},
+	}
+
+	data_ = &HostSweepRunsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostUpWorkerRepos.
 const HostUpWorkerRepos_Operation = `
 query HostUpWorkerRepos ($ref: ID!) {
@@ -154479,6 +154846,42 @@ func RecordContentValidation(
 	}
 
 	data_ = &RecordContentValidationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordHostSweepRun.
+const RecordHostSweepRun_Operation = `
+mutation RecordHostSweepRun ($input: RecordHostSweepRunInput!) {
+	recordHostSweepRun(input: $input) {
+		id
+		runId
+	}
+}
+`
+
+// S10, server fd9442d6. Host-key-only write; never send a worker session.
+func RecordHostSweepRun(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RecordHostSweepRunInput,
+) (data_ *RecordHostSweepRunResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordHostSweepRun",
+		Query:  RecordHostSweepRun_Operation,
+		Variables: &__RecordHostSweepRunInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RecordHostSweepRunResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
