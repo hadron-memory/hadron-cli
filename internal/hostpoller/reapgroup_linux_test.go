@@ -682,14 +682,27 @@ func TestHeldZombieIsReapedWhenTheGroupDrainsAlone(t *testing.T) {
 		t.Fatal("the leader's exit was never recorded")
 	}
 	ea := a.(*execAgent)
+	var reaped bool
 	deadline := time.Now().Add(drainedDeadline)
-	for !ea.reaped.Load() {
+	// The watcher publishes the reap in two steps under a.mu: reap() sets reaped, then
+	// the proof (emptyAtReap) is stored. Both are one decision, and every reader in the
+	// product (the stop) takes a.mu, so none can see the pair half-done. This test must
+	// read the pair the same way: reading the two atomics bare can land between the
+	// steps (hosted CI, #2167: failed at 1.01 s with reaped=true, emptyAtReap=false).
+	var empty bool
+	for {
+		ea.mu.Lock()
+		reaped, empty = ea.reaped.Load(), ea.emptyAtReap.Load()
+		ea.mu.Unlock()
+		if reaped {
+			break
+		}
 		if time.Now().After(deadline) {
 			t.Fatal("the held zombie is never reaped after the group drains on its own")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if !ea.emptyAtReap.Load() {
+	if !empty {
 		t.Fatal("the watcher's reap is an empty-scan reap: a later stop confirms from it")
 	}
 	if got := a.ExitDetail(); got != "exit status 3" {
