@@ -20,6 +20,7 @@ import (
 // use the host key; only the poller may invoke this path. Ready proves the
 // daemon is reachable before any launch budget is spent.
 type RelaunchDependencies struct {
+	ReportSweep    func(context.Context, SweepReport) error
 	PostLaunchWait time.Duration
 	Source         RelaunchSource
 	Ready          func(context.Context) error
@@ -136,6 +137,7 @@ func (p *Poller) cancelRelaunch() {
 }
 
 func (p *Poller) relaunchPass(ctx context.Context) {
+	started := p.now()
 	defer func() {
 		if ctx.Err() != nil {
 			// A partially observed cancelled pass cannot join two absence
@@ -151,21 +153,88 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
 	}
+	var report *SweepReport
+	outagePending := false
+	if d.ReportSweep != nil && (initial.SweepMode == "APPLY" || initial.SweepMode == "OBSERVE") {
+		id, e := newRelaunchEpoch()
+		if e == nil {
+			report = &SweepReport{AppID: initial.AppID, HostID: hostID, RunID: "recovery:" + id, Mode: initial.SweepMode, StartedAt: started, Lines: []SweepReportLine{}}
+			defer func() {
+				// S10 freshness is host-wide. Only actual recovery outcomes
+				// (including the pending first outage announcement) belong
+				// here; C1's timer records routine/quiet observations.
+				if report == nil || report.Applied+report.Failed == 0 {
+					return
+				}
+				if !p.sendRecoveryReport(ctx, d, report) {
+					return
+				}
+				if outagePending {
+					if e := p.state.markSweepOutage(report.RunID); e != nil {
+						p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
+					}
+				}
+			}()
+		}
+	}
 	journal, generation, closeJournal, err := d.OpenJournal()
 	if err != nil || journal == nil || generation == 0 || closeJournal == nil {
+		for _, row := range initial.Workers {
+			report.add(row.WorkerID, "SKIPPED", hostrelaunch.StateUnavailable)
+		}
 		p.relaunchEpoch = ""
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
 	}
 	defer closeJournal()
 	if initial.SweepMode != "APPLY" || len(initial.Workers) == 0 {
+		for _, row := range initial.Workers {
+			report.add(row.WorkerID, "SKIPPED", "SWEEP_NOT_APPLY")
+		}
 		return
 	}
 	// Even an unavailable-daemon sweep consumes a generation, so it cannot
 	// bridge absence observations across an outage. It consumes no attempt.
 	if err := d.Ready(ctx); err != nil {
+		if report != nil {
+			eligible := false
+			for _, row := range initial.Workers {
+				if row.Desired == "RUNNING" && (row.Reason == "LONG_LIVED" || row.Reason == "HOLDS_TASK") {
+					eligible = true
+				}
+			}
+			if errors.Is(err, ErrOrcaDown) && eligible {
+				id, reported, e := p.state.sweepOutageToken(initial.AppID, hostID)
+				if e != nil {
+					report = nil
+				} else {
+					outcome := "SKIPPED"
+					if !reported {
+						report.RunID = id
+						outagePending = true
+						outcome = "FAILED"
+					}
+					for _, row := range initial.Workers {
+						if row.Desired == "RUNNING" && (row.Reason == "LONG_LIVED" || row.Reason == "HOLDS_TASK") {
+							report.add(row.WorkerID, outcome, "ORCA_DOWN")
+						} else {
+							report.add(row.WorkerID, "SKIPPED", row.Reason)
+						}
+					}
+				}
+			} else {
+				for _, row := range initial.Workers {
+					report.add(row.WorkerID, "SKIPPED", hostrelaunch.Unproven)
+				}
+			}
+		}
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
+	}
+	if report != nil {
+		if e := p.state.clearSweepOutage(); e != nil {
+			p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
+		}
 	}
 	if p.relaunchEpoch == "" {
 		epoch, e := newRelaunchEpoch()
@@ -179,29 +248,32 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		runner, target, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
+		runner, target, skip, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
 		if !ok {
+			report.add(row.WorkerID, "SKIPPED", skip)
 			continue
 		}
-		_, _ = runner.Execute(ctx, target) // closed result/reason is emitted by Log
+		result, _ := runner.Execute(ctx, target) // closed result/reason is emitted by Log
+		report.add(row.WorkerID, strings.ToUpper(result.Status), result.Reason)
 	}
 }
 
 // relaunchRunner is C5's Runner for one desired row: the one policy both the
 // sweep pass and the exit pass (cli#2161) run. ok is false for a row there is
-// nothing to do for (logged when it is unproven).
+// nothing to do for (logged when it is unproven); skip is the reason C1's S10
+// row records for it (#2056).
 //
 // checkpoint, when not nil, is the context reset's checkpoint an exit pass
 // proved (cli#2161); a non-empty value is named in the new agent's first
 // prompt, because `session recover` does not read checkpoints.
-func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker, journal hostrelaunch.Journal, generation uint64, checkpoint *string) (hostrelaunch.Runner, hostrelaunch.Target, bool) {
+func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker, journal hostrelaunch.Journal, generation uint64, checkpoint *string) (hostrelaunch.Runner, hostrelaunch.Target, string, bool) {
 	target, ref, w, token, ok := p.relaunchTarget(initial, row)
 	if !ok {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
-		return hostrelaunch.Runner{}, hostrelaunch.Target{}, false
+		return hostrelaunch.Runner{}, hostrelaunch.Target{}, hostrelaunch.Unproven, false
 	}
 	if target.SessionID == "" {
-		return hostrelaunch.Runner{}, hostrelaunch.Target{}, false
+		return hostrelaunch.Runner{}, hostrelaunch.Target{}, "NO_OPEN_SESSION", false
 	} // normal worker.start owns a new session
 	var launched Agent
 	firstSnapshot := true
@@ -310,7 +382,7 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 		}, Notice: d.Notice,
 		Log: func(t hostrelaunch.Target, result hostrelaunch.Result) { p.logRelaunch(t, result) },
 	}
-	return runner, target, true
+	return runner, target, "", true
 }
 
 func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrelaunch.Target, string, WorkerConfig, string, bool) {
@@ -471,4 +543,25 @@ func (p *Poller) relaunchCause(raw string) string {
 		raw = string(runes[:512]) + "…"
 	}
 	return raw
+}
+
+// sendRecoveryReport records one recovery pass's S10 row (#2056): the sweep
+// pass and the exit pass (cli#2161) both report through it, and only when
+// the pass applied or failed something. It says whether the row was recorded.
+func (p *Poller) sendRecoveryReport(ctx context.Context, d *RelaunchDependencies, report *SweepReport) bool {
+	report.EndedAt = p.now()
+	if e := d.ReportSweep(ctx, *report); e != nil {
+		if errors.Is(e, ErrSweepReportingUnavailable) {
+			p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
+		} else {
+			code := "RECORD_FAILED"
+			var coded interface{ SweepCode() string }
+			if errors.As(e, &coded) {
+				code = boundedSweepCode(coded.SweepCode())
+			}
+			p.log("sweep-record-failed", "", "worker.relaunch", "", code)
+		}
+		return false
+	}
+	return true
 }

@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
@@ -117,7 +118,7 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 		p.relaunchEpoch = epoch
 	}
 	var checkpoint string
-	runner, target, ok := p.relaunchRunner(d, snap, *row, journal, generation, &checkpoint)
+	runner, target, _, ok := p.relaunchRunner(d, snap, *row, journal, generation, &checkpoint)
 	if !ok {
 		return
 	}
@@ -141,5 +142,22 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 		checkpoint = cp
 		return proven, nil
 	}
-	_, _ = runner.Execute(ctx, target) // closed result/reason is emitted by Log
+	started := p.now()
+	result, _ := runner.Execute(ctx, target) // closed result/reason is emitted by Log
+	// C1's S10 rule (#2056, #109567): a recovery pass is recorded only when it
+	// applied or failed. An exit pass is one worker's pass: a relaunch (or a
+	// failed one) is never left unrecorded, and a refused or unproven exit,
+	// which the sweep still owns, records no empty row.
+	if d.ReportSweep != nil {
+		report := &SweepReport{AppID: snap.AppID, HostID: hostID, Mode: snap.SweepMode, StartedAt: started, Lines: []SweepReportLine{}}
+		report.add(workerID, strings.ToUpper(result.Status), result.Reason)
+		if report.Applied+report.Failed > 0 {
+			if id, e := newRelaunchEpoch(); e == nil {
+				report.RunID = "recovery:" + id
+				p.sendRecoveryReport(ctx, d, report)
+			} else {
+				p.log("sweep-record-failed", "", "worker.relaunch", "", "RECORD_FAILED")
+			}
+		}
+	}
 }
