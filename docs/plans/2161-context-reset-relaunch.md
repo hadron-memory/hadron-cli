@@ -31,6 +31,7 @@ Before C12, after a shed a fresh agent appeared only when C5's periodic relaunch
   - The fix: one ordered cleanup that checks the run's own context. If no wake is taken, the next check-in runs pending exits first, and the two-absence sweep stays the backstop.
 - **A false "signalled".** The receipt now reports `endOwnAgent`'s real result. It says "signalled" only after the signal was delivered to the pinned ancestor; any failure is `exit-now`.
 - **The checkpoint** (found while answering Jibril's claim P3): see step 5.
+- **Rook §10 P2:** the poller scrubs its own `HADRON_AGENT_PID` from what it passes on (`scrubbedEnv`). Otherwise an exec agent launched by a poller that itself runs inside an Orca agent's tree could end that agent, which really is its ancestor. Rook's two P3s are pinned too: a stamp that cannot be removed proves nothing, and a FIFO with a live writer is refused within a bound.
 - **Tests:** the negative exit tests now wait for the exit pass to finish and assert the reason the Runner logged. A test pins that an exit wake keeps the check-in deadline.
 
 ## What the stamp can and cannot do (Rook's §10 check)
