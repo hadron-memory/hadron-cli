@@ -4,6 +4,7 @@ package hostpoller
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
@@ -97,4 +98,45 @@ func TestTheStopLadderOnAModelledGroup2173(t *testing.T) {
 			t.Errorf("stopped=%v %q signals=%q, want a silent confirmed stop with zero signals", stopped, detail, m.got())
 		}
 	})
+}
+
+// The production signalGroup and probeGroup address the GROUP (a negative number to
+// kill(2)), never the leader alone (hadron-cli#2173, §10). The modelled ladder above
+// replaces signalGroup, so it cannot see a fault inside its own body; this pins the
+// real bodies. The group's leader has EXITED and been reaped, so only a group-wide
+// address can still reach the surviving member: a leader-only kill(pgid) answers ESRCH.
+// Nothing here depends on timing: the member (sleep 600) outlives the test until the
+// group signal kills it.
+func TestTheDefaultGroupSignalAddressesTheGroupNotTheLeader2173(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	c := exec.Command("sh", "-c", "sleep 600 & exit 0")
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pgid := c.Process.Pid
+	t.Cleanup(func() { _ = syscall.Kill(-pgid, syscall.SIGKILL) })
+	if err := c.Wait(); err != nil { // the leader is gone and reaped; the member lives
+		t.Fatalf("the leader must exit cleanly: %v", err)
+	}
+	// Both primitives must still see the group through the surviving member.
+	if err := probeGroup(pgid); err != nil {
+		t.Fatalf("probeGroup must address the group (the member is alive), got %v", err)
+	}
+	if err := signalGroup(pgid, 0); err != nil {
+		t.Fatalf("signalGroup must address the group (the member is alive), got %v", err)
+	}
+	// And a kill through it must take the member down: the group becomes gone.
+	if err := signalGroup(pgid, syscall.SIGKILL); err != nil {
+		t.Fatalf("signalGroup(SIGKILL): %v", err)
+	}
+	deadline := time.Now().Add(120 * time.Second)
+	for !groupGone(pgid) {
+		if time.Now().After(deadline) {
+			t.Fatal("the group never went after a group SIGKILL")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
