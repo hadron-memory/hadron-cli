@@ -557,6 +557,7 @@ hadron agent ticker-templates list <agent-ref> | create <agent-ref> --name <n> -
 
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation, sent once and never retried, into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints the returned NEW URN; --json prints the normal Agent DTO (no origin field). No install/subscription second step or manual-copy fallback. **Exit codes:** a typed refusal is a definite answer, nothing was created, so fix the cause and rerun: exit 8 for AGENT_NOT_PUBLIC and unreadable/unusable linked-memory, base or import; exit 2 for an unsupported target or encrypted content; a source-changed conflict (exit 5) carries retryable=true but is never retried for you, rerun by hand. Exit 3 is rejected credentials: nothing was created. Exit 1 with `(clone server error: …)` is a server fault whose effect on the clone is not known: verify as for exit 7 before rerunning. **UNKNOWN (exit 7, never success)** means the answer was lost, or a success reply carried no Agent (null/missing `cloneAgent`): the clone may exist. Verify before cloning again: `hadron agent list --org <org> --visibility PERSONAL` (`--org` takes the same id, slug or URN as `--to`; a new clone is a PERSONAL draft and is listed for org members); with `--name` look for that name, without it the server copies the SOURCE's name, so look for a PERSONAL agent bearing it. Refusal details are the first GraphQL error's own `code`/`reason`/`retryable` and blocker counts, positions and supplied names only (a hidden subject never gets a name); an empty-details first error yields none, never a later error's. The text suffix (stderr, human mode only) names the answer: `(clone refusal: …)`, `(clone authentication: …)` or `(clone server error: …)`, followed by the code, `reason <R>` and, when retryable is true, `retryable: rerun by hand`; each blocker then gets its own indented line, `blocker <CODE>  count <N>  "<name>" (position <P>), position <P>`, with positions as received and a quoted name only where the server supplied one. Server strings are made one-line and control-free; a name is backslash-escaped for `\` and `"` inside its quotes, and a reason containing a comma, quote or backslash is quoted the same way; parse `--json`, not this text. Requires server cloneAgent S1; older providers reject as schema skew.
 hadron team app sweep-mode [OFF|OBSERVE|APPLY] [--instruction <kind>:<ref>] (uses --app, the context, or the binding)
+hadron team review-stats --month YYYY-MM [--app <ref>] [--json] (read only; uses --app, else the App context or binding, else exit 2)
 hadron team worker leave-alone <worker> [--on|--off] [--reason <text>] [--instruction <kind>:<ref>] (names use App scope; ids/URNs resolve server-side)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | terminal-title <name-or-id> [--json] | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes [--instruction <kind>:<ref>] | rm <name-or-id> --yes [--instruction <kind>:<ref>]
@@ -6653,6 +6654,26 @@ you), never false. For a visible cleared marker, leaveAlone is false and
 the other three fields are null.
 Worker get/list keep their previous documents, DTOs and tables; use the new
 leave-alone command to read the marker.
+
+`hadron team review-stats --month YYYY-MM` (hadron-cli#2190; server #4281, spec
+`cor:agt:130:06`, Proposed) reads an App's review-quality measures for one UTC
+month. Read only; the numbers never decide readiness. `--month` is required
+and a malformed value exits 2 before any request; the App is `--app`, else the
+App context or worktree binding, and with neither the command exits 2 naming
+`--app` before any request. Readers are the App's participants and its own key;
+anyone else gets the server's missing-App answer, exit 4, byte-identical to a
+missing App. `--json` is `{month, asOf, rows}`; `rows` is `[]` for a month with
+no reviews. A row is keyed (family, model, modelReported) and carries
+`recorded`, `family`, `model`, `modelReported`, `reviews`, `findings`,
+`findingsPerReview`, `confirmedFindings`, `rejectedFindings`,
+`undisposedFindings` (the three-way split, none folded into another),
+`shareConfirmed` (null when `findings` is 0), `approvingReviews`,
+`defectsMissed` (an integer, 0 with no links) and
+`defectsMissedPerApprovingReview` (null only when `approvingReviews` is 0).
+The one not-recorded row (`recorded:false`, family/model/modelReported null) is
+last and never counted under a family. Nulls stay null in `--json` and print
+empty in the table. `asOf` is when the numbers were worked out: a past month
+can still change.
 
 `hadron team app sweep-mode [OFF|OBSERVE|APPLY]` reads with no argument and
 sets with one. OFF is the default and acts on no workers; OBSERVE reports
