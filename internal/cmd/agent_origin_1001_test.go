@@ -52,6 +52,11 @@ func TestAgentOrigin1001(t *testing.T) {
 						_, _ = w.Write([]byte(`{"data":{"agent":{"id":"agt1","lifecycle":"LONG_LIVED"}}}`))
 						return
 					}
+					if req.OperationName == "GetAgentContextCap" {
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(`{"data":{"agent":{"id":"agt1","contextCap":null}}}`))
+						return
+					}
 					mu.Lock()
 					calls++
 					mu.Unlock()

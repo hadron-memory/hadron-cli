@@ -35197,6 +35197,276 @@ func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhook
 	return v.CreateAgentWebhook
 }
 
+// CreateAgentWithContextCapCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentWithContextCapCreateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+	// above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+	// worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+	// for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+	ContextCap *int `json:"contextCap"`
+}
+
+// GetLifecycle returns CreateAgentWithContextCapCreateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetContextCap returns CreateAgentWithContextCapCreateAgent.ContextCap, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetContextCap() *int { return v.ContextCap }
+
+// GetId returns CreateAgentWithContextCapCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentWithContextCapCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentWithContextCapCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentWithContextCapCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns CreateAgentWithContextCapCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentWithContextCapCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns CreateAgentWithContextCapCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns CreateAgentWithContextCapCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentWithContextCapCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns CreateAgentWithContextCapCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns CreateAgentWithContextCapCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentWithContextCapCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns CreateAgentWithContextCapCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CreateAgentWithContextCapCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentWithContextCapCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns CreateAgentWithContextCapCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentWithContextCapCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns CreateAgentWithContextCapCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns CreateAgentWithContextCapCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns CreateAgentWithContextCapCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentWithContextCapCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentWithContextCapCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentWithContextCapCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentWithContextCapCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentWithContextCapCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWithContextCapCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWithContextCapCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWithContextCapCreateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	ContextCap *int `json:"contextCap"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentWithContextCapCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWithContextCapCreateAgent) __premarshalJSON() (*__premarshalCreateAgentWithContextCapCreateAgent, error) {
+	var retval __premarshalCreateAgentWithContextCapCreateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.ContextCap = v.ContextCap
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentWithContextCapResponse is returned by CreateAgentWithContextCap on success.
+type CreateAgentWithContextCapResponse struct {
+	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgId accepts the org's ID or URN.
+	CreateAgent *CreateAgentWithContextCapCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentWithContextCapResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapResponse) GetCreateAgent() *CreateAgentWithContextCapCreateAgent {
+	return v.CreateAgent
+}
+
 // CreateAgentWithLifecycleCreateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -49586,6 +49856,42 @@ type GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject
 func (v *GetAgentAgentOfferReadinessReasonsAgentOfferReasonSubjectsAgentOfferSubject) GetName() string {
 	return v.Name
 }
+
+// GetAgentContextCapAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type GetAgentContextCapAgent struct {
+	Id string `json:"id"`
+	// #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+	// above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+	// worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+	// for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+	ContextCap *int `json:"contextCap"`
+}
+
+// GetId returns GetAgentContextCapAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetAgentContextCapAgent) GetId() string { return v.Id }
+
+// GetContextCap returns GetAgentContextCapAgent.ContextCap, and is useful for accessing the field via an interface.
+func (v *GetAgentContextCapAgent) GetContextCap() *int { return v.ContextCap }
+
+// GetAgentContextCapResponse is returned by GetAgentContextCap on success.
+type GetAgentContextCapResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetAgentContextCapAgent `json:"agent"`
+}
+
+// GetAgent returns GetAgentContextCapResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetAgentContextCapResponse) GetAgent() *GetAgentContextCapAgent { return v.Agent }
 
 // GetAgentLifecycleAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -103176,6 +103482,271 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	return &retval, nil
 }
 
+// UpdateAgentWithContextCapResponse is returned by UpdateAgentWithContextCap on success.
+type UpdateAgentWithContextCapResponse struct {
+	// Update an Agent.
+	//
+	// urn renames the slug (org-owned agents only). personaRole is normalized
+	// (explicit null or blank clears, omitted preserves). Worker castings
+	// referencing this agent are unaffected —
+	// the named identity lives on the Worker.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateAgentWithContextCapUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateAgentWithContextCapResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapResponse) GetUpdateAgent() *UpdateAgentWithContextCapUpdateAgent {
+	return v.UpdateAgent
+}
+
+// UpdateAgentWithContextCapUpdateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type UpdateAgentWithContextCapUpdateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+	// above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+	// worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+	// for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+	ContextCap *int `json:"contextCap"`
+}
+
+// GetLifecycle returns UpdateAgentWithContextCapUpdateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetContextCap returns UpdateAgentWithContextCapUpdateAgent.ContextCap, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetContextCap() *int { return v.ContextCap }
+
+// GetId returns UpdateAgentWithContextCapUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentWithContextCapUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentWithContextCapUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentWithContextCapUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns UpdateAgentWithContextCapUpdateAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns UpdateAgentWithContextCapUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns UpdateAgentWithContextCapUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns UpdateAgentWithContextCapUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns UpdateAgentWithContextCapUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns UpdateAgentWithContextCapUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns UpdateAgentWithContextCapUpdateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns UpdateAgentWithContextCapUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns UpdateAgentWithContextCapUpdateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateAgentWithContextCapUpdateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns UpdateAgentWithContextCapUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns UpdateAgentWithContextCapUpdateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns UpdateAgentWithContextCapUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns UpdateAgentWithContextCapUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns UpdateAgentWithContextCapUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns UpdateAgentWithContextCapUpdateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns UpdateAgentWithContextCapUpdateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentWithContextCapUpdateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns UpdateAgentWithContextCapUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns UpdateAgentWithContextCapUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentWithContextCapUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *UpdateAgentWithContextCapUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentWithContextCapUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentWithContextCapUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentWithContextCapUpdateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	ContextCap *int `json:"contextCap"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentWithContextCapUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentWithContextCapUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentWithContextCapUpdateAgent, error) {
+	var retval __premarshalUpdateAgentWithContextCapUpdateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.ContextCap = v.ContextCap
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
 // UpdateAgentWithLifecycleResponse is returned by UpdateAgentWithLifecycle on success.
 type UpdateAgentWithLifecycleResponse struct {
 	// Update an Agent.
@@ -116980,6 +117551,66 @@ type __CreateAgentWebhookInput struct {
 // GetInput returns __CreateAgentWebhookInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWebhookInput) GetInput() *CreateAgentWebhookInput { return v.Input }
 
+// __CreateAgentWithContextCapInput is used internally by genqlient
+type __CreateAgentWithContextCapInput struct {
+	Name                  string                    `json:"name"`
+	Lifecycle             *AgentLifecycle           `json:"lifecycle,omitempty"`
+	OrgId                 *string                   `json:"orgId,omitempty"`
+	Description           *string                   `json:"description,omitempty"`
+	AgentType             *AgentType                `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility          `json:"visibility,omitempty"`
+	SystemMemoryId        *string                   `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                  `json:"surfaces,omitempty"`
+	PersonaRole           *string                   `json:"personaRole,omitempty"`
+	MemberRoles           []string                  `json:"memberRoles,omitempty"`
+	UsesTasks             *bool                     `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                     `json:"resetContextAfterTask,omitempty"`
+	ContextCap            *gqltypes.ContextCapInput `json:"contextCap,omitempty"`
+}
+
+// GetName returns __CreateAgentWithContextCapInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetName() string { return v.Name }
+
+// GetLifecycle returns __CreateAgentWithContextCapInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetOrgId returns __CreateAgentWithContextCapInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetOrgId() *string { return v.OrgId }
+
+// GetDescription returns __CreateAgentWithContextCapInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentWithContextCapInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentWithContextCapInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __CreateAgentWithContextCapInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __CreateAgentWithContextCapInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentWithContextCapInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentWithContextCapInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentWithContextCapInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentWithContextCapInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// GetContextCap returns __CreateAgentWithContextCapInput.ContextCap, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetContextCap() *gqltypes.ContextCapInput {
+	return v.ContextCap
+}
+
 // __CreateAgentWithLifecycleInput is used internally by genqlient
 type __CreateAgentWithLifecycleInput struct {
 	Name                  string           `json:"name"`
@@ -119019,6 +119650,14 @@ func (v *__FindObjectsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __FindObjectsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindObjectsInput) GetOffset() *int { return v.Offset }
+
+// __GetAgentContextCapInput is used internally by genqlient
+type __GetAgentContextCapInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAgentContextCapInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAgentContextCapInput) GetRef() string { return v.Ref }
 
 // __GetAgentInput is used internally by genqlient
 type __GetAgentInput struct {
@@ -123925,6 +124564,82 @@ func (v *__UpdateAgentTickerTemplateInput) GetExpectedRevision() int { return v.
 
 // GetInput returns __UpdateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentTickerTemplateInput) GetInput() *AgentTickerTemplatePatch { return v.Input }
+
+// __UpdateAgentWithContextCapInput is used internally by genqlient
+type __UpdateAgentWithContextCapInput struct {
+	Ref                   string                          `json:"ref"`
+	Lifecycle             *AgentLifecycle                 `json:"lifecycle,omitempty"`
+	Name                  *string                         `json:"name,omitempty"`
+	Description           *string                         `json:"description,omitempty"`
+	AgentType             *AgentType                      `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
+	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                        `json:"surfaces,omitempty"`
+	Urn                   *string                         `json:"urn,omitempty"`
+	PersonaRole           *string                         `json:"personaRole,omitempty"`
+	UsesTasks             *bool                           `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                           `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string                        `json:"memberRoles,omitempty"`
+	ListedOnMarketplace   *bool                           `json:"listedOnMarketplace,omitempty"`
+	RegisterDefaults      *gqltypes.RegisterDefaultsInput `json:"registerDefaults,omitempty"`
+	ContextCap            *gqltypes.ContextCapInput       `json:"contextCap,omitempty"`
+}
+
+// GetRef returns __UpdateAgentWithContextCapInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetRef() string { return v.Ref }
+
+// GetLifecycle returns __UpdateAgentWithContextCapInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetName returns __UpdateAgentWithContextCapInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAgentWithContextCapInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __UpdateAgentWithContextCapInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __UpdateAgentWithContextCapInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryId returns __UpdateAgentWithContextCapInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __UpdateAgentWithContextCapInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetUrn returns __UpdateAgentWithContextCapInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetUrn() *string { return v.Urn }
+
+// GetPersonaRole returns __UpdateAgentWithContextCapInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetUsesTasks returns __UpdateAgentWithContextCapInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __UpdateAgentWithContextCapInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// GetMemberRoles returns __UpdateAgentWithContextCapInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetListedOnMarketplace returns __UpdateAgentWithContextCapInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetListedOnMarketplace() *bool {
+	return v.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns __UpdateAgentWithContextCapInput.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetRegisterDefaults() *gqltypes.RegisterDefaultsInput {
+	return v.RegisterDefaults
+}
+
+// GetContextCap returns __UpdateAgentWithContextCapInput.ContextCap, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetContextCap() *gqltypes.ContextCapInput {
+	return v.ContextCap
+}
 
 // __UpdateAgentWithLifecycleInput is used internally by genqlient
 type __UpdateAgentWithLifecycleInput struct {
@@ -138047,6 +138762,96 @@ func CreateAgentWebhook(
 	return data_, err_
 }
 
+// The mutation executed by CreateAgentWithContextCap.
+const CreateAgentWithContextCap_Operation = `
+mutation CreateAgentWithContextCap ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean, $contextCap: Int) {
+	createAgent(contextCap: $contextCap, name: $name, lifecycle: $lifecycle, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+		lifecycle
+		contextCap
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentWithContextCap(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	lifecycle *AgentLifecycle,
+	orgId *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+	contextCap *gqltypes.ContextCapInput,
+) (data_ *CreateAgentWithContextCapResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWithContextCap",
+		Query:  CreateAgentWithContextCap_Operation,
+		Variables: &__CreateAgentWithContextCapInput{
+			Name:                  name,
+			Lifecycle:             lifecycle,
+			OrgId:                 orgId,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			ContextCap:            contextCap,
+		},
+	}
+
+	data_ = &CreateAgentWithContextCapResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAgentWithLifecycle.
 const CreateAgentWithLifecycle_Operation = `
 mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
@@ -144030,6 +144835,43 @@ func GetAgent(
 	}
 
 	data_ = &GetAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAgentContextCap.
+const GetAgentContextCap_Operation = `
+query GetAgentContextCap ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+		contextCap
+	}
+}
+`
+
+// agent get's read of the cap: its own document, like GetAgentLifecycle, so a server
+// without the field rejects only this one and get still answers.
+func GetAgentContextCap(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAgentContextCapResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAgentContextCap",
+		Query:  GetAgentContextCap_Operation,
+		Variables: &__GetAgentContextCapInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAgentContextCapResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -163976,6 +164818,102 @@ func UpdateAgentTickerTemplate(
 	}
 
 	data_ = &UpdateAgentTickerTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentWithContextCap.
+const UpdateAgentWithContextCap_Operation = `
+mutation UpdateAgentWithContextCap ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput, $contextCap: Int) {
+	updateAgent(contextCap: $contextCap, ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+		... AgentFields
+		lifecycle
+		contextCap
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func UpdateAgentWithContextCap(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	lifecycle *AgentLifecycle,
+	name *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryId *string,
+	surfaces []string,
+	urn *string,
+	personaRole *string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+	memberRoles []string,
+	listedOnMarketplace *bool,
+	registerDefaults *gqltypes.RegisterDefaultsInput,
+	contextCap *gqltypes.ContextCapInput,
+) (data_ *UpdateAgentWithContextCapResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentWithContextCap",
+		Query:  UpdateAgentWithContextCap_Operation,
+		Variables: &__UpdateAgentWithContextCapInput{
+			Ref:                   ref,
+			Lifecycle:             lifecycle,
+			Name:                  name,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			Urn:                   urn,
+			PersonaRole:           personaRole,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			MemberRoles:           memberRoles,
+			ListedOnMarketplace:   listedOnMarketplace,
+			RegisterDefaults:      registerDefaults,
+			ContextCap:            contextCap,
+		},
+	}
+
+	data_ = &UpdateAgentWithContextCapResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
