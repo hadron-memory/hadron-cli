@@ -218,16 +218,19 @@ type orcaCreated struct {
 // the one the terminal runs, and pins it. Every failure after the terminal
 // exists closes it: nothing this launch started is left running unrecorded.
 func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAgent, error) {
+	setupFailed := func(err error) (*OrcaAgent, error) {
+		return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureSetupFailed, Err: err}
+	}
 	dir := filepath.Join(l.StateDir, "launch")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("preparing the launch directory: %w", err)
+		return setupFailed(fmt.Errorf("preparing the launch directory: %w", err))
 	}
 	if err := os.Chmod(dir, 0o700); err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	var rb [12]byte
 	if _, err := rand.Read(rb[:]); err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	id := hex.EncodeToString(rb[:])
 	envFile, marker, gate := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker"), filepath.Join(dir, id+".go")
@@ -237,11 +240,11 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		}
 	}()
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
-		return nil, fmt.Errorf("writing the launch environment: %w", err)
+		return setupFailed(fmt.Errorf("writing the launch environment: %w", err))
 	}
 	cmd, err := launchCommand(envFile, marker, gate, spec.Argv)
 	if err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	argv := []string{"terminal", "create", "--worktree", "path:" + spec.Dir, "--command", cmd, "--json"}
 	if spec.Title != "" {
@@ -306,13 +309,20 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		if errors.Is(err, context.DeadlineExceeded) {
 			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: finalErr}
 		}
+		if !errors.Is(err, context.Canceled) {
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureVerifyFailed, Err: finalErr}
+		}
 		return agent, finalErr
+	}
+	proofFail := func(format string, args ...any) (*OrcaAgent, error) {
+		agent, err := fail(format, args...)
+		return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureVerifyFailed, Err: err}
 	}
 	if l.onMarker != nil {
 		l.onMarker(envFile)
 	}
 	if opid <= 1 {
-		return fail("Orca named no process for the terminal")
+		return proofFail("Orca named no process for the terminal")
 	}
 	// Pin first: every later read is then of this process, or it is known
 	// gone. A launch whose process already exited (a short task, or a
@@ -328,7 +338,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	// terminal's own process still runs).
 	exited := func() (*OrcaAgent, error) {
 		if pid != opid {
-			return fail("pid %d exited before it could be proven the process of Orca's terminal (pid %d)", pid, opid)
+			return proofFail("pid %d exited before it could be proven the process of Orca's terminal (pid %d)", pid, opid)
 		}
 		a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, done: make(chan struct{})}
 		a.closeOnce.Do(func() { close(a.done) })
@@ -339,7 +349,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return exited()
 	}
 	if err != nil {
-		return fail("pid %d could not be pinned: %v", pid, err)
+		return proofFail("pid %d could not be pinned: %v", pid, err)
 	}
 	// alive is a positive answer or an error: only a successful liveness
 	// check lets the reads count (cli#2088 blind delta P2). "Not seen gone"
@@ -376,7 +386,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	live, lerr := alive()
 	if lerr != nil {
 		h.Close()
-		return fail("pid %d's liveness could not be established after its checks: %v", pid, lerr)
+		return proofFail("pid %d's liveness could not be established after its checks: %v", pid, lerr)
 	}
 	if !live {
 		h.Close()
@@ -384,16 +394,16 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	}
 	if !parent {
 		h.Close()
-		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
+		return proofFail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
 	}
 	if ferr != nil || fd0 != tty {
 		h.Close()
-		return fail("pid %d's terminal is not the tty it reported", pid)
+		return proofFail("pid %d's terminal is not the tty it reported", pid)
 	}
 	root, rerr := filepath.EvalSymlinks(spec.Dir)
 	if cerr != nil || rerr != nil || !within(cwd, root) {
 		h.Close()
-		return fail("pid %d is not working in the worktree", pid)
+		return proofFail("pid %d is not working in the worktree", pid)
 	}
 	a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, h: h, done: make(chan struct{})}
 	go a.watch()
@@ -692,7 +702,7 @@ func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string
 		return OrcaLaunchSpec{}, err
 	}
 	if err := os.MkdirAll(w.DiskTmp, 0o700); err != nil {
-		return OrcaLaunchSpec{}, fmt.Errorf("preparing disk_tmp: %w", err)
+		return OrcaLaunchSpec{}, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureSetupFailed, Err: fmt.Errorf("preparing disk_tmp: %w", err)}
 	}
 	var env []string
 	if grant != "" {

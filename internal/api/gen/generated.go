@@ -57430,6 +57430,137 @@ func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsH
 	return v.HostRegistrations
 }
 
+// These new enum members are literals deliberately: old providers reject the
+// document as schema skew, rather than redacting variable coercion as generic
+// BAD_USER_INPUT. Established repair reasons keep the existing operation.
+type HostRelaunchFailureStored struct {
+	Stored  []*HostRelaunchFailureStoredStoredWorkerTerminalRef      `json:"stored"`
+	Refused []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal `json:"refused"`
+}
+
+// GetStored returns HostRelaunchFailureStored.Stored, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStored) GetStored() []*HostRelaunchFailureStoredStoredWorkerTerminalRef {
+	return v.Stored
+}
+
+// GetRefused returns HostRelaunchFailureStored.Refused, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStored) GetRefused() []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal {
+	return v.Refused
+}
+
+// HostRelaunchFailureStoredRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND, TERMINAL_REPORT_STALE, REPAIR_NOT_DARK, REPAIR_ATTEMPT_INVALID or REPAIR_REASON_INVALID.
+type HostRelaunchFailureStoredRefusedWorkerTerminalRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns HostRelaunchFailureStoredRefusedWorkerTerminalRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStoredRefusedWorkerTerminalRefusal) GetWorker() string { return v.Worker }
+
+// GetCode returns HostRelaunchFailureStoredRefusedWorkerTerminalRefusal.Code, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStoredRefusedWorkerTerminalRefusal) GetCode() string { return v.Code }
+
+// HostRelaunchFailureStoredStoredWorkerTerminalRef includes the requested fields of the GraphQL type WorkerTerminalRef.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a worker by id and URN only: a host key is not given a Worker object.
+type HostRelaunchFailureStoredStoredWorkerTerminalRef struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+}
+
+// GetId returns HostRelaunchFailureStoredStoredWorkerTerminalRef.Id, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStoredStoredWorkerTerminalRef) GetId() string { return v.Id }
+
+// GetUrn returns HostRelaunchFailureStoredStoredWorkerTerminalRef.Urn, and is useful for accessing the field via an interface.
+func (v *HostRelaunchFailureStoredStoredWorkerTerminalRef) GetUrn() string { return v.Urn }
+
+// HostRelaunchSetupFailureResponse is returned by HostRelaunchSetupFailure on success.
+type HostRelaunchSetupFailureResponse struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
+	// registers, as classified by its on-host sweep. The server builds what it stores (Worker.terminal): the host comes
+	// from the key and its registration, the time from the server, and no screen text of any kind is accepted. A
+	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
+	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
+	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
+	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	SetHostWorkerTerminals *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
+}
+
+// GetSetHostWorkerTerminals returns HostRelaunchSetupFailureResponse.SetHostWorkerTerminals, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSetupFailureResponse) GetSetHostWorkerTerminals() *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult {
+	return v.SetHostWorkerTerminals
+}
+
+// HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult includes the requested fields of the GraphQL type SetHostWorkerTerminalsResult.
+// The GraphQL type's documentation follows.
+//
+// #2924 — status reporting only: no alarm verdict or coordinator requirement.
+type HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	HostRelaunchFailureStored `json:"-"`
+}
+
+// GetStored returns HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Stored, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetStored() []*HostRelaunchFailureStoredStoredWorkerTerminalRef {
+	return v.HostRelaunchFailureStored.Stored
+}
+
+// GetRefused returns HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Refused, and is useful for accessing the field via an interface.
+func (v *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetRefused() []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal {
+	return v.HostRelaunchFailureStored.Refused
+}
+
+func (v *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostRelaunchFailureStored)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	Stored []*HostRelaunchFailureStoredStoredWorkerTerminalRef `json:"stored"`
+
+	Refused []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal `json:"refused"`
+}
+
+func (v *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) __premarshalJSON() (*__premarshalHostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult, error) {
+	var retval __premarshalHostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult
+
+	retval.Stored = v.HostRelaunchFailureStored.Stored
+	retval.Refused = v.HostRelaunchFailureStored.Refused
+	return &retval, nil
+}
+
 // HostRelaunchSnapshotHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
 // The GraphQL type's documentation follows.
 //
@@ -57536,6 +57667,88 @@ func (v *HostRelaunchSnapshotResponse) GetMyApp() *HostRelaunchSnapshotMyApp { r
 // GetHostDesiredState returns HostRelaunchSnapshotResponse.HostDesiredState, and is useful for accessing the field via an interface.
 func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapshotHostDesiredState {
 	return v.HostDesiredState
+}
+
+// HostRelaunchVerifyFailureResponse is returned by HostRelaunchVerifyFailure on success.
+type HostRelaunchVerifyFailureResponse struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
+	// registers, as classified by its on-host sweep. The server builds what it stores (Worker.terminal): the host comes
+	// from the key and its registration, the time from the server, and no screen text of any kind is accepted. A
+	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
+	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
+	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
+	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	SetHostWorkerTerminals *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
+}
+
+// GetSetHostWorkerTerminals returns HostRelaunchVerifyFailureResponse.SetHostWorkerTerminals, and is useful for accessing the field via an interface.
+func (v *HostRelaunchVerifyFailureResponse) GetSetHostWorkerTerminals() *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult {
+	return v.SetHostWorkerTerminals
+}
+
+// HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult includes the requested fields of the GraphQL type SetHostWorkerTerminalsResult.
+// The GraphQL type's documentation follows.
+//
+// #2924 — status reporting only: no alarm verdict or coordinator requirement.
+type HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	HostRelaunchFailureStored `json:"-"`
+}
+
+// GetStored returns HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Stored, and is useful for accessing the field via an interface.
+func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetStored() []*HostRelaunchFailureStoredStoredWorkerTerminalRef {
+	return v.HostRelaunchFailureStored.Stored
+}
+
+// GetRefused returns HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Refused, and is useful for accessing the field via an interface.
+func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetRefused() []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal {
+	return v.HostRelaunchFailureStored.Refused
+}
+
+func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostRelaunchFailureStored)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	Stored []*HostRelaunchFailureStoredStoredWorkerTerminalRef `json:"stored"`
+
+	Refused []*HostRelaunchFailureStoredRefusedWorkerTerminalRefusal `json:"refused"`
+}
+
+func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult) __premarshalJSON() (*__premarshalHostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult, error) {
+	var retval __premarshalHostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult
+
+	retval.Stored = v.HostRelaunchFailureStored.Stored
+	retval.Refused = v.HostRelaunchFailureStored.Refused
+	return &retval, nil
 }
 
 // HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
@@ -120571,6 +120784,26 @@ type __HostRegistrationsInput struct {
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
 
+// __HostRelaunchSetupFailureInput is used internally by genqlient
+type __HostRelaunchSetupFailureInput struct {
+	AppRef    string `json:"appRef"`
+	Worker    string `json:"worker"`
+	CheckedAt string `json:"checkedAt"`
+	Attempt   int    `json:"attempt"`
+}
+
+// GetAppRef returns __HostRelaunchSetupFailureInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSetupFailureInput) GetAppRef() string { return v.AppRef }
+
+// GetWorker returns __HostRelaunchSetupFailureInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSetupFailureInput) GetWorker() string { return v.Worker }
+
+// GetCheckedAt returns __HostRelaunchSetupFailureInput.CheckedAt, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSetupFailureInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetAttempt returns __HostRelaunchSetupFailureInput.Attempt, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchSetupFailureInput) GetAttempt() int { return v.Attempt }
+
 // __HostRelaunchSnapshotInput is used internally by genqlient
 type __HostRelaunchSnapshotInput struct {
 	AppRef string `json:"appRef"`
@@ -120582,6 +120815,26 @@ func (v *__HostRelaunchSnapshotInput) GetAppRef() string { return v.AppRef }
 
 // GetHostId returns __HostRelaunchSnapshotInput.HostId, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchSnapshotInput) GetHostId() string { return v.HostId }
+
+// __HostRelaunchVerifyFailureInput is used internally by genqlient
+type __HostRelaunchVerifyFailureInput struct {
+	AppRef    string `json:"appRef"`
+	Worker    string `json:"worker"`
+	CheckedAt string `json:"checkedAt"`
+	Attempt   int    `json:"attempt"`
+}
+
+// GetAppRef returns __HostRelaunchVerifyFailureInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchVerifyFailureInput) GetAppRef() string { return v.AppRef }
+
+// GetWorker returns __HostRelaunchVerifyFailureInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchVerifyFailureInput) GetWorker() string { return v.Worker }
+
+// GetCheckedAt returns __HostRelaunchVerifyFailureInput.CheckedAt, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchVerifyFailureInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetAttempt returns __HostRelaunchVerifyFailureInput.Attempt, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchVerifyFailureInput) GetAttempt() int { return v.Attempt }
 
 // __HostUpWorkerReposInput is used internally by genqlient
 type __HostUpWorkerReposInput struct {
@@ -148349,6 +148602,56 @@ func HostRegistrations(
 	return data_, err_
 }
 
+// The mutation executed by HostRelaunchSetupFailure.
+const HostRelaunchSetupFailure_Operation = `
+mutation HostRelaunchSetupFailure ($appRef: String!, $worker: String!, $checkedAt: DateTime!, $attempt: Int!) {
+	setHostWorkerTerminals(input: {appRef:$appRef,reports:[{worker:$worker,status:dark,prompt:unknown,reason:no_agent,checkedAt:$checkedAt,attempt:$attempt,repair:RELAUNCH_FAILED,repairReason:SETUP_FAILED}]}) {
+		... HostRelaunchFailureStored
+	}
+}
+fragment HostRelaunchFailureStored on SetHostWorkerTerminalsResult {
+	stored {
+		id
+		urn
+	}
+	refused {
+		worker
+		code
+	}
+}
+`
+
+func HostRelaunchSetupFailure(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	worker string,
+	checkedAt string,
+	attempt int,
+) (data_ *HostRelaunchSetupFailureResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchSetupFailure",
+		Query:  HostRelaunchSetupFailure_Operation,
+		Variables: &__HostRelaunchSetupFailureInput{
+			AppRef:    appRef,
+			Worker:    worker,
+			CheckedAt: checkedAt,
+			Attempt:   attempt,
+		},
+	}
+
+	data_ = &HostRelaunchSetupFailureResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostRelaunchSnapshot.
 const HostRelaunchSnapshot_Operation = `
 query HostRelaunchSnapshot ($appRef: String!, $hostId: String!) {
@@ -148389,6 +148692,56 @@ func HostRelaunchSnapshot(
 	}
 
 	data_ = &HostRelaunchSnapshotResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by HostRelaunchVerifyFailure.
+const HostRelaunchVerifyFailure_Operation = `
+mutation HostRelaunchVerifyFailure ($appRef: String!, $worker: String!, $checkedAt: DateTime!, $attempt: Int!) {
+	setHostWorkerTerminals(input: {appRef:$appRef,reports:[{worker:$worker,status:dark,prompt:unknown,reason:no_agent,checkedAt:$checkedAt,attempt:$attempt,repair:RELAUNCH_FAILED,repairReason:VERIFY_FAILED}]}) {
+		... HostRelaunchFailureStored
+	}
+}
+fragment HostRelaunchFailureStored on SetHostWorkerTerminalsResult {
+	stored {
+		id
+		urn
+	}
+	refused {
+		worker
+		code
+	}
+}
+`
+
+func HostRelaunchVerifyFailure(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	worker string,
+	checkedAt string,
+	attempt int,
+) (data_ *HostRelaunchVerifyFailureResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchVerifyFailure",
+		Query:  HostRelaunchVerifyFailure_Operation,
+		Variables: &__HostRelaunchVerifyFailureInput{
+			AppRef:    appRef,
+			Worker:    worker,
+			CheckedAt: checkedAt,
+			Attempt:   attempt,
+		},
+	}
+
+	data_ = &HostRelaunchVerifyFailureResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -1,0 +1,23 @@
+# These new enum members are literals deliberately: old providers reject the
+# document as schema skew, rather than redacting variable coercion as generic
+# BAD_USER_INPUT. Established repair reasons keep the existing operation.
+fragment HostRelaunchFailureStored on SetHostWorkerTerminalsResult {
+  stored { id urn }
+  refused { worker code }
+}
+
+mutation HostRelaunchSetupFailure($appRef: String!, $worker: String!, $checkedAt: DateTime!, $attempt: Int!) {
+  setHostWorkerTerminals(input: {
+    appRef: $appRef
+    reports: [{worker: $worker, status: dark, prompt: unknown, reason: no_agent,
+      checkedAt: $checkedAt, attempt: $attempt, repair: RELAUNCH_FAILED, repairReason: SETUP_FAILED}]
+  }) { ...HostRelaunchFailureStored }
+}
+
+mutation HostRelaunchVerifyFailure($appRef: String!, $worker: String!, $checkedAt: DateTime!, $attempt: Int!) {
+  setHostWorkerTerminals(input: {
+    appRef: $appRef
+    reports: [{worker: $worker, status: dark, prompt: unknown, reason: no_agent,
+      checkedAt: $checkedAt, attempt: $attempt, repair: RELAUNCH_FAILED, repairReason: VERIFY_FAILED}]
+  }) { ...HostRelaunchFailureStored }
+}

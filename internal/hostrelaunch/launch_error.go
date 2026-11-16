@@ -1,7 +1,7 @@
 package hostrelaunch
 
 // LaunchError carries only an observed closed failure classification. Unknown
-// setup/verification errors stay in local JSON/logs, never a guessed wire code.
+// failures stay in local JSON/logs, never a guessed wire code.
 type LaunchError struct {
 	Code string
 	Err  error
@@ -17,6 +17,8 @@ func (e *LaunchError) Unwrap() error                 { return e.Err }
 func (e *LaunchError) RelaunchFailureReason() string { return e.Code }
 
 const (
+	FailureSetupFailed           = "SETUP_FAILED"
+	FailureVerifyFailed          = "VERIFY_FAILED"
 	FailureTimeout               = "TIMEOUT"
 	FailureTerminalCreateRefused = "TERMINAL_CREATE_REFUSED"
 	FailureLaunchExitNonzero     = "LAUNCH_EXIT_NONZERO"

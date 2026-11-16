@@ -70,7 +70,9 @@ inside an attempt. Profiles that fork a separate agent instead of exec require
 additional identity support; family and cwd alone never authorize adoption.
 
 The schema is exported from merged server revision
-10559e7e034e421bd23ac0fcc745ca92f7c77c26 (#4249). Typed repair notices use
+57bc0604fdc74bb863b3e44ad252960724ded322 (#4258), which includes
+#4264 at 25920b11207db1230755f1fe6bf990e1565d18a2 (adopting #4259).
+This preserves main's ContextReset.cause query as ruled in Wolfgang #109729. Typed repair notices use
 RELAUNCH_REFUSED and RELAUNCH_FAILED only with a supported observed reason.
 CAP_REACHED means the actual rolling cap was reached. The report timestamp is
 the earlier proven absence observation, not a claim that a newly launched agent
@@ -79,11 +81,22 @@ null. Repair transport and server refusals remain visible; a notice is marked
 sent only after confirmed acceptance. Local deduplication is not a durable
 outbox guarantee.
 
-Known contract limit (Wolfgang #108826): setup/disk errors or an unproven
-post-launch identity can be FAILED without a typed failure reason. They remain
-local with noticeFailed and a bounded, credential-redacted local cause in JSON
-and logs. No borrowed code or false CAP_REACHED is sent. Peter owns the generic
-server failure-reason follow-on; C5 does not wait for it.
+Failure classification follows the observed phase. Local preparation/disk
+failure before the launcher runs is SETUP_FAILED; a failed process proof after
+launch is VERIFY_FAILED. Actual observed timeouts/refusals/exits retain their
+existing codes. Cancellation, ambiguous create replies and fresh server/binding
+refusals are not guessed to be either new reason. A failed cleanup never changes
+the classification of the original failure or permits another launch.
+
+The two new report documents name their enum literals statically. This is
+intentional: an older provider rejects the document through schema validation,
+whereas unknown enum values inside variables are redacted as generic
+BAD_USER_INPUT. The normal api.MapError schema-skew path keeps the failure
+local with noticeFailed and the original localCause; it never retries under a
+borrowed reason. Established reason documents are unchanged. Notice acceptance
+is recorded only after the server confirms the worker was stored. The refreshed
+AssignHostWorkerInput's optional accountProfile and effort fields remain omitted
+when unset, preserving older-provider compatibility for unrelated assignments.
 
 Author tests cover pure guards, journal safety and restart budgets, strict
 census, session-header removal, wire omissions and reports, shared admission,
@@ -126,5 +139,5 @@ additional fresh snapshots and one repair mutation. Colin's independent report
 adapter measurement used 16,311-byte snapshots and 101 reads plus 100 writes
 for 100 reports; that component measurement excludes runner guards and launch
 preflight, so it is not a complete recovery benchmark. Targeted host-key worker
-reads are filed as nonblocking server follow-on #4260; generic honest failure
-codes are #4259.
+reads are filed as nonblocking server follow-on #4260. Generic honest failure
+codes from #4259 are adopted by CLI#2149.

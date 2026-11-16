@@ -335,8 +335,11 @@ Only its own pinned process can pass verification or be stopped on failure.
 Plain bindings work without Git. Host up reports this work; it never launches
 an open-session agent. Relaunch JSON events name workerId/sessionId/reason
 and attempt; noticeFailed plus localCause/noticeCause exposes a local or
-undelivered repair. Setup/disk and unproven post-launch failures currently
-lack a typed server reason and stay local, never a false CAP_REACHED.
+undelivered repair. SETUP_FAILED identifies setup/disk failure before the
+launcher runs; VERIFY_FAILED identifies an unproven post-launch process check.
+An actual expired launch/proof wait remains TIMEOUT. Older servers rejecting
+the new reasons as schema skew keep FAILED with its local cause; no borrowed
+code or false CAP_REACHED is sent.
 
 
 THE HOST KEY is never put in a launched agent's environment, argv or files.
