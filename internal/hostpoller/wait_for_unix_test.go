@@ -26,6 +26,9 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 // and the stop then reports stopped=false, the conservative answer. A test that asserts
 // a SUCCESSFUL stop is asserting an eventually-true outcome, so it waits for it. The
 // tests that pin the "did not exit" path set their own short bound and are untouched.
+// postKillWait is a package variable, so this is safe only while no test in the package
+// runs in parallel; none does (a search of the package for Parallel calls is empty,
+// the property exechost_linux_2082_test.go also relies on).
 func patientKillWait(t *testing.T) {
 	t.Helper()
 	old := postKillWait
