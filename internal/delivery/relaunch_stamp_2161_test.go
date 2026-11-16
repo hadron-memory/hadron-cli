@@ -151,3 +151,48 @@ func TestARelaunchStampNamingAnythingButACheckpointProvesNothing2161(t *testing.
 		})
 	}
 }
+
+// Rook's §10 P3s on #2167. A stamp that cannot be used up proves nothing (one
+// stamp, at most one relaunch). And only a regular file counts: a FIFO with a
+// live writer that offers a valid stamp is still refused.
+func TestARelaunchStampThatCannotBeUsedUpProvesNothing2161(t *testing.T) {
+	tree := gitTree(t)
+	dir := filepath.Join(tree, ".git")
+	writeStamp(t, dir, goodStamp())
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	if _, ok := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); ok {
+		t.Fatal("a stamp that could not be removed was honoured")
+	}
+}
+
+func TestARelaunchStampFromAFIFOWithAWriterProvesNothing2161(t *testing.T) {
+	tree := gitTree(t)
+	p := filepath.Join(tree, ".git", RelaunchStampFile)
+	if err := syscall.Mkfifo(p, 0o600); err != nil {
+		t.Skip(err)
+	}
+	w, err := os.OpenFile(p, os.O_RDWR, 0) // a writer that stays, so a read would not see EOF
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+	b, _ := json.Marshal(goodStamp())
+	if _, err := w.Write(b); err != nil {
+		t.Fatal(err)
+	}
+	// Bounded: without the regular-file check the read waits for an EOF the
+	// live writer never sends, which would hang the poller's exit pass.
+	got := make(chan bool, 1)
+	go func() { _, ok := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); got <- ok }()
+	select {
+	case ok := <-got:
+		if ok {
+			t.Fatal("a FIFO offering a valid stamp was honoured")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("reading a FIFO stamp hung")
+	}
+}
