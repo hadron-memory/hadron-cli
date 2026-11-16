@@ -669,7 +669,7 @@ func (a *execAgent) unconfirmedDetail() string {
 // until stopAuthorityGone ends the procedure.
 func (a *execAgent) drained() bool {
 	if a.holdsZombie() && (a.exited.Load() || leaderZombieAlone(a.pid)) {
-		return !groupHasOtherMembers(a.pid, a.pid)
+		return !a.hasMembers()
 	}
 	return groupGone(a.pid)
 }
