@@ -22,7 +22,7 @@ func TestAgentHelpKeepsTheLifecycleParagraphWhole2171(t *testing.T) {
 			if life < 0 || req < 0 || capAt < 0 {
 				t.Fatalf("a paragraph is missing (lifecycle %d, #4242 %d, cap %d):\n%s", life, req, capAt, h)
 			}
-			if !(life < req && req < capAt) {
+			if life >= req || req >= capAt {
 				t.Fatalf("the lifecycle paragraph (with its #4242 sentence) must come first, then the cap paragraph: lifecycle %d, #4242 %d, cap %d", life, req, capAt)
 			}
 		})
