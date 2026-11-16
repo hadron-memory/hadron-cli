@@ -4412,6 +4412,11 @@ worker, and never removes anything. `--worker <ref>` narrows the run to one
 worker: an exact id, or a name (any case) only one worker has; a name two
 workers share exits 2 and nothing is planned. An agent terminal counts whether
 or not Orca reports it connected, so no second agent is started beside one.
+A terminal in the worktree whose `agentIdentity` Orca reports as null or empty
+counts as an agent too (cli#2191): unknown is never absent. A leftover shell
+therefore holds a start (`TERMINAL_WITHOUT_SESSION`) or reads as
+`DUPLICATE_AGENTS` beside the agent, and the item's `detail` says when a count
+includes such an unidentified terminal.
 
 The desired state comes from the server by default: `hostDesiredState(appRef,
 hostId)` (S3, hadron-server#4224), read without the worker session. A worker
