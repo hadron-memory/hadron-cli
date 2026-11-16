@@ -77,6 +77,7 @@ func TestOneListServesEveryDeliveryOfACycle2181(t *testing.T) {
 	now := time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC)
 	d.Orca = NewSharedList(c, 5*time.Second, func() time.Time { return now })
 	h := &harness{t: t, now: now, d: d}
+	d.Emit = func(Event) {} // the harness collector is not safe for goroutines
 	var wg sync.WaitGroup
 	for _, r := range rs {
 		wg.Add(1)
@@ -238,5 +239,55 @@ func TestARememberedOwnLeftoverIsReadAgainBeforeItIsTouched2181(t *testing.T) {
 	}
 	if n := c.reads.Load(); n != 2 {
 		t.Fatalf("%d reads: our own leftover was judged on a remembered screen", n)
+	}
+}
+
+// A list shared with an earlier delivery may keep a line held; it may never
+// send. A second agent that appeared in the worktree inside the window must
+// still hold the delivery (Joaquin F1, Jibril P1).
+func TestASharedListNeverAuthorisesASendPastASecondAgent2181(t *testing.T) {
+	d, f, rs := roster(t, 1, claudeIdle, "100")
+	now := time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC)
+	d.Orca = NewSharedList(f, 5*time.Second, func() time.Time { return now })
+	h := &harness{t: t, now: now, d: d}
+	if _, err := d.Orca.List(context.Background()); err != nil { // an earlier delivery's list
+		t.Fatal(err)
+	}
+	second := f.terms[0]
+	second.Handle = "term_second"
+	f.terms = append(f.terms, second)
+	f.screens["term_second"] = []*orcaterm.Screen{screen(claudeIdle)}
+	o := d.Deliver(context.Background(), batchFor(h, rs[0].WorkerID), rs[0])
+	if o.Kind != Held || o.Reason != HoldTwoAgents || len(f.sends) != 0 {
+		t.Fatalf("outcome %+v, sends %d: want held two-agents and nothing typed", o, len(f.sends))
+	}
+}
+
+// Remembered evidence has an age limit: a draft that vanished without the
+// list's stamp moving (a stamp is milliseconds, and not a promise) is found.
+func TestARememberedHoldExpires2181(t *testing.T) {
+	d, f, rs := roster(t, 1, claudeDraft, "100")
+	c := &countOrca{Terminals: f}
+	d.Orca = c
+	h := &harness{t: t, now: time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC), d: d}
+	d.Now = func() time.Time { return h.now }
+	b := batchFor(h, rs[0].WorkerID)
+	if o := d.Deliver(context.Background(), b, rs[0]); o.Kind != Held {
+		t.Fatalf("%+v", o)
+	}
+	h.now = h.now.Add(ScreenMemoLife - time.Second)
+	d.Deliver(context.Background(), b, rs[0])
+	if c.reads.Load() != 1 {
+		t.Fatalf("a memo inside its life was read again: %d", c.reads.Load())
+	}
+	h.now = h.now.Add(2 * time.Second)
+	b.ProofExpiresAt = h.now.Add(15 * time.Minute)
+	b.DeliverAfter = h.now.Add(-time.Minute)
+	f.screens["term_0"] = []*orcaterm.Screen{screen(claudeIdle)} // the draft is gone, the stamp is not
+	f.mu.Lock()
+	f.reads["term_0"] = 0
+	f.mu.Unlock()
+	if o := d.Deliver(context.Background(), b, rs[0]); o.Kind != Delivered {
+		t.Fatalf("an expired memo kept a line held: %+v", o)
 	}
 }

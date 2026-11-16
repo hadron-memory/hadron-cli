@@ -60,3 +60,22 @@ func TestAnUntruncatedListIsOneCall2181(t *testing.T) {
 		t.Fatalf("%v %v", err, r.calls)
 	}
 }
+
+// totalCount is a completeness check on both reads, not only a retry limit
+// (Joaquin F3, Jibril P2). A payload without it keeps working.
+func TestAShortListMarkedUntruncatedIsNotARoster2181(t *testing.T) {
+	short := `{"ok":true,"result":{"totalCount":3,"truncated":false,"terminals":[{"handle":"a"}]}}`
+	full := `{"ok":true,"result":{"totalCount":3,"truncated":false,"terminals":[{"handle":"a"},{"handle":"b"},{"handle":"c"}]}}`
+	r := &recorder{replies: []string{short, full}}
+	if terms, err := NewClient(r.run).List(context.Background()); err != nil || len(terms) != 3 || len(r.calls) != 2 {
+		t.Fatalf("a short first read is read again with the total: %+v %v %v", terms, err, r.calls)
+	}
+	r = &recorder{replies: []string{short, short}}
+	if terms, err := NewClient(r.run).List(context.Background()); err == nil || terms != nil {
+		t.Fatalf("a still-short list must fail closed: %+v %v", terms, err)
+	}
+	r = &recorder{replies: []string{`{"ok":true,"result":{"terminals":[{"handle":"a"}]}}`}}
+	if terms, err := NewClient(r.run).List(context.Background()); err != nil || len(terms) != 1 || len(r.calls) != 1 {
+		t.Fatalf("an older payload without totalCount is as before: %+v %v", terms, err)
+	}
+}

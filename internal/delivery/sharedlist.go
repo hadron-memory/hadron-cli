@@ -63,3 +63,6 @@ func (s *SharedList) Send(ctx context.Context, handle, text string, o orcaterm.S
 	s.mu.Unlock()
 	return rc
 }
+
+// ScreenMemoLife stub
+const ScreenMemoLife = 2 * time.Minute
