@@ -437,7 +437,7 @@ func (p *Poller) logRelaunch(t hostrelaunch.Target, r hostrelaunch.Result) {
 	if p.emit == nil {
 		return
 	}
-	p.emit(Event{Time: p.now().UTC(), Kind: "relaunch", Type: "worker.relaunch", Outcome: r.Status, Detail: r.Reason, WorkerID: t.WorkerID, SessionID: t.SessionID, TerminalHandle: r.Reference, Reason: r.Reason, Attempt: r.Attempt, CheckedAt: r.AbsentObservedAt, NoticeFailed: r.NoticeFailed, FailureReason: r.FailureReason, LocalCause: p.relaunchCause(r.LocalCause), NoticeCause: p.relaunchCause(r.NoticeCause)})
+	p.emit(Event{ForeignUIDSkipped: r.ForeignUIDSkipped, Time: p.now().UTC(), Kind: "relaunch", Type: "worker.relaunch", Outcome: r.Status, Detail: r.Reason, WorkerID: t.WorkerID, SessionID: t.SessionID, TerminalHandle: r.Reference, Reason: r.Reason, Attempt: r.Attempt, CheckedAt: r.AbsentObservedAt, NoticeFailed: r.NoticeFailed, FailureReason: r.FailureReason, LocalCause: p.relaunchCause(r.LocalCause), NoticeCause: p.relaunchCause(r.NoticeCause)})
 }
 
 func newRelaunchEpoch() (string, error) {

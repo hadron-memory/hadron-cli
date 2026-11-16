@@ -25,7 +25,8 @@ func openRelaunchJournalHeld(path string) (hostrelaunch.Journal, uint64, func(),
 	return j, j.Sweep(), func() { _ = j.Close() }, nil
 }
 func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
-	agents, err := strictRelaunchCensus(ctx, "/proc", t.Worktree, func(ctx context.Context) error {
+	skipped := 0
+	agents, err := strictRelaunchCensusCounted(ctx, "/proc", t.Worktree, func(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -37,11 +38,11 @@ func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrela
 			return errors.New("proc is not the kernel proc filesystem")
 		}
 		return nil
-	})
+	}, &skipped)
 	if err != nil {
 		return hostrelaunch.Observation{}, err
 	}
-	out := hostrelaunch.Observation{Proven: true, PIDs: []int{}}
+	out := hostrelaunch.Observation{Proven: true, PIDs: []int{}, ForeignUIDSkipped: skipped}
 	for _, a := range agents {
 		out.PIDs = append(out.PIDs, a.PID)
 	}
