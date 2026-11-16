@@ -3,6 +3,8 @@
 package healthsched
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,8 +24,8 @@ func TestSweepSystemdVerify2183(t *testing.T) {
 	files := writeSweepUnits2183(t, dir, s)
 	args := append([]string{"verify"}, files...)
 	out, err := exec.Command("systemd-analyze", args...).CombinedOutput()
-	if err != nil {
-		t.Fatalf("generated units rejected: %v\n%s", err, out)
+	if err != nil || strings.TrimSpace(string(out)) != "" {
+		t.Fatalf("generated units rejected or warned: %v\n%s", err, out)
 	}
 }
 
@@ -57,9 +59,21 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	if _, err := os.Stat("/run/systemd/container"); err != nil {
 		t.Fatal("refusing outside a systemd container")
 	}
+	comm, err := os.ReadFile("/proc/1/comm")
+	if err != nil || strings.TrimSpace(string(comm)) != "systemd" {
+		t.Fatal("requires systemd PID 1")
+	}
+	if out, err := exec.Command("systemd-detect-virt", "--container").CombinedOutput(); err != nil || len(strings.TrimSpace(string(out))) == 0 {
+		t.Fatal("container identity unproven")
+	}
+	command := func(args ...string) ([]byte, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return exec.CommandContext(ctx, "systemctl", args...).CombinedOutput()
+	}
 	ctl := func(t *testing.T, args ...string) string {
 		t.Helper()
-		out, err := exec.Command("systemctl", args...).CombinedOutput()
+		out, err := command(args...)
 		if err != nil {
 			t.Fatalf("systemctl %v: %v\n%s", args, err, out)
 		}
@@ -89,7 +103,10 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := Spec{Job: Sweep, Bin: probe, Config: filepath.Join(dir, "host.yaml"), Path: "/usr/bin:/bin", Logger: logger, Interval: time.Minute}
-	paths := writeSweepUnits2183(t, "/run/systemd/system", s)
+	paths := make([]string, 0, len(names))
+	for _, n := range names {
+		paths = append(paths, filepath.Join("/run/systemd/system", n))
+	}
 	t.Cleanup(func() {
 		_ = exec.Command("systemctl", append([]string{"stop"}, names...)...).Run()
 		for _, p := range paths {
@@ -98,7 +115,48 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 		_ = exec.Command("systemctl", "daemon-reload").Run()
 		_ = exec.Command("systemctl", append([]string{"reset-failed"}, names...)...).Run()
 	})
+	writeSweepUnits2183(t, "/run/systemd/system", s)
 	ctl(t, "daemon-reload")
+	duration := func(t *testing.T, unit, property string) time.Duration {
+		t.Helper()
+		value := ctl(t, "show", unit, "-p", property, "--value")
+		d, err := time.ParseDuration(strings.ReplaceAll(strings.ReplaceAll(value, "min", "m"), " ", ""))
+		if err != nil || d < 0 || d > 2*time.Minute {
+			t.Fatalf("unsupported %s=%q", property, value)
+		}
+		return d
+	}
+	restartDelay := duration(t, names[1], "RestartUSec")
+	accuracy := duration(t, names[0], "AccuracyUSec")
+	randomDelay := duration(t, names[0], "RandomizedDelayUSec")
+	timerWait := s.Interval + accuracy + randomDelay + 30*time.Second
+	reset := func(t *testing.T) {
+		t.Helper()
+		t.Cleanup(func() { _, _ = command(append([]string{"stop"}, names...)...) })
+		// reset-failed alone does not cancel queued auto-restarts. Stop every
+		// owned unit first so a failed subtest cannot contaminate the next.
+		ctl(t, append([]string{"stop"}, names...)...)
+		for _, n := range names {
+			if ctl(t, "show", n, "-p", "ActiveState", "--value") == "failed" {
+				ctl(t, "reset-failed", n)
+			}
+			if got := ctl(t, "show", n, "-p", "ActiveState", "--value"); got != "inactive" {
+				t.Fatalf("%s did not stop: %s", n, got)
+			}
+		}
+	}
+	startRefusal := func(t *testing.T, code string) {
+		t.Helper()
+		out, err := command("start", names[1])
+		var exited *exec.ExitError
+		if !errors.As(err, &exited) || exited.ExitCode() != 1 {
+			t.Fatalf("expected service failure, got %v: %s", err, out)
+		}
+		if got := ctl(t, "show", names[1], "-p", "ExecMainStatus", "--value"); got != code {
+			t.Fatalf("exit status=%s want %s; start output=%s", got, code, out)
+		}
+	}
+
 	count := func(name string) int {
 		b, _ := os.ReadFile(filepath.Join(dir, name))
 		return strings.Count(string(b), "\n")
@@ -122,35 +180,39 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	}
 	for _, code := range []string{"2", "5"} {
 		t.Run("refusal-"+code, func(t *testing.T) {
-			_ = exec.Command("systemctl", "reset-failed", names[1], names[2]).Run()
+			reset(t)
 			mode(t, code)
 			runs, failures := count("runs"), count("failures")
-			_ = exec.Command("systemctl", "start", names[1]).Run() // expected failed exit
+			startRefusal(t, code)
 			wait(t, 5*time.Second, "OnFailure", func() bool { return count("failures") == failures+1 })
-			time.Sleep(11 * time.Second) // beyond the shipped RestartSec=10s
+			time.Sleep(restartDelay + time.Second) // beyond the manager’s actual restart delay
 			if count("runs") != runs+1 || ctl(t, "show", names[1], "-p", "NRestarts", "--value") != "0" {
 				t.Fatal("prevented exit restarted")
 			}
-			if got := ctl(t, "show", names[1], "-p", "ExecMainStatus", "--value"); got != code {
-				t.Fatalf("exit status=%s want %s", got, code)
+			if ctl(t, "show", names[1], "-p", "ActiveState", "--value") != "failed" {
+				t.Fatal("refused service did not stay failed")
+			}
+			if count("failures") != failures+1 {
+				t.Fatal("OnFailure ran more than once")
 			}
 		})
 	}
 	t.Run("timer-retries-refusal", func(t *testing.T) {
-		_ = exec.Command("systemctl", "reset-failed", names[1], names[2]).Run()
+		reset(t)
 		mode(t, "2")
-		// First refused invocation pins the activation clock. Start timer afterward;
-		// its next trigger must be OnUnitActiveSec, not an immediate overdue boot tick.
-		_ = exec.Command("systemctl", "start", names[1]).Run()
+		// The first timer trigger may be the boot timer. A second trigger
+		// establishes recurring retry; include the manager's accuracy window.
+		startRefusal(t, "2")
+		t.Cleanup(func() { _ = exec.Command("systemctl", "stop", names[0]).Run() })
 		baseline := count("runs")
 		ctl(t, "start", names[0])
-		wait(t, 85*time.Second, "first timer retry", func() bool { return count("runs") > baseline })
+		wait(t, timerWait, "first timer retry", func() bool { return count("runs") > baseline })
 		// OnBootSec may be overdue or still pending in a newly booted
 		// container. Observe another trigger to cover the recurring timer.
 		baseline = count("runs")
 		started := time.Now()
-		wait(t, 145*time.Second, "recurring one-minute timer retry", func() bool { return count("runs") > baseline })
-		if elapsed := time.Since(started); elapsed < 55*time.Second {
+		wait(t, timerWait, "recurring one-minute timer retry", func() bool { return count("runs") > baseline })
+		if elapsed := time.Since(started); elapsed < s.Interval-5*time.Second {
 			t.Fatalf("recurring timer fired too early: %s", elapsed)
 		}
 		ctl(t, "stop", names[0])
@@ -159,13 +221,13 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 		}
 	})
 	t.Run("sigkill-restarts", func(t *testing.T) {
-		_ = exec.Command("systemctl", "reset-failed", names[1], names[2]).Run()
+		reset(t)
 		mode(t, "hold")
 		baseline := count("runs")
 		ctl(t, "start", "--no-block", names[1])
 		wait(t, 5*time.Second, "probe running", func() bool { return count("runs") > baseline })
 		ctl(t, "kill", "--kill-whom=all", "--signal=KILL", names[1])
-		wait(t, 20*time.Second, "on-failure restart", func() bool { return count("runs") >= baseline+2 })
+		wait(t, restartDelay+10*time.Second, "on-failure restart", func() bool { return count("runs") >= baseline+2 })
 		if ctl(t, "show", names[1], "-p", "NRestarts", "--value") != "1" {
 			t.Fatal("SIGKILL did not cause one service restart")
 		}

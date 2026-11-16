@@ -5,7 +5,6 @@ package hostpoller
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -57,32 +56,24 @@ func TestSweepReportsOutageEpisodeAndPollerOwnedRecovery2056(t *testing.T) {
 
 // S10 validates each incoming report before returning the first row for a
 // duplicate (app, host, runId). A replay need not have the original payload.
-// scripts/check-s10-replay-contract.mjs probes those actual server helpers.
+// The separate resolver probe checks server validation and replay semantics;
+// this test asserts only the poller’s persisted identity and acknowledgement.
 func TestSweepOutageReportReplaysUnknownOutcome2056(t *testing.T) {
 	f := newLoopFixture2060(t)
 	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	f.p.now = func() time.Time { return clock }
 	f.p.relaunch.Ready = func(context.Context) error { return ErrOrcaDown }
 	var reports []SweepReport
-	var stored SweepReport
-	writes := 0
 	f.p.relaunch.ReportSweep = func(_ context.Context, r SweepReport) error {
+		// Capture an independent snapshot, then simulate a lost successful reply.
+		r.Lines = append([]SweepReportLine(nil), r.Lines...)
 		reports = append(reports, r)
-		if r.StartedAt.After(r.EndedAt) || r.EndedAt.Sub(r.StartedAt) > time.Hour || r.EndedAt.After(clock.Add(2*time.Minute)) {
-			t.Fatalf("invalid replay timestamps: %+v", r)
-		}
-		if stored.RunID == "" {
-			stored = r
-			writes++
+		if len(reports) == 1 {
 			return errors.New("committed, answer lost")
 		}
-		if r.RunID != stored.RunID || r.AppID != stored.AppID || r.HostID != stored.HostID {
-			t.Fatalf("retry changed S10 row identity: original=%+v retry=%+v", stored, r)
-		}
-		return nil // server returns original row, not the new counts/lines
+		return nil
 	}
 	stepSweep2056(t, f)
-	original := stored
 	state, err := LoadState(f.p.state.path)
 	if err != nil {
 		t.Fatal(err)
@@ -98,6 +89,12 @@ func TestSweepOutageReportReplaysUnknownOutcome2056(t *testing.T) {
 	worker.WorkerID = "id-second"
 	f.source.snapshot.Workers = append(f.source.snapshot.Workers, worker)
 	stepSweep2056(t, f)
+	if len(reports) != 2 {
+		t.Fatalf("pending outage must retry once: %+v", reports)
+	}
+	if reports[0].RunID == "" || reports[0].RunID != reports[1].RunID || reports[0].AppID != reports[1].AppID || reports[0].HostID != reports[1].HostID {
+		t.Fatalf("retry changed row identity: %+v", reports)
+	}
 	state, err = LoadState(f.p.state.path)
 	if err != nil {
 		t.Fatal(err)
@@ -107,14 +104,14 @@ func TestSweepOutageReportReplaysUnknownOutcome2056(t *testing.T) {
 		t.Fatal("confirmed replay must persist acknowledgement")
 	}
 	stepSweep2056(t, f)
-	if len(reports) != 2 || writes != 1 || reports[0].RunID == "" || reports[0].RunID != reports[1].RunID {
-		t.Fatalf("outage must replay until confirmed, then quiet: writes=%d reports=%+v", writes, reports)
+	if len(reports) != 2 {
+		t.Fatalf("must retry once, then stay quiet: %+v", reports)
 	}
 	if reports[0].Failed != 1 || reports[1].Failed != 2 || len(reports[1].Lines) != 2 || !reports[1].StartedAt.Equal(clock) {
 		t.Fatalf("fixture did not change retry payload: %+v", reports)
 	}
-	if !reflect.DeepEqual(stored, original) || len(f.launches) != 0 {
-		t.Fatal("replay replaced original row or launched during outage")
+	if len(f.launches) != 0 {
+		t.Fatal("outage launched a worker")
 	}
 }
 
