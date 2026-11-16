@@ -221,3 +221,22 @@ func TestASendForgetsTheRememberedScreen2181(t *testing.T) {
 		t.Fatal("a screen remembered from before a send was believed")
 	}
 }
+
+// Our own older leftover in the composer is acted on (cleared) only from a
+// screen read now, never a remembered one.
+func TestARememberedOwnLeftoverIsReadAgainBeforeItIsTouched2181(t *testing.T) {
+	d, f, rs := roster(t, 1, claudeTyped("[hadron chat #1] Ada: older text"), "100")
+	c := &countOrca{Terminals: f}
+	d.Orca = c
+	d.Caps = Capabilities{Clear: map[string]bool{}, EnterOnly: map[string]bool{}}
+	h := &harness{t: t, now: time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC), d: d}
+	d.Now = func() time.Time { return h.now }
+	for i := 0; i < 2; i++ {
+		if o := d.Deliver(context.Background(), batchFor(h, rs[0].WorkerID), rs[0]); o.Kind != Held {
+			t.Fatalf("cycle %d: %+v", i, o)
+		}
+	}
+	if n := c.reads.Load(); n != 2 {
+		t.Fatalf("%d reads: our own leftover was judged on a remembered screen", n)
+	}
+}
