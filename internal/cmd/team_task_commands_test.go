@@ -768,8 +768,9 @@ func TestTeamTaskTreeRendersOpenAlarms(t *testing.T) {
 	if events == nil {
 		t.Fatal("tree did not read events")
 	}
-	if events.Vars["alarmsOnly"] != true {
-		t.Fatalf("alarmsOnly %v", events.Vars["alarmsOnly"])
+	// cli#2053 F4: the count follows the server's in-effect filter.
+	if events.Vars["alarmsInEffect"] != true {
+		t.Fatalf("alarmsInEffect %v", events.Vars["alarmsInEffect"])
 	}
 	if events.Vars["appRef"] != "capp100000000000000000000" {
 		t.Fatalf("appRef %v", events.Vars["appRef"])

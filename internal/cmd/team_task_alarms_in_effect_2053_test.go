@@ -86,7 +86,7 @@ func TestTaskCount2053HelpSaysInEffect(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		help := o.String()
+		help := strings.Join(strings.Fields(o.String()), " ") // help wraps
 		for _, want := range []string{"in effect", "--alarms-in-effect", "evaluator pass"} {
 			if !strings.Contains(help, want) {
 				t.Errorf("%v: help is missing %q", argv, want)
