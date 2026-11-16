@@ -421,8 +421,6 @@ func (a *execAgent) watchDrain() {
 	a.drainLoop(t.C, func(int, int) (bool, drainWhy) { return a.members() }, drainClock, a.drainReap)
 }
 
-// drainReap reaps the held zombie once the group has drained. It reports
-// whether THIS call reaped (false: a stop reaped first and finalized it).
 // members is this launch's membership answer: through its own lister when it
 // was given one, else the package default (drainMembership, which tests of the
 // loop alone replace).
@@ -438,6 +436,8 @@ func (a *execAgent) hasMembers() bool {
 	return m
 }
 
+// drainReap reaps the held zombie once the group has drained. It reports
+// whether THIS call reaped (false: a stop reaped first and finalized it).
 func (a *execAgent) drainReap() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()

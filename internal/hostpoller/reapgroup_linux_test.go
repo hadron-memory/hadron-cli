@@ -85,13 +85,20 @@ func TestStopAfterAnEmptyReapNeverSignalsAReusedNumber(t *testing.T) {
 	// Stop first, then wait with a bound: a watcher that never settles fails the
 	// test with a message instead of hanging the suite.
 	defer func() {
-		_, _ = a.Terminate()
-		if ea, ok := a.(*execAgent); ok {
-			select {
-			case <-ea.watcherDone:
-			case <-time.After(30 * time.Second):
-				t.Error("the drain watcher did not settle within 30s of the stop")
+		// The stop itself is inside the bound: it runs on its own goroutine, and the
+		// whole cleanup (stop, then the watcher settling) shares one 30 s budget.
+		settled := make(chan struct{})
+		go func() {
+			defer close(settled)
+			_, _ = a.Terminate()
+			if ea, ok := a.(*execAgent); ok {
+				<-ea.watcherDone
 			}
+		}()
+		select {
+		case <-settled:
+		case <-time.After(30 * time.Second):
+			t.Error("the stop and the drain watcher did not settle within 30s")
 		}
 	}()
 	select {
