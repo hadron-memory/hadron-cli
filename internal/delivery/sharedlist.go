@@ -41,11 +41,34 @@ func NewSharedList(inner Terminals, ttl time.Duration, now func() time.Time) *Sh
 // List is the shared list: the one call a window needs, made under the lock
 // so concurrent deliveries wait for it instead of each making their own.
 func (s *SharedList) List(ctx context.Context) ([]orcaterm.Terminal, error) {
+	terms, _, err := s.ListShared(ctx)
+	return terms, err
+}
+
+// ListShared is List that also says whether the answer came from the window
+// (a list another delivery made). A delivery that would type judges such a
+// list stale: see ListFresh.
+func (s *SharedList) ListShared(ctx context.Context) (terms []orcaterm.Terminal, shared bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.have && s.now().Sub(s.at) < s.ttl {
-		return slices.Clone(s.terms), nil
+		return slices.Clone(s.terms), true, nil
 	}
+	terms, err = s.fresh(ctx)
+	return terms, false, err
+}
+
+// ListFresh is a list made now, whatever the window holds, and the new
+// shared list. A delivery that is about to type or clear a composer asks for
+// this: a second agent terminal, a moved worktree or a closed tab that
+// appeared inside the window must still refuse the send.
+func (s *SharedList) ListFresh(ctx context.Context) ([]orcaterm.Terminal, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.fresh(ctx)
+}
+
+func (s *SharedList) fresh(ctx context.Context) ([]orcaterm.Terminal, error) {
 	s.have = false
 	terms, err := s.Terminals.List(ctx)
 	if err != nil {
@@ -63,6 +86,3 @@ func (s *SharedList) Send(ctx context.Context, handle, text string, o orcaterm.S
 	s.mu.Unlock()
 	return rc
 }
-
-// ScreenMemoLife stub
-const ScreenMemoLife = 2 * time.Minute

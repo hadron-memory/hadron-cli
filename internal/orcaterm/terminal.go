@@ -112,18 +112,18 @@ func NewSweepClient(run Runner) *Client { return &Client{run: SweepGuard(run)} }
 // short fails closed. A truncated list is never a roster, so a terminal it
 // lacks is never "gone" (#2181).
 func (c *Client) List(ctx context.Context) ([]Terminal, error) {
-	terms, total, truncated, err := c.listCall(ctx, nil)
-	if err != nil || !truncated {
+	terms, total, short, err := c.listCall(ctx, nil)
+	if err != nil || !short {
 		return terms, err
 	}
-	terms, _, truncated, err = c.listCall(ctx, []string{"--limit", strconv.Itoa(max(total, len(terms)))})
-	if err != nil || truncated {
+	terms, _, short, err = c.listCall(ctx, []string{"--limit", strconv.Itoa(max(total, len(terms)))})
+	if err != nil || short {
 		return nil, ErrOrca
 	}
 	return terms, nil
 }
 
-func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal, total int, truncated bool, err error) {
+func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal, total int, short bool, err error) {
 	argv := append([]string{"terminal", "list"}, extra...)
 	env, ok := parse(c.run(ctx, append(argv, "--json")))
 	if !ok || !env.OK {
@@ -137,7 +137,10 @@ func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal
 	if json.Unmarshal(env.Result, &result) != nil {
 		return nil, 0, false, ErrOrca
 	}
-	return result.Terminals, result.TotalCount, result.Truncated, nil
+	// Short is either signal: Orca says so, or it declares a total it did not
+	// return. A payload with no total (0) is judged by `truncated` alone.
+	short = result.Truncated || (result.TotalCount > 0 && len(result.Terminals) < result.TotalCount)
+	return result.Terminals, result.TotalCount, short, nil
 }
 
 // Screen is one `orca terminal read --screen` result: the rendered tail, the

@@ -89,9 +89,11 @@ func launchesInSteadyState(t *testing.T, n int) map[string]int {
 			i, i, now.Add(-time.Minute).Format(time.RFC3339), now.Add(10*time.Minute).Format(time.RFC3339), now.Add(-2*time.Minute).Format(time.RFC3339)))
 	}
 	page := `{"data":{"dueWakes":{"status":"OK","withheld":0,"dormant":[],"wakes":[` + strings.Join(wakes, ",") + `],"pageInfo":{"hasNextPage":false,"endCursor":"w1"}}}}`
-	prevWindow := sharedListWindow
-	sharedListWindow = 400 * time.Millisecond // a cycle here is milliseconds
-	t.Cleanup(func() { sharedListWindow = prevWindow })
+	// A cycle is a step of this clock, never a race with the wall clock.
+	clock := time.Now()
+	prevNow := sharedListNow
+	sharedListNow = func() time.Time { return clock }
+	t.Cleanup(func() { sharedListNow = prevNow })
 	prev := orcaRunner
 	orcaRunner = func(string) orcaterm.Runner { return orca.run }
 	t.Cleanup(func() { orcaRunner = prev })
@@ -116,9 +118,10 @@ func launchesInSteadyState(t *testing.T, n int) map[string]int {
 		before[k] = v
 	}
 	orca.mu.Unlock()
-	// The window is wall-clock: let the first cycle's list age out.
-	time.Sleep(sharedListWindow + 100*time.Millisecond)
+	// Each later cycle is past the window: its list is its own.
+	clock = clock.Add(sharedListWindow + time.Second)
 	step()
+	clock = clock.Add(sharedListWindow + time.Second)
 	step()
 	orca.mu.Lock()
 	defer orca.mu.Unlock()
@@ -138,12 +141,12 @@ func TestOrcaLaunchesPerCycleDoNotGrowWithTheRoster2181(t *testing.T) {
 		t.Fatalf("each held worker is read once on its first cycle: %v", large)
 	}
 	// Steady state, two cycles, nothing changed: no screen reads at all, and
-	// no more lists than cycles, for 5 workers or 40.
+	// one list per cycle, for 5 workers or 40.
 	for name, c := range map[string]map[string]int{"5": small, "40": large} {
 		if c["terminal read"] != 0 {
 			t.Fatalf("%s workers: held and quiet, yet %d screen reads", name, c["terminal read"])
 		}
-		if c["terminal list"] > 2 || c["terminal list"] < 1 {
+		if c["terminal list"] != 2 {
 			t.Fatalf("%s workers: %d list calls in 2 cycles, want at most 1 per cycle", name, c["terminal list"])
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -172,6 +171,22 @@ type Deliverer struct {
 type screenMemo struct {
 	stamp string
 	sc    *orcaterm.Screen
+	at    time.Time
+}
+
+// ScreenMemoLife bounds a remembered screen: a stamp is milliseconds and
+// Orca does not promise it moves on every composer edit, so a held line is
+// read again at least this often however quiet the terminal looks (#2181).
+const ScreenMemoLife = 2 * time.Minute
+
+// freshLister and sharedLister are what a Terminals that shares its list
+// (SharedList) offers beyond List.
+type freshLister interface {
+	ListFresh(ctx context.Context) ([]orcaterm.Terminal, error)
+}
+
+type sharedLister interface {
+	ListShared(ctx context.Context) ([]orcaterm.Terminal, bool, error)
 }
 
 // screenOf is t's screen. With cacheOK, a screen read before and a list
@@ -183,7 +198,7 @@ func (d *Deliverer) screenOf(ctx context.Context, t orcaterm.Terminal, cacheOK b
 		d.mu.Lock()
 		m, ok := d.screens[t.Handle]
 		d.mu.Unlock()
-		if ok && m.stamp == t.LastOutputAt {
+		if ok && m.stamp == t.LastOutputAt && d.Now().Sub(m.at) < ScreenMemoLife {
 			return m.sc, true
 		}
 	}
@@ -194,7 +209,7 @@ func (d *Deliverer) screenOf(ctx context.Context, t orcaterm.Terminal, cacheOK b
 		d.screens = map[string]screenMemo{}
 	}
 	if t.LastOutputAt != "" && sc != nil {
-		d.screens[t.Handle] = screenMemo{t.LastOutputAt, sc}
+		d.screens[t.Handle] = screenMemo{t.LastOutputAt, sc, d.Now()}
 	} else {
 		delete(d.screens, t.Handle)
 	}
@@ -211,8 +226,15 @@ func (d *Deliverer) forgetScreen(handle string) {
 func (d *Deliverer) pruneScreens(terms []orcaterm.Terminal) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if len(d.screens) == 0 {
+		return
+	}
+	live := make(map[string]bool, len(terms))
+	for _, t := range terms {
+		live[t.Handle] = true
+	}
 	for h := range d.screens {
-		if !slices.ContainsFunc(terms, func(t orcaterm.Terminal) bool { return t.Handle == h }) {
+		if !live[h] {
 			delete(d.screens, h)
 		}
 	}
@@ -532,7 +554,23 @@ func (d *Deliverer) clearOwn(ctx context.Context, l line, handle, family, leftov
 // to r, showing the expected interface.
 func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient, ev *evidence) (orcaterm.Terminal, *orcaterm.Screen, string, Outcome, bool) {
 	var none orcaterm.Terminal
-	terms, err := d.Orca.List(ctx)
+	// A shared list may keep a line held; it may not send. A list another
+	// delivery made, or a screen remembered, sends the line round again with
+	// fresh evidence (typeLine), and that round lists fresh (#2181).
+	var terms []orcaterm.Terminal
+	var err error
+	fl, hasFresh := d.Orca.(freshLister)
+	sl, hasShared := d.Orca.(sharedLister)
+	switch {
+	case hasFresh && !ev.cacheOK:
+		terms, err = fl.ListFresh(ctx)
+	case hasShared:
+		var shared bool
+		terms, shared, err = sl.ListShared(ctx)
+		ev.usedCache = ev.usedCache || shared
+	default:
+		terms, err = d.Orca.List(ctx)
+	}
 	if err != nil {
 		return none, nil, "", l.emit(Outcome{Kind: Failed, Reason: "orca-list"}), false
 	}
