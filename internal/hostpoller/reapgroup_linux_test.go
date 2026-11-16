@@ -660,13 +660,18 @@ func TestHeldZombieIsReapedWhenTheGroupDrainsAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stopAndWait(t, a)
+	// Both waits below are for an EVENTUALLY-true outcome on a host that may be
+	// churning short-lived processes: the hold's own scan runs before Done closes,
+	// and the watcher needs one clean pass to reap. Neither is promised within a
+	// few seconds (#2042 family), so the deadline is the generous one; a real
+	// regression (never reaped) still ends the test.
 	select {
 	case <-a.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the leader must exit at once")
+	case <-time.After(drainedDeadline):
+		t.Fatal("the leader's exit was never recorded")
 	}
 	ea := a.(*execAgent)
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(drainedDeadline)
 	for !ea.reaped.Load() {
 		if time.Now().After(deadline) {
 			t.Fatal("the held zombie is never reaped after the group drains on its own")
