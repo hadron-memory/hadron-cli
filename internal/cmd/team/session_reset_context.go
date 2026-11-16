@@ -84,9 +84,11 @@ brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
 "relaunch":"pending|failed|none","exit":"signal-pending|exit-now|none","reason"}.
-"signal-pending": the agent's pid is proven and pinned, and SIGTERM is sent
-right after this receipt has been written (a receipt that cannot be
-written signals nothing; a signal that still fails says so on stderr).
+"signal-pending" is NOT success: it means the CLI signals next, and the
+outcome is not in this receipt. The agent's pid is proven and pinned, and
+SIGTERM goes to it right after this receipt is written. A receipt that
+cannot be written signals nothing. A signal that still fails says so on
+stderr ("exit it now").
 "exit-now": nothing will be signalled, because this agent was not launched
 through Orca by the host or its pid could not be proven. Exit your agent
 yourself within two minutes.
