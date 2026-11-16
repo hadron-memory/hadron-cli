@@ -35,6 +35,12 @@ const (
 	relaunchFailed  = "failed"
 	relaunchNone    = "none"
 
+	// agentSignalling: the agent's pid is proven and pinned, and SIGTERM is
+	// sent after this receipt. The receipt cannot report the signal's own
+	// result (the agent it goes to is the one that reads it); a signal that
+	// still fails says so on stderr (Jibril's delta P2).
+	agentSignalling = "signalling"
+	// agentEnded is endOwnAgent's word for a signal that was delivered.
 	agentEnded   = "signalled"
 	agentExitNow = "exit-now"
 	agentNone    = "none"
@@ -77,9 +83,10 @@ no poller), nothing is started early and the host's ordinary relaunch sweep
 brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
-"relaunch":"pending|failed|none","exit":"signalled|exit-now|none","reason"}.
-"signalled": the agent's pid is proven and pinned, and SIGTERM is sent right
-after this receipt (a signal that still fails says so on stderr).
+"relaunch":"pending|failed|none","exit":"signalling|exit-now|none","reason"}.
+"signalling": the agent's pid is proven and pinned, and SIGTERM is sent
+right after this receipt has been written (a receipt that cannot be
+written signals nothing; a signal that still fails says so on stderr).
 "exit-now": nothing will be signalled, because this agent was not launched
 through Orca by the host or its pid could not be proven. Exit your agent
 yourself within two minutes.
@@ -131,11 +138,11 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 	if d.Relaunch == relaunchPending {
 		d.Exit = agentExitNow
 		if a, ok := pinOwnAgent(os.Getenv(AgentPIDEnv)); ok {
-			agent, d.Exit = a, agentEnded
+			agent, d.Exit = a, agentSignalling
 		}
 	}
-	finishResetContext(f.IOStreams.ErrOut, agent, func() {
-		_ = output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+	finishResetContext(f.IOStreams.ErrOut, agent, func() error {
+		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 			if d.Status == shedFailed {
 				return nil
 			}
@@ -160,16 +167,21 @@ type ownAgent interface {
 }
 
 // finishResetContext writes the receipt FIRST, while the agent still reads
-// it, and only then signals the pinned agent (Jibril's delta P2). Every
-// refusal came before, in the pin, so "signalled" in the receipt is the
-// signal about to go to a proven, pinned ancestor. A signal that still fails
-// (the process already gone) is said on stderr: exit now.
-func finishResetContext(errOut io.Writer, agent ownAgent, receipt func()) {
-	receipt()
+// it, and only then signals the pinned agent (Jibril's delta P2s). Every
+// refusal came before, in the pin. A receipt that could not be written
+// signals nothing: the agent has not been told, so it is not ended. A signal
+// that still fails (the process already gone) is said on stderr: exit now.
+// The pinned handle is closed on every path.
+func finishResetContext(errOut io.Writer, agent ownAgent, receipt func() error) {
+	err := receipt()
 	if agent == nil {
 		return
 	}
 	defer agent.close()
+	if err != nil {
+		_, _ = fmt.Fprintln(errOut, "hadron: team session reset-context: the receipt could not be written, so nothing was signalled: exit your agent yourself; the host relaunches the worker.")
+		return
+	}
 	if agent.signal() != nil {
 		_, _ = fmt.Fprintln(errOut, "hadron: team session reset-context: the signal to this agent failed after the receipt: exit it now; the host relaunches the worker.")
 	}
