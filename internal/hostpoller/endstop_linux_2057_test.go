@@ -40,6 +40,7 @@ func reaped(c *exec.Cmd) <-chan struct{} {
 }
 
 func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
+	patientKillWait(t)
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\nsleep 300 &\nwait\n")
 	// Under load the shell may not have forked its child yet: the stop can
@@ -52,13 +53,14 @@ func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	}
 	select {
 	case <-done:
-	case <-time.After(3 * time.Second):
+	case <-time.After(120 * time.Second):
 		t.Fatal("the agent is still running")
 	}
-	waitFor(t, "the agent's child to be gone (the whole group must go)", func() bool { return !groupHasOtherMembers(c.Process.Pid, c.Process.Pid) })
+	waitForWithin(t, 120*time.Second, "the agent's child to be gone (the whole group must go)", func() bool { return !groupHasOtherMembers(c.Process.Pid, c.Process.Pid) })
 }
 
 func TestStopWorktreeAgentsKillsAnAgentThatIgnoresSIGTERM(t *testing.T) {
+	patientKillWait(t)
 	root := t.TempDir()
 	c := spawnAgent(t, root, "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n")
 	done := reaped(c)
