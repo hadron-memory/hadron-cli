@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -409,11 +410,64 @@ func newRelaunchEpoch() (string, error) {
 	return hex.EncodeToString(bytes[:]), nil
 }
 
+// Retry the complete strict census, never individual unreadable PIDs. The child
+// deadline bounds cooperative probes; parent cancellation always wins. An error
+// invalidates the entire observation, including any partial positive proof.
+func retryRelaunchCensus(ctx context.Context, d *RelaunchDependencies, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	const maxProbes = 3
+	const pause = 20 * time.Millisecond
+	const budget = 3 * time.Second
+	const probeBudget = time.Second
+	bounded, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
+	var last error
+	for attempt := 0; attempt < maxProbes; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		if err := bounded.Err(); err != nil {
+			last = err
+			break
+		}
+		probeCtx, stopProbe := context.WithTimeout(bounded, probeBudget)
+		observation, err := d.Probe(probeCtx, t)
+		probeErr := probeCtx.Err()
+		stopProbe()
+		if parentErr := ctx.Err(); parentErr != nil {
+			return hostrelaunch.Observation{}, parentErr
+		}
+		if boundErr := bounded.Err(); boundErr != nil {
+			last = boundErr
+			break
+		}
+		if probeErr != nil {
+			// A late successful result is not proof, but another fresh scan
+			// can still finish within the overall window.
+			err = probeErr
+		}
+		if err == nil {
+			return observation, nil
+		}
+		last = err
+		if attempt+1 < maxProbes {
+			if err := sleepCtx(bounded, pause); err != nil {
+				last = err
+				break
+			}
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return hostrelaunch.Observation{}, err
+	}
+	// Do not classify this proof budget as a launcher TIMEOUT.
+	return hostrelaunch.Observation{}, fmt.Errorf("%w: %v", hostrelaunch.ErrCensusUnavailable, last)
+}
+
 // Only a new, already-counted launch may wait for its exec transition. Errors,
 // unknown observations, extra/foreign agents and cancellation never become
 // absence, and there is no second launch inside this window.
 func postLaunchObservation(ctx context.Context, d *RelaunchDependencies, a Agent, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
-	observation, err := d.Probe(ctx, t)
+	observation, err := retryRelaunchCensus(ctx, d, t)
 	if a == nil || d.PostLaunchWait <= 0 {
 		return observation, err
 	}
@@ -430,7 +484,7 @@ func postLaunchObservation(ctx context.Context, d *RelaunchDependencies, a Agent
 		case <-deadline.C:
 			return hostrelaunch.Observation{}, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: errors.New("new agent did not become observable within its proof window")}
 		case <-tick.C:
-			observation, err = d.Probe(ctx, t)
+			observation, err = retryRelaunchCensus(ctx, d, t)
 		}
 	}
 	return observation, err

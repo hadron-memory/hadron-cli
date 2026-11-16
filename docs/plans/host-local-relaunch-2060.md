@@ -39,6 +39,20 @@ than collapse into one process. Existing observational cleanup scans are unchang
 There is no host-global or cross-process start fence; the reservation serializes
 C3 and C5 inside this poller. Fresh proofs still surround admission and launch.
 
+#2159 retries an unavailable complete census up to three times, with 20ms pauses
+and cooperative child-context budgets of 1s per probe and 3s total per proof. Each try starts the same
+strict scan afresh; no unreadable PID is omitted, and no partial or late result
+is accepted. Parent cancellation stops further scans. Exhaustion at an absence
+guard reports local RELAUNCH_CENSUS_UNAVAILABLE. This is a local event reason,
+not a new server repair enum; report failure remains visible as noticeFailed.
+The final guard stays AFTER the persisted claim: transient failure then proof
+can launch once, while persistent exhaustion charges one attempt, without a
+refund. The three-per-hour contract and two-sweep requirement are unchanged.
+Retries run inside the existing single-flight recovery job, with no new RPC,
+queue or host-loop wait. The budget depends on the probe honoring its context;
+it does not interrupt an uninterruptible operating-system read.
+
+
 Before spending an attempt, Linux must prove exactly one running own-user
 orca-daemon scope through systemd AND obtain a successful terminal list. Missing
 systemd proof, zero or multiple scopes, or list failure yields RELAUNCH_UNPROVEN
@@ -70,7 +84,9 @@ inside an attempt. Profiles that fork a separate agent instead of exec require
 additional identity support; family and cwd alone never authorize adoption.
 
 The schema is exported from merged server revision
-10559e7e034e421bd23ac0fcc745ca92f7c77c26 (#4249). Typed repair notices use
+57bc0604fdc74bb863b3e44ad252960724ded322 (#4258), which includes
+#4264 at 25920b11207db1230755f1fe6bf990e1565d18a2 (adopting #4259).
+This preserves main's ContextReset.cause query as ruled in Wolfgang #109729. Typed repair notices use
 RELAUNCH_REFUSED and RELAUNCH_FAILED only with a supported observed reason.
 CAP_REACHED means the actual rolling cap was reached. The report timestamp is
 the earlier proven absence observation, not a claim that a newly launched agent
@@ -79,11 +95,22 @@ null. Repair transport and server refusals remain visible; a notice is marked
 sent only after confirmed acceptance. Local deduplication is not a durable
 outbox guarantee.
 
-Known contract limit (Wolfgang #108826): setup/disk errors or an unproven
-post-launch identity can be FAILED without a typed failure reason. They remain
-local with noticeFailed and a bounded, credential-redacted local cause in JSON
-and logs. No borrowed code or false CAP_REACHED is sent. Peter owns the generic
-server failure-reason follow-on; C5 does not wait for it.
+Failure classification follows the observed phase. Local preparation/disk
+failure before the launcher runs is SETUP_FAILED; a failed process proof after
+launch is VERIFY_FAILED. Actual observed timeouts/refusals/exits retain their
+existing codes. Cancellation, ambiguous create replies and fresh server/binding
+refusals are not guessed to be either new reason. A failed cleanup never changes
+the classification of the original failure or permits another launch.
+
+The two new report documents name their enum literals statically. This is
+intentional: an older provider rejects the document through schema validation,
+whereas unknown enum values inside variables are redacted as generic
+BAD_USER_INPUT. The normal api.MapError schema-skew path keeps the failure
+local with noticeFailed and the original localCause; it never retries under a
+borrowed reason. Established reason documents are unchanged. Notice acceptance
+is recorded only after the server confirms the worker was stored. The refreshed
+AssignHostWorkerInput's optional accountProfile and effort fields remain omitted
+when unset, preserving older-provider compatibility for unrelated assignments.
 
 Author tests cover pure guards, journal safety and restart budgets, strict
 census, session-header removal, wire omissions and reports, shared admission,
@@ -126,5 +153,26 @@ additional fresh snapshots and one repair mutation. Colin's independent report
 adapter measurement used 16,311-byte snapshots and 101 reads plus 100 writes
 for 100 reports; that component measurement excludes runner guards and launch
 preflight, so it is not a complete recovery benchmark. Targeted host-key worker
-reads are filed as nonblocking server follow-on #4260; generic honest failure
-codes are #4259.
+reads are filed as nonblocking server follow-on #4260. Generic honest failure
+codes from #4259 are adopted by CLI#2149.
+
+## #2159 F1 timing and locks
+
+A complete 300ms census must still succeed: a single shared 250ms deadline
+introduced a liveness regression. Each of at most three complete scans now has
+its own 1s deadline within a 3s total window, with 20ms between failed scans.
+Parent cancellation wins; a partial or late result remains unavailable.
+
+The recovery job holds the per-host recovery mutex for its entire pass. It
+holds launch admission and the worktree binding lock across two pre-launch
+census proofs (at most 6s combined under cooperative I/O), launch and post-launch
+proof. The latter starts with a census of at most 3s, then may use the existing
+30s cold-start wait, with a final census call adding up to 3s past that wait.
+Thus census and its cold-start waiting can occupy roughly 42s of the worktree
+lock on a successful launch path, excluding launch, server reads, journal and
+verification I/O. This is not a hard overall lock deadline: probes must honor
+context and OS I/O/scheduling can stall. No poller p.mu is held across a census.
+The host collection loop remains independent; another worktree launch is still
+refused by admission, and stop operations retain their existing bounded lock
+wait and visible failure behavior. No cancellation, lock or attempt authority
+is relaxed to make a slow proof succeed.

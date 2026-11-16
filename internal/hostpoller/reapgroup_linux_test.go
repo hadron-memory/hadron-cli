@@ -69,10 +69,38 @@ func TestStopAfterAnEmptyReapNeverSignalsAReusedNumber(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
 	}
-	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	// What this test pins is the STOP after an empty-at-reap, so the precondition
+	// must be deterministic: the leader exits with no member, and the hold's one scan
+	// must find the group empty. A real /proc on a busy host can answer "members"
+	// for any single scan (every pass void; #2042), which holds the zombie instead
+	// and is a different, conservative path. So THIS launch's scans (and only this
+	// launch's) read a quiet /proc through its own lister; no package-wide seam is
+	// replaced, so no other agent or test can see it. The child really exits and is
+	// really reaped.
+	quiet := func(string) ([]os.DirEntry, error) { return nil, nil }
+	a, err := ExecHost{procList: quiet}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Stop first, then wait with a bound: a watcher that never settles fails the
+	// test with a message instead of hanging the suite.
+	defer func() {
+		// The stop itself is inside the bound: it runs on its own goroutine, and the
+		// whole cleanup (stop, then the watcher settling) shares one 30 s budget.
+		settled := make(chan struct{})
+		go func() {
+			defer close(settled)
+			_, _ = a.Terminate()
+			if ea, ok := a.(*execAgent); ok {
+				<-ea.watcherDone
+			}
+		}()
+		select {
+		case <-settled:
+		case <-time.After(30 * time.Second):
+			t.Error("the stop and the drain watcher did not settle within 30s")
+		}
+	}()
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
@@ -643,13 +671,18 @@ func TestHeldZombieIsReapedWhenTheGroupDrainsAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stopAndWait(t, a)
+	// Both waits below are for an EVENTUALLY-true outcome on a host that may be
+	// churning short-lived processes: the hold's own scan runs before Done closes,
+	// and the watcher needs one clean pass to reap. Neither is promised within a
+	// few seconds (#2042 family), so the deadline is the generous one; a real
+	// regression (never reaped) still ends the test.
 	select {
 	case <-a.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the leader must exit at once")
+	case <-time.After(drainedDeadline):
+		t.Fatal("the leader's exit was never recorded")
 	}
 	ea := a.(*execAgent)
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(drainedDeadline)
 	for !ea.reaped.Load() {
 		if time.Now().After(deadline) {
 			t.Fatal("the held zombie is never reaped after the group drains on its own")
@@ -724,9 +757,9 @@ func groupMemberStates(leader int) []byte {
 	return states
 }
 
-func hasState(states []byte, want byte) bool {
+func hasZombie(states []byte) bool {
 	for _, s := range states {
-		if s == want {
+		if s == 'Z' {
 			return true
 		}
 	}
@@ -766,7 +799,7 @@ func TestZombieMemberDoesNotKeepAGroupUndrained(t *testing.T) {
 	}()
 	lg := leader.Process.Pid
 	deadline := time.Now().Add(5 * time.Second)
-	for !hasState(groupMemberStates(lg), 'Z') {
+	for !hasZombie(groupMemberStates(lg)) {
 		if time.Now().After(deadline) {
 			t.Fatal("the zombie member never appeared")
 		}
@@ -790,10 +823,56 @@ func TestZombieMemberDoesNotKeepAGroupUndrained(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if groupHasOtherMembers(lg, lg) {
-		t.Fatal("a group whose only other members are zombies reads as drained")
+	// The group IS drained (zombies only), but one scan of a REAL, churning /proc is
+	// not promised to say so: every pass of one call can be void, and the scan then
+	// answers "members", the safe direction (#2042; a whole held-zombie test took 65 s
+	// under two spawners). What this test pins is how a ZOMBIE member is counted, not
+	// how ambient churn is survived, so the scan reads /proc through a lister that
+	// shows only this test's own three processes: no stranger can void a pass. The
+	// zombie is still read from the real /proc stat, so counting it as a member is
+	// still caught: it would never read drained.
+	own := map[string]bool{
+		strconv.Itoa(leader.Process.Pid): true,
+		strconv.Itoa(runner.Process.Pid): true,
+		strconv.Itoa(dead.Process.Pid):   true,
+	}
+	only := func(dir string) ([]os.DirEntry, error) {
+		all, err := os.ReadDir(dir)
+		if err != nil {
+			return nil, err
+		}
+		var mine []os.DirEntry
+		for _, e := range all {
+			if own[e.Name()] {
+				mine = append(mine, e)
+			}
+		}
+		return mine, nil
+	}
+	start := time.Now()
+	for calls := 1; ; calls++ {
+		// The assertion means something only while the zombie is still there.
+		if !hasZombie(groupMemberStates(lg)) {
+			t.Fatal("the zombie member disappeared before the group read drained: the check proves nothing")
+		}
+		if members, _ := groupMembershipWith(lg, lg, only); !members {
+			t.Logf("read drained on call %d after %v", calls, time.Since(start).Round(time.Millisecond))
+			break
+		}
+		if time.Since(start) > drainedDeadline {
+			t.Fatalf("a group whose only other members are zombies never read as drained in %v (%d calls)", drainedDeadline, calls)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !hasZombie(groupMemberStates(lg)) {
+		t.Fatal("the zombie member was gone when the group read drained")
 	}
 }
+
+// drainedDeadline bounds waits for an eventually-true outcome in this file's drain
+// tests. It is far above anything seen on a busy shared host (65.89 s for a whole
+// held-zombie test under two spawners); it exists so a real regression ends the test.
+const drainedDeadline = 200 * time.Second
 
 func hasNonZombie(states []byte) bool {
 	for _, s := range states {
@@ -1096,7 +1175,7 @@ func TestAZFirstSeenInAPassVoidsItUntilStable(t *testing.T) {
 	}()
 	lg := leader.Process.Pid
 	deadline := time.Now().Add(5 * time.Second)
-	for !hasState(groupMemberStates(lg), 'Z') {
+	for !hasZombie(groupMemberStates(lg)) {
 		if time.Now().After(deadline) {
 			t.Fatal("the zombie member never appeared")
 		}
@@ -1154,5 +1233,23 @@ func TestADoubleForkIsNotReadAsAnEmptyGroup(t *testing.T) {
 	stopped, detail := a.Terminate()
 	if !stopped || !strings.Contains(detail, "launched process group") {
 		t.Fatalf("the escaped grandchild is still stopped: stopped=%v %q", stopped, detail)
+	}
+}
+
+// A launch's own lister is the ONLY /proc view its scans use (#2042 isolation): the
+// tests that need a quiet or filtered /proc give it to one launch instead of
+// replacing the package-wide readProcDir under every concurrent caller. Pinned at
+// both layers: the scan reads through the lister it is given, and an agent built
+// with one asks it (and not the package default) for its membership.
+func TestAnAgentsOwnProcListerIsTheOnlyViewItsScansUse(t *testing.T) {
+	calls := 0
+	spy := func(string) ([]os.DirEntry, error) { calls++; return nil, nil }
+	if members, _ := groupMembershipWith(1<<30, 1<<30, spy); members || calls == 0 {
+		t.Fatalf("the scan must read through the lister it is given and find nothing: members=%v calls=%d", members, calls)
+	}
+	calls = 0
+	a := &execAgent{pid: 1 << 30, procList: spy}
+	if a.hasMembers() || calls == 0 {
+		t.Fatalf("an agent's membership must come from its own lister: calls=%d", calls)
 	}
 }
