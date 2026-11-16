@@ -29,6 +29,9 @@ hadron team host assign Jonas --host orca1 --workdir jonas-3 --family codex \
   carries, so a profile value (the model included) that you do not pass again is **cleared**.
   The CLI never sends a null to do that: an omitted flag is omitted from the request. On a new
   assignment an omitted flag simply leaves the value unset. Pass every value you want kept.
+  (Server source of this: the `assignHostWorker` resolver's replace branch writes
+  `model`, `effort` and `accountProfile` from the normalized input, where an omitted value is
+  null: `src/api/graphql/schema/resolvers.hostAssignment.ts`, hadron-server `main` at 580f6ead.)
 
 ## Older servers
 
