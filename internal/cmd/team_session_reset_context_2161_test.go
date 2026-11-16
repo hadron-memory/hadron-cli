@@ -68,6 +68,11 @@ func TestResetContextWritesTheCheckpointClaimThenTheRelaunchStamp2161(t *testing
 	if err := json.Unmarshal(raw, &s); err != nil {
 		t.Fatal(err)
 	}
+	// The URN the CLI really writes is one the poller's reader accepts
+	// (Jibril's delta: the validator must match production checkpoints).
+	if !delivery.ValidCheckpointURN(s.Checkpoint) {
+		t.Fatalf("the written checkpoint %q fails the stamp validator", s.Checkpoint)
+	}
 	if s.Version != 1 || s.WorkerID != "wkr1" || s.SessionID != "s-new" || s.Checkpoint != *d.Node || s.RequestedAt.Before(before) || s.RequestedAt.After(time.Now().UTC()) {
 		t.Fatalf("stamp %+v", s)
 	}
@@ -105,5 +110,31 @@ func TestShedStillWritesNoRelaunchStamp2161(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(os.Getenv(team.GitDirEnv), delivery.RelaunchStampFile)); !os.IsNotExist(err) {
 		t.Fatalf("shed wrote a relaunch stamp: %v", err)
+	}
+}
+
+// Jibril's P3: a failed resume claim still asks for the relaunch. Recovery
+// does not need the claim (the relaunch keeps the binding, which session
+// recover reads), and the stamp carries the checkpoint the new agent's first
+// prompt names, so nothing is lost.
+func TestResetContextWithAFailedClaimStillRelaunchesWithTheCheckpoint2161(t *testing.T) {
+	bindWorktree(t)
+	t.Setenv(team.AgentPIDEnv, "")
+	url, _ := shedServer(t, map[string]string{"CreateResumeClaim": `{"errors":[{"message":"boom"}]}`})
+	out, err := runResetContext(t, url, "--json")
+	if err != nil {
+		t.Fatalf("reset-context: %v", err)
+	}
+	var d resetContextDTO
+	if e := json.Unmarshal([]byte(out), &d); e != nil || d.Status != "written" || d.Claim != "failed" || d.Relaunch != "pending" || d.Node == nil {
+		t.Fatalf("want written/failed/pending, got %s (%v)", out, e)
+	}
+	raw, err := os.ReadFile(filepath.Join(os.Getenv(team.GitDirEnv), delivery.RelaunchStampFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s delivery.RelaunchStamp
+	if err := json.Unmarshal(raw, &s); err != nil || s.Checkpoint != *d.Node || !delivery.ValidCheckpointURN(s.Checkpoint) {
+		t.Fatalf("stamp %s (%v)", raw, err)
 	}
 }

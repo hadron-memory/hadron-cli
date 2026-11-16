@@ -10,26 +10,43 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// endOwnAgent ends the agent that runs this command (cli#2161), by exact pid
-// and never by pattern: the pid the Orca launch exported (AgentPIDEnv), and
-// only while it is an ANCESTOR of this process. The ancestry is checked again
-// after the pidfd pins the process, so a pid reused by anything that is not
-// this command's ancestor is never signalled. Anything short of that proof
-// signals nothing and the agent is told to exit.
-func endOwnAgent(value string) string {
+// pinOwnAgent pins the agent that runs this command (cli#2161), by exact
+// pid and never by pattern: the pid the Orca launch exported (AgentPIDEnv),
+// and only while it is an ANCESTOR of this process. The ancestry is checked
+// again after the pidfd pins the process, so a pid reused by anything that is
+// not this command's ancestor is never signalled. Everything that can refuse
+// happens here, before the receipt; only the signal itself comes after it
+// (Jibril's delta P2). ok false: nothing is pinned, the agent must exit.
+func pinOwnAgent(value string) (ownAgent, bool) {
 	pid, ok := parseAgentPID(value)
 	if !ok || !isAncestor(pid) {
-		return agentExitNow
+		return nil, false
 	}
 	fd, err := unix.PidfdOpen(pid, 0)
 	if err != nil {
-		return agentExitNow
+		return nil, false
 	}
-	defer func() { _ = unix.Close(fd) }()
 	if !isAncestor(pid) {
+		_ = unix.Close(fd)
+		return nil, false
+	}
+	return pinnedAgent(fd), true
+}
+
+// pinnedAgent is a pidfd on this command's proven ancestor.
+type pinnedAgent int
+
+func (a pinnedAgent) signal() error { return sendAgentSignal(int(a)) }
+func (a pinnedAgent) close()        { _ = unix.Close(int(a)) }
+
+// endOwnAgent pins and signals in one step: what the receipt would report.
+func endOwnAgent(value string) string {
+	a, ok := pinOwnAgent(value)
+	if !ok {
 		return agentExitNow
 	}
-	if sendAgentSignal(fd) != nil {
+	defer a.close()
+	if a.signal() != nil {
 		return agentExitNow
 	}
 	return agentEnded

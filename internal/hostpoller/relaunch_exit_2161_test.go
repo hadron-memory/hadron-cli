@@ -128,7 +128,17 @@ func (f *exitFixture2161) run(t *testing.T) {
 	})
 	f.waitFor(t, func() bool { return f.sweeps.Load() == 1 }, "the first sweep")
 	// ...and its job has finished, so nothing it logs lands later.
+	f.awaitIdle(t)
+}
+
+// awaitIdle waits, bounded, until no relaunch job holds the lock.
+func (f *exitFixture2161) awaitIdle(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
 	for !f.p.relaunchMu.TryLock() {
+		if time.Now().After(deadline) {
+			t.Fatal("a relaunch job never finished")
+		}
 		time.Sleep(5 * time.Millisecond)
 	}
 	f.p.relaunchMu.Unlock()
@@ -279,14 +289,26 @@ func TestAnExitDuringABusyRelaunchJobIsWokenAgain2161(t *testing.T) {
 	f.run(t)
 	// The first sweep's job has released the lock before the source is
 	// swapped (the mutex orders the write before the next job's read).
-	for !f.p.relaunchMu.TryLock() {
-		time.Sleep(5 * time.Millisecond)
+	f.awaitIdle(t)
+	if !f.p.relaunchMu.TryLock() {
+		t.Fatal("the lock was taken again")
 	}
 	hold := &holdSource2161{inner: f.p.relaunch.Source, entered: make(chan struct{}), release: make(chan struct{})}
 	f.p.relaunch.Source = hold
 	f.p.relaunchMu.Unlock()
+	var released atomic.Bool
+	release := func() {
+		if released.CompareAndSwap(false, true) {
+			close(hold.release)
+		}
+	}
+	t.Cleanup(release)                     // a failing test never leaves the job blocked
 	f.p.relaunchStep(context.Background()) // a sweep job, now blocked in its source read
-	<-hold.entered
+	select {
+	case <-hold.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the sweep job never reached its source read")
+	}
 	f.writeStamp(t, "id-iris", "still-open", time.Second)
 	close(f.old.done)
 	// The wake is taken by the run loop, whose exit step finds the lock busy.
@@ -301,7 +323,7 @@ func TestAnExitDuringABusyRelaunchJobIsWokenAgain2161(t *testing.T) {
 	if f.launchCount() != 0 {
 		t.Fatal("launched while the other job held the lock")
 	}
-	close(hold.release)
+	release()
 	f.waitFor(t, func() bool { return f.launched.Load() == 1 }, "the exit to be relaunched once the busy job ended")
 }
 
