@@ -67,6 +67,9 @@ func (p *Poller) relaunchExits(ctx context.Context) {
 }
 
 func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
+	if p.afterExitPass != nil {
+		defer p.afterExitPass(workerID)
+	}
 	d := p.relaunch
 	p.mu.Lock()
 	current, token, ref := p.agents[workerID], p.agentTrees[workerID], p.workerRefs[workerID]
@@ -113,7 +116,8 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 		}
 		p.relaunchEpoch = epoch
 	}
-	runner, target, ok := p.relaunchRunner(d, snap, *row, journal, generation)
+	var checkpoint string
+	runner, target, ok := p.relaunchRunner(d, snap, *row, journal, generation, &checkpoint)
 	if !ok {
 		return
 	}
@@ -133,7 +137,9 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 		if !same {
 			return false, nil
 		}
-		return delivery.ConsumeRelaunchStamp(t.Worktree, t.WorkerID, t.SessionID, p.now(), relaunchStampTTL), nil
+		cp, proven := delivery.ConsumeRelaunchStamp(t.Worktree, t.WorkerID, t.SessionID, p.now(), relaunchStampTTL)
+		checkpoint = cp
+		return proven, nil
 	}
 	_, _ = runner.Execute(ctx, target) // closed result/reason is emitted by Log
 }

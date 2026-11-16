@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -30,6 +31,28 @@ type exitFixture2161 struct {
 	launched atomic.Int32  // creates, counted race-free across the pass goroutine
 	sweeps   atomic.Uint64 // generations the sweep journal claimed
 	newAgent atomic.Pointer[loopAgent2060]
+	passes   chan string // exit passes that finished, by worker id
+	mu       sync.Mutex
+	reasons  []string // relaunch results the Runner logged
+}
+
+// awaitPass waits for one exit pass for the worker to finish.
+func (f *exitFixture2161) awaitPass(t *testing.T) {
+	t.Helper()
+	select {
+	case id := <-f.passes:
+		if id != "id-iris" {
+			t.Fatalf("an exit pass for %q", id)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no exit pass ran")
+	}
+}
+
+func (f *exitFixture2161) loggedReasons() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.reasons...)
 }
 
 func newExitFixture2161(t *testing.T) *exitFixture2161 {
@@ -57,6 +80,15 @@ func newExitFixture2161(t *testing.T) *exitFixture2161 {
 		f.newAgent.Store(f.agent)
 		f.launched.Add(1)
 		return a, err
+	}
+	f.passes = make(chan string, 8)
+	f.p.afterExitPass = func(id string) { f.passes <- id }
+	f.p.emit = func(e Event) {
+		if e.Kind == "relaunch" {
+			f.mu.Lock()
+			f.reasons = append(f.reasons, e.Reason)
+			f.mu.Unlock()
+		}
 	}
 	f.old = &loopAgent2060{done: make(chan struct{})}
 	f.p.trackAgent("id-iris", "repo/iris", f.old)
@@ -95,6 +127,11 @@ func (f *exitFixture2161) run(t *testing.T) {
 		}
 	})
 	f.waitFor(t, func() bool { return f.sweeps.Load() == 1 }, "the first sweep")
+	// ...and its job has finished, so nothing it logs lands later.
+	for !f.p.relaunchMu.TryLock() {
+		time.Sleep(5 * time.Millisecond)
+	}
+	f.p.relaunchMu.Unlock()
 }
 
 func (f *exitFixture2161) waitFor(t *testing.T, cond func() bool, what string) {
@@ -155,29 +192,27 @@ func TestAContextResetExitRelaunchesAtOnceWithoutASecondSweep2161(t *testing.T) 
 // Every way the exit proof can fail leaves the worker to the ordinary
 // two-sweep path: nothing launches at the exit.
 func TestAnExitWithoutAMatchingFreshStampLaunchesNothing2161(t *testing.T) {
+	stamp := func(worker, session string, age time.Duration) func(f *exitFixture2161, t *testing.T) {
+		return func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, worker, session, age) }
+	}
+	fresh := stamp("id-iris", "still-open", time.Second)
 	for name, c := range map[string]struct {
 		stamp  func(f *exitFixture2161, t *testing.T)
 		mutate func(f *exitFixture2161)
+		// want is the reason the Runner logged; "" for a pass that ends before
+		// the Runner (an ordinary exit, with no stamp, costs no network call).
+		want string
 	}{
-		"no stamp (an ordinary exit)": {},
-		"another session's stamp":     {stamp: func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-iris", "other-session", time.Second) }},
-		"another worker's stamp":      {stamp: func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-other", "still-open", time.Second) }},
-		"a stale stamp":               {stamp: func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-iris", "still-open", 5*time.Minute) }},
-		"a paused worker": {
-			stamp:  func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-iris", "still-open", time.Second) },
-			mutate: func(f *exitFixture2161) { f.source.snapshot.Workers[0].Reason = "PAUSED" },
-		},
-		"a worker C5 would not relaunch": {
-			stamp:  func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-iris", "still-open", time.Second) },
-			mutate: func(f *exitFixture2161) { f.source.snapshot.Workers[0].Desired = "STOPPED" },
-		},
-		"the cap is spent": {
-			stamp: func(f *exitFixture2161, t *testing.T) { f.writeStamp(t, "id-iris", "still-open", time.Second) },
-			mutate: func(f *exitFixture2161) {
-				now := f.p.now().UTC()
-				f.journal["id-iris"] = hostrelaunch.Record{Attempts: []time.Time{now.Add(-3 * time.Minute), now.Add(-2 * time.Minute), now.Add(-time.Minute)}}
-			},
-		},
+		"no stamp (an ordinary exit)":    {},
+		"another session's stamp":        {stamp: stamp("id-iris", "other-session", time.Second), want: hostrelaunch.NoExitProof},
+		"another worker's stamp":         {stamp: stamp("id-other", "still-open", time.Second), want: hostrelaunch.NoExitProof},
+		"a stale stamp":                  {stamp: stamp("id-iris", "still-open", 5*time.Minute), want: hostrelaunch.NoExitProof},
+		"a paused worker":                {stamp: fresh, mutate: func(f *exitFixture2161) { f.source.snapshot.Workers[0].Reason = "PAUSED" }, want: "PAUSED"},
+		"a worker C5 would not relaunch": {stamp: fresh, mutate: func(f *exitFixture2161) { f.source.snapshot.Workers[0].Desired = "STOPPED" }, want: "NOT_SHOULD_RUN"},
+		"the cap is spent": {stamp: fresh, want: hostrelaunch.RateLimited, mutate: func(f *exitFixture2161) {
+			now := f.p.now().UTC()
+			f.journal["id-iris"] = hostrelaunch.Record{Attempts: []time.Time{now.Add(-3 * time.Minute), now.Add(-2 * time.Minute), now.Add(-time.Minute)}}
+		}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newExitFixture2161(t)
@@ -189,10 +224,15 @@ func TestAnExitWithoutAMatchingFreshStampLaunchesNothing2161(t *testing.T) {
 			if c.stamp != nil {
 				c.stamp(f, t)
 			}
+			before := len(f.loggedReasons())
 			close(f.old.done)
-			time.Sleep(500 * time.Millisecond)
+			f.awaitPass(t)
 			if n := f.launchCount(); n != 0 {
 				t.Fatalf("%s: launched %d", name, n)
+			}
+			got := f.loggedReasons()[before:]
+			if c.want == "" && len(got) != 0 || c.want != "" && (len(got) != 1 || got[0] != c.want) {
+				t.Fatalf("%s: the exit pass logged %v, want %q", name, got, c.want)
 			}
 		})
 	}
@@ -208,7 +248,7 @@ func TestAStampAloneNeverLaunches2161(t *testing.T) {
 	replaced := &loopAgent2060{done: make(chan struct{})}
 	f.p.trackAgent("id-iris", "repo/iris", replaced)
 	close(f.old.done) // the old one's exit is no longer this worker's agent
-	time.Sleep(500 * time.Millisecond)
+	f.awaitPass(t)
 	if n := f.launchCount(); n != 0 {
 		t.Fatalf("launched %d while the tracked agent runs", n)
 	}
@@ -263,4 +303,34 @@ func TestAnExitDuringABusyRelaunchJobIsWokenAgain2161(t *testing.T) {
 	}
 	close(hold.release)
 	f.waitFor(t, func() bool { return f.launched.Load() == 1 }, "the exit to be relaunched once the busy job ended")
+}
+
+// Jibril's P3: an exit wake runs the exit pass and then sleeps on to the SAME
+// deadline; it never brings the next check-in forward.
+func TestAnExitWakeKeepsTheCheckInDeadline2161(t *testing.T) {
+	f := newExitFixture2161(t)
+	var asked []time.Duration
+	f.p.sleep = func(ctx context.Context, d time.Duration) error {
+		asked = append(asked, d)
+		if len(asked) == 1 {
+			<-ctx.Done() // woken by the exit
+			return ctx.Err()
+		}
+		return nil // the rest of the interval
+	}
+	ran := make(chan struct{}, 1)
+	f.p.afterRelaunchJob = func() { ran <- struct{}{} }
+	f.p.wakeForExit()
+	const interval = 30 * time.Second
+	if err := f.p.pause(context.Background(), interval); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ran:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the wake ran no exit step")
+	}
+	if len(asked) != 2 || asked[0] > interval || asked[1] >= asked[0] || asked[1] <= 0 {
+		t.Fatalf("sleeps asked %v: the second must be what is left of the first", asked)
+	}
 }

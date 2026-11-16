@@ -657,6 +657,14 @@ func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
 		" (the launch grant is in HADRON_LAUNCH_GRANT, so no --as is needed); " + next
 }
 
+// RelaunchPromptWithCheckpoint adds a context reset's checkpoint to a
+// relaunch prompt (cli#2161): `session recover` reads the state note, tasks
+// and mentions but not the checkpoint, which holds where the old agent was.
+// The URN is checked by the stamp reader (delivery.ValidCheckpointURN).
+func RelaunchPromptWithCheckpoint(prompt, checkpoint string) string {
+	return prompt + " This relaunch follows your own context reset: after recovering, read your checkpoint, hadron node get " + checkpoint + ", and continue its next action."
+}
+
 // orcaStart is worker.start's Orca path.
 func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string) (Agent, error) {
 	if p.orcaLaunch == nil || p.profiles == nil {

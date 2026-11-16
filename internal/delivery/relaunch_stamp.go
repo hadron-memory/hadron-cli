@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"encoding/json"
+	"regexp"
 	"time"
 )
 
@@ -36,12 +37,20 @@ const relaunchStampClockSkew = 5 * time.Second
 // matches reports whether a parsed stamp names exactly this worker and
 // session and was written within ttl of now.
 func (s RelaunchStamp) matches(worker, session string, now time.Time, ttl time.Duration) bool {
-	if s.Version != 1 || worker == "" || session == "" || s.WorkerID != worker || s.SessionID != session || s.RequestedAt.IsZero() {
+	if s.Version != 1 || !ValidCheckpointURN(s.Checkpoint) || worker == "" || session == "" || s.WorkerID != worker || s.SessionID != session || s.RequestedAt.IsZero() {
 		return false
 	}
 	age := now.Sub(s.RequestedAt)
 	return age >= -relaunchStampClockSkew && age <= ttl
 }
+
+// checkpointURNRE is the only checkpoint a stamp may name: a v2 node URN in
+// checkpoints:, the shape reset-context writes. The value reaches the new
+// agent's first prompt, so nothing else is let through.
+var checkpointURNRE = regexp.MustCompile(`^hrn:node:[a-z0-9.-]{1,253}:[A-Za-z0-9_.-]{1,200}:checkpoints:[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$`)
+
+// ValidCheckpointURN says whether s is a checkpoint URN a stamp may carry.
+func ValidCheckpointURN(s string) bool { return checkpointURNRE.MatchString(s) }
 
 func parseRelaunchStamp(b []byte) (RelaunchStamp, bool) {
 	var s RelaunchStamp

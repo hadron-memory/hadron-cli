@@ -63,13 +63,14 @@ func HasRelaunchStamp(worktree string) bool {
 }
 
 // ConsumeRelaunchStamp reads the stamp once and removes it, then reports
-// whether it named exactly this worker and session within ttl of now. The
+// whether it named exactly this worker and session within ttl of now, with
+// the checkpoint it names (a valid checkpoints: URN, or "" when false). The
 // caller holds the binding lock. A stamp that was read is gone either way, so
 // it can never match a later exit: one stamp, at most one relaunch.
-func ConsumeRelaunchStamp(worktree, worker, session string, now time.Time, ttl time.Duration) bool {
+func ConsumeRelaunchStamp(worktree, worker, session string, now time.Time, ttl time.Duration) (string, bool) {
 	dfd, f, ok := openRelaunchStamp(worktree)
 	if !ok {
-		return false
+		return "", false
 	}
 	defer func() { _ = unix.Close(dfd) }()
 	b, err := io.ReadAll(io.LimitReader(f, maxTerminalRecord+1))
@@ -77,11 +78,14 @@ func ConsumeRelaunchStamp(worktree, worker, session string, now time.Time, ttl t
 	// Removed relative to the directory that was opened: a swapped path
 	// cannot redirect the unlink.
 	if unix.Unlinkat(dfd, RelaunchStampFile, 0) != nil {
-		return false // a stamp that cannot be used up must not be honoured
+		return "", false // a stamp that cannot be used up must not be honoured
 	}
 	if err != nil || len(b) > maxTerminalRecord {
-		return false
+		return "", false
 	}
 	s, ok := parseRelaunchStamp(b)
-	return ok && s.matches(worker, session, now, ttl)
+	if !ok || !s.matches(worker, session, now, ttl) {
+		return "", false
+	}
+	return s.Checkpoint, true
 }

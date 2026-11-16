@@ -53,13 +53,13 @@ func TestARelaunchStampIsConsumedOnceForItsOwnSession2161(t *testing.T) {
 			if !HasRelaunchStamp(tree) {
 				t.Fatal("the stamp was not seen")
 			}
-			if !ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute) {
-				t.Fatal("a fresh stamp for this worker and session was refused")
+			if cp, ok := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); !ok || cp != goodStamp().Checkpoint {
+				t.Fatalf("a fresh stamp for this worker and session: %q %v", cp, ok)
 			}
 			if _, err := os.Lstat(p); !os.IsNotExist(err) {
 				t.Fatalf("the stamp survived its consumption: %v", err)
 			}
-			if HasRelaunchStamp(tree) || ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute) {
+			if _, again := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); HasRelaunchStamp(tree) || again {
 				t.Fatal("one stamp gave two relaunches")
 			}
 		})
@@ -86,7 +86,7 @@ func TestARelaunchStampProvesNothingForAnotherSessionOrWhenStale2161(t *testing.
 				c.mut(&s)
 			}
 			p := writeStamp(t, filepath.Join(tree, ".git"), s)
-			if ConsumeRelaunchStamp(tree, c.worker, c.session, stampNow, 2*time.Minute) {
+			if cp, ok := ConsumeRelaunchStamp(tree, c.worker, c.session, stampNow, 2*time.Minute); ok || cp != "" {
 				t.Fatal("the stamp proved an exit it does not name")
 			}
 			// A stamp that was read is used up either way: it never lingers to
@@ -105,7 +105,7 @@ func TestARelaunchStampIsNeverReadThroughALinkOrFromANonRegularFile2161(t *testi
 		if err := os.Symlink(real, filepath.Join(tree, ".git", RelaunchStampFile)); err != nil {
 			t.Fatal(err)
 		}
-		if HasRelaunchStamp(tree) || ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute) {
+		if _, again := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); HasRelaunchStamp(tree) || again {
 			t.Fatal("a linked stamp was trusted")
 		}
 		if _, err := os.Stat(real); err != nil {
@@ -117,12 +117,12 @@ func TestARelaunchStampIsNeverReadThroughALinkOrFromANonRegularFile2161(t *testi
 		if err := syscall.Mkfifo(filepath.Join(tree, ".git", RelaunchStampFile), 0o600); err != nil {
 			t.Skip(err)
 		}
-		if ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute) {
+		if cp, ok := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); ok || cp != "" {
 			t.Fatal("a FIFO was trusted")
 		}
 	})
 	t.Run("no binding location", func(t *testing.T) {
-		if ConsumeRelaunchStamp(filepath.Join(t.TempDir(), "missing"), "w1", "s1", stampNow, 2*time.Minute) {
+		if _, ok := ConsumeRelaunchStamp(filepath.Join(t.TempDir(), "missing"), "w1", "s1", stampNow, 2*time.Minute); ok {
 			t.Fatal("a missing tree proved an exit")
 		}
 	})
@@ -145,7 +145,7 @@ func TestARelaunchStampNamingAnythingButACheckpointProvesNothing2161(t *testing.
 			s := goodStamp()
 			s.Checkpoint = cp
 			writeStamp(t, filepath.Join(tree, ".git"), s)
-			if ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute) {
+			if cp, ok := ConsumeRelaunchStamp(tree, "w1", "s1", stampNow, 2*time.Minute); ok || cp != "" {
 				t.Fatalf("a stamp naming %q proved an exit", cp)
 			}
 		})

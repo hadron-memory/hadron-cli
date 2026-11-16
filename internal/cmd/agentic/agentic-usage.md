@@ -204,7 +204,7 @@ binding, and then sends SIGTERM to exactly the pid the host's Orca launch export
 worker when that agent exits, through its periodic relaunch's own guards and hourly cap. Otherwise
 the ordinary sweep brings the worker back. `--json`: `{status: written|failed, node, claim:
 written|failed|none, relaunch: pending|failed|none, exit: signalled|exit-now|none, reason}`.
-`exit-now` means the agent's pid could not be proven, so exit the agent yourself. A failed checkpoint
+`signalled` is reported only once the signal was delivered. `exit-now` means it wasn't (the pid could not be proven, or the signal failed), so exit the agent yourself. The new agent's first prompt names the checkpoint. A failed checkpoint
 writes no stamp and ends nothing. Exit 0 unless the command line is wrong.
 
 **A permission refusal exits 8, not 1 (#619).** This CHANGED: `FORBIDDEN` — the

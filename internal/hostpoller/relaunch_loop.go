@@ -98,18 +98,24 @@ func (p *Poller) relaunchJob(ctx context.Context, sweep bool) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		defer func() {
-			p.relaunchMu.Unlock()
-			// An exit recorded while this job held the lock is not lost.
-			if jobCtx.Err() == nil && p.exitsPending() {
-				p.wakeForExit()
-			}
-		}()
+		// One cleanup, in order. An exit recorded while this job held the lock
+		// (its wake was consumed by a TryLock that failed) is woken again once
+		// the lock is free. The check is on the run's own context: the job's
+		// is already cancelled here (Jibril's and Julius's P2). If no wake is
+		// taken, the next check-in runs the pending exits first, and the sweep's
+		// two-absence path stays the backstop.
 		defer func() {
 			cancel()
 			p.mu.Lock()
 			p.relaunchCancel = nil
 			p.mu.Unlock()
+			p.relaunchMu.Unlock()
+			if ctx.Err() == nil && p.exitsPending() {
+				p.wakeForExit()
+			}
+			if p.afterRelaunchJob != nil {
+				p.afterRelaunchJob()
+			}
 		}()
 		// Exits first: a sweep after them sees the relaunched agent present.
 		p.relaunchExits(jobCtx)
@@ -172,7 +178,7 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		runner, target, ok := p.relaunchRunner(d, initial, row, journal, generation)
+		runner, target, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
 		if !ok {
 			continue
 		}
@@ -183,7 +189,11 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 // relaunchRunner is C5's Runner for one desired row: the one policy both the
 // sweep pass and the exit pass (cli#2161) run. ok is false for a row there is
 // nothing to do for (logged when it is unproven).
-func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker, journal hostrelaunch.Journal, generation uint64) (hostrelaunch.Runner, hostrelaunch.Target, bool) {
+//
+// checkpoint, when not nil, is the context reset's checkpoint an exit pass
+// proved (cli#2161); a non-empty value is named in the new agent's first
+// prompt, because `session recover` does not read checkpoints.
+func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker, journal hostrelaunch.Journal, generation uint64, checkpoint *string) (hostrelaunch.Runner, hostrelaunch.Target, bool) {
 	target, ref, w, token, ok := p.relaunchTarget(initial, row)
 	if !ok {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
@@ -259,6 +269,9 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 				spec, e := orcaProfileLaunchSpec(ref, w, t.Worktree, "", "", profile, account)
 				if e != nil {
 					return nil, e
+				}
+				if checkpoint != nil && *checkpoint != "" {
+					spec.Prompt = RelaunchPromptWithCheckpoint(spec.Prompt, *checkpoint)
 				}
 				launched, e = p.orcaLaunch(ctx, spec)
 				if launched == nil {

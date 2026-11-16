@@ -29,19 +29,14 @@ func endOwnAgent(value string) string {
 	if !isAncestor(pid) {
 		return agentExitNow
 	}
-	if unix.PidfdSendSignal(fd, unix.SIGTERM, nil, 0) != nil {
+	if sendAgentSignal(fd) != nil {
 		return agentExitNow
 	}
 	return agentEnded
 }
 
-// ownAgentPID says whether value names this command's own agent: a plain
-// pid that is an ancestor now. endOwnAgent proves it again on the pinned
-// process before it signals.
-func ownAgentPID(value string) bool {
-	pid, ok := parseAgentPID(value)
-	return ok && isAncestor(pid)
-}
+// sendAgentSignal delivers SIGTERM through the pidfd; a test makes it fail.
+var sendAgentSignal = func(fd int) error { return unix.PidfdSendSignal(fd, unix.SIGTERM, nil, 0) }
 
 // parseAgentPID accepts only a plain decimal pid above 1 that is not this
 // process: no sign, no spaces, no leading zero.

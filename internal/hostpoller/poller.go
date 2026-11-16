@@ -272,6 +272,10 @@ type Poller struct {
 	// worker id until an exit pass takes them.
 	exitWake chan struct{}
 	exited   map[string]Agent
+	// Test hooks, nil in production: told when an exit pass for a worker has
+	// finished, and when a relaunch job has released its lock.
+	afterExitPass    func(workerID string)
+	afterRelaunchJob func()
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from

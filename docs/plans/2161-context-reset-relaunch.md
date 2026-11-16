@@ -23,7 +23,15 @@ Before C12, after a shed a fresh agent appeared only when C5's periodic relaunch
      - the old agent is still the tracked one;
      - the stamp names this worker and session and is under two minutes old.
    - The stamp is used up by being read, so one stamp gives at most one relaunch.
-5. **The new agent's first prompt is C5's own** (`session recover`, with no task and no `--resume`). It finds the binding, the claim and the checkpoint.
+5. **The new agent's first prompt is C5's own** (`session recover`, with no task and no `--resume`), plus the checkpoint to read. `session recover` reads the state note, tasks and mentions, but not checkpoints, so the exit pass carries the stamp's checkpoint into the prompt. A stamp may name only a `checkpoints:` node URN (`delivery.ValidCheckpointURN`), because the value reaches the prompt. The resume claim is not needed: the relaunch keeps the binding file, and recovery reads from it. The claim only matters for a `session start` with the binding gone.
+
+## Fix head after review (Jibril P2, Julius P2, Jibril P2)
+- **A lost exit wake.**
+  - The bug: the job's two cleanup defers ran in reverse, so the re-wake check saw the job's context already cancelled. An exit that came in while another job held the lock waited for the next check-in.
+  - The fix: one ordered cleanup that checks the run's own context. If no wake is taken, the next check-in runs pending exits first, and the two-absence sweep stays the backstop.
+- **A false "signalled".** The receipt now reports `endOwnAgent`'s real result. It says "signalled" only after the signal was delivered to the pinned ancestor; any failure is `exit-now`.
+- **The checkpoint** (found while answering Jibril's claim P3): see step 5.
+- **Tests:** the negative exit tests now wait for the exit pass to finish and assert the reason the Runner logged. A test pins that an exit wake keeps the check-in deadline.
 
 ## What the stamp can and cannot do (Rook's §10 check)
 The stamp is a file the worker can write, so it proves nothing on its own.

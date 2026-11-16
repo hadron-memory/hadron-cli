@@ -24,8 +24,13 @@ func TestEndAgentHelper2161(t *testing.T) {
 	if os.Getenv("HADRON_TEST_END_AGENT_2161") != "1" {
 		t.Skip("helper process only")
 	}
-	if got := endOwnAgent(os.Getenv(AgentPIDEnv)); got != agentEnded {
-		t.Fatalf("endOwnAgent = %q", got)
+	want := agentEnded
+	if os.Getenv("HADRON_TEST_SIGNAL_FAILS_2161") == "1" {
+		sendAgentSignal = func(int) error { return syscall.EPERM }
+		want = agentExitNow
+	}
+	if got := endOwnAgent(os.Getenv(AgentPIDEnv)); got != want {
+		t.Fatalf("endOwnAgent = %q, want %q", got, want)
 	}
 }
 
@@ -82,5 +87,20 @@ func TestResetContextNeverSignalsAPIDThatIsNotItsAncestor2161(t *testing.T) {
 	}
 	if err := bystander.Process.Signal(syscall.Signal(0)); err != nil {
 		t.Fatalf("the bystander was signalled: %v", err)
+	}
+}
+
+// Jibril's P2: a proven ancestor whose signal fails is reported exit-now, so
+// the agent is told to exit, never "signalled" while it lives on.
+func TestResetContextReportsExitNowWhenTheSignalFails2161(t *testing.T) {
+	bin, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The helper's verdict decides bash's exit status; bash then ends itself.
+	cmd := exec.Command("bash", "-c", `export HADRON_AGENT_PID=$$; "$0" -test.run='^TestEndAgentHelper2161$' >/dev/null 2>&1; exit $?`, bin)
+	cmd.Env = append(os.Environ(), "HADRON_TEST_END_AGENT_2161=1", "HADRON_TEST_SIGNAL_FAILS_2161=1")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("a failed signal was not reported exit-now (or the agent was signalled anyway): %v", err)
 	}
 }

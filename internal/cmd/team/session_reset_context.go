@@ -78,8 +78,10 @@ brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
 "relaunch":"pending|failed|none","exit":"signalled|exit-now|none","reason"}.
-"exit-now" means this agent was not launched through Orca by the host (or its
-pid could not be proven): exit your agent yourself within two minutes.
+"signalled" is reported only once SIGTERM reached the pinned ancestor.
+"exit-now" means it did not: this agent was not launched through Orca by the
+host, its pid could not be proven, or the signal failed. Exit your agent
+yourself within two minutes.
 Exit 0 unless the command line is wrong.`,
 		Example: `  # reset with your own narrative carried into the checkpoint
   hadron team session reset-context --note-file /tmp/reset-notes.md --json`,
@@ -124,14 +126,11 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 	if d.Reason != nil && (d.Status == shedFailed || d.Claim == shedClaimFailed || d.Relaunch == relaunchFailed) {
 		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "hadron: team session reset-context: %s\n", *d.Reason)
 	}
-	end := d.Relaunch == relaunchPending
-	if end {
-		// Decided before the receipt, sent after it: the receipt is the last
-		// thing this agent reads.
-		d.Exit = agentExitNow
-		if ownAgentPID(os.Getenv(AgentPIDEnv)) {
-			d.Exit = agentEnded
-		}
+	if d.Relaunch == relaunchPending {
+		// The receipt reports what happened, never what was meant to (Jibril's
+		// P2): "signalled" only once the signal was delivered to the pinned
+		// ancestor. Any failure is exit-now, so the agent exits itself.
+		d.Exit = endOwnAgent(os.Getenv(AgentPIDEnv))
 	}
 	_ = output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 		if d.Status == shedFailed {
@@ -143,13 +142,10 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 		}
 		_, e := fmt.Fprintf(w, "✓ context reset %s: %s (claim: %s, relaunch: %s)\n", d.Status, node, d.Claim, d.Relaunch)
 		if e == nil && d.Exit == agentExitNow {
-			_, e = fmt.Fprintln(w, "This agent was not launched by the host through Orca: exit it now; the host relaunches the worker.")
+			_, e = fmt.Fprintln(w, "This agent could not be ended by its own pid (not launched by the host through Orca, or the signal failed): exit it now; the host relaunches the worker.")
 		}
 		return e
 	})
-	if end && d.Exit == agentEnded {
-		_ = endOwnAgent(os.Getenv(AgentPIDEnv))
-	}
 	return nil
 }
 
