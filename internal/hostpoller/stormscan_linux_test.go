@@ -46,12 +46,13 @@ import (
 // the same fakeDirEntry pattern reapgroup_linux_test.go established.
 const abovePidMax = "99999999"
 
-// watcherSettleBound is the suite's established watcher deadline (the same
-// bound stopAndWait and TestHeldZombieIsReapedWhenTheGroupDrainsAlone
-// use). A watcher that cannot settle within it is a FAILED test, never a
-// logged residual: after the storm clears, the next tick after a reap is
-// at most one real 200 ms interval away.
-const watcherSettleBound = 10 * time.Second
+// watcherSettleBound is how long a test waits for the drain watcher to settle after
+// the stop's reap. A watcher that cannot settle within it is a FAILED test, never a
+// logged residual. The watcher needs one clean membership pass, and on a host
+// saturated with runnable processes that took 81 s (#2173, F2: saturation run of the
+// frozen #2177 head), so the bound is generous like the other eventually-true waits
+// in this package; only a watcher that never settles reaches it.
+const watcherSettleBound = 200 * time.Second
 
 // stopFixture installs the #1970 seams around one launch: every signal is
 // recorded with its per-call ownership proof, and — for the storm shapes —

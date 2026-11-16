@@ -179,12 +179,12 @@ func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
 	// host seeing the drain takes seconds (#2173), so the grace is generous: a TERM
 	// that really works is observed and the stop returns at once, and a TERM that
 	// does not still escalates after the grace.
-	// The child lives far longer than the grace (600 s vs 60 s), so a stop that did
+	// The child lives far longer than the grace (900 s vs 300 s), so a stop that did
 	// not really take the group down cannot pass by the child ending on its own.
-	h := ExecHost{TerminateGrace: 60 * time.Second}
+	h := ExecHost{TerminateGrace: 300 * time.Second}
 	// sleep as a child the leader waits on: killing only the leader would
 	// orphan it in the tree.
-	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"sh", "-c", `sleep 600 & touch "$0"; wait`, ready}, Dir: dir, Env: os.Environ()})
+	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"sh", "-c", `sleep 900 & touch "$0"; wait`, ready}, Dir: dir, Env: os.Environ()})
 	if err != nil {
 		t.Fatal(err)
 	}
