@@ -162,6 +162,7 @@ func ErrFinalWithRecorded(msg, recorded string) *FinalError {
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {
+	ForeignUIDSkipped                           int
 	LocalCause, NoticeCause                     string
 	FailureReason                               string
 	CheckedAt                                   time.Time

@@ -41,8 +41,15 @@ C3 and C5 inside this poller. Fresh proofs still surround admission and launch.
 
 #2159 retries an unavailable complete census up to three times, with 20ms pauses
 and cooperative child-context budgets of 1s per probe and 3s total per proof. Each try starts the same
-strict scan afresh; no unreadable PID is omitted, and no partial or late result
-is accepted. Parent cancellation stops further scans. Exhaustion at an absence
+strict scan afresh; no partial or late result is accepted. #2195 permits one
+exclusion after an agent candidate's cwd read fails: `/proc/<pid>/status` must
+have exactly four valid Uid fields, all different from the poller's euid and
+from root (0). The process identity must remain unchanged across the read.
+Same-euid, root, unreadable or malformed status still refuses the census.
+Disappeared processes retain the existing skip. A complete census counts
+foreign-UID exclusions; the local relaunch event's optional `foreignUidSkipped`
+is the maximum completed-census count during that execution (not a sum over
+retries). The count is printed in text and JSON and is never sent to the server. Parent cancellation stops further scans. Exhaustion at an absence
 guard reports local RELAUNCH_CENSUS_UNAVAILABLE. This is a local event reason,
 not a new server repair enum; report failure remains visible as noticeFailed.
 The final guard stays AFTER the persisted claim: transient failure then proof

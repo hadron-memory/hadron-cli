@@ -4489,7 +4489,11 @@ only that launch. Plain worktree bindings need no Git.
 
 Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
 `attempt` and the absence observation's `checkedAt`, plus a terminal handle
-when known. `noticeFailed` with `localCause` or `noticeCause` means a local
+when known. Optional `foreignUidSkipped` is the maximum number of unreadable-cwd
+agent candidates excluded by a completed census during that execution because
+all four Linux UIDs were foreign and non-root; it is local evidence, never a
+server report field. The text event prints the same count when positive.
+`noticeFailed` with `localCause` or `noticeCause` means a local
 failure could not be represented or delivered as a typed server repair.
 `SETUP_FAILED` means setup/disk failure before the launcher ran;
 `VERIFY_FAILED` means the launch ran but its process proof failed. An actual

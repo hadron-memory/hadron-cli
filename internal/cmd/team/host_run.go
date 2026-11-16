@@ -568,22 +568,23 @@ func hostStepError(err error) error {
 // hostEventDTO is one --json event line: every key always present, "" when
 // it does not apply.
 type hostEventDTO struct {
-	LocalCause     string `json:"localCause,omitempty"`
-	NoticeCause    string `json:"noticeCause,omitempty"`
-	FailureReason  string `json:"failureReason,omitempty"`
-	WorkerID       string `json:"workerId,omitempty"`
-	SessionID      string `json:"sessionId,omitempty"`
-	TerminalHandle string `json:"terminalHandle,omitempty"`
-	Reason         string `json:"reason,omitempty"`
-	Attempt        int    `json:"attempt,omitempty"`
-	CheckedAt      string `json:"checkedAt,omitempty"`
-	NoticeFailed   bool   `json:"noticeFailed,omitempty"`
-	Time           string `json:"time"`
-	Kind           string `json:"kind"`
-	Operation      string `json:"operation"`
-	Type           string `json:"type"`
-	Outcome        string `json:"outcome"`
-	Detail         string `json:"detail"`
+	ForeignUIDSkipped int    `json:"foreignUidSkipped,omitempty"`
+	LocalCause        string `json:"localCause,omitempty"`
+	NoticeCause       string `json:"noticeCause,omitempty"`
+	FailureReason     string `json:"failureReason,omitempty"`
+	WorkerID          string `json:"workerId,omitempty"`
+	SessionID         string `json:"sessionId,omitempty"`
+	TerminalHandle    string `json:"terminalHandle,omitempty"`
+	Reason            string `json:"reason,omitempty"`
+	Attempt           int    `json:"attempt,omitempty"`
+	CheckedAt         string `json:"checkedAt,omitempty"`
+	NoticeFailed      bool   `json:"noticeFailed,omitempty"`
+	Time              string `json:"time"`
+	Kind              string `json:"kind"`
+	Operation         string `json:"operation"`
+	Type              string `json:"type"`
+	Outcome           string `json:"outcome"`
+	Detail            string `json:"detail"`
 }
 
 // hostEventPrinter writes events one per line. Operations run concurrently,
@@ -599,7 +600,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
 			}
 			b, _ := json.Marshal(hostEventDTO{
-				LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
+				ForeignUIDSkipped: e.ForeignUIDSkipped, LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})
@@ -615,6 +616,9 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 		line := strings.Join(parts, " ")
 		if e.Detail != "" {
 			line += ": " + e.Detail
+		}
+		if e.ForeignUIDSkipped > 0 {
+			line += fmt.Sprintf(" (foreignUidSkipped=%d)", e.ForeignUIDSkipped)
 		}
 		fmt.Fprintln(f.IOStreams.Out, line)
 	}

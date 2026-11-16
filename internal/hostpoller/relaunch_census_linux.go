@@ -21,6 +21,12 @@ import (
 // launches and verify the one returned pinned process after launch.
 // Raw matches are conservative: an ambiguous shim chain refuses as duplicates.
 func strictRelaunchCensus(ctx context.Context, proc, root string, authority func(context.Context) error) ([]WorktreeAgent, error) {
+	return strictRelaunchCensusCounted(ctx, proc, root, authority, nil)
+}
+
+// skipped counts only exclusions from a complete, identity-checked census.
+func strictRelaunchCensusCounted(ctx context.Context, proc, root string, authority func(context.Context) error, skipped *int) ([]WorktreeAgent, error) {
+	foreign := 0
 	if authority == nil {
 		return nil, errors.New("relaunch census observer authority is unproven")
 	}
@@ -93,12 +99,23 @@ func strictRelaunchCensus(ctx context.Context, proc, root string, authority func
 		if !ok || start <= 0 {
 			return nil, fmt.Errorf("relaunch census stat invalid for pid %d", pid)
 		}
+		excluded := false
 		cwd, err := os.Readlink(filepath.Join(dir, "cwd"))
 		if err != nil {
 			if censusProcessGone(dir) {
 				continue
 			}
-			return nil, fmt.Errorf("relaunch census cwd unavailable for pid %d: %w", pid, err)
+			status, statusErr := readCensusFile(filepath.Join(dir, "status"))
+			if statusErr != nil {
+				if censusProcessGone(dir) {
+					continue
+				}
+				return nil, fmt.Errorf("relaunch census status unavailable for pid %d: %w", pid, statusErr)
+			}
+			if !censusForeignUID(status, os.Geteuid()) {
+				return nil, fmt.Errorf("relaunch census cwd unavailable for pid %d: %w", pid, err)
+			}
+			excluded = true
 		}
 		after, err := readCensusFile(filepath.Join(dir, "stat"))
 		if err != nil {
@@ -111,6 +128,10 @@ func strictRelaunchCensus(ctx context.Context, proc, root string, authority func
 		if !ok || parent != afterParent || start != afterStart {
 			return nil, fmt.Errorf("relaunch census pid %d changed during observation", pid)
 		}
+		if excluded {
+			foreign++
+			continue
+		}
 		if cwd != real && !strings.HasPrefix(cwd, real+string(os.PathSeparator)) {
 			continue
 		}
@@ -122,6 +143,9 @@ func strictRelaunchCensus(ctx context.Context, proc, root string, authority func
 	}
 	if err := authority(ctx); err != nil {
 		return nil, err
+	}
+	if skipped != nil {
+		*skipped = foreign
 	}
 	sort.Slice(found, func(i, j int) bool { return found[i].PID < found[j].PID })
 	return found, nil
@@ -181,4 +205,31 @@ func harmlessEmptyProcess(dir string) bool {
 	}
 	second, ok := read()
 	return ok && first == second
+}
+
+// All four credentials must be known and foreign. A missing, duplicated or
+// malformed Uid line cannot exclude a process; neither can any root credential.
+func censusForeignUID(status []byte, euid int) bool {
+	seen := false
+	foreign := true
+	for _, line := range strings.Split(string(status), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] != "Uid:" {
+			continue
+		}
+		if seen || len(fields) != 5 {
+			return false
+		}
+		seen = true
+		for _, field := range fields[1:] {
+			uid, err := strconv.ParseUint(field, 10, 32)
+			if err != nil {
+				return false
+			}
+			if uid == 0 || uid == uint64(euid) {
+				foreign = false
+			}
+		}
+	}
+	return seen && foreign
 }

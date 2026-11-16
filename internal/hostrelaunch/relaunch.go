@@ -56,8 +56,10 @@ type Binding struct {
 
 // Observation is strict evidence. A default/partial result cannot prove zero.
 type Observation struct {
-	PIDs   []int
-	Proven bool
+	// ForeignUIDSkipped counts identity-checked foreign exclusions in this census.
+	ForeignUIDSkipped int
+	PIDs              []int
+	Proven            bool
 }
 
 // Agent is only the launch this attempt created. Rollback must never select
@@ -93,6 +95,8 @@ type Journal interface {
 // Result has closed status codes and optional diagnostic causes. Adapters must
 // bound and redact causes before exposing them; causes may include launcher errors.
 type Result struct {
+	// ForeignUIDSkipped is the maximum count in a completed census this attempt.
+	ForeignUIDSkipped         int
 	LocalCause, NoticeCause   string
 	Status, Reason, Reference string
 	FailureReason             string
@@ -233,6 +237,15 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 			r.Log(t, out)
 		}
 	}()
+	// Keep the local receipt count without changing guard or notice contracts.
+	probe := r.Probe
+	r.Probe = func(ctx context.Context, t Target) (Observation, error) {
+		o, e := probe(ctx, t)
+		if e == nil && o.Proven && o.ForeignUIDSkipped > out.ForeignUIDSkipped {
+			out.ForeignUIDSkipped = o.ForeignUIDSkipped
+		}
+		return o, e
+	}
 	if e := ctx.Err(); e != nil {
 		out.Reason = "RELAUNCH_CANCELLED"
 		return out, e
