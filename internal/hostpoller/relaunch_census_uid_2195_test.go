@@ -23,6 +23,7 @@ func TestCensusUnreadableCwdUIDBoundary2195(t *testing.T) {
 	}{
 		{"foreign", fmt.Sprintf("Uid:\t%d\t%d\t%d\t%d\n", foreign, foreign, foreign, foreign), true},
 		{"missing status", "", false},
+		{"no Uid line", "Name:\tclaude\nGid:\t1000000\t1000000\t1000000\t1000000\n", false},
 		{"malformed", "Uid:\t1000000\tbroken\t1000000\t1000000\n", false},
 		{"missing field", "Uid:\t1000000\t1000000\t1000000\n", false},
 		{"duplicate", "Uid:\t1000000\t1000000\t1000000\t1000000\nUid:\t1000000\t1000000\t1000000\t1000000\n", false},
