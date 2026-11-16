@@ -302,8 +302,8 @@ func TestAVanishedZombieMemberIsCodedAsAVanishedMember2142(t *testing.T) {
 	f2 := churnHost(1)
 	f2.gone = func(pass, pid int) bool { return pid == churnMember && pass == 1 }
 	f2.install(t)
-	_, _, zs, _ := scanGroupOnce(churnPgid, churnPgid, nil)
-	_, void, _, why := scanGroupOnce(churnPgid, churnPgid, zs)
+	_, _, zs, _ := scanGroupOnce(churnPgid, churnPgid, nil, readProcDir)
+	_, void, _, why := scanGroupOnce(churnPgid, churnPgid, zs, readProcDir)
 	if !void || why != whyVanishedMember {
 		t.Fatalf("void=%v why=%q, want vanished-member", void, why)
 	}
