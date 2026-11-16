@@ -154,6 +154,9 @@ WHAT IT NEVER DOES:
   the poller, and does not report RELAUNCH_PENDING_POLLER. Only the periodic
   poller relaunches an agent; this command does not trigger it.
   A worker it could not observe is reported as failed and not acted on.
+  A terminal in the worktree whose agent Orca does not identify counts as an
+  agent, so a leftover shell holds a start or reads DUPLICATE_AGENTS; the
+  item's detail says when a count includes one.
 
 Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
@@ -692,9 +695,18 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 	for _, term := range env.Result.Terminals {
 		// Connected or not: a terminal Orca lost the connection to may still
 		// hold a running agent, and a start beside it could make two
-		// (cli#2064 blind P3). Uncertain counts as present.
-		if filepath.Clean(term.WorktreePath) == filepath.Clean(dir) && term.AgentIdentity != nil && *term.AgentIdentity != "" {
-			obs.AgentTerminals++
+		// (cli#2064 blind P3). Uncertain counts as present, and so does a
+		// terminal Orca reports with no agentIdentity: on orca1 the field is
+		// often null while the agent runs, and counting it absent planned a
+		// second agent (cli#2191, Wolfgang #110419). A leftover shell reads
+		// the same, so it counts too; only the process side (cli#2193) can
+		// prove an agent absent.
+		if filepath.Clean(term.WorktreePath) != filepath.Clean(dir) {
+			continue
+		}
+		obs.AgentTerminals++
+		if term.AgentIdentity == nil || *term.AgentIdentity == "" {
+			obs.UnidentifiedTerminals++
 		}
 	}
 	return obs, nil
