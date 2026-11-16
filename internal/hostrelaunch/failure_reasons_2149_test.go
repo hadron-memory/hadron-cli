@@ -91,3 +91,17 @@ func TestPartialLaunchCannotClaimSetupFailure2149(t *testing.T) {
 		t.Fatalf("partial launch mislabeled or not cleaned: %+v error=%v rollback=%d", out, err, f.rolledBack)
 	}
 }
+
+func TestPostLaunchProbeErrorMapsToVerifyFailed2149(t *testing.T) {
+	f := newFixture(t)
+	f.run(t, 1)
+	f.onStart = func() { f.probeErr = errors.New("post-launch census identity unavailable") }
+	f.runner.Sweep = 2
+	out, err := f.runner.Execute(context.Background(), f.target)
+	if err == nil || out.Status != Failed || out.Reason != VerifyFailed || out.FailureReason != FailureVerifyFailed || out.LocalCause != "post-launch census identity unavailable" {
+		t.Fatalf("post-launch probe error lost its observed phase: %+v err=%v", out, err)
+	}
+	if f.starts != 1 || f.rolledBack != 1 || out.Attempt != 1 || len(f.store.rows[f.target.WorkerID].Attempts) != 1 {
+		t.Fatalf("probe error changed launch, cleanup or charge: starts=%d rollback=%d result=%+v", f.starts, f.rolledBack, out)
+	}
+}
