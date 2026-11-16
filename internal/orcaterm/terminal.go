@@ -32,21 +32,36 @@ type Terminal struct {
 // writable count unless explicitly false.
 func (t *Terminal) UnmarshalJSON(b []byte) error {
 	var raw struct {
-		Handle        string  `json:"handle"`
-		WorktreePath  string  `json:"worktreePath"`
-		AgentIdentity *string `json:"agentIdentity"`
-		Connected     *bool   `json:"connected"`
-		Writable      *bool   `json:"writable"`
-		TabID         string  `json:"tabId"`
-		Title         string  `json:"title"`
+		Handle        string          `json:"handle"`
+		WorktreePath  string          `json:"worktreePath"`
+		AgentIdentity *string         `json:"agentIdentity"`
+		Connected     *bool           `json:"connected"`
+		Writable      *bool           `json:"writable"`
+		TabID         string          `json:"tabId"`
+		Title         string          `json:"title"`
+		LastOutputAt  json.RawMessage `json:"lastOutputAt"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
 	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity,
 		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable,
-		TabID: raw.TabID, Title: raw.Title}
+		TabID: raw.TabID, Title: raw.Title, LastOutputAt: stampText(raw.LastOutputAt)}
 	return nil
+}
+
+// stampText is a lastOutputAt as text: a JSON number or string, "" for
+// anything else (null, absent, an object), which proves nothing.
+func stampText(raw json.RawMessage) string {
+	var n json.Number
+	if json.Unmarshal(raw, &n) == nil {
+		return n.String()
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	return ""
 }
 
 // Identity is the agent Orca says runs in the terminal, or "".
@@ -92,18 +107,37 @@ func NewClient(run Runner) *Client { return &Client{run: Guard(run)} }
 func NewSweepClient(run Runner) *Client { return &Client{run: SweepGuard(run)} }
 
 // List is every live terminal, looked up fresh: delivery never caches one.
+// The list says when it is not the whole roster (truncated, totalCount): it
+// is then read once more with every row asked for, and a list that is still
+// short fails closed. A truncated list is never a roster, so a terminal it
+// lacks is never "gone" (#2181).
 func (c *Client) List(ctx context.Context) ([]Terminal, error) {
-	env, ok := parse(c.run(ctx, []string{"terminal", "list", "--json"}))
-	if !ok || !env.OK {
+	terms, total, truncated, err := c.listCall(ctx, nil)
+	if err != nil || !truncated {
+		return terms, err
+	}
+	terms, _, truncated, err = c.listCall(ctx, []string{"--limit", strconv.Itoa(max(total, len(terms)))})
+	if err != nil || truncated {
 		return nil, ErrOrca
+	}
+	return terms, nil
+}
+
+func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal, total int, truncated bool, err error) {
+	argv := append([]string{"terminal", "list"}, extra...)
+	env, ok := parse(c.run(ctx, append(argv, "--json")))
+	if !ok || !env.OK {
+		return nil, 0, false, ErrOrca
 	}
 	var result struct {
-		Terminals []Terminal `json:"terminals"`
+		Terminals  []Terminal `json:"terminals"`
+		TotalCount int        `json:"totalCount"`
+		Truncated  bool       `json:"truncated"`
 	}
 	if json.Unmarshal(env.Result, &result) != nil {
-		return nil, ErrOrca
+		return nil, 0, false, ErrOrca
 	}
-	return result.Terminals, nil
+	return result.Terminals, result.TotalCount, result.Truncated, nil
 }
 
 // Screen is one `orca terminal read --screen` result: the rendered tail, the
