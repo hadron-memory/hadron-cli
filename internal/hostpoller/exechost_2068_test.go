@@ -46,6 +46,7 @@ func TestExecAgentTerminateWithAsksBeforeEachSignal(t *testing.T) {
 }
 
 func TestExecAgentTerminateWithRefusedFirstSignalsNothing(t *testing.T) {
+	patientKillWait(t)
 	if _, err := os.Stat("/proc/self/cwd"); err != nil {
 		t.Skip("no /proc")
 	}

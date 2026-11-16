@@ -165,6 +165,7 @@ func TestExecHostSeesAProcessWorkingInATree(t *testing.T) {
 // must not survive its start's failure). A bare kill of the leader would
 // leave the child working in the tree; the group signal must not.
 func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
+	patientKillWait(t)
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
 	}
@@ -173,7 +174,12 @@ func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
 	}
 	dir := t.TempDir()
 	ready := filepath.Join(dir, "child-running")
-	h := ExecHost{TerminateGrace: 2 * time.Second}
+	// The grace is how long the stop waits to SEE the TERMed group drain before it
+	// escalates to KILL; the wording asserted below is the TERM path's. On a saturated
+	// host seeing the drain takes seconds (#2173), so the grace is generous: a TERM
+	// that really works is observed and the stop returns at once, and a TERM that
+	// does not still escalates after the grace.
+	h := ExecHost{TerminateGrace: 60 * time.Second}
 	// sleep as a child the leader waits on: killing only the leader would
 	// orphan it in the tree.
 	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{"sh", "-c", `sleep 30 & touch "$0"; wait`, ready}, Dir: dir, Env: os.Environ()})
@@ -222,6 +228,7 @@ func TestExecHostTerminateKillsTheLaunchedGroup(t *testing.T) {
 // The incident's exact shape: a wrapper that ignores SIGTERM and keeps
 // relaunching a child is killed by the escalation after the grace.
 func TestExecHostTerminateEscalatesOnAWrapperThatKeepsRelaunching(t *testing.T) {
+	patientKillWait(t)
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
 	}
