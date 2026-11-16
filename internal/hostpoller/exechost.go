@@ -29,6 +29,10 @@ type ExecHost struct {
 	// group the host holds past drainHeldAfter (hadron-cli#2142). Codes and
 	// numbers only.
 	OnDrain func(Event)
+	// procList, when set (tests only), is the /proc lister the launched agent's
+	// own membership scans use; unset, they use the package default. It is
+	// per launch, so a test never swaps a package-wide seam under other agents.
+	procList procLister
 }
 
 // UntrustedConfigError is a repository refused because its own git config holds
@@ -167,7 +171,7 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if grace <= 0 {
 		grace = 5 * time.Second
 	}
-	a := &execAgent{done: make(chan struct{}), watcherDone: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd, onDrain: h.OnDrain}
+	a := &execAgent{done: make(chan struct{}), watcherDone: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd, onDrain: h.OnDrain, procList: h.procList}
 	go a.waitExit()
 	return a, nil
 }
@@ -180,6 +184,8 @@ type execAgent struct {
 	cmd    *exec.Cmd
 	// onDrain is ExecHost.OnDrain, for the drain watcher's events.
 	onDrain func(Event)
+	// procList is ExecHost.procList: this launch's own /proc lister, or nil.
+	procList procLister
 	// watcherDone is allocated at launch and closes exactly once — when
 	// the drain watcher exits, or when the waiter finishes without arming
 	// one — so tests can wait out a watcher before swapping the scan
@@ -337,7 +343,7 @@ func (a *execAgent) holdExit(exit leaderExit) {
 	a.exited.Store(true)
 	a.mu.Lock()
 	switch {
-	case groupHasOtherMembers(a.pid, a.pid):
+	case a.hasMembers():
 		// If a stop already reaped (it confirmed and released the number
 		// first), its finalized detail stands.
 		if !a.reaped.Load() {
@@ -412,7 +418,22 @@ func (a *execAgent) watchDrain() {
 	defer close(a.watcherDone)
 	t := time.NewTicker(drainWatchInterval)
 	defer t.Stop()
-	a.drainLoop(t.C, drainMembership, drainClock, a.drainReap)
+	a.drainLoop(t.C, func(int, int) (bool, drainWhy) { return a.members() }, drainClock, a.drainReap)
+}
+
+// members is this launch's membership answer: through its own lister when it
+// was given one, else the package default (drainMembership, which tests of the
+// loop alone replace).
+func (a *execAgent) members() (bool, drainWhy) {
+	if a.procList != nil {
+		return groupMembershipWith(a.pid, a.pid, a.procList)
+	}
+	return drainMembership(a.pid, a.pid)
+}
+
+func (a *execAgent) hasMembers() bool {
+	m, _ := a.members()
+	return m
 }
 
 // drainReap reaps the held zombie once the group has drained. It reports

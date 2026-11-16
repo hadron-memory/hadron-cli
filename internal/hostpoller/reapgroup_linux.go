@@ -183,9 +183,16 @@ func groupHasOtherMembers(pgid, leader int) bool {
 // answer: the code of the pass that decided it (the last void pass when the
 // passes ran out).
 func groupMembership(pgid, leader int) (bool, drainWhy) {
+	return groupMembershipWith(pgid, leader, func(dir string) ([]os.DirEntry, error) { return readProcDir(dir) })
+}
+
+// groupMembershipWith is groupMembership over a lister of its own: a launch
+// that was given one (ExecHost.procList, tests only) scans through it, and the
+// package-wide seam is never touched.
+func groupMembershipWith(pgid, leader int, list procLister) (bool, drainWhy) {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
 	for pass := 0; ; pass++ {
-		found, void, zs, why := scanGroupOnce(pgid, leader, prevZ)
+		found, void, zs, why := scanGroupOnce(pgid, leader, prevZ, list)
 		if !void {
 			return found, why
 		}
@@ -206,8 +213,8 @@ func groupMembership(pgid, leader int) (bool, drainWhy) {
 // purpose, but a leader entry that still shows RUNNING THREADS — state Z
 // with a thread count above one, the exited-main-thread shape — is
 // proof the group is not drained, so it is checked before the exclusion.
-func scanGroupOnce(pgid, leader int, prevZ map[int]bool) (found, void bool, zs map[int]bool, why drainWhy) {
-	entries, err := readProcDir("/proc")
+func scanGroupOnce(pgid, leader int, prevZ map[int]bool, list procLister) (found, void bool, zs map[int]bool, why drainWhy) {
+	entries, err := list("/proc")
 	if err != nil {
 		return true, false, nil, whyUnreadable
 	}

@@ -15,25 +15,29 @@ import (
 )
 
 const (
-	Planned          = "planned"
-	Applied          = "applied"
-	Skipped          = "skipped"
-	Failed           = "failed"
-	Pending          = "RELAUNCH_PENDING_CONTINUITY"
-	RateLimited      = "RELAUNCH_RATE_LIMITED"
-	IdentityChanged  = "RELAUNCH_IDENTITY_CHANGED"
-	Unproven         = "RELAUNCH_UNPROVEN"
-	AgentPresent     = "RELAUNCH_AGENT_PRESENT"
-	DuplicateAgents  = "DUPLICATE_AGENTS"
-	NoProfile        = "NO_LAUNCHER_PROFILE"
-	LaunchFailed     = "RELAUNCH_FAILED"
-	VerifyFailed     = "RELAUNCH_UNVERIFIED"
-	RollbackFailed   = "RELAUNCH_CLEANUP_UNCONFIRMED"
-	StateUnavailable = "RELAUNCH_STATE_UNAVAILABLE"
+	Planned           = "planned"
+	Applied           = "applied"
+	Skipped           = "skipped"
+	Failed            = "failed"
+	Pending           = "RELAUNCH_PENDING_CONTINUITY"
+	RateLimited       = "RELAUNCH_RATE_LIMITED"
+	IdentityChanged   = "RELAUNCH_IDENTITY_CHANGED"
+	Unproven          = "RELAUNCH_UNPROVEN"
+	CensusUnavailable = "RELAUNCH_CENSUS_UNAVAILABLE"
+	AgentPresent      = "RELAUNCH_AGENT_PRESENT"
+	DuplicateAgents   = "DUPLICATE_AGENTS"
+	NoProfile         = "NO_LAUNCHER_PROFILE"
+	LaunchFailed      = "RELAUNCH_FAILED"
+	VerifyFailed      = "RELAUNCH_UNVERIFIED"
+	RollbackFailed    = "RELAUNCH_CLEANUP_UNCONFIRMED"
+	StateUnavailable  = "RELAUNCH_STATE_UNAVAILABLE"
 	// NoExitProof: an exit pass (cli#2161) found no proof the agent ended for
 	// a context reset of this session; the sweep's two-absence rule decides.
 	NoExitProof = "RELAUNCH_NO_EXIT_PROOF"
 )
+
+// ErrCensusUnavailable means a complete process census remained unavailable.
+var ErrCensusUnavailable = errors.New("complete relaunch census unavailable")
 
 // Target is an exact, already-bound identity, not a request to bind one.
 type Target struct{ AppID, HostID, WorkerID, SessionID, Server, Worktree string }
@@ -171,6 +175,9 @@ func (r Runner) guard(ctx context.Context, t Target) (string, error) {
 	}
 	o, err := r.Probe(ctx, t)
 	if err != nil {
+		if errors.Is(err, ErrCensusUnavailable) {
+			return CensusUnavailable, err
+		}
 		return Unproven, err
 	}
 	if !o.Proven {

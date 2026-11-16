@@ -31,3 +31,8 @@ func groupHasOtherMembers(pgid, leader int) bool { return true }
 
 // groupMembership has no oracle here either (see groupHasOtherMembers).
 func groupMembership(pgid, leader int) (bool, drainWhy) { return true, whyUnreadable }
+
+// groupMembershipWith has no oracle here either.
+func groupMembershipWith(pgid, leader int, _ procLister) (bool, drainWhy) {
+	return true, whyUnreadable
+}

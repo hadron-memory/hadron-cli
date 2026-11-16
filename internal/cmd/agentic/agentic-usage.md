@@ -4431,7 +4431,13 @@ Missing systemd proof, a failed list, or zero/multiple scopes refuses
 `RELAUNCH_UNPROVEN`, spending no launch attempt. The daemon is checked again
 before each attempt. At most three attempts per worker per rolling hour are
 persisted before launch, including failed attempts; restart preserves that
-budget and requires two fresh absence observations. The launch uses a fresh
+budget and requires two fresh absence observations. An unavailable strict census
+is retried as a complete fresh scan up to three times, with 20ms between failed
+scans, a 1s cooperative deadline per probe and 3s total per proof. Unknown processes never prove
+absence. Exhaustion reports local `RELAUNCH_CENSUS_UNAVAILABLE`; exhaustion at
+the final guard after the journal claim still charges exactly one attempt, with
+no refund. This local reason has no typed server repair equivalent. Parent
+cancellation stops the retry. The launch uses a fresh
 recover prompt, never a new bind or `--resume`, then verifies its own pinned
 process and rechecks desired state and binding. Failed verification stops
 only that launch. Plain worktree bindings need no Git.
