@@ -3,6 +3,8 @@ package hostpoller
 import (
 	"context"
 	"strings"
+
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 )
 
 // Host is everything the poller does to the machine: git worktrees and agent
@@ -100,7 +102,11 @@ type Agent interface {
 // own channel, and the CLI token channel the host process might carry. The
 // agent binds on its holder's own stored token (#1883, option A), and the
 // grant is the only launch credential it gets.
-var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT"}
+// delivery.AgentPIDEnv is the poller's OWN agent pid when it runs inside an
+// Orca agent's tree (Rook's §10 P2 on #2167): that pid is an ancestor of
+// every agent it launches, so passing it on would let reset-context in an
+// exec worker end the poller's host agent. An Orca launch sets its own.
+var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT", delivery.AgentPIDEnv}
 
 // agentEnv builds a launched agent's environment from the poller's: every
 // variable but the scrubbed ones and any whose value carries the host key,

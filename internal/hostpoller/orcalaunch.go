@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"os"
 	"path/filepath"
@@ -189,6 +190,10 @@ func writeLaunchEnv(path string, env []string, prompt string) error {
 		return errors.New("the first prompt holds a NUL")
 	}
 	b.WriteString("export " + firstPromptVar + "=" + shq(prompt) + "\n")
+	// The agent's own pid (cli#2161): sourced by the shell the command then
+	// exec's into the agent, so "$$" there is the pinned pid. Written last, so
+	// a value inherited from the poller's environment never wins.
+	b.WriteString("export " + delivery.AgentPIDEnv + "=\"$$\"\n")
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
@@ -660,6 +665,14 @@ func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
 	}
 	return "Hadron started this fresh run for worker " + workerRef + ". First bind your worker session: hadron team session start --tool " + tool +
 		" (the launch grant is in HADRON_LAUNCH_GRANT, so no --as is needed); " + next
+}
+
+// RelaunchPromptWithCheckpoint adds a context reset's checkpoint to a
+// relaunch prompt (cli#2161): `session recover` reads the state note, tasks
+// and mentions but not the checkpoint, which holds where the old agent was.
+// The URN is checked by the stamp reader (delivery.ValidCheckpointURN).
+func RelaunchPromptWithCheckpoint(prompt, checkpoint string) string {
+	return prompt + " This relaunch follows your own context reset: after recovering, read your checkpoint, hadron node get " + checkpoint + ", and continue its next action."
 }
 
 // orcaStart is worker.start's Orca path.

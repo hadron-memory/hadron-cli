@@ -17,6 +17,13 @@ func openRelaunchJournal(path string) (hostrelaunch.Journal, uint64, func(), err
 	}
 	return j, j.Sweep(), func() { _ = j.Close() }, nil
 }
+func openRelaunchJournalHeld(path string) (hostrelaunch.Journal, uint64, func(), error) {
+	j, err := hostrelaunch.OpenJournalHeld(path)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	return j, j.Sweep(), func() { _ = j.Close() }, nil
+}
 func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
 	agents, err := strictRelaunchCensus(ctx, "/proc", t.Worktree, func(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {

@@ -91,6 +91,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
+	cmd.AddCommand(newCmdSessionResetContext(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))

@@ -90,8 +90,18 @@ func shedRecoverySteps() []shedStep {
 }
 
 func renderShedPrompt(workerName, memoryRef, loc string, watermark *int) string {
+	return renderRecoveryPrompt(workerName, memoryRef, loc, watermark, false)
+}
+
+// renderRecoveryPrompt is the shed prompt, or with reset the context-reset
+// one (cli#2161): there the old agent ended and the host started this one.
+func renderRecoveryPrompt(workerName, memoryRef, loc string, watermark *int, reset bool) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "You are %s, recovering from a shed. Your transcript was cleared on purpose and your worker binding is intact.\n", workerName)
+	if reset {
+		fmt.Fprintf(&b, "You are %s, recovering from a context reset. Your previous agent process ended on purpose, this one was started in its place, and your worker binding is intact.\n", workerName)
+	} else {
+		fmt.Fprintf(&b, "You are %s, recovering from a shed. Your transcript was cleared on purpose and your worker binding is intact.\n", workerName)
+	}
 	n := 1
 	for _, s := range shedRecoverySteps() {
 		cmd, text := "hadron "+strings.Join(s.Command, " "), s.Text
@@ -180,12 +190,26 @@ func shedLocFor(now time.Time, auto bool) string {
 	return "sheds:" + now.Format("2006-01-02-1504")
 }
 
+// checkpointLocFor is a context reset's checkpoint loc (cli#2161, Holger's
+// naming #109658): `checkpoints:<YYYY-MM-DD-HHMMSS>`, UTC, in the worker's own
+// memory. Seconds, because a relaunched agent can reset again within a minute.
+func checkpointLocFor(now time.Time) string {
+	return "checkpoints:" + now.UTC().Format("2006-01-02-150405")
+}
+
 func shedName(now time.Time, auto bool, b *binding) string {
 	stamp := strings.TrimPrefix(shedLocFor(now, auto), "sheds:")
 	if auto {
 		return fmt.Sprintf("AUTO shed checkpoint %s (%s (%s))", strings.TrimPrefix(stamp, "auto-"), b.WorkerName, b.WorkerRole)
 	}
 	return fmt.Sprintf("Shed %s — %s", stamp, b.WorkerName)
+}
+
+func checkpointName(now time.Time, o shedOptions, b *binding) string {
+	if o.resetContext {
+		return fmt.Sprintf("Context reset %s — %s", strings.TrimPrefix(checkpointLocFor(now), "checkpoints:"), b.WorkerName)
+	}
+	return shedName(now, o.auto, b)
 }
 
 // shedTailOf returns the last whole lines of the host's transcript file, at
@@ -338,6 +362,9 @@ type shedOptions struct {
 	notes                      string // already read and validated (a manual run)
 	notesRead                  bool
 	now                        func() time.Time
+	// resetContext is `session reset-context` (cli#2161): the checkpoint goes
+	// under checkpoints: and the prompt says the agent was relaunched.
+	resetContext bool
 }
 
 func gather(ctx context.Context, client graphql.Client, b *binding, now time.Time) shedSnapshot {
@@ -411,6 +438,9 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 		return fail("the bound session belongs to a different server")
 	}
 	loc := shedLocFor(now, o.auto)
+	if o.resetContext {
+		loc = checkpointLocFor(now)
+	}
 	if o.printPrompt && o.offline {
 		p := renderShedPrompt(b.WorkerName, "<worker memory>", loc, nil)
 		return shedOutcome{shedDTO{Status: shedPrinted, Claim: shedClaimNone, Prompt: &p}}
@@ -458,7 +488,7 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 	}
 	memoryID := *w.Worker.MemoryId
 	snap := gather(ctx, client, b, now)
-	prompt := renderShedPrompt(b.WorkerName, memoryID, loc, snap.CursorSeq)
+	prompt := renderRecoveryPrompt(b.WorkerName, memoryID, loc, snap.CursorSeq, o.resetContext)
 	if o.printPrompt {
 		return shedOutcome{shedDTO{Status: shedPrinted, Claim: shedClaimNone, Prompt: &prompt}}
 	}
@@ -476,7 +506,7 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 	body := renderShedBody(snap, prompt, notes, tail)
 	nt := "info"
 	created, err := gen.CreateNode(rctx, client, &gen.CreateNodeInput{
-		MemoryId: memoryID, Loc: loc, Name: shedName(now, o.auto, b), Content: &body, NodeType: &nt,
+		MemoryId: memoryID, Loc: loc, Name: checkpointName(now, o, b), Content: &body, NodeType: &nt,
 	})
 	if err != nil || created.CreateNode == nil {
 		return fail("the checkpoint node could not be written")

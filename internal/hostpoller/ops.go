@@ -745,6 +745,7 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 	if err := p.state.recordAgent(workerID, token, a.PID(), start); err != nil {
 		p.log("state-failed", "", "", "", err.Error())
 	}
+	p.watchForExit(workerID, a)
 }
 
 // launchIdentity observes a just-launched agent's process identity, when

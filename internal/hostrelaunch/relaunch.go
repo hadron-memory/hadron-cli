@@ -31,6 +31,9 @@ const (
 	VerifyFailed      = "RELAUNCH_UNVERIFIED"
 	RollbackFailed    = "RELAUNCH_CLEANUP_UNCONFIRMED"
 	StateUnavailable  = "RELAUNCH_STATE_UNAVAILABLE"
+	// NoExitProof: an exit pass (cli#2161) found no proof the agent ended for
+	// a context reset of this session; the sweep's two-absence rule decides.
+	NoExitProof = "RELAUNCH_NO_EXIT_PROOF"
 )
 
 // ErrCensusUnavailable means a complete process census remained unavailable.
@@ -118,6 +121,13 @@ type Runner struct {
 	// Log is the caller's structured event/session logger; dry runs call neither.
 	Notice func(context.Context, Target, Result) error
 	Log    func(Target, Result)
+	// ExitProof, when set, makes this an exit pass (cli#2161, C12): it is
+	// asked under the lock, after every guard and the cap, in place of the
+	// two-consecutive-sweep absence rule and nothing else. True means the
+	// agent this host launched has exited for a context reset of this exact
+	// session. An exit pass never records an absence observation: it saw one
+	// worker, not a sweep.
+	ExitProof func(context.Context, Target) (bool, error)
 }
 
 func (t Target) valid() bool {
@@ -296,7 +306,13 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		return out, nil
 	}
 	fp := fingerprint(t, prepared.Fingerprint)
-	if rec.AbsentFor != fp || rec.AbsentSweep+1 != r.Sweep {
+	if r.ExitProof != nil {
+		proven, e := r.ExitProof(ctx, t)
+		if e != nil || !proven {
+			out.Reason = NoExitProof
+			return out, e
+		}
+	} else if rec.AbsentFor != fp || rec.AbsentSweep+1 != r.Sweep {
 		rec.AbsentFor, rec.AbsentSweep = fp, r.Sweep
 		if e := r.Journal.Save(t.WorkerID, rec); e != nil {
 			return out, e

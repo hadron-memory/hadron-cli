@@ -25,10 +25,13 @@ type RelaunchDependencies struct {
 	Source         RelaunchSource
 	Ready          func(context.Context) error
 	OpenJournal    func() (hostrelaunch.Journal, uint64, func(), error)
-	Binding        func(hostrelaunch.Target) (hostrelaunch.Binding, error)
-	Probe          func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
-	Verify         func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
-	Notice         func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
+	// OpenExitJournal opens the same journal under the same lock for an exit
+	// pass (cli#2161) without claiming a sweep generation.
+	OpenExitJournal func() (hostrelaunch.Journal, uint64, func(), error)
+	Binding         func(hostrelaunch.Target) (hostrelaunch.Binding, error)
+	Probe           func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
+	Verify          func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
+	Notice          func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
 }
 
 func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
@@ -41,6 +44,11 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 	if d.OpenJournal == nil {
 		d.OpenJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
 			return openRelaunchJournal(filepath.Join(filepath.Dir(p.cfg.StateFile), "relaunch"))
+		}
+	}
+	if d.OpenExitJournal == nil {
+		d.OpenExitJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
+			return openRelaunchJournalHeld(filepath.Join(filepath.Dir(p.cfg.StateFile), "relaunch"))
 		}
 	}
 	if d.Binding == nil {
@@ -68,10 +76,17 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 	}
 	p.relaunchEpoch = epoch
 	p.relaunch = &d
+	p.exitWake = make(chan struct{}, 1)
 	return nil
 }
 
-func (p *Poller) relaunchStep(ctx context.Context) {
+func (p *Poller) relaunchStep(ctx context.Context) { p.relaunchJob(ctx, true) }
+
+// relaunchExitStep runs only the exit passes (cli#2161): the run loop calls it
+// when an agent's exit wakes it between check-ins.
+func (p *Poller) relaunchExitStep(ctx context.Context) { p.relaunchJob(ctx, false) }
+
+func (p *Poller) relaunchJob(ctx context.Context, sweep bool) {
 	if p.relaunch == nil || !p.relaunchMu.TryLock() {
 		return
 	}
@@ -85,14 +100,30 @@ func (p *Poller) relaunchStep(ctx context.Context) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		defer p.relaunchMu.Unlock()
+		// One cleanup, in order. An exit recorded while this job held the lock
+		// (its wake was consumed by a TryLock that failed) is woken again once
+		// the lock is free. The check is on the run's own context: the job's
+		// is already cancelled here (Jibril's and Julius's P2). If no wake is
+		// taken, the next check-in runs the pending exits first, and the sweep's
+		// two-absence path stays the backstop.
 		defer func() {
 			cancel()
 			p.mu.Lock()
 			p.relaunchCancel = nil
 			p.mu.Unlock()
+			p.relaunchMu.Unlock()
+			if ctx.Err() == nil && p.exitsPending() {
+				p.wakeForExit()
+			}
+			if p.afterRelaunchJob != nil {
+				p.afterRelaunchJob()
+			}
 		}()
-		p.relaunchPass(jobCtx)
+		// Exits first: a sweep after them sees the relaunched agent present.
+		p.relaunchExits(jobCtx)
+		if sweep {
+			p.relaunchPass(jobCtx)
+		}
 	}()
 }
 
@@ -135,18 +166,7 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 				if report == nil || report.Applied+report.Failed == 0 {
 					return
 				}
-				report.EndedAt = p.now()
-				if e := d.ReportSweep(ctx, *report); e != nil {
-					if errors.Is(e, ErrSweepReportingUnavailable) {
-						p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
-					} else {
-						code := "RECORD_FAILED"
-						var coded interface{ SweepCode() string }
-						if errors.As(e, &coded) {
-							code = boundedSweepCode(coded.SweepCode())
-						}
-						p.log("sweep-record-failed", "", "worker.relaunch", "", code)
-					}
+				if !p.sendRecoveryReport(ctx, d, report) {
 					return
 				}
 				if outagePending {
@@ -228,123 +248,141 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		target, ref, w, token, ok := p.relaunchTarget(initial, row)
+		runner, target, skip, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
 		if !ok {
-			report.add(row.WorkerID, "SKIPPED", hostrelaunch.Unproven)
-			p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
+			report.add(row.WorkerID, "SKIPPED", skip)
 			continue
-		}
-		if target.SessionID == "" {
-			report.add(row.WorkerID, "SKIPPED", "NO_OPEN_SESSION")
-			continue
-		} // normal worker.start owns a new session
-		var launched Agent
-		firstSnapshot := true
-		runner := hostrelaunch.Runner{Sweep: generation, Now: p.now, Journal: journal, BeforeAttempt: d.Ready,
-			Current: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Desired, error) {
-				// The discovery snapshot is already a current read for the first
-				// guard. Healthy workers need no repeated host-wide fetch. Every
-				// guard after admission and before/after launch still reads fresh.
-				snap := initial
-				var e error
-				if firstSnapshot {
-					firstSnapshot = false
-				} else {
-					snap, e = d.Source.RelaunchSnapshot(ctx, t.HostID)
-				}
-				if e != nil {
-					return hostrelaunch.Desired{}, e
-				}
-				for _, fresh := range snap.Workers {
-					if fresh.WorkerID == t.WorkerID {
-						next, _, _, _, valid := p.relaunchTarget(snap, fresh)
-						if !valid {
-							return hostrelaunch.Desired{}, errors.New("unproven target")
-						}
-						return hostrelaunch.Desired{Target: next, SweepMode: snap.SweepMode, State: fresh.Desired, Reason: fresh.Reason}, nil
-					}
-				}
-				return hostrelaunch.Desired{}, errors.New("worker is no longer in desired state")
-			}, Binding: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Binding, error) { return d.Binding(t) },
-			Probe: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
-				p.mu.Lock()
-				old := p.agents[t.WorkerID]
-				p.mu.Unlock()
-				if old != nil {
-					select {
-					case <-old.Done():
-					default:
-						if old.PID() <= 0 {
-							return hostrelaunch.Observation{}, nil
-						}
-						return hostrelaunch.Observation{Proven: true, PIDs: []int{old.PID()}}, nil
-					}
-				}
-				return postLaunchObservation(ctx, d, launched, t)
-			},
-			Prepare: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Prepared, error) {
-				if !w.launchesViaOrca() {
-					return hostrelaunch.Prepared{}, errors.New("no typed Orca launcher profile")
-				}
-				profile, account, found, e := p.profiles.Profile(ref)
-				if e != nil || !found || !SameFamily(profile.Family, w.Family) {
-					return hostrelaunch.Prepared{}, errors.New("no matching launcher profile")
-				}
-				if _, e = LaunchArgv(profile, account); e != nil {
-					return hostrelaunch.Prepared{}, e
-				}
-				fingerprint, e := json.Marshal(struct {
-					Profile LauncherProfile
-					Account AccountProfile
-					Disk    string
-				}{profile, account, w.DiskTmp})
-				if e != nil {
-					return hostrelaunch.Prepared{}, e
-				}
-				return hostrelaunch.Prepared{Fingerprint: p.relaunchEpoch + ":" + string(fingerprint), Launch: func(ctx context.Context) (hostrelaunch.Agent, error) {
-					spec, e := orcaProfileLaunchSpec(ref, w, t.Worktree, "", "", profile, account)
-					if e != nil {
-						return nil, e
-					}
-					launched, e = p.orcaLaunch(ctx, spec)
-					if launched == nil {
-						return nil, e
-					}
-					return &relaunchOwnedAgent{agent: launched, target: t, verify: d.Verify}, e
-				}}, nil
-			},
-			Lock: func(_ context.Context, t hostrelaunch.Target) (func(), error) {
-				release, e := p.reserveWorktreeLaunch(token)
-				if e != nil {
-					return nil, e
-				}
-				bindingRelease, e := delivery.LockBinding(t.Worktree, time.Second)
-				if e != nil {
-					release()
-					return nil, e
-				}
-				return func() {
-					// Track before releasing launch admission, including a failed launch
-					// whose own terminal could not be confirmed stopped.
-					if launched != nil {
-						select {
-						case <-launched.Done():
-						default:
-							p.trackAgent(t.WorkerID, token, launched)
-							p.mu.Lock()
-							p.agentSessions[t.WorkerID] = t.SessionID
-							p.mu.Unlock()
-						}
-					}
-					bindingRelease()
-					release()
-				}, nil
-			}, Notice: d.Notice,
-			Log: func(t hostrelaunch.Target, result hostrelaunch.Result) { p.logRelaunch(t, result) },
 		}
 		result, _ := runner.Execute(ctx, target) // closed result/reason is emitted by Log
 		report.add(row.WorkerID, strings.ToUpper(result.Status), result.Reason)
 	}
+}
+
+// relaunchRunner is C5's Runner for one desired row: the one policy both the
+// sweep pass and the exit pass (cli#2161) run. ok is false for a row there is
+// nothing to do for (logged when it is unproven); skip is the reason C1's S10
+// row records for it (#2056).
+//
+// checkpoint, when not nil, is the context reset's checkpoint an exit pass
+// proved (cli#2161); a non-empty value is named in the new agent's first
+// prompt, because `session recover` does not read checkpoints.
+func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker, journal hostrelaunch.Journal, generation uint64, checkpoint *string) (hostrelaunch.Runner, hostrelaunch.Target, string, bool) {
+	target, ref, w, token, ok := p.relaunchTarget(initial, row)
+	if !ok {
+		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
+		return hostrelaunch.Runner{}, hostrelaunch.Target{}, hostrelaunch.Unproven, false
+	}
+	if target.SessionID == "" {
+		return hostrelaunch.Runner{}, hostrelaunch.Target{}, "NO_OPEN_SESSION", false
+	} // normal worker.start owns a new session
+	var launched Agent
+	firstSnapshot := true
+	runner := hostrelaunch.Runner{Sweep: generation, Now: p.now, Journal: journal, BeforeAttempt: d.Ready,
+		Current: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Desired, error) {
+			// The discovery snapshot is already a current read for the first
+			// guard. Healthy workers need no repeated host-wide fetch. Every
+			// guard after admission and before/after launch still reads fresh.
+			snap := initial
+			var e error
+			if firstSnapshot {
+				firstSnapshot = false
+			} else {
+				snap, e = d.Source.RelaunchSnapshot(ctx, t.HostID)
+			}
+			if e != nil {
+				return hostrelaunch.Desired{}, e
+			}
+			for _, fresh := range snap.Workers {
+				if fresh.WorkerID == t.WorkerID {
+					next, _, _, _, valid := p.relaunchTarget(snap, fresh)
+					if !valid {
+						return hostrelaunch.Desired{}, errors.New("unproven target")
+					}
+					return hostrelaunch.Desired{Target: next, SweepMode: snap.SweepMode, State: fresh.Desired, Reason: fresh.Reason}, nil
+				}
+			}
+			return hostrelaunch.Desired{}, errors.New("worker is no longer in desired state")
+		}, Binding: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Binding, error) { return d.Binding(t) },
+		Probe: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+			p.mu.Lock()
+			old := p.agents[t.WorkerID]
+			p.mu.Unlock()
+			if old != nil {
+				select {
+				case <-old.Done():
+				default:
+					if old.PID() <= 0 {
+						return hostrelaunch.Observation{}, nil
+					}
+					return hostrelaunch.Observation{Proven: true, PIDs: []int{old.PID()}}, nil
+				}
+			}
+			return postLaunchObservation(ctx, d, launched, t)
+		},
+		Prepare: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Prepared, error) {
+			if !w.launchesViaOrca() {
+				return hostrelaunch.Prepared{}, errors.New("no typed Orca launcher profile")
+			}
+			profile, account, found, e := p.profiles.Profile(ref)
+			if e != nil || !found || !SameFamily(profile.Family, w.Family) {
+				return hostrelaunch.Prepared{}, errors.New("no matching launcher profile")
+			}
+			if _, e = LaunchArgv(profile, account); e != nil {
+				return hostrelaunch.Prepared{}, e
+			}
+			fingerprint, e := json.Marshal(struct {
+				Profile LauncherProfile
+				Account AccountProfile
+				Disk    string
+			}{profile, account, w.DiskTmp})
+			if e != nil {
+				return hostrelaunch.Prepared{}, e
+			}
+			return hostrelaunch.Prepared{Fingerprint: p.relaunchEpoch + ":" + string(fingerprint), Launch: func(ctx context.Context) (hostrelaunch.Agent, error) {
+				spec, e := orcaProfileLaunchSpec(ref, w, t.Worktree, "", "", profile, account)
+				if e != nil {
+					return nil, e
+				}
+				if checkpoint != nil && *checkpoint != "" {
+					spec.Prompt = RelaunchPromptWithCheckpoint(spec.Prompt, *checkpoint)
+				}
+				launched, e = p.orcaLaunch(ctx, spec)
+				if launched == nil {
+					return nil, e
+				}
+				return &relaunchOwnedAgent{agent: launched, target: t, verify: d.Verify}, e
+			}}, nil
+		},
+		Lock: func(_ context.Context, t hostrelaunch.Target) (func(), error) {
+			release, e := p.reserveWorktreeLaunch(token)
+			if e != nil {
+				return nil, e
+			}
+			bindingRelease, e := delivery.LockBinding(t.Worktree, time.Second)
+			if e != nil {
+				release()
+				return nil, e
+			}
+			return func() {
+				// Track before releasing launch admission, including a failed launch
+				// whose own terminal could not be confirmed stopped.
+				if launched != nil {
+					select {
+					case <-launched.Done():
+					default:
+						p.trackAgent(t.WorkerID, token, launched)
+						p.mu.Lock()
+						p.agentSessions[t.WorkerID] = t.SessionID
+						p.mu.Unlock()
+					}
+				}
+				bindingRelease()
+				release()
+			}, nil
+		}, Notice: d.Notice,
+		Log: func(t hostrelaunch.Target, result hostrelaunch.Result) { p.logRelaunch(t, result) },
+	}
+	return runner, target, "", true
 }
 
 func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrelaunch.Target, string, WorkerConfig, string, bool) {
@@ -505,4 +543,25 @@ func (p *Poller) relaunchCause(raw string) string {
 		raw = string(runes[:512]) + "…"
 	}
 	return raw
+}
+
+// sendRecoveryReport records one recovery pass's S10 row (#2056): the sweep
+// pass and the exit pass (cli#2161) both report through it, and only when
+// the pass applied or failed something. It says whether the row was recorded.
+func (p *Poller) sendRecoveryReport(ctx context.Context, d *RelaunchDependencies, report *SweepReport) bool {
+	report.EndedAt = p.now()
+	if e := d.ReportSweep(ctx, *report); e != nil {
+		if errors.Is(e, ErrSweepReportingUnavailable) {
+			p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
+		} else {
+			code := "RECORD_FAILED"
+			var coded interface{ SweepCode() string }
+			if errors.As(e, &coded) {
+				code = boundedSweepCode(coded.SweepCode())
+			}
+			p.log("sweep-record-failed", "", "worker.relaunch", "", code)
+		}
+		return false
+	}
+	return true
 }
