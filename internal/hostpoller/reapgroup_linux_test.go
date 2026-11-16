@@ -69,10 +69,27 @@ func TestStopAfterAnEmptyReapNeverSignalsAReusedNumber(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
 	}
+	// What this test pins is the STOP after an empty-at-reap, so the precondition
+	// must be deterministic: the leader exits with no member, and the hold's one scan
+	// must find the group empty. A real /proc on a busy host can answer "members"
+	// for any single scan (every pass void; #2042), which holds the zombie instead
+	// and is a different, conservative path. So the scan sees a quiet /proc: no
+	// process of this group exists. The child really exits and is really reaped.
+	realDir := readProcDir
+	readProcDir = func(string) ([]os.DirEntry, error) { return nil, nil }
+	restoreDir := func() { readProcDir = realDir }
 	a, err := ExecHost{}.Launch(context.Background(), LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
+		restoreDir()
 		t.Fatal(err)
 	}
+	// The seam is restored only once the agent's watcher can no longer read it.
+	defer func() {
+		if ea, ok := a.(*execAgent); ok {
+			<-ea.watcherDone
+		}
+		restoreDir()
+	}()
 	select {
 	case <-a.Done():
 	case <-time.After(5 * time.Second):
@@ -790,8 +807,37 @@ func TestZombieMemberDoesNotKeepAGroupUndrained(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if groupHasOtherMembers(lg, lg) {
-		t.Fatal("a group whose only other members are zombies reads as drained")
+	// The group IS drained (zombies only), but one scan is not promised to say so:
+	// on a host that keeps spawning short-lived processes every pass of one call can
+	// be void, and the scan then answers "members", the safe direction (#2042: seen
+	// for several seconds on a shared host). So ask as the drain watcher does, again
+	// and again, and fail only if it NEVER reads drained. A Z member counted as a
+	// member would never read drained, so this still catches that regression.
+	calls, took := readsDrainedEventually(t, lg, lg, drainedDeadline)
+	t.Logf("read drained on call %d after %v", calls, took.Round(time.Millisecond))
+}
+
+// drainedDeadline is far above the longest wait ever seen for a drained group on a
+// busy shared host (about 5 s); it exists so a real regression still ends the test.
+const drainedDeadline = 90 * time.Second
+
+// readsDrainedEventually asks whether a group still has members, at a cadence of
+// its own (a pass takes tens of milliseconds, so this is not a busy loop), until
+// the answer is "drained" or the deadline passes. It returns how many calls that
+// took. The product never promises a drained answer from ONE call under churn:
+// its guarantee is the opposite (never "drained" while a member may run), and the
+// watcher's repeated asking is what releases the group.
+func readsDrainedEventually(t *testing.T, pgid, leader int, deadline time.Duration) (int, time.Duration) {
+	t.Helper()
+	start := time.Now()
+	for calls := 1; ; calls++ {
+		if !groupHasOtherMembers(pgid, leader) {
+			return calls, time.Since(start)
+		}
+		if time.Since(start) > deadline {
+			t.Fatalf("a group whose only other members are zombies never read as drained in %v (%d calls)", deadline, calls)
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
