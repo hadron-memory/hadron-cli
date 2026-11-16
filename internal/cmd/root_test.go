@@ -142,6 +142,9 @@ func unstubbedDefault(op string) (string, bool) {
 	// Modern lifecycle tests supply their explicit response.
 	case "GetAgentLifecycle":
 		return missingFieldJSON("lifecycle"), true
+	// #2162: an unstubbed legacy server has no Agent.contextCap (#4258).
+	case "GetAgentContextCap":
+		return missingFieldJSON("contextCap"), true
 	// cli#1655 defaults model ONLY the synthetic exact missing-capability
 	// policy. They are not a stock pre-2708 provider (its missing
 	// installMethod/importer produce mixed errors). Modern preview/provenance
