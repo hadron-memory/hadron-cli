@@ -1624,7 +1624,10 @@ func codeForExtension(code string) int {
 	// the caller changes; who may write is the server's rule, a permission; an
 	// existing assignment needs --replace (state), like WORKER_RETIRED above.
 	// WORKER_NOT_FOUND is NotFound where it is mapped.
-	case code == "BAD_HOST_ASSIGNMENT_ARGS":
+	case code == "BAD_HOST_ASSIGNMENT_ARGS", code == "BAD_LAUNCHER_PROFILE":
+		// BAD_LAUNCHER_PROFILE (S1b, hadron-server#4230): a model, effort or
+		// account profile that is not a profile token, or a family with no
+		// launcher. An input the caller changes, like the shape refusal above.
 		return exitcode.Usage
 	case code == "HOST_ASSIGNMENT_NOT_PERMITTED":
 		return exitcode.Forbidden

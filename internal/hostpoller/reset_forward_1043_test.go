@@ -27,6 +27,8 @@ type fwdResets struct {
 	node string
 	// cpAtAuth is the record's checkpoint when the stop was requested.
 	cpAtAuth string
+	// registeredTask is the task the recovery step was sent with ("" for none).
+	registeredTask string
 }
 
 func (f *fwdResets) ClaimReset(_ context.Context, id string, epoch int, p ProcessIdentity) (ResetStep, error) {
@@ -40,6 +42,7 @@ func (f *fwdResets) ClaimReset(_ context.Context, id string, epoch int, p Proces
 func (f *fwdResets) RegisterResetRecovery(_ context.Context, _ string, epoch int, cp ResetCheckpoint, session, task string) (ResetStep, error) {
 	f.calls = append(f.calls, fmt.Sprintf("register@%d %s/%s", epoch, session, task))
 	f.checkpoint = cp
+	f.registeredTask = task
 	if err := f.stepErr["register"]; err != nil {
 		return ResetStep{}, err
 	}

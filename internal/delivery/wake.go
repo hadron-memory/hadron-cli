@@ -14,11 +14,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // Own prefixes of a typed wake line. With Prefix they are what a deliverer

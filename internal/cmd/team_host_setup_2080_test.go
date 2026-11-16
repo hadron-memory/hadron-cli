@@ -26,6 +26,12 @@ func responses2080() map[string]string {
 	r["TeamHostSetSource"] = `{"data":{"setHostSetupSource":"SERVER"}}`
 	r["TeamHostSetSourceInstructed"] = r["TeamHostSetSource"]
 	r["TeamHostSetup"] = `{"data":{"hostSetup":{"source":"SERVER","assignments":[` + assignmentJSON2080 + `]}}}`
+	// The S1a-era fixtures model a server that predates S1b: the profile-bearing
+	// documents are refused at validation, so `team host setup` falls back to the
+	// S1a document these tests were written against (cli#2157).
+	r["TeamHostSetupWithProfile"] = oldServerProfileRefusal2157
+	r["TeamHostAssignWithProfile"] = oldServerProfileRefusal2157
+	r["TeamHostAssignWithProfileInstructed"] = oldServerProfileRefusal2157
 	return r
 }
 
@@ -96,7 +102,13 @@ func TestTeamHostAssign2080JSON(t *testing.T) {
 			t.Fatalf("%s = %v, want %v in %v", k, got[k], w, got)
 		}
 	}
-	if len(got) != 9 {
+	// The two S1b profile keys are always present, null when unset (#2157).
+	for _, k := range []string{"effort", "accountProfile"} {
+		if v, ok := got[k]; !ok || v != nil {
+			t.Fatalf("%s = %v (present %v), want an explicit null", k, v, ok)
+		}
+	}
+	if len(got) != 11 {
 		t.Fatalf("keys = %v", got)
 	}
 }

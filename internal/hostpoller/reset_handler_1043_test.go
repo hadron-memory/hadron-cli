@@ -158,7 +158,7 @@ func TestResetNeverAdvertisesItself1043(t *testing.T) {
 }
 
 func TestResetRefusesAMalformedOperation1043(t *testing.T) {
-	for _, arg := range []string{"resetId", "sessionId", "taskId"} {
+	for _, arg := range []string{"resetId", "sessionId"} { // taskId is optional since #2117
 		t.Run(arg, func(t *testing.T) {
 			x := newResetFixture(t)
 			op := resetOp()

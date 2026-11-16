@@ -31,6 +31,11 @@ query TeamHostSetup(
 
 # @genqlient(for: "AssignHostWorkerInput.model", omitempty: true)
 # @genqlient(for: "AssignHostWorkerInput.replace", omitempty: true)
+# S1b: an omitted profile flag is OMITTED, never sent as null (the server reads a
+# present null on a replace as "clear"). The input type is shared with the
+# instructed document below, so these tags cover both.
+# @genqlient(for: "AssignHostWorkerInput.effort", omitempty: true)
+# @genqlient(for: "AssignHostWorkerInput.accountProfile", omitempty: true)
 mutation TeamHostAssign(
   $input: AssignHostWorkerInput!
 ) {
@@ -74,5 +79,44 @@ query TeamHostImportRoster($appRef: ID!) {
         urn
       }
     }
+  }
+}
+
+# S1b (hadron-server#4230, hadron-cli#2157): the launcher profile an assignment
+# records (effort, accountProfile: a profile token, or null when unset). These
+# documents are SEPARATE from the S1a ones above on purpose: host up, host import
+# and the plain assign keep using documents that a server without S1b still
+# validates, and only the commands that show or set the profile use these, with a
+# typed fallback when the server predates S1b.
+query TeamHostSetupWithProfile(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+) {
+  hostSetup(appRef: $appRef, hostId: $hostId) {
+    source
+    assignments {
+      ...HostSetupAssignmentFields
+      effort
+      accountProfile
+    }
+  }
+}
+
+mutation TeamHostAssignWithProfile(
+  $input: AssignHostWorkerInput!
+) {
+  assignHostWorker(input: $input) {
+    ...HostSetupAssignmentFields
+    effort
+    accountProfile
+  }
+}
+
+mutation TeamHostAssignWithProfileInstructed($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+  assignHostWorker(input: $input, instruction: $instruction) {
+    ...HostSetupAssignmentFields
+    effort
+    accountProfile
   }
 }
