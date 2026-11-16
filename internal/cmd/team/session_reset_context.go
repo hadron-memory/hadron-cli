@@ -35,11 +35,11 @@ const (
 	relaunchFailed  = "failed"
 	relaunchNone    = "none"
 
-	// agentSignalling: the agent's pid is proven and pinned, and SIGTERM is
+	// agentSignalPending: the agent's pid is proven and pinned, and SIGTERM is
 	// sent after this receipt. The receipt cannot report the signal's own
 	// result (the agent it goes to is the one that reads it); a signal that
 	// still fails says so on stderr (Jibril's delta P2).
-	agentSignalling = "signalling"
+	agentSignalPending = "signal-pending"
 	// agentEnded is endOwnAgent's word for a signal that was delivered.
 	agentEnded   = "signalled"
 	agentExitNow = "exit-now"
@@ -83,8 +83,8 @@ no poller), nothing is started early and the host's ordinary relaunch sweep
 brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
-"relaunch":"pending|failed|none","exit":"signalling|exit-now|none","reason"}.
-"signalling": the agent's pid is proven and pinned, and SIGTERM is sent
+"relaunch":"pending|failed|none","exit":"signal-pending|exit-now|none","reason"}.
+"signal-pending": the agent's pid is proven and pinned, and SIGTERM is sent
 right after this receipt has been written (a receipt that cannot be
 written signals nothing; a signal that still fails says so on stderr).
 "exit-now": nothing will be signalled, because this agent was not launched
@@ -138,7 +138,7 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 	if d.Relaunch == relaunchPending {
 		d.Exit = agentExitNow
 		if a, ok := pinOwnAgent(os.Getenv(AgentPIDEnv)); ok {
-			agent, d.Exit = a, agentSignalling
+			agent, d.Exit = a, agentSignalPending
 		}
 	}
 	finishResetContext(f.IOStreams.ErrOut, agent, func() error {

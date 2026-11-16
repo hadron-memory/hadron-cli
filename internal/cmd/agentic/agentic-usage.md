@@ -203,8 +203,8 @@ binding, and then sends SIGTERM to exactly the pid the host's Orca launch export
 `HADRON_AGENT_PID`, only while that pid is the command's ancestor. The host's poller relaunches the
 worker when that agent exits, through its periodic relaunch's own guards and hourly cap. Otherwise
 the ordinary sweep brings the worker back. `--json`: `{status: written|failed, node, claim:
-written|failed|none, relaunch: pending|failed|none, exit: signalling|exit-now|none, reason}`.
-`signalling` means the pid is proven and pinned, and SIGTERM follows once this receipt is written. A receipt that can't be written signals nothing, and a signal that fails says so on stderr. `exit-now` means nothing will be signalled (the pid could not be proven), so exit the agent yourself. The new agent's first prompt names the checkpoint. A failed checkpoint
+written|failed|none, relaunch: pending|failed|none, exit: signal-pending|exit-now|none, reason}`.
+`signal-pending` means the pid is proven and pinned, and SIGTERM follows once this receipt is written. A receipt that can't be written signals nothing, and a signal that fails says so on stderr. `exit-now` means nothing will be signalled (the pid could not be proven), so exit the agent yourself. The new agent's first prompt names the checkpoint. A failed checkpoint
 writes no stamp and ends nothing. Exit 0 unless the command line is wrong.
 
 **A permission refusal exits 8, not 1 (#619).** This CHANGED: `FORBIDDEN` — the

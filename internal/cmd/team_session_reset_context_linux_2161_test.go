@@ -89,7 +89,7 @@ sleep 30 & wait`
 	// PASS line may follow it).
 	receipt, _, complete := strings.Cut(string(b), "\n}\n")
 	var d resetContextDTO
-	if !complete || json.Unmarshal([]byte(receipt+"\n}\n"), &d) != nil || d.Status != "written" || d.Relaunch != "pending" || d.Exit != "signalling" {
+	if !complete || json.Unmarshal([]byte(receipt+"\n}\n"), &d) != nil || d.Status != "written" || d.Relaunch != "pending" || d.Exit != "signal-pending" {
 		t.Fatalf("the agent received %q", b)
 	}
 }
@@ -147,7 +147,7 @@ func TestResetContextEndsAnAgentThatDiesAtOnceAfterItsReceipt2161(t *testing.T) 
 		time.Sleep(50 * time.Millisecond)
 	}
 	var d resetContextDTO
-	if r.Err != "" || json.Unmarshal([]byte(r.Out), &d) != nil || d.Status != "written" || d.Relaunch != "pending" || d.Exit != "signalling" {
+	if r.Err != "" || json.Unmarshal([]byte(r.Out), &d) != nil || d.Status != "written" || d.Relaunch != "pending" || d.Exit != "signal-pending" {
 		t.Fatalf("receipt %q (err %q)", r.Out, r.Err)
 	}
 	if r.StampErr != "" || !strings.Contains(r.Stamp, `"sessionId":"s-new"`) {
