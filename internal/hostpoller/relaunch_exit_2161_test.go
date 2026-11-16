@@ -356,3 +356,47 @@ func TestAnExitWakeKeepsTheCheckInDeadline2161(t *testing.T) {
 		t.Fatalf("sleeps asked %v: the second must be what is left of the first", asked)
 	}
 }
+
+// C1 x C12 (#2056 merged into #2167, Wolfgang #110164): an exit pass records
+// C1's S10 recovery row for the one worker it relaunched (never unrecorded),
+// and a refused exit pass records nothing (never an empty pass).
+func TestAnExitRelaunchIsRecordedAsOneS10RowAndARefusedOneIsNot2161(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		paused bool
+		want   int
+	}{{"relaunched", false, 1}, {"refused", true, 0}} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newExitFixture2161(t)
+			var mu sync.Mutex
+			var reports []SweepReport
+			f.p.relaunch.ReportSweep = func(_ context.Context, r SweepReport) error {
+				mu.Lock()
+				reports = append(reports, r)
+				mu.Unlock()
+				return nil
+			}
+			if c.paused {
+				f.source.snapshot.Workers[0].Reason = "PAUSED"
+			}
+			f.run(t)
+			mu.Lock()
+			reports = nil // the first sweep's own report, if any, is C1's
+			mu.Unlock()
+			f.writeStamp(t, "id-iris", "still-open", time.Second)
+			close(f.old.done)
+			f.awaitPass(t)
+			mu.Lock()
+			defer mu.Unlock()
+			if len(reports) != c.want {
+				t.Fatalf("%s: %d S10 reports, want %d: %+v", c.name, len(reports), c.want, reports)
+			}
+			if c.want == 1 {
+				r := reports[0]
+				if r.Applied != 1 || r.Failed != 0 || len(r.Lines) != 1 || r.Lines[0] != (SweepReportLine{"id-iris", "APPLIED", "TERMINAL_MISSING"}) || !strings.HasPrefix(r.RunID, "recovery:") || r.Mode != "APPLY" || r.AppID != "app-id" || r.HostID != "h1" {
+					t.Fatalf("report %+v", r)
+				}
+			}
+		})
+	}
+}
