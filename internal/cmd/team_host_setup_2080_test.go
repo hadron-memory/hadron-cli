@@ -26,6 +26,12 @@ func responses2080() map[string]string {
 	r["TeamHostSetSource"] = `{"data":{"setHostSetupSource":"SERVER"}}`
 	r["TeamHostSetSourceInstructed"] = r["TeamHostSetSource"]
 	r["TeamHostSetup"] = `{"data":{"hostSetup":{"source":"SERVER","assignments":[` + assignmentJSON2080 + `]}}}`
+	// The S1a-era fixtures model a server that predates S1b: the profile-bearing
+	// documents are refused at validation, so `team host setup` falls back to the
+	// S1a document these tests were written against (cli#2157).
+	r["TeamHostSetupWithProfile"] = oldServerProfileRefusal2157
+	r["TeamHostAssignWithProfile"] = oldServerProfileRefusal2157
+	r["TeamHostAssignWithProfileInstructed"] = oldServerProfileRefusal2157
 	return r
 }
 

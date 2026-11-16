@@ -30,8 +30,11 @@ hadron team host assign Jonas --host orca1 --workdir jonas-3 --family codex \
   The CLI never sends a null to do that: an omitted flag is omitted from the request. On a new
   assignment an omitted flag simply leaves the value unset. Pass every value you want kept.
 
-## Needs
+## Older servers
 
-A server that has the launcher profile (hadron-server#4230). A server without it refuses the
-`team host setup` read and `team host assign` at GraphQL validation, because both now select
-`effort` and `accountProfile`.
+The profile is read and written through its own documents, so nothing else changes on a
+server that predates it (hadron-server#4230): `team host up`, `team host import` (the dry run
+too) and a plain `team host assign` use the same documents as before. On such a server,
+`team host setup` prints the assignments without the profile (`--json` says
+`"profile": "unavailable"`, and `effort` and `accountProfile` are `null`, meaning unknown, not
+unset), and `--effort` or `--account-profile` is refused by name (exit 2) with nothing written.

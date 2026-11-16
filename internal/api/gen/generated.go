@@ -57242,19 +57242,15 @@ func (v *HostRelaunchSnapshotResponse) GetHostDesiredState() *HostRelaunchSnapsh
 // typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
 // carries the set ones, and the host builds the command from a fixed template for the family.
 type HostSetupAssignmentFields struct {
-	Id       string                           `json:"id"`
-	HostId   string                           `json:"hostId"`
-	WorkerId string                           `json:"workerId"`
-	Worker   *HostSetupAssignmentFieldsWorker `json:"worker"`
-	Workdir  string                           `json:"workdir"`
-	Family   string                           `json:"family"`
-	Model    *string                          `json:"model"`
-	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
-	Effort *string `json:"effort"`
-	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
-	AccountProfile *string `json:"accountProfile"`
-	CreatedAt      string  `json:"createdAt"`
-	UpdatedAt      string  `json:"updatedAt"`
+	Id        string                           `json:"id"`
+	HostId    string                           `json:"hostId"`
+	WorkerId  string                           `json:"workerId"`
+	Worker    *HostSetupAssignmentFieldsWorker `json:"worker"`
+	Workdir   string                           `json:"workdir"`
+	Family    string                           `json:"family"`
+	Model     *string                          `json:"model"`
+	CreatedAt string                           `json:"createdAt"`
+	UpdatedAt string                           `json:"updatedAt"`
 }
 
 // GetId returns HostSetupAssignmentFields.Id, and is useful for accessing the field via an interface.
@@ -57277,12 +57273,6 @@ func (v *HostSetupAssignmentFields) GetFamily() string { return v.Family }
 
 // GetModel returns HostSetupAssignmentFields.Model, and is useful for accessing the field via an interface.
 func (v *HostSetupAssignmentFields) GetModel() *string { return v.Model }
-
-// GetEffort returns HostSetupAssignmentFields.Effort, and is useful for accessing the field via an interface.
-func (v *HostSetupAssignmentFields) GetEffort() *string { return v.Effort }
-
-// GetAccountProfile returns HostSetupAssignmentFields.AccountProfile, and is useful for accessing the field via an interface.
-func (v *HostSetupAssignmentFields) GetAccountProfile() *string { return v.AccountProfile }
 
 // GetCreatedAt returns HostSetupAssignmentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *HostSetupAssignmentFields) GetCreatedAt() string { return v.CreatedAt }
@@ -95341,16 +95331,6 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetModel() *string 
 	return v.HostSetupAssignmentFields.Model
 }
 
-// GetEffort returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
-func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
-	return v.HostSetupAssignmentFields.Effort
-}
-
-// GetAccountProfile returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
-func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
-	return v.HostSetupAssignmentFields.AccountProfile
-}
-
 // GetCreatedAt returns TeamHostAssignAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
 func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
 	return v.HostSetupAssignmentFields.CreatedAt
@@ -95401,10 +95381,6 @@ type __premarshalTeamHostAssignAssignHostWorkerHostWorkerAssignment struct {
 
 	Model *string `json:"model"`
 
-	Effort *string `json:"effort"`
-
-	AccountProfile *string `json:"accountProfile"`
-
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95428,8 +95404,6 @@ func (v *TeamHostAssignAssignHostWorkerHostWorkerAssignment) __premarshalJSON() 
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
-	retval.Effort = v.HostSetupAssignmentFields.Effort
-	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -95483,16 +95457,6 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetModel(
 	return v.HostSetupAssignmentFields.Model
 }
 
-// GetEffort returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
-func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
-	return v.HostSetupAssignmentFields.Effort
-}
-
-// GetAccountProfile returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
-func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
-	return v.HostSetupAssignmentFields.AccountProfile
-}
-
 // GetCreatedAt returns TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
 func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
 	return v.HostSetupAssignmentFields.CreatedAt
@@ -95543,10 +95507,6 @@ type __premarshalTeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment st
 
 	Model *string `json:"model"`
 
-	Effort *string `json:"effort"`
-
-	AccountProfile *string `json:"accountProfile"`
-
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95570,8 +95530,6 @@ func (v *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment) __premars
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
-	retval.Effort = v.HostSetupAssignmentFields.Effort
-	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -95612,6 +95570,336 @@ type TeamHostAssignResponse struct {
 
 // GetAssignHostWorker returns TeamHostAssignResponse.AssignHostWorker, and is useful for accessing the field via an interface.
 func (v *TeamHostAssignResponse) GetAssignHostWorker() *TeamHostAssignAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+	Effort *string `json:"effort"`
+	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+	AccountProfile *string `json:"accountProfile"`
+}
+
+// GetEffort returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
+	return v.Effort
+}
+
+// GetAccountProfile returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
+	return v.AccountProfile
+}
+
+// GetId returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment struct {
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment
+
+	retval.Effort = v.Effort
+	retval.AccountProfile = v.AccountProfile
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+	Effort *string `json:"effort"`
+	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+	AccountProfile *string `json:"accountProfile"`
+}
+
+// GetEffort returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetEffort() *string {
+	return v.Effort
+}
+
+// GetAccountProfile returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetAccountProfile() *string {
+	return v.AccountProfile
+}
+
+// GetId returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment struct {
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment
+
+	retval.Effort = v.Effort
+	retval.AccountProfile = v.AccountProfile
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostAssignWithProfileInstructedResponse is returned by TeamHostAssignWithProfileInstructed on success.
+type TeamHostAssignWithProfileInstructedResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignWithProfileInstructedResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileInstructedResponse) GetAssignHostWorker() *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment {
+	return v.AssignHostWorker
+}
+
+// TeamHostAssignWithProfileResponse is returned by TeamHostAssignWithProfile on success.
+type TeamHostAssignWithProfileResponse struct {
+	// #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
+	// and optionally model, effort and accountProfile; hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change
+	// Proposed). Whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
+	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
+	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
+	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
+	// already assigned to that host and replace is not set. A refusal writes nothing.
+	AssignHostWorker *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
+}
+
+// GetAssignHostWorker returns TeamHostAssignWithProfileResponse.AssignHostWorker, and is useful for accessing the field via an interface.
+func (v *TeamHostAssignWithProfileResponse) GetAssignHostWorker() *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment {
 	return v.AssignHostWorker
 }
 
@@ -95781,16 +96069,6 @@ func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetModel() *stri
 	return v.HostSetupAssignmentFields.Model
 }
 
-// GetEffort returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
-func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetEffort() *string {
-	return v.HostSetupAssignmentFields.Effort
-}
-
-// GetAccountProfile returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
-func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetAccountProfile() *string {
-	return v.HostSetupAssignmentFields.AccountProfile
-}
-
 // GetCreatedAt returns TeamHostSetupHostSetupAssignmentsHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
 func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) GetCreatedAt() string {
 	return v.HostSetupAssignmentFields.CreatedAt
@@ -95841,10 +96119,6 @@ type __premarshalTeamHostSetupHostSetupAssignmentsHostWorkerAssignment struct {
 
 	Model *string `json:"model"`
 
-	Effort *string `json:"effort"`
-
-	AccountProfile *string `json:"accountProfile"`
-
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt string `json:"updatedAt"`
@@ -95868,8 +96142,6 @@ func (v *TeamHostSetupHostSetupAssignmentsHostWorkerAssignment) __premarshalJSON
 	retval.Workdir = v.HostSetupAssignmentFields.Workdir
 	retval.Family = v.HostSetupAssignmentFields.Family
 	retval.Model = v.HostSetupAssignmentFields.Model
-	retval.Effort = v.HostSetupAssignmentFields.Effort
-	retval.AccountProfile = v.HostSetupAssignmentFields.AccountProfile
 	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
 	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
 	return &retval, nil
@@ -95888,6 +96160,185 @@ type TeamHostSetupResponse struct {
 
 // GetHostSetup returns TeamHostSetupResponse.HostSetup, and is useful for accessing the field via an interface.
 func (v *TeamHostSetupResponse) GetHostSetup() *TeamHostSetupHostSetup { return v.HostSetup }
+
+// TeamHostSetupWithProfileHostSetup includes the requested fields of the GraphQL type HostSetup.
+// The GraphQL type's documentation follows.
+//
+// #4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+type TeamHostSetupWithProfileHostSetup struct {
+	Source      HostSetupSource                                                     `json:"source"`
+	Assignments []*TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment `json:"assignments"`
+}
+
+// GetSource returns TeamHostSetupWithProfileHostSetup.Source, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetup) GetSource() HostSetupSource { return v.Source }
+
+// GetAssignments returns TeamHostSetupWithProfileHostSetup.Assignments, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetup) GetAssignments() []*TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment {
+	return v.Assignments
+}
+
+// TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment struct {
+	HostSetupAssignmentFields `json:"-"`
+	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+	Effort *string `json:"effort"`
+	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+	AccountProfile *string `json:"accountProfile"`
+}
+
+// GetEffort returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetEffort() *string {
+	return v.Effort
+}
+
+// GetAccountProfile returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetAccountProfile() *string {
+	return v.AccountProfile
+}
+
+// GetId returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Id, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetId() string {
+	return v.HostSetupAssignmentFields.Id
+}
+
+// GetHostId returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetHostId() string {
+	return v.HostSetupAssignmentFields.HostId
+}
+
+// GetWorkerId returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetWorkerId() string {
+	return v.HostSetupAssignmentFields.WorkerId
+}
+
+// GetWorker returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetWorker() *HostSetupAssignmentFieldsWorker {
+	return v.HostSetupAssignmentFields.Worker
+}
+
+// GetWorkdir returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetWorkdir() string {
+	return v.HostSetupAssignmentFields.Workdir
+}
+
+// GetFamily returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetFamily() string {
+	return v.HostSetupAssignmentFields.Family
+}
+
+// GetModel returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetModel() *string {
+	return v.HostSetupAssignmentFields.Model
+}
+
+// GetCreatedAt returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetCreatedAt() string {
+	return v.HostSetupAssignmentFields.CreatedAt
+}
+
+// GetUpdatedAt returns TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) GetUpdatedAt() string {
+	return v.HostSetupAssignmentFields.UpdatedAt
+}
+
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostSetupAssignmentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment struct {
+	Effort *string `json:"effort"`
+
+	AccountProfile *string `json:"accountProfile"`
+
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostSetupAssignmentFieldsWorker `json:"worker"`
+
+	Workdir string `json:"workdir"`
+
+	Family string `json:"family"`
+
+	Model *string `json:"model"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment) __premarshalJSON() (*__premarshalTeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment, error) {
+	var retval __premarshalTeamHostSetupWithProfileHostSetupAssignmentsHostWorkerAssignment
+
+	retval.Effort = v.Effort
+	retval.AccountProfile = v.AccountProfile
+	retval.Id = v.HostSetupAssignmentFields.Id
+	retval.HostId = v.HostSetupAssignmentFields.HostId
+	retval.WorkerId = v.HostSetupAssignmentFields.WorkerId
+	retval.Worker = v.HostSetupAssignmentFields.Worker
+	retval.Workdir = v.HostSetupAssignmentFields.Workdir
+	retval.Family = v.HostSetupAssignmentFields.Family
+	retval.Model = v.HostSetupAssignmentFields.Model
+	retval.CreatedAt = v.HostSetupAssignmentFields.CreatedAt
+	retval.UpdatedAt = v.HostSetupAssignmentFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamHostSetupWithProfileResponse is returned by TeamHostSetupWithProfile on success.
+type TeamHostSetupWithProfileResponse struct {
+	// #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+	// the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+	// App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+	// own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+	// no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+	// FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	HostSetup *TeamHostSetupWithProfileHostSetup `json:"hostSetup"`
+}
+
+// GetHostSetup returns TeamHostSetupWithProfileResponse.HostSetup, and is useful for accessing the field via an interface.
+func (v *TeamHostSetupWithProfileResponse) GetHostSetup() *TeamHostSetupWithProfileHostSetup {
+	return v.HostSetup
+}
 
 // TeamHostUnassignInstructedResponse is returned by TeamHostUnassignInstructed on success.
 type TeamHostUnassignInstructedResponse struct {
@@ -123001,6 +123452,30 @@ func (v *__TeamHostAssignInstructedInput) GetInput() *AssignHostWorkerInput { re
 // GetInstruction returns __TeamHostAssignInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__TeamHostAssignInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __TeamHostAssignWithProfileInput is used internally by genqlient
+type __TeamHostAssignWithProfileInput struct {
+	Input *AssignHostWorkerInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignWithProfileInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignWithProfileInput) GetInput() *AssignHostWorkerInput { return v.Input }
+
+// __TeamHostAssignWithProfileInstructedInput is used internally by genqlient
+type __TeamHostAssignWithProfileInstructedInput struct {
+	Input       *AssignHostWorkerInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput   `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamHostAssignWithProfileInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignWithProfileInstructedInput) GetInput() *AssignHostWorkerInput {
+	return v.Input
+}
+
+// GetInstruction returns __TeamHostAssignWithProfileInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamHostAssignWithProfileInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __TeamHostImportRosterInput is used internally by genqlient
 type __TeamHostImportRosterInput struct {
 	AppRef string `json:"appRef"`
@@ -123050,6 +123525,18 @@ func (v *__TeamHostSetupInput) GetAppRef() string { return v.AppRef }
 
 // GetHostId returns __TeamHostSetupInput.HostId, and is useful for accessing the field via an interface.
 func (v *__TeamHostSetupInput) GetHostId() *string { return v.HostId }
+
+// __TeamHostSetupWithProfileInput is used internally by genqlient
+type __TeamHostSetupWithProfileInput struct {
+	AppRef string  `json:"appRef"`
+	HostId *string `json:"hostId,omitempty"`
+}
+
+// GetAppRef returns __TeamHostSetupWithProfileInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupWithProfileInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __TeamHostSetupWithProfileInput.HostId, and is useful for accessing the field via an interface.
+func (v *__TeamHostSetupWithProfileInput) GetHostId() *string { return v.HostId }
 
 // __TeamHostUnassignInput is used internally by genqlient
 type __TeamHostUnassignInput struct {
@@ -161245,8 +161732,6 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
-	effort
-	accountProfile
 	createdAt
 	updatedAt
 }
@@ -161297,8 +161782,6 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
-	effort
-	accountProfile
 	createdAt
 	updatedAt
 }
@@ -161320,6 +161803,106 @@ func TeamHostAssignInstructed(
 	}
 
 	data_ = &TeamHostAssignInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostAssignWithProfile.
+const TeamHostAssignWithProfile_Operation = `
+mutation TeamHostAssignWithProfile ($input: AssignHostWorkerInput!) {
+	assignHostWorker(input: $input) {
+		... HostSetupAssignmentFields
+		effort
+		accountProfile
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostAssignWithProfile(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+) (data_ *TeamHostAssignWithProfileResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssignWithProfile",
+		Query:  TeamHostAssignWithProfile_Operation,
+		Variables: &__TeamHostAssignWithProfileInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamHostAssignWithProfileResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamHostAssignWithProfileInstructed.
+const TeamHostAssignWithProfileInstructed_Operation = `
+mutation TeamHostAssignWithProfileInstructed ($input: AssignHostWorkerInput!, $instruction: ActInstructionInput!) {
+	assignHostWorker(input: $input, instruction: $instruction) {
+		... HostSetupAssignmentFields
+		effort
+		accountProfile
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+func TeamHostAssignWithProfileInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AssignHostWorkerInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamHostAssignWithProfileInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostAssignWithProfileInstructed",
+		Query:  TeamHostAssignWithProfileInstructed_Operation,
+		Variables: &__TeamHostAssignWithProfileInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamHostAssignWithProfileInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -161463,8 +162046,6 @@ fragment HostSetupAssignmentFields on HostWorkerAssignment {
 	workdir
 	family
 	model
-	effort
-	accountProfile
 	createdAt
 	updatedAt
 }
@@ -161486,6 +162067,66 @@ func TeamHostSetup(
 	}
 
 	data_ = &TeamHostSetupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHostSetupWithProfile.
+const TeamHostSetupWithProfile_Operation = `
+query TeamHostSetupWithProfile ($appRef: String!, $hostId: String) {
+	hostSetup(appRef: $appRef, hostId: $hostId) {
+		source
+		assignments {
+			... HostSetupAssignmentFields
+			effort
+			accountProfile
+		}
+	}
+}
+fragment HostSetupAssignmentFields on HostWorkerAssignment {
+	id
+	hostId
+	workerId
+	worker {
+		name
+	}
+	workdir
+	family
+	model
+	createdAt
+	updatedAt
+}
+`
+
+// S1b (hadron-server#4230, hadron-cli#2157): the launcher profile an assignment
+// records (effort, accountProfile: a profile token, or null when unset). These
+// documents are SEPARATE from the S1a ones above on purpose: host up, host import
+// and the plain assign keep using documents that a server without S1b still
+// validates, and only the commands that show or set the profile use these, with a
+// typed fallback when the server predates S1b.
+func TeamHostSetupWithProfile(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+) (data_ *TeamHostSetupWithProfileResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHostSetupWithProfile",
+		Query:  TeamHostSetupWithProfile_Operation,
+		Variables: &__TeamHostSetupWithProfileInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &TeamHostSetupWithProfileResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

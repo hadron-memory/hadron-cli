@@ -77,7 +77,7 @@ type hostAssignmentDTO struct {
 }
 
 func hostAssignmentDTOFrom(a *gen.HostSetupAssignmentFields) hostAssignmentDTO {
-	d := hostAssignmentDTO{ID: a.Id, HostID: a.HostId, WorkerID: a.WorkerId, Workdir: a.Workdir, Family: a.Family, Model: a.Model, Effort: a.Effort, AccountProfile: a.AccountProfile, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt}
+	d := hostAssignmentDTO{ID: a.Id, HostID: a.HostId, WorkerID: a.WorkerId, Workdir: a.Workdir, Family: a.Family, Model: a.Model, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt}
 	if a.Worker != nil {
 		n := a.Worker.Name
 		d.WorkerName = &n
@@ -85,9 +85,23 @@ func hostAssignmentDTOFrom(a *gen.HostSetupAssignmentFields) hostAssignmentDTO {
 	return d
 }
 
+// hostProfileAvailable and hostProfileUnavailable say whether `team host setup`
+// could read the S1b launcher profile: a server that predates it refuses the
+// profile-bearing document at validation, and the read then falls back to the
+// S1a document (assignments without effort and accountProfile, which read as
+// null in --json), saying so once.
+const (
+	hostProfileAvailable   = "available"
+	hostProfileUnavailable = "unavailable"
+)
+
 type hostSetupDTO struct {
-	AppRef      string              `json:"appRef"`
-	Source      string              `json:"source"`
+	AppRef string `json:"appRef"`
+	Source string `json:"source"`
+	// Profile is "available", or "unavailable" when the server predates S1b
+	// (hadron-server#4230) and the effort and accountProfile of every assignment
+	// below are therefore UNKNOWN (null), not unset.
+	Profile     string              `json:"profile"`
 	HostID      *string             `json:"hostId"`
 	Assignments []hostAssignmentDTO `json:"assignments"`
 }
@@ -127,6 +141,11 @@ value is never a path, a command or a credential. While the App's switch is
 SERVER a worker start carries the ones that are set. A worker may be assigned
 to several hosts. The record changes nothing until the App's switch is SERVER
 (` + "`team host setup --source SERVER`" + `).
+
+--effort and --account-profile need a server with the S1b launcher profile; on
+one that predates it the command refuses by name (exit 2) and writes nothing,
+never an assignment that quietly lacks them. Without them the command works on
+any server.
 
 A profile flag you leave out is OMITTED from the request, never sent as null.
 On a new assignment that leaves the value unset; with --replace the server
@@ -206,32 +225,58 @@ assignment.
 			}
 			input.AppRef = scope.Ref
 			ctx := cmd.Context()
+			// Without a profile flag the S1a documents are used, which a server that
+			// predates S1b still validates (the answer then has no profile, and
+			// none is claimed: a new or replaced assignment without profile flags
+			// has none). With one, the profile-bearing documents are used, and a
+			// server that cannot take them is refused by name, writing nothing.
+			wantsProfile := input.Effort != nil || input.AccountProfile != nil
 			var a *gen.HostSetupAssignmentFields
-			if claim == nil {
+			var effortOut, accountOut *string
+			var callErr error
+			switch {
+			case claim == nil && !wantsProfile:
 				resp, err := gen.TeamHostAssign(ctx, client, &input)
-				if err != nil {
-					return api.MapErrorKeepingCode(err)
-				}
-				if resp != nil && resp.AssignHostWorker != nil {
+				callErr = err
+				if err == nil && resp != nil && resp.AssignHostWorker != nil {
 					a = &resp.AssignHostWorker.HostSetupAssignmentFields
 				}
-			} else {
+			case claim == nil:
+				resp, err := gen.TeamHostAssignWithProfile(ctx, client, &input)
+				callErr = err
+				if err == nil && resp != nil && resp.AssignHostWorker != nil {
+					a, effortOut, accountOut = &resp.AssignHostWorker.HostSetupAssignmentFields, resp.AssignHostWorker.Effort, resp.AssignHostWorker.AccountProfile
+				}
+			default:
 				ictx, _, err := instructed(ctx, "", scope.Ref)
 				if err != nil {
 					return err
 				}
-				resp, err := gen.TeamHostAssignInstructed(ictx, client, &input, claim)
-				if err != nil {
-					return api.MapErrorKeepingCode(err)
+				if wantsProfile {
+					resp, err := gen.TeamHostAssignWithProfileInstructed(ictx, client, &input, claim)
+					callErr = err
+					if err == nil && resp != nil && resp.AssignHostWorker != nil {
+						a, effortOut, accountOut = &resp.AssignHostWorker.HostSetupAssignmentFields, resp.AssignHostWorker.Effort, resp.AssignHostWorker.AccountProfile
+					}
+				} else {
+					resp, err := gen.TeamHostAssignInstructed(ictx, client, &input, claim)
+					callErr = err
+					if err == nil && resp != nil && resp.AssignHostWorker != nil {
+						a = &resp.AssignHostWorker.HostSetupAssignmentFields
+					}
 				}
-				if resp != nil && resp.AssignHostWorker != nil {
-					a = &resp.AssignHostWorker.HostSetupAssignmentFields
+			}
+			if callErr != nil {
+				if wantsProfile && serverLacksProfile(callErr) {
+					return exitcode.Newf(exitcode.Usage, "--effort and --account-profile need a server with the S1b launcher profile (hadron-server#4230); this server predates it. Nothing was written. Assign without them, or ask for the server to be upgraded")
 				}
+				return api.MapErrorKeepingCode(callErr)
 			}
 			if a == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no assignment; outcome unknown, run `hadron team host setup` before retrying")
 			}
 			d := hostAssignmentDTOFrom(a)
+			d.Effort, d.AccountProfile = effortOut, accountOut
 			label := lazyAppLabel(ctx, f, scope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "app: %s\n✓ assigned %s to host %s: workdir %s, family %s, model %s, effort %s, account profile %s\n", label(), assignmentWho(d), output.SafeCell(d.HostID), output.SafeCell(d.Workdir), output.SafeCell(d.Family), output.SafeCell(stopValue(d.Model)), output.SafeCell(stopValue(d.Effort)), output.SafeCell(stopValue(d.AccountProfile)))
@@ -248,6 +293,15 @@ assignment.
 	cmd.Flags().BoolVar(&replace, "replace", false, "change an existing assignment of this worker to this host")
 	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	return cmd
+}
+
+// serverLacksProfile reports whether err is a server that predates the S1b
+// launcher profile refusing it at validation: the profile fields are not on its
+// assignment type (a selection) or not on its input type (an argument). It reads
+// the structured GraphQL envelope; any other failure is not this one.
+func serverLacksProfile(err error) bool {
+	return api.IsFrameworkValidationOnlyFor(err, "effort", "accountProfile") ||
+		api.IsUnknownInputFieldOnly(err, "AssignHostWorkerInput", "effort", "accountProfile")
 }
 
 func newCmdTeamHostUnassign(f *cmdutil.Factory) *cobra.Command {
@@ -341,7 +395,10 @@ carries no worker session. --json prints {appRef, source, hostId,
 assignments[]}, an assignment being {id, hostId, workerId, workerName,
 workdir, family, model, effort, accountProfile, createdAt, updatedAt}
 (effort and accountProfile are the S1b launcher profile: a profile token, or null
-when unset; the keys are always present).
+when unset; the keys are always present). "profile" is "available", or
+"unavailable" when the server predates S1b: then the assignments are shown
+without the profile, effort and accountProfile read null meaning UNKNOWN (not
+unset), and the text says so once.
 
 With --source HOST|SERVER: set the switch (the App manager's write). HOST, the
 default, keeps today's behaviour: the host states its workers at registration.
@@ -429,39 +486,70 @@ func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) err
 		return err
 	}
 	// A read never carries the worker session: api.WithSession is opt-in.
-	resp, err := gen.TeamHostSetup(cmd.Context(), client, scope.Ref, optStr(hostID))
-	if err != nil {
-		return api.MapErrorKeepingCode(err)
+	// The profile-bearing document first; a server that predates S1b refuses it
+	// at validation and the S1a document answers instead, without the profile.
+	var d hostSetupDTO
+	if presp, perr := gen.TeamHostSetupWithProfile(cmd.Context(), client, scope.Ref, optStr(hostID)); perr == nil {
+		if presp == nil || presp.HostSetup == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no host setup")
+		}
+		d = hostSetupDTO{AppRef: scope.Ref, Source: string(presp.HostSetup.Source), Profile: hostProfileAvailable, Assignments: []hostAssignmentDTO{}}
+		for _, a := range presp.HostSetup.Assignments {
+			if a == nil {
+				continue
+			}
+			x := hostAssignmentDTOFrom(&a.HostSetupAssignmentFields)
+			x.Effort, x.AccountProfile = a.Effort, a.AccountProfile
+			d.Assignments = append(d.Assignments, x)
+		}
+	} else if serverLacksProfile(perr) {
+		resp, err := gen.TeamHostSetup(cmd.Context(), client, scope.Ref, optStr(hostID))
+		if err != nil {
+			return api.MapErrorKeepingCode(err)
+		}
+		if resp == nil || resp.HostSetup == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no host setup")
+		}
+		d = hostSetupDTO{AppRef: scope.Ref, Source: string(resp.HostSetup.Source), Profile: hostProfileUnavailable, Assignments: []hostAssignmentDTO{}}
+		for _, a := range resp.HostSetup.Assignments {
+			if a == nil {
+				continue
+			}
+			d.Assignments = append(d.Assignments, hostAssignmentDTO{
+				ID: a.Id, HostID: a.HostId, WorkerID: a.WorkerId, Workdir: a.Workdir, Family: a.Family, Model: a.Model,
+				CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+			})
+			if a.Worker != nil {
+				n := a.Worker.Name
+				d.Assignments[len(d.Assignments)-1].WorkerName = &n
+			}
+		}
+	} else {
+		return api.MapErrorKeepingCode(perr)
 	}
-	if resp == nil || resp.HostSetup == nil {
-		return exitcode.Newf(exitcode.Error, "server returned no host setup")
-	}
-	d := hostSetupDTO{AppRef: scope.Ref, Source: string(resp.HostSetup.Source), Assignments: []hostAssignmentDTO{}}
 	if hostID != "" {
 		d.HostID = &hostID
-	}
-	for _, a := range resp.HostSetup.Assignments {
-		if a == nil {
-			continue
-		}
-		d.Assignments = append(d.Assignments, hostAssignmentDTO{
-			ID: a.Id, HostID: a.HostId, WorkerID: a.WorkerId, Workdir: a.Workdir, Family: a.Family, Model: a.Model,
-			Effort: a.Effort, AccountProfile: a.AccountProfile,
-			CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
-		})
-		if a.Worker != nil {
-			n := a.Worker.Name
-			d.Assignments[len(d.Assignments)-1].WorkerName = &n
-		}
 	}
 	label := lazyAppLabel(cmd.Context(), f, scope)
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 		if _, err := fmt.Fprintf(w, "app: %s\nsource: %s\n", label(), output.SafeCell(d.Source)); err != nil {
 			return err
 		}
+		if d.Profile == hostProfileUnavailable {
+			if _, err := fmt.Fprintln(w, "launcher profile: unavailable (this server predates S1b, hadron-server#4230); effort and account profile are unknown, not unset"); err != nil {
+				return err
+			}
+		}
 		if len(d.Assignments) == 0 {
 			_, err := fmt.Fprintln(w, "no assignments")
 			return err
+		}
+		if d.Profile == hostProfileUnavailable {
+			t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL")
+			for _, a := range d.Assignments {
+				t.Row(output.SafeCell(a.HostID), assignmentWho(a), output.SafeCell(a.Workdir), output.SafeCell(a.Family), output.SafeCell(stopValue(a.Model)))
+			}
+			return t.Flush()
 		}
 		t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL", "EFFORT", "ACCOUNT")
 		for _, a := range d.Assignments {
