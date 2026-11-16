@@ -4440,9 +4440,13 @@ Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
 `attempt` and the absence observation's `checkedAt`, plus a terminal handle
 when known. `noticeFailed` with `localCause` or `noticeCause` means a local
 failure could not be represented or delivered as a typed server repair.
-Setup/disk failures and unproven post-launch identity currently have no honest
-generic server reason; they remain local, never a false `CAP_REACHED` or a
-borrowed failure code. No daemon controls or separate relaunch RPC are added.
+`SETUP_FAILED` means setup/disk failure before the launcher ran;
+`VERIFY_FAILED` means the launch ran but its process proof failed. An actual
+expired launch/proof wait remains `TIMEOUT`. A cancellation, unknown transport
+failure or fresh server-state refusal is not relabeled as either new reason.
+Older servers reject the new reason through schema skew: the failure stays
+`FAILED` with its local cause and `noticeFailed`, without a retry or a borrowed
+code. No daemon controls or separate relaunch RPC are added.
 
 An identical operation still in flight is adopted, never issued twice, and
 followed to its outcome; a finished one is not reused; a conflicting one in

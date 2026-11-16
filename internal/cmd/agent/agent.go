@@ -839,6 +839,10 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 --lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while they
 hold a runnable task. Omitted preserves the server value (default LONG_LIVED).
+The server checks the same permission as --uses-tasks. This records desired
+behaviour; a host sweep must support it and be enabled to act on it. The flag
+requires server #4242 (schema skew exits 2). Without it the legacy update
+document stays unchanged.
 
 --context-cap <tokens> sets the Agent's context cap: a whole number from 1; a
 long-lived worker whose context grows past it, and whose host reports it idle
@@ -846,10 +850,6 @@ at an empty prompt, is reset (at most once an hour per worker; a busy worker is
 never reset for it). --no-context-cap removes the cap. Omitted keeps the current
 cap. Not both. Needs a server with hadron-server#4258; against an older one the
 write is refused as schema skew, and every other agent command is unaffected.
-The server checks the same permission as --uses-tasks. This records desired
-behaviour; a host sweep must support it and be enabled to act on it. The flag
-requires server #4242 (schema skew exits 2). Without it the legacy update
-document stays unchanged.
 
 --persona-role is metadata. Write the Agent source at boot:source in its system
 memory, then use hadron agent compile and hadron node approve. New Agents

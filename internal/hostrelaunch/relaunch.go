@@ -340,6 +340,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if e != nil || a == nil {
 		out.Status, out.Reason = Failed, LaunchFailed
 		out.FailureReason = observedFailureReason(e)
+		if a != nil && out.FailureReason == FailureSetupFailed {
+			out.FailureReason = "" // A returned agent cannot prove pre-launch setup failure.
+		}
 
 		if a != nil {
 			out.Reference = a.Reference()
@@ -360,14 +363,18 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		e = ctx.Err()
 	}
 	var verified Observation
+	proofFailed := false
 	if e == nil {
 		verified, e = r.Probe(ctx, t)
+		proofFailed = e != nil
 	}
 	if e == nil && (!verified.Proven || len(verified.PIDs) != 1 || verified.PIDs[0] <= 0) {
 		e = errors.New("no unique process proven after relaunch")
+		proofFailed = true
 	}
 	if e == nil {
 		e = a.Verify(ctx, t, verified)
+		proofFailed = e != nil
 	}
 	if e == nil {
 		// The agent can never change a binding on this path; server/binding changes
@@ -385,6 +392,16 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if e != nil {
 		out.Status, out.Reason = Failed, VerifyFailed
 		out.FailureReason = observedFailureReason(e)
+		if proofFailed {
+			if errors.Is(e, context.Canceled) {
+				out.FailureReason = ""
+			} else if out.FailureReason == "" || out.FailureReason == FailureSetupFailed {
+				out.FailureReason = FailureVerifyFailed
+			}
+		} else if out.FailureReason == FailureSetupFailed || out.FailureReason == FailureVerifyFailed {
+			// A fresh server/binding refusal is not a process-proof failure.
+			out.FailureReason = ""
+		}
 		if stopErr := a.Rollback(ctx); stopErr != nil {
 			out.Reason = RollbackFailed
 		}
@@ -453,7 +470,7 @@ func observedFailureReason(err error) string {
 	var classified interface{ RelaunchFailureReason() string }
 	if errors.As(err, &classified) {
 		switch reason := classified.RelaunchFailureReason(); reason {
-		case FailureTimeout, FailureTerminalCreateRefused, FailureLaunchExitNonzero:
+		case FailureTimeout, FailureTerminalCreateRefused, FailureLaunchExitNonzero, FailureSetupFailed, FailureVerifyFailed:
 			return reason
 		}
 	}
