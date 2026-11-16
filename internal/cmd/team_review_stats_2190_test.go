@@ -138,20 +138,14 @@ func TestReviewStatsRefusals2190(t *testing.T) {
 	}
 }
 
-// A non-reader and a missing App get the same server answer, and so the same
-// exit and message (050:21): the CLI adds nothing that tells them apart.
+// The server answers a non-reader exactly as a missing App (APP_NOT_FOUND,
+// 050:21); the CLI maps that one code to the not-found exit and adds nothing.
+// That the server's answers are identical is the server's contract, tested there.
 func TestReviewStatsNotAReader2190(t *testing.T) {
 	refusal := map[string]string{"TeamReviewQualityReport": gqlErrorJSON("APP_NOT_FOUND")}
-	var msgs []string
-	for range 2 {
-		_, _, err := runTeamTask(t, refusal, "team", "review-stats", "--month", "2026-10")
-		if exitOf(err) != exitcode.NotFound {
-			t.Fatalf("exit %d: %v", exitOf(err), err)
-		}
-		msgs = append(msgs, err.Error())
-	}
-	if msgs[0] != msgs[1] {
-		t.Fatalf("not byte-identical: %q vs %q", msgs[0], msgs[1])
+	_, _, err := runTeamTask(t, refusal, "team", "review-stats", "--month", "2026-10")
+	if exitOf(err) != exitcode.NotFound {
+		t.Fatalf("exit %d: %v", exitOf(err), err)
 	}
 }
 

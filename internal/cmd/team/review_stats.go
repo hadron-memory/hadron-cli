@@ -97,7 +97,7 @@ func newCmdTeamReviewStats(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
-			if r == nil {
+			if r == nil || r.ReviewQualityReport == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no review-quality report")
 			}
 			rep := r.ReviewQualityReport
