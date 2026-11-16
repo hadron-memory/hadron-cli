@@ -164,3 +164,20 @@ func TestReviewStatsAppFlagWins2190(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+// A success envelope with no selected report (null, or data without the field)
+// is an ordinary error, never a nil dereference (#2198 BLIND P2, LOCAL F1).
+func TestReviewStatsMissingReport2190(t *testing.T) {
+	for name, body := range map[string]string{
+		"null report": `{"data":{"reviewQualityReport":null}}`,
+		"empty data":  `{"data":{}}`,
+		"null data":   `{"data":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := runTeamTask(t, map[string]string{"TeamReviewQualityReport": body, "TeamAppIdentity": teamAppIdentityJSON}, "team", "review-stats", "--month", "2026-10")
+			if err == nil || exitOf(err) != exitcode.Error || !strings.Contains(err.Error(), "no review-quality report") {
+				t.Fatalf("exit %d, err %v", exitOf(err), err)
+			}
+		})
+	}
+}
