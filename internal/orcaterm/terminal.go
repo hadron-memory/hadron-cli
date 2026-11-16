@@ -21,6 +21,11 @@ type Terminal struct {
 	// title, as the list reports it (#2017).
 	TabID string `json:"tabId"`
 	Title string `json:"title"`
+	// LastOutputAt is Orca's last-output stamp for the terminal as the list
+	// printed it (a number of milliseconds, kept as its text), "" when the
+	// row has none. Equal stamps mean no new output between two lists
+	// (#2181); a missing one proves nothing.
+	LastOutputAt string `json:"-"`
 }
 
 // UnmarshalJSON reads Orca's row with router.ts's defaults: connected and
