@@ -24,8 +24,48 @@ func TestSweepSystemdVerify2183(t *testing.T) {
 	files := writeSweepUnits2183(t, dir, s)
 	args := append([]string{"verify"}, files...)
 	out, err := exec.Command("systemd-analyze", args...).CombinedOutput()
-	if err != nil || strings.TrimSpace(string(out)) != "" {
+	if err != nil || len(sweepUnitWarnings2183(string(out), files)) != 0 {
 		t.Fatalf("generated units rejected or warned: %v\n%s", err, out)
+	}
+}
+
+// verify loads host dependencies too: only diagnostics naming our generated
+// units are relevant when the tool itself reports success.
+func sweepUnitWarnings2183(out string, paths []string) []string {
+	var warnings []string
+	for _, line := range strings.Split(out, "\n") {
+		for _, path := range paths {
+			if strings.Contains(line, filepath.Base(path)) {
+				warnings = append(warnings, line)
+				break
+			}
+		}
+	}
+	return warnings
+}
+
+func TestSweepSystemdVerifyWarningScope2183(t *testing.T) {
+	// Actual unrelated diagnostics from CI43801785653, systemd on Ubuntu.
+	ambient := "/usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored\n" +
+		"/usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored\n" +
+		"/usr/lib/systemd/system/walinuxagent.service:21: Support for option CPUAccounting= has been removed and it is ignored\n"
+	paths := []string{"/test/hadron-team-sweep.service", "/test/hadron-team-sweep.timer", "/test/hadron-team-sweep-failed.service"}
+	if got := sweepUnitWarnings2183(ambient, paths); len(got) != 0 {
+		t.Fatalf("unrelated host warnings: %v", got)
+	}
+	// Match both absolute-path and unit-name diagnostics; keep every warning.
+	relevant := []string{
+		"/test/hadron-team-sweep.service:9: Failed to parse Restart=bogus, ignoring: Invalid argument",
+		"hadron-team-sweep.service:10: Failed to parse exit status, ignoring: two five",
+		"/test/hadron-team-sweep.service:4: Unknown key 'OnFailur' in section [Unit], ignoring.",
+		"/test/hadron-team-sweep.timer:8: Failed to parse timer value, ignoring: x1min",
+		"/test/hadron-team-sweep-failed.service:7: Unknown key 'ExecStar' in section [Service], ignoring.",
+	}
+	for _, warning := range relevant {
+		got := sweepUnitWarnings2183(ambient+warning, paths)
+		if len(got) != 1 || got[0] != warning {
+			t.Fatalf("lost generated-unit warning %q: %v", warning, got)
+		}
 	}
 }
 
