@@ -4640,6 +4640,21 @@ all current targets are unbound and new resets refuse NOT_IDLE/TARGET_UNBOUND
 before claim or stop. A same-worktree idle screen is insufficient. C3 (#2058)
 owns a terminal-aware success path. Installing the CLI activates nothing. Same edit authority as `--uses-tasks`.
 
+`agent create|update --context-cap <tokens>` (cli#2162, hadron-server#4258) sets the
+Agent's context cap, a whole number from 1: a long-lived worker whose context
+grows past it, and whose host reports it idle at an empty prompt, is reset (at
+most once an hour per worker; a busy worker never is). `agent update
+--no-context-cap` removes it (an explicit null on the wire); omitted preserves
+it on update and means no cap on create; both flags together, `--context-cap` below
+1 and `--no-context-cap=false` are usage errors before any request. A write that
+sends a cap flag uses its own document and the receipt prints `context cap: N
+tokens` or `none` (JSON `contextCap`, a number or null, present only on such a
+write); every other agent command is unchanged, so an older server keeps
+working and rejects only the cap write (exit 2). `agent get` shows `context
+cap:` the same way (JSON `contextCap`, absent and "unknown (server before
+#4258)" when the server has no such field). The reset the cap triggers still
+needs a host whose reset driver is activated (C3, #2088).
+
 `agent create --uses-tasks[=false] --reset-context-after-task[=false]` (cli#58
 slice 2) set the same two settings at creation. Pass a flag only to choose a
 value: left out, the server default stands (uses tasks true, reset false) and

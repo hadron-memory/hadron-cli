@@ -61,6 +61,14 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	}
 	// taskId is NOT required: a context-cap reset (hadron-server#4258) names
 	// none (absent, null or empty, all read as ""). resetId and sessionId stay.
+	// A taskId that is present but not a string is malformed, never a
+	// task-less reset (#2164): argString would read it as "".
+	if v, ok := op.Args["taskId"]; ok && v != nil {
+		if _, isString := v.(string); !isString {
+			refuse("HOST_UNSUPPORTED", "malformed operation: its taskId is not a string")
+			return
+		}
+	}
 	for _, a := range []string{"resetId", "sessionId"} {
 		if argString(op, a) == "" {
 			refuse("HOST_UNSUPPORTED", "malformed operation: it names no "+a)
