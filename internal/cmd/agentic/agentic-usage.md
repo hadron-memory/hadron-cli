@@ -4777,7 +4777,8 @@ For NO_SESSION, the server's nullable noSessionReason distinguishes IDLE
 (open, quiet), ENDED (ended) and NEVER_BOUND (never bound). A missing reason
 stays bare NO_SESSION; the CLI never derives IDLE from an age. In worker get
 and roster CHECK, IDLE adds the age since lastActiveAt, such as
-`NO_SESSION (open, quiet 30h)`. That age uses this computer's clock for display
+`NO_SESSION (open, quiet 30h)`; the age truncates to minutes, hours, then whole
+days from 48h (`quiet 3d`). That age uses this computer's clock for display
 only: it changes no state, availability or exit code. Future times display
 "just now"; missing or invalid times have no age. JSON retains the absolute
 lastActiveAt and raw nullable noSessionReason. This selection needs a server
