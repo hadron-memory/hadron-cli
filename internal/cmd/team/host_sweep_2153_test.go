@@ -16,14 +16,18 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/healthsched"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/hostup"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+const sweepApp2153 = "hrn:app:example.com:team"
 
 // All writes and requests stay inside this fixture; no real host unit or Orca.
 func sweepFixture2153(t *testing.T, serve func(http.ResponseWriter, *http.Request)) (*cmdutil.Factory, string, string) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HADRON_TOKEN", "synthetic-manager-key")
 	srv := httptest.NewServer(http.HandlerFunc(serve))
 	t.Cleanup(srv.Close)
 	dir := t.TempDir()
@@ -33,7 +37,7 @@ func sweepFixture2153(t *testing.T, serve func(http.ResponseWriter, *http.Reques
 		}
 	}
 	cfg := filepath.Join(dir, "host.yaml")
-	raw := fmt.Sprintf("server: %s\napp: app\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\ndelivery:\n  orca_bin: /nonexistent/fixture-orca\n", srv.URL, dir)
+	raw := fmt.Sprintf("server: %s\napp: hrn:app:example.com:team\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\ndelivery:\n  orca_bin: /nonexistent/fixture-orca\n", srv.URL, dir)
 	if err := os.WriteFile(cfg, []byte(raw), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +50,7 @@ func TestSweepRecorderModes2153(t *testing.T) {
 		mode  string
 		apply bool
 		want  string
-	}{{"APPLY", true, "APPLY"}, {"APPLY", false, "OBSERVE"}, {"OBSERVE", true, "OBSERVE"}, {"OFF", true, "SWEEP_OFF"}, {"", true, "SWEEP_MODE_UNKNOWN"}, {"future", true, "SWEEP_MODE_UNKNOWN"}} {
+	}{{"APPLY", true, "APPLY"}, {"APPLY", false, "OBSERVE"}, {"OBSERVE", true, "OBSERVE"}, {"OFF", true, "SWEEP_OFF"}, {"", true, "SWEEP_MODE_UNKNOWN"}, {"future", true, "SWEEP_MODE_UNKNOWN"}, {"OFF", false, "SWEEP_OFF"}, {"", false, "SWEEP_MODE_UNKNOWN"}, {"future", false, "SWEEP_MODE_UNKNOWN"}} {
 		t.Run(fmt.Sprintf("%s/apply=%v", tc.mode, tc.apply), func(t *testing.T) {
 			reads, writes := 0, 0
 			f, cfg, _ := sweepFixture2153(t, func(w http.ResponseWriter, r *http.Request) {
@@ -67,14 +71,14 @@ func TestSweepRecorderModes2153(t *testing.T) {
 				case "RecordHostSweepRun":
 					writes++
 					if q.Vars.Input["mode"] != tc.want {
-						t.Errorf("record mode=%v want%s", q.Vars.Input["mode"], tc.want)
+						t.Errorf("record mode=%v want %s", q.Vars.Input["mode"], tc.want)
 					}
 					fmt.Fprint(w, `{"data":{"recordHostSweepRun":{"id":"r","runId":"run1"}}}`)
 				default:
 					t.Errorf("unexpected operation %s", q.Op)
 				}
 			})
-			got := recordSweepRun(context.Background(), f, cfg, "app", "h1", "run1", time.Now(), tc.apply, hostup.Result{SweepMode: tc.mode})
+			got := recordSweepRun(context.Background(), f, cfg, sweepApp2153, "h1", "run1", time.Now(), tc.apply, hostup.Result{SweepMode: tc.mode})
 			if reads != 1 {
 				t.Fatalf("same App identity reads=%d", reads)
 			}
@@ -85,30 +89,60 @@ func TestSweepRecorderModes2153(t *testing.T) {
 					t.Fatalf("%+v", got)
 				}
 			} else if got.Recorded || got.Reason != tc.want {
-				t.Fatalf("%+v want%s", got, tc.want)
+				t.Fatalf("%+v want %s", got, tc.want)
 			}
 			if writes != wantWrites {
-				t.Fatalf("record calls=%d want%d", writes, wantWrites)
+				t.Fatalf("record calls=%d want %d", writes, wantWrites)
 			}
 		})
 	}
 }
 
 func TestSweepCommandScopeAndLockRefuseBeforeNetwork2153(t *testing.T) {
-	for _, which := range []string{"app", "server", "lock"} {
+	for _, which := range []string{"app", "server", "lock", "same"} {
 		t.Run(which, func(t *testing.T) {
-			calls := 0
+			calls, writes := 0, 0
 			f, cfg, _ := sweepFixture2153(t, func(w http.ResponseWriter, r *http.Request) {
 				calls++
-				t.Error("refused command reached network")
-				w.WriteHeader(500)
+				if which != "same" {
+					t.Error("refused command reached network")
+				}
+				var q struct {
+					Op   string `json:"operationName"`
+					Vars struct {
+						Input map[string]any `json:"input"`
+					} `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+					t.Error(err)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				switch q.Op {
+				case "HostDesiredState":
+					fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"h1","sweepMode":"OBSERVE","workers":[]}}}`)
+				case "TeamHostSetup":
+					fmt.Fprint(w, `{"data":{"hostSetup":{"source":"HOST","assignments":[]}}}`)
+				case "HostSweepIdentity":
+					fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"h1"}}}`)
+				case "RecordHostSweepRun":
+					writes++
+					_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"recordHostSweepRun": map[string]any{"id": "r", "runId": q.Vars.Input["runId"]}}})
+				default:
+					t.Errorf("unexpected operation %s", q.Op)
+				}
 			})
-			want := exitcode.Usage
+			old := sweepDaemonReady
+			t.Cleanup(func() { sweepDaemonReady = old })
+			sweepDaemonReady = func(context.Context, *hostpoller.Config) error { return hostpoller.ErrOrcaDown }
+			f.AppFlag = sweepApp2153
+			want, wantMessage := exitcode.Usage, ""
 			switch which {
 			case "app":
-				f.AppFlag = "other"
+				f.AppFlag = "hrn:app:example.com:other"
+				wantMessage = "sweep App comes from --config; omit --app"
 			case "server":
 				f.ServerFlag += "/other"
+				wantMessage = "sweep server comes from --config; omit --server"
 			case "lock":
 				dir, err := config.Dir()
 				if err != nil {
@@ -120,14 +154,21 @@ func TestSweepCommandScopeAndLockRefuseBeforeNetwork2153(t *testing.T) {
 				}
 				defer unlock()
 				want = exitcode.Conflict
+				wantMessage = "another sweep holds the lock; nothing issued"
 			}
 			c := newCmdTeamHostSweep(f)
-			c.SilenceUsage = true
 			c.SilenceErrors = true
+			c.SilenceUsage = true
 			c.SetArgs([]string{"--config", cfg})
 			err := c.Execute()
-			if exitcode.FromError(err) != want || calls != 0 {
-				t.Fatalf("err=%v calls=%d want exit%d", err, calls, want)
+			if which == "same" {
+				if err != nil || calls != 4 || writes != 1 {
+					t.Fatalf("same scope failed: %v calls=%d writes=%d", err, calls, writes)
+				}
+				return
+			}
+			if exitcode.FromError(err) != want || err == nil || !strings.Contains(err.Error(), wantMessage) || calls != 0 || writes != 0 {
+				t.Fatalf("err=%v want %q calls=%d writes=%d", err, wantMessage, calls, writes)
 			}
 		})
 	}
@@ -151,17 +192,32 @@ func TestSweepRunIDBoundariesBeforeReads2153(t *testing.T) {
 		})
 	}
 	for _, id := range []string{"a", "a._:-9", strings.Repeat("z", 64)} {
-		if !sweepRunToken.MatchString(id) {
-			t.Errorf("valid token rejected: %q", id)
-		}
+		t.Run("valid/"+id, func(t *testing.T) {
+			calls := 0
+			f, _, dir := sweepFixture2153(t, func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				t.Error("positive token control reached network")
+				w.WriteHeader(500)
+			})
+			f.AppFlag = sweepApp2153
+			c := newCmdTeamHostUp(f)
+			c.SilenceErrors = true
+			c.SilenceUsage = true
+			c.SetArgs([]string{"--host", "h1", "--worktrees-root", dir, "--orca-bin", "/nonexistent/fixture-orca", "--run-id", id})
+			err := c.Execute()
+			if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "Orca-hosted workers only") || strings.Contains(err.Error(), "--run-id") || calls != 0 {
+				t.Fatalf("valid token did not reach controlled readiness refusal: %v calls=%d", err, calls)
+			}
+		})
 	}
 }
 
 func TestSweepHistoryLimitsAndHumanOutput2153(t *testing.T) {
 	for _, limit := range []int{0, 1, 100, 101} {
 		t.Run(fmt.Sprint(limit), func(t *testing.T) {
-			calls := 0
+			calls, requests := 0, 0
 			f, _, _ := sweepFixture2153(t, func(w http.ResponseWriter, r *http.Request) {
+				requests++
 				var q struct {
 					Op   string         `json:"operationName"`
 					Vars map[string]any `json:"variables"`
@@ -190,12 +246,12 @@ func TestSweepHistoryLimitsAndHumanOutput2153(t *testing.T) {
 			c.SetArgs([]string{"--host", "h1", "--limit", fmt.Sprint(limit)})
 			err := c.Execute()
 			if limit == 0 || limit == 101 {
-				if exitcode.FromError(err) != exitcode.Usage || calls != 0 {
+				if exitcode.FromError(err) != exitcode.Usage || calls != 0 || requests != 0 {
 					t.Fatalf("err=%v calls=%d", err, calls)
 				}
 				return
 			}
-			if err != nil || calls != 1 {
+			if err != nil || calls != 1 || requests != 2 {
 				t.Fatalf("err=%v calls=%d", err, calls)
 			}
 			for _, want := range []string{"RUN", "STARTED", "OBSERVE", "run"} {

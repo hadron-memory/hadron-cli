@@ -61,7 +61,9 @@ func TestSweepOutageSaveFailuresRollBack2153(t *testing.T) {
 		t.Fatal(err)
 	}
 	original := *s.SweepOutage
-	// A directory at the atomic temporary-file path fails even under root.
+	// This intentionally pins State.save's current path+".tmp" atomic-write
+	// seam. Update this injection if that implementation moves to CreateTemp;
+	// a directory at the temporary-file path fails even under root.
 	if err := os.Mkdir(path+".tmp", 0700); err != nil {
 		t.Fatal(err)
 	}

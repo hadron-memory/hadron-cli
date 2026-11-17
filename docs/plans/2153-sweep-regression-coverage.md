@@ -12,7 +12,7 @@ Test-only follow-up built from main `ff687c87`. Production guards and host units
 | Zero / two host registrations | Superseded by #2137's scoped `HostSweepIdentity -> hostDesiredState(hostId)` read. The test explicitly forbids `hostRegistrations` and checks the selected host. An absent identity remains a negative control; unrelated registrations are not the recorder's input. |
 | Sweep command's own concurrent lock and explicit App/server conflicts | `TestSweepCommandScopeAndLockRefuseBeforeNetwork2153` |
 | Dry run records OBSERVE; OFF/unknown modes write nothing | `TestSweepRecorderModes2153` |
-| Run-id length / invalid characters | `TestSweepRunIDBoundariesBeforeReads2153` (command refusals plus valid bounded-token controls) |
+| Run-id length / invalid characters | `TestSweepRunIDBoundariesBeforeReads2153` (command refusals plus valid bounded-token controls through `host up`, reaching the isolated fake-Orca refusal) |
 | Cron / launchd refusal | `TestSweepRefusesCronAndLaunchdWithoutWrites2153`, no scheduler mutation or files |
 | Failure unit and crash policy | Existing `TestSweepUnitHasCrashLimitAndOneMinuteTimer2056`, `TestSweepUnitInstallUninstallRetainsHealth2056`, `TestSweepFailureLoggerUsesInjectedPath2137` |
 | Sweep status human / JSON, correct job, read-only | `TestSweepStatusUsesItsOwnJob2153` |
@@ -20,6 +20,8 @@ Test-only follow-up built from main `ff687c87`. Production guards and host units
 | Episode identity renews across App or host; same-scope persisted acknowledgement | `TestSweepOutageScopeRenewsToken2153` |
 | Token creation / acknowledgement / clear save failures | `TestSweepOutageSaveFailuresRollBack2153` |
 | S10_UNAVAILABLE keeps episode pending, same-token retries, stops after acknowledgement | `TestSweepS10UnavailableKeepsTokenPendingAndRetries2153`; existing recorder compatibility case retained |
+
+Only `host up` accepts `--run-id`; `host sweep` generates its token internally and exposes no such flag. The qualified-config same-App/server command control reaches a synthetic successful record, while the negative cases require their specific scope/lock refusal messages.
 
 The first four guard families already have pins on main. This change strengthens the alias proof and fills the folded backlog; it does not recreate the retired host-registrations protocol.
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,7 +22,7 @@ func TestSweepRefusesCronAndLaunchdWithoutWrites2153(t *testing.T) {
 			}, Run: func([]string, string) ([]byte, error) { calls++; return nil, nil }}
 			_, err := e.Install(Spec{Bin: "/fake/hadron", Config: "/fake/host.yaml", Path: "/fake", Interval: time.Minute})
 			var usage *UsageError
-			if !errors.As(err, &usage) || calls != 0 {
+			if !errors.As(err, &usage) || !strings.Contains(err.Error(), "requires systemd user units") || calls != 0 {
 				t.Fatalf("refusal=%v scheduler calls=%d", err, calls)
 			}
 			entries, err := os.ReadDir(home)
