@@ -250,11 +250,11 @@ func newCmdSessionSetModel(f *cmdutil.Factory) *cobra.Command {
 	var family, effort string
 	cmd := &cobra.Command{
 		Use:   "set-model [<model>] [--family <token>] [--effort <level>]",
-		Short: "Report the model and/or family this worktree's session is running (manual)",
-		Long: `Report <model> and/or an explicit --family for the worker session bound to this
-worktree, through the same updateSession as ` + "`sync-model`" + `. At least one is
-required; only what you give is sent, so an omitted model or family is
-PRESERVED (never cleared). With a model alone the server derives family and
+		Short: "Report the model, family or effort this worktree's session is running (manual)",
+		Long: `Report the model, family or effort of the worker session bound to this
+worktree, through the same updateSession as ` + "`sync-model`" + `. Give at least one of
+<model>, --family or --effort; only what you give is sent, so anything omitted
+is PRESERVED (never cleared). With a model alone the server derives family and
 tier, and never clears family on a model it does not map.
 
 --family is the deliberate way to state a family (hadron-server#1931: an
