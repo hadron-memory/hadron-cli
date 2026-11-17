@@ -134,6 +134,7 @@ func TestTaskRenderInvalidArgumentsBeforeRequests1010(t *testing.T) {
 func TestTaskRenderReferenceForms1010(t *testing.T) {
 	for _, tc := range []struct{ ref, memory, want string }{
 		{renderNodeRef1010, "", renderNodeRef1010}, {"0123456789abcdef0123456789abcdef", "", "0123456789abcdef0123456789abcdef"},
+		{"0123456789abcdef0123456789abcdef", "acme.com:kb", "0123456789abcdef0123456789abcdef"},
 		{"tasks:brief", "acme.com::kb", "hrn:node:acme.com:kb:tasks:brief"},
 		{"acme.com::kb::tasks:brief", "", "hrn:node:acme.com::kb::tasks:brief"},
 	} {
