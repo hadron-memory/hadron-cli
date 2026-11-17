@@ -76,7 +76,8 @@ timing (the default is enabled). There is no prompt or write to confirm.
 ADOPTABLE exits 0 with the hash and complete summary: reads, writes, cannot-do,
 tools, flows, schedule and limits. The schedule line is the server's own string,
 not a local timing rewrite. CANNOT_BE_ADOPTED exits 5 with only its closed reason
-(MEMORY_UNREADABLE or OTHER), never an entry/memory identity. --json returns
+(MEMORY_UNREADABLE or OTHER), never an entry/memory identity. GRANT_REQUIRED (a worker without a signed grant
+for this entry) exits 8 with a refusal line; nothing is created. --json returns
 {outcome,hash,reason,summary}; hash/summary are null for CANNOT_BE_ADOPTED and
 reason is null for ADOPTABLE. Summary lists are arrays, including when empty.
 Text cells are terminal-safe and bounded; --json preserves the server values.
@@ -160,6 +161,14 @@ fallback. Server refusals keep create's mapping (for example 2 bad input,
 				}
 				dto.Summary.Flows = append(dto.Summary.Flows, previewFlowDTO{Name: fl.Name, URN: fl.Urn, Tools: fl.Tools, Writes: fl.Writes})
 			}
+		case "GRANT_REQUIRED":
+			// The server's authority refusal: a worker-bound caller holds no
+			// signed schedule.create grant (#2308). Its specified shape is
+			// all-null; anything else is malformed.
+			if v.Hash != nil || v.Summary != nil || v.Reason != nil {
+				return malformedPreview()
+			}
+			return exitcode.Newf(exitcode.Forbidden, "schedule preview refused: a worker needs a signed grant from a person to set up this automation. Ask a person who manages the App to grant it. No write was attempted.")
 		default:
 			return malformedPreview()
 		}

@@ -61,6 +61,7 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		// #1706 content-validation report refusals.
+		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
 		{"validation node_revision_invalid", gqlErr("CONTENT_VALIDATION_NODE_REVISION_INVALID"), exitcode.Usage},
