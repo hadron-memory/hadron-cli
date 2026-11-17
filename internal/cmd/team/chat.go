@@ -766,7 +766,9 @@ them "(human)" / "(worker)".`,
 				}
 				var resp *gen.TeamChatMessagesResponse
 				var err error
-				if tagFlags.Active() {
+				if len(tagFlags.Heads()) > 0 {
+					resp, err = attribution.tagsMulti(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg, tagFlags.Heads(), nil)
+				} else if tagFlags.Active() {
 					resp, err = attribution.tags(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg, tagFlags.Head(), tagFlags.Untagged())
 				} else if threadGiven {
 					resp, err = attribution.thread(ctx, client, appRef, thread, sinceArg, mentionsRef, &size, beforeArg)

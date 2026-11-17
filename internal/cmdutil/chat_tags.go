@@ -10,14 +10,16 @@ import (
 // ChatTagFlags is only the client's presence/conflict policy. The server owns
 // metadata access, head identity and filtering; values are never resolved here.
 type ChatTagFlags struct {
-	head     string
+	heads    []string
 	untagged bool
 	tagged   bool
 }
 
 const ChatTagHelp = `
 TEAM TAGS. --team-head <id> sends a stable head ID exactly as given (not a
-name or label). --untagged asks for rows with no stored head; --tagged asks for
+name or label). Repeat it to match any of several heads: one value uses
+the legacy singular argument, two or more use the plural argument, never both.
+Commas are literal ID text; server validation and its 20-entry cap apply. --untagged asks for rows with no stored head; --tagged asks for
 rows with at least one. Choose only one of these three filters. The boolean
 switches take no false form: --tagged=false and --untagged=false are usage
 errors. A tag filter cannot be combined with --thread. Other read cursors and
@@ -34,7 +36,7 @@ nextSince is only a page cursor, not evidence that the whole chat was read.
 `
 
 func (f *ChatTagFlags) Bind(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&f.head, "team-head", "", "only messages stamped with this stable head ID (sent verbatim; not a name or label)")
+	cmd.Flags().StringArrayVar(&f.heads, "team-head", nil, "only messages stamped with these stable head IDs (repeatable; sent verbatim)")
 	cmd.Flags().BoolVar(&f.untagged, "untagged", false, "only messages with no stored team head; cannot combine with --tagged, --team-head or --thread")
 	cmd.Flags().BoolVar(&f.tagged, "tagged", false, "only messages with a stored team head; sends untagged:false, never drops the filter")
 	cmd.Long += ChatTagHelp
@@ -55,8 +57,10 @@ func (f *ChatTagFlags) Validate(cmd *cobra.Command) error {
 	}
 	// Only blankness is checked here. The cleared #936 wire contract requires
 	// every nonblank ID to be forwarded raw; normalization belongs to the server.
-	if cmd.Flags().Changed("team-head") && strings.TrimSpace(f.head) == "" {
-		return exitcode.Newf(exitcode.Usage, "--team-head requires a stable head ID")
+	for _, head := range f.heads {
+		if strings.TrimSpace(head) == "" {
+			return exitcode.Newf(exitcode.Usage, "--team-head requires a stable head ID")
+		}
 	}
 	if (cmd.Flags().Changed("untagged") && !f.untagged) || (cmd.Flags().Changed("tagged") && !f.tagged) {
 		return exitcode.Newf(exitcode.Usage, "--untagged=false and --tagged=false are not accepted; omit the flag or choose its opposite")
@@ -64,12 +68,21 @@ func (f *ChatTagFlags) Validate(cmd *cobra.Command) error {
 	return nil
 }
 
-func (f *ChatTagFlags) Active() bool { return f.head != "" || f.untagged || f.tagged }
+func (f *ChatTagFlags) Active() bool { return len(f.heads) > 0 || f.untagged || f.tagged }
 func (f *ChatTagFlags) Head() *string {
-	if f.head == "" {
+	if len(f.heads) != 1 {
 		return nil
 	}
-	return &f.head
+	return &f.heads[0]
+}
+
+// Heads is nonnil only for the plural wire document. StringArray preserves
+// each occurrence verbatim, including commas; the server owns its cap.
+func (f *ChatTagFlags) Heads() []string {
+	if len(f.heads) < 2 {
+		return nil
+	}
+	return f.heads
 }
 func (f *ChatTagFlags) Untagged() *bool {
 	if !f.untagged && !f.tagged {
