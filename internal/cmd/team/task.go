@@ -201,6 +201,7 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
+	var runFlags taskRunSettingsFlags
 	var description, owner, assignee, parent, source, externalID, startBy, finishBy, status string
 	var tags, blockedBy, refs []string
 	var priority int
@@ -226,6 +227,16 @@ issue URL (cor:agt:120:02). It is unique per App and set once: a second task
 with the same value is refused TASK_EXTERNAL_ID_TAKEN (exit 5), which names no
 task; find the holder with ` + "`task list --external-id <id>`" + `. The value is sent as
 given; only the server judges its form.
+
+--family, --model or --tier (not both), and --effort set the task's run
+settings (cor:agt:050:01): what to launch, not whom to match (that is
+--family-in and --min-tier). They apply only when the assigned worker's Agent is
+short-lived; a platform start of a long-lived worker uses the worker's own
+record and ignores them, so --family codex does not relaunch a long-lived Claude
+worker. They are set at creation and never edited, and a clone copies none.
+The CLI refuses a model with a tier and an effort of NOT_APPLICABLE (exit 2);
+anything depending on the task's requirements is the server's, shown as
+TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
 
 --ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
 task points at: kind is issue, pull-request, node, task or url, and the label
@@ -475,6 +486,10 @@ warnings list.`,
 				Status:       createStatus,
 				Tags:         tags,
 			}
+			// cli#2206: the run settings, create-only; nil without a flag.
+			if input.RunSettings, err = runFlags.build(cmd); err != nil {
+				return err
+			}
 			// False and omission keep the legacy input unchanged.
 			if match {
 				input.Match = boolPtr(true)
@@ -629,6 +644,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by; server validates it against now and start-by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
+	runFlags.register(cmd)
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; unique per App, set once (never edited)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
