@@ -35,4 +35,4 @@ The committed snapshot is already at hadron-server `33e89dcc` (#2269), which des
 - a TASK_NOT_FOUND answer identical across three different refs;
 - an empty, whitespace or missing `--defect` refused with zero calls.
 
-`TestTaskWritesAuthored1585` gains `TaskLinkDefect`.
+`TestTaskWritesAuthored1585` gains `TaskLinkDefect`, and `TestMapError` gains the three new codes. Two pins come from Jake's WIP handover (jake/2189-link-defect 2810bb44): the session header on a refused call (no retry as the person) and the `MapError` rows.

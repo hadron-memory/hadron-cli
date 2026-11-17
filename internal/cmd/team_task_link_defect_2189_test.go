@@ -135,8 +135,13 @@ func TestTaskLinkDefect2189Refusals(t *testing.T) {
 			if got := exitCodeFor(err); got != tc.exit {
 				t.Fatalf("exit = %d, want %d (%v)", got, tc.exit, err)
 			}
-			if n := len(linkCalls2189(t, calls)); n != 1 {
-				t.Fatalf("a refusal is never retried: %d calls", n)
+			got := linkCalls2189(t, calls)
+			if len(got) != 1 {
+				t.Fatalf("a refusal is never retried: %d calls", len(got))
+			}
+			// Jake's pin: a refused worker write is not retried as the person.
+			if got[0].Session != "s-new" {
+				t.Errorf("the refused call must carry the bound session, header %q", got[0].Session)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.code) {
 				t.Errorf("the refusal must name the server's code: %v", err)
