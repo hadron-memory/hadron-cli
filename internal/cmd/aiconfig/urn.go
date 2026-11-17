@@ -3,7 +3,6 @@ package aiconfig
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -32,14 +31,14 @@ type urnMaskedDTO struct {
 }
 
 // isMissingURNField reports whether err is an older server rejecting the urn
-// selection (and nothing else), so the caller may retry without it.
+// selection and nothing else, so the caller may retry without it. Every error
+// in the envelope must be the framework's rejection of the field "urn" (read
+// from the rejected-field position, so a type name or suggestion containing
+// "urn" does not count; a repeat of the same rejection still qualifies). A
+// missing urn beside any other error is a refusal to report as sent, not a
+// probe answer, and retrying it would discard that refusal (#2314).
 func isMissingURNField(err error) bool {
-	for _, message := range api.ServerMessages(err) {
-		if strings.Contains(message, `"urn"`) && isMissingSchemaField(message) {
-			return true
-		}
-	}
-	return false
+	return api.IsFrameworkValidationOnlyFor(err, "urn")
 }
 
 // notFoundConfig is the one answer for a null aiServiceConfig. A URN the caller
