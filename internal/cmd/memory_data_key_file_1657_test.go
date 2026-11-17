@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -256,5 +257,26 @@ func TestLiteralDataKeyDoesNotWarnWhenArgumentsAreRefusedFirst1657(t *testing.T)
 	}
 	if strings.Contains(stderr, "deprecated") || strings.Contains(stderr, linkUserDataKey) {
 		t.Fatalf("no warning and never the key: %q", stderr)
+	}
+}
+
+// A failing stdin read is a usage refusal that names the flag, before any
+// request, not a raw I/O error.
+func TestDataKeyFileDashReadErrorIsAUsageRefusal1657(t *testing.T) {
+	for _, c := range dataKeyCases1657() {
+		t.Run(c.name, func(t *testing.T) {
+			gql, reqs := captureLinkUserGraphQL(t, c.responses)
+			f, _ := testFactory(t)
+			f.IOStreams.In = iotest.ErrReader(errors.New("pipe broke"))
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, c.base...), "--data-key-file", "-", "--server", gql.URL))
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "reading --data-key-file from stdin") || strings.Contains(err.Error(), "pipe broke") {
+				t.Fatalf("want a wrapped usage refusal naming the flag: %v (exit %d)", err, exitCodeFor(err))
+			}
+			if len(*reqs) != 0 {
+				t.Fatalf("nothing may be sent: %+v", *reqs)
+			}
+		})
 	}
 }

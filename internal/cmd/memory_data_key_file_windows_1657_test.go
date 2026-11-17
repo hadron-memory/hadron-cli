@@ -16,7 +16,7 @@ func TestDataKeyFileOnWindowsIsRefusedButStdinWorks1657(t *testing.T) {
 	for _, c := range dataKeyCases1657() {
 		t.Run(c.name, func(t *testing.T) {
 			r := runDataKey1657(t, c, "", "--data-key-file", `C:\keys\data.key`)
-			if r.err == nil || exitcode.FromError(r.err) != exitcode.Usage || len(r.reqs) != 0 ||
+			if r.err == nil || exitCodeFor(r.err) != exitcode.Usage || len(r.reqs) != 0 ||
 				!strings.Contains(r.err.Error(), "--data-key-file is not supported on Windows") ||
 				!strings.Contains(r.err.Error(), "--data-key-file -") {
 				t.Fatalf("want the Windows refusal naming '--data-key-file -': err=%v reqs=%d", r.err, len(r.reqs))

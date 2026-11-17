@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -128,11 +129,58 @@ func TestLinkUserMalformedKeyViaDataKeyFileRefusedLocally1657(t *testing.T) {
 	c := dataKeyCases1657()[1]
 	for _, bad := range []string{"not a key!", strings.Repeat("A", 43), "QUJD"} {
 		r := runDataKey1657(t, c, "", "--data-key-file", keyFile1657(t, 0o600, bad+"\n"))
-		if r.err == nil || exitcode.FromError(r.err) != exitcode.Usage || len(r.reqs) != 0 {
+		if r.err == nil || exitCodeFor(r.err) != exitcode.Usage || len(r.reqs) != 0 {
 			t.Fatalf("a malformed key (%q) from a file must be refused locally: err=%v reqs=%d", bad, r.err, len(r.reqs))
 		}
 		if strings.Contains(r.err.Error(), bad) || strings.Contains(r.stderr, bad) {
 			t.Fatalf("the refusal must not echo the key: %v / %q", r.err, r.stderr)
 		}
+	}
+}
+
+// The documented workflow itself: run the example's key-creation line in a real
+// shell under the default umask 022 (with a stub openssl), then give the file to
+// --data-key-file. Creating the file owner-only from the start is what makes the
+// example work; a plain redirect would leave 0644 and be refused.
+func TestEncryptExampleCreatesAKeyFileTheCommandAccepts1657(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"memory", "encrypt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var create string
+	for _, line := range strings.Split(cmd.Example, "\n") {
+		if strings.Contains(line, "openssl rand -base64 32") {
+			create = strings.TrimSpace(line)
+			if i := strings.Index(create, "#"); i >= 0 {
+				create = strings.TrimSpace(create[:i])
+			}
+		}
+	}
+	if create == "" {
+		t.Fatalf("the example no longer shows how to create a key file:\n%s", cmd.Example)
+	}
+	dir := t.TempDir()
+	stub := filepath.Join(dir, "openssl")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\nprintf '%s\\n' '"+linkUserDataKey+"'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sh := exec.Command("sh", "-c", "umask 022; "+create)
+	sh.Dir = dir
+	sh.Env = append(os.Environ(), "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if out, err := sh.CombinedOutput(); err != nil {
+		t.Fatalf("the example line failed: %v: %s", err, out)
+	}
+	keyPath := filepath.Join(dir, "diary.key")
+	info, err := os.Stat(keyPath)
+	if err != nil {
+		t.Fatalf("the example did not create diary.key: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm&0o077 != 0 {
+		t.Fatalf("the example's key file is mode %04o, which --data-key-file refuses", perm)
+	}
+	r := runDataKey1657(t, dataKeyCases1657()[0], "", "--data-key-file", keyPath)
+	if r.err != nil || len(r.reqs) == 0 {
+		t.Fatalf("the command refused the file the example creates: err=%v reqs=%d", r.err, len(r.reqs))
 	}
 }
