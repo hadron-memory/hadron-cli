@@ -27730,6 +27730,22 @@ func (v *ChatAiConfigChoicesResponse) GetChatAiConfigChoices() []*ChatAiConfigCh
 	return v.ChatAiConfigChoices
 }
 
+// ChatEffectiveToolChoiceResponse is returned by ChatEffectiveToolChoice on success.
+type ChatEffectiveToolChoiceResponse struct {
+	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
+	// effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
+	// config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+	// Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
+	// decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
+	// The decision only: no key, id, name, provider or model.
+	ChatEffectiveToolChoice *ChatToolChoice `json:"chatEffectiveToolChoice"`
+}
+
+// GetChatEffectiveToolChoice returns ChatEffectiveToolChoiceResponse.ChatEffectiveToolChoice, and is useful for accessing the field via an interface.
+func (v *ChatEffectiveToolChoiceResponse) GetChatEffectiveToolChoice() *ChatToolChoice {
+	return v.ChatEffectiveToolChoice
+}
+
 // ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -28329,6 +28345,32 @@ type ChatServedPromptsResponse struct {
 func (v *ChatServedPromptsResponse) GetChatServedPrompts() *ChatServedPromptsChatServedPromptsServedPromptsPage {
 	return v.ChatServedPrompts
 }
+
+// #4005: how a chat turn offers its respond tool.
+type ChatToolChoice string
+
+const (
+	// tool_choice auto: for the models that reject a forced choice. The turn also tells the model to answer by calling respond.
+	ChatToolChoiceAuto ChatToolChoice = "AUTO"
+	// A forced choice of the respond tool: every other provider/model.
+	ChatToolChoiceForced ChatToolChoice = "FORCED"
+)
+
+var AllChatToolChoice = []ChatToolChoice{
+	ChatToolChoiceAuto,
+	ChatToolChoiceForced,
+}
+
+// ChatToolChoiceForResponse is returned by ChatToolChoiceFor on success.
+type ChatToolChoiceForResponse struct {
+	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): the chat turn's tool-choice decision for an UNSAVED (provider, model) pair, by the same one
+	// predicate, judged verbatim. Pure: reads no config rows, decrypts nothing, calls no provider and meters no usage.
+	// Any signed-in caller; no owner context is consulted. An unknown or unlisted provider or model answers FORCED, never a refusal.
+	ChatToolChoiceFor ChatToolChoice `json:"chatToolChoiceFor"`
+}
+
+// GetChatToolChoiceFor returns ChatToolChoiceForResponse.ChatToolChoiceFor, and is useful for accessing the field via an interface.
+func (v *ChatToolChoiceForResponse) GetChatToolChoiceFor() ChatToolChoice { return v.ChatToolChoiceFor }
 
 // CheckAuthenticationStatusResponse is returned by CheckAuthenticationStatus on success.
 type CheckAuthenticationStatusResponse struct {
@@ -119353,6 +119395,14 @@ type __ChatAiConfigChoicesInput struct {
 // GetAppRef returns __ChatAiConfigChoicesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__ChatAiConfigChoicesInput) GetAppRef() string { return v.AppRef }
 
+// __ChatEffectiveToolChoiceInput is used internally by genqlient
+type __ChatEffectiveToolChoiceInput struct {
+	ChatId string `json:"chatId"`
+}
+
+// GetChatId returns __ChatEffectiveToolChoiceInput.ChatId, and is useful for accessing the field via an interface.
+func (v *__ChatEffectiveToolChoiceInput) GetChatId() string { return v.ChatId }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -119424,6 +119474,18 @@ func (v *__ChatServedPromptsLintInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __ChatServedPromptsLintInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatServedPromptsLintInput) GetOffset() int { return v.Offset }
+
+// __ChatToolChoiceForInput is used internally by genqlient
+type __ChatToolChoiceForInput struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+}
+
+// GetProvider returns __ChatToolChoiceForInput.Provider, and is useful for accessing the field via an interface.
+func (v *__ChatToolChoiceForInput) GetProvider() string { return v.Provider }
+
+// GetModel returns __ChatToolChoiceForInput.Model, and is useful for accessing the field via an interface.
+func (v *__ChatToolChoiceForInput) GetModel() string { return v.Model }
 
 // __CheckChatCursorInput is used internally by genqlient
 type __CheckChatCursorInput struct {
@@ -139188,6 +139250,41 @@ func ChatAiConfigChoices(
 	return data_, err_
 }
 
+// The query executed by ChatEffectiveToolChoice.
+const ChatEffectiveToolChoice_Operation = `
+query ChatEffectiveToolChoice ($chatId: String!) {
+	chatEffectiveToolChoice(chatId: $chatId)
+}
+`
+
+// cli#2020 (hadron-server#4042/#4151, cor:dmo:050:10 Proposed, cor:acl:030:01):
+// the server's tool-choice DECISION, nothing else: AUTO, FORCED, or null when
+// nothing resolved. Never a key, id, name, provider or model.
+func ChatEffectiveToolChoice(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chatId string,
+) (data_ *ChatEffectiveToolChoiceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatEffectiveToolChoice",
+		Query:  ChatEffectiveToolChoice_Operation,
+		Variables: &__ChatEffectiveToolChoiceInput{
+			ChatId: chatId,
+		},
+	}
+
+	data_ = &ChatEffectiveToolChoiceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatMessages.
 const ChatMessages_Operation = `
 query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
@@ -139420,6 +139517,41 @@ func ChatServedPromptsLint(
 	}
 
 	data_ = &ChatServedPromptsLintResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChatToolChoiceFor.
+const ChatToolChoiceFor_Operation = `
+query ChatToolChoiceFor ($provider: String!, $model: String!) {
+	chatToolChoiceFor(provider: $provider, model: $model)
+}
+`
+
+// Pure: no rows read, no usage. Any signed-in caller; no owner argument.
+func ChatToolChoiceFor(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	provider string,
+	model string,
+) (data_ *ChatToolChoiceForResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatToolChoiceFor",
+		Query:  ChatToolChoiceFor_Operation,
+		Variables: &__ChatToolChoiceForInput{
+			Provider: provider,
+			Model:    model,
+		},
+	}
+
+	data_ = &ChatToolChoiceForResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -67,6 +67,7 @@ it stores the coordinates in .hadron/config.json and nothing else.`,
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdConfig(f))
 	cmd.AddCommand(newCmdDoctor(f))
+	cmd.AddCommand(newCmdToolChoice(f))
 	cmd.AddCommand(servedprompt.NewChat(f))
 	return cmd
 }
