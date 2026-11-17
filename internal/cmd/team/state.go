@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -520,10 +521,34 @@ type cacheHandle struct {
 func (h cacheHandle) path(name string) string { return filepath.Join(h.loc.dir, name) }
 
 func (h cacheHandle) openLock() (*os.File, error) {
-	if h.root != nil {
-		return h.root.OpenFile(bindingLockFileName, os.O_CREATE|os.O_RDWR, 0o600)
+	open := func(flag int) (*os.File, error) {
+		if h.root != nil {
+			return h.root.OpenFile(bindingLockFileName, flag, 0o600)
+		}
+		return os.OpenFile(h.path(bindingLockFileName), flag, 0o600) // #nosec G304 — derived from the worktree's git dir
 	}
-	return os.OpenFile(h.path(bindingLockFileName), os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's git dir
+	// An existing lock is opened as it is. A missing one is created
+	// exclusively and then set to exactly 0600 through the descriptor: the
+	// create mode is 0600 &^ umask, so under umask 0277 (or 0777) the file
+	// came out r-------- (or 000) and the NEXT bind's read-write open failed
+	// "permission denied" (cli#2238). The creator owns the file, so the chmod
+	// never touches one a different uid made.
+	f, err := open(os.O_RDWR)
+	if !errors.Is(err, fs.ErrNotExist) {
+		return f, err
+	}
+	f, err = open(os.O_RDWR | os.O_CREATE | os.O_EXCL)
+	if errors.Is(err, fs.ErrExist) {
+		return open(os.O_RDWR) // another bind created it first
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return f, nil
 }
 
 // readBinding reads the binding file, or nil when there is none.

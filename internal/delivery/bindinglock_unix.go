@@ -39,7 +39,19 @@ func openLockFile(dir, name string, beforeCreate func() error) (*os.File, error)
 				return nil, err
 			}
 		}
-		fd, err = unix.Openat(dfd, name, flags|unix.O_CREAT, 0o600)
+		fd, err = unix.Openat(dfd, name, flags|unix.O_CREAT|unix.O_EXCL, 0o600)
+		if errors.Is(err, unix.EEXIST) {
+			fd, err = unix.Openat(dfd, name, flags, 0) // created by another bind first
+		} else if err == nil {
+			// The create mode is 0600 &^ umask: under umask 0277 or 0777 the
+			// file would be r-------- or 000 and the next lock's read-write
+			// open would fail (cli#2238). The creator owns it, so exact it
+			// through the descriptor; an existing lock is never touched.
+			if cerr := unix.Fchmod(fd, 0o600); cerr != nil {
+				_ = unix.Close(fd)
+				return nil, fmt.Errorf("setting the session binding lock mode: %w", cerr)
+			}
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("opening the session binding lock (a link?): %w", err)
