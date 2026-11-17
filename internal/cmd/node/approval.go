@@ -1,7 +1,6 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -150,7 +149,7 @@ compiled prompt.`,
 				return exitcode.Newf(exitcode.Usage, "--revision must be a positive node revision")
 			}
 			// --as-worker resolves its session before any request (cli#1872).
-			var mutCtx func(context.Context) (context.Context, error)
+			var mutCtx cmdutil.WorkerWriteContext
 			if asWorker {
 				m, err := f.ResolveWorkerWrite(cmd.Context())
 				if err != nil {

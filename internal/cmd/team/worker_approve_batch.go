@@ -199,7 +199,7 @@ type approvePlanItem struct {
 func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string, apply, asWorker bool) error {
 	ctx := cmd.Context()
 	// --as-worker resolves its session before ANY request (cli#1872).
-	var send func(context.Context) (context.Context, error)
+	var send cmdutil.WorkerWriteContext
 	authority := approveAuthority
 	if asWorker {
 		m, err := f.ResolveWorkerWrite(ctx)
@@ -357,7 +357,7 @@ func verifySuperseded(ctx context.Context, client graphql.Client, ref string) (g
 
 // approveOne sends the pinned approval once and files the worker in its
 // bucket, returning the exit code it contributes.
-func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO, item approvePlanItem, send func(context.Context) (context.Context, error)) int {
+func approveOne(ctx context.Context, client graphql.Client, dto *approveBatchDTO, item approvePlanItem, send cmdutil.WorkerWriteContext) int {
 	t := item.target
 	rev := item.revision
 	sendCtx := ctx
