@@ -26,8 +26,9 @@ person's. So `--as-worker` uses `internal/cmd/team/worker_write_session.go`,
 reached from `bootcompile` and `node` through `Factory.WorkerWriteSession`
 (`cmdutil/factory.go`, `ResolveWorkerWrite`). It refuses with exit 2 and sends
 nothing for: no worktree, no binding file, an unreadable or incomplete binding,
-a binding for another server, an `--app` naming another App. It runs before the
-first request of every command, including a batch's dry run.
+a binding for another server, an `--app` naming another App. Initial binding
+faults refuse before the first request, including a batch's dry run. An App
+identity read may precede an App mismatch refusal; no mutation is sent.
 
 It returns a function called immediately before each mutation. That function
 re-reads the binding and compares it with the snapshot taken at resolve time; a
@@ -69,3 +70,45 @@ and on single compile, and `approveNode`/`compileWorkerBootPrompt` added to
 Asking for or signing grants (`team grant request`, hadron-cli#1868, shipped);
 docs (hadron-docs#703). `bootprompt.source.edit` rides `updateNode`, which
 already carries the bound session.
+
+
+## App-identity follow-up (#1896)
+
+The shared `bindingsAppIdentity` helper treats a pure App-read FORBIDDEN as a
+missing App. The worker-write --app, positional-App and signature/trailer
+callers produce byte-identical unreadable/missing refusals, exit 2, with no
+mutation. The helper also serves worker-bound grant reads, grant request
+verbs and `team task mine --app`: each now returns its existing missing-App
+usage refusal (exit 2), rather than the former permission error (exit 8).
+Optional authored-write attribution silently omits the session for either a
+missing or unreadable App and still sends the legitimate person write;
+previously unreadability printed a diagnostic note. This silent fallback
+matches the existing missing-App path and does not grant access.
+
+The conservative `isBindingsApp` wrapper already discarded lookup errors, so
+its register, chat-attribution and chat-cursor callers keep their prior bool
+behavior. The complete caller inventory is that wrapper, grant reads, grant
+requests, task mine, worker-write initial scope and late target, signing, and
+authored-write attribution.
+Known credential-scope refusals, mixed failures and transport errors retain
+normal classifications, including diagnostic notes in optional attribution.
+This follows the #1896 gate's App-scoped refusal rule; the server's generic
+App read is unchanged. Pins compare complete text/JSON streams for the four
+additional callers and check that credential failures retain their exits or
+diagnostic notes. A helper-normalization mutant kills all four callers.
+
+A single worker compile first validates its binding, then resolves the worker
+as the person. With --as-worker, its returned App is checked against the SAME
+captured binding snapshot before any worker label or compile mutation. The
+returned `WorkerWriteContext` accepts late-resolved target Apps and rechecks
+the binding before and after identity lookup; a refusal returns nil context
+and stays latched. The final pre-mutation recheck remains. Explicit worker
+ids/URNs still ignore ambient scope on the default person path; no grant is
+checked locally. Unknown workers retain their original refusal.
+
+Pins cover four positional App spellings, all shared-helper callers in text
+and JSON, pure permission vs credential/mixed errors, cross-App workers,
+unchanged person/same-App paths, and rebinding during positional/worker/late
+App lookups. The server grant remains the authorization barrier; these are
+client consistency and refusal-oracle checks. No schema or request projection
+changes or real server/production claims.
