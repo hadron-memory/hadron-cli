@@ -188,7 +188,11 @@ func TestAppUpdatePolicyFileValueAndSizeBoundaries1640(t *testing.T) {
 	}
 	t.Run("refused/one byte over", func(t *testing.T) {
 		srv, calls := appSettingsServer(t)
-		_, err := appSettingsRun(t, srv, "update", "--policy-file", policyFile1640(t, exact[:len(exact)-1]+` ]}`), "--yes")
+		over := `{"allow":["` + strings.Repeat("a", limit-len(`{"allow":[""]}`)+1) + `"]}`
+		if len(over) != limit+1 || !json.Valid([]byte(over)) {
+			t.Fatalf("fixture is %d bytes or invalid JSON", len(over))
+		}
+		_, err := appSettingsRun(t, srv, "update", "--policy-file", policyFile1640(t, over), "--yes")
 		if exitCodeFor(err) != 2 || len(*calls) != 0 {
 			t.Fatalf("err=%v calls=%+v", err, *calls)
 		}
