@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostup"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -295,6 +297,69 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 			}
 			if scenario == "server-mismatch" && reads != 0 {
 				t.Fatalf("server mismatch issued reads: %d", reads)
+			}
+		})
+	}
+}
+
+// A qualified App and the successful control keep scope resolution from
+// masking the host-presence guard. Count every request, including identity.
+func TestSweepHistoryRequiresHostBeforeNetwork2295(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		valid bool
+	}{
+		{name: "omitted"},
+		{name: "empty", args: []string{"--host", ""}},
+		{name: "spaces", args: []string{"--host", "   "}},
+		{name: "mixed-whitespace", args: []string{"--host", "\t \n"}},
+		{name: "valid", args: []string{"--host", "synthetic-host-2295"}, valid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests, reads atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				var q struct {
+					Op   string         `json:"operationName"`
+					Vars map[string]any `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+					t.Error(err)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				switch q.Op {
+				case "TeamAppIdentity":
+					fmt.Fprint(w, `{"data":{"app":{"id":"app-id","urn":"hrn:app:example.com:team","name":"Team"}}}`)
+				case "HostSweepRuns":
+					reads.Add(1)
+					if q.Vars["hostId"] != "synthetic-host-2295" || q.Vars["limit"] != float64(10) || q.Vars["appRef"] != "hrn:app:example.com:team" {
+						t.Errorf("wrong history variables: %+v", q.Vars)
+					}
+					fmt.Fprint(w, `{"data":{"hostSweepRuns":[]}}`)
+				default:
+					t.Errorf("unexpected operation %q", q.Op)
+					fmt.Fprint(w, `{"errors":[{"message":"unexpected operation"}]}`)
+				}
+			}))
+			defer srv.Close()
+			streams, out, _ := output.Test()
+			f := &cmdutil.Factory{IOStreams: streams, ServerFlag: srv.URL, AppFlag: "hrn:app:example.com:team", JSON: true}
+			t.Setenv("HADRON_TOKEN", "synthetic-reader-2295")
+			c := newCmdTeamHostSweepRuns(f)
+			c.SilenceErrors, c.SilenceUsage = true, true
+			c.SetArgs(append([]string{"--limit", "10"}, tc.args...))
+			err := c.Execute()
+			if tc.valid {
+				if err != nil || reads.Load() != 1 || requests.Load() != 1 || strings.TrimSpace(out.String()) != "[]" {
+					t.Fatalf("valid host: err=%v reads=%d requests=%d stdout=%q", err, reads.Load(), requests.Load(), out.String())
+				}
+				return
+			}
+			const want = "--host is required; --limit must be 1..100"
+			if err == nil || exitcode.FromError(err) != exitcode.Usage || err.Error() != want || requests.Load() != 0 {
+				t.Fatalf("host refusal: err=%v code=%d reads=%d requests=%d; want Usage, %q and no HTTP", err, exitcode.FromError(err), reads.Load(), requests.Load(), want)
 			}
 		})
 	}
