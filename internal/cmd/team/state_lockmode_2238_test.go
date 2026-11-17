@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 )
@@ -130,4 +131,76 @@ func TestBindingLockFileExistingModeIsKept2238(t *testing.T) {
 	if st, err := os.Stat(lock); err != nil || st.Mode().Perm() != 0o640 {
 		t.Fatalf("an existing lock's mode changed: %v %v", st, err)
 	}
+}
+
+// Julius's P3: two production openers race through creation. The first is
+// paused after it created its private temporary; the second opens, publishes
+// and returns; the first then resumes, its link finds the name taken, and it
+// reopens the winner's file. Both succeed and share one inode, and no
+// temporary is left.
+func TestBindingLockCompetingCreators2238(t *testing.T) {
+	dir := t.TempDir()
+	h := cacheHandle{loc: bindingLoc{dir: dir}}
+	paused, resume := make(chan struct{}), make(chan struct{})
+	var paused1 atomic.Bool
+	lockCreatedHook = func(string) {
+		if paused1.CompareAndSwap(false, true) { // only the first creator pauses
+			close(paused)
+			<-resume
+		}
+	}
+	defer func() { lockCreatedHook = nil }()
+	type result struct {
+		f   *os.File
+		err error
+	}
+	first := make(chan result, 1)
+	go func() { f, err := h.openLock(); first <- result{f, err} }()
+	<-paused
+	second, err := h.openLock()
+	if err != nil {
+		t.Fatalf("second opener: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+	close(resume)
+	r := <-first
+	if r.err != nil {
+		t.Fatalf("first opener after losing the race: %v", r.err)
+	}
+	defer func() { _ = r.f.Close() }()
+	a, errA := second.Stat()
+	b, errB := r.f.Stat()
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		t.Fatalf("the two openers hold different files: %v %v", errA, errB)
+	}
+	assertLockMode2238(t, filepath.Join(dir, bindingLockFileName))
+}
+
+// Julius's P2 on the delta: a filesystem without hard links (FAT/exFAT, some
+// network mounts) still gets a lock. The publish step is made to fail the way
+// such a filesystem fails, under umask 0277; two binds still succeed and the
+// lock is exactly 0600.
+func TestBindingLockWithoutHardLinks2238(t *testing.T) {
+	if mask := os.Getenv("HADRON_TEST_UMASK_PROBE_2238_NOLINK"); mask != "" {
+		var m int
+		if _, err := fmt.Sscanf(mask, "%o", &m); err != nil {
+			t.Fatal(err)
+		}
+		syscall.Umask(m)
+		lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.ENOTSUP} }
+		defer func() { lockLinkHook = nil }()
+		for i := range 2 {
+			if _, err := writeBinding(context.Background(), &binding{SessionID: "s1", WorkerID: "wkr1", WorkerName: "Iris"}); err != nil {
+				t.Fatalf("bind %d: %v", i+1, err)
+			}
+		}
+		return
+	}
+	gitDir := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestBindingLockWithoutHardLinks2238$")
+	cmd.Env = append(os.Environ(), "HADRON_TEST_UMASK_PROBE_2238_NOLINK=277", GitDirEnv+"="+gitDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("two binds without hard links: %v\n%s", err, out)
+	}
+	assertLockMode2238(t, filepath.Join(gitDir, bindingLockFileName))
 }

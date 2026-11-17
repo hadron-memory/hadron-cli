@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -524,6 +525,15 @@ func (h cacheHandle) path(name string) string { return filepath.Join(h.loc.dir, 
 // creator has finished with it; a test opens the file there (cli#2238).
 var lockCreatedHook func(path string)
 
+// lockLinkHook, when set, stands in for the hard link that publishes a new
+// lock: a test makes it fail the way a filesystem without links does.
+var lockLinkHook func() error
+
+const (
+	lockPermRetries    = 20
+	lockPermRetryEvery = 10 * time.Millisecond
+)
+
 func (h cacheHandle) openLock() (*os.File, error) {
 	open := func(name string, flag int) (*os.File, error) {
 		if h.root != nil {
@@ -531,8 +541,23 @@ func (h cacheHandle) openLock() (*os.File, error) {
 		}
 		return os.OpenFile(h.path(name), flag, 0o600) // #nosec G304 — derived from the worktree's git dir
 	}
-	// An existing lock is opened as it is, never chmodded.
-	f, err := open(bindingLockFileName, os.O_RDWR)
+	// openExisting opens the lock as it is, never chmodded. A permission
+	// refusal is retried for a bounded moment: it can only be a creator on a
+	// filesystem without hard links still between its create and its chmod
+	// (below); a genuinely inaccessible file fails after the same bound.
+	openExisting := func() (*os.File, error) {
+		var f *os.File
+		var err error
+		for range lockPermRetries {
+			f, err = open(bindingLockFileName, os.O_RDWR)
+			if !errors.Is(err, fs.ErrPermission) {
+				return f, err
+			}
+			time.Sleep(lockPermRetryEvery)
+		}
+		return f, err
+	}
+	f, err := openExisting()
 	if !errors.Is(err, fs.ErrNotExist) {
 		return f, err
 	}
@@ -568,17 +593,35 @@ func (h cacheHandle) openLock() (*os.File, error) {
 		removeTmp()
 		return nil, err
 	}
-	if h.root != nil {
+	switch {
+	case lockLinkHook != nil:
+		err = lockLinkHook()
+	case h.root != nil:
 		err = h.root.Link(tmp, bindingLockFileName)
-	} else {
+	default:
 		err = os.Link(h.path(tmp), h.path(bindingLockFileName))
 	}
 	removeTmp()
 	if errors.Is(err, fs.ErrExist) {
 		_ = f.Close()
-		return open(bindingLockFileName, os.O_RDWR) // another bind published it first
+		return openExisting() // another bind published it first
+	}
+	if err == nil {
+		return f, nil
+	}
+	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
+	// CLI worked there before, so it still does. Create the lock at its own
+	// name and set it exact at once; the window in which a concurrent opener
+	// could see a restrictive mode is covered by openExisting's bounded retry.
+	_ = f.Close()
+	f, err = open(bindingLockFileName, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+	if errors.Is(err, fs.ErrExist) {
+		return openExisting()
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := f.Chmod(0o600); err != nil {
 		_ = f.Close()
 		return nil, err
 	}

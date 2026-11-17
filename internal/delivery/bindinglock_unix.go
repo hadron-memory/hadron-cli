@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -38,7 +39,7 @@ func openLockFile(dir, name string, beforeCreate func() error) (*os.File, error)
 	// Try without O_CREAT first: another uid may take an existing lock, but
 	// must never recreate one removed between observation and open.
 	flags := unix.O_RDWR | unix.O_NOFOLLOW | unix.O_CLOEXEC
-	fd, err := unix.Openat(dfd, name, flags, 0)
+	fd, err := openLockRetrying(dfd, name, flags)
 	if errors.Is(err, unix.ENOENT) {
 		if beforeCreate != nil {
 			if err := beforeCreate(); err != nil {
@@ -80,15 +81,58 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 		_ = unix.Unlinkat(dfd, tmp, 0)
 		return -1, fmt.Errorf("setting the session binding lock mode: %w", err)
 	}
-	err = unix.Linkat(dfd, tmp, dfd, name, 0)
+	if lockLinkHook != nil {
+		err = lockLinkHook()
+	} else {
+		err = unix.Linkat(dfd, tmp, dfd, name, 0)
+	}
 	_ = unix.Unlinkat(dfd, tmp, 0)
 	if errors.Is(err, unix.EEXIST) {
 		_ = unix.Close(fd)
-		return unix.Openat(dfd, name, flags, 0) // created by another bind first
+		return openLockRetrying(dfd, name, flags) // created by another bind first
+	}
+	if err == nil {
+		return fd, nil
+	}
+	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
+	// lock was created there before, so it still is. Create it at its own
+	// name and set it exact at once; a concurrent opener that meets the
+	// restrictive mode in that moment retries for a bounded time.
+	_ = unix.Close(fd)
+	fd, err = unix.Openat(dfd, name, flags|unix.O_CREAT|unix.O_EXCL, 0o600)
+	if errors.Is(err, unix.EEXIST) {
+		return openLockRetrying(dfd, name, flags)
 	}
 	if err != nil {
-		_ = unix.Close(fd)
 		return -1, err
 	}
+	if err := unix.Fchmod(fd, 0o600); err != nil {
+		_ = unix.Close(fd)
+		return -1, fmt.Errorf("setting the session binding lock mode: %w", err)
+	}
 	return fd, nil
+}
+
+// lockLinkHook, when set, stands in for the hard link that publishes a new
+// lock: a test makes it fail the way a filesystem without links does.
+var lockLinkHook func() error
+
+const (
+	lockPermRetries    = 20
+	lockPermRetryEvery = 10 * time.Millisecond
+)
+
+// openLockRetrying opens an existing lock, retrying a permission refusal for
+// a bounded moment (see createLockExact's no-hard-link path).
+func openLockRetrying(dfd int, name string, flags int) (int, error) {
+	var fd int
+	var err error
+	for range lockPermRetries {
+		fd, err = unix.Openat(dfd, name, flags, 0)
+		if !errors.Is(err, unix.EACCES) {
+			return fd, err
+		}
+		time.Sleep(lockPermRetryEvery)
+	}
+	return fd, err
 }
