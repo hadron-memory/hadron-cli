@@ -1,6 +1,6 @@
 # Repeating the host sweep scheduler acceptance
 
-Normal Linux package tests run `systemd-analyze verify` on the three generated sweep units when that executable is available. This fails on warnings naming the generated units as well as a nonzero exit (unrelated host-unit warnings are ignored), checking syntax and executable references without starting services.
+Normal Linux package tests run `systemd-analyze verify` on the three generated sweep units when that executable is available. This fails on warnings naming the generated units as well as a nonzero exit (unrelated host-unit warnings are ignored), checking syntax and executable references without starting services. A successful (zero-status) verify run rejects only diagnostic lines containing one of the three generated unit basenames. Multiline/continuation lines and executable/path-only lines without such a basename are not independently classified by the helper. Nonzero verifier status still fails; unrelated host warnings remain ignored.
 
 The runtime test needs a **disposable systemd container**, root inside it, and no installed Hadron units. It deliberately installs the emitted service, timer and failure logger under `/run/systemd/system`, then removes them. It refuses an existing unit or a host without `/run/systemd/container`. Never run it in a shared QA container or a production host.
 
