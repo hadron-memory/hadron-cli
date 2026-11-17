@@ -87,11 +87,21 @@ func TestFixtureCleanup2078(t *testing.T) {
 		if result.Passed == fail || (runErr != nil) != fail {
 			t.Fatalf("fixture result=%+v error=%v forced-failure=%t\n%s", result, runErr, fail, out)
 		}
+		// Group SIGKILL and Wait on the launcher do not synchronously finish
+		// every grandchild's exit. Allow that bounded transition to complete.
+		deadline := time.Now().Add(3 * time.Second)
 		var live []string
-		for _, p := range fixtureChildren2078(t) {
-			if p.state != "Z" {
-				live = append(live, fmt.Sprintf("%d:%s", p.pid, p.argv))
+		for {
+			live = nil
+			for _, p := range fixtureChildren2078(t) {
+				if p.state != "Z" {
+					live = append(live, fmt.Sprintf("%d:%s", p.pid, p.argv))
+				}
 			}
+			if len(live) == 0 || !time.Now().Before(deadline) {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
 		}
 		if len(live) != 0 {
 			t.Fatalf("fixture cleanup left live descendants: %v", live)
