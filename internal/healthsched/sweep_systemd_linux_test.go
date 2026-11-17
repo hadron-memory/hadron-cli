@@ -79,26 +79,33 @@ func writeSweepUnits2183(t *testing.T, dir string, s Spec, created func(string))
 	var paths []string
 	for _, b := range bodies {
 		path := filepath.Join(dir, b.name)
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
+		if err := writeSweepUnit2187(path, b.body, created); err != nil {
 			t.Fatal(err)
-		}
-		// Creation proves ownership. Register before writing content, including
-		// any renamed path, so a partial write cannot escape acceptance cleanup.
-		if created != nil {
-			created(path)
-		}
-		_, writeErr := f.WriteString(b.body)
-		closeErr := f.Close()
-		if writeErr != nil {
-			t.Fatal(writeErr)
-		}
-		if closeErr != nil {
-			t.Fatal(closeErr)
 		}
 		paths = append(paths, path)
 	}
 	return paths
+}
+
+func writeSweepUnit2187(path, body string, created func(string)) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	// Creation proves ownership. Register before writing content, including
+	// any renamed path, so a partial write cannot escape acceptance cleanup.
+	if created != nil {
+		created(path)
+	}
+	_, writeErr := f.WriteString(body)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return nil
 }
 
 // Run ONLY in a disposable systemd container with no Hadron units installed.
@@ -487,5 +494,25 @@ func TestSweepAcceptanceResetToleratesUnloadedOwnedUnits2187(t *testing.T) {
 	}
 	if retained {
 		t.Fatal("loaded inactive unit retained its counter")
+	}
+}
+
+func TestSweepAcceptanceWriterPreservesPreexistingPath2187(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hadron-team-sweep-renamed.service")
+	const sentinel = "pre-existing unowned unit contents"
+	if err := os.WriteFile(path, []byte(sentinel), 0600); err != nil {
+		t.Fatal(err)
+	}
+	claimed := false
+	err := writeSweepUnit2187(path, "new unit", func(string) { claimed = true })
+	if !errors.Is(err, os.ErrExist) {
+		t.Errorf("pre-existing unit must be refused: %v", err)
+	}
+	if claimed {
+		t.Error("pre-existing unit was claimed for cleanup")
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil || string(got) != sentinel {
+		t.Errorf("pre-existing unit contents changed: %q, %v", got, readErr)
 	}
 }
