@@ -285,6 +285,22 @@ func TestNodeMovePlan741Truncated(t *testing.T) {
 	}
 }
 
+// Either signal alone makes the plan TRUNCATED: the server's flag, or a list
+// shorter than the count it reports.
+func TestNodeMovePlan741TruncatedEitherSignal(t *testing.T) {
+	for name, plan := range map[string]map[string]any{
+		"flag only":  plan741(3, 3, true, []any{}, false),
+		"count only": plan741(2, 3, false, []any{}, false),
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := run741(t, &planFake741{plan: plan}, "--to-urn", "hrn:node:acme.com:archive:x")
+			if got := exitCodeFor(err); got != exitcode.Error || !strings.Contains(out, "TRUNCATED") || strings.Contains(out, "COMPLETE") {
+				t.Fatalf("exit %d, output:\n%s", got, out)
+			}
+		})
+	}
+}
+
 // The plan raises the move's own refusal; the CLI exits as the real move would
 // and prints no plan.
 func TestNodeMovePlan741Refusals(t *testing.T) {

@@ -1,5 +1,7 @@
 # Node move advisory reads (#741)
 
+> **Superseded by [741-node-move-plan.md](741-node-move-plan.md).** `--dry-run` now renders the server planner (`planNodeMove`, hadron-server#3566); the advisory read described below was removed. Kept as the record of the first slice.
+
 The selected contract is Patrick6627908793 / CHECKED6627934114: observable read facts only. The original issue's rebase/collision/refusal/link predictions are NOT implemented. Server#3424 is the authoritative-planner companion, not a prerequisite.
 
 `--dry-run` branches before MoveNode. It resolves the source using the existing ref helper, reads source identity, resolves the destination memory, then pages source and destination candidates using locPrefix. Each scope has a non-system stream with contentScope ALL and a separate explicit system-type stream (also ALL); otherwise findNodes would silently omit comments and system nodes. It keeps only the exact loc or colon-boundary descendants. Output is deduplicated by stable node ID across pages and both streams, since fetch-side appends run before PageNodes.visit. Each nonempty candidate page is read through a shallow batch, because listing an id does not prove it is readable. URN/name come from the server; there is no rebasing or judgment about move success. The requested destination is preserved verbatim.

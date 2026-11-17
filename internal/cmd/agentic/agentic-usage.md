@@ -1204,18 +1204,24 @@ Conventions:
   mid-move. The confirmation identifies the node by its destination URN (carried
   in `--json`
   as `urn`).
-- `node move … --dry-run` reads an advisory inventory without writing: source
-  subtree URNs/names and nodes already present at the requested destination.
-  Both the ordinary/comment and system-type streams are paged; rows are unique by node id.
-  It does not predict rebased locs, success, refusals, write/schema permission
-  or broken links; hadron-server#3424 tracks the server planner. Reads page to
-  exhaustion; any failed, truncated, omitted or unavailable read prints
-  `INCOMPLETE` and exits 1. A complete read exits 0 but is not a snapshot or a
-  guarantee about a later move. `--json`: `{advisory: true, complete, message,
-  status, source: {nodes: [{urn, name}]}, destination: {requested, present:
-  [{urn, name}]}, notPredicted: [...]}`. Incomplete lists are empty, never a
-  partial inventory labelled complete. The requested destination is preserved
-  as typed. Normal moves (without `--dry-run`) keep their existing behavior.
+- `node move … --dry-run` asks the server to plan the move without writing
+  (`planNodeMove`, cor:api:190:03). The server runs the move's own checks; the
+  CLI predicts nothing. The plan lists each node that would move with its
+  current and new URN, in loc order, and the content-link warnings a
+  cross-memory move would report, or says they are withheld when you can't read
+  the destination memory. A move that would be refused fails the same way under
+  `--dry-run`: the move's error and exit code (for example exit 5 for an
+  occupied destination, exit 2 for a move into its own subtree), and no plan is
+  printed. The plan is true when answered and reserves nothing: a change before
+  the move can still end it with a conflict (exit 5). The server lists at most
+  `--limit` nodes (its default 100; it bounds the value; `--limit` is refused
+  without `--dry-run`). A plan that does not list every node prints `TRUNCATED`
+  with the shown and total counts and exits 1; a complete plan exits 0.
+  `--json`: `{status: COMPLETE|TRUNCATED, complete, totalCount, truncated,
+  pointInTime, nodes: [{id, currentUrn, newUrn}], linkWarnings: [{nodeId,
+  nodeLoc, raw, status: MISSING|RETARGETED|AMBIGUOUS, target}] | null,
+  linkWarningsWithheld}`; `linkWarnings` is null when withheld and `[]` when
+  there are none. Sends no `moveNode`.
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict

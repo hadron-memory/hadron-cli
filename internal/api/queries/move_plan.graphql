@@ -1,0 +1,23 @@
+# Plan a node move without writing (cor:api:190:03, hadron-cli#741). The server
+# runs the real move's resolution, gates and checks and raises the move's own
+# refusals; the CLI only renders the plan. Same selector as MoveNode: the
+# optional destination vars are omitted, not sent as null, so the server sees
+# exactly one. $limit is omitted when unset so the server's default applies.
+mutation PlanNodeMove(
+  $sourceRef: ID!
+  # @genqlient(omitempty: true)
+  $targetUrn: String
+  # @genqlient(omitempty: true)
+  $targetMemoryRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  planNodeMove(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef, limit: $limit) {
+    nodes { id currentUrn newUrn }
+    totalCount
+    truncated
+    pointInTime
+    linkWarnings { nodeId nodeLoc raw status target }
+    linkWarningsWithheld
+  }
+}
