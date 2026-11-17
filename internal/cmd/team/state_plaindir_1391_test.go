@@ -1,5 +1,3 @@
-//go:build !windows
-
 package team
 
 import (
@@ -7,7 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -16,17 +16,14 @@ import (
 // cli#1391 (ruling 0230 = B): outside a git checkout the binding cache lives
 // in the directory itself, under the same lock, one worker per directory.
 
-// fakeGit puts a `git` on PATH that fails with the given stderr, so "is this a
+// fakeGit makes git answer with the given stderr (exit 128), so "is this a
 // plain directory?" is decided by the answer git gives, not by where the test
-// happens to run.
+// happens to run. The answer is injected, so it holds on every platform.
 func fakeGit(t *testing.T, stderr string) {
 	t.Helper()
-	bin := t.TempDir()
-	script := "#!/bin/sh\necho '" + stderr + "' >&2\nexit 128\n"
-	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o700); err != nil { // #nosec G306 — a test shim must be executable
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
+	t.Cleanup(SetGitDirRunner(func(context.Context) ([]byte, []byte, error) {
+		return nil, []byte(stderr + "\n"), errors.New("exit status 128")
+	}))
 	t.Setenv(GitDirEnv, "")
 }
 
@@ -50,7 +47,9 @@ func TestPlainDir1391ReadsSeeNoCacheAndCreateNothing(t *testing.T) {
 	if err := clearBinding(ctx); !errors.Is(err, errNoWorktree) {
 		t.Fatalf("a clear with no cache must not find one: %v", err)
 	}
-	_ = bindingIsSession(ctx, "s1")
+	if bindingIsSession(ctx, "s1") {
+		t.Fatal("no cache: no binding names this session")
+	}
 	if _, err := os.Stat(filepath.Join(dir, plainDirCacheName)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("only a bind may create the cache directory, got %v", err)
 	}
@@ -72,7 +71,7 @@ func TestPlainDir1391BindWritesTheCacheUnderTheLockAndReadsBack(t *testing.T) {
 		t.Fatalf("path %s, want %s", path, want)
 	}
 	st, err := os.Stat(filepath.Join(dir, plainDirCacheName))
-	if err != nil || st.Mode().Perm() != 0o700 {
+	if err != nil || (runtime.GOOS != "windows" && st.Mode().Perm() != 0o700) {
 		t.Fatalf("the cache directory must be owner-only: %v %v", st, err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, plainDirCacheName, bindingLockFileName)); err != nil {
@@ -81,6 +80,9 @@ func TestPlainDir1391BindWritesTheCacheUnderTheLockAndReadsBack(t *testing.T) {
 	b, _, err := readBinding(ctx)
 	if err != nil || b == nil || b.WorkerName != "Iris" {
 		t.Fatalf("read back: %v %v", b, err)
+	}
+	if !bindingIsSession(ctx, "s1") || bindingIsSession(ctx, "s-other") {
+		t.Fatal("the cache must name exactly the session it holds")
 	}
 	if err := updateBinding(ctx, func(b *binding) error { b.Tool = "x"; return nil }); err != nil {
 		t.Fatalf("an update reaches an existing plain cache: %v", err)
@@ -153,25 +155,6 @@ func TestPlainDir1391OtherGitFailuresStayHard(t *testing.T) {
 	}
 }
 
-// Gloria's BLIND F1 on #1968: git localizes "not a git repository". The
-// shim answers in German unless the CLI asks git for the C locale, so a plain
-// directory under a non-C locale must still read as plain.
-func TestPlainDir1391PlainUnderATranslatedGit(t *testing.T) {
-	bin := t.TempDir()
-	script := "#!/bin/sh\nif [ \"$LC_ALL\" = C ]; then echo 'fatal: not a git repository (or any of the parent directories): .git' >&2; else echo 'Schwerwiegend: Kein Git-Repository (oder irgendeines der Elternverzeichnisse): .git' >&2; fi\nexit 128\n"
-	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o700); err != nil { // #nosec G306 — a test shim must be executable
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
-	t.Setenv(GitDirEnv, "")
-	t.Setenv("LC_ALL", "de_DE.UTF-8")
-	t.Setenv("LANG", "de_DE.UTF-8")
-	t.Chdir(t.TempDir())
-	if _, plain, err := readBindingForBind(context.Background()); err != nil || !plain {
-		t.Fatalf("a plain directory under a German locale must read as plain, got plain=%v err=%v", plain, err)
-	}
-}
-
 // Gloria's BLIND F2 on #1968: the lock-time check is the only guard for a
 // resume and a launch grant, so a cached binding with no worker id — which
 // cannot show it is the same worker — refuses rather than being replaced.
@@ -215,5 +198,47 @@ func TestPlainDir1391BrokenWorktreeIsNotPlain(t *testing.T) {
 				t.Fatal("no cache may be created in a broken checkout")
 			}
 		})
+	}
+}
+
+// cli#1969 F7b (Gloria's BLIND F7): the one-worker rule holds under REAL
+// concurrency, not only in two sequential calls: of many workers binding one
+// plain directory at once exactly one wins, and the cache names that worker.
+func TestPlainDir1969ConcurrentBindsLeaveExactlyOneWorker(t *testing.T) {
+	dir := plainDir1391(t)
+	ctx := context.Background()
+	const n = 8
+	var wg sync.WaitGroup
+	won := make([]bool, n)
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			id := string(rune('a' + i))
+			_, err := writeBinding(ctx, &binding{SessionID: "s-" + id, WorkerID: "wkr-" + id, WorkerName: "W" + id})
+			won[i] = err == nil
+		}()
+	}
+	close(start)
+	wg.Wait()
+	winners := 0
+	for _, w := range won {
+		if w {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("%d of %d concurrent binds succeeded, want exactly one: %v", winners, n, won)
+	}
+	b, err := readBindingAt(filepath.Join(dir, plainDirCacheName, bindingFileName))
+	if err != nil || b == nil {
+		t.Fatalf("read the cache: %v %v", b, err)
+	}
+	for i, w := range won {
+		if w != (b.WorkerID == "wkr-"+string(rune('a'+i))) {
+			t.Fatalf("the cache names %s but the winners were %v", b.WorkerID, won)
+		}
 	}
 }

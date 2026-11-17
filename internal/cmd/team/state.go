@@ -97,6 +97,10 @@ type binding struct {
 
 const bindingFileName = "hadron-team-session.json"
 
+// BindingFileName is bindingFileName for the command package's tests, so they
+// name the file this package owns (cli#1969 F10).
+const BindingFileName = bindingFileName
+
 // GitDirEnv overrides the git call that locates the worktree binding — for
 // tests, and for environments with no git binary. Exported so the test
 // sandbox names the same string this reads rather than a copy of it: two
@@ -116,26 +120,49 @@ func gitDirOrPlain(ctx context.Context) (dir string, plain bool, err error) {
 	if d := os.Getenv(GitDirEnv); d != "" {
 		return d, false, nil
 	}
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir")
-	// git localizes "not a git repository" (gettext): the C locale keeps the
-	// one message this classifies on in English (Gloria's BLIND F1, #1968).
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANGUAGE=C")
-	out, err := cmd.Output()
+	out, stderr, err := runGitDir(ctx)
 	if err != nil {
-		detail := err.Error()
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			detail = strings.TrimSpace(string(exitErr.Stderr))
+		detail := strings.TrimSpace(string(stderr))
+		if detail == "" {
+			detail = err.Error()
 		}
 		// The DISCOVERY form only: git also says "not a git repository:
 		// <path>" for a worktree whose admin dir is gone or a bad GIT_DIR —
 		// a real checkout, which must stay the hard error (Rico's §10 P3,
-		// #1968). The C locale above keeps this wording stable.
+		// #1968). The C locale in runGitDir keeps this wording stable.
 		plain = errors.Is(err, exec.ErrNotFound) || strings.Contains(strings.ToLower(detail), "not a git repository (or any of the parent directories)")
 		return "", plain, exitcode.Newf(exitcode.Usage, "%w — a team session binds to one (%s)", errNoWorktree, detail)
 	}
 	d, err := filepath.Abs(strings.TrimSpace(string(out)))
 	return d, false, err
+}
+
+// GitDirRunner asks git for the current directory's git dir: its stdout, its
+// stderr when it refused, and the error. It is the seam tests replace so "is
+// this a plain directory?" is decided by an injected answer on every platform,
+// not by a shell script on PATH (cli#1969 F6).
+type GitDirRunner func(ctx context.Context) (stdout, stderr []byte, err error)
+
+var runGitDir GitDirRunner = func(ctx context.Context) ([]byte, []byte, error) {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir")
+	// git localizes "not a git repository" (gettext): the C locale keeps the
+	// one message this classifies on in English (Gloria's BLIND F1, #1968).
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANGUAGE=C")
+	out, err := cmd.Output()
+	var stderr []byte
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		stderr = exitErr.Stderr
+	}
+	return out, stderr, err
+}
+
+// SetGitDirRunner replaces the git call for a test and returns the function
+// that restores it. Tests only: production never calls it.
+func SetGitDirRunner(r GitDirRunner) (restore func()) {
+	prev := runGitDir
+	runGitDir = r
+	return func() { runGitDir = prev }
 }
 
 // plainDirCacheName is the binding cache's home in a directory that is not a
@@ -144,6 +171,11 @@ func gitDirOrPlain(ctx context.Context) (dir string, plain bool, err error) {
 // worktree keeps in its git dir. The CURRENT directory only — never a parent —
 // so a command can never pick up the binding of a directory above it.
 const plainDirCacheName = ".hadron-team"
+
+// PlainDirCacheName is plainDirCacheName for the command package's tests, so
+// they name the directory this package owns rather than a second spelling
+// (cli#1969 F10).
+const PlainDirCacheName = plainDirCacheName
 
 // bindingLoc is where this context's binding cache lives.
 type bindingLoc struct {
