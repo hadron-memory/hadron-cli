@@ -5234,11 +5234,12 @@ shared guard serves signature/trailer edits, `team grant list|get|request` and
 `team task mine --app`: for those, a pure permission refusal on the App read
 now exits 2 with the missing-App usage text, where it was exit 8 before
 (cli#1896, cli#2239). Only a PURE permission refusal is normalized. A
-credential or token-scope refusal, a failed lookup, and a MIXED answer
-(FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages in the
-order sent and exit by the FIRST error's code: a mixed answer led by
-UNAUTHENTICATED exits 3, one led by FORBIDDEN exits 8. None of them reads as a
-missing App. Optional authored-write attribution (`node create` and the like)
+credential or token-scope refusal and a MIXED answer (FORBIDDEN together with
+UNAUTHENTICATED) keep the server's own messages in the order sent and exit by
+the FIRST error's code: a mixed answer led by UNAUTHENTICATED exits 3, one led
+by FORBIDDEN exits 8. A failed lookup keeps its ordinary mapped diagnostic, not
+the server's text: an internal error is masked to "the server hit an internal
+error" and exits 1 (cli#898, cli#2297). None of them reads as a missing App. Optional authored-write attribution (`node create` and the like)
 silently leaves the worker session off for a missing OR unreadable App and
 still sends your own write; a credential, mixed or failed lookup adds one note.
 
