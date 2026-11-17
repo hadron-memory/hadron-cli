@@ -236,12 +236,6 @@ func health2027Setup(t *testing.T) *health2027World {
 		t.Fatal(err)
 	}
 	w.cfgPath = path
-	t.Cleanup(func() {
-		for _, c := range w.agents {
-			_ = c.Process.Kill()
-			_, _ = c.Process.Wait()
-		}
-	})
 	return w
 }
 
@@ -356,9 +350,7 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 		c = exec.Command(bin)
 	}
 	c.Dir = w.worktree
-	if err := c.Start(); err != nil {
-		t.Fatalf("spawn %s: %v", name, err)
-	}
+	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
 	time.Sleep(50 * time.Millisecond) // let /proc settle
 	return c.Process.Pid
@@ -508,9 +500,7 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	}
 	c := exec.Command(wrap, shim)
 	c.Dir = w.worktree
-	if err := c.Start(); err != nil {
-		t.Fatalf("spawn chain: %v", err)
-	}
+	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
 	time.Sleep(50 * time.Millisecond) // let /proc settle
 }
@@ -548,10 +538,7 @@ func TestHealth2027StopRefusedWhenIdentityDoesNotMatch(t *testing.T) {
 	w := health2027Setup(t)
 	sleeper := exec.Command("sh", "-c", "while :; do sleep 1; done")
 	sleeper.Dir = w.worktree
-	if err := sleeper.Start(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = sleeper.Process.Kill(); _, _ = sleeper.Process.Wait() })
+	startFixture2078(t, sleeper)
 	time.Sleep(50 * time.Millisecond)
 	if err := stopAgent(sleeper.Process.Pid, 1); err == nil {
 		t.Fatal("a start-time mismatch must refuse the stop")

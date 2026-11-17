@@ -43,7 +43,7 @@ func TestFixtureCleanup2078(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer log.Close()
+				defer func() { _ = log.Close() }()
 				c := exec.Command(os.Args[0], "-test.run=^TestFixtureCleanup2078$", "-test.timeout=30s")
 				c.Env = append(os.Environ(), "TMPDIR="+root, "FIXTURE_2078_NAME="+name, "FIXTURE_2078_FAIL="+map[bool]string{false: "0", true: "1"}[fail], "FIXTURE_2078_DONE="+done)
 				c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -102,7 +102,7 @@ func TestFixtureCleanup2078(t *testing.T) {
 						}
 						argv, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
 						for _, arg := range strings.Split(string(argv), "\x00") {
-							if strings.HasPrefix(arg, root+string(os.PathSeparator)) && strings.HasSuffix(arg, ".log") == false {
+							if strings.HasPrefix(arg, root+string(os.PathSeparator)) && !strings.HasSuffix(arg, ".log") {
 								live = append(live, e.Name()+":"+arg)
 								break
 							}
