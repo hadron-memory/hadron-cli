@@ -161,9 +161,9 @@ and App it refuses (exit 2) without sending a mutation. App/worker identity
 reads may be needed first. An unreadable target App is refused exactly like a
 missing App; credential and transport errors keep their normal exits. The CLI
 does not check the grant; the server's refusals print with their codes (exit 8).
-The grant does not cover signing: where an organisation has switched on signing of
-compiled boot prompts (its own setting, not the passkey switch), a person
-still signs each compiled prompt.
+The grant does not cover signing: where an organisation has switched on
+signing of compiled boot prompts (its own setting, not the passkey switch),
+a person still signs each compiled prompt.
 %s
 
 Compile does not approve or serve a prompt. The result reports the compiled
