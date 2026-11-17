@@ -48,3 +48,14 @@ func TestForeignUIDCountTextReceipt2195(t *testing.T) {
 		t.Fatalf("receipt lost census exclusions: %s", out.String())
 	}
 }
+
+func TestZeroForeignUIDCountKeepsLegacyText2197(t *testing.T) {
+	var out bytes.Buffer
+	f := &cmdutil.Factory{IOStreams: &output.IOStreams{Out: &out}}
+	stamp := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	hostEventPrinter(f)(hostpoller.Event{Time: stamp, Kind: "relaunch", Type: "worker.relaunch", WorkerID: "worker", Outcome: "skipped", Detail: "RELAUNCH_AGENT_PRESENT"})
+	want := "12:00:00 relaunch worker.relaunch worker skipped: RELAUNCH_AGENT_PRESENT\n"
+	if out.String() != want {
+		t.Fatalf("legacy text changed: got %q want %q", out.String(), want)
+	}
+}
