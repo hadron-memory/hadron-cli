@@ -64,7 +64,7 @@ func TestLastFailAdvisory1675(t *testing.T) {
 	}
 	f.run(r)
 	old := readBytes1675(t, statusPath)
-	f.chat.msgs[len(f.chat.msgs)-1].Body = stopDropBody("ada", StopDrop{EventID: "ev-1", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: f.clock})
+	f.chat.msgs[len(f.chat.msgs)-1].Body = stopDropBody("ada", StopDrop{EventID: "ev-1", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: f.clock}, f.clock)
 	marker := filepath.Join(f.box.Dir, ev1Base()+".reported")
 	r.beforeReported = func(string) {
 		if err := os.Mkdir(marker, 0700); err != nil {
