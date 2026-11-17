@@ -24,9 +24,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Khan/genqlient/graphql"
 	"io"
 	"strings"
+
+	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -52,9 +53,10 @@ type adapterItemDTO struct {
 
 // adapterListDTO is the list's --json shape on the adapter path.
 type adapterListDTO struct {
-	Adapter  string           `json:"adapter"`
-	Items    []adapterItemDTO `json:"items"`
-	Complete bool             `json:"complete"`
+	Adapter       string           `json:"adapter"`
+	Items         []adapterItemDTO `json:"items"`
+	Complete      bool             `json:"complete"`
+	StoppedReason *string          `json:"stoppedReason"`
 	// Reconcile is the write-back pass that ran first (cli#1962).
 	Reconcile reconcileDTO `json:"reconcile"`
 }
@@ -69,10 +71,8 @@ type adapterClaimedDTO struct {
 	Assignee   *string `json:"assignee"`
 	Marked     bool    `json:"marked"`
 	MarkError  *string `json:"markError"`
-	// StartError is why a claim the caller holds could not be started: the
-	// task exists and is PENDING (only against a server that does not start the
-	// caller's own claim in the create, hadron-server#4113; a retry finds its external id held and does
-	// not create a second).
+	// StartError is retained as a null compatibility field; starting a claim
+	// belongs to the server's atomic create, never a second CLI mutation.
 	StartError *string `json:"startError"`
 }
 
@@ -182,6 +182,8 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 	list := adapterListDTO{Adapter: desc.Name, Items: []adapterItemDTO{}, Reconcile: rec}
 	claimed := adapterClaimDTO{Adapter: desc.Name, Tasks: []adapterClaimedDTO{}, Lost: []string{}, Reconcile: rec}
 	var stopErr error
+	stopReason := ""
+	limitReached := false
 	walkErr := runner.Walk(ctx, o.forWorker, pageHint(limit), func(p intake.Page) (bool, error) {
 		ids := make([]string, 0, len(p.Items))
 		for _, it := range p.Items {
@@ -190,6 +192,7 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 		held, err := heldExternalIDs(ctx, client, appRef, ids)
 		if err != nil {
 			stopErr = err
+			stopReason = "check_failed"
 			return true, nil
 		}
 		for _, it := range p.Items {
@@ -199,6 +202,7 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 			if !o.track {
 				list.Items = append(list.Items, adapterItemDTO{ExternalID: it.ExternalID, Title: output.SafeLine(it.Title, adapterTitleRunes)})
 				if len(list.Items) >= limit {
+					limitReached = true
 					return true, nil
 				}
 				continue
@@ -207,16 +211,19 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 			switch {
 			case err != nil:
 				stopErr = err
+				stopReason = "claim_failed"
 				return true, nil
 			case res.lost:
 				claimed.Lost = append(claimed.Lost, it.ExternalID)
 			default:
 				claimed.Tasks = append(claimed.Tasks, res.task)
 				if res.task.MarkError != nil { // a failed mark leaves the claim standing; stop adding more
+					stopReason = "mark_failed"
 					stopErr = exitcode.Newf(exitcode.Error, "the adapter's mark failed for %s (the claim stands): %s", output.SafeCell(it.ExternalID), output.SafeCell(*res.task.MarkError))
 					return true, nil
 				}
 				if len(claimed.Tasks) >= limit { // rule 4: tasks HELD
+					limitReached = true
 					return true, nil
 				}
 			}
@@ -225,18 +232,24 @@ func runFindUntrackedAdapter(ctx context.Context, f *cmdutil.Factory, b *binding
 	})
 	if walkErr != nil && stopErr == nil {
 		stopErr = adapterErr(walkErr)
+		stopReason = "walk_failed"
 	}
 	if stopErr == nil {
 		stopErr = recErr
+		if recErr != nil {
+			stopReason = "reconcile_failed"
+		}
 	}
-	complete := stopErr == nil
+	complete := stopErr == nil && !limitReached
 	var reason *string
-	if stopErr != nil {
-		s := "stopped"
-		reason = &s
+	if stopReason == "" && limitReached {
+		stopReason = "limit_reached"
+	}
+	if stopReason != "" {
+		reason = &stopReason
 	}
 	if !o.track {
-		list.Complete = complete
+		list.Complete, list.StoppedReason = complete, reason
 		if err := writeAdapterList(f, list); err != nil {
 			return err
 		}
@@ -320,30 +333,16 @@ func (c *adapterClaim) one(it intake.Item) (claimOne, error) {
 	dto := adapterClaimedDTO{ID: t.Id, Handle: t.Handle, Title: t.Title, Status: string(t.Status), ExternalID: ext, PortalURL: t.PortalUrl}
 	var worker intake.Worker
 	if t.Assignee != nil {
-		name := ""
-		if t.Assignee.Name != nil {
+		name := t.Assignee.Id
+		if t.Assignee.Name != nil && strings.TrimSpace(*t.Assignee.Name) != "" {
 			name = *t.Assignee.Name
 		}
 		dto.Assignee = &name
 		worker = intake.Worker{ID: t.Assignee.Id, Name: name}
 		if c.b != nil && c.boundWorker != "" && t.Assignee.Id == c.boundWorker {
 			worker.Role, worker.Model = c.b.WorkerRole, c.b.Model
-			// The assignee is the caller, so the caller may start it (the
-			// server lets only the assignee start); anyone else's stays PENDING.
-			// A server with hadron-server#4113 lands the caller's own claim
-			// STARTED in the create (cor:agt:050:02), so the answer decides:
-			// already STARTED means no second call (cli#1978); an older server
-			// answers PENDING and keeps the start call and its startError.
-			if t.Status != gen.AgentTaskStatusStarted {
-				st, err := gen.IntakeStartTask(c.ctx, c.client, t.Id)
-				switch {
-				case err != nil:
-					msg := output.SafeLine(mapTaskError(err).Error(), 300)
-					dto.StartError = &msg
-				case st.StartAgentTask != nil:
-					dto.Status = string(st.StartAgentTask.Status)
-				}
-			}
+			// The server determines whether the caller owns this claim and
+			// starts it atomically (server#4115); never guess its party here.
 		}
 	}
 	task := intake.Task{ID: t.Id, Handle: t.Handle}

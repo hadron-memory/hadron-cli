@@ -14687,7 +14687,8 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 type AgentTeamEventsPageResponse struct {
 	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
 	// filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
-	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+	// another read. For the forward stream, hasMore describes the eligible prefix below the snapshot horizon; keep the
+	// cursor and poll again while older transactions remain open. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
 	// newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
 	// limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
 	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
@@ -27730,6 +27731,22 @@ func (v *ChatAiConfigChoicesResponse) GetChatAiConfigChoices() []*ChatAiConfigCh
 	return v.ChatAiConfigChoices
 }
 
+// ChatEffectiveToolChoiceResponse is returned by ChatEffectiveToolChoice on success.
+type ChatEffectiveToolChoiceResponse struct {
+	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
+	// effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
+	// config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+	// Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
+	// decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
+	// The decision only: no key, id, name, provider or model.
+	ChatEffectiveToolChoice *ChatToolChoice `json:"chatEffectiveToolChoice"`
+}
+
+// GetChatEffectiveToolChoice returns ChatEffectiveToolChoiceResponse.ChatEffectiveToolChoice, and is useful for accessing the field via an interface.
+func (v *ChatEffectiveToolChoiceResponse) GetChatEffectiveToolChoice() *ChatToolChoice {
+	return v.ChatEffectiveToolChoice
+}
+
 // ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -28329,6 +28346,32 @@ type ChatServedPromptsResponse struct {
 func (v *ChatServedPromptsResponse) GetChatServedPrompts() *ChatServedPromptsChatServedPromptsServedPromptsPage {
 	return v.ChatServedPrompts
 }
+
+// #4005: how a chat turn offers its respond tool.
+type ChatToolChoice string
+
+const (
+	// tool_choice auto: for the models that reject a forced choice. The turn also tells the model to answer by calling respond.
+	ChatToolChoiceAuto ChatToolChoice = "AUTO"
+	// A forced choice of the respond tool: every other provider/model.
+	ChatToolChoiceForced ChatToolChoice = "FORCED"
+)
+
+var AllChatToolChoice = []ChatToolChoice{
+	ChatToolChoiceAuto,
+	ChatToolChoiceForced,
+}
+
+// ChatToolChoiceForResponse is returned by ChatToolChoiceFor on success.
+type ChatToolChoiceForResponse struct {
+	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): the chat turn's tool-choice decision for an UNSAVED (provider, model) pair, by the same one
+	// predicate, judged verbatim. Pure: reads no config rows, decrypts nothing, calls no provider and meters no usage.
+	// Any signed-in caller; no owner context is consulted. An unknown or unlisted provider or model answers FORCED, never a refusal.
+	ChatToolChoiceFor ChatToolChoice `json:"chatToolChoiceFor"`
+}
+
+// GetChatToolChoiceFor returns ChatToolChoiceForResponse.ChatToolChoiceFor, and is useful for accessing the field via an interface.
+func (v *ChatToolChoiceForResponse) GetChatToolChoiceFor() ChatToolChoice { return v.ChatToolChoiceFor }
 
 // CheckAuthenticationStatusResponse is returned by CheckAuthenticationStatus on success.
 type CheckAuthenticationStatusResponse struct {
@@ -67212,8 +67255,7 @@ func (v *MyGrantsMyGrantsGrantsPage) GetItems() []*MyGrantsMyGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type MyGrantsMyGrantsGrantsPageItemsGrant struct {
 	Id    string `json:"id"`
 	AppId string `json:"appId"`
@@ -75190,10 +75232,10 @@ type PublicOrganizationPublicOrganization struct {
 	Urn                 string `json:"urn"`
 	Name                string `json:"name"`
 	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
-	// SUPERSEDED by publicMemoriesPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC, non-app-scoped memories (sanitized refs), now only the first page of 20 in (name, id) order. Use publicMemoriesPage to reach the rest.
-	PublicMemories []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef `json:"publicMemories"`
-	// SUPERSEDED by publicAgentsPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC agents (sanitized refs), now only the first page of 20 in (name, id) order. Use publicAgentsPage to reach the rest.
-	PublicAgents []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef `json:"publicAgents"`
+	// The org's PUBLIC, non-app-scoped memories (sanitized refs), one page in (name, id) order. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. total counts exactly the rows the public gate admits (hrn:node:hadronmemory.com:specs:cor:acl:080:02, hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	PublicMemoriesPage *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage `json:"publicMemoriesPage"`
+	// The org's PUBLIC agents (sanitized refs), one page in (name, id) order; same paging rules as publicMemoriesPage.
+	PublicAgentsPage *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage `json:"publicAgentsPage"`
 }
 
 // GetId returns PublicOrganizationPublicOrganization.Id, and is useful for accessing the field via an interface.
@@ -75210,55 +75252,80 @@ func (v *PublicOrganizationPublicOrganization) GetListedOnMarketplace() bool {
 	return v.ListedOnMarketplace
 }
 
-// GetPublicMemories returns PublicOrganizationPublicOrganization.PublicMemories, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicMemories() []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef {
-	return v.PublicMemories
+// GetPublicMemoriesPage returns PublicOrganizationPublicOrganization.PublicMemoriesPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicMemoriesPage() *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage {
+	return v.PublicMemoriesPage
 }
 
-// GetPublicAgents returns PublicOrganizationPublicOrganization.PublicAgents, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicAgents() []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef {
-	return v.PublicAgents
+// GetPublicAgentsPage returns PublicOrganizationPublicOrganization.PublicAgentsPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicAgentsPage() *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage {
+	return v.PublicAgentsPage
 }
 
-// PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                 `json:"total"`
+	HasMore bool                                                                                                `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75273,7 +75340,7 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Unma
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75283,7 +75350,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceR
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75291,8 +75358,8 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Mars
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -75301,45 +75368,70 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __pr
 	return &retval, nil
 }
 
-// PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                   `json:"total"`
+	HasMore bool                                                                                                  `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75354,7 +75446,7 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Un
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75364,7 +75456,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourc
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75372,8 +75464,8 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Ma
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -78251,6 +78343,42 @@ type RemoveOrgMemberResponse struct {
 
 // GetRemoveOrgMember returns RemoveOrgMemberResponse.RemoveOrgMember, and is useful for accessing the field via an interface.
 func (v *RemoveOrgMemberResponse) GetRemoveOrgMember() bool { return v.RemoveOrgMember }
+
+// RenderRunNodeResponse is returned by RenderRunNode on success.
+type RenderRunNodeResponse struct {
+	// Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
+	// hadron_run_action, which despite its name executes nothing: it loads the
+	// node, resolves its dependency edges, and renders with args.
+	//
+	// runTask covers the EXECUTE half. This is the render half, for previewing a
+	// task before running it (a task run --dry-run), for reading an action's
+	// assembled instructions when the CALLER is the executor, and for debugging
+	// template/dependency resolution without side effects.
+	//
+	// A Query because it is side-effect-free, and unlike the MCP tool it records
+	// NO action-run UsageEvent — metering a preview would inflate the ledger with
+	// actions nobody took.
+	//
+	// Uses the SAME assembler runTask executes (Mustache compilation via
+	// compileTemplate; flow-ROUTING edges skipped, since they are the walker's
+	// rails rather than references), so a dry run predicts the real prompt.
+	//
+	// Two deliberate narrowings relative to execution, both fail-safe: a
+	// referenced node the caller cannot READ is omitted rather than inlined
+	// (an edge may cross memories), and an edge whose target was soft-deleted is
+	// skipped so a preview cannot resurrect removed instructions.
+	//
+	// NOTE this is NOT the legacy MCP hadron_run_action bundle, which does a
+	// literal placeholder replace and inlines every outgoing edge. Where the two
+	// differ, this one matches execution.
+	//
+	// nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
+	// missing both raise NODE_NOT_FOUND - no existence oracle.
+	RenderRunNode string `json:"renderRunNode"`
+}
+
+// GetRenderRunNode returns RenderRunNodeResponse.RenderRunNode, and is useful for accessing the field via an interface.
+func (v *RenderRunNodeResponse) GetRenderRunNode() string { return v.RenderRunNode }
 
 // RenumberSpecRenumberSpecSpecRenumberResult includes the requested fields of the GraphQL type SpecRenumberResult.
 // The GraphQL type's documentation follows.
@@ -96431,8 +96559,7 @@ func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompos
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamCreateGrantCreateGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -96990,8 +97117,7 @@ func (v *TeamDueWakesResponse) GetDueWakes() *TeamDueWakesDueWakesDueWakePage { 
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -97326,8 +97452,7 @@ func (v *TeamGrantsGrantsGrantsPage) GetItems() []*TeamGrantsGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantsGrantsGrantsPageItemsGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -119397,6 +119522,14 @@ type __ChatAiConfigChoicesInput struct {
 // GetAppRef returns __ChatAiConfigChoicesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__ChatAiConfigChoicesInput) GetAppRef() string { return v.AppRef }
 
+// __ChatEffectiveToolChoiceInput is used internally by genqlient
+type __ChatEffectiveToolChoiceInput struct {
+	ChatId string `json:"chatId"`
+}
+
+// GetChatId returns __ChatEffectiveToolChoiceInput.ChatId, and is useful for accessing the field via an interface.
+func (v *__ChatEffectiveToolChoiceInput) GetChatId() string { return v.ChatId }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -119468,6 +119601,18 @@ func (v *__ChatServedPromptsLintInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __ChatServedPromptsLintInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatServedPromptsLintInput) GetOffset() int { return v.Offset }
+
+// __ChatToolChoiceForInput is used internally by genqlient
+type __ChatToolChoiceForInput struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+}
+
+// GetProvider returns __ChatToolChoiceForInput.Provider, and is useful for accessing the field via an interface.
+func (v *__ChatToolChoiceForInput) GetProvider() string { return v.Provider }
+
+// GetModel returns __ChatToolChoiceForInput.Model, and is useful for accessing the field via an interface.
+func (v *__ChatToolChoiceForInput) GetModel() string { return v.Model }
 
 // __CheckChatCursorInput is used internally by genqlient
 type __CheckChatCursorInput struct {
@@ -124077,11 +124222,19 @@ func (v *__PublicAgentsInput) GetOffset() *int { return v.Offset }
 
 // __PublicOrganizationInput is used internally by genqlient
 type __PublicOrganizationInput struct {
-	Ref string `json:"ref"`
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __PublicOrganizationInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
 // __PurgeUnansweredDecisionInput is used internally by genqlient
 type __PurgeUnansweredDecisionInput struct {
@@ -124488,6 +124641,18 @@ func (v *__RemoveOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 
 // GetUserRef returns __RemoveOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__RemoveOrgMemberInput) GetUserRef() string { return v.UserRef }
+
+// __RenderRunNodeInput is used internally by genqlient
+type __RenderRunNodeInput struct {
+	NodeRef string           `json:"nodeRef"`
+	Args    *json.RawMessage `json:"args,omitempty"`
+}
+
+// GetNodeRef returns __RenderRunNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// GetArgs returns __RenderRunNodeInput.Args, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetArgs() *json.RawMessage { return v.Args }
 
 // __RenumberSpecInput is used internally by genqlient
 type __RenumberSpecInput struct {
@@ -139310,6 +139475,41 @@ func ChatAiConfigChoices(
 	return data_, err_
 }
 
+// The query executed by ChatEffectiveToolChoice.
+const ChatEffectiveToolChoice_Operation = `
+query ChatEffectiveToolChoice ($chatId: String!) {
+	chatEffectiveToolChoice(chatId: $chatId)
+}
+`
+
+// cli#2020 (hadron-server#4042/#4151, cor:dmo:050:10 Proposed, cor:acl:030:01):
+// the server's tool-choice DECISION, nothing else: AUTO, FORCED, or null when
+// nothing resolved. Never a key, id, name, provider or model.
+func ChatEffectiveToolChoice(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chatId string,
+) (data_ *ChatEffectiveToolChoiceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatEffectiveToolChoice",
+		Query:  ChatEffectiveToolChoice_Operation,
+		Variables: &__ChatEffectiveToolChoiceInput{
+			ChatId: chatId,
+		},
+	}
+
+	data_ = &ChatEffectiveToolChoiceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatMessages.
 const ChatMessages_Operation = `
 query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
@@ -139542,6 +139742,41 @@ func ChatServedPromptsLint(
 	}
 
 	data_ = &ChatServedPromptsLintResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChatToolChoiceFor.
+const ChatToolChoiceFor_Operation = `
+query ChatToolChoiceFor ($provider: String!, $model: String!) {
+	chatToolChoiceFor(provider: $provider, model: $model)
+}
+`
+
+// Pure: no rows read, no usage. Any signed-in caller; no owner argument.
+func ChatToolChoiceFor(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	provider string,
+	model string,
+) (data_ *ChatToolChoiceForResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatToolChoiceFor",
+		Query:  ChatToolChoiceFor_Operation,
+		Variables: &__ChatToolChoiceForInput{
+			Provider: provider,
+			Model:    model,
+		},
+	}
+
+	data_ = &ChatToolChoiceForResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -156980,17 +157215,25 @@ func PublicAgents(
 
 // The query executed by PublicOrganization.
 const PublicOrganization_Operation = `
-query PublicOrganization ($ref: ID!) {
+query PublicOrganization ($ref: ID!, $limit: Int!, $offset: Int!) {
 	publicOrganization(ref: $ref) {
 		id
 		urn
 		name
 		listedOnMarketplace
-		publicMemories {
-			... PublicResourceRefFields
+		publicMemoriesPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
-		publicAgents {
-			... PublicResourceRefFields
+		publicAgentsPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
 	}
 }
@@ -157006,12 +157249,16 @@ func PublicOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
+	limit int,
+	offset int,
 ) (data_ *PublicOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "PublicOrganization",
 		Query:  PublicOrganization_Operation,
 		Variables: &__PublicOrganizationInput{
-			Ref: ref,
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -158381,6 +158628,43 @@ func RemoveOrgMember(
 	}
 
 	data_ = &RemoveOrgMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RenderRunNode.
+const RenderRunNode_Operation = `
+query RenderRunNode ($nodeRef: String!, $args: JSON) {
+	renderRunNode(nodeRef: $nodeRef, args: $args)
+}
+`
+
+// Committed schema includes renderRunNode from the snapshot refreshed against
+// hadron-server 39eb1dfb76a78dba0866445f94b6a00a731e00b3 (CLI 51db5f71).
+// Query only: read usage is recorded by the provider; no run/action-run.
+func RenderRunNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	args *json.RawMessage,
+) (data_ *RenderRunNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RenderRunNode",
+		Query:  RenderRunNode_Operation,
+		Variables: &__RenderRunNodeInput{
+			NodeRef: nodeRef,
+			Args:    args,
+		},
+	}
+
+	data_ = &RenderRunNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

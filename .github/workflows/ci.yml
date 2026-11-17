@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+      - name: Native intake adapter exec and pipe coverage (1974)
+        run: go test ./internal/intake -run TestNativeAdapter1974 -count=1 -v
       - name: Windows binding lock verification (2079 only)
         run: go test ./internal/delivery/ -run 2079 -v
       - name: Verify both reparse guard mutants are detected

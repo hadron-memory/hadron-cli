@@ -273,8 +273,10 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if keys, ok := memoryKeysFrom(req.Context()); ok {
 		req.Header.Set(MemoryKeysHeader, keys.header)
 	}
-	// Recorded after every local refusal, immediately before the send, so only
-	// a request that leaves with the token counts as "sent" (cli#1624).
+	// Recorded after every local refusal, immediately before http.Client.Do
+	// (cli#1624): a locally refused request is never counted. What is counted is
+	// the attempt, not transmission: a transport error or a cancelled context
+	// after this point still leaves the record (cli#1759).
 	if d.token != "" && d.onSent != nil {
 		d.onSent()
 	}
