@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -57,13 +56,11 @@ func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
 }
 
 const taskkillTimeout = 10 * time.Second
-const taskkillWaitDelay = time.Second
 
 // runTaskkill is the process-tree kill terminateGroup uses, as a package var
 // so the Windows tests can observe (and refuse) it.
 var runTaskkill = func(ctx context.Context, pid int) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
-	cmd.WaitDelay = taskkillWaitDelay
+	cmd := taskkillCommand(ctx, pid)
 	return cmd.CombinedOutput()
 }
 
