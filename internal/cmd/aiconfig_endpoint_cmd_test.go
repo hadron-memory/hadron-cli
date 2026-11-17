@@ -182,9 +182,9 @@ func TestAiConfigUpdateEndpointSetClearAndOmit(t *testing.T) {
 
 func TestAiConfigInspectEndpointsAndSuggestions(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"AiServiceConfigWithEndpoint":         `{"data":{"aiServiceConfig":` + aiDefaultCfgJSON + `}}`,
-		"ResolveAiServiceConfigsWithEndpoint": `{"data":{"resolveAiServiceConfigs":[` + aiDefaultCfgJSON + `,` + aiEndpointCfgJSON + `]}}`,
-		"AiProviderEndpoints":                 `{"data":{"aiProviderEndpoints":[{"url":"https://api.z.ai/api/paas/v4","label":"Z.ai general","isDefault":true,"note":"Pay as you go"},{"url":"https://api.z.ai/api/coding/paas/v4","label":"Z.ai Coding Plan","isDefault":false,"note":"Subscription terms apply"}]}}`,
+		"AiServiceConfigWithUrn":                    `{"data":{"aiServiceConfig":` + aiDefaultCfgJSON + `}}`,
+		"ResolveAiServiceConfigsWithEndpointAndUrn": `{"data":{"resolveAiServiceConfigs":[` + aiDefaultCfgJSON + `,` + aiEndpointCfgJSON + `]}}`,
+		"AiProviderEndpoints":                       `{"data":{"aiProviderEndpoints":[{"url":"https://api.z.ai/api/paas/v4","label":"Z.ai general","isDefault":true,"note":"Pay as you go"},{"url":"https://api.z.ai/api/coding/paas/v4","label":"Z.ai Coding Plan","isDefault":false,"note":"Subscription terms apply"}]}}`,
 	})
 	for _, tc := range []struct {
 		args []string
@@ -210,8 +210,8 @@ func TestAiConfigInspectEndpointsAndSuggestions(t *testing.T) {
 
 func TestAiConfigEndpointJSONShapes(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigsWithEndpoint": `{"data":{"resolveAiServiceConfigs":[` + aiDefaultCfgJSON + `]}}`,
-		"AiProviderEndpoints":                 `{"data":{"aiProviderEndpoints":[]}}`,
+		"ResolveAiServiceConfigsWithEndpointAndUrn": `{"data":{"resolveAiServiceConfigs":[` + aiDefaultCfgJSON + `]}}`,
+		"AiProviderEndpoints":                       `{"data":{"aiProviderEndpoints":[]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -239,7 +239,7 @@ func TestAiConfigEndpointJSONShapes(t *testing.T) {
 
 func TestAiConfigEndpointCommandsReportOldServer(t *testing.T) {
 	old := `{"errors":[{"message":"Cannot query field \"endpoint\" on type \"AiServiceConfig\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
-	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigWithEndpoint": old})
+	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigWithUrn": old})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "get", "cfg1", "--server", gql.URL})
@@ -251,7 +251,7 @@ func TestAiConfigEndpointCommandsReportOldServer(t *testing.T) {
 
 func TestAiConfigEndpointValidationDoesNotMislabelOtherSchemaSkew(t *testing.T) {
 	validation := `{"errors":[{"message":"Cannot query field \"createdAt\" on type \"AiServiceConfig\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
-	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigWithEndpoint": validation})
+	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigWithUrn": validation})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "get", "cfg1", "--server", gql.URL})
