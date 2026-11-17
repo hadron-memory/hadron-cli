@@ -51,18 +51,28 @@ func TestTaskReleaseGivesTheItemBack1962(t *testing.T) {
 }
 
 func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
-	_, out, err := runTeamTask(t, releaseResponses1962(), "--json", "team", "task", "release", "task1")
+	r := releaseResponses1962()
+	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]}}`
+	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var dto struct {
-		ReleasedExternalID string   `json:"releasedExternalId"`
-		Warnings           []string `json:"warnings"`
+		ReleasedExternalID string `json:"releasedExternalId"`
+		Warnings           []struct {
+			Code     string `json:"code"`
+			Text     string `json:"text"`
+			Register *struct {
+				State   string  `json:"state"`
+				TaskLoc *string `json:"taskLoc"`
+				TaskURN *string `json:"taskUrn"`
+			} `json:"register"`
+		} `json:"warnings"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("%v: %q", err, out)
 	}
-	if dto.ReleasedExternalID != releaseItem1962 || dto.Warnings == nil {
+	if dto.ReleasedExternalID != releaseItem1962 || len(dto.Warnings) != 1 || dto.Warnings[0].Code != "future.release" || dto.Warnings[0].Text != "released with advice" || dto.Warnings[0].Register == nil || dto.Warnings[0].Register.State != "unmapped" || dto.Warnings[0].Register.TaskLoc != nil || dto.Warnings[0].Register.TaskURN != nil {
 		t.Fatalf("got %+v", dto)
 	}
 }
