@@ -29,14 +29,16 @@ func orcaStartWith(t *testing.T, prof LauncherProfile, acct AccountProfile, args
 }
 
 var (
-	claudeProf  = LauncherProfile{Family: "claude", Mode: ModeLong, Model: "opus", Account: "a"}
-	claudeAcct  = AccountProfile{Bin: "claude-holger"}
-	codexAcct   = AccountProfile{Bin: "codex", CodexHome: "/acct/home"}
+	claudeProf = LauncherProfile{Family: "claude", Mode: ModeLong, Model: "opus", Account: "a"}
+	claudeAcct = AccountProfile{Bin: "claude-holger"}
+	codexAcct  = AccountProfile{Bin: "codex", CodexHome: "/acct/home"}
+	// an account that explicitly has a template for both families
+	bothAcct    = AccountProfile{Bin: "codex", CodexHome: "/acct/home", Families: []string{"claude", "codex"}}
 	codexOnClds = LauncherProfile{Family: "claude", Mode: ModeShort, Account: "a"}
 )
 
 func TestStartLaunchesAnotherFamilyOnACapableAccount2199(t *testing.T) {
-	r, rec, _ := orcaStartWith(t, codexOnClds, codexAcct, map[string]any{"family": "codex"})
+	r, rec, _ := orcaStartWith(t, codexOnClds, bothAcct, map[string]any{"family": "codex"})
 	if r.outcome != Succeeded || len(rec.specs) != 1 {
 		t.Fatalf("report %+v, launches %d", r, len(rec.specs))
 	}
@@ -60,7 +62,7 @@ func TestStartRefusesAFamilyTheAccountCannotLaunch2199(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			prof := claudeProf
-			if c.acct == codexAcct {
+			if c.acct.CodexHome != "" {
 				prof = LauncherProfile{Family: "codex", Mode: ModeShort, Account: "a"}
 			}
 			r, rec, host := orcaStartWith(t, prof, c.acct, map[string]any{"family": c.fam})
@@ -199,26 +201,50 @@ func TestStartRefusesAnIncompatibleAccountEvenForTheProfilesOwnFamily2199(t *tes
 	}
 }
 
-// An exec-path start carrying settings its fixed argv cannot apply still
-// launches (the server sends the recorded settings on every start); it is
-// logged as not applied.
-func TestStartOnTheExecPathLogsSettingsItCannotApply2199(t *testing.T) {
-	p, srv, host := testPoller(t)
-	var logged []string
-	p.emit = func(e Event) { logged = append(logged, e.Kind+": "+e.Detail) }
-	srv.notDone["s1"] = 1
-	op := startOp()
-	op.Args["model"], op.Args["effort"] = "sonnet", "HIGH"
-	srv.batches = [][]Operation{{op}}
-	step(t, p)
-	if len(host.launches) != 1 {
-		t.Fatalf("launches = %d", len(host.launches))
+// Wolfgang's ruling (#110818): the exec path applies the run's model, tier
+// and effort too, by appending the family's own flags to its fixed command.
+func TestStartOnTheExecPathAppliesTheRunSettings2199(t *testing.T) {
+	for name, c := range map[string]struct {
+		args map[string]any
+		want []string
+	}{
+		"model":       {map[string]any{"model": "sonnet"}, []string{"claude-worker", "--model", "opus", "--model", "sonnet"}},
+		"tier":        {map[string]any{"tier": "low"}, []string{"claude-worker", "--model", "opus", "--model", "haiku"}},
+		"effort only": {map[string]any{"effort": "HIGH"}, []string{"claude-worker", "--model", "opus"}},
+		"none":        {nil, []string{"claude-worker", "--model", "opus"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p, srv, host := testPoller(t)
+			srv.notDone["s1"] = 1
+			op := startOp()
+			for k, v := range c.args {
+				op.Args[k] = v
+			}
+			srv.batches = [][]Operation{{op}}
+			step(t, p)
+			if len(host.launches) != 1 || !reflect.DeepEqual(host.launches[0].Argv, c.want) {
+				t.Fatalf("launches = %+v, want argv %q", host.launches, c.want)
+			}
+		})
 	}
-	found := false
-	for _, l := range logged {
-		found = found || strings.Contains(l, "not applied")
+	got, note := ExecRunArgs([]string{"codex-worker"}, "codex", RunSettings{Tier: "mid", Effort: "MAX"})
+	if !reflect.DeepEqual(got, []string{"codex-worker", "-c", "model_reasoning_effort=xhigh"}) || !strings.Contains(note, "not mapped") {
+		t.Fatalf("codex exec argv %q note %q", got, note)
 	}
-	if !found {
-		t.Fatalf("log = %q", logged)
+}
+
+// An account's capability is explicit: its families list, never its name.
+func TestAccountFamiliesAreExplicit2199(t *testing.T) {
+	prof := LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}
+	both := AccountProfile{Bin: "claude-holger", Families: []string{"claude", "glm"}}
+	if r, err := ResolveRun(prof, both, RunSettings{Family: "glm"}, "a"); err != nil || r.Profile.Family != "glm" {
+		t.Fatalf("an account that lists glm may switch to it: %+v %v", r, err)
+	}
+	if _, err := ResolveRun(prof, both, RunSettings{Family: "codex"}, "a"); err == nil {
+		t.Fatal("codex is not in the account's list")
+	}
+	// a codex-looking launcher with no explicit list still launches only its profile family
+	if _, err := ResolveRun(prof, AccountProfile{Bin: "codex"}, RunSettings{Family: "codex"}, "a"); err == nil {
+		t.Fatal("a launcher's name must not grant a family")
 	}
 }

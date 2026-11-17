@@ -183,12 +183,6 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	} else if !SameFamily(rs.Family, w.Family) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, rs.Family))
 		return
-	} else if rs.requested() {
-		// The exec path's argv is the worker's own fixed command: it cannot
-		// apply these. They are logged, never refused (the server sends the
-		// worker's recorded settings on every start), and nothing is
-		// reported as applied.
-		p.log("run-settings", op.ID, op.Type, "", fmt.Sprintf("this worker launches from a fixed command: model %q, tier %q and effort %q are not applied", rs.Model, rs.Tier, rs.Effort))
 	}
 	token := argString(op, "worktree")
 	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
@@ -292,8 +286,14 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			return
 		}
 	} else {
+		// The exec path applies the run's model, tier and effort too, by
+		// appending the family's own flags to the worker's fixed command.
+		argv, note := ExecRunArgs(w.Launch, w.Family, rs)
+		if note != "" {
+			p.log("run-settings", op.ID, op.Type, "", note)
+		}
 		agent, err = p.host.Launch(ctx, LaunchSpec{
-			Argv: w.Launch,
+			Argv: argv,
 			Dir:  dir,
 			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
 		})

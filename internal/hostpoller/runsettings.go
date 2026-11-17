@@ -2,7 +2,6 @@ package hostpoller
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -91,22 +90,57 @@ type Resolved struct {
 	Note    string
 }
 
-// accountLaunches reports whether the worker's account can launch fam. A
-// Codex account (it has a Codex home, or its launcher is named codex*)
-// launches only Codex. Any other account is a Claude-family launcher script
-// that selects its own backend (claude-holger, claude-glm, ...), so it can
-// launch only the family it already launches: nothing here can demonstrably
-// switch it to another provider, and a switch is refused rather than
-// reported as a family that never ran.
+// accountLaunches reports whether the worker's account has a launch template
+// for fam. Capability is explicit, never inferred from a launcher's name or
+// home: the account's own families list, else just the worker's profile
+// family. A start naming anything else is refused.
 func accountLaunches(fam, profileFam string, a AccountProfile) bool {
-	codexAccount := a.CodexHome != "" || strings.HasPrefix(filepath.Base(a.Bin), "codex")
-	switch {
-	case fam == "codex":
-		return codexAccount
-	case claudeFamily[fam]:
-		return !codexAccount && fam == CanonicalFamily(profileFam)
+	if !claudeFamily[fam] && fam != "codex" {
+		return false // no launch template for this family at all
+	}
+	if len(a.Families) == 0 {
+		// Unlisted: the worker's own profile family, and only where the
+		// account's Codex home agrees (a Codex home is a Codex account; no
+		// home is not one). A mismatch is refused, never launched.
+		return fam == CanonicalFamily(profileFam) && (fam == "codex") == (a.CodexHome != "")
+	}
+	for _, f := range a.Families {
+		if CanonicalFamily(f) == fam {
+			return true
+		}
 	}
 	return false
+}
+
+// ExecRunArgs applies a start's model, tier and effort to an exec-path
+// worker's fixed argv by appending the family's own flags (the last flag
+// wins), so every launch path applies what the start named. The note says
+// what could not be mapped.
+func ExecRunArgs(argv []string, family string, rs RunSettings) (out []string, note string) {
+	out = append([]string(nil), argv...)
+	fam := CanonicalFamily(family)
+	model := rs.Model
+	if rs.Tier != "" {
+		if model = tierModels[fam][rs.Tier]; model == "" {
+			note = fmt.Sprintf("tier %s is not mapped for family %s; the worker's own command decides the model", rs.Tier, fam)
+		}
+	}
+	switch {
+	case claudeFamily[fam]:
+		if model != "" {
+			out = append(out, "--model", model)
+		}
+	case fam == "codex":
+		if model != "" {
+			out = append(out, "-m", model)
+		}
+		if v, ok := codexEfforts[rs.Effort]; ok {
+			out = append(out, "-c", "model_reasoning_effort="+v)
+		} else if rs.Effort != "" && rs.Effort != EffortUnset {
+			out = append(out, "-c", "model_reasoning_effort="+rs.Effort)
+		}
+	}
+	return out, note
 }
 
 // ResolveRun applies a start's run settings over the worker's launcher
