@@ -384,6 +384,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   id
   appId
   taskId
+  taskHandle
   type
   severity
   createdAt
