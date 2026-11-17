@@ -1048,7 +1048,9 @@ walk is complete.`,
 			// parent node. A task whose parent is AT0 renders as a root (its
 			// own handle AT0.<n> already says "no project"), unless AT0 is the
 			// root asked for by name (id, handle or qualified handle): then the
-			// row is the requested subject, not an implied parent.
+			// row is the requested subject, not an implied parent. An AT0 row
+			// that no returned row names as its parent is not an implied
+			// parent at all, so it renders as a root (#2345 BLIND P2).
 			reservedID, reservedAsked := "", false
 			for i := range tasks {
 				if tasks[i].Handle == "AT0" {
@@ -1056,7 +1058,14 @@ walk is complete.`,
 					reservedAsked = refNamesTask(rootId, tasks[i].ID, tasks[i].Handle)
 				}
 			}
-			hideReserved := reservedID != "" && !reservedAsked
+			reservedIsParent := false
+			for i := range tasks {
+				if reservedID != "" && tasks[i].ParentTaskID != nil && *tasks[i].ParentTaskID == reservedID {
+					reservedIsParent = true
+					break
+				}
+			}
+			hideReserved := reservedID != "" && reservedIsParent && !reservedAsked
 			for i := range tasks {
 				if hideReserved && tasks[i].ID == reservedID {
 					continue // the implied reserved parent is not drawn
