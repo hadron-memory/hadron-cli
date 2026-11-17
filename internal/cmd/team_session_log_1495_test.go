@@ -11,9 +11,9 @@ import (
 )
 
 // cli#1495: pointer-refusal classification and the lost-record answer note
-// (follow-ups to #1493). A statusServer1495 answers each operation with its own
+// (follow-ups to #1493). A statusGraphQLServer answers each operation with its own
 // HTTP status and body, which the plain captureGraphQL cannot (it is always 200).
-func statusServer1495(t *testing.T, resp map[string]resp1495, seen func(op string)) *httptest.Server {
+func statusGraphQLServer(t *testing.T, resp map[string]statusGraphQLResponse, seen func(op string)) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
@@ -39,7 +39,7 @@ func statusServer1495(t *testing.T, resp map[string]resp1495, seen func(op strin
 	return srv
 }
 
-type resp1495 = struct {
+type statusGraphQLResponse = struct {
 	status int
 	body   string
 }
@@ -48,12 +48,12 @@ const recorded1495 = `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-ne
 	"tool":"github","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 	"at":"2026-08-13T10:00:00Z","detail":null,"model":null}}}`
 
-func runLog1495(t *testing.T, responses map[string]resp1495) (called map[string]bool, errOut string, err error) {
+func runLog1495(t *testing.T, responses map[string]statusGraphQLResponse) (called map[string]bool, errOut string, err error) {
 	t.Helper()
 	bindWorklogModelTest(t)
 	called = map[string]bool{}
 	var mu sync.Mutex
-	srv := statusServer1495(t, responses, func(op string) {
+	srv := statusGraphQLServer(t, responses, func(op string) {
 		mu.Lock()
 		called[op] = true
 		mu.Unlock()
@@ -94,7 +94,7 @@ func TestSessionLogPointerClassification1495(t *testing.T) {
 		{"400 with a typed refusal", 400, `{"data":null,"errors":[{"message":"bad input","extensions":{"code":"BAD_USER_INPUT"}}]}`, 2, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			called, errOut, err := runLog1495(t, map[string]resp1495{
+			called, errOut, err := runLog1495(t, map[string]statusGraphQLResponse{
 				"UpdateTeamSession": {tc.status, tc.body},
 				"RecordTeamWork":    {200, recorded1495},
 			})
@@ -137,7 +137,7 @@ func TestSessionLogLostRecordAnswer1495(t *testing.T) {
 		{"gateway 502 with a typed envelope", 502, `{"data":null,"errors":[{"message":"x","extensions":{"code":"NOT_FOUND"}}]}`, 4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			called, errOut, err := runLog1495(t, map[string]resp1495{
+			called, errOut, err := runLog1495(t, map[string]statusGraphQLResponse{
 				"UpdateTeamSession": {200, modelLogSessionJSON},
 				"RecordTeamWork":    {tc.status, tc.body},
 			})
@@ -154,7 +154,7 @@ func TestSessionLogLostRecordAnswer1495(t *testing.T) {
 	}
 
 	t.Run("a refused record carries no such note", func(t *testing.T) {
-		called, errOut, err := runLog1495(t, map[string]resp1495{
+		called, errOut, err := runLog1495(t, map[string]statusGraphQLResponse{
 			"UpdateTeamSession": {200, modelLogSessionJSON},
 			"RecordTeamWork":    {200, `{"data":null,"errors":[{"message":"Team Agent cannot be inferred","extensions":{"code":"NOT_FOUND"}}]}`},
 		})
@@ -173,18 +173,18 @@ func TestSessionLogLostRecordAnswer1495(t *testing.T) {
 // The legacy (old-server) record call is a second RECORD path: a lost answer
 // there needs the same do-not-rerun note, and a refusal there still does not.
 func TestSessionLogLostLegacyRecordAnswer1495(t *testing.T) {
-	skew := resp1495{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
+	skew := statusGraphQLResponse{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
 	for _, tc := range []struct {
 		name string
-		resp resp1495
+		resp statusGraphQLResponse
 		note bool
 		exit int
 	}{
-		{"truncated legacy answer", resp1495{200, `{"data":`}, true, 7},
-		{"refused legacy record", resp1495{200, `{"data":null,"errors":[{"message":"nope","extensions":{"code":"NOT_FOUND"}}]}`}, false, 4},
+		{"truncated legacy answer", statusGraphQLResponse{200, `{"data":`}, true, 7},
+		{"refused legacy record", statusGraphQLResponse{200, `{"data":null,"errors":[{"message":"nope","extensions":{"code":"NOT_FOUND"}}]}`}, false, 4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			called, errOut, err := runLog1495(t, map[string]resp1495{
+			called, errOut, err := runLog1495(t, map[string]statusGraphQLResponse{
 				"UpdateTeamSession":    {200, modelLogSessionJSON},
 				"RecordTeamWork":       skew,
 				"RecordTeamWorkLegacy": tc.resp,
@@ -221,7 +221,7 @@ func TestSessionLogAppMismatchNeedsADefiniteAnswer1495(t *testing.T) {
 		{"gateway 502 carrying the same code", 502, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			called, errOut, err := runLog1495(t, map[string]resp1495{
+			called, errOut, err := runLog1495(t, map[string]statusGraphQLResponse{
 				"UpdateTeamSession": {200, modelLogSessionJSON},
 				"RecordTeamWork":    {tc.status, body},
 			})
@@ -251,12 +251,12 @@ func TestSessionLogDefinitiveRecordRefusals1694(t *testing.T) {
 		for _, legacy := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/legacy=%t", code.name, legacy), func(t *testing.T) {
 				op := "RecordTeamWork"
-				responses := map[string]resp1495{"UpdateTeamSession": {200, modelLogSessionJSON}}
+				responses := map[string]statusGraphQLResponse{"UpdateTeamSession": {200, modelLogSessionJSON}}
 				if legacy {
-					responses[op] = resp1495{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
+					responses[op] = statusGraphQLResponse{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
 					op = "RecordTeamWorkLegacy"
 				}
-				responses[op] = resp1495{200, fmt.Sprintf(`{"errors":[{"message":"definite refusal","extensions":{"code":%q}}]}`, code.name)}
+				responses[op] = statusGraphQLResponse{200, fmt.Sprintf(`{"errors":[{"message":"definite refusal","extensions":{"code":%q}}]}`, code.name)}
 				called, stderr, err := runLog1495(t, responses)
 				if got := exitCodeFor(err); got != code.exit {
 					t.Fatalf("exit=%d want%d: %v", got, code.exit, err)
