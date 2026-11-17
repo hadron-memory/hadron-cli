@@ -4727,10 +4727,20 @@ A failed push never undoes the post or changes exit 0: do not repost. Without
 
 `team roster` adds a CHECK column alongside its existing work STATE. `team worker
 get` shows the server's check status and last team-channel check. JSON carries
-`checkStatus: {status, pendingReason, lastCheckedAt} | null`: null is unavailable,
+`checkStatus: {status, noSessionReason, pendingReason, lastCheckedAt} | null`: null is unavailable,
 not PENDING or OK. A known result with lastCheckedAt null means never checked.
 NO_SESSION, PENDING (with the server's reason), OK and OVERDUE are rendered as
 returned; the CLI does not infer them from local time, task counts or liveness.
+For NO_SESSION, the server's nullable noSessionReason distinguishes IDLE
+(open, quiet), ENDED (ended) and NEVER_BOUND (never bound). A missing reason
+stays bare NO_SESSION; the CLI never derives IDLE from an age. In worker get
+and roster CHECK, IDLE adds the age since lastActiveAt, such as
+`NO_SESSION (open, quiet 30h)`. That age uses this computer's clock for display
+only: it changes no state, availability or exit code. Future times display
+"just now"; missing or invalid times have no age. JSON retains the absolute
+lastActiveAt and raw nullable noSessionReason. This selection needs a server
+with hadron-server#3084; a server that rejects the field fails normally,
+with no fallback or guessed reason.
 This experiment supplies status only, with no overdue alarm.
 
 `ticker create|update --reasons live-check` selects the server's live-check rule.
