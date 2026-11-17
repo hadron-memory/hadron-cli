@@ -65,7 +65,10 @@ the server ending a session whose process was stopped (S2), a spec change
   `execAgent.TerminateWith` asks before SIGTERM and again before
   SIGKILL. A lock that cannot be taken declines the stop and the report says so.
   A plain directory without a binding cache creates and locks that cache before
-  checking the binding.
+  checking the binding only when the Unix host uid matches the worktree owner
+  (#2076). The same owner proof is required to create a missing lock file in
+  an existing cache; existing locks remain usable across uids. An unreadable
+  owner declines creation. Windows behavior is unchanged.
 - **Session identity (#2070).** The reset relaunch records the session the reset names;
   a launch the server had already finished has none recorded, so only a binding that
   names this worker AND the session being ended identifies it (an empty binding declines).
