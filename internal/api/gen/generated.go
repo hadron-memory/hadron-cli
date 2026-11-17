@@ -15028,6 +15028,18 @@ func (v *AgentWebhooksResponse) GetAgentWebhooks() *AgentWebhooksAgentWebhooksAg
 	return v.AgentWebhooks
 }
 
+// #4292: the closed proofs a host gives for ending a session itself.
+type AgentlessEndReason string
+
+const (
+	// No agent process runs in the worker's worktree.
+	AgentlessEndReasonAgentAbsent AgentlessEndReason = "AGENT_ABSENT"
+)
+
+var AllAgentlessEndReason = []AgentlessEndReason{
+	AgentlessEndReasonAgentAbsent,
+}
+
 // AgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
 type AgentsAgentsAgentsPage struct {
 	Total int                                 `json:"total"`
@@ -17926,7 +17938,7 @@ func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRo
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
-	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
 	// How many operations a collection returned, or workers a registration listed.
 	Count *int `json:"count"`
@@ -47867,6 +47879,27 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
 
+type EndAgentlessSessionInput struct {
+	AppRef string             `json:"appRef"`
+	Reason AgentlessEndReason `json:"reason"`
+	// The worker's open session to end.
+	SessionId string `json:"sessionId"`
+	// The worker: its id, URN or name within the App.
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetAppRef returns EndAgentlessSessionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetAppRef() string { return v.AppRef }
+
+// GetReason returns EndAgentlessSessionInput.Reason, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetReason() AgentlessEndReason { return v.Reason }
+
+// GetSessionId returns EndAgentlessSessionInput.SessionId, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetSessionId() string { return v.SessionId }
+
+// GetWorkerRef returns EndAgentlessSessionInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetWorkerRef() string { return v.WorkerRef }
+
 // EndTeamSessionEndSession includes the requested fields of the GraphQL type Session.
 // The GraphQL type's documentation follows.
 //
@@ -56594,6 +56627,53 @@ type HostDesiredStateResponse struct {
 // GetHostDesiredState returns HostDesiredStateResponse.HostDesiredState, and is useful for accessing the field via an interface.
 func (v *HostDesiredStateResponse) GetHostDesiredState() *HostDesiredStateHostDesiredState {
 	return v.HostDesiredState
+}
+
+// HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd includes the requested fields of the GraphQL type AgentlessSessionEnd.
+// The GraphQL type's documentation follows.
+//
+// #4292: the outcome of endAgentlessSession.
+type HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd struct {
+	// True when this call ended the session; false when it had already ended.
+	Ended bool `json:"ended"`
+	// Whether a handoff names this session. False means no handoff was recorded.
+	Handoff   bool   `json:"handoff"`
+	SessionId string `json:"sessionId"`
+}
+
+// GetEnded returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.Ended, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetEnded() bool {
+	return v.Ended
+}
+
+// GetHandoff returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.Handoff, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetHandoff() bool {
+	return v.Handoff
+}
+
+// GetSessionId returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.SessionId, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetSessionId() string {
+	return v.SessionId
+}
+
+// HostEndAgentlessSessionResponse is returned by HostEndAgentlessSession on success.
+type HostEndAgentlessSessionResponse struct {
+	// #4292 — a host ends an open session of a SHORT_LIVED worker it runs, after proving that no agent runs in the
+	// worker's worktree (reason AGENT_ABSENT); the backstop when the platform's worker.end never came or already failed
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed). A worker.end reported FAILED with a failureReason whose
+	// leading code is AGENT_ABSENT runs the same check and, when it holds, ends the session and reads SUCCEEDED.
+	// Refusals: HOST_DOES_NOT_RUN_WORKER (this host's registration does not list the worker, or under a server-held setup
+	// it is not assigned there, or the session runs on another host: a host-launched session is ended only by its launch
+	// host, a hand-started one only by the worker's sole live registration), SESSION_NOT_WORKERS, WORKER_NOT_SHORT_LIVED, WORKER_HAS_OPEN_TASK (the worker is the
+	// assignee of a PENDING or STARTED task; extensions.taskId names it). A session that already ended answers
+	// ended: false and writes nothing. The end is recorded with endReason agent_absent; it writes no handoff, and
+	// handoff in the result is true only when one the worker wrote before it exited names the session.
+	EndAgentlessSession *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd `json:"endAgentlessSession"`
+}
+
+// GetEndAgentlessSession returns HostEndAgentlessSessionResponse.EndAgentlessSession, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionResponse) GetEndAgentlessSession() *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd {
+	return v.EndAgentlessSession
 }
 
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
@@ -78210,6 +78290,8 @@ type ReportHostOperationResponse struct {
 	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
 	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
 	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
+	// #4292: an end-session operation FAILED with a reason whose leading code is AGENT_ABSENT ends the session when
+	// endAgentlessSession's conditions hold, and reads SUCCEEDED, writing no handoff; otherwise it stays FAILED, the session open.
 	ReportHostOperation *ReportHostOperationReportHostOperation `json:"reportHostOperation"`
 }
 
@@ -84328,13 +84410,16 @@ func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
 type SessionEndReason string
 
 const (
-	SessionEndReasonEnded      SessionEndReason = "ended"
-	SessionEndReasonExpired    SessionEndReason = "expired"
-	SessionEndReasonSuperseded SessionEndReason = "superseded"
-	SessionEndReasonUnknown    SessionEndReason = "unknown"
+	// #4292: the host running a SHORT_LIVED worker ended the session on its proof that no agent runs; no handoff was written.
+	SessionEndReasonAgentAbsent SessionEndReason = "agent_absent"
+	SessionEndReasonEnded       SessionEndReason = "ended"
+	SessionEndReasonExpired     SessionEndReason = "expired"
+	SessionEndReasonSuperseded  SessionEndReason = "superseded"
+	SessionEndReasonUnknown     SessionEndReason = "unknown"
 )
 
 var AllSessionEndReason = []SessionEndReason{
+	SessionEndReasonAgentAbsent,
 	SessionEndReasonEnded,
 	SessionEndReasonExpired,
 	SessionEndReasonSuperseded,
@@ -121176,6 +121261,14 @@ func (v *__HostDesiredStateInput) GetAppRef() string { return v.AppRef }
 // GetHostId returns __HostDesiredStateInput.HostId, and is useful for accessing the field via an interface.
 func (v *__HostDesiredStateInput) GetHostId() string { return v.HostId }
 
+// __HostEndAgentlessSessionInput is used internally by genqlient
+type __HostEndAgentlessSessionInput struct {
+	Input *EndAgentlessSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __HostEndAgentlessSessionInput.Input, and is useful for accessing the field via an interface.
+func (v *__HostEndAgentlessSessionInput) GetInput() *EndAgentlessSessionInput { return v.Input }
+
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
 	AppRef string               `json:"appRef"`
@@ -148849,6 +148942,45 @@ func HostDesiredState(
 	}
 
 	data_ = &HostDesiredStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by HostEndAgentlessSession.
+const HostEndAgentlessSession_Operation = `
+mutation HostEndAgentlessSession ($input: EndAgentlessSessionInput!) {
+	endAgentlessSession(input: $input) {
+		ended
+		handoff
+		sessionId
+	}
+}
+`
+
+// #4292 / hadron-cli#2201 (C10): a host ends an open session of a SHORT_LIVED
+// worker it runs, on its strict census proof that no agent runs in the worker's
+// worktree (reason AGENT_ABSENT). Host key, never the worker session.
+func HostEndAgentlessSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *EndAgentlessSessionInput,
+) (data_ *HostEndAgentlessSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostEndAgentlessSession",
+		Query:  HostEndAgentlessSession_Operation,
+		Variables: &__HostEndAgentlessSessionInput{
+			Input: input,
+		},
+	}
+
+	data_ = &HostEndAgentlessSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

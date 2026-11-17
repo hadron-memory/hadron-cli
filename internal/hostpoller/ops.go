@@ -566,7 +566,24 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	} else if ctx.Err() != nil {
 		return
 	}
-	if stop {
+	// cli#2201 C10: a short-lived worker whose end finds no agent. Only the
+	// strict census can say so; its answer is the reason's first word, which
+	// is what the server reads (hadron-server#4292). Nothing runs, so nothing
+	// is scanned for or stopped. Anything short of a proof reports as before,
+	// with the census result appended, and never leads with AGENT_ABSENT.
+	absent := false
+	if agent == nil && session != "" && w.StopOnEnd == StopOnEndAlways {
+		proof := p.proveAgentAbsent(ctx, p.agentCensus, p.worktreeDirs(op, ref, w))
+		if proof.Absent {
+			absent = true
+			reason = AgentAbsent + ": " + proof.Detail + "; " + reason
+			p.log("agent-absent", op.ID, op.Type, "", proof.Detail)
+		} else {
+			reason += "; " + proof.Detail
+			p.log("agent-absent-unproven", op.ID, op.Type, "", proof.Detail)
+		}
+	}
+	if stop && !absent {
 		reason += "; " + p.stopWorkerProcess(ctx, op, ref, w, session, agent)
 	}
 	got, err := p.report(ctx, op, Failed, "", reason)
@@ -875,4 +892,22 @@ func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Au
 		}
 		return release, true
 	}
+}
+
+// worktreeDirs are the paths of the worktrees a worker.end's census looks in:
+// every tree the worker has here, and the tree of the launch this host
+// remembers if that is not one of them, each once. The launch record outlives
+// its agent's exit, so it must never narrow the set: an exited launch in one
+// tree says nothing about another (#2207 BLIND F2). The stop keeps its own
+// narrower choice; this is a proof of absence, which needs every tree.
+func (p *Poller) worktreeDirs(op Operation, ref string, w WorkerConfig) []string {
+	trees := append([]string(nil), p.state.worktreesFor(ref, w.Worktrees)...)
+	if t, ok := p.agentWorktree(op.WorkerID); ok && !contains(trees, t) {
+		trees = append(trees, t)
+	}
+	dirs := make([]string, 0, len(trees))
+	for _, t := range trees {
+		dirs = append(dirs, p.cfg.WorktreePath(t))
+	}
+	return dirs
 }
