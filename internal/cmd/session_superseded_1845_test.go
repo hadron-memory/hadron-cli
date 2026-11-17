@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 )
@@ -35,7 +37,7 @@ func runSupersededBody1845(t *testing.T, status int, body string, jsonMode bool)
 	t.Helper()
 	writeTeamBinding(t)
 	calls := []string{}
-	srv := statusServer1495(t, map[string]resp1495{"GetWorker": {status, body}}, func(op string) { calls = append(calls, op) })
+	srv := statusGraphQLServer(t, map[string]statusGraphQLResponse{"GetWorker": {status, body}}, func(op string) { calls = append(calls, op) })
 	setTeamBindingServer(t, srv.URL)
 	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
 	before, err := os.ReadFile(path)
@@ -228,6 +230,86 @@ func TestSupersededFaultCodePrecedence1845(t *testing.T) {
 		}
 		if doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
 			t.Fatalf("typed gateway marker missing: %s", r.stdout)
+		}
+	}
+}
+
+// Clone details are computed first, then replaced by the definitive superseded
+// hint. Pin the rendering order without changing the wrapped JSON evidence.
+func TestSupersededCloneWrapperPrecedence2251(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		f, out := testFactory(t)
+		var stderr bytes.Buffer
+		f.IOStreams.ErrOut = &stderr
+		f.JSON = jsonMode
+		err := api.MapCloneAgentError(&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z", "reason": "CLONE_DETAIL"}})
+		if api.CloneAgentDetailText(err) == "" {
+			t.Fatal("fixture must actually carry clone detail text")
+		}
+		if code := renderError(f, err); code != 1 {
+			t.Fatalf("exit = %d, want 1", code)
+		}
+		if jsonMode {
+			var doc struct {
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
+				t.Fatal(err)
+			}
+			if doc.Error["serverCode"] != "SESSION_SUPERSEDED" || doc.Error["sessionId"] != "A" || doc.Error["startedAt"] != "2026-11-12T16:37:52Z" {
+				t.Fatalf("JSON evidence changed: %s", out.String())
+			}
+		} else if want := "hadron: Session superseded. Current open session: A (started 2026-11-12T16:37:52Z). No retry or rebind was attempted.\n"; stderr.String() != want {
+			t.Fatalf("human answer = %q, want %q", stderr.String(), want)
+		}
+	}
+}
+
+// Stable envelopes cannot activate both human overrides: authored text needs
+// an authoring code, while SupersededSessionEvidence requires only superseded
+// codes. Reordering the overrides is equivalent for these inputs (Wolfgang
+// ruling #113282). This mixed-code control pins the actual boundary instead.
+func TestSupersededMixedAuthoredControl2251(t *testing.T) {
+	for _, reverse := range []bool{false, true} {
+		for _, jsonMode := range []bool{false, true} {
+			list := gqlerror.List{
+				&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z"}},
+				&gqlerror.Error{Message: "private task detail", Extensions: map[string]any{"code": "AUTHORING_ATTESTATION_MISSING", "taskAccess": "UNAVAILABLE"}},
+			}
+			if reverse {
+				list[0], list[1] = list[1], list[0]
+			}
+			err := api.MapError(list)
+			if definitive, _, _ := api.SupersededSessionEvidence(err); definitive {
+				t.Fatal("mixed codes cannot be a definitive superseded refusal")
+			}
+			if _, ok := authoredRefusalText(err); !ok {
+				t.Fatal("fixture must activate authored text")
+			}
+			f, out := testFactory(t)
+			var stderr bytes.Buffer
+			f.IOStreams.ErrOut = &stderr
+			f.JSON = jsonMode
+			if code := renderError(f, err); code != 1 {
+				t.Fatalf("exit = %d, want 1", code)
+			}
+			const message = "the authoring task is unreadable or unusable; an owner must fix access or the rule"
+			if jsonMode {
+				var doc struct {
+					Error map[string]any `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
+					t.Fatal(err)
+				}
+				if doc.Error["message"] != message || doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
+					t.Fatalf("JSON answer changed: %s", out.String())
+				}
+				if _, ok := doc.Error["sessionId"]; ok {
+					t.Fatalf("mixed envelope projected pair: %s", out.String())
+				}
+			} else if stderr.String() != "hadron: "+message+"\n" {
+				t.Fatalf("human answer = %q", stderr.String())
+			}
 		}
 	}
 }

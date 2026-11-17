@@ -3,6 +3,8 @@ package api
 import (
 	"testing"
 
+	"github.com/Khan/genqlient/graphql"
+
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
@@ -62,5 +64,41 @@ func TestSupersededEmptyListGuard1845(t *testing.T) {
 				t.Fatalf("empty list should use normal error path: %v %q %q", definite, id, stamp)
 			}
 		})
+	}
+}
+
+// The first refusal owns the whole pair; later errors cannot replace it or
+// supply evidence it omitted (cli#2251).
+func TestSupersededPairOrdering2251(t *testing.T) {
+	pair := func(id, stamp string) *gqlerror.Error {
+		return &gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}}
+	}
+	const firstTime = "2026-11-12T16:37:52Z"
+	const secondTime = "2026-11-13T10:00:00Z"
+	for _, tc := range []struct {
+		name      string
+		list      gqlerror.List
+		id, stamp string
+	}{
+		{"A-then-B", gqlerror.List{pair("A", firstTime), pair("B", secondTime)}, "A", firstTime},
+		{"B-then-A", gqlerror.List{pair("B", secondTime), pair("A", firstTime)}, "B", secondTime},
+		{"code-only-then-pair", gqlerror.List{&gqlerror.Error{Extensions: map[string]any{"code": "SESSION_SUPERSEDED"}}, pair("B", secondTime)}, "", ""},
+		{"empty-id", gqlerror.List{pair("", firstTime)}, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			definitive, id, stamp := SupersededSessionEvidence(tc.list)
+			if !definitive || id != tc.id || stamp != tc.stamp {
+				t.Fatalf("got %v %q %q, want true %q %q", definitive, id, stamp, tc.id, tc.stamp)
+			}
+		})
+	}
+}
+
+func TestSupersededGatewayExclusion2251(t *testing.T) {
+	for _, status := range []int{502, 503} {
+		err := &graphql.HTTPError{StatusCode: status, Response: graphql.Response{Errors: gqlerror.List{&gqlerror.Error{Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z"}}}}}
+		if definitive, id, stamp := SupersededSessionEvidence(err); definitive || id != "" || stamp != "" {
+			t.Errorf("HTTP %d became definitive: %v %q %q", status, definitive, id, stamp)
+		}
 	}
 }
