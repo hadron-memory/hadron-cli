@@ -93,6 +93,8 @@ func TestSweepRecordCompatibilityAndRefusals2056(t *testing.T) {
 		{"old", `{"errors":[{"message":"Cannot query field \"recordHostSweepRun\" on type \"Mutation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, "S10_UNAVAILABLE"},
 		{"refused", `{"errors":[{"message":"secret refusal text","extensions":{"code":"HOST_KEY_REQUIRED"}}]}`, "HOST_KEY_REQUIRED"},
 		{"null", `{"data":{"recordHostSweepRun":null}}`, "RECORD_UNCONFIRMED"},
+		{"wrong-run-id", `{"data":{"recordHostSweepRun":{"id":"r","runId":"other"}}}`, "RECORD_UNCONFIRMED"},
+		{"empty-record-id", `{"data":{"recordHostSweepRun":{"id":"","runId":"run1"}}}`, "RECORD_UNCONFIRMED"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writes := 0
@@ -194,7 +196,7 @@ func TestSweepHistoryEmptyAndMalformed2056(t *testing.T) {
 }
 
 func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
-	for _, scenario := range []string{"valid", "alias", "wrong-host", "missing", "second-app-error", "transport", "server-mismatch"} {
+	for _, scenario := range []string{"valid", "alias", "wrong-host", "missing", "second-app-error", "second-app-wrong-host", "transport", "server-mismatch", "server-trailing-slash"} {
 		t.Run(scenario, func(t *testing.T) {
 			reads, writes := 0, 0
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -209,6 +211,13 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				if q.Op == "HostSweepIdentity" {
 					reads++
+					wantApp := "app"
+					if reads == 2 {
+						wantApp = "alias"
+					}
+					if q.Vars["appRef"] != wantApp {
+						t.Errorf("identity App=%v want%s", q.Vars["appRef"], wantApp)
+					}
 					if q.Vars["hostId"] != "orca1" || !strings.Contains(q.Query, "hostDesiredState(") || strings.Contains(q.Query, "hostRegistrations(") {
 						t.Errorf("not host-scoped proof: %+v", q)
 					}
@@ -220,7 +229,7 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 						fmt.Fprint(w, `{"errors":[{"message":"other App","extensions":{"code":"APP_NOT_FOUND"}}]}`)
 						return
 					}
-					if scenario == "wrong-host" {
+					if scenario == "wrong-host" || (scenario == "second-app-wrong-host" && reads == 2) {
 						fmt.Fprint(w, `{"data":{"hostDesiredState":{"hostId":"other"}}}`)
 						return
 					}
@@ -250,16 +259,19 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 			streams, _, _ := output.Test()
 			f := &cmdutil.Factory{IOStreams: streams, ServerFlag: srv.URL}
 			app := "app"
-			if scenario == "alias" || scenario == "second-app-error" {
+			if scenario == "alias" || scenario == "second-app-error" || scenario == "second-app-wrong-host" {
 				app = "alias"
 			}
 			if scenario == "server-mismatch" {
 				f.ServerFlag = srv.URL + "/different"
 			}
+			if scenario == "server-trailing-slash" {
+				f.ServerFlag = srv.URL + "/"
+			}
 			got := recordSweepRun(context.Background(), f, cfg, app, "orca1", "run1", time.Now(), true, hostup.Result{SweepMode: "APPLY"})
 			want := "RECORDED"
 			switch scenario {
-			case "wrong-host", "missing":
+			case "wrong-host", "missing", "second-app-wrong-host":
 				want = "HOST_SCOPE_MISMATCH"
 			case "second-app-error":
 				want = "APP_NOT_FOUND"
