@@ -313,7 +313,7 @@ func resetSweepUnits2187(names []string, command func(...string) ([]byte, error)
 		}
 		state, err := command("show", n, "-p", "ActiveState", "--value")
 		if err != nil {
-			return err
+			return fmt.Errorf("show %s: %w: %s", n, err, state)
 		}
 		if got := strings.TrimSpace(string(state)); got != "inactive" {
 			return fmt.Errorf("%s did not stop: %s", n, got)
