@@ -2503,7 +2503,7 @@ Conventions:
   Each public list is one page: `--limit` defaults to 20 (server cap 200),
   `--offset` defaults to 0; both flags apply to both lists. Zero limit returns
   counts only; negative values count as zero. Pages are not auto-drained.
-  Text labels partial lists `showing N of TOTAL`. JSON preserves the two arrays
+  Text labels a list that is not whole `showing N of TOTAL` (plus `(offset O)` when `--offset` was given): more rows follow, a short last page, an offset past the end, or a zero limit (cli#2248); `(none)` only when the list holds nothing (total 0). JSON preserves the two arrays
   and adds `publicMemoriesTotal`, `publicMemoriesHasMore`, `publicAgentsTotal`
   and `publicAgentsHasMore`, including when counts are zero or hasMore is false.
   `org member list <org-id>` lists members; `member add|set-role <org-id> --user
