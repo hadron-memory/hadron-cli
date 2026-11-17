@@ -171,6 +171,20 @@ func SetGitDirRunner(r GitDirRunner) (restore func()) {
 // chmod; a test replaces it to swap the directory for a symlink there.
 var beforeCacheChmod = func(string) {}
 
+// mkdirCache creates the cache directory, owner-only after the secure step
+// below sets the exact mode through the opened handle. The process umask is
+// never touched (Go runs goroutines on several threads, so changing it leaks
+// into unrelated creates; Jibril's BLIND and Jake's LOCAL on #2229). A
+// directory that already exists is left for secureCacheDir to judge. A mask
+// that strips the owner's own read or search bit leaves a directory this
+// process cannot open, and the bind is refused with that error.
+func mkdirCache(dir string) error {
+	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	return nil
+}
+
 // afterCacheSecure is the moment after the cache directory is secured; a test
 // replaces it to swap the directory there.
 var afterCacheSecure = func(string) {}
