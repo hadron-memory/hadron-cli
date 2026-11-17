@@ -118,19 +118,23 @@ func confirmRepairStored(workerID string, refused, stored []string) error {
 	return errors.New(strings.Join(parts, ": "))
 }
 
-// plainRefusalCode is a server refusal code when it is one (upper-case words,
-// at most 64 characters), else a fixed placeholder, so a surprising answer
-// cannot put free text into a local error.
+// refusalCodes is the closed set the server refuses a worker's terminal
+// report with (#2771). Only these are shown in a local diagnostic: anything
+// else, however plain it looks, is not copied (an id or a name in upper case
+// would pass any character filter).
+var refusalCodes = map[string]bool{
+	"WORKER_NOT_FOUND": true, "TERMINAL_REPORT_STALE": true, "REPAIR_NOT_DARK": true,
+	"REPAIR_ATTEMPT_INVALID": true, "REPAIR_REASON_INVALID": true,
+}
+
+// plainRefusalCode is the refusal code when it is one of the closed set, else
+// a fixed placeholder, so an unexpected answer cannot put server text into a
+// local error.
 func plainRefusalCode(code string) string {
-	if len(code) == 0 || len(code) > 64 {
-		return "(not a plain code)"
+	if refusalCodes[code] {
+		return code
 	}
-	for _, r := range code {
-		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
-			return "(not a plain code)"
-		}
-	}
-	return code
+	return "(not a known refusal code)"
 }
 func relaunchRepair(r hostrelaunch.Result) (gen.WorkerTerminalRepair, string, bool) {
 	if r.Status == hostrelaunch.Applied {

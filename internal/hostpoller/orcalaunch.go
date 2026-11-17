@@ -300,7 +300,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 			// keeps it recorded (one agent per worktree holds) and a later
 			// stop retries the close (cli#2088 blind P2).
 			u := &OrcaAgent{l: l, handle: handle, done: make(chan struct{}), unclosed: true}
-			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply")}
+			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply"), Cause: cause}
 		}
 		return nil, &closedLaunchError{msg: why + "; the terminal was closed", cause: cause}
 	}
@@ -530,7 +530,14 @@ func descendsFrom(pid, ancestor int) bool {
 // UnclosedLaunchError is a launch that could not be proven AND whose terminal
 // could not be closed: Launch returns it together with an agent that stays
 // recorded until a stop closes the terminal.
-type UnclosedLaunchError struct{ Handle, Why, CloseErr string }
+type UnclosedLaunchError struct {
+	Handle, Why, CloseErr string
+	// Cause is the failure that made the launch close its terminal (a context
+	// error from a proof read, for one), kept for errors.Is/As (cli#2172).
+	Cause error
+}
+
+func (e *UnclosedLaunchError) Unwrap() error { return e.Cause }
 
 func (e *UnclosedLaunchError) Error() string {
 	return e.Why + "; closing Orca terminal " + e.Handle + " failed (" + e.CloseErr + "), so it stays recorded until a stop closes it"
