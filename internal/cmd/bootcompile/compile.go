@@ -5,7 +5,6 @@
 package bootcompile
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -51,11 +50,11 @@ func NewAppAgent(f *cmdutil.Factory) *cobra.Command { return newCommand(f, "app"
 
 // NewWorker resolves a worker name in the selected App before compiling it.
 // With no worker argument it runs batch over the App's workers.
-func NewWorker(f *cmdutil.Factory, resolve func(*cobra.Command, string) (string, error), batch Batch) *cobra.Command {
+func NewWorker(f *cmdutil.Factory, resolve func(*cobra.Command, string, func(string) error) (string, error), batch Batch) *cobra.Command {
 	return newCommand(f, "worker", resolve, batch)
 }
 
-func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, string) (string, error), batch Batch) *cobra.Command {
+func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, string, func(string) error) (string, error), batch Batch) *cobra.Command {
 	var noSetPointer, all, apply, asWorker bool
 	var only []string
 	use, example := "compile <agent>", "  hadron agent compile hrn:agent:acme.com:iris"
@@ -135,11 +134,12 @@ own code.`
 	case "app":
 		pointerHelp = "An App-Agent compile sets the pointer by default (no --no-set-pointer\nflag); with --as-worker the server never sets it."
 	case "worker":
-		refsHelp = `A worker is an id or a fully-qualified worker URN, which ignores the ambient
-App and binding, or a name in the selected App (--app, the configured App
-context or a binding for this server). A missing, corrupt or
+		refsHelp = `A worker is an id or a fully-qualified worker URN, resolved independently of
+ambient scope when acting as yourself, or a name in the selected App (--app,
+the configured App context or a binding for this server). A missing, corrupt or
 unknown/different-server binding cannot select an App for a name: pass --app
-or a fully-qualified worker URN.`
+or a fully-qualified worker URN. With --as-worker, the resolved worker's App
+must match the binding's App, even for an explicit id or URN.`
 	}
 	cmd := &cobra.Command{
 		Use: use, Short: short,
@@ -157,11 +157,13 @@ existing compiled node that a signed bootprompt.compile.approve grant names (to
 any worker in the App, not only the bound one), never sets a pointer
 (pointerSet is false whatever --no-set-pointer says) and never creates a node.
 --as-worker never falls back to you: without a usable binding for this server
-and App it refuses (exit 2) and sends nothing. The CLI does not check the
-grant; the server's refusals print with their codes (exit 8). The grant does
-not cover signing: where an organisation has switched on signing of
-compiled boot prompts (its own setting, not the passkey switch), a person
-still signs each compiled prompt.
+and App it refuses (exit 2) without sending a mutation. App/worker identity
+reads may be needed first. An unreadable target App is refused exactly like a
+missing App; credential and transport errors keep their normal exits. The CLI
+does not check the grant; the server's refusals print with their codes (exit 8).
+The grant does not cover signing: where an organisation has switched on
+signing of compiled boot prompts (its own setting, not the passkey switch),
+a person still signs each compiled prompt.
 %s
 
 Compile does not approve or serve a prompt. The result reports the compiled
@@ -214,7 +216,7 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 			}
 			// --as-worker resolves its session before any request, so a refusal
 			// sends nothing (cli#1872).
-			var mutCtx func(context.Context) (context.Context, error)
+			var mutCtx cmdutil.WorkerWriteContext
 			if asWorker {
 				// `app agent compile` names its App positionally: the binding
 				// must be for that App too (cli#1887).
@@ -272,7 +274,15 @@ sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp,
 					result = &r.CompileAppAgentBootPrompt.BootCompileResult
 				}
 			case "worker":
-				workerRef, e := resolve(cmd, args[0])
+				workerRef, e := resolve(cmd, args[0], func(targetApp string) error {
+					if mutCtx == nil {
+						return nil
+					}
+					// Ignore the returned write context here: all resolution
+					// reads keep the caller's ordinary context.
+					_, err := mutCtx(cmd.Context(), targetApp)
+					return err
+				})
 				if e != nil {
 					return e
 				}

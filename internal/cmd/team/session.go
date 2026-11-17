@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -23,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -44,7 +44,10 @@ no repository): start, resume and shed there keep the binding in a hidden
 .hadron-team/ directory inside that directory, under the same lock. Such a
 directory binds ONE worker: another worker's start there is refused, never
 shared — give each worker its own directory. Only the directory a command
-runs in is looked at, never a parent.
+runs in is looked at, never a parent. Running git init in such a directory
+makes it a worktree: the binding then lives in the git dir and the cache in
+.hadron-team/ is no longer read, so whoami there shows no binding until you
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -86,10 +89,12 @@ holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
+	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
+	cmd.AddCommand(newCmdSessionResetContext(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))
@@ -925,7 +930,11 @@ there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
-way of an ordinary bind later. Redeem
+way of an ordinary bind later. When the host could not apply the run
+settings its start named (an exec-path worker runs its own fixed command), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+tells the server (startSettingsApplied: false) so the bind records none of
+those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -1002,7 +1011,7 @@ ends the recovered session: run start again to pick it up.`,
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family), effort: extra.effortLevel(cmd),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -1022,7 +1031,7 @@ ends the recovered session: run start again to pick it up.`,
 			// known after the bind; writeBinding's check under the lock
 			// refuses that one, and the bind is rolled back below.
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
-				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				return errDirectoryHeld(heldCachePath(), existing)
 			}
 			// The client opens early only for the plain-directory read below;
 			// everywhere else it opens after the existing-binding check, as
@@ -1070,7 +1079,7 @@ ends the recovered session: run start again to pick it up.`,
 				}
 				resolved = true
 				if existing.WorkerID == "" || w.Id != existing.WorkerID {
-					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+					return errDirectoryHeld(heldCachePath(), existing)
 				}
 			}
 			var lapsedBinding bool
@@ -1291,17 +1300,19 @@ ends the recovered session: run start again to pick it up.`,
 				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
-				Id:             newSessionID(),
-				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      optStr(w.Id),
-				AppRef:         appRefArg,
-				LaunchGrant:    optStr(grant),
-				Repo:           optStr(repo),
-				Branch:         optStr(branch),
-				Host:           optStr(host),
-				Tool:           optStr(tool),
-				TranscriptPath: optStr(transcript),
-				LlmModel:       optStr(model),
+				Id:          newSessionID(),
+				ReportsTo:   optStr(reportsTo),
+				WorkerRef:   optStr(w.Id),
+				AppRef:      appRefArg,
+				LaunchGrant: optStr(grant),
+				// #2209: the host's "settings not applied", only with a grant.
+				StartSettingsApplied: startSettingsNotApplied(grant, os.Getenv(hostpoller.StartSettingsAppliedEnvVar)),
+				Repo:                 optStr(repo),
+				Branch:               optStr(branch),
+				Host:                 optStr(host),
+				Tool:                 optStr(tool),
+				TranscriptPath:       optStr(transcript),
+				LlmModel:             optStr(model),
 			}
 			// #940/#432: the server refuses a taken worker atomically
 			// (WORKER_TAKEN) unless force rides along — the activity check
@@ -2469,7 +2480,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// move the pointer: a refusal now leaves nothing half-applied, and
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil, nil); err != nil {
 					mapped := api.MapError(err)
 					if rowWritten {
 						// Claim "NOT updated" only for a definitive refusal. A

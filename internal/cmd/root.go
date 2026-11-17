@@ -75,6 +75,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
+	f.NoteApprovingAsPerson = teamcmd.ApprovalAsPersonNote(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
 	begin := teamcmd.BeginInstructedWrite(f)
@@ -438,11 +439,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 				failure["requestId"] = fault.RequestID
 			}
 		}
-		// #1306: scripts need the deliberate team-chat refusal's server code
-		// alongside numeric exit 5. Keep this bounded to the two named codes;
+		// Scripts need the deliberate chat/lifecycle refusal's server code
+		// alongside numeric exit 5. Keep this bounded to the named codes;
 		// unrelated refusal envelopes retain their established shape.
 		if code == exitcode.Conflict {
-			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED"} {
+			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED", "TICKER_ON_SHORT_LIVED"} {
 				if api.HasErrorCode(err, serverCode) {
 					failure["serverCode"] = serverCode
 					break

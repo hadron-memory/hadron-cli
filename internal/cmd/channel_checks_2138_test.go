@@ -135,7 +135,7 @@ func Test2138WorkerAndRosterPreserveServerCheckStatus(t *testing.T) {
 					status = "PENDING"
 					pending = state
 				}
-				check = map[string]any{"status": status, "pendingReason": pending, "lastCheckedAt": nil}
+				check = map[string]any{"status": status, "pendingReason": pending, "lastCheckedAt": nil, "noSessionReason": nil}
 			}
 			for _, roster := range []bool{false, true} {
 				r := taskResponses()

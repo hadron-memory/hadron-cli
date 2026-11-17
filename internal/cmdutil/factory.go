@@ -21,6 +21,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// WorkerWriteContext checks the captured binding immediately before a write.
+// A target App learned by a preceding read can be checked against that SAME
+// snapshot; it never resolves a new session after a rebind.
+type WorkerWriteContext func(context.Context, ...string) (context.Context, error)
+
 type Factory struct {
 	IOStreams  *output.IOStreams
 	HTTPClient *http.Client
@@ -51,8 +56,16 @@ type Factory struct {
 	// error (exit 2) and nothing is sent; it never falls back to the person.
 	// The returned function runs immediately before each compile or approve
 	// mutation, re-verifies the binding and returns the context carrying the
-	// session. Reads keep the plain context.
-	WorkerWriteSession func(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error)
+	// session. A resolved target App can be checked through that function against
+	// the original snapshot too. Reads keep the plain context.
+	WorkerWriteSession func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
+
+	// NoteApprovingAsPerson is installed by the root (cli#1843). An approval on
+	// the default path calls it just before its mutation: from a worktree bound
+	// to a worker session it prints one stderr note (once per run) that the
+	// approval is the person's. withAsWorker says the command has --as-worker
+	// to name. It changes nothing that is sent.
+	NoteApprovingAsPerson func(ctx context.Context, withAsWorker bool)
 
 	// Persistent flag values, bound by the root command.
 	JSON       bool
@@ -282,11 +295,20 @@ func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Req
 // that has it (cli#1872).
 const AsWorkerFlagUsage = "send this worktree's bound worker session with the compile/approve mutations, so the server judges a signed bootprompt.compile.approve grant (default: act as you, no session header)"
 
+// NoteApproval prints the cli#1843 note on the default (person) approval path;
+// a Factory without the hook prints nothing.
+func (f *Factory) NoteApproval(ctx context.Context, withAsWorker bool) {
+	if f.NoteApprovingAsPerson != nil {
+		f.NoteApprovingAsPerson(ctx, withAsWorker)
+	}
+}
+
 // ResolveWorkerWrite resolves the --as-worker session before any request. The
 // returned function wraps one mutation's context. targetApps are App refs the
 // command names beyond --app/context (a positional <app>, cli#1887): each must
-// be the binding's App or the resolve refuses.
-func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error) {
+// be the binding's App or the resolve refuses. The returned guard also accepts
+// target App refs learned later, checking them against the original snapshot.
+func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
 	if f.WorkerWriteSession == nil {
 		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")
 	}

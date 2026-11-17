@@ -86,8 +86,9 @@ an older one refuses it (exit 2) and nothing is retried. Its closed status
 FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER) prints on its own "chat:" line
 and is the "chat" key in --json (null when not requested). The run result and
 the chat status are two outcomes: neither stands for the other. A completed
-test exits 0 whatever ok and the chat status say; only a request refusal or an
-invalid response from the server uses the normal CLI error exits.`,
+test exits 0 whatever ok and the chat status say. Request refusals, invalid
+responses from the server, and other errors (including argument, override-file
+and transport failures) use the normal CLI error exits.`,
 		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -138,11 +139,13 @@ invalid response from the server uses the normal CLI error exits.`,
 				dto.Chat = v.Chat
 			}
 			if v.Error != nil {
-				dto.Error = &testErrorDTO{Code: redactSubmittedKey(v.Error.Code, submittedKey), Message: redactSubmittedKey(v.Error.Message, submittedKey), Transient: v.Error.Transient}
+				dto.Error = &testErrorDTO{Code: v.Error.Code, Message: v.Error.Message, Transient: v.Error.Transient}
 			}
+			// Both typed adapters filter nil knob entries before this dereference.
 			for _, k := range v.Knobs {
 				dto.Knobs = append(dto.Knobs, *k)
 			}
+			redactTestResult(&dto, submittedKey)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				state := "failed"
 				if dto.OK {
@@ -165,7 +168,11 @@ invalid response from the server uses the normal CLI error exits.`,
 					return err
 				}
 				for _, k := range dto.Knobs {
-					if _, err := fmt.Fprintf(w, "%s: %s %s\n", output.SafeCell(k.Param), output.SafeCell(k.State), output.SafeCell(endpointDisplay(k.Detail, ""))); err != nil {
+					detail := output.SafeCell(endpointDisplay(k.Detail, ""))
+					if detail != "" {
+						detail = " " + detail
+					}
+					if _, err := fmt.Fprintf(w, "%s: %s%s\n", output.SafeCell(k.Param), output.SafeCell(k.State), detail); err != nil {
 						return err
 					}
 				}
@@ -267,8 +274,9 @@ func redactSubmittedKey(message, key string) string {
 // testResult is what the command renders from either test document. The
 // default and chat-probe documents are distinct generated types (the probe
 // adds the chat selection), so each has its own typed adapter below: a field
-// added to, renamed in or retyped in either document is a compile error here,
-// never a silent runtime conversion failure (cli#1959).
+// renamed or retyped in either document is a compile error here. An added
+// field still needs an explicit mapping; typed adapters do not enforce that
+// additions reach the stable JSON DTO (cli#1959).
 type testResult struct {
 	Ok        bool
 	Provider  string
@@ -288,18 +296,58 @@ type (
 	probeTestResult   = gen.TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult
 )
 
+// testResultFields is the scalar projection shared by both typed documents.
+// The nested generated types differ, but their same-shaped fields can be
+// explicitly converted; a rename or retype makes that conversion fail to build.
+type testResultFields interface {
+	GetOk() bool
+	GetProvider() string
+	GetModel() string
+	GetEndpoint() *string
+	GetApiStyle() *gen.AiApiStyle
+	GetLatencyMs() int
+	GetReply() *string
+}
+
+type (
+	defaultTestError = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError
+	defaultTestUsed  = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed
+	defaultTestKnob  = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob
+)
+
 func fromDefaultTestResult(r *defaultTestResult) *testResult {
 	if r == nil {
 		return nil
 	}
-	v := &testResult{Ok: r.Ok, Provider: r.Provider, Model: r.Model, Endpoint: r.Endpoint, APIStyle: apiStyleString(r.ApiStyle), LatencyMs: r.LatencyMs, Reply: r.Reply, Knobs: make([]*testKnobDTO, 0, len(r.Knobs))}
-	if e := r.Error; e != nil {
+	return fromTestResultFields(r, r.Error, r.Used, r.Knobs)
+}
+
+func fromProbeTestResult(r *probeTestResult) *testResult {
+	if r == nil {
+		return nil
+	}
+	knobs := make([]*defaultTestKnob, 0, len(r.Knobs))
+	for _, k := range r.Knobs {
+		knobs = append(knobs, (*defaultTestKnob)(k))
+	}
+	v := fromTestResultFields(r, (*defaultTestError)(r.Error), (*defaultTestUsed)(r.Used), knobs)
+	if r.Chat != nil {
+		status := string(r.Chat.Status) // verbatim, an unknown future value included
+		v.Chat = &status
+	}
+	return v
+}
+
+func fromTestResultFields(r testResultFields, e *defaultTestError, u *defaultTestUsed, knobs []*defaultTestKnob) *testResult {
+	v := &testResult{Ok: r.GetOk(), Provider: r.GetProvider(), Model: r.GetModel(), Endpoint: r.GetEndpoint(), APIStyle: apiStyleString(r.GetApiStyle()), LatencyMs: r.GetLatencyMs(), Reply: r.GetReply(), Knobs: make([]*testKnobDTO, 0, len(knobs))}
+	if e != nil {
 		v.Error = &testErrorDTO{Code: e.Code, Message: e.Message, Transient: e.Transient}
 	}
-	if u := r.Used; u != nil {
+	if u != nil {
 		v.Used = &testUsedDTO{Provider: string(u.Provider), Model: string(u.Model), Endpoint: string(u.Endpoint), APIStyle: string(u.ApiStyle), Key: string(u.Key), Params: string(u.Params)}
 	}
-	for _, k := range r.Knobs {
+	// Only non-nil entries enter the command DTO's dereference loop.
+	for _, k := range knobs {
 		if k != nil {
 			v.Knobs = append(v.Knobs, &testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
 		}
@@ -307,27 +355,43 @@ func fromDefaultTestResult(r *defaultTestResult) *testResult {
 	return v
 }
 
-func fromProbeTestResult(r *probeTestResult) *testResult {
-	if r == nil {
-		return nil
+// redactTestResult masks submitted-key echoes in every rendered string value,
+// including a provider that wrongly places the echo outside its error fields.
+// JSON field names, nulls, numeric/boolean values and the sent request are intact.
+// Saved keys are unknown to the CLI; the server must keep those masked itself.
+func redactTestResult(dto *testConfigDTO, key string) {
+	if key == "" {
+		return
 	}
-	v := &testResult{Ok: r.Ok, Provider: r.Provider, Model: r.Model, Endpoint: r.Endpoint, APIStyle: apiStyleString(r.ApiStyle), LatencyMs: r.LatencyMs, Reply: r.Reply, Knobs: make([]*testKnobDTO, 0, len(r.Knobs))}
-	if e := r.Error; e != nil {
-		v.Error = &testErrorDTO{Code: e.Code, Message: e.Message, Transient: e.Transient}
-	}
-	if u := r.Used; u != nil {
-		v.Used = &testUsedDTO{Provider: string(u.Provider), Model: string(u.Model), Endpoint: string(u.Endpoint), APIStyle: string(u.ApiStyle), Key: string(u.Key), Params: string(u.Params)}
-	}
-	for _, k := range r.Knobs {
-		if k != nil {
-			v.Knobs = append(v.Knobs, &testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
+	redact := func(value string) string { return redactSubmittedKey(value, key) }
+	redactPtr := func(value *string) *string {
+		if value == nil {
+			return nil
 		}
+		safe := redact(*value)
+		return &safe
 	}
-	if r.Chat != nil {
-		status := string(r.Chat.Status) // verbatim, an unknown future value included
-		v.Chat = &status
+	dto.Provider = redact(dto.Provider)
+	dto.Model = redact(dto.Model)
+	dto.Endpoint = redactPtr(dto.Endpoint)
+	dto.APIStyle = redactPtr(dto.APIStyle)
+	dto.Reply = redactPtr(dto.Reply)
+	dto.Chat = redactPtr(dto.Chat)
+	if dto.Error != nil {
+		dto.Error.Code = redact(dto.Error.Code)
+		dto.Error.Message = redact(dto.Error.Message)
 	}
-	return v
+	dto.Used.Provider = redact(dto.Used.Provider)
+	dto.Used.Model = redact(dto.Used.Model)
+	dto.Used.Endpoint = redact(dto.Used.Endpoint)
+	dto.Used.APIStyle = redact(dto.Used.APIStyle)
+	dto.Used.Key = redact(dto.Used.Key)
+	dto.Used.Params = redact(dto.Used.Params)
+	for i := range dto.Knobs {
+		dto.Knobs[i].Param = redact(dto.Knobs[i].Param)
+		dto.Knobs[i].State = redact(dto.Knobs[i].State)
+		dto.Knobs[i].Detail = redactPtr(dto.Knobs[i].Detail)
+	}
 }
 
 func apiStyleString(s *gen.AiApiStyle) *string {

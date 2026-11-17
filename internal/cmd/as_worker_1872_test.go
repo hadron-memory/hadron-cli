@@ -587,18 +587,24 @@ func TestAsWorkerPositionalAppDifferentFromBindingRefuses1887(t *testing.T) {
 // the positional URN resolves to the binding's App id, and the compile goes out
 // under the session.
 func TestAsWorkerPositionalAppSameAppAnySpellingSends1887(t *testing.T) {
-	calls, _, err := runBoundSingle(t, nil, c1Responses(), append(append([]string{}, c1Commands[1].args...), "--as-worker")...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sent := false
-	for _, c := range *calls {
-		if c.Op == "CompileAppAgentBootPrompt" {
-			sent = c.Session == "s-new"
-		}
-	}
-	if !sent {
-		t.Fatalf("the same App must compile under the bound session: %+v", *calls)
+	for _, ref := range []string{"capp100000000000000000000", "hrn:app:acme.com:eng-team", "acme.com:eng-team", "hrn:app:acme.com::eng-team"} {
+		t.Run(ref, func(t *testing.T) {
+			args := append([]string{}, c1Commands[1].args...)
+			args[3] = ref
+			calls, _, err := runBoundSingle(t, nil, c1Responses(), append(args, "--as-worker")...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sent := false
+			for _, c := range *calls {
+				if c.Op == "CompileAppAgentBootPrompt" {
+					sent = c.Session == "s-new"
+				}
+			}
+			if !sent {
+				t.Fatalf("same App spelling must compile under binding: %+v", *calls)
+			}
+		})
 	}
 }
 
