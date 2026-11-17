@@ -181,3 +181,27 @@ func TestAppInstallHasPolicyFileButNoClearFlag1628(t *testing.T) {
 		t.Fatalf("install accepted --clear-policy: err=%v calls=%d", err, len(*calls))
 	}
 }
+
+// #2319: install has no --clear-policy, so its empty/null refusals must not
+// advise it; update keeps the advice.
+func TestAppPolicyFileRefusalAdviceMatchesTheCommand2319(t *testing.T) {
+	for name, content := range map[string]string{"empty": "  \n", "null": "null"} {
+		t.Run("install "+name, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, "install", "--policy-file", policyFile1640(t, content), "--yes")
+			if exitCodeFor(err) != 2 || len(*calls) != 0 || err == nil {
+				t.Fatalf("err=%v calls=%+v", err, *calls)
+			}
+			if strings.Contains(err.Error(), "--clear-policy") || !strings.Contains(err.Error(), "leave --policy-file out") {
+				t.Fatalf("install advice = %q", err)
+			}
+		})
+		t.Run("update "+name, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, "update", "--policy-file", policyFile1640(t, content), "--yes")
+			if exitCodeFor(err) != 2 || len(*calls) != 0 || err == nil || !strings.Contains(err.Error(), "--clear-policy") {
+				t.Fatalf("update err=%v calls=%+v", err, *calls)
+			}
+		})
+	}
+}
