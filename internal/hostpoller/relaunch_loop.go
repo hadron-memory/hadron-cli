@@ -262,6 +262,8 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if e := p.state.clearSweepOutage(); e != nil {
 			p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
 		}
+		// Readiness recovery ends the episode: its retry window ends with it.
+		p.outageDelay, p.outageRetryAfter = 0, time.Time{}
 	}
 	if p.relaunchEpoch == "" {
 		epoch, e := newRelaunchEpoch()
