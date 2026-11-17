@@ -37,13 +37,15 @@ func (g *guardRecorder1759) Fatalf(format string, args ...any) {
 // path are untouched: the guard only cancels once it has already failed.
 func TestLoginGuard1759StopsTheLoginItAbandons(t *testing.T) {
 	shortLoginTimeout(t, time.Hour) // nothing inside Login ends this wait
+	entered := make(chan struct{})
 	stopped := make(chan struct{})
-	var once sync.Once
+	var enterOnce, stopOnce sync.Once
 	release := make(chan struct{})
 	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		enterOnce.Do(func() { close(entered) })
 		select {
 		case <-r.Context().Done():
-			once.Do(func() { close(stopped) })
+			stopOnce.Do(func() { close(stopped) })
 		case <-release:
 		}
 	}))
@@ -64,9 +66,20 @@ func TestLoginGuard1759StopsTheLoginItAbandons(t *testing.T) {
 	if len(fatal) != 1 || !strings.Contains(fatal[0], "did not return within 200ms") {
 		t.Fatalf("the guard must fail the test once, naming its bound: %q", fatal)
 	}
+	// The proof that the login stopped does not depend on when the request
+	// reached the server (#2255 BLIND F1): the guard itself waits for Login to
+	// return after cancelling, and says so.
+	if !strings.Contains(fatal[0], "(it stopped once cancelled)") {
+		t.Fatalf("the guard returned but left the login running: %q", fatal[0])
+	}
+	// When the request did reach the server, the server also sees it cancelled.
 	select {
-	case <-stopped:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the guard returned but left the login running: its request was never cancelled")
+	case <-entered:
+		select {
+		case <-stopped:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the abandoned request reached the server and was never cancelled")
+		}
+	default: // cancelled before the handler ran: nothing is open on the server
 	}
 }
