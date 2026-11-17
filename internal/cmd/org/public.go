@@ -54,9 +54,10 @@ both cases to null for anti-enumeration. <org-ref> is an org id or URN.
 Fetch one page of each list (20 rows each by default). --limit and --offset
 apply to both lists; the server caps a page at 200. Zero limit returns counts
 only; negative limits and offsets count as zero. No pages are fetched automatically.
-A list that is not whole says "showing N of TOTAL" (with "(offset O)" when --offset
-was given): more rows follow, the page is the short end of the list, an offset
-skipped past the rows, or the limit was zero. "(none)" means the list holds
+A list that is not whole says "showing N of TOTAL": more rows follow, the page is
+the short end of the list, an offset skipped past the rows, or the limit was
+zero. When --offset skips rows (above zero; an explicit 0 or a negative offset
+skips none) the notice adds "(offset O)". "(none)" means the list holds
 nothing. --json retains publicMemories and
 publicAgents arrays and adds publicMemoriesTotal/publicMemoriesHasMore and
 publicAgentsTotal/publicAgentsHasMore.`,
@@ -133,8 +134,9 @@ func publicResourceFrom(f gen.PublicResourceRefFields) publicResourceDTO {
 // printPublicResources prints one list. A list is partial when the server says
 // more rows follow OR fewer rows came back than the list holds (a short last
 // page, an offset past the end, counts only): it then says "showing N of
-// TOTAL", with the offset when one was given, so a partial list never reads as
-// the whole one. "(none)" is printed only when the list holds nothing at all
+// TOTAL", with the offset when it skips rows (above zero: an explicit 0 or a
+// negative one skips nothing and adds no suffix), so a partial list never reads
+// as the whole one. "(none)" is printed only when the list holds nothing at all
 // (cli#2248, cor:api:120:04). --json is unaffected.
 func printPublicResources(w io.Writer, label string, rs []publicResourceDTO, total int, hasMore bool, offset int) {
 	if total == 0 && len(rs) == 0 && !hasMore {
