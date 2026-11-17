@@ -16,8 +16,9 @@ import (
 // keep because a worker.end on them failed (cor:agt:020:10: never remove a
 // worktree after a failed end).
 type State struct {
-	path string
-	mu   sync.Mutex
+	SweepOutage *SweepOutageRecord `json:"sweepOutage,omitempty"`
+	path        string
+	mu          sync.Mutex
 	// Created maps a configured worker reference to the worktree tokens this
 	// poller created for it.
 	Created map[string][]string `json:"created"`
@@ -183,6 +184,16 @@ func (s *State) recordAgent(workerID, token string, pid int, start string) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Agents[workerID] = AgentRecord{Worktree: token, PID: pid, Start: start}
+	return s.save()
+}
+
+// dropAgent forgets a worker's launched agent: a start that failed leaves no
+// entry behind (#1474), so a dead pid is never consulted again and a state
+// file read by an operator names only agents that were left running.
+func (s *State) dropAgent(workerID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.Agents, workerID)
 	return s.save()
 }
 

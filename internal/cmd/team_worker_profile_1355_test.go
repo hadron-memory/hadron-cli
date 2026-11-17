@@ -101,8 +101,8 @@ func TestWorkerGetProfileByURNIsDirectAndHonest(t *testing.T) {
 				t.Errorf("first operation = %s, want GetWorker", ops[0])
 			}
 			sort.Strings(ops[1:])
-			wantRest := "GetWorkerBootPromptServe,GetWorkerModelGroups,GetWorkerProfile,GetWorkerRendered,GetWorkerTerminal"
-			if got := strings.Join(ops[1:], ","); got != wantRest || len(ops) != 6 {
+			wantRest := "GetWorkerAvailability,GetWorkerBootPromptServe,GetWorkerModelGroups,GetWorkerProfile,GetWorkerRendered,GetWorkerTerminal"
+			if got := strings.Join(ops[1:], ","); got != wantRest || len(ops) != 7 {
 				t.Errorf("operations = %s, want GetWorker then exactly %s (no roster, no App lookup)", log.String(), wantRest)
 			}
 			for _, want := range []string{"Iris", "backend-engineer", "app: hrn:app:acme.com:eng-team — Eng Team", "owner: acme.com", "working state: not visible to you"} {

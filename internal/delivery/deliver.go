@@ -134,10 +134,16 @@ type Deliverer struct {
 	LockDir string
 	Caps    Capabilities
 	// Bound is the worker a worktree's session binding names, or "".
-	Bound  func(worktree string) string
-	Now    func() time.Time
-	Budget time.Duration
-	Emit   func(Event)
+	Bound func(worktree string) string
+	// Registered lists every registered worker's directories, for the
+	// plain-directory claim checks (cli#1989). nil: only the recipient.
+	Registered func() Registered
+	// ProcessGone says no process has a pid (ESRCH and nothing else); nil is
+	// the host's real test. A seam for the claim liveness tests.
+	ProcessGone func(pid int) bool
+	Now         func() time.Time
+	Budget      time.Duration
+	Emit        func(Event)
 
 	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
 	Wakes       WakeServer
@@ -155,6 +161,83 @@ type Deliverer struct {
 	// reported is the last hold reason reported per batch, so a hold is
 	// reported once per change, not every poll.
 	reported map[string]string
+	// screens is the last screen read per terminal and the lastOutputAt the
+	// list showed with it (#2181). It may keep a delivery held or deferred
+	// while the terminal is quiet; it never lets one be typed (see
+	// typeLine).
+	screens map[string]screenMemo
+}
+
+type screenMemo struct {
+	stamp string
+	sc    *orcaterm.Screen
+	at    time.Time
+}
+
+// ScreenMemoLife bounds a remembered screen: a stamp is milliseconds and
+// Orca does not promise it moves on every composer edit, so a held line is
+// read again at least this often however quiet the terminal looks (#2181).
+const ScreenMemoLife = 2 * time.Minute
+
+// freshLister and sharedLister are what a Terminals that shares its list
+// (SharedList) offers beyond List.
+type freshLister interface {
+	ListFresh(ctx context.Context) ([]orcaterm.Terminal, error)
+}
+
+type sharedLister interface {
+	ListShared(ctx context.Context) ([]orcaterm.Terminal, bool, error)
+}
+
+// screenOf is t's screen. With cacheOK, a screen read before and a list
+// stamp that has not moved since (new output moves it) is returned without
+// another `orca` process, and cached says so. A row with no stamp is always
+// read.
+func (d *Deliverer) screenOf(ctx context.Context, t orcaterm.Terminal, cacheOK bool) (sc *orcaterm.Screen, cached bool) {
+	if cacheOK && t.LastOutputAt != "" {
+		d.mu.Lock()
+		m, ok := d.screens[t.Handle]
+		d.mu.Unlock()
+		if ok && m.stamp == t.LastOutputAt && d.Now().Sub(m.at) < ScreenMemoLife {
+			return m.sc, true
+		}
+	}
+	sc = d.Orca.ReadScreen(ctx, t.Handle)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.screens == nil {
+		d.screens = map[string]screenMemo{}
+	}
+	if t.LastOutputAt != "" && sc != nil {
+		d.screens[t.Handle] = screenMemo{t.LastOutputAt, sc, d.Now()}
+	} else {
+		delete(d.screens, t.Handle)
+	}
+	return sc, false
+}
+
+func (d *Deliverer) forgetScreen(handle string) {
+	d.mu.Lock()
+	delete(d.screens, handle)
+	d.mu.Unlock()
+}
+
+// prune drops the screens of terminals the list no longer shows.
+func (d *Deliverer) pruneScreens(terms []orcaterm.Terminal) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.screens) == 0 {
+		return
+	}
+	live := make(map[string]bool, len(terms))
+	for _, t := range terms {
+		live[t.Handle] = true
+	}
+	for h := range d.screens {
+		if !live[h] {
+			delete(d.screens, h)
+		}
+	}
 }
 
 // New builds a Deliverer with the production defaults.
@@ -349,7 +432,30 @@ type line struct {
 // provably submitted; otherwise o is the outcome to return. r learns how
 // its terminal was found.
 func (d *Deliverer) typeLine(ctx context.Context, l line, r *Recipient, stillOwner func() bool) (handle string, o Outcome, ok bool) {
-	term, sc, family, o, ok := d.recipientTerminal(ctx, l, *r)
+	// First on remembered evidence: a screen read before, whose terminal has
+	// shown no output since, may keep the line held or deferred without
+	// another `orca` process. It never lets one go out: once the line would
+	// be typed, or its composer touched, the evidence is read again (#2181).
+	var ev evidence
+	ev.cacheOK = true
+	handle, o, ok = d.typeLineOn(ctx, l, r, stillOwner, &ev)
+	if !ev.needFresh {
+		return handle, o, ok
+	}
+	return d.typeLineOn(ctx, l, r, stillOwner, &evidence{})
+}
+
+// evidence says how a typeLine pass may read screens: cacheOK allows a
+// remembered one; needFresh is set by a pass that stopped because it would
+// have acted on one.
+type evidence struct {
+	cacheOK   bool
+	usedCache bool
+	needFresh bool
+}
+
+func (d *Deliverer) typeLineOn(ctx context.Context, l line, r *Recipient, stillOwner func() bool, ev *evidence) (handle string, o Outcome, ok bool) {
+	term, sc, family, o, ok := d.recipientTerminal(ctx, l, *r, ev)
 	if !ok {
 		return "", o, false
 	}
@@ -367,6 +473,10 @@ func (d *Deliverer) typeLine(ctx context.Context, l line, r *Recipient, stillOwn
 	case orcaterm.ComposerQuestion:
 		return "", l.hold(HoldQuestion, term.Handle), false
 	case orcaterm.ComposerOwn:
+		if ev.usedCache {
+			ev.needFresh = true
+			return "", Outcome{}, false
+		}
 		if orcaterm.Normalize(leftover) == orcaterm.Normalize(l.text) {
 			// Our current text is already typed: submit it, never retype.
 			if !d.Caps.EnterOnly[family] {
@@ -392,6 +502,11 @@ func (d *Deliverer) typeLine(ctx context.Context, l line, r *Recipient, stillOwn
 		}
 	}
 
+	if ev.usedCache {
+		// Everything so far says send, on a remembered screen: read it again.
+		ev.needFresh = true
+		return "", Outcome{}, false
+	}
 	if !stillOwner() || ctx.Err() != nil {
 		return "", l.emit(Outcome{Kind: Deferred, Reason: "lock-lost-before-send", Terminal: term.Handle}), false
 	}
@@ -399,6 +514,7 @@ func (d *Deliverer) typeLine(ctx context.Context, l line, r *Recipient, stillOwn
 	// the rest finishes even while stopping, each step bounded.
 	fin := context.WithoutCancel(ctx)
 	rc := d.Orca.Send(fin, term.Handle, l.text, orcaterm.SendOptions{Interrupt: l.interrupt, EnterOnly: enterOnly})
+	d.forgetScreen(term.Handle)
 	if !rc.Accepted {
 		return "", l.hold(HoldNotSubmitted, term.Handle), false
 	}
@@ -421,7 +537,9 @@ func (d *Deliverer) clearOwn(ctx context.Context, l line, handle, family, leftov
 	if !d.Caps.Clear[family] || leftover == "" || !stillOwner() {
 		return l.hold(HoldNotSubmitted, handle), false
 	}
-	if rc := d.Orca.Send(ctx, handle, ClearKeys(leftover), orcaterm.SendOptions{NoEnter: true}); !rc.Accepted {
+	rc := d.Orca.Send(ctx, handle, ClearKeys(leftover), orcaterm.SendOptions{NoEnter: true})
+	d.forgetScreen(handle)
+	if !rc.Accepted {
 		return l.hold(HoldNotSubmitted, handle), false
 	}
 	sc := d.Orca.ReadScreen(ctx, handle)
@@ -434,16 +552,69 @@ func (d *Deliverer) clearOwn(ctx context.Context, l line, handle, family, leftov
 // recipientTerminal finds the one agent terminal for r, looked up fresh: in
 // a registered worktree, an agent (never a shell), one of them only, bound
 // to r, showing the expected interface.
-func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) (orcaterm.Terminal, *orcaterm.Screen, string, Outcome, bool) {
+func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient, ev *evidence) (orcaterm.Terminal, *orcaterm.Screen, string, Outcome, bool) {
 	var none orcaterm.Terminal
-	terms, err := d.Orca.List(ctx)
+	// A shared list may keep a line held; it may not send. A list another
+	// delivery made, or a screen remembered, sends the line round again with
+	// fresh evidence (typeLine), and that round lists fresh (#2181).
+	var terms []orcaterm.Terminal
+	var err error
+	fl, hasFresh := d.Orca.(freshLister)
+	sl, hasShared := d.Orca.(sharedLister)
+	switch {
+	case hasFresh && !ev.cacheOK:
+		terms, err = fl.ListFresh(ctx)
+	case hasShared:
+		var shared bool
+		terms, shared, err = sl.ListShared(ctx)
+		ev.usedCache = ev.usedCache || shared
+	default:
+		terms, err = d.Orca.List(ctx)
+	}
 	if err != nil {
 		return none, nil, "", l.emit(Outcome{Kind: Failed, Reason: "orca-list"}), false
 	}
+	d.pruneScreens(terms)
 	var inTree []orcaterm.Terminal
 	for _, t := range terms {
 		if inWorktrees(t.WorktreePath, r.Worktrees) {
 			inTree = append(inTree, t)
+		}
+	}
+	// A plain directory (no .git) is found by the handle its own terminal
+	// recorded, never by path (cli#1989). Worktree rows are untouched.
+	plainDir := map[string]string{}
+	var plains []string
+	for _, w := range r.Worktrees {
+		if isPlainDir(w) {
+			plains = append(plains, w)
+		}
+	}
+	if len(plains) > 0 {
+		c, ok := d.claims(r)
+		if !ok {
+			// No view of the other workers: neither (b) nor (c) can be
+			// judged, so nothing is typed.
+			return none, nil, "", l.hold(HoldTerminalClaimed, ""), false
+		}
+		for _, dir := range plains {
+			// Every plain directory's binding names this worker, not only
+			// the first one a shared handle resolves through.
+			if d.Bound(dir) != r.WorkerID {
+				return none, nil, "", l.hold(HoldBindingMismatch, ""), false
+			}
+			t, reason, handle, ok := d.plainTerminal(terms, dir, r, c)
+			if !ok {
+				return none, nil, "", l.hold(reason, handle), false
+			}
+			dup := false
+			for _, e := range inTree {
+				dup = dup || e.Handle == t.Handle
+			}
+			if !dup {
+				inTree = append(inTree, t)
+				plainDir[t.Handle] = dir
+			}
 		}
 	}
 	if len(inTree) == 0 {
@@ -457,7 +628,8 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 	}
 	var agents []agentTerm
 	for _, t := range inTree {
-		sc := d.Orca.ReadScreen(ctx, t.Handle)
+		sc, cached := d.screenOf(ctx, t, ev.cacheOK)
+		ev.usedCache = ev.usedCache || cached
 		fam := orcaterm.ScreenAgentFamily(sc)
 		if fam == "" && t.Identity() == "" {
 			continue // a shell: never a recipient
@@ -474,7 +646,11 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) 
 	if !a.t.Connected || !a.t.Writable {
 		return none, nil, "", l.hold(HoldScreenUnknown, a.t.Handle), false
 	}
-	if d.Bound(a.t.WorktreePath) != r.WorkerID {
+	boundAt := a.t.WorktreePath
+	if dir, ok := plainDir[a.t.Handle]; ok {
+		boundAt = dir
+	}
+	if d.Bound(boundAt) != r.WorkerID {
 		return none, nil, "", l.hold(HoldBindingMismatch, a.t.Handle), false
 	}
 	// The interface: the screen's own family, else Orca's identity (a dialog
@@ -521,17 +697,73 @@ func canonical(p string) string {
 // start` writes into the worktree's git directory.
 const bindingFileName = "hadron-team-session.json"
 
-// BoundWorker is the worker id a worktree's session binding names, or "".
+// BoundWorker is the worker id a worktree's session binding names, "" when
+// it has none (the file does not exist), or unusableBinding when it has one
+// that cannot be trusted.
 func BoundWorker(worktree string) string {
+	worker, _ := boundIDs(worktree)
+	return worker
+}
+
+// Binding is what a worktree's session binding names (hadron-cli#2057).
+type Binding struct {
+	// WorkerID is "" when the worktree has no binding file.
+	WorkerID string
+	// SessionID is "" when there is no binding or it names no session.
+	SessionID string
+	// Unusable is a binding file that exists but cannot be trusted
+	// (unreadable, not JSON, naming no worker): never the same as none.
+	Unusable bool
+}
+
+// WorktreeBinding reads the worker and session a worktree's session binding
+// names, by the same rules as BoundWorker.
+func WorktreeBinding(worktree string) Binding {
+	worker, session := boundIDs(worktree)
+	if worker == unusableBinding {
+		return Binding{Unusable: true}
+	}
+	return Binding{WorkerID: worker, SessionID: session}
+}
+
+func boundIDs(worktree string) (worker, session string) {
+	dir, state := bindingDir(worktree)
+	switch state {
+	case bindingDirPlain:
+		return plainBoundIDs(worktree)
+	case bindingDirNone:
+		return "", ""
+	case bindingDirUnusable:
+		return unusableBinding, ""
+	}
+	return readBindingIDs(filepath.Join(dir, bindingFileName))
+}
+
+// bindingDirState says what bindingDir found.
+type bindingDirState int
+
+const (
+	bindingDirGit      bindingDirState = iota // dir is the worktree's git directory
+	bindingDirPlain                           // a plain directory: its cache holds the binding
+	bindingDirNone                            // neither: no binding location
+	bindingDirUnusable                        // a .git pointer that cannot be read
+)
+
+// bindingDir is where a worktree's session binding file lives: its git
+// directory, resolved through a worktree's .git pointer file.
+func bindingDir(worktree string) (string, bindingDirState) {
 	gitDir := filepath.Join(worktree, ".git")
 	info, err := os.Stat(gitDir)
 	if err != nil {
-		return ""
+		if isPlainDir(worktree) {
+			return "", bindingDirPlain
+		}
+		return "", bindingDirNone
 	}
 	if !info.IsDir() {
 		b, err := os.ReadFile(gitDir)
 		if err != nil {
-			return ""
+			return "", bindingDirUnusable
 		}
 		pointer := trimGitdir(string(b))
 		if filepath.IsAbs(pointer) {
@@ -540,5 +772,5 @@ func BoundWorker(worktree string) string {
 			gitDir = filepath.Join(worktree, pointer)
 		}
 	}
-	return readBinding(filepath.Join(gitDir, bindingFileName))
+	return gitDir, bindingDirGit
 }

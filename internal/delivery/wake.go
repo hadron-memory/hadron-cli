@@ -18,6 +18,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // Own prefixes of a typed wake line. With Prefix they are what a deliverer
@@ -82,6 +84,10 @@ type TaskReason struct {
 	// comment-6259060238: taskId null) has neither, and none is invented.
 	ID    string
 	Title string
+	// Handle is the task's AT handle (DueTaskReason.handle, cor:agt:050:01),
+	// printed first on the TASK line ahead of the short id. Empty falls back
+	// to the full id and is never invented.
+	Handle string
 	// AlarmType is a task-less alarm's closed type code from the server
 	// (e.g. delivery.stuck), shown as given.
 	AlarmType string
@@ -312,11 +318,22 @@ func stopParts(reasons []WakeReason) []string {
 	return out
 }
 
+// shortIDRunes is how much of the hex id follows the handle on a TASK line.
+const shortIDRunes = 12
+
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
 // just that it has no task: a title without a task is never shown as one.
 func renderTask(t *TaskReason) string {
 	if t.ID != "" {
-		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), oneLine(t.ID))
+		ref := oneLine(t.ID)
+		if h := oneLine(t.Handle); h != "" {
+			short := []rune(ref)
+			if len(short) > shortIDRunes {
+				short = short[:shortIDRunes]
+			}
+			ref = h + ", " + string(short)
+		}
+		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), ref)
 	}
 	if at := oneLine(t.AlarmType); at != "" {
 		return fmt.Sprintf("%s %s: %s (no task)", TaskPrefix, oneLine(t.Event), at)
@@ -324,10 +341,11 @@ func renderTask(t *TaskReason) string {
 	return fmt.Sprintf("%s %s (no task)", TaskPrefix, oneLine(t.Event))
 }
 
-// oneLine folds control characters (a newline would submit early) and runs
-// of space into one space.
+// oneLine folds control characters (a newline would submit early), the format
+// characters a terminal would render as reordered or hidden text (output.Neutralised,
+// the same rule `team wakes due` applies, #2154) and runs of space into one space.
 func oneLine(s string) string {
-	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) }), " ")
+	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || output.Neutralised(c) }), " ")
 }
 
 // WakeServer is acknowledgeWakes, for one proof C1 itself read. An error
@@ -387,6 +405,10 @@ func (d *Deliverer) ackable(w Wake, recs map[string]WakeRecord) bool {
 
 func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, stillOwner func() bool) Outcome {
 	if w.WorkerID != r.WorkerID {
+		// Deliberately not flagged (flagDroppedHalts), unlike malformed-wake
+		// and records-unreadable below: Poller.recipient resolves the
+		// recipient from the wake's own worker id (internal/hostpoller/
+		// delivery.go), so in production wiring this branch is unreachable.
 		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "foreign-worker"})
 	}
 	if err := CheckWake(w); err != nil {

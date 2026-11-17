@@ -159,21 +159,23 @@ func TestSigningOnAServerWithoutSigningSaysSo(t *testing.T) {
 	}
 }
 
+// The records are v3: a v1 record is never locally valid under --check (R80,
+// cli#879), so the server-side exit rows are pinned on v3 records.
 func TestNodeSignaturesCheckExitsOnlyOnACleanCurrentState(t *testing.T) {
-	earlier := strings.Replace(signatureJSON, `"CURRENT"`, `"EARLIER"`, 1)
+	earlier := strings.Replace(l879Sig("hadron-signature-v3", 4), `"CURRENT"`, `"EARLIER"`, 1)
 	cases := []struct {
 		name string
 		resp string
 		want int
 	}{
-		{"current", signatureStatusJSON("CURRENT", 0, signatureJSON), exitcode.OK},
-		{"earlier", signatureStatusJSON("EARLIER", 0, earlier), exitcode.Conflict},
-		{"current-with-integrity-problem", signatureStatusJSON("CURRENT", 1, signatureJSON), exitcode.Conflict},
+		{"current", l879Status("CURRENT", 0, l879Sig("hadron-signature-v3", 4)), exitcode.OK},
+		{"earlier", l879Status("EARLIER", 0, earlier), exitcode.Conflict},
+		{"current-with-integrity-problem", l879Status("CURRENT", 1, l879Sig("hadron-signature-v3", 4)), exitcode.Conflict},
 		{"none", signatureStatusJSON("null", 0, ""), exitcode.Conflict},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeSignatureStatus": tc.resp})
+			gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeSignatureStatus": tc.resp, "NodeRawText": l879RawText(4, l879Title, l879Content), "GetSigningRequest": l879Request1(l879GoodHash()), "GetNodeRaw": l879RawNode()})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"node", "signatures", nodeURN, "--check", "--json", "--server", gql.URL})
@@ -187,7 +189,7 @@ func TestNodeSignaturesCheckExitsOnlyOnACleanCurrentState(t *testing.T) {
 		})
 	}
 	// Without --check every state exits 0.
-	gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeSignatureStatus": signatureStatusJSON("EARLIER", 0, earlier)})
+	gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeSignatureStatus": signatureStatusJSON("EARLIER", 0, earlier), "NodeRawText": l879RawText(4, l879Title, l879Content), "GetSigningRequest": l879Request1(l879GoodHash()), "GetNodeRaw": l879RawNode()})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "signatures", nodeURN, "--server", gql.URL})

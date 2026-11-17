@@ -89,8 +89,11 @@ person. The App: create and list use --app, else the configured App context,
 else the worktree binding; commands that take a task id or handle work out the
 App from the task. A task is named by its id or its handle (AT0.7: AT0 holds
 tasks outside any project, AT1, AT2, … are projects, AT1.2 is a task under AT1);
-when a bare handle matches tasks in more than one of your Apps, qualify it as
-hrn:agenttask:acme.com:eng-team:AT1.2.
+if you belong to more than one App, a bare handle is refused: pass --app <app>,
+or qualify it as hrn:agenttask:acme.com:eng-team:AT1.2. --app qualifies bare
+handles only (in every task argument and in --parent/--blocked-by); it must be
+the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
+handle in that same App, is sent unchanged; one naming another App is refused.
 
 A party is named worker:<id, URN or name> or user:<id or handle> — the kind
 prefix is required: a worker's name and a person's handle are both bare
@@ -107,6 +110,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTaskFindingDispositions(f))
 	cmd.AddCommand(newCmdTaskResultFindings(f))
 	cmd.AddCommand(newCmdTaskDisposeFinding(f))
+	cmd.AddCommand(newCmdTaskLinkDefect(f))
 	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
 		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
 	}
@@ -119,6 +123,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTeamTaskFinish(f))
 	cmd.AddCommand(newCmdTeamTaskHandBack(f))
 	cmd.AddCommand(newCmdTeamTaskCancel(f))
+	cmd.AddCommand(newCmdTeamTaskRelease(f))
 	cmd.AddCommand(newCmdTeamTaskPark(f))
 	cmd.AddCommand(newCmdTeamTaskReady(f))
 	cmd.AddCommand(newCmdTeamTaskGet(f))
@@ -151,11 +156,15 @@ func parseTaskPartyFlag(flag, value string) (*gen.AgentTaskPartyInput, error) {
 // The TRIMMED form is both validated and returned (cycle 2, Xylon P3-1): a
 // pasted id with surrounding whitespace used to be sent verbatim and fail as
 // NOT_FOUND for a reason the caller never typed.
-func taskRefArg(args []string) (string, error) {
+//
+// With an explicit --app, a bare handle is qualified in that App
+// (qualifyTaskRef, cli#1831); taking the Factory makes every positional site
+// go through it.
+func taskRefArg(f *cmdutil.Factory, args []string) (string, error) {
 	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
 	}
-	return strings.TrimSpace(args[0]), nil
+	return qualifyTaskRef(f, strings.TrimSpace(args[0]))
 }
 
 // taskOutcomeRe is the one-word outcome contract (cor:agt:050:01): the
@@ -193,6 +202,7 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
+	var runFlags taskRunSettingsFlags
 	var description, owner, assignee, parent, source, externalID, startBy, finishBy, status string
 	var tags, blockedBy, refs []string
 	var priority int
@@ -219,6 +229,19 @@ with the same value is refused TASK_EXTERNAL_ID_TAKEN (exit 5), which names no
 task; find the holder with ` + "`task list --external-id <id>`" + `. The value is sent as
 given; only the server judges its form.
 
+--family, --model or --tier (not both), and --effort set the task's run
+settings (cor:agt:050:01): what to launch, not whom to match (that is
+--family-in and --min-tier). They apply only when the assigned worker's Agent is
+short-lived; a platform start of a long-lived worker uses the worker's own
+record and ignores them, so --family codex does not relaunch a long-lived Claude
+worker. They are set at creation and never edited, and a clone copies none.
+Every task command now selects runSettings and appliedRunSettings, so this needs
+a server with hadron-server#4295 (S14) or later, as the matching metadata above
+needs its provider. The CLI refuses a model with a tier and an effort of
+NOT_APPLICABLE (exit 2);
+anything depending on the task's requirements is the server's, shown as
+TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
+
 --ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
 task points at: kind is issue, pull-request, node, task or url, and the label
 starts at the first |. The CLI checks only that shape; the server owns the form
@@ -233,8 +256,11 @@ explicit assignee, or a task that is blocked. False or omission keeps ordinary c
 Success prints the selected worker. If no worker matches, the task is STILL
 CREATED unassigned: stdout includes its id plus matchFailure reason and time;
 exit 5 follows only after the receipt is written (writer failure takes
-precedence). Do not retry creation: use that task id. Automatic matchers skip
-a marked task; assignment, cancellation, or park then ready clears its mark.
+precedence). Below that line it lists every skipped candidate with every
+reason, in the server's order (matchSkipped; --json carries it as an array,
+[] when nothing was skipped). Do not retry creation: use that task id.
+Automatic matchers skip a marked task; assignment, cancellation, or park then
+ready clears its mark.
 Ready resumes regular matching, not a second match-now attempt. A server refusal
 (BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
 outcome unknown; inspect task list before retrying.
@@ -434,6 +460,14 @@ warnings list.`,
 				if blockedBy[i] == "" {
 					return exitcode.Newf(exitcode.Usage, "--blocked-by must name a task")
 				}
+				if blockedBy[i], err = qualifyTaskRef(f, blockedBy[i]); err != nil {
+					return err
+				}
+			}
+			if parent != "" {
+				if parent, err = qualifyTaskRef(f, parent); err != nil {
+					return err
+				}
 			}
 			// A supplied blank is a usage slip, refused here. Every other
 			// check on the value (length, characters, the duplicate) is the
@@ -455,6 +489,10 @@ warnings list.`,
 				FinishBy:     optStr(finishBy),
 				Status:       createStatus,
 				Tags:         tags,
+			}
+			// cli#2206: the run settings, create-only; nil without a flag.
+			if input.RunSettings, err = runFlags.build(cmd); err != nil {
+				return err
 			}
 			// False and omission keep the legacy input unchanged.
 			if match {
@@ -554,6 +592,9 @@ warnings list.`,
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
+			if match {
+				task.MatchSkipped = matchSkippedDTO(resp.CreateAgentTask.MatchSkipped)
+			}
 			err = writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err
@@ -570,6 +611,9 @@ warnings list.`,
 						}
 					} else if task.MatchFailure != nil {
 						if err := writeTaskMatchFailure(w, task.MatchFailure); err != nil {
+							return err
+						}
+						if err := writeTaskMatchSkipped(w, *task.MatchSkipped); err != nil {
 							return err
 						}
 					}
@@ -604,6 +648,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by; server validates it against now and start-by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
+	runFlags.register(cmd)
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; unique per App, set once (never edited)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
@@ -641,7 +686,7 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -752,7 +797,7 @@ func newSimpleTaskMutation(
 		Example: example,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -969,7 +1014,7 @@ with its result and a warnings list.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -1074,7 +1119,7 @@ shows the same line later; handBack is null for a task never handed back.`,
   hadron team task hand-back AT0.8 --code duplicate`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := taskRefArg(args)
+			ref, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}

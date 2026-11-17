@@ -1,0 +1,55 @@
+# cli#1837: the server's token-burn projection (hadron-server#3820), one account.
+# A SEPARATE document from usage_reads.graphql on purpose: a server that predates
+# the field fails validation of this static document only, so `team usage show`
+# is never affected, and the failure maps to "server too old".
+# Optional variables are omitted when unset (the server reads omitted as "none").
+# @genqlient(for: "AccountUsageWhatIfInput.addWorkers", omitempty: true)
+# @genqlient(for: "AccountUsageMoveWorkerInput.toHost", omitempty: true)
+# @genqlient(for: "AccountUsageMoveWorkerInput.toFamily", omitempty: true)
+query AccountUsageProjection(
+  $appRef: ID!
+  $account: String!
+  # @genqlient(omitempty: true)
+  $host: String
+  # @genqlient(omitempty: true)
+  $family: String
+  # @genqlient(omitempty: true)
+  $whatIf: AccountUsageWhatIfInput
+) {
+  accountUsageProjection(appRef: $appRef, account: $account, host: $host, family: $family, whatIf: $whatIf) {
+    account
+    asOf
+    family
+    host
+    newestSnapshotAt
+    workers
+    workersConfigured
+    windows { ...ProjectionWindow }
+    whatIf {
+      adjusted { ...ProjectionWindow }
+      target {
+        account
+        baseline { ...ProjectionWindow }
+        adjusted { ...ProjectionWindow }
+      }
+    }
+  }
+}
+
+fragment ProjectionWindow on AccountUsageWindowProjection {
+  window
+  lengthMinutes
+  status
+  reason
+  shape
+  confidence
+  usedPct
+  lowPctAtReset
+  highPctAtReset
+  ceilingPct
+  resetsAt
+  runsOutAt
+  observedAt
+  burn { lowPctPerHour highPctPerHour }
+  perWorkerBurn { lowPctPerHour highPctPerHour }
+}

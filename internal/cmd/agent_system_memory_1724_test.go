@@ -33,6 +33,10 @@ func TestAgentSystemMemory1724(t *testing.T) {
 				case "GetAgent":
 					fixture := strings.Replace(agentJSON, `"systemMemoryId":null`, `"systemMemoryId":`+memoryID, 1)
 					fmt.Fprint(w, `{"data":{"agent":`+fixture+`}}`)
+				case "GetAgentLifecycle":
+					fmt.Fprint(w, missingFieldJSON("lifecycle"))
+				case "GetAgentContextCap":
+					fmt.Fprint(w, missingFieldJSON("contextCap"))
 				case "AgentSystemMemory":
 					if req.Variables["ref"] != "sys-id" || len(req.Variables) != 1 {
 						t.Errorf("lookup variables: %v", req.Variables)
@@ -68,7 +72,7 @@ func TestAgentSystemMemory1724(t *testing.T) {
 		}
 		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
 			baseline, stderr, calls := run(t, `null`, "", 200)
-			if stderr != "" || len(calls) != 1 {
+			if stderr != "" || len(calls) != 3 {
 				t.Fatalf("unset: %q %v", stderr, calls)
 			}
 			if strings.Contains(baseline, "systemMemoryUrn") {
@@ -76,7 +80,7 @@ func TestAgentSystemMemory1724(t *testing.T) {
 			}
 			// An explicit empty id also needs no speculative lookup.
 			empty, emptyErr, emptyCalls := run(t, `""`, "", 200)
-			if emptyErr != "" || len(emptyCalls) != 1 || strings.Contains(empty, "systemMemoryUrn") {
+			if emptyErr != "" || len(emptyCalls) != 3 || strings.Contains(empty, "systemMemoryUrn") {
 				t.Fatalf("empty id: %q %q %v", empty, emptyErr, emptyCalls)
 			}
 			// A missing/refused/failed lookup must retain exactly the old id-only output.
@@ -100,7 +104,7 @@ func TestAgentSystemMemory1724(t *testing.T) {
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					got, stderr, calls := run(t, `"sys-id"`, tc.reply, tc.status)
-					if stderr != "" || len(calls) != 2 || calls[0] != "GetAgent" || calls[1] != "AgentSystemMemory" {
+					if stderr != "" || len(calls) != 4 || calls[0] != "GetAgent" || calls[1] != "GetAgentLifecycle" || calls[2] != "GetAgentContextCap" || calls[3] != "AgentSystemMemory" {
 						t.Fatalf("stderr/calls: %q %v", stderr, calls)
 					}
 					if tc.name != "readable" {

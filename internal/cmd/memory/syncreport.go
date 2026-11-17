@@ -11,12 +11,14 @@ import (
 )
 
 // Memory.lastSyncReport (hadron-cli#1014; provider hadron-server#2366,
-// src/integrations/github/syncReport.ts) is version-1 JSON text the server
-// writes after every sync attempt, or null after a clean completed one. The
-// CLI renders it and never repairs it: anything it cannot read is "report
-// unavailable", never a clean or a failed claim of its own.
+// src/integrations/github/syncReport.ts) is JSON text — version 1, or version 2
+// since hadron-server#3612's reviewed vocabulary — the server writes after
+// every sync attempt, or null after a clean completed one. The CLI renders it
+// and never repairs it: anything it cannot read is "report unavailable",
+// never a clean or a failed claim of its own.
 
-// syncReportDTO is the parsed v1 report in `memory get --json`.
+// syncReportDTO is the parsed report in `memory get --json`; Version carries
+// the wire version.
 type syncReportDTO struct {
 	Version    int                  `json:"version"`
 	Outcome    string               `json:"outcome"`
@@ -41,11 +43,11 @@ const (
 )
 
 // parseSyncReport reads the stored string. A nil input is "none"; anything
-// that is not a well-formed v1 report (bad JSON, another version, a non-object,
-// an outcome or field outside v1, an omitted or null entries array) is
-// "unavailable" with no report. Unknown
-// entry kinds and codes are NOT a reason to refuse: the server may add
-// vocabulary within v1, and those render as "other".
+// that is not a well-formed version 1 or 2 report (bad JSON, another version,
+// a non-object, an outcome or field outside the version, an omitted or null
+// entries array) is "unavailable" with no report. Entry kinds, per-kind codes
+// and report codes are closed sets per version (v2 adds only the attestation
+// kind): unknown vocabulary makes the entire report unavailable.
 func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if raw == nil {
 		return nil, syncReportNone
@@ -66,8 +68,12 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if len(trimmed) == 0 || trimmed[0] != '{' || json.Unmarshal(trimmed, &wire) != nil {
 		return nil, syncReportUnavailable
 	}
-	if wire.Version == nil || *wire.Version != 1 || wire.Outcome == nil || wire.RecordedAt == nil || wire.Entries == nil {
+	if wire.Version == nil || *wire.Version < 1 || *wire.Version > 2 || wire.Outcome == nil || wire.RecordedAt == nil || wire.Entries == nil {
 		return nil, syncReportUnavailable
+	}
+	entryCodes := syncEntryCodesV1
+	if *wire.Version == 2 {
+		entryCodes = syncEntryCodesV2
 	}
 	switch *wire.Outcome {
 	case "partial", "failed", "unknown":
@@ -78,15 +84,18 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if _, err := time.Parse(time.RFC3339Nano, *wire.RecordedAt); err != nil {
 		return nil, syncReportUnavailable
 	}
+	if wire.Code != nil && !syncReportCodes[*wire.Code] {
+		return nil, syncReportUnavailable
+	}
 	rep := &syncReportDTO{
-		Version:    1,
+		Version:    *wire.Version,
 		Outcome:    *wire.Outcome,
 		RecordedAt: *wire.RecordedAt,
 		Entries:    []syncReportEntryDTO{},
 		Code:       wire.Code,
 	}
 	for _, e := range *wire.Entries {
-		if e.Kind == nil || e.Loc == nil || e.Code == nil {
+		if e.Kind == nil || e.Loc == nil || e.Code == nil || !entryCodes[*e.Kind][*e.Code] {
 			return nil, syncReportUnavailable
 		}
 		rep.Entries = append(rep.Entries, syncReportEntryDTO{Kind: *e.Kind, Loc: *e.Loc, FromLoc: e.FromLoc, Code: *e.Code})
@@ -94,8 +103,10 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	return rep, syncReportRecorded
 }
 
-// Human labels for the v1 vocabulary (syncReport.ts). Anything else is shown
-// quoted under "other".
+// Human labels and closed per-kind vocabulary (cor:int:010:01). Version 1
+// and version 2 share the six v1 kinds; version 2 adds the reviewed
+// attestation kind (hadron-server#3612). The label map is shared: a v1 report
+// can never carry the attestation kind, because its table refuses it.
 var (
 	syncKindLabels = map[string]string{
 		"protected":            "protected",
@@ -104,19 +115,56 @@ var (
 		"invalid_include":      "invalid include",
 		"deferred":             "deferred",
 		"held_move":            "move held",
+		"attestation_refused":  "attestation refused",
 	}
-	syncEntryCodes = map[string]bool{
-		"PROTECTED_LOC": true, "PROTECTED_COMMENT": true, "PROTECTED_BOOT_PROMPT": true, "PROTECTED_DECISION": true,
-		"OBJECT_TYPE_REJECTED": true, "ROLE_NOT_DECLARED": true,
-		"INVALID_INCLUDE": true, "INCLUDE_CYCLE": true, "INCLUDE_TARGET_UNAVAILABLE": true,
-		"ROW_CHANGED": true, "MOVE_HELD": true, "DESTINATION_PROTECTED": true,
+	syncEntryCodesV1 = map[string]map[string]bool{
+		"protected":            {"PROTECTED_LOC": true, "PROTECTED_COMMENT": true, "PROTECTED_BOOT_PROMPT": true, "PROTECTED_DECISION": true},
+		"object_type_rejected": {"OBJECT_TYPE_REJECTED": true},
+		"undeclared_role":      {"ROLE_NOT_DECLARED": true},
+		"invalid_include":      {"INVALID_INCLUDE": true, "INCLUDE_CYCLE": true, "INCLUDE_TARGET_UNAVAILABLE": true},
+		"deferred":             {"ROW_CHANGED": true},
+		"held_move":            {"MOVE_HELD": true, "DESTINATION_PROTECTED": true},
 	}
+	syncEntryCodesV2 = mergeEntryCodes(syncEntryCodesV1, map[string]map[string]bool{
+		"attestation_refused": {
+			"AUTHORING_ATTESTATION_MISSING":    true,
+			"AUTHORING_ATTESTATION_WRONG_TASK": true,
+			"AUTHORING_ATTESTATION_STALE":      true,
+			"AUTHOR_TASK_BROKEN":               true,
+		},
+	})
 	syncReportCodes = map[string]bool{"SYNC_FAILED": true, "BAD_USER_INPUT": true}
 )
 
+// mergeEntryCodes returns a fresh table: base plus add, sharing the inner code
+// sets (they are read-only after construction).
+func mergeEntryCodes(base, add map[string]map[string]bool) map[string]map[string]bool {
+	merged := make(map[string]map[string]bool, len(base)+len(add))
+	for kind, codes := range base {
+		merged[kind] = codes
+	}
+	for kind, codes := range add {
+		merged[kind] = codes
+	}
+	return merged
+}
+
+// syncReportSaysFailed preserves pull's failed-attempt exit independently of
+// whether the shared display parser can understand its vocabulary. It reads
+// only the outcome; it does not certify or expose the report's other fields.
+func syncReportSaysFailed(raw *string) bool {
+	if raw == nil {
+		return false
+	}
+	var header struct {
+		Outcome string `json:"outcome"`
+	}
+	return json.Unmarshal([]byte(*raw), &header) == nil && header.Outcome == "failed"
+}
+
 const (
 	syncEntryCap    = 50  // entries printed before "… and N more"
-	syncStringCap   = 200 // runes of a loc / unknown kind or code
+	syncStringCap   = 200 // runes of a loc
 	syncErrorRunCap = 500 // runes of syncError
 )
 
@@ -129,20 +177,6 @@ func quoteCapped(s string, max int) string {
 		return strconv.Quote(s)
 	}
 	return strconv.Quote(string(r[:max])) + "…"
-}
-
-func vocab(s string, known bool) string {
-	if known {
-		return s
-	}
-	return "other " + quoteCapped(s, syncStringCap)
-}
-
-func kindLabel(kind string) string {
-	if l, ok := syncKindLabels[kind]; ok {
-		return l
-	}
-	return vocab(kind, false)
 }
 
 // urlUserinfo matches the credentials part of a URL (`scheme://user:pass@`),
@@ -182,7 +216,7 @@ func writeSyncBlock(w io.Writer, dto memoryDetailDTO) {
 			if e.FromLoc != nil {
 				from = " from " + quoteCapped(*e.FromLoc, syncStringCap)
 			}
-			fmt.Fprintf(w, "    - %s: %s%s (%s)\n", kindLabel(e.Kind), quoteCapped(e.Loc, syncStringCap), from, vocab(e.Code, syncEntryCodes[e.Code]))
+			fmt.Fprintf(w, "    - %s: %s%s (%s)\n", syncKindLabels[e.Kind], quoteCapped(e.Loc, syncStringCap), from, e.Code)
 		}
 	}
 	if dto.SyncError != nil {
@@ -201,7 +235,7 @@ func syncSummary(dto memoryDetailDTO) string {
 			return fmt.Sprintf("last sync committed with %d file(s) skipped or held", len(rep.Entries))
 		case "failed":
 			if rep.Code != nil {
-				return "last sync failed (" + vocab(*rep.Code, syncReportCodes[*rep.Code]) + ")"
+				return "last sync failed (" + *rep.Code + ")"
 			}
 			return "last sync failed"
 		default: // "unknown"

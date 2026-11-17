@@ -43,6 +43,17 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		captured[body.OperationName] = body.Variables
 		capturedMu.Unlock()
 		resp, ok := responses[body.OperationName]
+		if body.OperationName == "SkillPlan" || body.OperationName == "SkillLintPlan" {
+			var v struct {
+				Input struct {
+					Host string `json:"host"`
+				} `json:"input"`
+			}
+			_ = json.Unmarshal(body.Variables, &v)
+			if hostResp, exists := responses[body.OperationName+":"+v.Input.Host]; exists {
+				resp, ok = hostResp, true
+			}
+		}
 		if !ok && body.OperationName == "NodeBatchContent" {
 			resp, ok = responses["NodeBatch"]
 		}
@@ -2589,13 +2600,15 @@ func TestAppInstallRequiresOrgOrOwnerMe(t *testing.T) {
 	}
 }
 
-func TestAppUninstall(t *testing.T) {
+// cli#1917: deleting is app delete now (app uninstall calls uninstallApp,
+// pinned in app_lifecycle_1917_test.go).
+func TestAppDelete(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"DeleteApp": `{"data":{"deleteApp":true}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "uninstall", "capp100000000000000000000", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"app", "delete", "capp100000000000000000000", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2622,7 +2635,7 @@ const aiConfigsJSON = `{"data":{"resolveAiServiceConfigs":[
 
 func TestAiConfigLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2643,7 +2656,7 @@ func TestAiConfigLs(t *testing.T) {
 
 	// --app and --agent map to the appRef/agentRef variables (ID or URN, verbatim).
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
@@ -2651,7 +2664,7 @@ func TestAiConfigLs(t *testing.T) {
 
 func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2681,7 +2694,7 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	}
 
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("appRef should map from --app, got %v", vars["appRef"])
 	}

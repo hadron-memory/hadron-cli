@@ -26,6 +26,23 @@ type workerTerminalDTO struct {
 	LastTurnAt *string          `json:"lastTurnAt"`
 	CheckedAt  string           `json:"checkedAt"`
 	ReportedAt string           `json:"reportedAt"`
+	// Stale is true when checkedAt is older than terminalStaleAfter at the
+	// moment the CLI read it (cli#1856): the report is a stopped sweep's last
+	// word, not the worker's state now. Computed here, not stored.
+	Stale bool `json:"stale"`
+}
+
+// terminalStaleAfter is how old checkedAt may be before the cell stops reading
+// as the worker's state. A host sweep reports every few minutes; 30 minutes
+// is several missed sweeps.
+const terminalStaleAfter = 30 * time.Minute
+
+// terminalStale reports whether a report checked at checkedAt is stale at now.
+// An unparseable time is shown as age "?" and is not claimed stale; a time
+// ahead of the local clock is fresh.
+func terminalStale(checkedAt string, now time.Time) bool {
+	at, err := time.Parse(time.RFC3339, checkedAt)
+	return err == nil && now.Sub(at) > terminalStaleAfter
 }
 
 type terminalHostDTO struct {
@@ -40,6 +57,7 @@ func workerTerminalFromFields(t gen.WorkerTerminalFields) *workerTerminalDTO {
 		LastTurnAt: t.LastTurnAt,
 		CheckedAt:  t.CheckedAt,
 		ReportedAt: t.ReportedAt,
+		Stale:      terminalStale(t.CheckedAt, time.Now()),
 	}
 	if t.Host != nil {
 		dto.Host = &terminalHostDTO{ID: t.Host.Id, Label: t.Host.Label}
@@ -66,7 +84,7 @@ var (
 	}
 )
 
-// terminalLabel is the TERMINAL cell: `idle (3m)`, `dark (no_turn_for_due_ticker,
+// terminalLabel is the TERMINAL cell: `stale (8h)` past terminalStaleAfter, else `idle (3m)`, `dark (no_turn_for_due_ticker,
 // 12m)`, or "—" when null. The age is on EVERY reported row so a stale report
 // from a stopped sweep is visible; it is computed from checkedAt (when the host
 // classified the terminal, not when the server stored it), for display only.
@@ -80,6 +98,11 @@ func terminalLabel(t *workerTerminalDTO, now time.Time) string {
 		status = terminalUnknown
 	}
 	age := terminalAge(t.CheckedAt, now)
+	// A stale report is not the worker's state: it must not read as `idle (8h)`
+	// ("idle for 8 hours"). The age stays; the status and reason are withheld.
+	if terminalStale(t.CheckedAt, now) {
+		return "stale (" + age + ")"
+	}
 	if t.Reason == nil {
 		return status + " (" + age + ")"
 	}

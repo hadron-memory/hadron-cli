@@ -243,3 +243,23 @@ func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
 	}
 	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: c.Workers[ref].tui(), Worktrees: trees}
 }
+
+// Registered is every configured worker's registered directories as
+// resolved absolute paths, keyed by ref (the name delivery.Recipient
+// carries): how the deliverer's plain-directory claim checks see other
+// workers (cli#1989).
+func (c *Config) Registered(s *State) delivery.Registered {
+	out := delivery.Registered{}
+	for _, ref := range c.WorkerRefs() {
+		dirs := []string{}
+		for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+			dirs = append(dirs, c.WorktreePath(t))
+		}
+		out[ref] = dirs
+	}
+	return out
+}
+
+// Registered is Config.Registered over this poller's configuration and
+// state: the deliverer's view of every registered worker's directories.
+func (p *Poller) Registered() delivery.Registered { return p.cfg.Registered(p.state) }

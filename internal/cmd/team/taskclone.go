@@ -118,6 +118,13 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 			if flags.Changed("parent") && strings.TrimSpace(parent) == "" {
 				return exitcode.Newf(exitcode.Usage, "--parent needs a task id or handle (--no-parent clones it with none)")
 			}
+			if flags.Changed("parent") {
+				q, err := qualifyTaskRef(f, strings.TrimSpace(parent))
+				if err != nil {
+					return err
+				}
+				parent = q
+			}
 			reqNamed := flags.Changed("require-role") || flags.Changed("family-in") || flags.Changed("family-not-in") || flags.Changed("exclude-worker") || flags.Changed("min-tier") || flags.Changed("model-group") || flags.Changed("model-group-not")
 			for _, c := range []struct {
 				set, clear bool
@@ -141,7 +148,7 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 			if familyIn != "" && familyNotIn != "" {
 				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
 			}
-			ref, err := taskRefArg(args)
+			ref, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}

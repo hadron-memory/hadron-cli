@@ -1,0 +1,18 @@
+# C5: canonical App identity and desired state from one host-key read.
+# myApp identifies the authenticated App key; app(ref) has a user/org gate.
+# The desired-state read independently checks the configured App and host.
+query HostRelaunchSnapshot($appRef: String!, $hostId: String!) {
+  myApp { id }
+  hostDesiredState(appRef: $appRef, hostId: $hostId) {
+    hostId
+    sweepMode
+    workers {
+      workerId
+      family
+      desired
+      reason
+      openSessionId
+      worktrees
+    }
+  }
+}

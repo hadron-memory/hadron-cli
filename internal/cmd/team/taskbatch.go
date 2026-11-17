@@ -100,6 +100,20 @@ func parseTaskBatch(data []byte) ([]*gqltypes.CreateAgentTasksItemInput, error) 
 		if shape.Task == nil {
 			return nil, exitcode.Newf(exitcode.Usage, "parsing --batch-file: task %d of %d has no \"task\" object", i+1, len(raws))
 		}
+		// cli#2206: the run settings a task carries get the same pre-checks as
+		// the flags (a model with a tier, NOT_APPLICABLE, a bad token); the
+		// object itself is sent exactly as the file has it.
+		if rs := shape.Task.RunSettings; rs != nil {
+			var effort *string
+			if rs.Effort != nil {
+				e := string(*rs.Effort)
+				effort = &e
+			}
+			where := fmt.Sprintf("parsing --batch-file: task %d of %d runSettings.", i+1, len(raws))
+			if err := validateTaskRunSettings(where, rs.Family, rs.Model, rs.Tier, effort); err != nil {
+				return nil, err
+			}
+		}
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &fields); err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "parsing --batch-file: task %d of %d: %v", i+1, len(raws), err)

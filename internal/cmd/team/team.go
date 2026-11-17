@@ -110,14 +110,17 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	cmd.AddCommand(newCmdTeamAvailability(f))
 	cmd.AddCommand(newCmdTeamStallSchedule(f))
 	cmd.AddCommand(newCmdTeamDeliverySettings(f))
+	cmd.AddCommand(newCmdTeamTicker(f))
 	cmd.AddCommand(newCmdTeamStop(f))
 	cmd.AddCommand(newCmdTeamPause(f, true), newCmdTeamPause(f, false))
 	cmd.AddCommand(newCmdTeamWakes(f))
 	cmd.AddCommand(newCmdTeamWakeSettings(f))
-	cmd.AddCommand(newCmdTeamIsolation(f))
 	cmd.AddCommand(newCmdTeamHost(f))
+	cmd.AddCommand(newCmdTeamApp(f))
+	cmd.AddCommand(newCmdTeamReviewStats(f))
 	cmd.AddCommand(newCmdTeamHealth(f))
 	cmd.AddCommand(newCmdTeamUsage(f))
+	cmd.AddCommand(newCmdTeamGrant(f))
 	cmd.AddCommand(newCmdTeamRouter(f))
 	return cmd
 }
@@ -597,6 +600,12 @@ func bindingsAppIdentity(ctx context.Context, f *cmdutil.Factory, ref, bindingAp
 	}
 	resp, err := gen.TeamAppIdentity(ctx, client, ref)
 	if err != nil {
+		// App-scoped team refusals hide existence: a permission refusal is
+		// indistinguishable from a missing App (cli#1896, V58). Credential
+		// scope refusals, mixed failures and transport errors keep their codes.
+		if api.OnlyErrorCodes(err, "FORBIDDEN") && api.OAuthScopeRefusal(err) == "" {
+			return false, nil
+		}
 		return false, api.MapError(err)
 	}
 	if resp.App == nil {

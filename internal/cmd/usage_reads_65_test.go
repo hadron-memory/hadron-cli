@@ -6,15 +6,29 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 	"strings"
+	"sync"
 	"testing"
 )
 
 func usage65Run(t *testing.T, response string, args ...string) (string, string, int, map[string]json.RawMessage) {
 	t.Helper()
+	out, stderr, code, calls, _ := usage65RunCounting(t, response, args...)
+	return out, stderr, code, calls
+}
+
+// usage65RunCounting is usage65Run plus a per-operation request count. The capture map keeps only the LAST body per
+// operation, so a duplicate request is invisible to it (cli#1819).
+func usage65RunCounting(t *testing.T, response string, args ...string) (string, string, int, map[string]json.RawMessage, map[string]int) {
+	t.Helper()
+	counts := map[string]int{}
+	var mu sync.Mutex
 	srv, calls := captureGraphQLFunc(t, func(op string) string {
-		if op != "UsageEventsPage" && op != "MemoryUsageSummary" {
+		if op != "UsageEventsPage" && op != "UsageEventsPageByAppKey" && op != "MemoryUsageSummary" {
 			t.Errorf("unexpected %s", op)
 		}
+		mu.Lock()
+		counts[op]++
+		mu.Unlock()
 		return response
 	})
 	f, out := testFactory(t)
@@ -27,7 +41,7 @@ func usage65Run(t *testing.T, response string, args ...string) (string, string, 
 	if err != nil {
 		code = renderError(f, err)
 	}
-	return out.String(), stderr.String(), code, calls
+	return out.String(), stderr.String(), code, calls, counts
 }
 
 const usage65Event = `{"id":"e1","type":"read","createdAt":"2026-10-23T00:00:00Z","memoryId":"m1","nodeLoc":"a:b:c:d","provider":"p","model":"m","keyOwnerType":null,"tokensIn":null,"tokensOut":3,"costMicroCents":null}`

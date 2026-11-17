@@ -26,7 +26,7 @@ func TestDarkAlarmHuman1208(t *testing.T) {
 	for _, ack := range []bool{false, true} {
 		r := taskResponses()
 		args := []string{"team", "events", "--alarms"}
-		r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + darkEvent1208(false) + `]}}`
+		r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + darkEvent1208(false) + `],"hasMore":false,"nextCursor":null}}}`
 		if ack {
 			args = []string{"team", "alarm", "ack", "evt2"}
 			r["AlarmAcknowledge"] = `{"data":{"acknowledgeAlarm":` + darkEvent1208(true) + `}}`
@@ -57,7 +57,7 @@ func TestDarkSettings1208(t *testing.T) {
 	for _, c := range *calls {
 		if c.Op == "TeamDeliverySettingsSet" {
 			found = true
-			input := c.Vars["input"].(map[string]any)
+			input := c.Vars
 			if input["darkAlarmWindowSeconds"] != float64(1800) {
 				t.Fatal(c.Vars)
 			}
@@ -69,12 +69,12 @@ func TestDarkSettings1208(t *testing.T) {
 }
 func TestTaskAlarmBaseline1208(t *testing.T) {
 	r := taskResponses()
-	r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`
+	r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + alarmEventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`
 	_, out, err := runTeamTask(t, r, "team", "events", "--alarms")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)\nID    AT                    TYPE               ACTOR  TASK   ACK\nevt2  2026-10-12T03:00:00Z  stall.no-progress  —      task1  open\n"; out != want {
+	if want := "app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)\nID    AT                    TYPE               ACTOR  TASK   ACK   ESCALATION ENDED\nevt2  2026-10-12T03:00:00Z  stall.no-progress  —      task1  open  \n"; out != want {
 		t.Fatalf("task event changed: %q", out)
 	}
 	_, out, err = runTeamTask(t, r, "team", "alarm", "ack", "evt2")
@@ -108,7 +108,7 @@ func TestDarkSettingsGetAndPresence1208(t *testing.T) {
 	for _, c := range *calls {
 		if c.Op == "TeamDeliverySettingsSet" {
 			found = true
-			input := c.Vars["input"].(map[string]any)
+			input := c.Vars
 			if _, ok := input["darkAlarmWindowSeconds"]; ok {
 				t.Fatalf("omitted field sent %v", input)
 			}
@@ -138,7 +138,7 @@ func TestDarkSettingsGetAndPresence1208(t *testing.T) {
 func TestDarkAlarmJSONAndReasonVocabulary1208(t *testing.T) {
 	for _, reason := range []string{"wake-unacked", "UNTRUSTED-REASON"} {
 		r := taskResponses()
-		r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + strings.Replace(darkEvent1208(false), "overdue", reason, 1) + `]}}`
+		r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + strings.Replace(darkEvent1208(false), "overdue", reason, 1) + `],"hasMore":false,"nextCursor":null}}}`
 		_, out, err := runTeamTask(t, r, "team", "events", "--alarms")
 		if err != nil {
 			t.Fatal(err)
@@ -164,7 +164,7 @@ func TestNonDarkTasklessOutputUnchanged1208(t *testing.T) {
 		raw := darkEvent1208(ack)
 		raw = strings.Replace(raw, "alarm.dark-worker", "availability.changed", 1)
 		r := taskResponses()
-		r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + raw + `]}}`
+		r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + raw + `],"hasMore":false,"nextCursor":null}}}`
 		args := []string{"team", "events"}
 		if ack {
 			r["AlarmAcknowledge"] = `{"data":{"acknowledgeAlarm":` + raw + `}}`

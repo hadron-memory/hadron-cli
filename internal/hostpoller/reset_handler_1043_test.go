@@ -94,7 +94,7 @@ func newResetFixture(t *testing.T) *resetFixture {
 			x.gitDir = dir
 			return x.git, x.gitErr
 		},
-		Idle: func(ctx context.Context, ref string) error { return x.idle(ctx, ref) },
+		Idle: func(ctx context.Context, target ResetIdleTarget) error { return x.idle(ctx, target.WorkerRef) },
 	})
 	// Tracked with resets enabled, as a launch would be: its identity is
 	// observed then. The count starts after it.
@@ -158,7 +158,7 @@ func TestResetNeverAdvertisesItself1043(t *testing.T) {
 }
 
 func TestResetRefusesAMalformedOperation1043(t *testing.T) {
-	for _, arg := range []string{"resetId", "sessionId", "taskId"} {
+	for _, arg := range []string{"resetId", "sessionId"} { // taskId is optional since #2117
 		t.Run(arg, func(t *testing.T) {
 			x := newResetFixture(t)
 			op := resetOp()

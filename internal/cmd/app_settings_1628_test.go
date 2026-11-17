@@ -507,22 +507,11 @@ func TestAppSettings1628AllListCommas(t *testing.T) {
 	}
 }
 
-func TestAppSettings1628DeferredInputAbsent(t *testing.T) {
+// cli#1628 (the rest): the install-side policy argument is built; every
+// document WITHOUT --policy-file still never mentions it (an older server
+// rejects a document that declares it).
+func TestAppSettings1628PolicyAbsentUnlessAsked(t *testing.T) {
 	srv, calls := appSettingsServer(t)
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "install", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(out.String(), "--policy-file") {
-		t.Fatal("deferred flag offered")
-	}
-	root = NewRootCmd(f)
-	root.SetArgs([]string{"app", "install", "--org", "acme.com", "--agent", "a1", "--name", "Support", "--policy-file", "ignored", "--yes", "--server", srv.URL})
-	if err := root.Execute(); exitCodeFor(err) != 2 || len(*calls) != 0 {
-		t.Fatalf("deferred input err=%v calls=%+v", err, *calls)
-	}
 	for _, mode := range []string{"install", "update"} {
 		_, err := appSettingsRun(t, srv, mode, "--role", "READER", "--yes")
 		if err != nil {
@@ -531,7 +520,7 @@ func TestAppSettings1628DeferredInputAbsent(t *testing.T) {
 	}
 	for _, call := range *calls {
 		if _, present := call.Vars["policy"]; present || strings.Contains(call.Query, "$policy") || strings.Contains(call.Query, "policy:") {
-			t.Fatalf("deferred input on wire: %+v", call)
+			t.Fatalf("policy on wire without --policy-file: %+v", call)
 		}
 	}
 }

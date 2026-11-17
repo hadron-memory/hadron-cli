@@ -1,0 +1,46 @@
+# cli#1628 (the rest): the App-layer action-policy link on createApp. A separate
+# document on purpose, like UpdateAppSettingsPolicy (#1640): `app install`
+# without --policy-file keeps CreateApp / CreateAppSettings, which never mention
+# `policy`, so a server that predates it keeps working. This is the
+# CreateAppSettings superset plus $policy (omitted = no link).
+mutation CreateAppSettingsPolicy(
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  $agentRef: ID!
+  $name: String!
+  # @genqlient(omitempty: true)
+  $urn: String
+  # @genqlient(omitempty: true)
+  $appType: AppType
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+  # @genqlient(omitempty: true)
+  $expiresAt: String
+  # @genqlient(omitempty: true)
+  $role: AppMembershipRole
+  # @genqlient(omitempty: true)
+  $createUserPermission: CreateUserPermission
+  # @genqlient(omitempty: true)
+  $identifyUserMethod: IdentifyUserMethod
+  # @genqlient(omitempty: true)
+  $anonymousTtlDays: Int
+  # @genqlient(omitempty: true)
+  $trainingMode: Boolean
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $agentTools: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $surfaces: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $installOptional: [ID!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $policy: JSON
+) {
+  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+    id urn name appType agentId
+    # @genqlient(pointer: true)
+    memberCount
+    createdAt
+  }
+}

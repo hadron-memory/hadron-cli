@@ -175,6 +175,14 @@ func wantOnlyWriteSession(t *testing.T, calls *[]attnCall, writeOp, session stri
 		t.Fatalf("%s session = %q, want %q", writeOp, got[0].Session, session)
 	}
 	for _, c := range *calls {
+		// cli#2007 §6: the advisory lint read after a signature write is the same
+		// principal as the write, so it carries exactly the write's session.
+		if c.Op == "GetWorkerSignatureLint" {
+			if c.Session != session {
+				t.Fatalf("lint read session = %q, want the write's %q", c.Session, session)
+			}
+			continue
+		}
 		if c.Op != writeOp && c.Session != "" {
 			t.Fatalf("ancillary lookup %s carried session %q", c.Op, c.Session)
 		}

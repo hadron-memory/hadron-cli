@@ -47,6 +47,11 @@ func queueGraphQL(t *testing.T, responses map[string][]string) (*httptest.Server
 			queue, ok = responses["NodeBatch"]
 		}
 		if !ok || len(queue) == 0 {
+			if d, found := unstubbedDefault(body.OperationName); found && !ok {
+				queue, ok = []string{d}, true
+			}
+		}
+		if !ok || len(queue) == 0 {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			queue = []string{`{"errors":[{"message":"unexpected operation"}]}`}
 		}

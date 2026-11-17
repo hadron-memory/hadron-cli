@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -20,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -35,6 +38,16 @@ func newCmdSession(f *cmdutil.Factory) *cobra.Command {
 who is driving it, from where, with which tool. The binding lives under the
 worktree's git dir, so it survives a context compaction — ` + "`whoami`" + ` reads
 it back.
+
+A directory that is NOT a git checkout works too (a non-coding worker needs
+no repository): start, resume and shed there keep the binding in a hidden
+.hadron-team/ directory inside that directory, under the same lock. Such a
+directory binds ONE worker: another worker's start there is refused, never
+shared — give each worker its own directory. Only the directory a command
+runs in is looked at, never a parent. Running git init in such a directory
+makes it a worktree: the binding then lives in the git dir and the cache in
+.hadron-team/ is no longer read, so whoami there shows no binding until you
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -76,10 +89,12 @@ holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
+	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
+	cmd.AddCommand(newCmdSessionResetContext(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))
@@ -200,6 +215,10 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 
 const sessionPageSize = 200
 
+// sessionScanRestarts bounds how often a scan that fell short of the total
+// starts over from offset 0 (cli#2030).
+const sessionScanRestarts = 3
+
 // scanSessions pages sessionsPage (cli#1339; ordered startedAt desc; the server
 // has no active filter) and calls visit per session until visit returns false
 // or the list is exhausted. workerRef narrows server-side to one worker's
@@ -208,12 +227,37 @@ const sessionPageSize = 200
 // exist means the list is not advancing (a server ignoring the offset), which
 // fails the read rather than looping or returning a partial list; a row shifted
 // onto the next page by a concurrent insert is skipped as the duplicate it is.
+//
+// An insert between page reads shifts the offsets (cor:api:120:05: offset paging
+// skips or repeats rows on a changing list), so the newest row can land before
+// the offset and the scan ends one short of the total (cli#2030). That is not a
+// server fault: the scan restarts from offset 0, keeping what it has seen so no
+// session is visited twice, up to sessionScanRestarts times. Rows are collected
+// and visited only once the list is complete: a restart finds the concurrent
+// insert after the older rows, so the recovered list is put back in the
+// documented newest-first order (startedAt desc, id desc) before any caller
+// sees it — callers slice and pick "the newest" from that order. It stays
+// fail-closed (cor:api:120:04) — when the restarts run out the read fails and
+// never reports a partial list as complete, or as "unbound".
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	return scanSessionsFiltered(ctx, client, repo, workerRef, nil, nil, visit)
 }
 func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
+	var rows []gen.TeamSessionFields
+	restarts, readAtRestart := 0, -1
+	finish := func() error {
+		if restarts > 0 {
+			sortNewestFirst(rows)
+		}
+		for _, r := range rows {
+			if !visit(r) {
+				return nil
+			}
+		}
+		return nil
+	}
 	for offset := 0; ; {
 		off := offset
 		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
@@ -228,20 +272,72 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			}
 			seen[s.Id] = true
 			fresh++
-			if !visit(s.TeamSessionFields) {
-				return nil
-			}
+			rows = append(rows, s.TeamSessionFields)
 		}
 		offset += len(page.Items)
 		if !page.HasMore && len(seen) >= page.Total {
-			return nil
+			return finish()
+		}
+		if fresh == 0 && len(seen) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages it has already read: every row the
+			// server counts is in hand, so keep paging to the end. Bounded by the
+			// offset reaching the total, and an empty page still fails below, so a
+			// server that ignores the offset or claims more forever cannot loop.
+			continue
 		}
 		if fresh == 0 {
 			// Nothing new while the total is still unmet is a partial list, whatever
-			// hasMore says: fail rather than return it.
-			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			// hasMore says. A concurrent insert is the usual cause: start over
+			// (bounded) rather than return it; out of restarts, fail.
+			//
+			// Churn and a stuck server look alike on one page, but not across
+			// passes: churn leaves each restarted pass with a row it had not read,
+			// a stuck server (offset ignored, or a total that never matches) leaves
+			// it exactly where the last pass stopped. Retrying cannot help the
+			// second, so it keeps the "not advancing" diagnosis.
+			if len(seen) == readAtRestart {
+				return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			}
+			if restarts < sessionScanRestarts {
+				restarts++
+				readAtRestart = len(seen)
+				offset = 0
+				continue
+			}
+			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts); retry the command", len(seen), page.Total, restarts)
 		}
 	}
+}
+
+// sortNewestFirst restores the server's session order (startedAt desc, id desc)
+// after a restarted scan appended a concurrent insert last (cli#2030).
+//
+// One total order, on one precomputed key per row (cli#2049): rows whose
+// startedAt parses as RFC 3339 come first, by instant descending then id
+// descending; rows whose startedAt does not parse come last, by id descending.
+// An unparsable row's text is never compared, and never mixed with an instant,
+// so the order cannot depend on how the rows were permuted going in.
+func sortNewestFirst(rows []gen.TeamSessionFields) {
+	type key struct {
+		parsed  bool
+		instant time.Time
+		id      string
+	}
+	keys := make(map[string]key, len(rows))
+	for _, r := range rows {
+		t, err := time.Parse(time.RFC3339Nano, r.StartedAt)
+		keys[r.Id] = key{parsed: err == nil, instant: t, id: r.Id}
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := keys[rows[i].Id], keys[rows[j].Id]
+		if a.parsed != b.parsed {
+			return a.parsed
+		}
+		if a.parsed && !a.instant.Equal(b.instant) {
+			return a.instant.After(b.instant)
+		}
+		return a.id > b.id
+	})
 }
 
 // workerActivity reads the worker's most recent session and its most recent
@@ -402,10 +498,10 @@ func tookOver(live liveness) *bool {
 // em-dashes on its own clauses, and a third would collide. The server's wording keeps its article because it is a
 // quotation, not a phrasing choice: changing it would reintroduce the two
 // vocabularies #552 removed.
-func drivenBy(n sessionNarration, live liveness) string {
+func drivenBy(n sessionNarration, live liveness, describe func(*gen.TeamSessionFields) string) string {
 	switch {
 	case n.active != nil:
-		return describeSession(n.active)
+		return describe(n.active)
 	case !n.answered:
 		return "someone this CLI could not identify (the session list could not be read)"
 	case live == liveYes && n.last == nil:
@@ -427,7 +523,11 @@ func describeSession(s *gen.TeamSessionFields) string {
 	if s.Host != nil && *s.Host != "" {
 		parts = append(parts, "on "+*s.Host)
 	}
-	return fmt.Sprintf("%s since %s (session %s)", strings.Join(parts, " "), s.StartedAt, s.Id)
+	when := "since " + s.StartedAt
+	if s.EndedAt != nil {
+		when = "ended " + *s.EndedAt
+	}
+	return fmt.Sprintf("%s %s (session %s)", strings.Join(parts, " "), when, s.Id)
 }
 
 // checkExistingBinding refuses a second binding in one worktree only when the
@@ -704,7 +804,9 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 
 BEFORE YOU START:
   1. Sign in (` + "`hadron auth login`" + `, or HADRON_TOKEN) and work in a git worktree of
-     your own — one worktree per worker (below).
+     your own — one worktree per worker (below). A worker that writes no code
+     may use a plain directory of its own instead: the binding is cached in
+     its .hadron-team/, and another worker's start there is refused.
   2. Ask the server whether this worktree is already bound:
      ` + "`hadron team session whoami --check`" + `.
        server: still open   you are already that worker, even after a
@@ -837,7 +939,11 @@ there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
-way of an ordinary bind later. Redeem
+way of an ordinary bind later. When the host could not apply the run
+settings its start named (an exec-path worker runs its own fixed command), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+tells the server (startSettingsApplied: false) so the bind records none of
+those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -863,13 +969,22 @@ RESUMED. Either way the worktree binding is written and the briefing
 printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
-behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
+behalf. A worktree with a binding file sends that worker as the expected
+worker (needs hadron-server#3822; an older server refuses the resume, exit 2,
+consuming nothing: use start --as <worker>): if nothing of that worker's waits but
+another worker's claim or live session does, the resume is refused (exit 5,
+RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
+is untouched, no binding is written; run start in that worker's own worktree,
+or start --as <worker>. Any other refused resume (exit 5, RESUME_REFUSED) has
+spent its claim.
 --tool, --host, --model, --transcript, --description and --family ride along.
 --repo, --branch, --reports-to, -m, --force, --agent, --customer, --language,
 --parent-session, --previous-session, --plan, --pr-number and --type do not
 apply and are refused. A worktree still
 bound to a live session refuses first, before any claim is spent, as does a
-directory outside a git worktree. A failure after the server answered never
+directory where git fails for any reason other than "not a git repository".
+A plain (non-git) directory resumes and caches the binding in .hadron-team/.
+A failure after the server answered never
 ends the recovered session: run start again to pick it up.`,
 		Example: `  # ordinary start, recording the repo and branch for ` + "`session log`" + `
   hadron team session start --as Iris --app acme.com:eng-team --tool claude-code \
@@ -905,7 +1020,7 @@ ends the recovered session: run start again to pick it up.`,
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family), effort: extra.effortLevel(cmd),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -914,9 +1029,67 @@ ends the recovered session: run start again to pick it up.`,
 			if grant != "" && force {
 				return exitcode.Newf(exitcode.Usage, "--force does not apply to a launch grant: a refused launch is not overridable (cor:agt:070:08)")
 			}
-			existing, _, err := readBinding(ctx)
+			existing, plainDir, err := readBindingForBind(ctx)
 			if err != nil {
 				return err
+			}
+			// A plain directory binds one worker (cli#1391, ruling 0230):
+			// another worker's binding there refuses BEFORE anything else,
+			// --force included — a takeover would end that worker's session
+			// and then share its directory. A launch grant's worker is only
+			// known after the bind; writeBinding's check under the lock
+			// refuses that one, and the bind is rolled back below.
+			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
+				return errDirectoryHeld(heldCachePath(), existing)
+			}
+			// The client opens early only for the plain-directory read below;
+			// everywhere else it opens after the existing-binding check, as
+			// before, so that refusal still comes ahead of a sign-in error.
+			var client graphql.Client
+			// The App scope for resolving a worker NAME: -m names the team
+			// memory (its appId IS the team App), else the ambient --app /
+			// configured context. A worker ID resolves without any of them.
+			appScope := ""
+			var appRefArg *string
+			resolveScope := func() error {
+				if teamMemory != "" {
+					resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
+					if aerr != nil {
+						return aerr
+					}
+					appScope = resolved
+					// Passed through to startSession too: the server verifies it
+					// matches the worker's App, so a `-m` naming another team's
+					// memory fails loudly instead of silently binding elsewhere.
+					appRefArg = &resolved
+				} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
+					appScope = ambient
+				}
+				return nil
+			}
+			var w gen.WorkerFields
+			resolved := false
+			// The name check above only refuses; a MATCH proves nothing, because
+			// a worker name is App-scoped and a URN's last segment is only a
+			// slug — "Iris" may resolve to another App's Iris (Gizelle's LOCAL
+			// F1 on #1968). So in a plain directory the decision is the
+			// RESOLVED worker's id against the cached one, taken with reads
+			// only, before --force ends the cached session and before any
+			// start. A cache with no worker id cannot prove sameness: refused.
+			if plainDir && existing != nil && strings.TrimSpace(as) != "" {
+				if client, err = f.GraphQLClient(); err != nil {
+					return err
+				}
+				if err := resolveScope(); err != nil {
+					return err
+				}
+				if w, err = resolveWorker(ctx, client, appScope, as); err != nil {
+					return err
+				}
+				resolved = true
+				if existing.WorkerID == "" || w.Id != existing.WorkerID {
+					return errDirectoryHeld(heldCachePath(), existing)
+				}
 			}
 			var lapsedBinding bool
 			if existing != nil && !force {
@@ -925,10 +1098,12 @@ ends the recovered session: run start again to pick it up.`,
 					return err
 				}
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
+			if client == nil {
+				if client, err = f.GraphQLClient(); err != nil {
+					return err
+				}
 			}
+			userLabel := sessionUserLabeller(ctx, client)
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
 			// leave a session open. Since hadron-server#1114 there is no
@@ -946,33 +1121,20 @@ ends the recovered session: run start again to pick it up.`,
 				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil, nil); endErr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not end previously bound session %s (%v) — if it is still active, end it manually\n", existing.SessionID, endErr)
 				} else {
-					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (worker %s)\n", existing.SessionID, existing.WorkerName)
+					fmt.Fprintf(f.IOStreams.ErrOut, "previously bound session %s is ended\n", existing.SessionID)
+					fmt.Fprintln(f.IOStreams.ErrOut, "the old session is ended without a handoff from this command; any handoff it already saved is kept")
 				}
 			}
-			// The App scope for resolving a worker NAME: -m names the team
-			// memory (its appId IS the team App), else the ambient --app /
-			// configured context. A worker ID resolves without any of them.
-			appScope := ""
-			var appRefArg *string
-			var w gen.WorkerFields
 			live := liveNo
-			if teamMemory != "" {
-				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
-				if aerr != nil {
-					return aerr
-				}
-				appScope = resolved
-				// Passed through to startSession too: the server verifies it
-				// matches the worker's App, so a `-m` naming another team's
-				// memory fails loudly instead of silently binding elsewhere.
-				appRefArg = &resolved
-			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
-				appScope = ambient
-			}
-			if strings.TrimSpace(as) != "" {
-				w, err = resolveWorker(ctx, client, appScope, as)
-				if err != nil {
+			if !resolved {
+				if err := resolveScope(); err != nil {
 					return err
+				}
+				if strings.TrimSpace(as) != "" {
+					w, err = resolveWorker(ctx, client, appScope, as)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			if w.Id != "" && w.RetiredAt != nil {
@@ -984,6 +1146,7 @@ ends the recovered session: run start again to pick it up.`,
 			// worker), and there is no takeover to inform since --force is
 			// refused with a grant.
 			if grant == "" {
+				describe := sessionDescriber(userLabel)
 				// LIVENESS FIRST, because it is what decides whether the read below
 				// is narration or the decision — and it costs nothing, being a field
 				// on the worker row already in hand.
@@ -1081,7 +1244,7 @@ ends the recovered session: run start again to pick it up.`,
 					case holdUnknownWhose:
 						return exitcode.Newf(exitcode.Conflict,
 							"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-							w.Name, drivenBy(narr, live), holder)
+							w.Name, drivenBy(narr, live, describe), holder)
 					}
 					// "clears on its own", NOT "nothing frees it by waiting"
 					// (@codex, P2). The first draft said the second, which is the
@@ -1092,12 +1255,37 @@ ends the recovered session: run start again to pick it up.`,
 					// instead. #550's own defect, in the message announcing the fix.
 					return exitcode.Newf(exitcode.Conflict,
 						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
-						w.Name, drivenBy(narr, live))
+						w.Name, drivenBy(narr, live, describe))
+				}
+				// Under --force a LIVE worker is classified too (#1859): the takeover
+				// line below is a claim that --force is about to take the name from
+				// its driver, and when the name is HELD by somebody else that claim
+				// is false — a HELD name is not forceable (cor:agt:020:09), and the
+				// server refuses WORKER_HELD before it weighs liveness. Gated on
+				// live == liveYes, NOT on --force alone: --force also means "replace
+				// a local binding", and a name that is not live never reaches the
+				// takeover line, so it must not pay the two extra reads (holder +
+				// identity). The server stays the gate; this only keeps the CLI from
+				// narrating a takeover it cannot make.
+				forceHeldBy := ""
+				if live == liveYes && force {
+					switch holder, verdict := classifyHold(ctx, client, w); verdict {
+					case holdByOther:
+						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+					case holdUnknownWhose:
+						// Could not tell whether the hold is the caller's: refusing
+						// would block a legitimate self-takeover whenever the
+						// identity read blips, so say what is known and let the
+						// server decide (plan ruling R2).
+						forceHeldBy = holder
+					}
 				}
 				switch {
+				case live == liveYes && forceHeldBy != "":
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is live — being driven by %s — and the name is held by %s; this CLI could not read your own identity to tell whether that is you, so the server decides: it takes over if the hold is yours and refuses if it is not (a held name is not forceable, cor:agt:020:09)\n", w.Name, drivenBy(narr, live, describe), forceHeldBy)
 				case live == liveYes:
 					// Reached only under --force: the gate above refuses otherwise.
-					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live))
+					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live, describe))
 				case live == liveNo && active != nil:
 					// The ordinary post-#1114 shape, and worth naming rather than
 					// calling a takeover: the name is free, and the open row is
@@ -1107,31 +1295,33 @@ ends the recovered session: run start again to pick it up.`,
 					// This response cannot show whether the row is the caller's, and
 					// the bind has not happened yet, so the line names both outcomes
 					// and claims neither as done.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is open (%s). A successful bind supersedes it if it is your own (it then takes no handoff); another driver's session is left open for them\n", w.Name, describeSession(active))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is open (%s). A successful bind supersedes it if it is your own (it then takes no handoff); another driver's session is left open for them\n", w.Name, describe(active))
 				case active != nil:
 					// live == liveUnknown. State the row, claim nothing about it:
 					// "not live" would be a fact the server declined to show us.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describeSession(active))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describe(active))
 				case last != nil:
 					// Informational, not a conflict: the last stint ended.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describe(last))
 				}
 			}
 			if host == "" {
 				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
-				Id:             newSessionID(),
-				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      optStr(w.Id),
-				AppRef:         appRefArg,
-				LaunchGrant:    optStr(grant),
-				Repo:           optStr(repo),
-				Branch:         optStr(branch),
-				Host:           optStr(host),
-				Tool:           optStr(tool),
-				TranscriptPath: optStr(transcript),
-				LlmModel:       optStr(model),
+				Id:          newSessionID(),
+				ReportsTo:   optStr(reportsTo),
+				WorkerRef:   optStr(w.Id),
+				AppRef:      appRefArg,
+				LaunchGrant: optStr(grant),
+				// #2209: the host's "settings not applied", only with a grant.
+				StartSettingsApplied: startSettingsNotApplied(grant, os.Getenv(hostpoller.StartSettingsAppliedEnvVar)),
+				Repo:                 optStr(repo),
+				Branch:               optStr(branch),
+				Host:                 optStr(host),
+				Tool:                 optStr(tool),
+				TranscriptPath:       optStr(transcript),
+				LlmModel:             optStr(model),
 			}
 			// #940/#432: the server refuses a taken worker atomically
 			// (WORKER_TAKEN) unless force rides along — the activity check
@@ -1178,6 +1368,10 @@ ends the recovered session: run start again to pick it up.`,
 					who := detail.LastDriver
 					if who == "" {
 						who = "an unknown driver"
+					} else {
+						// Older providers may send a handle rather than an id here;
+						// the same best-effort lookup preserves that raw ref on refusal.
+						who = userLabel(&who)
 					}
 					seen := detail.LastSeenAt
 					if seen == "" {
@@ -1971,7 +2165,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 				result.AutoExpiredAt = live.autoExpiredAt
 			}
 			loadReporting(cmd.Context(), f, b, &result)
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
 					// still good (and `session end` is the recovery), but the
@@ -1994,10 +2188,21 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// The ended answer is printed (text or --json, end time included)
+			// and then exits SessionEnded, so a script or boot prompt can branch
+			// without parsing it (#1835). Only the server's `active == false`
+			// counts: an open session — quiet or dormant — and an unanswered
+			// check never reach here as "ended".
+			if result.Checked && result.Active != nil && !*result.Active {
+				return exitcode.Silent(exitcode.SessionEnded)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open; exits 14 if it has ended")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
@@ -2072,7 +2277,8 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 		// trains people to ignore the one that is right, which is the whole
 		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: this worktree has no contiguous team-chat read cursor — `hadron team chat read --since 0` starts at the oldest page (repeat with nextSince); `hadron team chat read` shows the newest page "+
+			"note: session log includes this reminder because team chat carries decisions; this worktree has no contiguous team-chat read cursor; unfiltered `hadron team chat read --all` reads from the oldest page, or `hadron team chat read --since 0` starts at the oldest page (continue with nextSince); "+
+				"bare `hadron team chat read` shows only the newest page; filtered reads and `hadron team chat mark-read` do not set this cursor "+
 				"(a read made in the portal or under another binding is not visible here)\n")
 		return
 	}
@@ -2283,7 +2489,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// move the pointer: a refusal now leaves nothing half-applied, and
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil, nil); err != nil {
 					mapped := api.MapError(err)
 					if rowWritten {
 						// Claim "NOT updated" only for a definitive refusal. A
@@ -2527,6 +2733,24 @@ func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string
 			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
 	}
 	return *resp.Memory.AppId, nil
+}
+
+// namesBoundWorker reports whether --as COULD name the worker a binding
+// records: its name (case-insensitively), id or URN slug. It is a fast, local
+// refusal only — a non-match is certainly another worker, but a match is not
+// proof of sameness, since names are App-scoped and a slug repeats across
+// Apps; the plain-directory start decides on the resolved worker's id
+// (Gizelle's LOCAL F1 on #1968). The same worker under an unmatched spelling
+// is refused with a message naming it.
+func namesBoundWorker(b *binding, as string) bool {
+	as = strings.TrimSpace(as)
+	if strings.EqualFold(as, b.WorkerName) || (b.WorkerID != "" && as == b.WorkerID) {
+		return true
+	}
+	if i := strings.LastIndex(as, ":"); i >= 0 && strings.HasPrefix(as, "hrn:worker:") {
+		return strings.EqualFold(as[i+1:], b.WorkerName)
+	}
+	return false
 }
 
 // defaultRepo qualifies bare artifact numbers/shas: the binding's recorded
@@ -3021,6 +3245,14 @@ from a later milestone's REPORTED MODEL.`,
 			}
 			if ref != "" {
 				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
+			}
+			// cli#1653: sessionsPage has no App argument, so an explicit --app
+			// cannot narrow this listing. Say so on stderr rather than let a
+			// table of other Apps' sessions read as that App's. stdout and
+			// --json are untouched; an ambient App (config, binding) is not an
+			// explicit flag and prints nothing.
+			if f.AppFlag != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "app: %s (from --app) — does not filter this listing by App (it only scopes --as worker-name lookup); without --as/--repo it lists every session you can see; narrow with --as <worker> or --repo <owner/repo>\n", f.AppFlag)
 			}
 			var asWorkerRef *string
 			if as != "" {
@@ -3804,6 +4036,20 @@ func describeSessionUser(ctx context.Context, client graphql.Client, userID stri
 		return userID
 	}
 	return *resp.User.Urn
+}
+
+// sessionDescriber decorates a copy for narration only. It reuses the same
+// best-effort, memoized user-URN lookup as session tables; lookup failures must
+// not change the separate driver-read/liveness decision or the wire DTO.
+func sessionDescriber(label func(*string) string) func(*gen.TeamSessionFields) string {
+	return func(s *gen.TeamSessionFields) string {
+		cp := *s
+		if s.UserId != nil && *s.UserId != "" {
+			user := label(s.UserId)
+			cp.UserId = &user
+		}
+		return describeSession(&cp)
+	}
 }
 
 // sessionUserLabeller memoizes describeSessionUser across a table.

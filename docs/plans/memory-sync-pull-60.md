@@ -22,9 +22,10 @@ The mutation selects only syncStatus/syncError/lastSyncedAt/lastSyncReport.
 The separate preflight selects only source/isEncrypted. A returned non-OK
 status exits1/not-completed/clean:false before historical-report interpretation;
 the report is unavailable at that door, not evidence this invocation synced.
-The explicit command DTO reuses parseSyncReport and writeSyncBlock; it adds no
-second JSON report decoder. Unknown v1 entry vocabulary is unavailable at this
-door rather than a certified result. A clean result requires no report, a
+The explicit command DTO reuses parseSyncReport and writeSyncBlock. The shared
+parser rejects unknown vocabulary, including codes paired with the wrong kind.
+A separate raw outcome-only read preserves exit 1 for a stored failed report
+even when its vocabulary is unavailable; it does not certify that report. A clean result requires no report, a
 nonempty last-sync timestamp, OK status and no sync error. Partial/unknown/
 unavailable outcomes exit 0 with clean:false and a warning, as authorized by
 the gate; failed outcomes exit 1. An absent mutation result exits 7.

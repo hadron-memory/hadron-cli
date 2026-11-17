@@ -378,6 +378,14 @@ func MalformedFor(props map[string]any, h Host) []string {
 	return bad
 }
 
+// HasDeclarationFor reports whether a node carries a valid or malformed
+// declaration for h. It is the shared subject predicate for lint summaries,
+// completeness expectations, and test doubles; keep those consumers aligned.
+func HasDeclarationFor(props map[string]any, h Host) bool {
+	decl, malformed := classifyFor(props, h)
+	return decl != nil || len(malformed) > 0
+}
+
 // ValidName reports whether name satisfies the host's grammar and length.
 func ValidName(name string) bool {
 	return validNameFor(name, MaxNameLen)

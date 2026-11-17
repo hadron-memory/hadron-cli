@@ -65,14 +65,14 @@ func TestTeamEventsAndHostOpsDefaultTo20(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := findCall(t, calls, "AgentTeamEvents"); c.Vars["limit"] != float64(20) {
+	if c := findCall(t, calls, "AgentTeamEventsPage"); c.Vars["limit"] != float64(20) {
 		t.Errorf("team events default limit %v, want 20", c.Vars["limit"])
 	}
 	calls, _, err = runTeamTask(t, hostResponses(), "team", "host", "ops")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := findCall(t, calls, "HostOperations"); c.Vars["first"] != float64(20) {
+	if c := findCall(t, calls, "HostOperationsWithReason"); c.Vars["first"] != float64(20) {
 		t.Errorf("team host operations default first %v, want 20", c.Vars["first"])
 	}
 }

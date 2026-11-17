@@ -73,6 +73,11 @@ self-supersession or a cycle. --by cannot combine with --title, --to,
 --feature, --rule-after, --copy-body or --reason (the reason belongs in the
 create mode’s body note; --by leaves the old body unchanged).
 
+--dry-run checks the signed-in user's memory write access after reading the
+targets. A denied caller gets exit 8 and no plan; a failed access lookup is
+an error. Credentials without a user keep the existing preview. The real
+write remains authoritative for other refusals.
+
 A RESCINDED or WITHDRAWN spec (lead, or the rescinded/withdrawn tag) has no
 successor (cor:spc:010:01): both modes, --dry-run included, refuse it with
 exit 5 before any write. If it becomes one after the link or replacement has
@@ -218,6 +223,11 @@ then; it never edits the register).`,
 					Old: oldLoc, New: successorLoc, MemoryID: memURN,
 					Name: specNameAt(successorLoc, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
 					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldLoc + " → " + successorLoc, Status: edgeStatusCreated}},
+				}
+				if dryRun {
+					if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+						return err
+					}
 				}
 				if unchanged, err := supersedeLeadState(oldNode, successorLoc); err != nil {
 					return err
@@ -366,6 +376,9 @@ then; it never edits the register).`,
 
 			render := func(w io.Writer) error { return renderSupersede(w, result) }
 			if dryRun {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
 

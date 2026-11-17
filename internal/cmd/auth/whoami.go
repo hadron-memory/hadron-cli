@@ -116,17 +116,7 @@ whether this request's credential authenticates without returning a profile.`,
 					_, err := fmt.Fprintln(w, nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
 					return err
 				}
-				label := dto.Name
-				if label == "" {
-					label = dto.Handle
-				}
-				if label == "" {
-					label = dto.ID
-				}
-				line := label
-				if dto.Email != "" {
-					line = fmt.Sprintf("%s (%s)", label, dto.Email)
-				}
+				line := userLine(dto.Name, dto.Handle, dto.ID, dto.Email)
 				// Admin impersonation: make the acting-as state loud so a
 				// scripted or forgetful operator can't mistake it for their own.
 				if dto.Impersonation != nil {

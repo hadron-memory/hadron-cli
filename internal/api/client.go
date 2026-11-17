@@ -57,6 +57,12 @@ func RequireSecureURL(serverURL, token string) error {
 		serverURL, scheme, EnvAllowHTTP)
 }
 
+// URLIsSecure is schemeIsSecure for a caller outside this package: the same
+// transport rule judges a URL the server hands back for a browser (cli#878
+// revoke-page), so a page the CLI opens is never held to a weaker bar than
+// the one its own credentials ride on.
+func URLIsSecure(u *url.URL) bool { return schemeIsSecure(u) }
+
 // schemeIsSecure reports whether the bearer token may ride on u: https, an http
 // loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext http.
 // The scheme is allow-listed explicitly: a loopback host must NOT green-light a
@@ -267,8 +273,10 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if keys, ok := memoryKeysFrom(req.Context()); ok {
 		req.Header.Set(MemoryKeysHeader, keys.header)
 	}
-	// Recorded after every local refusal, immediately before the send, so only
-	// a request that leaves with the token counts as "sent" (cli#1624).
+	// Recorded after every local refusal, immediately before http.Client.Do
+	// (cli#1624): a locally refused request is never counted. What is counted is
+	// the attempt, not transmission: a transport error or a cancelled context
+	// after this point still leaves the record (cli#1759).
 	if d.token != "" && d.onSent != nil {
 		d.onSent()
 	}

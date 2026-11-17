@@ -58,6 +58,17 @@ const (
 	// changed beyond the reads, so it is not 1/4/7; 9-12 are taken by `team
 	// push` and `team chat check`, hence 13. A script re-waits on it.
 	WaitTimeout = 13
+	// SessionEnded (cli#1835) is `team session whoami --check` finding the bound
+	// session ENDED (by a person, a supersede or the server reaping it): the
+	// stale-binding answer, distinct from open (0), not found (4) and an
+	// unanswerable check (its own code). Not 3: that is "sign in", and a script
+	// must not read a closed session as a credentials failure.
+	SessionEnded = 14
+	// AdapterSkew (cli#1961) is `team task find-untracked` refusing an intake
+	// adapter that speaks another contract version (cor:agt:120:04): nothing
+	// was asked of it. Distinct from 1/2 so a script tells "upgrade the adapter
+	// or the CLI" from a usage slip or an adapter failure.
+	AdapterSkew = 15
 )
 
 // CodedError carries an exit code alongside an error. The root

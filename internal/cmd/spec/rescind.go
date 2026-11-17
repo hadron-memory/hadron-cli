@@ -165,6 +165,9 @@ and revision.`,
 			newBody := withBanner(derefStr(node.Content), plan.banner)
 			render := func(w io.Writer) error { return renderRescind(w, result, plan) }
 			if dryRun {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes,
@@ -175,7 +178,7 @@ and revision.`,
 			rev, id := node.Revision, node.Id
 			tags := rescindTags(node.Tags)
 			abstract := plan.abstractPrefixAndText
-			in := gen.UpdateNodeInput{Id: &id, ExpectedRevision: &rev, Tags: tags, Content: &newBody, Abstract: &abstract}
+			in := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Id: &id, ExpectedRevision: &rev, Tags: tags, Content: &newBody, Abstract: &abstract}
 			resp, werr := gen.UpdateSpecNode(cmd.Context(), client, &in)
 			if werr != nil {
 				switch {
@@ -220,7 +223,7 @@ and revision.`,
 	cmd.Flags().StringVar(&summaryFile, "summary-file", "", "read --summary from this file")
 	cmd.Flags().BoolVar(&withdrawn, "withdrawn", false, "a draft that never took effect: \"Withdrawn, never in force\" instead of \"Rescinded\"")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print the planned tag, banner, abstract, node id and revision")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print the planned tag, banner, abstract, node id and revision (exit 8 if you cannot write to the memory, as the real run)")
 	return cmd
 }
 

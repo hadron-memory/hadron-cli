@@ -16,7 +16,7 @@ func TestTaskPriorityCreateAndGet1135(t *testing.T) {
 	srv, calls := captureGraphQL(t, map[string]string{"AgentTaskCreate": `{"data":{"createAgentTask":` + priorityTask1135() + `}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "task", "create", "Dependent", "--app", "capp100000000000000000000", "--priority", "2", "--blocked-by", "AT1.2", "--blocked-by", "AT1.3", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"team", "task", "create", "Dependent", "--app", "acme.com:eng-team", "--priority", "2", "--blocked-by", "AT1.2", "--blocked-by", "AT1.3", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestTaskPriorityCreateAndGet1135(t *testing.T) {
 	if err := json.Unmarshal(calls["AgentTaskCreate"], &vars); err != nil {
 		t.Fatal(err)
 	}
-	if string(vars.Input["priority"]) != "2" || string(vars.Input["blockedBy"]) != `["AT1.2","AT1.3"]` {
+	if string(vars.Input["priority"]) != "2" || string(vars.Input["blockedBy"]) != `["hrn:agenttask:acme.com:eng-team:AT1.2","hrn:agenttask:acme.com:eng-team:AT1.3"]` {
 		t.Fatalf("variables:%s", calls["AgentTaskCreate"])
 	}
 	var dto map[string]json.RawMessage

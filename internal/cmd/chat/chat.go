@@ -60,12 +60,14 @@ uses no chat configuration, and returns no conversation text.
 
 'chat config show' prints what those resolve to from here and where each
 value came from; 'chat doctor' also checks the Channel is readable and says how
-to repair each failure. Both are read-only.`,
+to repair each failure. Both are read-only. 'chat config set' is the one writer:
+it stores the coordinates in .hadron/config.json and nothing else.`,
 	}
 	cmd.AddCommand(newCmdRead(f))
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdConfig(f))
 	cmd.AddCommand(newCmdDoctor(f))
+	cmd.AddCommand(newCmdToolChoice(f))
 	cmd.AddCommand(servedprompt.NewChat(f))
 	return cmd
 }

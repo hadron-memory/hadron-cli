@@ -1,0 +1,32 @@
+# cli#1913 (hadron-server#3957, cor:dmo:050:10 / cor:dmo:050:12): the App's
+# chatbot AI config selection. Own operation, so a server that predates #3957
+# still serves `app get`. App.chatbotAiConfigId is an id only, never a key.
+query GetAppChatbotAiConfig($ref: ID!) {
+  app(ref: $ref) {
+    id
+    chatbotAiConfigId
+  }
+}
+
+# The App's OWN enabled configs plus one `default` entry (a walk marker, not a
+# config). Never a key, key preview, params or endpoint. Any App member.
+query ChatAiConfigChoices($appRef: ID!) {
+  chatAiConfigChoices(appRef: $appRef) {
+    value
+    name
+    isDefault
+    isAppChatbotConfig
+    provider
+    model
+  }
+}
+
+# Set (configId) or clear (null) the pin. configId is NOT omitempty: a nil
+# pointer is sent as an explicit null, which is how `clear` asks.
+mutation SetAppChatbotAiConfig($appRef: ID!, $configId: ID) {
+  setAppChatbotAiConfig(appRef: $appRef, configId: $configId) {
+    id
+    urn
+    chatbotAiConfigId
+  }
+}

@@ -67,6 +67,10 @@ fragment AgentTaskFields on AgentTask {
   finishedAt
   cancelledAt
   closeSessionWhenDone
+  # cli#2206 (cor:agt:050:01): the settings the task asks for, and beside them
+  # what its run applied; null until the task names or ran under any.
+  runSettings { family model tier effort }
+  appliedRunSettings { family model effort }
   requirements {
     minTier
     role
@@ -107,6 +111,14 @@ fragment AgentTaskFields on AgentTask {
 # Absent unless --external-id is given, so an ordinary create is unchanged and
 # an older server never sees the field.
 # @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
+# cli#2206: a task's run settings (cor:agt:050:01) are create-only and optional:
+# the whole object is omitted without a flag, and each field only when its flag
+# is given, never null.
+# @genqlient(for: "CreateAgentTaskInput.runSettings", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.family", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.model", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.tier", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.effort", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 # cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
 # refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
@@ -125,11 +137,16 @@ fragment AgentTaskFields on AgentTask {
 # Keep legacy role:null for ordinary requirements, but omit role entirely
 # when a role set is supplied: the two selector keys never coexist.
 # @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
+# cli#1848 (hadron-server#3816, V21-V23): matchSkipped is selected on the
+# create answer ONLY. It is returned, never stored: the server answers it on a
+# createAgentTask(match: true) that failed, and null everywhere else, so no
+# read document selects it. Needs provider be731afd (0.0.1879) or later.
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
   createAgentTask(input: $input) {
     ...AgentTaskFields
+    matchSkipped { workerId name reasons }
   }
 }
 
@@ -367,6 +384,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   id
   appId
   taskId
+  taskHandle
   type
   severity
   createdAt
@@ -383,6 +401,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
     ...AgentTaskPartyFields
   }
   episodeStart
+  escalationEndedAt
   chain
   wakes {
     chainIndex
@@ -394,12 +413,25 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   }
 }
 
-query AgentTeamEvents(
+# Page-aware read of the team event stream (cor:api:120:04, server#3933): the
+# server says whether more rows exist (hasMore) and hands the continuation
+# (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
+# before, newestFirst and alarmsInEffect are sent only when set (#3934: the
+# server's own "in effect" filter; the CLI never works it out itself).
+query AgentTeamEventsPage(
   $appRef: ID!
   # @genqlient(omitempty: true)
   $after: ID
   # @genqlient(omitempty: true)
+  $before: ID
+  # @genqlient(omitempty: true)
+  $newestFirst: Boolean
+  # @genqlient(omitempty: true)
+  $codePrefix: String
+  # @genqlient(omitempty: true)
   $alarmsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $alarmsInEffect: Boolean
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
@@ -409,46 +441,24 @@ query AgentTeamEvents(
   # @genqlient(omitempty: true)
   $types: [String!]
 ) {
-  agentTeamEvents(
+  agentTeamEventsPage(
     appRef: $appRef
     after: $after
-    alarmsOnly: $alarmsOnly
-    limit: $limit
-    since: $since
-    taskId: $taskId
-    types: $types
-  ) {
-    ...AgentTeamEventFields
-  }
-}
-
-query AgentTeamEventsByCode(
-  $appRef: ID!
-  $codePrefix: String!
-  # @genqlient(omitempty: true)
-  $after: ID
-  # @genqlient(omitempty: true)
-  $alarmsOnly: Boolean
-  # @genqlient(omitempty: true)
-  $limit: Int
-  # @genqlient(omitempty: true)
-  $since: DateTime
-  # @genqlient(omitempty: true)
-  $taskId: ID
-  # @genqlient(omitempty: true)
-  $types: [String!]
-) {
-  agentTeamEvents(
-    appRef: $appRef
+    before: $before
+    newestFirst: $newestFirst
     codePrefix: $codePrefix
-    after: $after
     alarmsOnly: $alarmsOnly
+    alarmsInEffect: $alarmsInEffect
     limit: $limit
     since: $since
     taskId: $taskId
     types: $types
   ) {
-    ...AgentTeamEventFields
+    events {
+      ...AgentTeamEventFields
+    }
+    hasMore
+    nextCursor
   }
 }
 
@@ -1091,5 +1101,92 @@ query AgentTaskResultFindings($id: ID!, $limit: Int!, $offset: Int!) {
   agentTask(id: $id) {
     id
     result { findings(limit: $limit, offset: $offset) { ...ImmutableTaskFindingPage } }
+  }
+}
+
+# Separate creator document preserves older list documents when omitted.
+query AgentTaskListCreator(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $unresolvedFindings: Boolean
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $createdAfter: DateTime
+  # @genqlient(omitempty: true)
+  $createdBefore: DateTime
+  # @genqlient(omitempty: true)
+  $finishedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $finishedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $overdue: Boolean
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceFilter
+  # @genqlient(omitempty: true)
+  $source: String
+  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # @genqlient(omitempty: true)
+  $externalId: String
+  # @genqlient(omitempty: true)
+  $startedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $startedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $tagsAll: [String!]
+  # @genqlient(omitempty: true)
+  $tagsAny: [String!]
+  # @genqlient(omitempty: true)
+  $text: String
+  # @genqlient(omitempty: true)
+  $creator: AgentTaskPartyInput
+) {
+  agentTasks(
+    appRef: $appRef
+    creator: $creator
+    unresolvedFindings: $unresolvedFindings
+    assignee: $assignee
+    createdAfter: $createdAfter
+    createdBefore: $createdBefore
+    finishedAfter: $finishedAfter
+    finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
+    limit: $limit
+    offset: $offset
+    overdue: $overdue
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    reference: $reference
+    rootsOnly: $rootsOnly
+    source: $source
+    externalId: $externalId
+    startedAfter: $startedAfter
+    startedBefore: $startedBefore
+    status: $status
+    tag: $tag
+    tagsAll: $tagsAll
+    tagsAny: $tagsAny
+    text: $text
+  ) {
+    ...AgentTaskFields
   }
 }

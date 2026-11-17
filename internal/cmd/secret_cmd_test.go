@@ -168,9 +168,9 @@ func TestSecretCreateValidation(t *testing.T) {
 	}
 }
 
-func TestSecretRemovedOwnerScopesRefusedBeforeRequest(t *testing.T) {
+func TestSecretRemovedOwnerScopeRefusedBeforeRequest(t *testing.T) {
 	for _, command := range []string{"create", "list"} {
-		for _, scope := range []string{"app", "memory"} {
+		for _, scope := range []string{"memory"} {
 			t.Run(command+"/"+scope, func(t *testing.T) {
 				gql, captured := captureGraphQL(t, nil)
 				f, _ := testFactory(t)
@@ -181,7 +181,7 @@ func TestSecretRemovedOwnerScopesRefusedBeforeRequest(t *testing.T) {
 				}
 				root.SetArgs(append(args, "--server", gql.URL))
 				err := root.Execute()
-				if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "user, org") {
+				if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "user, org, app") {
 					t.Fatalf("removed %s owner scope must fail locally with the supported set: %v", scope, err)
 				}
 				if len(captured) != 0 {
@@ -204,10 +204,10 @@ func TestSecretHelpShowsSupportedOwnerScopes(t *testing.T) {
 				t.Fatalf("help: %v", err)
 			}
 			help := buf.String()
-			if !strings.Contains(help, "--scope <user|org>") || !strings.Contains(help, "--scope org --owner hrn:org:acme.com") {
+			if !strings.Contains(help, "--scope <user|org|app>") || !strings.Contains(help, "--scope org --owner hrn:org:acme.com") {
 				t.Fatalf("secret %s help omits supported owner scopes:\n%s", command, help)
 			}
-			if strings.Contains(help, "--scope app") || strings.Contains(help, "--scope memory") || strings.Contains(help, "user|org|app|memory") {
+			if strings.Contains(help, "--scope memory") || strings.Contains(help, "user|org|app|memory") {
 				t.Fatalf("secret %s help advertises removed owner scopes:\n%s", command, help)
 			}
 		})

@@ -26,13 +26,26 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 			fmt.Fprintf(f.IOStreams.ErrOut, "note: worker attribution unavailable (%v); this write carries no worktree session\n", err)
 		})
 	}
+	// The no-worktree case has its own line (cli#1855): the cwd is not a git
+	// worktree at all, so the write is sent as the signed-in person. A note,
+	// never a refusal; it does not say the write failed.
+	noWorktreeNote := func(err error) {
+		diagnostic.Do(func() {
+			fmt.Fprintf(f.IOStreams.ErrOut, "note: no worktree session bound; this team write is being sent as you (%v)\n", err)
+		})
+	}
 	return func(ctx context.Context, req *graphql.Request) context.Context {
 		first.Do(func() { initial, _, initialErr = readBindingFile(ctx) })
 		if !authoredWriteRequest(req) || asPerson(ctx) {
 			return ctx
 		}
 		if initialErr != nil {
-			if !errors.Is(initialErr, errNoWorktree) {
+			// errNoWorktree used to be silent (cli#1855), so a refusal
+			// downstream named the wrong cause. Note only: person-mode writes
+			// from any cwd are legitimate.
+			if errors.Is(initialErr, errNoWorktree) {
+				noWorktreeNote(initialErr)
+			} else {
 				note(initialErr)
 			}
 			return ctx
@@ -185,10 +198,14 @@ func authoredWriteField(field string) bool {
 		"disposeAgentTaskFinding", "cloneAgentTask", "createAgentTasks", "updateAgentTask",
 		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask", "handBackAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
+		// cli#1962: release is a cancel-grade act (cor:agt:050:09, V87).
+		"releaseAgentTaskExternalId",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
 		// #1664: owner-chain and assignee gates admit bound workers.
 		"setReviewSchedule", "freezePullRequestHead", "assignReviewSeat",
+		// cli#2189: a qa-engineer or coordinator worker links through its session.
+		"linkDefectToPullRequest",
 		"recordReviewVerdict", "recordReadyCall",
 		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
 		// tasks are owned by and assigned to the actor), the person otherwise.

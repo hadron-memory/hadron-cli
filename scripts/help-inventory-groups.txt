@@ -5,7 +5,7 @@
 # docs/help-inventory.md, so a command that no child audits is visible, not lost.
 1051|content commands|node edge memory search find replace comment object asset decision
 1052|identity and access commands|auth profile user access grant secret org ticket policy admin
-1053|App and automation commands|app agent run schedule webhook ticker task connection mcp-server ai-config
+1053|App and automation commands|app agent run schedule webhook ticker task connection mcp-server web-poll ai-config
 1054|team coordination commands|team chat channel
 1055|maintenance commands|coding skill spec scope
 1056|root help and utility commands|(root) api config server-info version completion agentic-usage help

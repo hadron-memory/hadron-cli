@@ -23,7 +23,7 @@ func TestMemorySyncPull60(t *testing.T) {
 		{"partial", sp(partialReport()), sp(syncedAt), false, "recorded"},
 		{"unknown", sp(`{"version":1,"outcome":"unknown","recordedAt":"` + recordedAt + `","entries":[]}`), sp(syncedAt), false, "recorded"},
 		{"malformed", sp(`{`), sp(syncedAt), false, "unavailable"},
-		{"version", sp(`{"version":2}`), sp(syncedAt), false, "unavailable"},
+		{"incomplete v2", sp(`{"version":2}`), sp(syncedAt), false, "unavailable"},
 		{"outcome", sp(`{"version":1,"outcome":"new","recordedAt":"` + recordedAt + `","entries":[]}`), sp(syncedAt), false, "unavailable"},
 		{"never", nil, nil, false, "none"},
 		{"kind", sp(strings.Replace(partialReport(), "protected", "new_kind", 1)), sp(syncedAt), false, "unavailable"},

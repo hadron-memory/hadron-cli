@@ -112,19 +112,18 @@ func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 	}
 }
 
-// The pinned schema adds this unrelated nullable input. Never introduce an
-// explicit null into an existing settings write while refreshing the schema.
+// Omitted fields stay absent after #1743's explicit supported-field input.
 func TestTaskTextSchemaRefreshPreservesSettingsOmission1214(t *testing.T) {
-	b, err := json.Marshal(gen.AppDeliverySettingsInput{})
+	calls, _, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var vars map[string]any
-	if err := json.Unmarshal(b, &vars); err != nil {
-		t.Fatal(err)
-	}
-	if _, present := vars["darkAlarmWindowSeconds"]; present {
-		t.Fatal("schema refresh sends an unselected nullable setting")
+	for _, c := range *calls {
+		if c.Op == "TeamDeliverySettingsSet" {
+			if len(c.Vars) != 1 || c.Vars["appRef"] == nil {
+				t.Fatalf("empty patch carries fields: %v", c.Vars)
+			}
+		}
 	}
 }
 
@@ -133,7 +132,7 @@ func runText1214(t *testing.T, roster []string, pages [][]task1044, argv ...stri
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 	responses["AgentTaskList"] = taskPage1044(pages[0])
 	responses["AgentTaskListText"] = taskPage1044(pages[1])
 	srv, calls := attnServer(t, responses)
@@ -230,7 +229,7 @@ func textPages1214(t *testing.T, base [][]task1044, text []string, value string)
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster1044()...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 	b, n := 0, 0
 	srv, calls := attnServerHook(t, responses, func(op string) {
 		switch op {

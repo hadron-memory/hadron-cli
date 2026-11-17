@@ -69,7 +69,7 @@ func sortedKeys1677(m map[string]bool) []string {
 
 func TestWorkerGetReadsGoOutTogether1677(t *testing.T) {
 	teamGitDir(t)
-	reads := []string{"GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerBootPromptServe"}
+	reads := []string{"GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerAvailability", "GetWorkerBootPromptServe"}
 	rv := newRendezvous(t, reads...)
 	log := &profileOpLog{}
 	gql, _ := captureGraphQLFunc(t, func(op string) string {

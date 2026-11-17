@@ -45,9 +45,11 @@ func TestGoldens(t *testing.T) {
 	golden(t, "com.hadronmemory.team-health.plist", Plist(spec))
 }
 
-// The exact argv the entry runs is the one #1181 pins.
+// The exact argv the entry runs is the one #1181 pins, plus the one flag that
+// makes the scheduled sweep apply tab titles (cli#2017): a manual sweep is a
+// dry run, the entry is not.
 func TestArgvIsTheSweepWithConfig(t *testing.T) {
-	want := []string{"/usr/local/bin/hadron", "team", "health", "sweep", "--config", spec.Config}
+	want := []string{"/usr/local/bin/hadron", "team", "health", "sweep", "--config", spec.Config, "--dry-run=false"}
 	if got := spec.Argv(); strings.Join(got, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("argv = %q", got)
 	}
@@ -484,6 +486,35 @@ func TestSystemdReinstallRepairsAFailedActivation(t *testing.T) {
 	}
 	if count(f.calls[n:], "systemctl --user enable --now "+Name+".timer") != 1 {
 		t.Fatalf("the retry never activated the timer: %q", f.calls[n:])
+	}
+}
+
+// A host installed before cli#2017 holds an entry without --dry-run=false.
+// Installing again with the same config rewrites it (not refused, not a
+// no-op), which is what the release note tells the owner to do.
+func TestSystemdReinstallRewritesAnOlderEntry2017(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.ReadFile(e.servicePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.ReplaceAll(string(old), " \"--dry-run=false\"", "")
+	if stale == string(old) {
+		t.Fatal("the entry never carried --dry-run=false")
+	}
+	if err := os.WriteFile(e.servicePath(), []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.Install(spec)
+	if err != nil || !res.Changed {
+		t.Fatalf("reinstall over an older entry: changed=%v err=%v", res.Changed, err)
+	}
+	if got, _ := os.ReadFile(e.servicePath()); !strings.Contains(string(got), "--dry-run=false") {
+		t.Fatalf("the older entry was not rewritten:\n%s", got)
 	}
 }
 
@@ -927,5 +958,46 @@ func TestUsageJobHasItsOwnIdentity(t *testing.T) {
 	}
 	if !strings.Contains(Plist(us), "com.hadronmemory.team-usage") || !strings.Contains(SystemdTimer(us), "Unit=hadron-team-usage.service") {
 		t.Error("usage plist/timer must carry the usage identity")
+	}
+}
+
+// #2027 (on #2017's Job.Args): the scheduled sweep applies, so today's
+// entries carry --dry-run=false after --config — but an entry an older CLI
+// wrote (before either change: no flag) is still OWNED: the matcher must
+// claim it, or a reinstall would orphan it and install a second sweep beside
+// it.
+func TestOwnedCronLineClaimsOldAndNewEntries(t *testing.T) {
+	legacy := Health
+	legacy.Args = nil // the pre-#2017 shape an older CLI installed
+	ol, err := CronLine(Spec{Job: legacy, Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nl, err := CronLine(Spec{Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{ol, nl} {
+		if !IsOwnedCronLine(line) {
+			t.Errorf("entry not owned:\n%s", line)
+		}
+	}
+	if !strings.Contains(nl, `'--config' '/etc/h.yaml' '--dry-run=false'`) {
+		t.Errorf("new entry does not apply: %s", nl)
+	}
+	if strings.Contains(ol, "--dry-run=false") {
+		t.Errorf("old entry changed shape: %s", ol)
+	}
+}
+
+// Only the health sweep carries --dry-run=false: another job's argv is
+// untouched (cli#2017).
+func TestOtherJobsCarryNoDryRunFlag(t *testing.T) {
+	u := spec
+	u.Job = Usage
+	for _, w := range u.Argv() {
+		if strings.HasPrefix(w, "--dry-run") {
+			t.Fatalf("usage argv = %q", u.Argv())
+		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -109,14 +110,14 @@ func syncDir(dir string) error {
 	return d.Sync()
 }
 
-// Drop records rec unless its notice is already recorded. created is true
-// only for the first record of that notice.
 // StopOutboxDir is the outbox under a host's delivery state directory: the
 // one place the poller (New) and the reporter (report-stops) both take it.
 func StopOutboxDir(stateDir string) string {
 	return filepath.Join(stateDir, "delivery", "stop-dropped")
 }
 
+// Drop records rec unless its notice is already recorded. created is true
+// only for the first record of that notice.
 func (o *StopOutbox) Drop(rec StopDrop) (created bool, err error) {
 	if rec.EventID == "" {
 		return false, errors.New("a stop drop without its notice event")
@@ -157,7 +158,10 @@ type namedDrop struct {
 // List is every recorded notice, for the reporter and status. Markers and
 // temporaries are skipped; an unreadable record is an error, never skipped.
 func (o *StopOutbox) List() ([]StopDrop, error) {
-	named, err := o.listNamed()
+	named, corrupt, err := o.listNamed()
+	if err == nil && len(corrupt) > 0 {
+		err = fmt.Errorf("unreadable record %s: %s", corrupt[0].file, corrupt[0].cause)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -168,28 +172,41 @@ func (o *StopOutbox) List() ([]StopDrop, error) {
 	return out, nil
 }
 
-func (o *StopOutbox) listNamed() ([]namedDrop, error) {
+// corruptDrop is a record file that could not be read or parsed (#1660). It
+// is named, never skipped silently, and never counts as reported: the notice
+// it stood for stays unreported until the file is readable again or removed.
+type corruptDrop struct {
+	file  string
+	cause string
+}
+
+// listNamed reads every record. A record that cannot be read or parsed does
+// not fail the listing for the others: it is returned in corrupt, by file
+// name. Only a failure to list the directory itself is an error.
+func (o *StopOutbox) listNamed() (named []namedDrop, corrupt []corruptDrop, err error) {
 	entries, err := os.ReadDir(o.Dir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return []namedDrop{}, nil
+		return []namedDrop{}, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	out := []namedDrop{}
+	named = []namedDrop{}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(o.Dir, e.Name()))
 		if err != nil {
-			return nil, err
+			corrupt = append(corrupt, corruptDrop{file: e.Name(), cause: "cannot be read"})
+			continue
 		}
 		var rec StopDrop
 		if err := json.Unmarshal(data, &rec); err != nil {
-			return nil, err
+			corrupt = append(corrupt, corruptDrop{file: e.Name(), cause: "is not a valid record"})
+			continue
 		}
-		out = append(out, namedDrop{base: strings.TrimSuffix(e.Name(), ".json"), rec: rec})
+		named = append(named, namedDrop{base: strings.TrimSuffix(e.Name(), ".json"), rec: rec})
 	}
-	return out, nil
+	return named, corrupt, nil
 }

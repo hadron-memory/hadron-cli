@@ -1,6 +1,6 @@
 module github.com/hadron-memory/hadron-cli
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/Khan/genqlient v0.8.1
@@ -8,7 +8,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
-	github.com/hadron-memory/urn-lib-go v0.0.18
+	github.com/hadron-memory/urn-lib-go v0.0.19
 	github.com/mattn/go-isatty v0.0.22
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.10.2

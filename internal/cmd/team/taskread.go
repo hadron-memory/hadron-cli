@@ -88,7 +88,7 @@ original values.`,
 			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
 				return err
 			}
-			taskId, err := taskRefArg(args)
+			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -291,6 +291,18 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			}
 		}
 	}
+	// cli#2206: the settings the task asks for, and beside them what its run
+	// applied (cor:agt:050:01); both, or neither.
+	if r := task.RunSettings; r != nil && task.AppliedRunSettings != nil {
+		if err := line("  run settings: family=%s model=%s tier=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Tier), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
+	if r := task.AppliedRunSettings; r != nil && task.RunSettings != nil {
+		if err := line("  applied: family=%s model=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
 	if task.Result != nil {
 		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
 			return err
@@ -339,7 +351,7 @@ func strOr(s *string) string {
 
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
-	var assignee, owner, parent, tag, team, staleOver, text string
+	var assignee, owner, creator, parent, tag, team, staleOver, text string
 	var queued, rootsOnly, tree, overdue, matchFailed, unresolved bool
 	var tagsAny, tagsAll []string
 	var source, externalID, refTarget, refKind string
@@ -370,7 +382,7 @@ when present. Every task command requires provider server#3245 for these fields.
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
 ` + taskStatusDoc + `; --assignee and
---owner name a party, --queued keeps only pending tasks with no assignee,
+--owner and --creator name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
 filters by tag. --text matches a case-insensitive substring of title and description
 only, ANDed with other filters. Text is sent unchanged; the server trims and
@@ -410,6 +422,18 @@ Every other filter, and --limit/--offset, is refused with --team (exit 2);
 --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
+The open-alarm counts are each task's alarms IN EFFECT (cor:agt:050:20), the
+server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+never worked out here — read by a complete oldest-first walk. An alarm whose
+escalation ended is not counted, even while no one has acknowledged it; the
+end can lag by up to one evaluator pass, and the alarm reads as in effect
+until it is recorded. If that walk
+stops early (the 100-page bound, or the server reports more events without
+advancing its cursor) the counts are lower bounds and say so:
+text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
+task in the table; --json marks every task openAlarmsIncomplete:true (a missing
+openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
+reason, lastEventId, pages}. Both markers are absent on a complete walk.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
     than that, where idle runs from the record's updatedAt, else startedAt,
     else createdAt. Records lag real progress (PR pushes, receipts); a stderr
@@ -476,7 +500,14 @@ ageFrom; --tree changes text only.`,
 			for _, s := range statuses {
 				status = append(status, gen.AgentTaskStatus(strings.ToUpper(s)))
 			}
-			var assigneeIn, ownerIn *gen.AgentTaskPartyInput
+			var assigneeIn, ownerIn, creatorIn *gen.AgentTaskPartyInput
+			if cmd.Flags().Changed("creator") {
+				p, e := parseTaskPartyFlag("--creator", creator)
+				if e != nil {
+					return e
+				}
+				creatorIn = p
+			}
 			if assignee != "" {
 				p, err := parseTaskPartyFlag("--assignee", assignee)
 				if err != nil {
@@ -524,6 +555,15 @@ ageFrom; --tree changes text only.`,
 			if cmd.Flags().Changed("overdue") {
 				overdueIn = &overdue
 			}
+			// --parent names a task: an explicit --app qualifies a bare
+			// handle before any read (cli#1831).
+			if parent != "" {
+				q, err := qualifyTaskRef(f, parent)
+				if err != nil {
+					return err
+				}
+				parent = q
+			}
 			// Task listing needs App scope, not a worktree. Let the scope
 			// resolver name the remedies when neither is available; retain
 			// binding errors other than the absence of a worktree.
@@ -536,7 +576,7 @@ ageFrom; --tree changes text only.`,
 				return err
 			}
 			return listTasks(ctx, f, scope, taskListQuery{
-				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
+				assignee: assigneeIn, owner: ownerIn, creator: creatorIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
 				matchFailed:   matchFailedIn,
@@ -549,6 +589,7 @@ ageFrom; --tree changes text only.`,
 	}
 	cmd.Flags().StringSliceVar(&statuses, "status", nil, "status filter, repeatable ("+taskStatusDoc+")")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party filter (worker:<…> / user:<…>)")
+	cmd.Flags().StringVar(&creator, "creator", "", "creator party filter (worker:<…> / user:<…>); not with --team")
 	cmd.Flags().StringVar(&owner, "owner", "", "party filter (worker:<…> / user:<…>)")
 	cmd.Flags().StringVar(&parent, "parent", "", "list this task's children")
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
@@ -578,11 +619,11 @@ ageFrom; --tree changes text only.`,
 
 // taskListQuery is one AgentTaskList request's filters and page.
 type taskListQuery struct {
-	assignee, owner   *gen.AgentTaskPartyInput
-	parent, tag, text *string
-	queued, rootsOnly *bool
-	status            []gen.AgentTaskStatus
-	limit, offset     int
+	assignee, owner, creator *gen.AgentTaskPartyInput
+	parent, tag, text        *string
+	queued, rootsOnly        *bool
+	status                   []gen.AgentTaskStatus
+	limit, offset            int
 	// limitExplicit is true when the user passed --limit: a full page of the
 	// default size is then their own page, not a silent truncation.
 	limitExplicit bool
@@ -634,6 +675,20 @@ func checkTaskPage(limit, offset int) error {
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
 func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
 	tasks := []taskDTO{}
+	if q.creator != nil {
+		r, err := gen.AgentTaskListCreator(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
+			q.status, q.tag, q.tagsAll, q.tagsAny, q.text, q.creator)
+		if err != nil {
+			return nil, 0, mapFindingError(err)
+		}
+		for _, t := range r.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(r.AgentTasks), nil
+	}
 	if q.unresolved != nil {
 		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
@@ -869,17 +924,25 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a task's parent/child chain",
 		Long: `Render the task and every task below it — children, their children and so
 on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The alarms come from the App's unacknowledged alarm events, joined
-onto the tree client-side — the join is presentation, the alarm facts are the
-server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
+per node. The count is the task's alarms IN EFFECT (cor:agt:050:20): the
+server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+joined onto the tree client-side — the join is presentation, the alarm facts
+are the server's, and nothing is worked out here. An alarm whose escalation
+ended is not counted though it may still be unacknowledged; the server can
+take up to one evaluator pass to record the end, and the alarm reads as in
+effect until then. To see an alarm in full use ` + "`team events --alarms`" + `; to
 acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
 or missing root exits 4. Text cells neutralise terminal controls and are bounded;
---json carries complete, original values.`,
+--json carries complete, original values.
+If the alarm walk stops early the counts are lower bounds: text prints one
+INCOMPLETE line and ≥N, and --json marks every task openAlarmsIncomplete:true
+(a missing openAlarms then means unknown, not none); both are absent when the
+walk is complete.`,
 		Example: "  hadron team task tree AT1",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			rootId, err := taskRefArg(args)
+			rootId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
 			}
@@ -901,7 +964,7 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 					break
 				}
 			}
-			alarmsByTask, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, appID)
+			alarmsByTask, alarmStop, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, appID)
 			if err != nil {
 				return err
 			}
@@ -914,6 +977,10 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 				if n, ok := alarmsByTask[dto.ID]; ok {
 					open := n
 					dto.OpenAlarms = &open
+				}
+				if alarmStop != nil {
+					incomplete := true
+					dto.OpenAlarmsIncomplete = &incomplete
 				}
 				tasks = append(tasks, dto)
 			}
@@ -946,6 +1013,11 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+				if alarmStop != nil && len(tasks) > 0 {
+					if _, err := fmt.Fprintln(w, alarmStop.explain()); err != nil {
+						return err
+					}
+				}
 				visited := map[string]bool{}
 				var draw func(*taskDTO, int) error
 				draw = func(task *taskDTO, depth int) error {
@@ -975,51 +1047,105 @@ or missing root exits 4. Text cells neutralise terminal controls and are bounded
 	return cmd
 }
 
-// openAlarmsByTask counts the App's alarm events not yet acknowledged, keyed
-// by task — `task tree`'s alarm join, shared with `task list --team`. Paged
-// to exhaustion with the after cursor: one bounded read stopped at the first
-// page and silently missed every later alarm, open ones included (cycle 1,
-// Diego P2-1; a team with 205 alarms rendered 49 open). An empty appID reads
+// alarmWalkStop says why an open-alarm walk ended before the server's page end
+// (cli#1919, cor:api:120:04). nil means the walk ended on hasMore:false, so
+// the counts are complete. Reason is "page-limit" or "cursor-stalled".
+type alarmWalkStop struct {
+	Reason      string
+	LastEventID string
+	Pages       int
+}
+
+const (
+	alarmStopPageLimit     = "page-limit"
+	alarmStopCursorStalled = "cursor-stalled"
+)
+
+// explain is the one stdout line both commands print when the counts are
+// lower bounds. The event id is server text, so it goes through SafeCell.
+func (s *alarmWalkStop) explain() string {
+	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s at %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
+		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
+}
+
+// openAlarmsByTask counts the App's alarms IN EFFECT, keyed by task — `task
+// tree`'s alarm join, shared with `task list --team` (cli#2053 F4). "In
+// effect" is the server's answer (the alarmsInEffect filter, the same one
+// `team events --alarms-in-effect` passes through; cor:agt:050:20, V77): every
+// row the server returns is counted and nothing is re-derived here, not even
+// from acknowledgedAt, so the count and the events filter cannot disagree on
+// one alarm. It walks
+// OLDEST-FIRST to the server's page end (hasMore:false): an open alarm can be
+// arbitrarily old, so a newest-end window can never prove "no open alarms",
+// and a full last page is the last page, never "more". A walk that cannot
+// finish — the page bound, or hasMore with a null or repeated cursor — returns
+// an alarmWalkStop so every reader can mark its counts incomplete, and writes
+// the stderr note as well; a read error stays fatal. An empty appID reads
 // nothing.
-func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writer, appID string) (map[string]int, error) {
+func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writer, appID string) (map[string]int, *alarmWalkStop, error) {
 	alarmsByTask := map[string]int{}
 	if appID == "" {
-		return alarmsByTask, nil
+		return alarmsByTask, nil, nil
 	}
 	var after *string
 	alarmPageSize := teamEventPageCap
-	// Non-advancement safeguard (cycle 2, Xylon P3-4): a server that repeats
-	// the same full page for every cursor would loop forever. A repeated last
-	// id, or an absurd page count, stops the walk with a stderr note — the
-	// counts render possibly incomplete rather than never arriving.
-	prevLast := ""
-	for page := 0; ; page++ {
-		events, err := gen.AgentTeamEvents(ctx, client, appID, after, boolPtr(true), &alarmPageSize, nil, nil, nil)
+	// Each event id counts once across the walk: a server repeating a page
+	// must not inflate a lower bound (BLIND F1).
+	seen := map[string]bool{}
+	stop := func(reason, last string, pages int) (map[string]int, *alarmWalkStop, error) {
+		fmt.Fprintf(errOut,
+			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, output.SafeCell(last))
+		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
+	}
+	for pages := 1; ; pages++ {
+		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
 		if err != nil {
-			return nil, mapTaskError(err)
+			return nil, nil, mapTaskError(err)
 		}
-		pageSize := len(events.AgentTeamEvents)
+		page := resp.AgentTeamEventsPage
 		last := ""
-		for _, e := range events.AgentTeamEvents {
+		for _, e := range page.Events {
 			if e == nil {
 				continue
 			}
 			last = e.Id
-			if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
+			if seen[e.Id] {
+				continue
+			}
+			seen[e.Id] = true
+			// Severity says the row is an alarm at all (a type check, not an
+			// in-effect rule); acknowledgedAt is deliberately not read.
+			if e.Severity != nil && e.TaskId != nil {
 				alarmsByTask[*e.TaskId]++
 			}
 		}
-		if pageSize < alarmPageSize || last == "" {
-			return alarmsByTask, nil
+		if !page.HasMore {
+			return alarmsByTask, nil, nil
 		}
-		if last == prevLast || page >= alarmPageLimit {
-			fmt.Fprintf(errOut,
-				"note: alarm paging stopped at %s without exhausting the stream; open-alarm counts may be incomplete\n", last)
-			return alarmsByTask, nil
+		next := ""
+		if page.NextCursor != nil {
+			next = *page.NextCursor
 		}
-		prevLast = last
-		after = &last
+		if next == "" {
+			return stop(alarmStopCursorStalled, last, pages)
+		}
+		if after != nil && next == *after {
+			return stop(alarmStopCursorStalled, next, pages)
+		}
+		if pages >= alarmPageLimit {
+			return stop(alarmStopPageLimit, next, pages)
+		}
+		after = &next
 	}
+}
+
+// alarmCount renders an open-alarm count: a lower bound (≥N) when the walk
+// that produced it stopped early.
+func alarmCount(n int, incomplete bool) string {
+	if incomplete {
+		return "≥" + strconv.Itoa(n)
+	}
+	return strconv.Itoa(n)
 }
 
 func findByID(tasks []taskDTO, id string) (*taskDTO, bool) {
@@ -1035,7 +1161,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	indent := strings.Repeat("  ", depth)
 	alarm := ""
 	if task.OpenAlarms != nil && *task.OpenAlarms > 0 {
-		alarm = fmt.Sprintf("  ⏰ %s open alarm%s", strconv.Itoa(*task.OpenAlarms), plural(*task.OpenAlarms))
+		alarm = fmt.Sprintf("  ⏰ %s open alarm%s", alarmCount(*task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete), plural(*task.OpenAlarms))
 	}
 	assignee := "—"
 	if task.Assignee != nil {
@@ -1071,4 +1197,12 @@ func safeTaskRequirementList(values []string) string {
 		return "—"
 	}
 	return safeTaskValues(values, ",")
+}
+
+// settingCell renders one run setting: its value, or - when the task names none.
+func settingCell(v *string) string {
+	if v == nil {
+		return "-"
+	}
+	return output.SafeCell(*v)
 }

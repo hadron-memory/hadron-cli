@@ -46,16 +46,16 @@ func TestWorkerTerminalTitle1738(t *testing.T) {
 		fields map[string]any
 		want   string
 	}{
-		{"reported", map[string]any{"model": "claude-sonnet-5-5", "family": "claude", "reportsTo": map[string]any{"id": "leader", "name": "Ada", "urn": nil}, "reportsToRetired": true}, "Iris [backend-engineer, claude-sonnet-5-5, Ada]\n"},
-		{"family", map[string]any{"family": "codex"}, "Iris [backend-engineer, codex]\n"},
-		{"masked", map[string]any{}, "Iris [backend-engineer, model unavailable]\n"},
-		{"role-null", map[string]any{"role": nil}, "Iris [role unavailable, model unavailable]\n"},
-		{"empty-name", map[string]any{"name": "[,]\u202e\n"}, "worker unavailable [backend-engineer, model unavailable]\n"},
-		{"empty-leader", map[string]any{"reportsTo": map[string]any{"id": "l", "name": "[,]\u202e", "urn": nil}}, "Iris [backend-engineer, model unavailable]\n"},
-		{"scrub-fallback", map[string]any{"role": "\x1b\u202e[,]\n", "model": "[,]\u0085", "family": "glm"}, "Iris [role unavailable, glm]\n"},
-		{"scrub-all", map[string]any{"name": " I[ri],s\n\u202e", "role": " dev\trole ", "model": "M\u2028 x", "reportsTo": map[string]any{"id": "l", "name": "A,da", "urn": nil}}, "I ri s [dev role, M x, A da]\n"},
-		{"blank-model-family", map[string]any{"model": "[,]", "family": "\u2029"}, "Iris [backend-engineer, model unavailable]\n"},
-		{"retired-worker", map[string]any{"retiredAt": "2026-01-01T00:00:00Z"}, "Iris [backend-engineer, model unavailable]\n"},
+		{"reported", map[string]any{"model": "claude-sonnet-5-5", "family": "claude", "reportsTo": map[string]any{"id": "leader", "name": "Ada", "urn": nil}, "reportsToRetired": true}, "Iris\n"},
+		{"family", map[string]any{"family": "codex"}, "Iris\n"},
+		{"masked", map[string]any{}, "Iris\n"},
+		{"role-null", map[string]any{"role": nil}, "Iris\n"},
+		{"empty-name", map[string]any{"name": "[,]\u202e\n"}, "worker unavailable\n"},
+		{"empty-leader", map[string]any{"reportsTo": map[string]any{"id": "l", "name": "[,]\u202e", "urn": nil}}, "Iris\n"},
+		{"scrub-fallback", map[string]any{"role": "\x1b\u202e[,]\n", "model": "[,]\u0085", "family": "glm"}, "Iris\n"},
+		{"scrub-all", map[string]any{"name": " I[ri],s\n\u202e", "role": " dev\trole ", "model": "M\u2028 x", "reportsTo": map[string]any{"id": "l", "name": "A,da", "urn": nil}}, "I ri s\n"},
+		{"blank-model-family", map[string]any{"model": "[,]", "family": "\u2029"}, "Iris\n"},
+		{"retired-worker", map[string]any{"retiredAt": "2026-01-01T00:00:00Z"}, "Iris\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, log, err := runTitle1738(t, `{"data":{"worker":`+titleWorker1738(t, tc.fields)+`}}`, profileHexID)
@@ -126,7 +126,7 @@ func TestWorkerTerminalTitleBound1738(t *testing.T) {
 		t.Fatal(err)
 	}
 	line := strings.TrimSuffix(out, "\n")
-	if len([]rune(line)) != 256 || !strings.HasSuffix(line, "…]") || strings.Count(out, "\n") != 1 {
+	if len([]rune(line)) != 256 || !strings.HasSuffix(line, "…") || strings.Count(out, "\n") != 1 {
 		t.Fatalf("out=%q runes=%d", out, len([]rune(line)))
 	}
 	for _, r := range line {
@@ -184,7 +184,7 @@ func TestWorkerTerminalTitleNamedAndGateway1738(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "terminal-title", "Iris", "--app", "acme.com:eng-team", "--server", srv.URL})
-	if err := root.Execute(); err != nil || out.String() != "Iris [backend-engineer, model unavailable]\n" || calls.Load() != 1 {
+	if err := root.Execute(); err != nil || out.String() != "Iris\n" || calls.Load() != 1 {
 		t.Fatalf("out=%q err=%v calls=%d", out, err, calls.Load())
 	}
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -233,10 +233,10 @@ func TestWorkerTerminalTitleCapBoundaries1738(t *testing.T) {
 	for _, tc := range []struct {
 		n, want  int
 		ellipsis bool
-	}{{248, 255, false}, {249, 256, false}, {250, 256, true}} {
+	}{{255, 255, false}, {256, 256, false}, {257, 256, true}} {
 		out, _, err := runTitle1738(t, `{"data":{"worker":`+titleWorker1738(t, map[string]any{"name": strings.Repeat("a", tc.n), "role": "r", "model": "m"})+`}}`, profileHexID)
 		line := strings.TrimSuffix(out, "\n")
-		if err != nil || len([]rune(line)) != tc.want || strings.HasSuffix(line, "…]") != tc.ellipsis {
+		if err != nil || len([]rune(line)) != tc.want || strings.HasSuffix(line, "…") != tc.ellipsis {
 			t.Fatalf("n=%d out=%q err=%v", tc.n, out, err)
 		}
 	}
@@ -251,7 +251,7 @@ func TestWorkerTerminalTitleEmptyLabelRawJSON1738(t *testing.T) {
 	if err = json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got["title"] != "worker unavailable [backend-engineer, model unavailable]" {
+	if got["title"] != "worker unavailable" {
 		t.Fatal(got)
 	}
 	parts := got["parts"].(map[string]any)

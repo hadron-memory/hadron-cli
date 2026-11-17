@@ -1,0 +1,19 @@
+# cli#1875: an App's usage accounts (hadron-server#3853, cor:agt:140:05).
+# A SEPARATE document on purpose, like usage_projection.graphql: a server that
+# predates the field fails validation of this document only, and the failure
+# maps to "server too old". It selects exactly the envelope and entry fields of
+# the contract (an AST pin asserts that).
+query AccountUsageAccounts($appRef: ID!) {
+  accountUsageAccounts(appRef: $appRef) {
+    asOf
+    accounts {
+      account
+      host
+      family
+      newestSnapshotAt
+      workers
+      workersConfigured
+    }
+    complete
+  }
+}

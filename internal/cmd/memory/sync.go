@@ -107,25 +107,7 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 				return exitcode.Silent(exitcode.Error)
 			}
 			report, status := parseSyncReport(m.LastSyncReport)
-			failed := report != nil && report.Outcome == "failed"
-			// Unknown v1 entry vocabulary is not certified by this client. Keep the
-			// shared parser as the sole decoder, and fail closed at this new door.
-			if report != nil {
-				if report.Code != nil && !syncReportCodes[*report.Code] {
-					status = syncReportUnavailable
-				}
-				for _, entry := range report.Entries {
-					if _, ok := syncKindLabels[entry.Kind]; !ok {
-						status = syncReportUnavailable
-					}
-					if _, ok := syncEntryCodes[entry.Code]; !ok {
-						status = syncReportUnavailable
-					}
-				}
-			}
-			if status == syncReportUnavailable {
-				report = nil
-			}
+			failed := syncReportSaysFailed(m.LastSyncReport)
 			dto := syncPullDTO{Memory: ref, Operation: "pull", SyncStatus: string(m.SyncStatus), SyncError: maskSyncError(m.SyncError), LastSyncedAt: m.LastSyncedAt, SyncReportStatus: status, SyncReport: report}
 			dto.Clean = status == syncReportNone && m.LastSyncedAt != nil && *m.LastSyncedAt != "" && m.SyncError == nil
 			summary := "synced; report unavailable"

@@ -755,12 +755,13 @@ func renderMint(w io.Writer, d mintDTO) error {
 			return err
 		}
 		cmdutil.WriteMintApproveHint(w, d.Memory, kinds...)
+		writeNotApprovedTargets(w, d)
 	}
 	block := "reported only"
 	if d.StaleAbstractsBlock {
 		block = "these block"
 	}
-	fmt.Fprintf(w, "  stale abstracts: %d (%s)\n", len(d.StaleAbstracts), block)
+	fmt.Fprintf(w, "  stale abstracts: %d (%s) — this mint's scope only; whole-memory audit: hadron spec validate --all -m %s\n", len(d.StaleAbstracts), block, cmdutil.ShellQuote(d.Memory))
 	for _, s := range d.StaleAbstracts {
 		fmt.Fprintf(w, "    %s  %s\n", s.Loc, s.Message)
 	}
@@ -792,6 +793,26 @@ func renderMint(w io.Writer, d mintDTO) error {
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
+}
+
+// writeNotApprovedTargets names, per NOT_APPROVED blocker, the node to approve
+// (cli#1307). The table's LOC cell is empty for a memory's root node — which
+// `spec list` hides — so the blocker alone gives the user nothing to act on.
+// Human output only; the --json report keeps its shape.
+func writeNotApprovedTargets(w io.Writer, d mintDTO) {
+	for _, b := range d.Blockers {
+		if b.Kind != cmdutil.MintBlockerNotApproved {
+			continue
+		}
+		if strings.TrimSpace(b.Loc) == "" {
+			fmt.Fprintf(w, "  not approved: the memory's root node (no loc; %s) — approve it with: hadron memory approve-all -m %s\n",
+				output.SafeCell(b.Message), cmdutil.ShellQuote(d.Memory))
+			continue
+		}
+		if urn := cmdutil.NodeURN(d.Memory, b.Loc); urn != "" {
+			fmt.Fprintf(w, "  not approved: %s — hadron node approve %s --revision <n>\n", output.SafeCell(b.Loc), cmdutil.ShellQuote(urn))
+		}
+	}
 }
 
 func mintLocCount(d mintDTO) int {

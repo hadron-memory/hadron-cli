@@ -430,3 +430,23 @@ func TestStatusTextSanitizesForeignText(t *testing.T) {
 		t.Fatalf("status lost: %q", out)
 	}
 }
+
+// cli#1856 + cor:agt:050:11: a locked/unrecognized read names the line it could
+// not match in the LOCAL text only. The screen line must never reach the JSON
+// (a terminal event never carries screen text), while text mode shows it.
+func TestStatusUnrecognizedNamesTheLineLocallyNeverInJSON1856(t *testing.T) {
+	const odd = "totally unknown footer 4242"
+	r := newRig(t)
+	r.joshua([]string{"⏺ Done.", rule, "❯ ", rule, claudeHint, "  " + odd})
+	code, out := r.run(t, true, "Joshua")
+	m := decode(t, out)
+	if code != 0 || m["status"] != "locked" || m["reason"] != "unrecognized" {
+		t.Fatalf("exit %d: %v", code, m)
+	}
+	if strings.Contains(out, odd) || strings.Contains(out, "4242") || strings.Contains(out, "detail") {
+		t.Fatalf("screen text reached the JSON: %s", out)
+	}
+	if _, text := r.run(t, false, "Joshua"); !strings.Contains(text, odd) || !strings.HasPrefix(text, "Joshua locked (unrecognized): could not match: ") {
+		t.Fatalf("text mode must name the unmatched line: %q", text)
+	}
+}

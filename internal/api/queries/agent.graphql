@@ -48,6 +48,19 @@ query GetAgent($ref: ID!) {
   agent(ref: $ref) {
     ...AgentFields
     clonedFromAgentRef
+    # cor:dmo:050:19: why the Agent could not be offered; null for a caller who does not manage it (cor:dmo:050:13).
+    offerReadiness {
+      ready
+      reasons {
+        code
+        count
+        subjects {
+          name
+        }
+        omittedByCap
+        hiddenByAccess
+      }
+    }
   }
 }
 

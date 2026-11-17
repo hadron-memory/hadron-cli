@@ -68,6 +68,16 @@ mutation DeleteApp($ref: ID!) {
   deleteApp(ref: $ref)
 }
 
+# cli#1917 (hadron-server#3774, cor:dmo:050:21): the reversible pair. Both
+# answer true for a real move and for a repeat alike.
+mutation UninstallApp($ref: ID!) {
+  uninstallApp(ref: $ref)
+}
+
+mutation ReinstallApp($ref: ID!) {
+  reinstallApp(ref: $ref)
+}
+
 # #389: attach / detach an existing Agent to an existing App — the AppAgent
 # join (spec 023 US1, cor:dmo:050:03). `createApp` makes a NEW App from an
 # Agent; these two are the only way to compose the roster of one you already

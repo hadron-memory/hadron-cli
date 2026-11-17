@@ -145,6 +145,13 @@ type StopReporter struct {
 	ReporterWorker string
 	Now            func() time.Time
 	ReconcileAfter time.Duration
+	// RetainReported is how long after its report a record is kept before a
+	// run removes it. Zero means DefaultRetainReported; a negative value keeps
+	// reported records forever. A record with no report marker is never removed.
+	RetainReported time.Duration
+	// syncDirFn is a test seam for the directory sync (nil means syncDir), so
+	// a failure at each durability boundary of the retention cleanup can be pinned.
+	syncDirFn func(string) error
 	// Test seams: called just before the intent is written, and just after a
 	// post is accepted, so a crash at either point can be pinned.
 	beforeIntent       func()
@@ -158,8 +165,11 @@ type ReportOutcome struct {
 	EventID string `json:"eventId"`
 	Worker  string `json:"worker"`
 	// Result: reported, reconciled, duplicate, waiting, failed.
-	Result          string `json:"result"`
-	Seq             int    `json:"seq,omitempty"`
+	Result string `json:"result"`
+	Seq    int    `json:"seq,omitempty"`
+	// File names an outbox record that could not be read (#1660); such an
+	// outcome has no event id or worker, and is always failed.
+	File            string `json:"file,omitempty"`
 	Error           string `json:"error,omitempty"`
 	Reason          string `json:"reason,omitempty"`
 	Field           string `json:"field,omitempty"`
@@ -171,7 +181,16 @@ type ReportRun struct {
 	// Busy: another reporter holds the lock; this run did nothing.
 	Busy     bool            `json:"busy"`
 	Outcomes []ReportOutcome `json:"outcomes"`
+	// Pruned counts reported records removed by the retention rule this run.
+	Pruned int `json:"pruned,omitempty"`
 }
+
+// DefaultRetainReported is how long a reported record is kept (#1660). A
+// reported notice's record has done its job. The only producer is the
+// poller's flagDroppedHalts, which records a notice each time the server hands
+// the same still-unacknowledged HALT over; if one outlives the window it is
+// recorded and reported once more, which is true (it has still not been typed).
+const DefaultRetainReported = 30 * 24 * time.Hour
 
 // Pending reports how many records have no marker (pending) and, of those,
 // how many were first held more than olderThan ago. Read-only; takes no lock.
@@ -182,9 +201,12 @@ func (r *StopReporter) Pending(olderThan time.Duration) (pending, stale int, err
 
 // PendingReport is a cached observation, never a current diagnosis or authority.
 type PendingReport struct {
-	Pending          int                  `json:"pending"`
-	Stale            int                  `json:"stale"`
-	NeedsPerson      int                  `json:"needsPerson"`
+	Pending     int `json:"pending"`
+	Stale       int `json:"stale"`
+	NeedsPerson int `json:"needsPerson"`
+	// Corrupt counts record files that could not be read; they are not in
+	// Pending (no notice can be read from them) and a run reports them failed.
+	Corrupt          int                  `json:"corrupt,omitempty"`
 	Records          []PendingObservation `json:"records"`
 	RecordsTotal     int                  `json:"recordsTotal"`
 	RecordsTruncated bool                 `json:"recordsTruncated"`
@@ -211,10 +233,11 @@ type stopLastFail struct {
 // PendingStatus reads only local state, without taking a lock or creating files.
 func (r *StopReporter) PendingStatus(olderThan time.Duration) (PendingReport, error) {
 	status := PendingReport{Records: []PendingObservation{}}
-	entries, err := r.Outbox.listNamed()
+	entries, corrupt, err := r.Outbox.listNamed()
 	if err != nil {
 		return status, err
 	}
+	status.Corrupt = len(corrupt)
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].rec.HeldAt.Equal(entries[j].rec.HeldAt) {
 			return entries[i].rec.EventID < entries[j].rec.EventID
@@ -390,9 +413,14 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 		run.Busy = true
 		return run, nil
 	}
-	entries, err := r.Outbox.listNamed()
+	entries, corrupt, err := r.Outbox.listNamed()
 	if err != nil {
 		return run, err
+	}
+	// A corrupt record fails alone: every other notice is still reported.
+	for _, c := range corrupt {
+		run.Outcomes = append(run.Outcomes, ReportOutcome{File: c.file, Result: "failed",
+			Error: fmt.Sprintf("record %s %s; not reported, remove or repair it", c.file, c.cause)})
 	}
 	var workerID string
 	for _, e := range entries {
@@ -411,7 +439,90 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 		}
 		run.Outcomes = append(run.Outcomes, r.reportOne(ctx, e, workerID))
 	}
+	run.Pruned = r.pruneReported(entries)
 	return run, nil
+}
+
+// pruneReported removes records whose report marker is older than the
+// retention window, and answers how many it removed. Only a record with a
+// marker is ever a candidate. The order is chosen so an interruption can be
+// retried (#1660 review, F1): the record's siblings go first, then the record
+// (.json, the name discovery lists), and the marker last, with the directory
+// synced after each step. Until the marker is gone the record still lists as
+// reported, so it is never reported twice; once the record is gone, the sweep
+// below finds its marker by name and finishes the removal. A failed removal
+// leaves the rest for the next run.
+func (r *StopReporter) pruneReported(entries []namedDrop) int {
+	keep := r.RetainReported
+	if keep < 0 {
+		return 0
+	}
+	if keep == 0 {
+		keep = DefaultRetainReported
+	}
+	pruned := 0
+	seen := map[string]bool{}
+	for _, e := range entries {
+		seen[e.base] = true
+		if r.reportedLongAgo(e.base, keep) && r.removeRecord(e.base) {
+			pruned++
+		}
+	}
+	// A run interrupted after the record was removed leaves its marker alone.
+	if names, err := os.ReadDir(r.Outbox.Dir); err == nil {
+		for _, n := range names {
+			base, ok := strings.CutSuffix(n.Name(), ".reported")
+			if !ok || seen[base] || !validStopBase(base) || r.exists(base+".json") {
+				continue
+			}
+			if r.reportedLongAgo(base, keep) && r.removeRecord(base) {
+				pruned++
+			}
+		}
+	}
+	return pruned
+}
+
+// reportedLongAgo is true only for a base with a regular .reported marker
+// older than keep.
+func (r *StopReporter) reportedLongAgo(base string, keep time.Duration) bool {
+	if !validStopBase(base) {
+		return false
+	}
+	marker := filepath.Join(r.Outbox.Dir, base+".reported")
+	info, err := os.Lstat(marker)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	at := info.ModTime()
+	if data, err := os.ReadFile(marker); err == nil {
+		var m stopReported
+		if json.Unmarshal(data, &m) == nil && !m.ReportedAt.IsZero() {
+			at = m.ReportedAt
+		}
+	}
+	return r.now().Sub(at) > keep
+}
+
+// removeRecord removes one reported record in the retry-safe order, syncing
+// the directory after each step. It answers whether every step completed.
+func (r *StopReporter) removeRecord(base string) bool {
+	for _, step := range [][]string{{".sending", ".lastfail"}, {".json"}, {".reported"}} {
+		for _, suffix := range step {
+			err := os.Remove(filepath.Join(r.Outbox.Dir, base+suffix))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return false
+			}
+		}
+		sync := r.syncDirFn
+		if sync == nil {
+			sync = syncDir
+		}
+		if err := sync(r.Outbox.Dir); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID string) ReportOutcome {
@@ -433,7 +544,7 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 		if err != nil {
 			return fail(fmt.Errorf("reading the channel head: %w", err))
 		}
-		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec), HeadSeq: head,
+		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec, r.now()), HeadSeq: head,
 			FirstAttemptAt: r.now(), AuthorWorkerID: workerID}
 		if r.beforeIntent != nil {
 			r.beforeIntent()
@@ -609,17 +720,21 @@ func (r *StopReporter) markReported(base, eventID string, seq int) error {
 // holdGloss explains a hold code in plain words; an unknown code is shown
 // as it is.
 var holdGloss = map[string]string{
-	HoldDraft:             "unsent text is in its input box",
-	HoldIsolated:          "its terminal is isolated from delivery",
-	HoldQuestion:          "its screen shows a question or a dialog",
-	HoldScreenUnknown:     "its screen could not be read as idle",
-	HoldNotSubmitted:      "the typed notice was not seen to start a turn",
-	HoldTwoAgents:         "two agents share its terminal",
-	HoldBindingMismatch:   "its terminal is bound to another session",
-	HoldTimingUnavailable: "the delivery timing could not be read",
-	"no-terminal":         "it has no terminal on this host",
-	"malformed-wake":      "the server's wake for it could not be read",
-	"records-unreadable":  "this host could not read its delivery records",
+	HoldDraft:                  "unsent text is in its input box",
+	HoldIsolated:               "its terminal is isolated from delivery",
+	HoldQuestion:               "its screen shows a question or a dialog",
+	HoldScreenUnknown:          "its screen could not be read as idle",
+	HoldNotSubmitted:           "the typed notice was not seen to start a turn",
+	HoldTwoAgents:              "two agents share its terminal",
+	HoldBindingMismatch:        "its terminal is bound to another session",
+	HoldNoTerminalRecord:       "its directory has no readable terminal record",
+	HoldTerminalStale:          "its recorded terminal is gone, read-only or not an agent",
+	HoldTerminalClaimed:        "another worker's terminal record names the same terminal",
+	HoldTerminalBoundElsewhere: "its recorded terminal sits in another worker's directory",
+	HoldTimingUnavailable:      "the delivery timing could not be read",
+	"no-terminal":              "it has no terminal on this host",
+	"malformed-wake":           "the server's wake for it could not be read",
+	"records-unreadable":       "this host could not read its delivery records",
 }
 
 func holdText(code string) string {
@@ -632,15 +747,27 @@ func holdText(code string) string {
 // stopDropBody is the flag. It names the halted worker without an @, so the
 // halted worker is not woken by it; it carries ids and codes only. It says
 // what is true of the worker and what to do, and promises no later post.
-// A notice typed since it was held says so (TypedAt).
-func stopDropBody(recipient string, rec StopDrop) string {
+// A notice typed since it was held says so (TypedAt). The un-typed branch
+// posts once and nothing ever corrects it, and TypedAt is stamped only after
+// an ack, so a held-from-ack notice reads un-typed while typed — and the
+// record cannot distinguish that state from never-typed. Its claims are
+// therefore scoped to the post moment (#1660 ask 5, Uma's rulings: option B
+// #112587, notice clause amended #112917, final sentence #113290 after the
+// BLIND delta P2 — superseding the #113270 interim) and claim only the
+// missing acknowledgment: "had not acknowledged a halt notice as of T"
+// rather than "had not been told to halt" (the worker may already hold the
+// halt text while its ack is pending), and a typing hedge of "before or
+// after then" rather than "since" (the typing may predate the post moment).
+// The one action stays last.
+func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 	held := fmt.Sprintf("%s, since %s", holdText(rec.HoldReason), rec.HeldAt.UTC().Format(time.RFC3339))
 	if !rec.TypedAt.IsZero() {
 		return fmt.Sprintf("@%s %s's %s notice (event %s) was held (%s) and has since been typed and acknowledged, at %s. No action needed; this is the only post about it.",
 			recipient, rec.Worker, rec.Level, rec.EventID, held, rec.TypedAt.UTC().Format(time.RFC3339))
 	}
-	return fmt.Sprintf("@%s %s has not been told to halt and may still be running: its %s notice (event %s) could not be typed into its session (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
-		recipient, rec.Worker, rec.Level, rec.EventID, held, rec.Worker)
+	asOf := now.UTC().Format(time.RFC3339)
+	return fmt.Sprintf("@%s %s had not acknowledged a halt notice as of %s and may still be running: its %s notice (event %s) had no acknowledged typing as of then (%s). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check %s's terminal.",
+		recipient, rec.Worker, asOf, rec.Level, rec.EventID, held, rec.Worker)
 }
 
 // Structured classification never inspects error prose or returns remote text.

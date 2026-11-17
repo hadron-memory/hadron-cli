@@ -138,6 +138,13 @@ func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// C9 optional side read: an unstubbed legacy server has no S3 lifecycle.
+	// Modern lifecycle tests supply their explicit response.
+	case "GetAgentLifecycle":
+		return missingFieldJSON("lifecycle"), true
+	// #2162: an unstubbed legacy server has no Agent.contextCap (#4258).
+	case "GetAgentContextCap":
+		return missingFieldJSON("contextCap"), true
 	// cli#1655 defaults model ONLY the synthetic exact missing-capability
 	// policy. They are not a stock pre-2708 provider (its missing
 	// installMethod/importer produce mixed errors). Modern preview/provenance
@@ -149,6 +156,12 @@ func unstubbedDefault(op string) (string, bool) {
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.
+	// cli#1912: a spec dry run asks who the caller is before it consults
+	// effectiveAccess. Answered as a credential that resolves to no user, for
+	// which the check is skipped, so existing dry-run tests are unchanged; the
+	// write-access tests stub both operations.
+	case "AuthContext":
+		return `{"data":{"authContext":null}}`, true
 	case "GetBoundSessionEnd":
 		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
@@ -189,11 +202,22 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate terminal-report read (#1375). An older
 		// server does not know Worker.terminal; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerAvailability":
+		// `team worker get`'s separate availability-provenance read (cli#1911).
+		// An older server does not know Worker.availability; the ordinary lookup
+		// must work and shows no availability line.
+		return `{"errors":[{"message":"Cannot query field \"availability\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerRendered":
 		// `team worker get`'s separate rendered signature/trailer read
 		// (cli#1525). An older server does not know Worker.renderedSignature;
 		// the ordinary lookup must work and shows no rendered lines.
 		return `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerSignatureLint", "GetWorkerPromptLint", "WorkerServedPromptLint", "RunServedPromptLint", "SessionServedPromptsLint", "SessionServedPromptLintAt", "ChatServedPromptsLint", "ChatServedPromptLintAt":
+		// `team worker get`'s advisory lint reads (cli#2007), answered as a server
+		// that predates Worker.signatureLint / promptLintWarnings: the lint is
+		// unavailable and the ordinary read is unaffected. Their own tests stub
+		// the modern answers.
+		return `{"errors":[{"message":"Cannot query field \"signatureLint\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerModelGroups":
 		// `team worker get`'s separate model-group read (cli#1485 S3): answered
 		// as a real [] so existing worker-get tests see no group line. It has no
@@ -310,7 +334,7 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	io.ErrOut = errOut
 	f := &cmdutil.Factory{
 		IOStreams:    io,
-		HTTPClient:   http.DefaultClient,
+		HTTPClient:   loopbackOnlyClient(func(d string) { t.Errorf("a command test tried to reach %s: pass --server <fake> (cli#2144)", d) }, nil),
 		ConfigFn:     config.Load,
 		TokenStoreFn: func() store.Store { return memStore{} },
 	}

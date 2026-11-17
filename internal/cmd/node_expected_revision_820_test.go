@@ -52,6 +52,8 @@ func revision820Run(t *testing.T, kind string, conflict bool, args ...string) (s
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch q.OperationName {
+		case "AuthContext":
+			fmt.Fprint(w, `{"data":{"authContext":null}}`)
 		case "ResolveUrn":
 			fmt.Fprint(w, resolveNodeJSON)
 		case "GetNode", "GetNodeRaw":

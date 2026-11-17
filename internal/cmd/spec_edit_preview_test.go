@@ -63,7 +63,7 @@ func writeTemp(t *testing.T, name, body string) string {
 
 // readOnlyOps is every operation a dry run may send. Anything else — above all
 // UpdateSpecNode — is a write the preview must never make.
-var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true, "GetSpecNodeForEdit": true}
+var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true, "GetSpecNodeForEdit": true, "AuthContext": true, "EffectiveAccess": true}
 
 func assertNoWrites(t *testing.T, captured map[string]json.RawMessage) {
 	t.Helper()

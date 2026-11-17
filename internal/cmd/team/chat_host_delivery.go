@@ -8,9 +8,10 @@ import (
 )
 
 // Push states, one per recipient (cli#954). "not-pushed" is the ONE state for
-// "nothing was typed and no batch was held": the server omits an off-host
-// worker, an unknown worker and a worker with nothing due in the same way
-// (cor:agt:080:22), so the CLI never claims which of them it was.
+// "nothing was typed and no batch was held"; its reason names the cause the
+// CLI can establish (cli#1900, pushReason*). The server omits an unknown
+// worker and a worker with nothing due in the same way (cor:agt:080:22), so
+// WHY no batch was due is never claimed.
 const (
 	pushStatePushed    = "pushed"
 	pushStateHeld      = "held"
@@ -26,11 +27,32 @@ const (
 	pushStateUnconfirmed = "unconfirmed"
 )
 
+// Push reasons with no batch behind them (cli#1900). A closed set: the
+// held/failed reasons of an offered batch (draft, …) and ack-pending/pending
+// come from the delivery transaction unchanged.
+const (
+	// pushReasonNotOnHost: the mention matches no worker registered on this
+	// host with a configured worktree, so this host can push nothing to it.
+	pushReasonNotOnHost = "not-on-host"
+	// pushReasonNoDueBatch: the mention matches a worker on this host, and the
+	// server offered no due batch for it.
+	pushReasonNoDueBatch = "no-due-batch"
+	// pushReasonPushFailed: the pass failed before an outcome (unconfirmed).
+	pushReasonPushFailed = "push-failed"
+	// pushBatchNone: no batch decided the state.
+	pushBatchNone = "none"
+)
+
 // postPushResult is one recipient's report; Reason is a code, never text.
 type postPushResult struct {
 	Recipient string `json:"recipient"`
 	State     string `json:"state"`
 	Reason    string `json:"reason,omitempty"`
+	// Batch names the batch that decided State by its span
+	// (<channel>#<incarnation>:<from>-<through>, comma-joined), the handle the
+	// host log uses; "none" when no batch did. Never the batch's id, which is
+	// a signed proof (delivery.Batch.ID).
+	Batch string `json:"batch"`
 	// Acked is how many of the recipient's batches the server accepted an
 	// acknowledgement for (marks advanced). pushed+ack-pending with 0 means
 	// typed, marks unmoved, still due (gate refinement, #954).

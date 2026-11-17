@@ -1,6 +1,7 @@
 package servedprompt
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -17,6 +19,7 @@ import (
 // NewChat reads records only, never the Chat object or its conversation.
 func NewChat(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset, provenanceLimit, provenanceOffset int
+	var lintFlag bool
 	cmd := &cobra.Command{
 		Use:   "served-prompts <chat-id>",
 		Short: "Read a chatbot chat's recorded prompt history",
@@ -45,7 +48,8 @@ revision numbers, hashes and pruning flags, never source bodies. servedRevSeq
 is the compiled node's served revision; provenanceRevSeq is the compile behind
 it. Pruned revisions remain recorded. Separate page requests do not promise
 one database snapshot. Requires a server containing hadron-server#2865
-(6b3f1e15); an older provider refuses the query as schema skew.`,
+(6b3f1e15); an older provider refuses the query as schema skew.
+` + historyLintHelp,
 		Example: `  # Replace the id with the chatbot chat's id from the application.
   hadron chat served-prompts 01234567-89ab-4cde-8f01-23456789abcd --json
   hadron chat served-prompts 01234567-89ab-4cde-8f01-23456789abcd --limit 0
@@ -85,6 +89,36 @@ one database snapshot. Requires a server containing hadron-server#2865
 				}
 				result.Items = append(result.Items, *record)
 			}
+			if lintFlag {
+				budget := lintwarn.NewBudget(cmd.Context())
+				defer budget.Close()
+				conv := func(total int, in []*gen.ChatServedPromptsLintChatServedPromptsServedPromptsPageItemsServedPrompt) (int, []lintwarn.HistItem, error) {
+					items := make([]lintwarn.HistItem, len(in))
+					for i, it := range in {
+						if it != nil && it.CurrentLint != nil {
+							items[i] = lintwarn.HistItem{ID: it.Id, Lint: &it.CurrentLint.LintWarningPageFields}
+						} else if it != nil {
+							items[i] = lintwarn.HistItem{ID: it.Id}
+						}
+					}
+					return total, items, nil
+				}
+				readHistoryLint(cmd, budget, result, offset,
+					func(ctx context.Context) (int, []lintwarn.HistItem, error) {
+						r, e := gen.ChatServedPromptsLint(ctx, client, id, limit, offset)
+						if e != nil || r == nil || r.ChatServedPrompts == nil {
+							return 0, nil, errLintUnavailable
+						}
+						return conv(r.ChatServedPrompts.Total, r.ChatServedPrompts.Items)
+					},
+					func(ctx context.Context, at int, after *string) (int, []lintwarn.HistItem, error) {
+						r, e := gen.ChatServedPromptLintAt(ctx, client, id, at, after)
+						if e != nil || r == nil || r.ChatServedPrompts == nil {
+							return 0, nil, errLintUnavailable
+						}
+						return atConv(r.ChatServedPrompts.Total, r.ChatServedPrompts.Items)
+					})
+			}
 			return output.Write(f.IOStreams, f.JSON, historyEnvelopeDTO{ServedPrompts: result}, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "served prompts: %d of %d (offset %d)\n", len(result.Items), result.Total, result.Offset); err != nil {
 					return err
@@ -97,6 +131,9 @@ one database snapshot. Requires a server containing hadron-server#2865
 					if err := writeRecord(w, &result.Items[i]); err != nil {
 						return err
 					}
+					if err := writeCurrentLint(w, &result.Items[i]); err != nil {
+						return err
+					}
 				}
 				return nil
 			})
@@ -106,5 +143,18 @@ one database snapshot. Requires a server containing hadron-server#2865
 	cmd.Flags().IntVar(&offset, "offset", 0, "records to skip")
 	cmd.Flags().IntVar(&provenanceLimit, "provenance-limit", 50, "provenance entries per record (0 counts only, maximum 200)")
 	cmd.Flags().IntVar(&provenanceOffset, "provenance-offset", 0, "provenance entries to skip in each record")
+	addLintFlag(cmd, &lintFlag)
 	return cmd
+}
+
+func atConv(total int, in []*gen.ChatServedPromptLintAtChatServedPromptsServedPromptsPageItemsServedPrompt) (int, []lintwarn.HistItem, error) {
+	items := make([]lintwarn.HistItem, len(in))
+	for i, it := range in {
+		if it != nil && it.CurrentLint != nil {
+			items[i] = lintwarn.HistItem{ID: it.Id, Lint: &it.CurrentLint.LintWarningPageFields}
+		} else if it != nil {
+			items[i] = lintwarn.HistItem{ID: it.Id}
+		}
+	}
+	return total, items, nil
 }

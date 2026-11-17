@@ -30,7 +30,7 @@ func (e *authoredCommandError) Unwrap() error { return e.error }
 // Install on the assembled tree so validation precedes every command's reads,
 // including all scaffold/retirement writes that share the command context.
 func installAuthoredWith(root *cobra.Command) {
-	paths := map[string]bool{"node create": true, "node update": true, "node set-properties": true, "node merge": true, "replace text": true, "spec new": true, "spec edit": true, "spec replace": true, "spec supersede": true, "spec extract": true}
+	paths := map[string]bool{"node create": true, "node update": true, "node set-properties": true, "node merge": true, "replace text": true, "spec new": true, "spec edit": true, "spec replace": true, "spec supersede": true, "spec rescind": true, "spec extract": true}
 	var walk func(*cobra.Command)
 	walk = func(cmd *cobra.Command) {
 		path := strings.TrimPrefix(cmd.CommandPath(), root.Name()+" ")

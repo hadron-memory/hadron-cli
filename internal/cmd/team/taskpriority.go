@@ -56,13 +56,19 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 	cmd := &cobra.Command{Use: verb + " <task> " + arg, Short: short,
 		Long: dependencyWriteLong(verb), Example: dependencyWriteExample(verb), Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref, err := taskRefArg(args[:1])
+			ref, err := taskRefArg(f, args[:1])
 			if err != nil {
 				return err
 			}
 			second := strings.TrimSpace(args[1])
 			if second == "" {
 				return exitcode.Newf(exitcode.Usage, "%s must not be empty", arg)
+			}
+			if !priority {
+				// The blocker is a task too (cli#1831).
+				if second, err = qualifyTaskRef(f, second); err != nil {
+					return err
+				}
 			}
 			var n int
 			if priority {
@@ -203,7 +209,7 @@ items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`, Ex
 		if err := checkTaskPage(limit, offset); err != nil {
 			return err
 		}
-		ref, err := taskRefArg(a)
+		ref, err := taskRefArg(f, a)
 		if err != nil {
 			return err
 		}

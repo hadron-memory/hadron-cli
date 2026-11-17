@@ -31,6 +31,24 @@ mutation TestAiServiceConfig(
   }
 }
 
+# The opt-in chat probe (hadron-server#4005, cli#1951) is its OWN document, so
+# the default test above keeps today's request and selection exactly, and an
+# older server only fails (GRAPHQL_VALIDATION_FAILED) when the probe is asked for.
+mutation TestAiServiceConfigWithChatProbe(
+  $id: ID!
+  $chatProbe: Boolean!
+  # @genqlient(omitempty: true)
+  $override: AiServiceConfigTestOverride
+) {
+  testAiServiceConfig(id: $id, override: $override, chatProbe: $chatProbe) {
+    ok provider model endpoint apiStyle latencyMs reply
+    error { code message transient }
+    used { provider model endpoint apiStyle key params }
+    knobs { param state detail }
+    chat { status }
+  }
+}
+
 mutation CreateAiServiceConfigWithApiStyle(
   $name: String!
   $provider: String!
@@ -99,5 +117,24 @@ mutation ClearAiServiceConfigApiStyle(
   updateAiServiceConfig(id: $id, apiStyle: null, name: $name, provider: $provider,
     model: $model, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
     ...AiServiceConfigStyleFields
+  }
+}
+
+# cli#1882: AiServiceConfigsMasked plus the server-computed `urn`, as its OWN
+# document so an older server without the field keeps the query above working.
+query AiServiceConfigsMaskedWithUrn(
+  # @genqlient(omitempty: true)
+  $filter: AiServiceConfigFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  aiServiceConfigs(filter: $filter, limit: $limit, offset: $offset) {
+    items {
+      ...AiServiceConfigStyleFields
+      urn
+    }
+    total
   }
 }

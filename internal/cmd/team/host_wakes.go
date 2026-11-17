@@ -119,7 +119,7 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 		}
 	}
 	if t := r.Task; t != nil {
-		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title}
+		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title, Handle: t.Handle}
 	}
 	// WakeReason.action as the server answered (cor:agt:080:23): code, state,
 	// loc and URN verbatim, never resolved or rendered here. WITHHELD stays
@@ -143,9 +143,14 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 
 // wakeEventWords is a TaskWakeEvent as the typed line words it: ASSIGNED is
 // "assigned", CHILD_FINISHED "child finished". A value this build does not
-// know is worded the same way rather than refused.
+// know is kept verbatim rather than guessed or refused.
 func wakeEventWords(ev string) string {
-	return strings.ToLower(strings.ReplaceAll(ev, "_", " "))
+	switch ev {
+	case "ASSIGNED", "CHILD_FINISHED", "CHILD_CANCELLED", "ALARM", "END_SESSION", "MATCHED", "REASSIGNED":
+		return strings.ToLower(strings.ReplaceAll(ev, "_", " "))
+	default:
+		return ev
+	}
 }
 
 // AckWake hands back one typed wake's proof. Any error, a refusal included,

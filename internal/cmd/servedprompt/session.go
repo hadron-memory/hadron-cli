@@ -1,6 +1,7 @@
 package servedprompt
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -27,6 +29,7 @@ type historyEnvelopeDTO struct {
 // NewSession reads an explicitly named session, never the worktree's binding.
 func NewSession(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset, provenanceLimit, provenanceOffset int
+	var lintFlag bool
 	cmd := &cobra.Command{
 		Use:   "served-prompts <session-id>",
 		Short: "Read one worker session's recorded prompt history",
@@ -50,7 +53,8 @@ independent --provenance-limit (default 50, 0..200) and --provenance-offset.
 Provenance contains source node ids, revision numbers, hashes and pruning flags,
 never source bodies. servedRevSeq is the compiled node's served revision number;
 provenanceRevSeq is the compile behind it. Pruned revisions remain recorded.
-Pages are separate requests and do not promise one database snapshot.`,
+Pages are separate requests and do not promise one database snapshot.
+` + historyLintHelp,
 		Example: `  # Replace the id with one from team session list; JSON is one history page.
   hadron team session served-prompts 01234567-89ab-4cde-8f01-23456789abcd --json
   hadron team session served-prompts 01234567-89ab-4cde-8f01-23456789abcd --limit 0
@@ -93,6 +97,43 @@ Pages are separate requests and do not promise one database snapshot.`,
 					result.Items = append(result.Items, *record)
 				}
 			}
+			if result != nil && lintFlag {
+				budget := lintwarn.NewBudget(cmd.Context())
+				defer budget.Close()
+				readHistoryLint(cmd, budget, result, offset,
+					func(ctx context.Context) (int, []lintwarn.HistItem, error) {
+						r, e := gen.SessionServedPromptsLint(ctx, client, id, limit, offset)
+						if e != nil || r == nil || r.Session == nil || r.Session.ServedPrompts == nil {
+							return 0, nil, errLintUnavailable
+						}
+						p := r.Session.ServedPrompts
+						items := make([]lintwarn.HistItem, len(p.Items))
+						for i, it := range p.Items {
+							if it != nil && it.CurrentLint != nil {
+								items[i] = lintwarn.HistItem{ID: it.Id, Lint: &it.CurrentLint.LintWarningPageFields}
+							} else if it != nil {
+								items[i] = lintwarn.HistItem{ID: it.Id}
+							}
+						}
+						return p.Total, items, nil
+					},
+					func(ctx context.Context, at int, after *string) (int, []lintwarn.HistItem, error) {
+						r, e := gen.SessionServedPromptLintAt(ctx, client, id, at, after)
+						if e != nil || r == nil || r.Session == nil || r.Session.ServedPrompts == nil {
+							return 0, nil, errLintUnavailable
+						}
+						p := r.Session.ServedPrompts
+						items := make([]lintwarn.HistItem, len(p.Items))
+						for i, it := range p.Items {
+							if it != nil && it.CurrentLint != nil {
+								items[i] = lintwarn.HistItem{ID: it.Id, Lint: &it.CurrentLint.LintWarningPageFields}
+							} else if it != nil {
+								items[i] = lintwarn.HistItem{ID: it.Id}
+							}
+						}
+						return p.Total, items, nil
+					})
+			}
 			return output.Write(f.IOStreams, f.JSON, historyEnvelopeDTO{ServedPrompts: result}, func(w io.Writer) error {
 				if result == nil {
 					_, err := fmt.Fprintln(w, "served prompts: unavailable (session missing or unreadable)")
@@ -109,6 +150,9 @@ Pages are separate requests and do not promise one database snapshot.`,
 					if err := writeRecord(w, &result.Items[i]); err != nil {
 						return err
 					}
+					if err := writeCurrentLint(w, &result.Items[i]); err != nil {
+						return err
+					}
 				}
 				return nil
 			})
@@ -118,5 +162,6 @@ Pages are separate requests and do not promise one database snapshot.`,
 	cmd.Flags().IntVar(&offset, "offset", 0, "records to skip")
 	cmd.Flags().IntVar(&provenanceLimit, "provenance-limit", 50, "provenance entries per record (0 counts only, maximum 200)")
 	cmd.Flags().IntVar(&provenanceOffset, "provenance-offset", 0, "provenance entries to skip in each record")
+	addLintFlag(cmd, &lintFlag)
 	return cmd
 }

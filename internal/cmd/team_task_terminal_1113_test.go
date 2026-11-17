@@ -39,7 +39,7 @@ func TestTaskTerminalHTTP1113(t *testing.T) {
 			r := taskResponses()
 			r["AgentTaskGet"] = `{"data":{"agentTask":` + string(encoded) + `}}`
 			r["AgentTaskTree"] = `{"data":{"agentTaskTree":[` + string(encoded) + `]}}`
-			r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+			r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 			for _, verb := range []string{"get", "tree"} {
 				// A malformed ID cannot link itself to the requested root in tree; tree's
 				// row primitive is separately covered with hostile IDs at depths 0..3.

@@ -16,6 +16,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/bootpreview"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -60,6 +61,7 @@ RELATED, NOT HERE:
 	}
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
+	cmd.AddCommand(newCmdWorkerHeld(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
 	cmd.AddCommand(newCmdWorkerTerminalTitle(f))
 	cmd.AddCommand(servedprompt.NewWorker(f))
@@ -68,6 +70,8 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerCompile(f))
+	cmd.AddCommand(newCmdWorkerApprove(f))
+	cmd.AddCommand(newCmdWorkerLeaveAlone(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -585,6 +589,17 @@ type workerGetDTO struct {
 	// either way there is nothing to print, and the CLI never fills a template.
 	RenderedSignature *string `json:"renderedSignature"`
 	RenderedTrailer   *string `json:"renderedTrailer"`
+	// Availability is the stored availability record (cli#1911,
+	// hadron-server#3865). Always present; null means the server answered null:
+	// withheld from this caller OR no record, which the CLI cannot tell apart,
+	// so it never claims either.
+	Availability *workerGetAvailabilityDTO `json:"availability"`
+	// SignatureLint and PromptLintWarnings are the advisory lint reads
+	// (cli#2007, cor:agt:040:13), each its own operation. Always present; null
+	// means UNAVAILABLE, masked or nothing served, never "no warnings":
+	// items: [] with total 0 is the one clean answer.
+	SignatureLint      *lintwarn.Page `json:"signatureLint"`
+	PromptLintWarnings *lintwarn.Page `json:"promptLintWarnings"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -685,15 +700,26 @@ type workerGetExtras struct {
 	renderedSig                *string
 	renderedTrailer            *string
 	renderedErr                error
+	availability               *workerGetAvailabilityDTO
+	availabilityErr            error
 	previewResp                *gen.GetWorkerBootPromptServeResponse
 	previewErr                 error
 	previewMissingField        bool
+	// lint reads (cli#2007): both skipped when the template is masked.
+	signatureLint *lintwarn.Page
+	promptLint    lintwarn.PromptLint
+	lintMasked    bool
 }
 
 // readWorkerGetExtras runs the profile, terminal, model-group, rendered and
 // boot-preview reads concurrently and waits for all of them.
-func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session string) *workerGetExtras {
-	r := &workerGetExtras{}
+//
+// masked is true when the worker row's signature is null (the caller may not see
+// the worker's internals): neither lint read is sent then (cli#2007). The two
+// lint reads join the others and share one advisory budget that starts now, the
+// moment the worker row is in hand; they carry no session header.
+func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session string, masked bool) *workerGetExtras {
+	r := &workerGetExtras{lintMasked: masked}
 	var wg sync.WaitGroup
 	run := func(fn func()) {
 		wg.Add(1)
@@ -708,6 +734,7 @@ func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session
 	run(func() {
 		r.renderedSig, r.renderedTrailer, _, r.renderedErr = readWorkerRendered(ctx, client, id, session)
 	})
+	run(func() { r.availability, r.availabilityErr = readWorkerAvailability(ctx, client, id) })
 	run(func() {
 		guard := &bootpreview.ValidationRead{Client: client}
 		r.previewResp, r.previewErr = gen.GetWorkerBootPromptServe(ctx, guard, id)
@@ -715,6 +742,12 @@ func readWorkerGetExtras(ctx context.Context, client graphql.Client, id, session
 			r.previewMissingField = guard.MissingField(r.previewErr, "GetWorkerBootPromptServe", "Worker")
 		}
 	})
+	if !masked {
+		budget := lintwarn.NewBudget(ctx)
+		defer budget.Close()
+		run(func() { r.signatureLint = lintwarn.ReadSignatureLint(budget, client, id) })
+		run(func() { r.promptLint = lintwarn.ReadPromptLint(budget, client, id) })
+	}
 	wg.Wait()
 	return r
 }
@@ -774,12 +807,35 @@ App you participate in.
 an older server that predates them, or an App URN of the old shape — never
 "no such App" or "no owner"). The masked working-state keys stay null as ever.
 
+LINT (advisory): a lint warning means a template or compiled prompt has a
+defect, for example a signature or trailer without the worker link. Fix the
+template with "team worker update"; nothing here changes the exit code.
+Recompiling can pick up changed sources for a future served prompt; it cannot
+repair the compiled revision recorded for an existing served prompt. Two reads
+follow the worker, 20 per request to the end,
+within one 5-second budget:
+  signature lint  the stored signature and trailer
+  prompt lint     the compiled prompt recorded for the worker's open session
+                  (that recorded revision, not the Agent's newest compile)
+Text mode prints a "Lint (advisory):" block. It prints nothing when you may not
+see the worker's signature (masked), says "nothing served" when the worker has
+no open session or the session has no record, and prints "unavailable" plus one
+line on stderr naming the failed lint fields; an unavailable read says nothing about
+warnings. Retry if a page changed while reading or the budget ran out; rerunning
+does not resolve an older server or an unreadable record. A quiet but open
+session still has a record, so its warnings show.
+--json always carries "signatureLint" and "promptLintWarnings":
+{items, total, nextCursor} or null. items [] with total 0 is the one clean
+answer; null is never "no warnings". See cor:agt:040:13.
+
 THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
   driven         live (a session drove it recently), or when it last was
   check status   whether it reads its team chat as expected:
-                   NO_SESSION  no live session
-                   PENDING     not expected to (paused, isolated, standby,
+                   NO_SESSION  no live session; server reason: IDLE (open,
+                               quiet, with age since lastActiveAt), ENDED,
+                               or NEVER_BOUND
+                   PENDING     not expected to (paused, dormant,
                                or no open task), with the reason
                    OK          has an open task and checked in time
                    OVERDUE     has an open task and has not checked within
@@ -790,6 +846,25 @@ THE FIELDS:
                  the prompt shape; "—" when never reported or not available to
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
+  quiet age      for NO_SESSION IDLE only: time since lastActiveAt, by this
+                 computer's clock, for display only; it never classifies
+                 idleness or availability. It truncates (never rounds) to
+                 "just now" (under a minute, or a time ahead of this clock),
+                 minutes, hours, then whole days from 48h. A missing reason
+                 stays bare NO_SESSION; a missing or invalid lastActiveAt has
+                 no quiet age. --json preserves lastActiveAt and
+                 checkStatus.noSessionReason (nullable), and carries no age.
+                 Requires hadron-server#3084 or newer.
+
+availability   the worker's stored availability record (cor:agt:060:02): its
+                 state, the reason only when unavailable, an optional end, and
+                 who set it and when. A lapse reads "AVAILABLE (lapsed at
+                 <time>)", set by lapse; a setter whose identity the server
+                 withheld says so. Nothing is printed when the server answers
+                 null, which is BOTH "not visible to you" and "no record": the
+                 CLI cannot tell them apart, so it never says "available" or
+                 "no record" for it. --json carries availability (the record,
+                 or null). An older server without it reads as null.
 
 model groups   the model groups the worker's model is currently in, computed
                  live by the server (cor:agt:060:12): live matching information,
@@ -859,7 +934,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 			// its own operation, so the per-operation old-server fallbacks are
 			// untouched. Errors are then taken in the order the sequential
 			// code took them, so the first failure a caller sees is unchanged.
-			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
+			// w.Signature == nil is the mask signal: the column is NOT NULL, so null
+			// means masked, never unset (contract, cli#2007).
+			reads := readWorkerGetExtras(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id), w.Signature == nil)
 			if reads.profileErr != nil {
 				return reads.profileErr
 			}
@@ -871,6 +948,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 			}
 			if reads.renderedErr != nil {
 				return reads.renderedErr
+			}
+			if reads.availabilityErr != nil {
+				return reads.availabilityErr
 			}
 			appName, ownerName, appURN := reads.appName, reads.ownerName, reads.appURN
 			terminal, modelGroups := reads.terminal, reads.modelGroups
@@ -898,7 +978,20 @@ and every worker's state in ` + "`team roster`" + `.`,
 				preview = &p
 			}
 			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
-				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, Availability: reads.availability, appURN: appURN,
+				SignatureLint: reads.signatureLint, PromptLintWarnings: reads.promptLint.Page}
+			// One fixed stderr class when a lint that should have answered did not.
+			// Masked and nothing-served say nothing: no read, or nothing to lint.
+			if !reads.lintMasked && (reads.signatureLint == nil || reads.promptLint.State == lintwarn.PromptUnavailable) {
+				fields := []string{}
+				if reads.signatureLint == nil {
+					fields = append(fields, "signature lint")
+				}
+				if reads.promptLint.State == lintwarn.PromptUnavailable {
+					fields = append(fields, "prompt lint")
+				}
+				lintwarn.ReportUnavailable(cmd, fields...)
+			}
 			if preview != nil {
 				dto.Fields = preview.Fields
 			}
@@ -1002,7 +1095,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 					fmt.Fprintln(out, "  working state: not visible to you (profile only)")
 				}
 				if !profile || dto.CheckStatus != nil {
-					fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+					fmt.Fprintf(out, "  check status: %s\n", output.SafeCell(channelCheckActivityLabel(dto.CheckStatus, dto.LastActiveAt, time.Now())))
 					if dto.CheckStatus != nil {
 						last := "never"
 						if dto.CheckStatus.LastCheckedAt != nil {
@@ -1014,6 +1107,10 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// Always printed: a dash is the documented answer for never
 				// reported, masked or an older server (cli#1375).
 				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
+				// Availability provenance (cli#1911): nothing for a null, which
+				// is withheld or no record — never "available", never filled
+				// from `team availability get`.
+				writeWorkerAvailability(out, dto.Availability)
 				// Model groups (cli#1485 S3): names when there are any, nothing for a
 				// real [] (no model, or no group matches), "unavailable" for null.
 				// Live matching information, never authorization.
@@ -1057,6 +1154,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// reading a dash as the value.
 				writeRenderedSigning(out, dto.RenderedSignature, dto.RenderedTrailer)
 				writeSigningTemplates(out, dto.Signature, dto.Trailer)
+				if err := writeWorkerLint(out, reads); err != nil {
+					return err
+				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
@@ -1065,6 +1165,31 @@ and every worker's state in ` + "`team roster`" + `.`,
 		},
 	}
 	return cmd
+}
+
+// writeWorkerLint prints the two advisory lint sections of `worker get`
+// (cli#2007). Masked prints nothing; nothing served says so; a null page is
+// unavailable, never "none".
+func writeWorkerLint(out io.Writer, r *workerGetExtras) error {
+	if r.lintMasked {
+		return nil
+	}
+	// A blank line and a heading, so the lines do not read as part of the
+	// template body printed above them (UX seat, cli#2012).
+	if _, err := fmt.Fprint(out, "\nLint (advisory):\n"); err != nil {
+		return err
+	}
+	if err := lintwarn.WriteSection(out, "signature lint", "the signature and trailer", r.signatureLint, false); err != nil {
+		return err
+	}
+	switch r.promptLint.State {
+	case lintwarn.PromptNothingServed:
+		_, err := fmt.Fprintln(out, "prompt lint: nothing served to this worker's open session")
+		return err
+	case lintwarn.PromptOK:
+		return lintwarn.WriteSection(out, "prompt lint", lintwarn.PromptSubject("the compiled revision recorded for the open session", r.promptLint.ProvenanceRevSeq), r.promptLint.Page, true)
+	}
+	return lintwarn.WriteSection(out, "prompt lint", "", nil, true)
 }
 
 // writeRenderedSigning prints the server-rendered signature and trailer
@@ -1115,16 +1240,17 @@ func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 	var instructionRaw string
 	cmd := &cobra.Command{
 		Use:   "retire <name-or-id> [--instruction <kind>:<ref>]",
-		Short: "Retire a worker — it stops working; its name stays reserved forever",
+		Short: "Retire a worker — it stops working; its name stays reserved",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
-name stays bound to it forever — PR trailers and chat history reference the
-name, so it is never freed for a new casting (cor:agt:020:02). Retiring is
+name stays bound to it — PR trailers and chat history reference the name,
+so retiring never frees it for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
-This is the normal end of a worker. The only removal is ` + "`worker rm`" + `, the
-hard-delete escape for a casting that NEVER did anything (a typo'd cast). On
-a worker with any history, rm is REFUSED (exit 5) and writes nothing — it does
-not retire it for you; run this command instead.
+This is the normal end of a worker. A casting that NEVER did anything (a
+typo'd cast) can instead be removed with ` + "`worker rm`" + `, the hard-delete escape,
+which frees its name for a new casting. On a worker with any history, rm is
+REFUSED (exit 5) and writes nothing — it does not retire it for you; run this
+command instead.
 
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
@@ -1170,7 +1296,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			advisory := readRetireAdvisory(cmd.Context(), client, &w)
 			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
+				RetireConfirmPrompt(w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -1183,7 +1309,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
+				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it (`worker rm` removes a casting that never did anything and frees its name)\n", dto.Name)
 				return err
 			})
 		},
@@ -1516,12 +1642,14 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 	if err != nil || resp.User == nil {
 		return userID
 	}
+	// Server-authored display strings: single-lined before they reach a prompt
+	// or a refusal, so a control byte cannot forge a line or an escape (#1862).
 	name, handle := "", ""
 	if resp.User.Name != nil {
-		name = *resp.User.Name
+		name = output.SafeCell(*resp.User.Name)
 	}
 	if resp.User.Handle != nil {
-		handle = *resp.User.Handle
+		handle = output.SafeCell(*resp.User.Handle)
 	}
 	switch {
 	case name != "" && handle != "":
@@ -1717,7 +1845,7 @@ func offerInformedRelease(
 					"the current state",
 				w.Name, holderPhrase(ctx, client, staleHolderPtr(again)))
 		}
-		return zero, api.MapError(err)
+		return zero, nameHolderOnForbidden(ctx, client, w.Name, stale.HolderID, err)
 	}
 	// No classification carried back. This used to compute `forced` — true when
 	// the identity read worked, honestly nil when it did not — and that nil was
@@ -1726,6 +1854,26 @@ func offerInformedRelease(
 	// path where this client could never answer is the one where the server
 	// always can.
 	return resp, nil
+}
+
+// releaseRemedy is the sentence a refused force-release ends on: whose hold it
+// is and who can lift it. Wording matches heldRefusal's ("the holder — or an
+// App/org admin"); in a user-owned App the App's owner is that admin.
+func releaseRemedy(name, holder string) string {
+	return fmt.Sprintf("%s is held by %s; only the holder, or an App or org admin, can release it", name, holder)
+}
+
+// nameHolderOnForbidden maps a release error through api.MapError and, when it
+// is the server's not-authorized refusal (exit Forbidden), adds the holder and
+// the remedy BEFORE the server's own sentence, which stays in the message and
+// keeps its exit code. Any other error maps exactly as it did.
+func nameHolderOnForbidden(ctx context.Context, client graphql.Client, name, holderID string, err error) error {
+	mapped := api.MapError(err)
+	code := exitcode.FromError(mapped)
+	if code != exitcode.Forbidden {
+		return mapped
+	}
+	return exitcode.New(code, fmt.Errorf("%s: %w", releaseRemedy(name, describeHolder(ctx, client, holderID)), mapped))
 }
 
 // staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
@@ -1878,7 +2026,16 @@ then to their id.`,
 				// the prompt is built only when it can be shown; this makes it
 				// true (PR #504 review).
 				if !f.IOStreams.IsInputTerminal() {
-					return cmdutil.Confirm(f.IOStreams, false, "")
+					// The refusal NAMES the holder and says who can release it
+					// (#1859). This is the one place the read is spent without a
+					// reader of a prompt: the refusal is what an agent pastes
+					// into an issue, and "refusing to proceed without --yes"
+					// alone left it asking "held by whom?" (plan ruling R3,
+					// reversing #504's no-GetUser pin on this path). Same exit
+					// code (Usage) and the same leading phrase as before.
+					holder := describeHolder(ctx, client, *priorHolder)
+					return exitcode.Newf(exitcode.Usage, "%v: %s",
+						cmdutil.Confirm(f.IOStreams, false, ""), releaseRemedy(w.Name, holder))
 				}
 				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
 					w.RetiredAt, forced != nil)
@@ -1929,6 +2086,12 @@ then to their id.`,
 			if err != nil {
 				stale, isStale := api.WorkerHoldStaleDetail(err)
 				if !isStale {
+					// A force-release the server refuses as not-authorized names
+					// the holder and who can release it; a self-release is never
+					// decorated (#1859).
+					if priorHolder != nil && (forced == nil || *forced) {
+						return nameHolderOnForbidden(ctx, client, w.Name, *priorHolder, err)
+					}
 					return api.MapError(err)
 				}
 				// The assertion was wrong. The server refused rather than
@@ -2200,7 +2363,12 @@ func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Set signature and trailer templates for the next briefing. Omitted fields
 keep their stored value; an explicit empty string stores an empty template.
 They are filled in when the worker's session is bound (the briefing prints the
-filled result), not when you run this.
+filled result), not when you run this. After the save the receipt also shows
+the CURRENT signature lint (a missing worker link; cor:agt:040:04), read once
+more with the write's own session, as a check made now, not a snapshot taken at
+write time. "signatureLint" in --json is {items, total, nextCursor} or null;
+null (unavailable, or a template you may not see) is never "no warnings". A
+failed lint read never fails or undoes the edit: exit 0, one advisory stderr line.
 
 TEMPLATE VARIABLES, written {{name}} — anything else stays literal text:
   {{worker.name}}  {{worker.role}}  {{worker.url}}  {{agent.name}}
@@ -2361,4 +2529,9 @@ func placementText(placement *string, reportsToID *string) string {
 		return "no reporting choice recorded (UNSET)"
 	}
 	return "reporting choice: " + *placement
+}
+
+// RetireConfirmPrompt is the question `worker retire` asks before it acts.
+func RetireConfirmPrompt(name, id string) string {
+	return fmt.Sprintf("Retire worker %s (%s)? It stops working; it keeps its name. A never-used casting can be removed with `worker rm` instead.", name, id)
 }

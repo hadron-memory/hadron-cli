@@ -28,6 +28,38 @@ type eventDTO struct {
 	TokensOut      *int    `json:"tokensOut"`
 	CostMicroCents *string `json:"costMicroCents"`
 }
+
+// eventRow is the shape both usage-event operations' row types share (genqlient emits one type per operation).
+type eventRow interface {
+	GetId() string
+	GetType() string
+	GetCreatedAt() string
+	GetMemoryId() *string
+	GetNodeLoc() *string
+	GetProvider() *string
+	GetModel() *string
+	GetKeyOwnerType() *string
+	GetTokensIn() *int
+	GetTokensOut() *int
+	GetCostMicroCents() *string
+}
+
+// toEventDTOs maps a page's rows for either operation, refusing a null row (cli#1819: one mapping, not two copies).
+func toEventDTOs[T any, P interface {
+	*T
+	eventRow
+}](items []*T) ([]eventDTO, error) {
+	rows := []eventDTO{}
+	for _, e := range items {
+		if e == nil {
+			return nil, exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
+		}
+		r := P(e)
+		rows = append(rows, eventDTO{ID: r.GetId(), Type: r.GetType(), CreatedAt: r.GetCreatedAt(), MemoryID: r.GetMemoryId(), NodeLoc: r.GetNodeLoc(), Provider: r.GetProvider(), Model: r.GetModel(), KeyOwnerType: r.GetKeyOwnerType(), TokensIn: r.GetTokensIn(), TokensOut: r.GetTokensOut(), CostMicroCents: r.GetCostMicroCents()})
+	}
+	return rows, nil
+}
+
 type summaryDTO struct {
 	NodeLoc string `json:"nodeLoc"`
 	Type    string `json:"type"`
@@ -40,14 +72,23 @@ func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 func newEvents(f *cmdutil.Factory) *cobra.Command {
-	var memory, loc, node, eventType, since, until string
+	var memory, loc, node, eventType, since, until, appKey string
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "events [--memory <ref>] [--loc <loc> | --node <ref>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
+		Use:   "events [--memory <ref>] [--loc <loc> | --node <ref>] [--type <type>] [--since <time>] [--until <time>] [--app-key <id>] [--limit N] [--offset N]",
 		Short: "Read one page of accessible usage events",
 		Long: `List recent AI usage events, newest first: when each happened, its type, the
 memory and node it was for, the provider and model, tokens in and out, and what
-it cost. You only see events in memories you can read.
+it cost.
+
+What you see depends on what you name. With no --memory, --node or --loc you
+get your own activity (an App key, which has none of its own, gets none). Naming
+a memory needs READ on it and shows every caller's events in that memory, as
+volumes, not only yours. --app-key shows one App key's events across every
+memory you can read; it works only for whoever manages that key's App, or for
+the key itself (which sees its own events in the memories it can read now,
+plus its events that name no memory). A key you may not filter by answers
+exactly as an unknown one: not found.
 
 You get ONE page: 20 events by default, or --limit (0 to 200; 0 sends the request and returns no rows, only the total on
 stderr). To go further
@@ -61,9 +102,14 @@ may be left out. Each is an ISO date-time WITH a "Z" or an explicit offset (for
 example 2026-10-22T00:00:00Z or 2026-10-22T09:00:00+02:00); a date alone or a
 time without an offset is refused, and so is a window where --since is not
 before --until. Note that "hadron team events --since" is the opposite: it is
-EXCLUSIVE ("strictly after"). Windowing narrows by time only; you still see
-just the memories you can read. To answer "what happened last week", give both
+EXCLUSIVE ("strictly after"). Windowing narrows by time only; it does not widen what you
+may see. To answer "what happened last week", give both
 bounds and page with --offset.
+
+--app-key takes an App key's id, passed to the server unchanged (it is never
+looked up here, and no key secret is ever shown). The result is the server's
+rows; events made before keys were recorded, or without a key, are never
+returned by this filter. Rows do not name their key.
 
 --memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
 node loc, including hierarchical ones such as notes:ideas. --node instead takes
@@ -86,6 +132,7 @@ Details:
 		Example: `  hadron usage events
   hadron usage events --memory hrn:mem:acme.com:notes --limit 100
   hadron usage events --since 2026-10-22T00:00:00Z --until 2026-10-23T00:00:00Z
+  hadron usage events --app-key <key-id> --since 2026-10-01T00:00:00Z --until 2026-11-01T00:00:00Z
   hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -129,6 +176,14 @@ Details:
 					*arg.dst = &v
 				}
 			}
+			var appKeyArg *string
+			if cmd.Flags().Changed("app-key") {
+				if strings.TrimSpace(appKey) == "" {
+					return exitcode.Newf(exitcode.Usage, "--app-key must not be empty; omit the flag for no filter")
+				}
+				v := appKey
+				appKeyArg = &v
+			}
 			sinceArg, untilArg, err := parseWindow(cmd, since, until)
 			if err != nil {
 				return err
@@ -141,26 +196,38 @@ Details:
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
-			if err != nil {
-				return api.MapError(err)
-			}
-			rows := []eventDTO{}
-			for _, e := range resp.UsageEventsPage.Items {
-				if e == nil {
-					return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
+			var rows []eventDTO
+			var total int
+			var hasMore bool
+			if appKeyArg != nil {
+				// A separate operation, so the plain request below keeps its exact
+				// document against servers that predate the argument (cli#1203).
+				resp, err := gen.UsageEventsPageByAppKey(cmd.Context(), client, *appKeyArg, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
+				if err != nil {
+					return api.MapError(err)
 				}
-				rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
+				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
+				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
+					return err
+				}
+			} else {
+				resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
+				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
+					return err
+				}
 			}
 			// The twin's real total, windowed like the rows (cli#1339). stdout and
 			// --json stay the bare array; the position and the next page are on stderr.
-			page := resp.UsageEventsPage
 			if len(rows) == 0 {
-				fmt.Fprintf(f.IOStreams.ErrOut, "no events at offset %d (total %d)\n", offset, page.Total)
+				fmt.Fprintf(f.IOStreams.ErrOut, "no events at offset %d (total %d)\n", offset, total)
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", offset+1, offset+len(rows), page.Total)
+				fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", offset+1, offset+len(rows), total)
 			}
-			if page.HasMore {
+			if hasMore {
 				fmt.Fprintln(f.IOStreams.ErrOut, "more: --offset", offset+len(rows))
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
@@ -182,6 +249,7 @@ Details:
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
 	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
+	cmd.Flags().StringVar(&appKey, "app-key", "", "an App key id: that key's events (only for its App's manager or the key itself); passed to the server unchanged")
 	cmd.Flags().IntVar(&limit, "limit", 20, "page size (0-200; 0 counts only)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd

@@ -76,8 +76,10 @@ content that drops a {{…}} placeholder the old one had is written, with a
 warning on stderr, since removing it may be the edit.
 
 --dry-run shows what would change, with a diff of the content, and writes
-nothing. It runs the CLI's own checks only; the server's checks (a memory's
-schema, for example) run on the real write.
+nothing. After reading the target, it asks the server for the signed-in
+user's write access. A denied caller gets exit 8 and no plan; a failed access
+lookup is an error. Credentials without a user keep the existing preview.
+Other server checks (a memory's schema, for example) run on the real write.
 
 --expected-revision <n> writes only if the node is still at revision n (see
 node get --json); if someone or something changed it since, the write is
@@ -230,6 +232,15 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 						f.IOStreams.IsInputTerminal(), "--"+doc.flag+" -", doc.fileFlag); err != nil {
 						return err
 					}
+				}
+			}
+			// #1450: a non-empty pipe that none of the four stdin readers
+			// consumes is refused rather than ignored, before the ref is resolved
+			// or the node fetched. A pipe a reader consumes never gets here.
+			if stdinReaders == 0 {
+				if err := cmdutil.RefuseUnreadStdinPipe(f.IOStreams.In, f.IOStreams.IsInputTerminal(),
+					"--content - (or --content-file -), --abstract - or --data-merge -", "leave the node unchanged"); err != nil {
+					return err
 				}
 			}
 			// --abstract and --abstract-file are mutually exclusive. Guard on
@@ -433,6 +444,9 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 					}
 				}
 				if dryRun {
+					if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, stored.MemoryId); err != nil {
+						return err
+					}
 					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings, input.ExpectedRevision)
 				}
 				for _, w := range warnings {

@@ -554,12 +554,12 @@ func TestWorkerBootValidationParity1655(t *testing.T) {
 			{"mixed", `{"errors":[` + valid + `,{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, false},
 		} {
 			t.Run(fmt.Sprintf("%d/%s", status, tc.name), func(t *testing.T) {
-				// Five existing worker-profile reads plus one preview; no fanout.
-				const existingWorkerReads = 5
+				// Six existing worker-profile reads (cli#1911 added availability) plus one preview; no fanout.
+				const existingWorkerReads = 6
 				const previewReads = 1
 				var lookup, preview, total atomic.Int32
 				counts := map[string]*atomic.Int32{}
-				for _, op := range []string{"GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerBootPromptServe"} {
+				for _, op := range []string{"GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerAvailability", "GetWorkerBootPromptServe"} {
 					counts[op] = &atomic.Int32{}
 				}
 				responses := bootResponses1655(t, `null`)
@@ -571,12 +571,12 @@ func TestWorkerBootValidationParity1655(t *testing.T) {
 					w.Header().Set("Content-Type", "application/json")
 					total.Add(1)
 					switch req.OperationName {
-					case "GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerBootPromptServe":
+					case "GetWorker", "GetWorkerProfile", "GetWorkerTerminal", "GetWorkerModelGroups", "GetWorkerRendered", "GetWorkerAvailability", "GetWorkerBootPromptServe":
 						counts[req.OperationName].Add(1)
 					case "GetAgent", "GetNode", "NodeBatch", "Workers", "GetWorkerInApp", "GetWorkerIdInApp":
 						t.Errorf("forbidden alternate preview operation %s", req.OperationName)
 					default:
-						t.Errorf("outside six-read worker budget: %s", req.OperationName)
+						t.Errorf("outside seven-read worker budget: %s", req.OperationName)
 					}
 					if req.OperationName == "GetWorkerBootPromptServe" {
 						preview.Add(1)

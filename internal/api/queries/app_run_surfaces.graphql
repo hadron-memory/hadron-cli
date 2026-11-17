@@ -1,5 +1,6 @@
 fragment AppMemoryGrantFields on AppMemoryWriteGrant {
   id appId memoryUrn prefix registerNodeUrn grantedBy createdAt revokedAt revokedBy
+  notEffective notEffectiveReason
 }
 
 query AppMemoryWriteGrants(
@@ -46,7 +47,8 @@ mutation SetAgentAssetUploadEnabled($input: SetAgentAssetUploadEnabledInput!) {
   setAgentAssetUploadEnabled(input: $input) { id urn agentTools }
 }
 
-# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+# cli#1595: explicitly instructed documents; legacy instruction arguments stay unchanged.
+# cli#1945 extends the shared grant projection on both paths.
 query AppMemoryWriteGrantsInstructed(
  $instruction: ActInstructionInput!
   $appRef: String!

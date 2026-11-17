@@ -17,12 +17,12 @@ func TestTeamEventsActorCellFallbacks(t *testing.T) {
 	}
 	holger := `{"id":"u1","kind":"USER","name":"holger","urn":null}`
 	r := taskResponses()
-	r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + strings.Join([]string{
+	r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + strings.Join([]string{
 		ev("evtArr", "null", `["lapse"]`),
 		ev("evtStr", "null", `"lapse"`),
 		ev("evtActor", holger, `{"setBy":"lapse","lapsedAt":"2026-10-13T18:00:00.000Z"}`),
 		ev("evtBare", "null", `{"setBy":"lapse"}`),
-	}, ",") + `]}}`
+	}, ",") + `],"hasMore":false,"nextCursor":null}}}`
 	_, out, err := runTeamTask(t, r, "team", "events")
 	if err != nil {
 		t.Fatal(err)

@@ -1,0 +1,33 @@
+# Page-monitor watches (hadron-server #1562; cli#1920). Org ADMIN/OWNER, gated
+# server-side by the org role and the tool.web_poll policy: the CLI adds no
+# check of its own (cor:web:030:00).
+
+# webPolls is UNPAGED server-side (a cor:api:120:04 gap, bounded only by the
+# per-org active-job cap), so a caller must not present its result as the whole
+# set.
+query WebPolls($orgRef: ID!) {
+  webPolls(orgRef: $orgRef) {
+    jobId
+    appId
+    sourceRunId
+    url
+    status
+    consecutiveFailures
+    triggerCount
+    createdAt
+    expiresAt
+    lastCheckedAt
+    lastTriggeredAt
+    nextRunAt
+  }
+}
+
+# A job id from another org and an unknown one both answer NOT_FOUND.
+# alreadyCancelled is true when the watch had been stopped before this call.
+mutation CancelWebPoll($orgRef: ID!, $jobId: ID!) {
+  cancelWebPoll(orgRef: $orgRef, jobId: $jobId) {
+    jobId
+    cancelled
+    alreadyCancelled
+  }
+}

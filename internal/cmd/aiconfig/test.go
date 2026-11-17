@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -46,10 +49,14 @@ type testConfigDTO struct {
 	Error     *testErrorDTO `json:"error"`
 	Used      testUsedDTO   `json:"used"`
 	Knobs     []testKnobDTO `json:"knobs"`
+	// Chat is the chat probe's closed status, verbatim (an unknown future
+	// value included), or null when no probe was requested (--chat-probe).
+	Chat *string `json:"chat"`
 }
 
 func newCmdTest(f *cmdutil.Factory) *cobra.Command {
 	var overrideFile string
+	var chatProbe bool
 	cmd := &cobra.Command{
 		Use: "test <id>", Short: "Test a saved AI config with one small provider call",
 		Long: `Test a saved AI config by id through the server's normal client, endpoint
@@ -69,8 +76,20 @@ Output includes ok, effective provider/model/endpoint/style, latencyMs, reply,
 the server's scrubbed error, value sources (used) and knob results. A completed
 test exits 0 even when ok is false: inspect ok/error.code in --json. A request
 refusal uses the normal CLI exit code. Re-enter a key on KEY_UNREADABLE; retry
-provider failures only when error.transient permits it.`,
-		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json",
+provider failures only when error.transient permits it.
+
+--chat-probe (off by default) also asks the server to run ONE chat probe: a
+second provider call, metered separately, that counts against the allowance
+when a platform key pays for it. It needs a server with the chatProbe argument;
+an older one refuses it (exit 2) and nothing is retried. Its closed status
+(PASS, FAIL_TEXT_ONLY, FAIL_OTHER_TOOL, FAIL_MULTIPLE_CALLS, FAIL_MALFORMED,
+FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER) prints on its own "chat:" line
+and is the "chat" key in --json (null when not requested). The run result and
+the chat status are two outcomes: neither stands for the other. A completed
+test exits 0 whatever ok and the chat status say. Request refusals, invalid
+responses from the server, and other errors (including argument, override-file
+and transport failures) use the normal CLI error exits.`,
+		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var override *gqltypes.AiServiceConfigTestOverride
@@ -86,28 +105,47 @@ provider failures only when error.transient permits it.`,
 					return err
 				}
 			}
+			var submittedKey string
+			if override != nil {
+				_ = json.Unmarshal(override.APIKey, &submittedKey) // validated string/null by loadTestOverride
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
-			if err != nil {
-				return api.MapError(err)
+			var v *testResult
+			if chatProbe {
+				r, err := gen.TestAiServiceConfigWithChatProbe(cmd.Context(), client, args[0], true, override)
+				if err != nil {
+					return redactTestError(api.MapError(err), submittedKey)
+				}
+				v = fromProbeTestResult(r.TestAiServiceConfig)
+			} else {
+				r, err := gen.TestAiServiceConfig(cmd.Context(), client, args[0], override)
+				if err != nil {
+					return redactTestError(api.MapError(err), submittedKey)
+				}
+				v = fromDefaultTestResult(r.TestAiServiceConfig)
 			}
-			v := r.TestAiServiceConfig
 			if v == nil || v.Used == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no AI config test result or value sources")
 			}
-			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: styleString(v.ApiStyle), LatencyMS: v.LatencyMs, Reply: v.Reply,
-				Used: testUsedDTO{Provider: string(v.Used.Provider), Model: string(v.Used.Model), Endpoint: string(v.Used.Endpoint), APIStyle: string(v.Used.ApiStyle), Key: string(v.Used.Key), Params: string(v.Used.Params)}, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: v.APIStyle, LatencyMS: v.LatencyMs, Reply: v.Reply,
+				Used: *v.Used, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+			if chatProbe {
+				if v.Chat == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no chat probe status though one was requested")
+				}
+				dto.Chat = v.Chat
+			}
 			if v.Error != nil {
 				dto.Error = &testErrorDTO{Code: v.Error.Code, Message: v.Error.Message, Transient: v.Error.Transient}
 			}
+			// Both typed adapters filter nil knob entries before this dereference.
 			for _, k := range v.Knobs {
-				if k != nil {
-					dto.Knobs = append(dto.Knobs, testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
-				}
+				dto.Knobs = append(dto.Knobs, *k)
 			}
+			redactTestResult(&dto, submittedKey)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				state := "failed"
 				if dto.OK {
@@ -130,7 +168,18 @@ provider failures only when error.transient permits it.`,
 					return err
 				}
 				for _, k := range dto.Knobs {
-					if _, err := fmt.Fprintf(w, "%s: %s %s\n", output.SafeCell(k.Param), output.SafeCell(k.State), output.SafeCell(endpointDisplay(k.Detail, ""))); err != nil {
+					detail := output.SafeCell(endpointDisplay(k.Detail, ""))
+					if detail != "" {
+						detail = " " + detail
+					}
+					if _, err := fmt.Fprintf(w, "%s: %s%s\n", output.SafeCell(k.Param), output.SafeCell(k.State), detail); err != nil {
+						return err
+					}
+				}
+				if dto.Chat != nil {
+					// Its own line, apart from the run state above: a chat status never
+					// folds into, or stands for, the run result.
+					if _, err := fmt.Fprintf(w, "chat: %s\n", output.SafeCell(*dto.Chat)); err != nil {
 						return err
 					}
 				}
@@ -138,6 +187,7 @@ provider failures only when error.transient permits it.`,
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&chatProbe, "chat-probe", false, "also run one chat probe: a second, separately metered provider call; its status prints apart from the run result")
 	cmd.Flags().StringVar(&overrideFile, "override-file", "", "edited values as JSON; - reads a pipe; never saved or echoed")
 	return cmd
 }
@@ -186,4 +236,168 @@ func loadTestOverride(path string, in io.Reader) (*gqltypes.AiServiceConfigTestO
 		return nil, exitcode.Newf(exitcode.Usage, "override params must be an object or null")
 	}
 	return &v, nil
+}
+
+// redactTestError detaches every mapped error when a key was submitted: a
+// separately rendered metadata field can echo it even when Error() is clean.
+// Classification happens before this call. Detached retains the redacted
+// public face and sentinels without retaining raw GraphQL/HTTP causes.
+func redactTestError(err error, key string) error {
+	if err == nil || key == "" {
+		return err
+	}
+	return api.Detached(err, func(text string) string { return redactSubmittedKey(text, key) })
+}
+
+// Only the submitted override is known here; saved keys never reach the CLI.
+// Old coercion diagnostics can quote the key, so cover literal and JSON/Go
+// string-escaped spellings without changing the submitted request.
+func redactSubmittedKey(message, key string) string {
+	if key == "" {
+		return message
+	}
+	quoted, _ := json.Marshal(key)
+	goQuoted := strconv.Quote(key)
+	forms := []string{key, string(quoted[1 : len(quoted)-1]), goQuoted[1 : len(goQuoted)-1]}
+	sort.SliceStable(forms, func(i, j int) bool { return len(forms[i]) > len(forms[j]) })
+	replacement := "[redacted]"
+	if strings.Contains(replacement, key) {
+		replacement = ""
+	}
+	pairs := make([]string, 0, len(forms)*2)
+	for _, form := range forms {
+		pairs = append(pairs, form, replacement)
+	}
+	return strings.NewReplacer(pairs...).Replace(message)
+}
+
+// testResult is what the command renders from either test document. The
+// default and chat-probe documents are distinct generated types (the probe
+// adds the chat selection), so each has its own typed adapter below: a field
+// renamed or retyped in either document is a compile error here. An added
+// field still needs an explicit mapping; typed adapters do not enforce that
+// additions reach the stable JSON DTO (cli#1959).
+type testResult struct {
+	Ok        bool
+	Provider  string
+	Model     string
+	Endpoint  *string
+	APIStyle  *string
+	LatencyMs int
+	Reply     *string
+	Error     *testErrorDTO
+	Used      *testUsedDTO
+	Knobs     []*testKnobDTO
+	Chat      *string // nil when the document has no chat selection, or the server sent none
+}
+
+type (
+	defaultTestResult = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult
+	probeTestResult   = gen.TestAiServiceConfigWithChatProbeTestAiServiceConfigAiServiceConfigTestResult
+)
+
+// testResultFields is the scalar projection shared by both typed documents.
+// The nested generated types differ, but their same-shaped fields can be
+// explicitly converted; a rename or retype makes that conversion fail to build.
+type testResultFields interface {
+	GetOk() bool
+	GetProvider() string
+	GetModel() string
+	GetEndpoint() *string
+	GetApiStyle() *gen.AiApiStyle
+	GetLatencyMs() int
+	GetReply() *string
+}
+
+type (
+	defaultTestError = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError
+	defaultTestUsed  = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed
+	defaultTestKnob  = gen.TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob
+)
+
+func fromDefaultTestResult(r *defaultTestResult) *testResult {
+	if r == nil {
+		return nil
+	}
+	return fromTestResultFields(r, r.Error, r.Used, r.Knobs)
+}
+
+func fromProbeTestResult(r *probeTestResult) *testResult {
+	if r == nil {
+		return nil
+	}
+	knobs := make([]*defaultTestKnob, 0, len(r.Knobs))
+	for _, k := range r.Knobs {
+		knobs = append(knobs, (*defaultTestKnob)(k))
+	}
+	v := fromTestResultFields(r, (*defaultTestError)(r.Error), (*defaultTestUsed)(r.Used), knobs)
+	if r.Chat != nil {
+		status := string(r.Chat.Status) // verbatim, an unknown future value included
+		v.Chat = &status
+	}
+	return v
+}
+
+func fromTestResultFields(r testResultFields, e *defaultTestError, u *defaultTestUsed, knobs []*defaultTestKnob) *testResult {
+	v := &testResult{Ok: r.GetOk(), Provider: r.GetProvider(), Model: r.GetModel(), Endpoint: r.GetEndpoint(), APIStyle: apiStyleString(r.GetApiStyle()), LatencyMs: r.GetLatencyMs(), Reply: r.GetReply(), Knobs: make([]*testKnobDTO, 0, len(knobs))}
+	if e != nil {
+		v.Error = &testErrorDTO{Code: e.Code, Message: e.Message, Transient: e.Transient}
+	}
+	if u != nil {
+		v.Used = &testUsedDTO{Provider: string(u.Provider), Model: string(u.Model), Endpoint: string(u.Endpoint), APIStyle: string(u.ApiStyle), Key: string(u.Key), Params: string(u.Params)}
+	}
+	// Only non-nil entries enter the command DTO's dereference loop.
+	for _, k := range knobs {
+		if k != nil {
+			v.Knobs = append(v.Knobs, &testKnobDTO{Param: k.Param, State: k.State, Detail: k.Detail})
+		}
+	}
+	return v
+}
+
+// redactTestResult masks submitted-key echoes in every rendered string value,
+// including a provider that wrongly places the echo outside its error fields.
+// JSON field names, nulls, numeric/boolean values and the sent request are intact.
+// Saved keys are unknown to the CLI; the server must keep those masked itself.
+func redactTestResult(dto *testConfigDTO, key string) {
+	if key == "" {
+		return
+	}
+	redact := func(value string) string { return redactSubmittedKey(value, key) }
+	redactPtr := func(value *string) *string {
+		if value == nil {
+			return nil
+		}
+		safe := redact(*value)
+		return &safe
+	}
+	dto.Provider = redact(dto.Provider)
+	dto.Model = redact(dto.Model)
+	dto.Endpoint = redactPtr(dto.Endpoint)
+	dto.APIStyle = redactPtr(dto.APIStyle)
+	dto.Reply = redactPtr(dto.Reply)
+	dto.Chat = redactPtr(dto.Chat)
+	if dto.Error != nil {
+		dto.Error.Code = redact(dto.Error.Code)
+		dto.Error.Message = redact(dto.Error.Message)
+	}
+	dto.Used.Provider = redact(dto.Used.Provider)
+	dto.Used.Model = redact(dto.Used.Model)
+	dto.Used.Endpoint = redact(dto.Used.Endpoint)
+	dto.Used.APIStyle = redact(dto.Used.APIStyle)
+	dto.Used.Key = redact(dto.Used.Key)
+	dto.Used.Params = redact(dto.Used.Params)
+	for i := range dto.Knobs {
+		dto.Knobs[i].Param = redact(dto.Knobs[i].Param)
+		dto.Knobs[i].State = redact(dto.Knobs[i].State)
+		dto.Knobs[i].Detail = redactPtr(dto.Knobs[i].Detail)
+	}
+}
+
+func apiStyleString(s *gen.AiApiStyle) *string {
+	if s == nil {
+		return nil
+	}
+	v := string(*s)
+	return &v
 }

@@ -128,7 +128,7 @@ func run1044(t *testing.T, roster []string, pages [][]task1044, argv ...string) 
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
 	n := 0
 	setPage := func() {
 		if n < len(pages) {

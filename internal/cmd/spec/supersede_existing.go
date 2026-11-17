@@ -196,6 +196,11 @@ func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if err != nil {
 		return err
 	}
+	if dry {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, mem); err != nil {
+			return err
+		}
+	}
 	result := supersedeResultDTO{Old: old.Loc, New: target.Loc, MemoryID: mem, Name: target.Name, Tags: tagsOrEmpty(target.Tags), Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: old.Loc + " → " + target.Loc, Status: edgeStatusPlanned}}, DryRun: dry, ExistingSuccessor: true, Retired: boolRef(false)}
 	render := func(w io.Writer) error { return renderSupersede(w, result) }
 	if same {

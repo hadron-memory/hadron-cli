@@ -151,16 +151,40 @@ func openNoBlock(path string) (*os.File, error) {
 
 // readPassphraseFile reads one passphrase file under the rule ssh applies to a
 // private key: a file any group or other user can access is refused, before it
-// is read and before any request. The mode is checked on the OPENED file, so a
-// swap between check and read cannot slip a different file in. Errors name the
-// file by position, never echo the path (a passphrase pasted in place of a
-// path must not be printed back, #1490).
+// is read and before any request. See readPrivateFile for the checks.
 func readPassphraseFile(path string, n int) (string, error) {
+	who := fmt.Sprintf("--unlock-passphrase-file #%d", n)
+	data, err := readPrivateFile(path, who,
+		who+" is empty: name a file. Nothing was sent",
+		"--unlock-passphrase-file is not supported on Windows: its file permissions cannot be checked. Use the prompt or --unlock-passphrase-stdin. Nothing was sent")
+	if err != nil {
+		return "", err
+	}
+	return trimPassphrase(data), nil
+}
+
+// ReadSecretFile reads a file holding one secret (a data key) under the same
+// rule and the same wording as readPassphraseFile, so the two secrets share one
+// check: refused before any request when a group or other user can access it,
+// when it is not a regular file, or when it changed while it was opened. flag is
+// the flag's name as the user typed it (for example "--data-key-file"); errors
+// name the flag, never the path, so a secret pasted in place of a path is never
+// printed back (#1490). It reads regular files only: "-" (stdin) is the
+// caller's to handle. The bytes are returned untrimmed.
+func ReadSecretFile(path, flag string) ([]byte, error) {
+	return readPrivateFile(path, flag,
+		flag+" is empty: name a file, or - for stdin. Nothing was sent",
+		flag+" is not supported on Windows: its file permissions cannot be checked. Pipe the key and use "+flag+" -. Nothing was sent")
+}
+
+// readPrivateFile is the shared body: who names the flag in every message,
+// emptyMsg and windowsMsg are the two flag-specific refusals.
+func readPrivateFile(path, who, emptyMsg, windowsMsg string) ([]byte, error) {
 	if strings.TrimSpace(path) == "" {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is empty: name a file. Nothing was sent", n)
+		return nil, exitcode.Newf(exitcode.Usage, "%s", emptyMsg)
 	}
 	if runtime.GOOS == "windows" {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file is not supported on Windows: its file permissions cannot be checked. Use the prompt or --unlock-passphrase-stdin. Nothing was sent")
+		return nil, exitcode.Newf(exitcode.Usage, "%s", windowsMsg)
 	}
 	// Refuse a FIFO, device or directory BEFORE opening it: opening a FIFO
 	// for reading blocks until a writer appears. The Stat alone cannot
@@ -169,32 +193,32 @@ func readPassphraseFile(path string, n int) (string, error) {
 	// descriptor checks below refuse whatever it reached.
 	before, err := os.Stat(path)
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
+		return nil, exitcode.Newf(exitcode.Usage, "reading %s: %s. Nothing was sent", who, readFailureClass(err))
 	}
 	if !before.Mode().IsRegular() {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is not a regular file. Nothing was sent", n)
+		return nil, exitcode.Newf(exitcode.Usage, "%s is not a regular file. Nothing was sent", who)
 	}
 	afterPassphraseStat(path)
 	file, err := openNoBlock(path)
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
+		return nil, exitcode.Newf(exitcode.Usage, "reading %s: %s. Nothing was sent", who, readFailureClass(err))
 	}
 	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: the file could not be read. Nothing was sent", n)
+		return nil, exitcode.Newf(exitcode.Usage, "reading %s: the file could not be read. Nothing was sent", who)
 	}
 	// The checks below are on the OPENED file; a swap after the Stat above
 	// is refused rather than read.
 	if !info.Mode().IsRegular() || !os.SameFile(before, info) {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d changed while it was opened. Nothing was sent", n)
+		return nil, exitcode.Newf(exitcode.Usage, "%s changed while it was opened. Nothing was sent", who)
 	}
 	if perm := info.Mode().Perm(); perm&0o077 != 0 {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is accessible by group or others (mode %04o); run chmod 600 on it. Nothing was sent", n, perm)
+		return nil, exitcode.Newf(exitcode.Usage, "%s is accessible by group or others (mode %04o); run chmod 600 on it. Nothing was sent", who, perm)
 	}
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: the file could not be read. Nothing was sent", n)
+		return nil, exitcode.Newf(exitcode.Usage, "reading %s: the file could not be read. Nothing was sent", who)
 	}
-	return trimPassphrase(data), nil
+	return data, nil
 }

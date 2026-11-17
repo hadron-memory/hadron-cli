@@ -136,6 +136,7 @@ poller.
      not decided here.
 3. **Find the terminal**, fresh: in a registered worktree (cleaned,
    symlinks resolved), an agent and never a shell.
+   - **A plain directory (no `.git`)** is found by the handle in its `.hadron-team/terminal.json` instead of by path, after checks (a) listed, connected, writable, agent; (b) no other worker's record names it while its `wrapperPid` may be alive (ESRCH alone ends a claim; unknown, EPERM and errors count as alive); (c) its worktree is not another worker's and its binding does not name another worker. Without a view of the other workers (`Registered` unset) it holds. Holds: `no-terminal-record`, `terminal-stale`, `terminal-claimed`, `terminal-bound-elsewhere` (cli#1989). The binding is read from the same directory's cache, only when `.git` is absent.
    - **Two agent terminals:** hold `two-agents`.
    - **None:** skipped, and no hold is invented.
    - **Disconnected, or the interface doesn't match:** hold `screen-unknown`.
@@ -293,7 +294,7 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
     or event, and `Key()` ignores both. The `dueWakes` adapter selects `tickText`
     and `action` since cli#1534 (see "tickText and action" below), so the server's
     line is the live one whenever the value is present.
-  - TASK: `[hadron task] <event>: <title> (<task id>)`.
+  - TASK: `[hadron task] <event>: <title> (<handle>, <first 12 hex of the task id>)`, e.g. `(AT0.6984.1, 01a1d1ed541b)` (cli#2004, cor:agt:050:01: the handle first). With no handle from the server it is `(<task id>)`, never an invented handle. A child-finished reason names the child (the reason's id and handle are the child's).
   - A task-less alarm (S5, hadron-server#2021 comment-6259060238: `taskId`
     null) renders as `[hadron task] alarm: <alarm type> (no task)`, or as
     `[hadron task] alarm (no task)` with no type. A title is never shown

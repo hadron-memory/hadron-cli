@@ -38,6 +38,7 @@ func hostResponses() map[string]string {
 	r := taskResponses()
 	r["HostRegistrations"] = `{"data":{"hostRegistrations":[` + hostRegJSON + `]}}`
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[` + hostOpJSON + `],"hasNextPage":true,"endCursor":"hop1"}}}`
+	r["HostOperationsWithReason"] = r["HostOperations"]
 	r["IssueHostOperation"] = `{"data":{"issueHostOperation":` + issuedHostOpJSON + `}}`
 	r["GrantAppKeyScope"] = `{"data":{"grantAppKeyScope":` + appKeyScopesJSON + `}}`
 	r["RevokeAppKeyScope"] = `{"data":{"revokeAppKeyScope":{"id":"key1","appId":"capp100000000000000000000","label":"orca1 host","revokedAt":null,"scopes":[]}}}`
@@ -127,7 +128,7 @@ func TestTeamHostOpsFiltersAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := findCall(t, calls, "HostOperations")
+	c := findCall(t, calls, "HostOperationsWithReason")
 	want := map[string]any{"appRef": "capp100000000000000000000", "hostId": "orca1", "status": "SUCCEEDED",
 		"worker": "Jonas", "first": 10.0, "after": "hop9"}
 	if len(c.Vars) != len(want) {
@@ -152,7 +153,7 @@ func TestTeamHostOpsOmitsUnsetFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := findCall(t, calls, "HostOperations")
+	c := findCall(t, calls, "HostOperationsWithReason")
 	var vars map[string]json.RawMessage
 	if err := json.Unmarshal(c.RawVars, &vars); err != nil {
 		t.Fatal(err)
@@ -212,7 +213,7 @@ func TestTeamHostOpsLocalRefusals(t *testing.T) {
 				t.Fatalf("want usage refusal %q, got %v (exit %d)", tc.want, err, exitCodeFor(err))
 			}
 			for _, c := range *calls {
-				if c.Op == "HostOperations" {
+				if c.Op == "HostOperationsWithReason" {
 					t.Fatal("a local refusal must not reach the server")
 				}
 			}
@@ -464,6 +465,7 @@ func TestTeamHostIssueReceiptNamesTheApp(t *testing.T) {
 func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
 	r := hostResponses()
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[],"hasNextPage":false,"endCursor":null}}}`
+	r["HostOperationsWithReason"] = r["HostOperations"]
 	_, out, err := runTeamTask(t, r, "team", "host", "ops", "--status", "failed", "--json")
 	if err != nil {
 		t.Fatal(err)

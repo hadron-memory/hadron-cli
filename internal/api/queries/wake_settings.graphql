@@ -1,7 +1,6 @@
 # A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
-# the read and the write, which both return WorkerWakeSettings. The isolation
-# fields are projected as the server returns them; the isolate/clear commands
-# are cli#911 slice B2 and reuse this fragment rather than adding a second copy.
+# the continuing read and pause/mention writes. Retired isolation fields and
+# documents are deliberately absent (cli#1743, server#3606 Phase 1).
 fragment WorkerWakeSettingsFields on WorkerWakeSettings {
  worker { id name urn }
  mentions
@@ -9,11 +8,6 @@ fragment WorkerWakeSettingsFields on WorkerWakeSettings {
  subscriptions { id ticker { id urn name cadenceSeconds enabled } viaGrant createdAt }
  effectiveCadenceSeconds
  dormant
- isolated
- isolatedAt
- isolatedByHandle
- isolatedUntil
- canManageIsolation
 }
 query WorkerWakeSettings($workerRef: String!) {
  workerWakeSettings(workerRef: $workerRef) { ...WorkerWakeSettingsFields }
@@ -28,18 +22,4 @@ mutation SetWorkerWakeSettings(
  $input: WorkerWakeSettingsInput!
 ) {
  setWorkerWakeSettings(workerRef: $workerRef, input: $input) { ...WorkerWakeSettingsFields }
-}
-# cli#911 slice B2 (cor:agt:080:29): isolate and clear a worker. Both return
-# the same WorkerWakeSettings selection. An omitted until is the server's
-# 2-hour default, never null.
-
-mutation IsolateWorker(
- $workerRef: String!
- # @genqlient(omitempty: true)
- $until: DateTime
-) {
- isolateWorker(workerRef: $workerRef, until: $until) { ...WorkerWakeSettingsFields }
-}
-mutation ClearWorkerIsolation($workerRef: String!) {
- clearWorkerIsolation(workerRef: $workerRef) { ...WorkerWakeSettingsFields }
 }

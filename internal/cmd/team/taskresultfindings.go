@@ -160,7 +160,7 @@ Sign in first. A task id or URN works directly; a handle uses the current App.`,
 		if limit < 0 || limit > 2147483647 || offset < 0 || offset > 2147483647 {
 			return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative GraphQL Int values")
 		}
-		ref, err := taskRefArg(a)
+		ref, err := taskRefArg(f, a)
 		if err != nil {
 			return err
 		}
