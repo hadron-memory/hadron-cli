@@ -36,7 +36,9 @@ Orca's `terminal close --tab` closes every pane in a tab. Require a complete
 fresh list: the tracked handle must still be in another tab in this worktree;
 every pane in the candidate tab must be unidentified, in this worktree, and
 not tracked. Missing tab IDs, duplicate handles, known panes, changed identity,
-foreign-worktree panes and a missing tracked handle leave the tab open. Before
+foreign-worktree panes and a missing tracked handle leave the tab open. A failed
+Orca subprocess or cancelled call invalidates stdout even if it contains a
+complete-looking successful JSON envelope; list/close positive controls pin this. Before
 each close, re-run the strict census and verify the launched agent's pinned
 identity. The accepted proof is deliberately stricter than merely tree
 membership: exactly the pinned launched PID and no other agent match. A nested

@@ -96,3 +96,26 @@ func TestUnprovenPlatformCensusNeverGrantsAbsence2193(t *testing.T) {
 		t.Fatalf("non-Linux proof=%+v err=%v", proof, err)
 	}
 }
+
+func TestCleanupClientRejectsFailedReply2193(t *testing.T) {
+	for _, code := range []int{0, 1} {
+		t.Run(string(rune('0'+code)), func(t *testing.T) {
+			client := relaunchTerminalClientFor(func(context.Context, []string) (int, string, string) {
+				return code, `{"ok":true,"result":{"terminals":[]}}`, ""
+			})
+			_, listErr := client.List(context.Background())
+			closeErr := client.CloseTab(context.Background(), "old")
+			if (listErr != nil) != (code != 0) || (closeErr != nil) != (code != 0) {
+				t.Fatalf("code=%d list=%v close=%v", code, listErr, closeErr)
+			}
+		})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := relaunchTerminalClientFor(func(context.Context, []string) (int, string, string) {
+		return 0, `{"ok":true,"result":{"terminals":[]}}`, ""
+	})
+	if _, err := client.List(ctx); err == nil {
+		t.Fatal("cancelled reply trusted")
+	}
+}

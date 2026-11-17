@@ -20,10 +20,7 @@ func (p *Poller) cleanupRelaunchTerminals(ctx context.Context, agent Agent, targ
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	client := orcaterm.NewSweepClient(func(ctx context.Context, argv []string) orcaterm.Result {
-		code, out, errOut := a.l.Run(ctx, argv)
-		return orcaterm.Result{Code: code, Stdout: out, Stderr: errOut}
-	})
+	client := relaunchTerminalClientFor(a.l.Run)
 	cleanupRelaunchTabs(ctx, client, a.handle, target.Worktree, func(ctx context.Context) bool {
 		proof, err := probeRelaunchWorktree(ctx, target)
 		// Reuse the pinned-process check. A singleton is deliberately stricter
@@ -33,6 +30,18 @@ func (p *Poller) cleanupRelaunchTerminals(ctx context.Context, agent Agent, targ
 		if p.emit != nil {
 			p.emit(Event{Time: p.now().UTC(), Kind: "relaunch-terminal-cleanup", Type: "worker.relaunch", Outcome: outcome, Reason: reason, Detail: reason, WorkerID: target.WorkerID, SessionID: target.SessionID, TerminalHandle: handle})
 		}
+	})
+}
+
+// A failed subprocess can leave a complete-looking JSON reply on stdout.
+// The terminal client parses envelopes, so invalidate that reply here first.
+func relaunchTerminalClientFor(run OrcaRun) *orcaterm.Client {
+	return orcaterm.NewSweepClient(func(ctx context.Context, argv []string) orcaterm.Result {
+		code, out, _ := run(ctx, argv)
+		if code != 0 || ctx.Err() != nil {
+			return orcaterm.Result{Code: 1}
+		}
+		return orcaterm.Result{Stdout: out}
 	})
 }
 
