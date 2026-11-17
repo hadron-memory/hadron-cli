@@ -67,6 +67,10 @@ fragment AgentTaskFields on AgentTask {
   finishedAt
   cancelledAt
   closeSessionWhenDone
+  # cli#2206 (cor:agt:050:01): the settings the task asks for, and beside them
+  # what its run applied; null until the task names or ran under any.
+  runSettings { family model tier effort }
+  appliedRunSettings { family model effort }
   requirements {
     minTier
     role
@@ -107,6 +111,14 @@ fragment AgentTaskFields on AgentTask {
 # Absent unless --external-id is given, so an ordinary create is unchanged and
 # an older server never sees the field.
 # @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
+# cli#2206: a task's run settings (cor:agt:050:01) are create-only and optional:
+# the whole object is omitted without a flag, and each field only when its flag
+# is given, never null.
+# @genqlient(for: "CreateAgentTaskInput.runSettings", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.family", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.model", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.tier", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.effort", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 # cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
 # refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names

@@ -300,6 +300,25 @@ func mapError(err error) error {
 		})
 	}
 
+	// cli#2206: a task's run settings the server refused. The reason names
+	// which rule (MODEL_OUTSIDE_FAMILY, FAMILY_EXCLUDED, TIER_BELOW_MINIMUM,
+	// BAD_VALUE, ...); it depends on the task's requirements, so the server
+	// judges it and the CLI shows it. A usage error: the caller fixes the input.
+	if HasErrorCode(err, "TASK_RUN_SETTINGS_INVALID") {
+		reason := ""
+		for _, e := range graphQLErrors(err) {
+			if e != nil && extensionCode(e) == "TASK_RUN_SETTINGS_INVALID" {
+				reason, _ = e.Extensions["reason"].(string)
+				break
+			}
+		}
+		msg := "the task's run settings were refused"
+		if reason != "" {
+			msg += ": " + reason
+		}
+		return exitcode.New(exitcode.Usage, &serverError{msg: msg, err: err})
+	}
+
 	// A curated command sends a query baked into this binary, so a GraphQL
 	// *validation* failure means the CLI and server disagree on the schema —
 	// version skew, not a user mistake. Turn the raw 400/envelope into one
