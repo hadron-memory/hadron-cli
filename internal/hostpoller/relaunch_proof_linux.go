@@ -24,9 +24,12 @@ func openRelaunchJournalHeld(path string) (hostrelaunch.Journal, uint64, func(),
 	}
 	return j, j.Sweep(), func() { _ = j.Close() }, nil
 }
-func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+
+// ProbeWorktreeAgents shares C5's strict, complete census with host up.
+// Errors never return partial proof. It includes the caller and ancestors.
+func ProbeWorktreeAgents(ctx context.Context, worktree string) (hostrelaunch.Observation, error) {
 	skipped := 0
-	agents, err := strictRelaunchCensusCounted(ctx, "/proc", t.Worktree, func(ctx context.Context) error {
+	agents, err := strictRelaunchCensusCounted(ctx, "/proc", worktree, func(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -47,6 +50,9 @@ func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrela
 		out.PIDs = append(out.PIDs, a.PID)
 	}
 	return out, nil
+}
+func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	return ProbeWorktreeAgents(ctx, t.Worktree)
 }
 func verifyRelaunchProcess(ctx context.Context, a Agent, _ hostrelaunch.Target, o hostrelaunch.Observation) error {
 	if err := ctx.Err(); err != nil {

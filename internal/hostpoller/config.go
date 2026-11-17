@@ -81,6 +81,9 @@ func (c *Config) ResetContextEnabled() bool {
 
 // OrcaLaunchConfig is what an Orca launch needs from the host.
 type OrcaLaunchConfig struct {
+	// CleanupDeadTabs opts into C5's conservative post-relaunch tab cleanup.
+	// Default false until the operator validates the live close path.
+	CleanupDeadTabs bool `yaml:"cleanup_dead_tabs"`
 	// OrcaBin is the absolute Orca CLI path.
 	OrcaBin string `yaml:"orca_bin"`
 	// Group is refused (cli#2121): it ran the command under `sg <group>`,
