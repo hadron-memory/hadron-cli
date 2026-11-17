@@ -14687,7 +14687,8 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 type AgentTeamEventsPageResponse struct {
 	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
 	// filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
-	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+	// another read. For the forward stream, hasMore describes the eligible prefix below the snapshot horizon; keep the
+	// cursor and poll again while older transactions remain open. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
 	// newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
 	// limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
 	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
@@ -67254,8 +67255,7 @@ func (v *MyGrantsMyGrantsGrantsPage) GetItems() []*MyGrantsMyGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type MyGrantsMyGrantsGrantsPageItemsGrant struct {
 	Id    string `json:"id"`
 	AppId string `json:"appId"`
@@ -96473,8 +96473,7 @@ func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompos
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamCreateGrantCreateGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -97032,8 +97031,7 @@ func (v *TeamDueWakesResponse) GetDueWakes() *TeamDueWakesDueWakesDueWakePage { 
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -97368,8 +97366,7 @@ func (v *TeamGrantsGrantsGrantsPage) GetItems() []*TeamGrantsGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantsGrantsGrantsPageItemsGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
