@@ -55,7 +55,9 @@ Refusals, each sent once and never retried:
   exit 5  PR_REFERENCE_MISSING: the task has no pull_request reference.
   exit 5  DEFECT_HEAD_NOT_FROZEN: the head was never frozen on that PR.
   exit 2  BAD_USER_INPUT: a defect URL or head in the wrong form. An empty
-          --defect is refused before any request.
+          --defect or --introduced-at-head is refused before any request.
+  exit 1  the server answered with no link: it may have been recorded, so
+          read the task's events (the message names the task) before retrying.
 
 --json is {taskId, defect, introducedAtHead, eventId, linkedAt, created};
 introducedAtHead is null when the link names no head, and created is false
@@ -70,8 +72,13 @@ for an existing link.`,
 			if err != nil {
 				return err
 			}
+			// Only emptiness is checked here: the head's form and whether it was
+			// frozen on the PR stay the server's (hadron-cli#2296).
 			var headArg *string
 			if cmd.Flags().Changed("introduced-at-head") {
+				if strings.TrimSpace(head) == "" {
+					return exitcode.Newf(exitcode.Usage, "pass --introduced-at-head <sha> with the full 40-hex head, or leave the flag out")
+				}
 				headArg = &head
 			}
 			client, err := f.GraphQLClient()
@@ -84,7 +91,7 @@ for an existing link.`,
 			}
 			l := r.LinkDefectToPullRequest
 			if l == nil || l.TaskId == "" || l.EventId == "" {
-				return exitcode.Newf(exitcode.Error, "the link may have been recorded but the server returned no link; read the task's events before retrying")
+				return exitcode.Newf(exitcode.Error, "the link may have been recorded but the server returned no link; read the task's events before retrying (hadron team events --task %s)", output.SafeLine(ref, 200))
 			}
 			dto := defectLinkDTO{TaskID: l.TaskId, Defect: l.Defect, IntroducedAtHead: l.IntroducedAtHead, EventID: l.EventId, LinkedAt: l.LinkedAt, Created: l.Created}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return renderDefectLink(w, dto) })

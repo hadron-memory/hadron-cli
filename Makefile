@@ -175,8 +175,8 @@ help-inventory: build
 
 # Drift detector for the inventory: regenerate from the built binary and fail if
 # the committed tree rows differ (a command added, renamed or removed without a
-# refresh). The pinned commit and version lines are expected to differ from any
-# later build, so they are not compared. Not part of per-PR CI: a PR that adds a
+# refresh). The whole file is compared: it carries no commit or version pin
+# (cli#2310), so two PRs that regenerate it never conflict on one. Not part of per-PR CI: a PR that adds a
 # command would otherwise fail on a file it has no reason to touch. Run it when
 # you pin or re-read the inventory.
 help-inventory-check: build
@@ -184,7 +184,7 @@ help-inventory-check: build
 	tmp=$$(mktemp); trap 'rm -f $$tmp' EXIT; \
 	HADRON_BIN=bin/hadron HELP_INVENTORY_EXISTING=docs/help-inventory.md bash scripts/gen-help-inventory.sh > $$tmp; \
 	[ -s $$tmp ] || { echo "✗ help-inventory: the generator produced nothing"; exit 1; }; \
-	if ! diff -u -I '^Pinned commit: ' -I '^CLI version: ' docs/help-inventory.md $$tmp; then \
+	if ! diff -u docs/help-inventory.md $$tmp; then \
 	  echo "✗ help-inventory drift: the command tree changed — run 'make help-inventory' and commit."; \
 	  exit 1; \
 	fi; \

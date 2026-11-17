@@ -80,11 +80,11 @@ func parseInventory(t *testing.T, doc string) []inventoryRow {
 
 func TestHelpInventoryFileShape(t *testing.T) {
 	doc := readDoc(t, "docs/help-inventory.md")
-	if !regexp.MustCompile(`(?m)^Pinned commit: [0-9a-f]{7,40}$`).MatchString(doc) {
-		t.Errorf("inventory must state its pinned commit SHA as `Pinned commit: <sha>`")
-	}
-	if !regexp.MustCompile(`(?m)^CLI version: \S+`).MatchString(doc) {
-		t.Errorf("inventory must state the CLI version string it was read from")
+	// cli#2310: the per-regeneration commit/version pin is gone. It changed on
+	// every regeneration, so every PR that regenerated conflicted with every
+	// other, and nothing read it (`make help-inventory-check` never compared it).
+	if regexp.MustCompile(`(?m)^(Pinned commit|CLI version): `).MatchString(doc) {
+		t.Errorf("the inventory must not carry a `Pinned commit:` or `CLI version:` line (cli#2310); run make help-inventory")
 	}
 	if !strings.Contains(doc, "hidden and deprecated commands are not inventoried") {
 		t.Errorf("inventory must state that hidden and deprecated commands are not inventoried")

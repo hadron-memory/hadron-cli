@@ -24,7 +24,7 @@ type encryptDTO struct {
 }
 
 func newCmdEncrypt(f *cmdutil.Factory) *cobra.Command {
-	var dataKey, passphraseFile string
+	var dataKey, dataKeyFile, passphraseFile string
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "encrypt <memoryRef>",
@@ -37,10 +37,13 @@ This is ONE-WAY: there is no decrypt command, and the server never stores the
 key, so keep it safe. If you lose it, the content is lost.
 
 Give exactly one of:
-  --data-key       a key: 32 random bytes written in base64 (44 characters,
-                   ending in =). Make one with openssl rand -base64 32, save it
-                   somewhere safe, and pass it on stdin with --data-key - so it
-                   never lands in your shell history.
+  --data-key-file  a file holding a key ("-" reads stdin): 32 random bytes
+                   written in base64 (44 characters, ending in =). Make one
+                   with openssl rand -base64 32 > key, chmod 600 key, and keep
+                   it safe. A file that group or others can access is refused.
+  --data-key       the same key on stdin (--data-key -). A literal key in the
+                   argument is DEPRECATED: it shows in process listings and
+                   shell history, so it warns now and a later release refuses it.
   --passphrase-file  a file holding a passphrase ("-" reads stdin). The server
                    derives the key from it and stores only the salt, never the
                    key. A trailing newline is dropped; the passphrase is never
@@ -64,8 +67,9 @@ index is on. It asks "Encrypt memory <memoryRef>? This rewrites ALL node
 content as ciphertext and cannot be undone from the CLI" on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise
 exit 2).`,
-		Example: `  openssl rand -base64 32 > diary.key   # keep this file safe
-  hadron memory encrypt hrn:mem:jane:diary --data-key - --yes < diary.key
+		Example: `  (umask 077; openssl rand -base64 32 > diary.key)   # keep this file safe, mode 600
+  hadron memory encrypt hrn:mem:jane:diary --data-key-file diary.key --yes
+  hadron memory encrypt hrn:mem:jane:diary --data-key-file - --yes < diary.key
   hadron memory encrypt hrn:mem:jane:diary --passphrase-file ~/.diary-pass --yes
   hadron node get entries:today -m hrn:mem:jane:diary --unlock hrn:mem:jane:diary
   hadron node get entries:today -m hrn:mem:jane:diary --unlock hrn:mem:jane:diary --unlock-passphrase-file ~/.diary-pass`,
@@ -77,12 +81,21 @@ exit 2).`,
 			if usePassphrase && cmd.Flags().Changed("data-key") {
 				return exitcode.Newf(exitcode.Usage, "--data-key and --passphrase-file are mutually exclusive: give one. Nothing was sent")
 			}
+			if usePassphrase && cmd.Flags().Changed("data-key-file") {
+				return exitcode.Newf(exitcode.Usage, "--data-key-file and --passphrase-file are mutually exclusive: give one. Nothing was sent")
+			}
+			// The key file is read, and its mode checked, before any request.
+			key, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
+			if err != nil {
+				return err
+			}
 			if usePassphrase && strings.TrimSpace(passphraseFile) == "" {
 				return exitcode.Newf(exitcode.Usage, "--passphrase-file is empty: name a file, or - for stdin. Nothing was sent")
 			}
-			if !usePassphrase && dataKey == "" {
-				return exitcode.Newf(exitcode.Usage, "a data key is required, or a passphrase — pass --data-key - or --passphrase-file <file|->")
+			if !usePassphrase && !key.fileSet && dataKey == "" {
+				return exitcode.Newf(exitcode.Usage, "a data key is required, or a passphrase — pass --data-key-file <file|-> or --passphrase-file <file|->")
 			}
+			key.WarnLiteral(f.IOStreams.ErrOut)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -108,11 +121,11 @@ exit 2).`,
 				}
 				passArg = &pass
 			} else {
-				key, err := readDataKey(dataKey, f.IOStreams.In)
+				k, err := key.Read(f.IOStreams.In)
 				if err != nil {
 					return err
 				}
-				keyArg = &key
+				keyArg = &k
 			}
 			resp, err := gen.EncryptMemory(cmd.Context(), client, memID, keyArg, passArg)
 			if err != nil {
@@ -129,7 +142,8 @@ exit 2).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataKey, "data-key", "", `the key: base64 of 32 random bytes ("-" reads it from stdin, recommended)`)
+	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `file holding the key: base64 of 32 random bytes (mode 600; "-" reads stdin)`)
+	cmd.Flags().StringVar(&dataKey, "data-key", "", `the key from stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", `file holding a passphrase to derive the key from ("-" reads stdin)`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required non-interactively)")
 	return cmd

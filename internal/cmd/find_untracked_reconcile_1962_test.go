@@ -234,9 +234,20 @@ func TestReconcileTextNoteAndTrackJSON1976(t *testing.T) {
 					if d.Read != 1 || d.Skipped != 1 || d.SkippedKind != 1 {
 						t.Fatalf("wrong counters: %+v", d)
 					}
-					for _, zero := range []*int{d.SkippedNull, d.SkippedUndeclared, d.SkippedNoAssignee, d.SkippedNoTask} {
-						if zero == nil || *zero != 0 {
-							t.Fatalf("zero reason counter missing or nonzero: %s", out)
+					for _, counter := range []struct {
+						name  string
+						value *int
+					}{
+						{"skippedNull", d.SkippedNull},
+						{"skippedUndeclared", d.SkippedUndeclared},
+						{"skippedNoAssignee", d.SkippedNoAssignee},
+						{"skippedNoTask", d.SkippedNoTask},
+					} {
+						if counter.value == nil {
+							t.Fatalf("%s missing: %s", counter.name, out)
+						}
+						if *counter.value != 0 {
+							t.Fatalf("%s nonzero: got %d, want 0: %s", counter.name, *counter.value, out)
 						}
 					}
 					if strings.Contains(stderr, "note: reconcile:") {
