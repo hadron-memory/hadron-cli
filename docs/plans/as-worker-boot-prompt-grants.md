@@ -95,7 +95,7 @@ normal classifications, including diagnostic notes in optional attribution.
 This follows the #1896 gate's App-scoped refusal rule; the server's generic
 App read is unchanged. Pins compare complete text/JSON streams for the four
 additional callers and check that credential failures retain their exits or
-diagnostic notes. A helper-normalization mutant kills all four callers.
+diagnostic notes. The helper-normalization mutants are described in "Follow-ups from the #1896 review (#2239)" below, with a runnable recipe.
 
 A single worker compile first validates its binding, then resolves the worker
 as the person. With --as-worker, its returned App is checked against the SAME
@@ -112,3 +112,53 @@ unchanged person/same-App paths, and rebinding during positional/worker/late
 App lookups. The server grant remains the authorization barrier; these are
 client consistency and refusal-oracle checks. No schema or request projection
 changes or real server/production claims.
+
+## Follow-ups from the #1896 review (#2239)
+
+The behaviour is unchanged by these follow-ups; they pin it, document it and record two decisions. Authority: V58
+(`hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-10-vera-rulings-app-refusals`), folded into
+cor:agt:050:21 and cor:dmo:050:11. Both lines are **Proposed**, not Decided, so the docs explain and cite them without
+calling them settled law.
+
+**Why an unreadable App shares the missing-App refusal.** An App whose read access is gone reads, to the CLI, exactly
+like an App that does not exist: the server's pure FORBIDDEN on the App read is normalized to "no such App", with the
+same text, stream and exit 2. A distinct "forbidden" answer would confirm the App exists to a caller who may not know
+it does: an existence oracle. This is deliberate, and the same helper serves the worker-write callers, signing, grant
+reads and requests, and `task mine`.
+
+**What is NOT normalized: mixed and failed lookups.** Only a PURE permission refusal collapses. A credential or
+token-scope refusal, a failed lookup (an internal error) and a MIXED answer (FORBIDDEN together with UNAUTHENTICATED)
+keep the server's own messages, in the order the server sent them, and exit by the FIRST error's code. So a mixed
+answer led by UNAUTHENTICATED exits 3 and one led by FORBIDDEN exits 8; neither can be mistaken for a missing App, and
+the outcome is a function of the lookup answer alone (it does not depend on whether the App exists). This first-error
+rule is the documented mapping, not part of the normalization; whether a mixed answer should always prefer the
+credential exit is an exit-code product decision, not made here. The pins are `TestMixedAndFailedAppLookupsKeepTheirMappedExit2239`
+and `TestMixedLookupAsWorkerRefusalSaysItCannotConfirm2239`, on all eight callers, text and JSON, both error orders.
+
+**Order independence of the tests.** The missing-App baseline is now run explicitly before the other kinds in
+`TestAsWorkerAppRefusalParity1896` and `TestBindingsAppOtherCallerParity1896`, so no kind depends on loop order. The
+positional-spelling controls build their commands literally (the legacy empty-segment URN spelling,
+`hrn:app:acme.com::eng-team`, stays in them: cor:urn:010:01 accepts it on input forever).
+
+**Runnable recipe for the helper-normalization mutants** (replaces an earlier claim without a recipe). In
+`internal/cmd/team/team.go`, function `bindingsAppIdentity`:
+
+1. Change `api.OnlyErrorCodes(err, "FORBIDDEN")` to `api.HasErrorCode(err, "FORBIDDEN")` (normalizes a mixed answer):
+   `go test ./internal/cmd -run '2239|1896'` fails 28 subtests at the time of writing.
+2. Change the final `return false, api.MapError(err)` of the error branch to `return false, nil` (normalizes every
+   error): the same command fails 36 subtests.
+
+Restore the file after each run. The numbers are the count of failing subtests when the pins were written and will
+move as callers are added; what matters is that both runs fail.
+
+**Decisions, not built.**
+- *`WorkerWriteContext` naming (P3-4).* Kept as the function type, now with its late-target parameter documented at
+  its definition and the call sites. A named guard type or interface would change `cmdutil.Factory` and four commands
+  for no behaviour gain, and any product change on the refusal path adds a §10 review (the #2239 gate's condition). Revisit
+  if a second consumer shape appears.
+- *A generic "missing or unreadable" attribution-skipped note (D-P3-2).* Not added. Optional authored-write attribution
+  is silent for a missing App and for a pure permission refusal, which is exactly what keeps the two indistinguishable;
+  a note for both would be parity-safe but changes the ordinary output of the person's own write. Credential, mixed and
+  failed lookups keep their diagnostic note.
+- *The mutex held across the late App lookup (P3-5).* Documented at the lock: command-local and used serially today; a
+  parallel batch consumer would need it revisited.

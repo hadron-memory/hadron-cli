@@ -23,7 +23,10 @@ import (
 
 // WorkerWriteContext checks the captured binding immediately before a write.
 // A target App learned by a preceding read can be checked against that SAME
-// snapshot; it never resolves a new session after a rebind.
+// snapshot; it never resolves a new session after a rebind. The variadic
+// arguments are those late-resolved target Apps (for example the App of a
+// worker the command only finds after the initial check); none means the
+// binding alone is re-verified.
 type WorkerWriteContext func(context.Context, ...string) (context.Context, error)
 
 type Factory struct {
