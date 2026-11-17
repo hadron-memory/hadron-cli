@@ -32,7 +32,10 @@ type adapterFlagUse struct {
 func selectAdapter(cmd *cobra.Command, adapterFlag, integration string, u adapterFlagUse) (string, bool, error) {
 	fl := cmd.Flags()
 	adapterGiven := fl.Changed("adapter")
-	integrationGiven := fl.Changed("integration") && strings.TrimSpace(integration) != ""
+	integrationGiven := fl.Changed("integration")
+	if integrationGiven && strings.TrimSpace(integration) == "" {
+		return "", false, exitcode.Newf(exitcode.Usage, "--integration needs an integration name; check for an unset variable")
+	}
 	if adapterGiven && strings.TrimSpace(adapterFlag) == "" {
 		return "", false, exitcode.Newf(exitcode.Usage, "--adapter needs the adapter executable's path")
 	}
@@ -94,6 +97,12 @@ func runAdapterCommand(cmd *cobra.Command, f *cmdutil.Factory, path string, u ad
 	// documented Cancelled exit (QA on cli#1971; same as chat wait).
 	ctx, stopSignals := signal.NotifyContext(root, os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
+	// Restore the default disposition after cancellation so a second signal
+	// can force exit while the adapter drains its pipes.
+	go func() {
+		<-ctx.Done()
+		stopSignals()
+	}()
 	o := adapterOpts{path: path, forWorker: strings.TrimSpace(u.forWorker), track: u.track}
 	if cmd.Flags().Changed("limit") {
 		o.limit = u.limit
