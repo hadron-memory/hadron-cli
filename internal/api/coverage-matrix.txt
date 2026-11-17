@@ -624,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 85: 49 gap, 36 excluded
+[Arguments] 84: 48 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -634,9 +634,9 @@ Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (ac
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
 Mutation.cancelAgentTask(instruction)  gap #1617
-Mutation.createAgentTask(input.runSettings)  gap #2199: run settings and effort land with C8
+Mutation.createAgentTask(input.runSettings)  gap #2206: run settings on the CLI (follow-up to #2199)
 Mutation.createAgentTask(instruction)  gap #1617
-Mutation.createAgentTasks(tasks.task.runSettings)  gap #2199: run settings and effort land with C8
+Mutation.createAgentTasks(tasks.task.runSettings)  gap #2206: run settings on the CLI (follow-up to #2199)
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
@@ -670,7 +670,7 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.resumeSession(input.effort)  gap #2199: run settings and effort land with C8
+Mutation.resumeSession(input.effort)  gap #2206: run settings on the CLI (follow-up to #2199)
 Mutation.revokeAppGrant(instruction)  gap #1617
 Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.setAgentTaskPriority(instruction)  gap #1617
@@ -685,7 +685,6 @@ Mutation.setTeamPause(instruction)  gap #1617
 Mutation.setTeamStopSignal(instruction)  gap #1617
 Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
-Mutation.startSession(input.effort)  gap #2199: run settings and effort land with C8
 Mutation.subscribeWorker(instruction)  gap #1617
 Mutation.unsubscribeWorker(instruction)  gap #1617
 Mutation.updateAgentTask(instruction)  gap #1617
@@ -701,7 +700,7 @@ Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: U
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.updateSession(effort)  gap #2199: run settings and effort land with C8
+Mutation.updateSession(effort)  gap #2206: run settings on the CLI (follow-up to #2199)
 Mutation.updateTicker(instruction)  gap #1617
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617

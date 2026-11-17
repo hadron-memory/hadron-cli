@@ -161,7 +161,7 @@ func TestOrcaWorkerValidation2058(t *testing.T) {
 		"no disk_tmp":        func(c *Config) { w := c.Workers["iris"]; w.DiskTmp = ""; c.Workers["iris"] = w },
 		"relative orca_bin":  func(c *Config) { c.OrcaLaunch.OrcaBin = "orca" },
 		"bad group":          func(c *Config) { c.OrcaLaunch.Group = "in cus" },
-		"bad argv":           func(c *Config) { w := c.Workers["iris"]; w.Profile.Effort = "high"; c.Workers["iris"] = w },
+		"bad argv":           func(c *Config) { w := c.Workers["iris"]; w.Profile.Effort = "-c"; c.Workers["iris"] = w },
 		"relative codex_home": func(c *Config) {
 			c.Accounts = map[string]AccountProfile{"a": {Bin: "claude-glm", CodexHome: "home"}}
 		},
@@ -180,7 +180,7 @@ func TestOrcaLaunchSpecForARelaunch2058(t *testing.T) {
 	p, _, _ := testPoller(t)
 	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-holger"})
 	p.EnableOrcaLaunch((&recordedOrca{}).launch, ConfigProfiles{Cfg: p.cfg})
-	spec, err := p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "", "")
+	spec, err := p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "", "", Resolved{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestOrcaLaunchSpecForARelaunch2058(t *testing.T) {
 		t.Fatalf("relaunch prompt %q", spec.Prompt)
 	}
 	// A grant-bearing start with no task binds first, then recovers (G2).
-	spec, err = p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "hlg_g", "")
+	spec, err = p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "hlg_g", "", Resolved{})
 	if err != nil || !strings.Contains(spec.Prompt, "session start") || !strings.Contains(spec.Prompt, "session recover") || spec.Env[0] != launchGrantEnvVar+"=hlg_g" {
 		t.Fatalf("G2 start spec %+v %v", spec, err)
 	}

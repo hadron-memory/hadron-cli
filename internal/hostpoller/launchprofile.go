@@ -46,6 +46,11 @@ type AccountProfile struct {
 	// account); empty for the Claude family, whose launcher scripts select
 	// their own CLAUDE_CONFIG_DIR.
 	CodexHome string `yaml:"codex_home"`
+	// Families is the explicit allowlist (#2199): when present it must name
+	// EVERY family this account launches, the worker's own profile family
+	// included; a start naming a family not in it is refused. Unset, the
+	// account launches just the worker's profile family.
+	Families []string `yaml:"families"`
 }
 
 // ProfileSource answers a worker's launcher profile. ok is false for a
@@ -107,11 +112,8 @@ func LaunchArgv(p LauncherProfile, a AccountProfile) ([]string, error) {
 	}
 	switch {
 	case claudeFamily[fam]:
-		if p.Effort != "" {
-			// No fixed Claude Code flag carries an effort: refused rather
-			// than silently dropped.
-			return nil, fmt.Errorf("an effort is not supported for the %s family", fam)
-		}
+		// No fixed Claude Code flag carries an effort: it launches without one
+		// and the bind reports NOT_APPLICABLE (#2199), never a refusal.
 		argv := []string{a.Bin, "--dangerously-skip-permissions"}
 		if p.Model != "" {
 			argv = append(argv, "--model", p.Model)

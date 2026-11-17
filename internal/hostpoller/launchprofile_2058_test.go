@@ -44,15 +44,14 @@ func TestLaunchArgvTemplates2058(t *testing.T) {
 	}
 }
 
-// A profile the templates cannot express is refused, never approximated: a
-// Claude-family effort (no fixed flag carries it), an unknown family or mode,
+// A profile the templates cannot express is refused, never approximated: an
+// unknown family or mode,
 // and a model or effort that is not a plain token.
 func TestLaunchArgvRefusals2058(t *testing.T) {
 	for name, tc := range map[string]struct {
 		p LauncherProfile
 		a AccountProfile
 	}{
-		"claude effort":      {LauncherProfile{Family: "claude", Mode: ModeLong, Effort: "high"}, acct("claude-holger")},
 		"unknown family":     {LauncherProfile{Family: "gemini", Mode: ModeLong}, acct("gemini")},
 		"unknown mode":       {LauncherProfile{Family: "claude", Mode: "forever"}, acct("claude-holger")},
 		"no mode":            {LauncherProfile{Family: "claude"}, acct("claude-holger")},
@@ -108,5 +107,14 @@ func TestConfigProfileSource2058(t *testing.T) {
 	cfg.Workers["iris"] = WorkerConfig{Family: "claude", LaunchVia: LaunchViaOrca, Profile: &LauncherProfile{Family: "claude", Mode: ModeShort, Account: "nobody"}}
 	if _, _, _, err := src.Profile("iris"); err == nil {
 		t.Fatal("an unknown account profile was accepted")
+	}
+}
+
+// cli#2199: a Claude-family effort is no longer a refusal: the launch runs
+// without one and the bind reports NOT_APPLICABLE.
+func TestLaunchArgvClaudeEffortIsDropped2199(t *testing.T) {
+	got, err := LaunchArgv(LauncherProfile{Family: "claude", Mode: ModeLong, Effort: "high"}, acct("claude-holger"))
+	if err != nil || !reflect.DeepEqual(got, []string{"claude-holger", "--dangerously-skip-permissions", PromptArg}) {
+		t.Fatalf("argv %q err %v", got, err)
 	}
 }

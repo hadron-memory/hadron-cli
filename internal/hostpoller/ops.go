@@ -162,11 +162,26 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error()+"; not launching on an unclear answer")
 		return
 	}
-	// Compared as the server's canonical identity on BOTH sides (cli#971): a
-	// provider alias and its family are one family; a genuine mismatch, an
-	// empty family or a malformed one still launches nothing.
-	if fam := argString(op, "family"); !SameFamily(fam, w.Family) {
-		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, fam))
+	// The start's run settings (#2199). args.family is the family to LAUNCH,
+	// not an echo of the registration: a worker launched through Orca may run
+	// as another family when this host has a template and the worker's
+	// account can launch it (checked below, before any process). A worker on
+	// the exec path has one fixed argv, so it keeps the same-family guard
+	// (cli#971: compared as the canonical identity on BOTH sides; an empty or
+	// malformed family launches nothing).
+	rs := RunSettingsFrom(op)
+	if err := rs.Validate(); err != nil {
+		p.finish(ctx, op, Failed, "", err.Error()+"; nothing was launched")
+		return
+	}
+	var run Resolved
+	if w.launchesViaOrca() {
+		var ok bool
+		if run, ok = p.resolveOrcaRun(ctx, op, ref, rs); !ok {
+			return
+		}
+	} else if !SameFamily(rs.Family, w.Family) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, rs.Family))
 		return
 	}
 	token := argString(op, "worktree")
@@ -259,7 +274,7 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		// C3 (#2058): through an Orca terminal, from the launcher profile.
 		// No fallback to the exec path: a worker configured for Orca that
 		// cannot launch there launches nothing.
-		agent, err = p.orcaStart(ctx, op, ref, w, dir)
+		agent, err = p.orcaStart(ctx, op, ref, w, dir, run)
 		if err != nil {
 			if agent != nil {
 				// An unproven launch whose terminal could not be closed: it
@@ -271,10 +286,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			return
 		}
 	} else {
+		// The exec path cannot apply the run's model, tier or effort (its
+		// argv is the worker's own fixed command), and does not refuse the
+		// start for it: it states they were not applied (#110836).
+		env := []string{launchGrantEnvVar + "=" + op.LaunchGrant}
+		if e, note, ok := settingsNotApplied(rs); ok {
+			env = append(env, e)
+			p.log("run-settings", op.ID, op.Type, "", note)
+		}
 		agent, err = p.host.Launch(ctx, LaunchSpec{
 			Argv: w.Launch,
 			Dir:  dir,
-			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
+			Env:  agentEnv(os.Environ(), p.key, env...),
 		})
 		if err != nil {
 			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())

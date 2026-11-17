@@ -84645,7 +84645,7 @@ type SessionInput struct {
 	// family with no effort control (never a refusal). Omitted on a host-started bind: the start's own effort is recorded
 	// when it names one of the scale, as its family and model are when the bind reports none. A worker-bound session's
 	// family, model and effort are also written to the worker's last-used record (Worker.lastUsed).
-	Effort *EffortLevel `json:"effort"`
+	Effort *EffortLevel `json:"effort,omitempty"`
 	// #1707 / hrn:node:hadronmemory.com:specs:cor:agt:060:04: the model family this session runs as, e.g.
 	// claude, codex or glm (a lowercase token). Omitted: derived from llmModel
 	// first, then tool — tool alone never classifies claude-code, since GLM runs
@@ -161925,6 +161925,8 @@ fragment WorkerReportingRefFields on Worker {
 // with an ACTIVE session refuses WORKER_TAKEN atomically unless force rides
 // along. Sent only on --force, so the override stays explicit.
 // Schema refresh (#836): no family flag means omit, letting server classification run.
+// effort (#2199, hadron-server#4295): sent only with --effort, so an ordinary
+// start never puts `"effort": null` on the wire.
 // plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 // the refreshed field still needs its omitempty line (the #139 trap).
 // launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
