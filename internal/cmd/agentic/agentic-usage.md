@@ -6347,6 +6347,29 @@ assignee alone, an App key or impersonation. No local inference or retry.
 and human message. A transport or unreadable-response failure may follow a
 committed write: read dispositions before deciding whether to write again.
 
+### Link a post-merge defect to its PR (server#4280; cli#2189)
+
+```sh
+hadron team task link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>]
+```
+
+Records that a defect found after a PR merged traces back to that PR's build
+task: one `review.defect-linked` event on the task (Proposed cor:agt:130:05).
+It sends exactly `prTaskRef`, `defectRef` and, when given, `introducedAtHead`
+(a full 40-hex head frozen on that PR; omitted when unset), never an
+instruction, once, with the bound session as the actor. A link never changes a
+verdict, a seat, readiness or the task. Linking the same pair again writes
+nothing and exits 0 with the existing link (`already linked`, `created: false`).
+Who may link is the server's: a bound `qa-engineer` or `coordinator` worker, or
+a person who manages the App; never the App key or a run.
+`DEFECT_LINK_FORBIDDEN` exits 8; `TASK_NOT_FOUND` (unknown, another App's or
+unreadable, all answered the same) exits 4; `PR_REFERENCE_MISSING` (not a PR
+build task) and `DEFECT_HEAD_NOT_FROZEN` exit 5; `BAD_USER_INPUT` (a defect URL
+or head in the wrong form) exits 2, and an empty `--defect` is refused with
+exit 2 before any request. No retry. `--json` is `{taskId, defect,
+introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
+the link names no head.
+
 `finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
 total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum
 200, `--limit 0` counts only. Follow hasMore with offset, never infer the end

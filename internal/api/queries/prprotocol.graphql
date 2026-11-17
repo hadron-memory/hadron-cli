@@ -30,3 +30,24 @@ query PRReadiness($taskRef: ID!, $head: String!) {
     ready head slots { slot currentTaskId state verdict head counts }
   }
 }
+
+# hadron-cli#2189 (S12b, hadron-server#4280; Proposed cor:agt:130:05): record
+# that a defect found after a PR merged traces back to that PR's build task.
+# Backs `team task link-defect`. $introducedAtHead is omitted when unset; this
+# slice never sends an instruction. The bound session rides the
+# X-Hadron-Session header, so a worker is the actor when one is bound.
+mutation TaskLinkDefect(
+  $prTaskRef: ID!
+  $defectRef: String!
+  # @genqlient(omitempty: true)
+  $introducedAtHead: String
+) {
+  linkDefectToPullRequest(prTaskRef: $prTaskRef, defectRef: $defectRef, introducedAtHead: $introducedAtHead) {
+    taskId
+    defect
+    introducedAtHead
+    eventId
+    linkedAt
+    created
+  }
+}
