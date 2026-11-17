@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -48,5 +49,33 @@ func TestNativeAdapter1974(t *testing.T) {
 	r.Timeout = 100 * time.Millisecond
 	if _, err := r.ListUntracked(context.Background(), "", "timeout", 20); !errors.As(err, &re) {
 		t.Fatalf("timeout: %v", err)
+	}
+}
+
+// A bare invocation (no call argument) must refuse with a usage line and exit
+// 2, not panic on os.Args[1] (#2260 F7): an operator who runs the fixture
+// directly to see what it is gets a diagnosis, not a stack trace.
+func TestNativeAdapterBareInvocationExits2WithUsage(t *testing.T) {
+	name := "adapter"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	path := filepath.Join(t.TempDir(), name)
+	if out, err := exec.Command("go", "build", "-o", path, "./testdata/adapter").CombinedOutput(); err != nil {
+		t.Fatalf("build fixture: %v %s", err, out)
+	}
+	var out []byte
+	err := func() (err error) {
+		out, err = exec.Command(path).CombinedOutput()
+		return err
+	}()
+	if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 2 {
+		t.Fatalf("a bare invocation must exit 2: %v (%s)", err, out)
+	}
+	if !strings.Contains(string(out), "usage") || !strings.Contains(string(out), "call") {
+		t.Fatalf("a bare invocation must print a usage line naming the call argument: %s", out)
+	}
+	if strings.Contains(string(out), "panic") {
+		t.Fatalf("a bare invocation is a refusal, not a panic: %s", out)
 	}
 }
