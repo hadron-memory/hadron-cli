@@ -122,7 +122,8 @@ refused REVISION_MISMATCH (exit 5): run the preview again.
 
 By default the server decides who may approve, for each worker: whoever manages
 the App, acting as themselves. The CLI checks no authority itself, and a
-register grant is not checked by the CLI or the server. With --as-worker the
+register grant is not checked by the CLI or the server. From a worktree bound
+to a worker session, --apply says so once on stderr. With --as-worker the
 approvals go out through this worktree's bound worker session instead: the
 server admits each only for a compiled prompt that a signed
 bootprompt.compile.approve grant names (to any worker in the App), records the
@@ -319,6 +320,9 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 	}
 
 	if apply {
+		if send == nil && len(plan) > 0 {
+			f.NoteApproval(ctx, true)
+		}
 		for _, item := range plan {
 			exit = max(exit, approveOne(ctx, client, &dto, item, send))
 		}
