@@ -61,6 +61,9 @@ approved. An existing approval of the current revision is kept unchanged. The
 server does it in one transaction and reports the nodes it approved and the
 placeholders it skipped.
 
+It approves as you, and from a worktree bound to a worker session it says so
+once on stderr.
+
 It asks for confirmation on a terminal; without a terminal, pass --yes.`,
 		Example: `  hadron memory approve-all -m hrn:mem:micromentor.org:specs-draft --yes --json`,
 		Args:    cobra.NoArgs,
@@ -77,6 +80,7 @@ It asks for confirmation on a terminal; without a terminal, pass --yes.`,
 			if err != nil {
 				return err
 			}
+			f.NoteApproval(cmd.Context(), false)
 			resp, err := gen.ApproveMemoryNodes(cmd.Context(), client, ref)
 			if err != nil {
 				return api.MapError(err)
