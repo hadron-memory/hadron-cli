@@ -131,6 +131,68 @@ func TestAppUpdatePolicyOlderServerRefusalIsNotRetried1640(t *testing.T) {
 	if err == nil || n != 1 {
 		t.Fatalf("err=%v requests=%d", err, n)
 	}
+	// The server's own words survive; nothing generic replaces them.
+	if !strings.Contains(err.Error(), `Unknown argument "policy" on field "Mutation.updateApp"`) {
+		t.Fatalf("the server's refusal was not preserved: %v", err)
+	}
+}
+
+// A success reply that carries no App (updateApp null, or data without it) is
+// a malformed answer, not a result: the request was sent once, whether it
+// applied is unknown, and nothing is claimed or printed as updated.
+func TestAppUpdateReplyWithoutAnAppIsAnUnknownOutcome1640(t *testing.T) {
+	policy := policyFile1640(t, `{"allow":[]}`)
+	for name, flags := range map[string][]string{
+		"policy file":  {"--policy-file", policy},
+		"clear policy": {"--clear-policy"},
+		"settings":     {"--role", "READER"},
+		"basic":        {"--name", "X"},
+	} {
+		for reply, body := range map[string]string{"null": `{"data":{"updateApp":null}}`, "missing": `{"data":{}}`} {
+			t.Run(name+"/"+reply, func(t *testing.T) {
+				var n int
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					n++
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(body))
+				}))
+				defer srv.Close()
+				out, err := appSettingsRun(t, srv, "update", append(flags, "--yes")...)
+				if exitCodeFor(err) != 7 || n != 1 || !strings.Contains(err.Error(), "outcome unknown") || strings.Contains(out, "updated") {
+					t.Fatalf("err=%v requests=%d stdout=%s", err, n, out)
+				}
+			})
+		}
+	}
+}
+
+// The policy's shape is the server's: any single JSON value that is not null
+// goes through, including numbers a float64 cannot hold; the size limit is
+// exact (1 MiB passes, one byte more is refused before any request).
+func TestAppUpdatePolicyFileValueAndSizeBoundaries1640(t *testing.T) {
+	const limit = 1 << 20
+	exact := `{"allow":["` + strings.Repeat("a", limit-len(`{"allow":[""]}`)) + `"]}`
+	if len(exact) != limit {
+		t.Fatalf("fixture is %d bytes, want %d", len(exact), limit)
+	}
+	for name, content := range map[string]string{"huge exponent": `{"n":1e400}`, "array": `["run.execute"]`, "exactly the limit": exact} {
+		t.Run("accepted/"+name, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			if _, err := appSettingsRun(t, srv, "update", "--policy-file", policyFile1640(t, content), "--yes"); err != nil {
+				t.Fatal(err)
+			}
+			if c := appSettingsMutation(t, *calls); len(c.Vars["policy"]) == 0 {
+				t.Fatalf("policy not sent: %v", c.Vars)
+			}
+		})
+	}
+	t.Run("refused/one byte over", func(t *testing.T) {
+		srv, calls := appSettingsServer(t)
+		_, err := appSettingsRun(t, srv, "update", "--policy-file", policyFile1640(t, exact[:len(exact)-1]+` ]}`), "--yes")
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
+			t.Fatalf("err=%v calls=%+v", err, *calls)
+		}
+	})
 }
 
 // The confirmation names the policy change, never its value, and declining

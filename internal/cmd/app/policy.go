@@ -34,15 +34,12 @@ func readPolicyFile(path string) (json.RawMessage, error) {
 	if len(data) == 0 {
 		return nil, exitcode.Newf(exitcode.Usage, "--policy-file is empty; pass the policy JSON, or --clear-policy to remove the App link")
 	}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	var value any
-	if err := dec.Decode(&value); err != nil {
-		return nil, exitcode.Newf(exitcode.Usage, "--policy-file must contain valid JSON")
+	// json.Valid accepts exactly one complete JSON value and, unlike decoding
+	// into a Go value, imposes no float64 limits: the shape is the server's.
+	if !json.Valid(data) {
+		return nil, exitcode.Newf(exitcode.Usage, "--policy-file must contain exactly one valid JSON value")
 	}
-	if _, err := dec.Token(); err != io.EOF {
-		return nil, exitcode.Newf(exitcode.Usage, "--policy-file must contain exactly one JSON value")
-	}
-	if value == nil {
+	if bytes.Equal(data, []byte("null")) {
 		return nil, exitcode.Newf(exitcode.Usage, "--policy-file null would remove the App link; use --clear-policy to do that")
 	}
 	return json.RawMessage(data), nil

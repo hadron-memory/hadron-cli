@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	urnlib "github.com/hadron-memory/urn-lib-go"
 	"io"
@@ -28,6 +29,10 @@ type updateAppDTO struct {
 	Status                string   `json:"status"`
 	Changed               []string `json:"changed"`
 }
+
+// errNoUpdatedApp marks a reply that carries no error and no App (updateApp is
+// non-null in the schema, so this is a malformed answer, not a result).
+var errNoUpdatedApp = errors.New("the server's reply named no App")
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var settings settingsFlags
@@ -186,32 +191,46 @@ before trying again.`,
 				resp, callErr := gen.UpdateAppSettingsPolicy(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, policyJSON)
 				err = callErr
 				if err == nil {
-					u := resp.UpdateApp
-					dto.ID = u.Id
-					dto.URN = u.Urn
-					dto.Name = u.Name
-					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
 				}
 			} else if len(prepared.changed) > 0 {
 				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
 				err = callErr
 				if err == nil {
-					u := resp.UpdateApp
-					dto.ID = u.Id
-					dto.URN = u.Urn
-					dto.Name = u.Name
-					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
 				}
 			} else {
 				resp, callErr := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr)
 				err = callErr
 				if err == nil {
-					u := resp.UpdateApp
-					dto.ID = u.Id
-					dto.URN = u.Urn
-					dto.Name = u.Name
-					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
 				}
+			}
+			if errors.Is(err, errNoUpdatedApp) {
+				// The request was sent and answered without an error but with no
+				// App: whether it applied is unknown, so nothing is claimed.
+				return exitcode.New(exitcode.Unavailable, fmt.Errorf("app update outcome unknown (sent once, not retried; read the App back before retrying): %w", err))
 			}
 			if err != nil {
 				mapped := api.MapError(err)
