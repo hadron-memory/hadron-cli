@@ -516,3 +516,64 @@ func TestSweepAcceptanceWriterPreservesPreexistingPath2187(t *testing.T) {
 		t.Errorf("pre-existing unit contents changed: %q, %v", got, readErr)
 	}
 }
+
+func TestSweepAcceptanceResetShowErrorContext2294(t *testing.T) {
+	const unit = "case-2294.service"
+	sentinel := errors.New("show sentinel")
+	var calls []string
+	err := resetSweepUnits2187([]string{unit}, func(args ...string) ([]byte, error) {
+		calls = append(calls, args[0])
+		switch args[0] {
+		case "stop", "reset-failed":
+			return nil, nil
+		case "show":
+			if len(args) < 2 || args[1] != unit {
+				t.Fatalf("wrong show target: %v", args)
+			}
+			return []byte("manager diagnostic"), sentinel
+		default:
+			t.Fatalf("unexpected command %v", args)
+			return nil, nil
+		}
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("show error not preserved: %v", err)
+	}
+	for _, want := range []string{unit, "manager diagnostic"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("show error missing %q: %v; calls=%v", want, err, calls)
+		}
+	}
+}
+
+func TestSweepAcceptanceResetCommandErrors2294(t *testing.T) {
+	for _, fail := range []string{"stop", "reset-failed"} {
+		t.Run(fail, func(t *testing.T) {
+			sentinel := errors.New(fail + " sentinel")
+			var calls []string
+			command := func(args ...string) ([]byte, error) {
+				calls = append(calls, args[0])
+				if args[0] == fail {
+					return []byte(fail + " diagnostic"), sentinel
+				}
+				return []byte("inactive"), nil
+			}
+			err := resetSweepUnits2187([]string{"case-2294.service"}, command)
+			if err == nil {
+				_, _ = command("start", "case-2294.service")
+			}
+			if !errors.Is(err, sentinel) {
+				t.Errorf("%s error not propagated: %v; calls=%v", fail, err, calls)
+			} else if !strings.Contains(err.Error(), fail+" diagnostic") {
+				t.Errorf("command diagnostic lost: %v", err)
+			}
+			want := []string{"stop"}
+			if fail == "reset-failed" {
+				want = append(want, "reset-failed")
+			}
+			if strings.Join(calls, ",") != strings.Join(want, ",") {
+				t.Errorf("commands continued after %s failure: %v", fail, calls)
+			}
+		})
+	}
+}
