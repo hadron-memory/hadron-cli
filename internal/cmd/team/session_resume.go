@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -95,7 +94,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	// and the lock would refuse only after it was consumed: refuse first
 	// (Gloria's BLIND F2, #1968).
 	if plainDir && existing != nil && strings.TrimSpace(existing.WorkerID) == "" {
-		return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+		return errDirectoryHeld(heldCachePath(), existing)
 	}
 	var lapsedBinding bool
 	// The worker this worktree was last bound to (cli#1839, cor:agt:020:03):
