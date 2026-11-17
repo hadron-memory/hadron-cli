@@ -194,3 +194,36 @@ func TestReconcileServerWithoutTheFeedIsUsage1962(t *testing.T) {
 		t.Fatalf("want usage naming #4084, got %v", err)
 	}
 }
+
+func TestReconcileTextNoteAndTrackJSON1976(t *testing.T) {
+	for _, track := range []bool{false, true} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("track=%v/json=%v", track, asJSON), func(t *testing.T) {
+				path, _ := fakeAdapter1962(t, describeAll1962, "")
+				args := []string{}
+				if track {
+					args = append(args, "--track")
+				}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				_, out, stderr, err := run1962(t, path, feed1962(false, "", change1962("FINISHED", itemR1, "c1", "t1", "AT1", "", "")), args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if asJSON {
+					for _, want := range []string{`"reconcile": {`, `"read": 1`, `"skipped": 1`, `"skippedKind": 1`} {
+						if !strings.Contains(out, want) {
+							t.Errorf("missing %s: %s", want, out)
+						}
+					}
+					if strings.Contains(stderr, "note: reconcile:") {
+						t.Fatalf("JSON note: %s", stderr)
+					}
+				} else if !strings.Contains(stderr, "note: reconcile: read 1 change(s): 0 marked, 0 untracked, 0 reported, 1 skipped\n") || strings.Contains(out, "note: reconcile:") {
+					t.Fatalf("note belongs on stderr: stdout=%q stderr=%q", out, stderr)
+				}
+			})
+		}
+	}
+}

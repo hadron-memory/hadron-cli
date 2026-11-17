@@ -49,7 +49,7 @@ func (c *feedClient) MakeRequest(_ context.Context, req *graphql.Request, resp *
 	return json.Unmarshal([]byte(`{"agentTaskExternalIdChanges":`+page+`}`), resp.Data)
 }
 
-func released(ext, cursor string) string {
+func releasedChange(ext, cursor string) string {
 	const kind = "RELEASED"
 	return fmt.Sprintf(`{"cursor":%q,"kind":%q,"externalId":%q,"task":{"id":"t","handle":"AT1","portalUrl":null,"assignee":null}}`, cursor, kind, ext)
 }
@@ -85,7 +85,7 @@ func TestReconcileSecondRunStartsAfterTheServersCursorAndIsIdempotent(t *testing
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
 	key := intake.CursorKey("https://s", "app", "fake")
 
-	first := &feedClient{pages: []string{page(released("https://x/1", "cur-A"), released("https://x/2", "cur-B"))}}
+	first := &feedClient{pages: []string{page(releasedChange("https://x/1", "cur-A"), releasedChange("https://x/2", "cur-B"))}}
 	d1, aerr, ferr := reconcile(context.Background(), first, store, key, "app", r, desc)
 	if aerr != nil || ferr != nil || d1.Untracked != 2 || !d1.Complete {
 		t.Fatalf("first run: %+v %v %v", d1, aerr, ferr)
@@ -119,7 +119,7 @@ func TestReconcileRefusedChangeIsRetriedByTheNextRun(t *testing.T) {
 	key := intake.CursorKey("https://s", "app", "fake")
 
 	first := &feedClient{pages: []string{page(
-		released("https://x/1", "c1"), released("https://x/2", "c2"), released("https://x/3", "c3"))}}
+		releasedChange("https://x/1", "c1"), releasedChange("https://x/2", "c2"), releasedChange("https://x/3", "c3"))}}
 	d1, aerr, ferr := reconcile(context.Background(), first, store, key, "app", r, desc)
 	if ferr != nil || aerr == nil || d1.Complete || d1.Error == nil || d1.Untracked != 1 {
 		t.Fatalf("first run must stop at the refused change: %+v %v %v", d1, aerr, ferr)
@@ -128,8 +128,11 @@ func TestReconcileRefusedChangeIsRetriedByTheNextRun(t *testing.T) {
 		t.Fatalf("c3 must not be tried past the failure: %d calls", n)
 	}
 
-	second := &feedClient{pages: []string{page(released("https://x/2", "c2"), released("https://x/3", "c3"))}}
-	_, _, _ = reconcile(context.Background(), second, store, key, "app", r, desc)
+	second := &feedClient{pages: []string{page(releasedChange("https://x/2", "c2"), releasedChange("https://x/3", "c3"))}}
+	d2, aerr, ferr := reconcile(context.Background(), second, store, key, "app", r, desc)
+	if ferr != nil || aerr == nil || d2.Complete || d2.Error == nil || d2.Read != 1 || d2.Untracked != 0 || untrackCalls(t, log) != 3 {
+		t.Fatalf("retry must stop at the same refused change: %+v %v %v", d2, aerr, ferr)
+	}
 	if second.after[0] != "c1" {
 		t.Fatalf("the cursor must stay after the last answered change (c1): %v", second.after)
 	}
@@ -156,7 +159,7 @@ func TestReconcileSameFeedRunsAreSerialized(t *testing.T) {
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
 	key := intake.CursorKey("https://s", "app", "fake")
 
-	a := &feedClient{pages: []string{page(released("https://x/1", "c1"))}}
+	a := &feedClient{pages: []string{page(releasedChange("https://x/1", "c1"))}}
 	aDone := make(chan struct{})
 	go func() {
 		defer close(aDone)
@@ -231,7 +234,7 @@ func TestReconcileRefusesANonAdvancingCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	// hasMore, a non-empty page, and a nextCursor equal to the `after` sent.
-	stuck := `{"changes":[` + released("https://x/1", "c0") + `],"hasMore":true,"nextCursor":"c0"}`
+	stuck := `{"changes":[` + releasedChange("https://x/1", "c0") + `],"hasMore":true,"nextCursor":"c0"}`
 	c := &feedClient{pages: []string{stuck, stuck, stuck}}
 	d, aerr, ferr := reconcile(context.Background(), c, store, key, "app", r, desc)
 	if ferr != nil || aerr == nil || d.Complete || d.Error == nil {
@@ -274,5 +277,54 @@ func TestReconcileEmptyHasMorePageDoesNotMoveTheCheckpoint(t *testing.T) {
 	}
 	if got, _ := store.Get(key); got != "c-old" {
 		t.Fatalf("the checkpoint must stay at the last answered state, got %q", got)
+	}
+}
+
+func TestReconcilePageCapResumesWithoutError1976(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	pages := make([]string, 26)
+	for i := range pages {
+		pages[i] = fmt.Sprintf(`{"changes":[{"cursor":"c%d","kind":"FINISHED","externalId":"x","task":null}],"hasMore":true,"nextCursor":"c%d"}`, i+1, i+1)
+	}
+	c := &feedClient{pages: pages}
+	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr != nil || d.Complete || d.Error != nil || d.Read != 25 || len(c.after) != 25 || len(c.pages) != 1 {
+		t.Fatalf("cap must stop after 25 pages without error: %+v %v %v reads=%d", d, aerr, ferr, len(c.after))
+	}
+	if got, err := store.Get("k"); err != nil || got != "c25" {
+		t.Fatalf("checkpoint: %q %v", got, err)
+	}
+	next := &feedClient{pages: []string{page()}}
+	d, aerr, ferr = reconcile(context.Background(), next, store, "k", "app", r, desc)
+	if aerr != nil || ferr != nil || !d.Complete || next.after[0] != "c25" {
+		t.Fatalf("resume: %+v %v %v %v", d, aerr, ferr, next.after)
+	}
+}
+
+func TestReconcileSkippedReasonsRemainAdditive1976(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	desc.Calls = []string{"describe", "list-untracked"}
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &feedClient{pages: []string{page("null", releasedChange("x", "c1"),
+		`{"cursor":"c2","kind":"FINISHED","externalId":"x","task":null}`,
+		`{"cursor":"c3","kind":"REASSIGNED","externalId":"x","task":{"id":"t","handle":"AT1","assignee":null}}`,
+		`{"cursor":"c4","kind":"CANCELLED","externalId":"x","task":null}`)}}
+	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr != nil {
+		t.Fatalf("%v %v", aerr, ferr)
+	}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]float64{"skipped": 5, "skippedNull": 1, "skippedUndeclared": 1, "skippedKind": 1, "skippedNoAssignee": 1, "skippedNoTask": 1} {
+		if got[key] != want {
+			t.Errorf("%s = %v, want %v; %s", key, got[key], want, b)
+		}
 	}
 }
