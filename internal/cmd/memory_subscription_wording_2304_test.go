@@ -20,6 +20,8 @@ func TestSubscriptionCreateHelp2304(t *testing.T) {
 	}
 }
 
+// The report does not include a full server payload; these typed refusal
+// fixtures are synthetic. Hidden and missing memory refusals must stay identical.
 func TestSubscriptionCreateRefusals2304(t *testing.T) {
 	for _, tc := range []struct {
 		name, code, message, want string
