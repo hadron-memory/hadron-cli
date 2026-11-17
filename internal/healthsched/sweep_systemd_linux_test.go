@@ -88,6 +88,11 @@ func writeSweepUnits2183(t *testing.T, dir string, s Spec, created func(string))
 }
 
 func writeSweepUnit2187(path, body string, created func(string)) error {
+	return writeSweepUnit2294(path, body, created, (*os.File).WriteString)
+}
+
+// The injected write keeps partial-write failure tests on the actual file path.
+func writeSweepUnit2294(path, body string, created func(string), write func(*os.File, string) (int, error)) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -97,7 +102,7 @@ func writeSweepUnit2187(path, body string, created func(string)) error {
 	if created != nil {
 		created(path)
 	}
-	_, writeErr := f.WriteString(body)
+	_, writeErr := write(f, body)
 	closeErr := f.Close()
 	if writeErr != nil {
 		return writeErr
@@ -168,24 +173,15 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	for _, n := range names {
 		paths = append(paths, filepath.Join("/run/systemd/system", n))
 	}
-	cleanupPaths := make([]string, 0, len(paths))
+	created, cleanupFiles := sweepUnitOwnership2294()
 	t.Cleanup(func() {
 		_ = exec.Command("systemctl", append([]string{"stop"}, names...)...).Run()
-		for _, p := range cleanupPaths {
-			_ = os.Remove(p)
-		}
+		cleanupFiles()
 		_ = exec.Command("systemctl", "daemon-reload").Run()
 		_ = exec.Command("systemctl", append([]string{"reset-failed"}, names...)...).Run()
 	})
 	if err := writeAndCheckSweepUnits2187(paths, func() []string {
-		return writeSweepUnits2183(t, "/run/systemd/system", s, func(path string) {
-			for _, existing := range cleanupPaths {
-				if existing == path {
-					return
-				}
-			}
-			cleanupPaths = append(cleanupPaths, path)
-		})
+		return writeSweepUnits2183(t, "/run/systemd/system", s, created)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +313,7 @@ func resetSweepUnits2187(names []string, command func(...string) ([]byte, error)
 		}
 		state, err := command("show", n, "-p", "ActiveState", "--value")
 		if err != nil {
-			return err
+			return fmt.Errorf("show %s: %w: %s", n, err, state)
 		}
 		if got := strings.TrimSpace(string(state)); got != "inactive" {
 			return fmt.Errorf("%s did not stop: %s", n, got)
@@ -514,5 +510,126 @@ func TestSweepAcceptanceWriterPreservesPreexistingPath2187(t *testing.T) {
 	got, readErr := os.ReadFile(path)
 	if readErr != nil || string(got) != sentinel {
 		t.Errorf("pre-existing unit contents changed: %q, %v", got, readErr)
+	}
+}
+
+func TestSweepAcceptanceResetShowErrorContext2294(t *testing.T) {
+	const unit = "case-2294.service"
+	sentinel := errors.New("show sentinel")
+	var calls []string
+	err := resetSweepUnits2187([]string{unit}, func(args ...string) ([]byte, error) {
+		calls = append(calls, args[0])
+		switch args[0] {
+		case "stop", "reset-failed":
+			return nil, nil
+		case "show":
+			if len(args) < 2 || args[1] != unit {
+				t.Fatalf("wrong show target: %v", args)
+			}
+			return []byte("manager diagnostic"), sentinel
+		default:
+			t.Fatalf("unexpected command %v", args)
+			return nil, nil
+		}
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("show error not preserved: %v", err)
+	}
+	for _, want := range []string{unit, "manager diagnostic"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("show error missing %q: %v; calls=%v", want, err, calls)
+		}
+	}
+}
+
+func TestSweepAcceptanceResetCommandErrors2294(t *testing.T) {
+	for _, fail := range []string{"stop", "reset-failed"} {
+		t.Run(fail, func(t *testing.T) {
+			sentinel := errors.New(fail + " sentinel")
+			var calls []string
+			command := func(args ...string) ([]byte, error) {
+				calls = append(calls, args[0])
+				if args[0] == fail {
+					return []byte(fail + " diagnostic"), sentinel
+				}
+				return []byte("inactive"), nil
+			}
+			err := resetSweepUnits2187([]string{"case-2294.service"}, command)
+			if err == nil {
+				_, _ = command("start", "case-2294.service")
+			}
+			if !errors.Is(err, sentinel) {
+				t.Errorf("%s error not propagated: %v; calls=%v", fail, err, calls)
+			} else if !strings.Contains(err.Error(), fail+" diagnostic") {
+				t.Errorf("command diagnostic lost: %v", err)
+			}
+			want := []string{"stop"}
+			if fail == "reset-failed" {
+				want = append(want, "reset-failed")
+			}
+			if strings.Join(calls, ",") != strings.Join(want, ",") {
+				t.Errorf("commands continued after %s failure: %v", fail, calls)
+			}
+		})
+	}
+}
+
+// Both the manager acceptance and the partial-write pin use this ownership
+// registry. Callers register cleanup before the writer can create any files.
+func sweepUnitOwnership2294() (func(string), func()) {
+	var paths []string
+	created := func(path string) {
+		for _, existing := range paths {
+			if existing == path {
+				return
+			}
+		}
+		paths = append(paths, path)
+	}
+	cleanup := func() {
+		for _, path := range paths {
+			_ = os.Remove(path)
+		}
+	}
+	return created, cleanup
+}
+
+func TestSweepAcceptancePartialWriteCleanup2294(t *testing.T) {
+	dir := t.TempDir()
+	owned := filepath.Join(dir, "owned-partial.service")
+	unowned := filepath.Join(dir, "pre-existing.service")
+	const sentinelBody = "pre-existing unowned contents"
+	if err := os.WriteFile(unowned, []byte(sentinelBody), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writeErr := errors.New("injected partial write failure")
+	const body = "partial unit body not fully written"
+	const partial = "partial"
+	t.Run("write fails after creating content", func(t *testing.T) {
+		created, cleanup := sweepUnitOwnership2294()
+		t.Cleanup(cleanup)
+		write := func(f *os.File, body string) (int, error) {
+			n, err := f.WriteString(body[:len(partial)])
+			if err != nil {
+				return n, err
+			}
+			got, err := os.ReadFile(f.Name())
+			if err != nil || string(got) != partial {
+				return n, fmt.Errorf("partial write not observed: %q: %v", got, err)
+			}
+			return n, writeErr
+		}
+		if err := writeSweepUnit2294(owned, body, created, write); !errors.Is(err, writeErr) {
+			t.Errorf("partial write error not preserved: %v", err)
+		}
+		if err := writeSweepUnit2294(unowned, body, created, write); !errors.Is(err, os.ErrExist) {
+			t.Errorf("existing file was not refused: %v", err)
+		}
+	})
+	if _, err := os.Lstat(owned); !os.IsNotExist(err) {
+		t.Errorf("owned partial file survived cleanup: %v", err)
+	}
+	if got, err := os.ReadFile(unowned); err != nil || string(got) != sentinelBody {
+		t.Errorf("unowned sentinel changed or removed: %q: %v", got, err)
 	}
 }
