@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#2005 (S6c, server#2553 item 6 over server#4135): `team events` prints a
@@ -132,8 +134,14 @@ func TestTeamEventsAgainstAServerWithoutTaskHandleFailsWithoutATable2005(t *test
 	if err == nil {
 		t.Fatalf("a refused query must fail the command:\n%s", out)
 	}
-	if strings.Contains(out, "TASK") || strings.Contains(out, "evt") {
-		t.Fatalf("half a table was printed:\n%s", out)
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Fatalf("schema mismatch exit %d, want %d: %v", got, exitcode.Usage, err)
+	}
+	if !strings.Contains(err.Error(), "CLI and server schema versions are out of sync") || !strings.Contains(err.Error(), `Cannot query field "taskHandle"`) {
+		t.Fatalf("missing schema-mismatch diagnostic: %v", err)
+	}
+	if out != "" {
+		t.Fatalf("schema mismatch printed stdout: %q", out)
 	}
 }
 
@@ -149,6 +157,15 @@ func TestTeamEventsHandleCellIsControlFree2005(t *testing.T) {
 	}
 	if strings.ContainsRune(out, 0x1b) {
 		t.Fatalf("a control character reached the table: %q", out)
+	}
+	// Pin retained TASK content as well as the absence of controls: dropping
+	// the cell must not make this test green.
+	fields := strings.Fields(tableLine(t, out, "evtHandle"))
+	if len(fields) < 5 {
+		t.Fatalf("TASK cell vanished: %q", out)
+	}
+	if got, want := strings.Join(fields[4:], " "), "AT0.7 [31m234 "+handleEventShort; got != want {
+		t.Fatalf("sanitized TASK cell %q, want %q", got, want)
 	}
 	_, jsonOut, err := runTeamTask(t, r, "team", "events", "--json")
 	if err != nil {
