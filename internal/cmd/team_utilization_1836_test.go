@@ -71,9 +71,7 @@ func TestTeamUtilizationEmptyResultIsAnEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, `"combinations": []`) && !strings.Contains(out, `"combinations":[]`) {
-		t.Fatalf("empty must render [], got %s", out)
-	}
+	assertEmptyCombinations(t, out)
 }
 
 func TestTeamUtilizationSingleCombinationAndFilters(t *testing.T) {
@@ -151,9 +149,7 @@ func TestTeamUtilizationFilteredWithNoMatchIsAnEmptyListExit0(t *testing.T) {
 	if err != nil {
 		t.Fatalf("no match is an answer, not an error: %v", err)
 	}
-	if !strings.Contains(out, `"combinations": []`) && !strings.Contains(out, `"combinations":[]`) {
-		t.Fatalf("want an empty list, got %s", out)
-	}
+	assertEmptyCombinations(t, out)
 }
 
 func TestTeamUtilizationOmitsWindowWhenNotGiven(t *testing.T) {
@@ -201,6 +197,9 @@ func TestTeamUtilizationBadInputExits2(t *testing.T) {
 		{"--all", "--family", "claude"},
 		{"--all", "--tier", "high"},
 		{"--all", "--role", "qa"},
+		{"--all", "--family="},
+		{"--all", "--tier="},
+		{"--all", "--role="},
 		{},
 	} {
 		calls, _, err := runTeamTask(t, utilResponses(utilizationJSON), append([]string{"team", "utilization"}, argv...)...)
@@ -240,5 +239,20 @@ func TestTeamUtilizationRefusalMapsThroughMapError(t *testing.T) {
 	_, _, err := runTeamTask(t, utilResponses(deny), "team", "utilization", "--all")
 	if exitCodeFor(err) != exitcode.Forbidden {
 		t.Fatalf("want exit 8, got %v (%d)", err, exitCodeFor(err))
+	}
+}
+
+// assertEmptyCombinations decodes the output: combinations is an array (never
+// null) of length zero, whatever the whitespace of the encoder.
+func assertEmptyCombinations(t *testing.T, out string) {
+	t.Helper()
+	var dto struct {
+		Combinations []json.RawMessage `json:"combinations"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if dto.Combinations == nil || len(dto.Combinations) != 0 {
+		t.Fatalf("combinations must be an empty array, got %s", out)
 	}
 }

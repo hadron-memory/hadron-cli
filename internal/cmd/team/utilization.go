@@ -58,9 +58,9 @@ with the server's match-outcome integration. An unknown tier is its own row
 (tier null in --json, "-" in the table).
 
 --all lists every combination, highest utilization first (a tie keeps the
-server's order): the first row is where to expand. Without --all the filters
-must narrow to ONE combination, else the command refuses and says to add
---tier/--role or --all. No matching combination prints an empty list and exits 0.
+server's order): the first row is where to expand. Without --all, several
+matching combinations are refused (add --tier/--role to narrow, or use --all);
+none matching prints an empty list and exits 0.
 
 --all takes no --family/--tier/--role (refused, exit 2).
 
@@ -79,7 +79,7 @@ exits 0 whatever the numbers. It is a script exit code, not an alarm.`,
 			if !all && family == "" {
 				return exitcode.Newf(exitcode.Usage, "name what to show: --all, or --family <f> (with --tier/--role) for one combination")
 			}
-			if all && (family != "" || tier != "" || role != "") {
+			if all && (cmd.Flags().Changed("family") || cmd.Flags().Changed("tier") || cmd.Flags().Changed("role")) {
 				return exitcode.Newf(exitcode.Usage, "--all lists every combination and takes no --family/--tier/--role; drop --all to filter")
 			}
 			var familyFilter, roleFilter, tierFilter *string
