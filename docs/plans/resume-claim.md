@@ -62,8 +62,12 @@ binding is replaced, as a plain start replaces one. Outside a git worktree the s
 call too: the CLI has nowhere to cache the binding, and consuming the claim anyway would strand it.
 
 **The cache describes the session the server bound, not the flags** (Anne, blind P2 at e720abf5). A
-RESUMED session keeps the provenance it was started with, and the server ignores the flags for it. Only
-STARTED passes them to `startSession`. So the binding's tool, model and repo come from the returned
+RESUMED session keeps the provenance it was started with, except `llmModel`/`family`: with
+hadron-server#2086 a resume refreshes those two on the same session (an explicit family wins, otherwise it
+is derived from the model, as `updateSession` does since #1948), and an omitted `--model` never clears what
+the session already carries. `tool`, `host` and the transcript path are still ignored for a RESUMED session.
+Only STARTED passes all of them to `startSession`. This is server behavior: the CLI sends the flags it
+was given and changes nothing, so against a server without #2086 the old behavior remains. So the binding's tool, model and repo come from the returned
 session, and a flag fills only a field the session lacks. Caching the flags left a no-argument resume
 with an empty tool, and the next `session log` sent it and was refused. A flag that disagrees with a
 resumed session gets a stderr note saying it was not applied.
