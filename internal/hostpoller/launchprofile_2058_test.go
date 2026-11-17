@@ -22,15 +22,15 @@ func TestLaunchArgvTemplates2058(t *testing.T) {
 		{"claude long", LauncherProfile{Family: "claude", Mode: ModeLong, Model: "opus"}, acct("claude-holger"),
 			[]string{"claude-holger", "--dangerously-skip-permissions", "--model", "opus", PromptArg}},
 		{"claude short", LauncherProfile{Family: "claude", Mode: ModeShort, Model: "sonnet"}, acct("claude-worker"),
-			[]string{"claude-worker", "--dangerously-skip-permissions", "--model", "sonnet", "-p", PromptArg}},
+			[]string{"claude-worker", "--dangerously-skip-permissions", "--model", "sonnet", PromptArg}},
 		{"glm long, no model", LauncherProfile{Family: "glm", Mode: ModeLong}, acct("claude-glm"),
 			[]string{"claude-glm", "--dangerously-skip-permissions", PromptArg}},
 		{"kimi short", LauncherProfile{Family: "kimi", Mode: ModeShort}, acct("claude-kimi"),
-			[]string{"claude-kimi", "--dangerously-skip-permissions", "-p", PromptArg}},
+			[]string{"claude-kimi", "--dangerously-skip-permissions", PromptArg}},
 		{"codex long", LauncherProfile{Family: "codex", Mode: ModeLong, Model: "gpt-6-luna", Effort: "high"}, acct("codex"),
 			[]string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", "-m", "gpt-6-luna", "-c", "model_reasoning_effort=high", PromptArg}},
 		{"codex short", LauncherProfile{Family: "codex", Mode: ModeShort}, acct("codex"),
-			[]string{"codex", "exec", "--dangerously-bypass-approvals-and-sandbox", PromptArg}},
+			[]string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", PromptArg}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := LaunchArgv(tc.p, tc.a)
@@ -44,15 +44,14 @@ func TestLaunchArgvTemplates2058(t *testing.T) {
 	}
 }
 
-// A profile the templates cannot express is refused, never approximated: a
-// Claude-family effort (no fixed flag carries it), an unknown family or mode,
+// A profile the templates cannot express is refused, never approximated: an
+// unknown family or mode,
 // and a model or effort that is not a plain token.
 func TestLaunchArgvRefusals2058(t *testing.T) {
 	for name, tc := range map[string]struct {
 		p LauncherProfile
 		a AccountProfile
 	}{
-		"claude effort":      {LauncherProfile{Family: "claude", Mode: ModeLong, Effort: "high"}, acct("claude-holger")},
 		"unknown family":     {LauncherProfile{Family: "gemini", Mode: ModeLong}, acct("gemini")},
 		"unknown mode":       {LauncherProfile{Family: "claude", Mode: "forever"}, acct("claude-holger")},
 		"no mode":            {LauncherProfile{Family: "claude"}, acct("claude-holger")},
@@ -109,4 +108,44 @@ func TestConfigProfileSource2058(t *testing.T) {
 	if _, _, _, err := src.Profile("iris"); err == nil {
 		t.Fatal("an unknown account profile was accepted")
 	}
+}
+
+// cli#2199: a Claude-family effort is no longer a refusal: the launch runs
+// without one and the bind reports NOT_APPLICABLE.
+func TestLaunchArgvClaudeEffortIsDropped2199(t *testing.T) {
+	got, err := LaunchArgv(LauncherProfile{Family: "claude", Mode: ModeLong, Effort: "high"}, acct("claude-holger"))
+	if err != nil || !reflect.DeepEqual(got, []string{"claude-holger", "--dangerously-skip-permissions", PromptArg}) {
+		t.Fatalf("argv %q err %v", got, err)
+	}
+}
+
+// cli#2200 C9: a short-lived run launches the SAME interactive agent as a
+// long-lived one (no -p, no exec), so a stalled run is visible and a human can
+// take it over. Only the profile's mode differs, never the argv.
+func TestLaunchArgvShortIsTheInteractiveAgent2200(t *testing.T) {
+	for fam, bin := range map[string]string{"claude": "claude-worker", "glm": "claude-glm", "kimi": "claude-kimi", "codex": "codex"} {
+		long, err := LaunchArgv(LauncherProfile{Family: fam, Mode: ModeLong, Model: "m1", Effort: effortFor(fam)}, acct(bin))
+		if err != nil {
+			t.Fatal(err)
+		}
+		short, err := LaunchArgv(LauncherProfile{Family: fam, Mode: ModeShort, Model: "m1", Effort: effortFor(fam)}, acct(bin))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(long, short) {
+			t.Errorf("%s: short argv %q differs from long %q", fam, short, long)
+		}
+		for _, a := range short {
+			if a == "-p" || a == "exec" {
+				t.Errorf("%s: short argv %q still runs headless", fam, short)
+			}
+		}
+	}
+}
+
+func effortFor(fam string) string {
+	if fam == "codex" {
+		return "high"
+	}
+	return ""
 }

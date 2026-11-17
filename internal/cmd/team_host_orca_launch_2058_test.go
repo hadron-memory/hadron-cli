@@ -41,7 +41,6 @@ func TestTeamHostRunRefusesAnIncompleteOrcaWorker2058(t *testing.T) {
 		"no profile":         {"", orcaTop, "launcher_profile"},
 		"unknown account":    {orcaProfile, "orca_launch:\n  orca_bin: /usr/bin/orca\n", "account_profiles"},
 		"no orca binary":     {orcaProfile, "account_profiles:\n  holger: {bin: claude-holger}\n", "orca_launch.orca_bin"},
-		"effort on claude":   {"    launcher_profile: {family: claude, mode: long, effort: high, account: holger}\n", orcaTop, "effort"},
 		"unknown launch_via": {"", "", "launch_via"},
 	} {
 		t.Run(name, func(t *testing.T) {

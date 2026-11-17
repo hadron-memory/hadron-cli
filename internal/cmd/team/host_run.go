@@ -288,7 +288,13 @@ reports every outcome. One poller per host or container.
                    always fresh (never --resume), the grant and first prompt
                    passed through a 0600 file beside the state, never typed;
                    the agent runs plainly in Orca's terminal scope; it never
-                   falls back to the exec path
+                   falls back to the exec path. Both launcher_profile modes
+                   (long, short) start the same interactive agent, so a
+                   stalled run shows on screen and can be taken over; short
+                   no longer runs headless or exits when its prompt ends.
+                   A short run is ended by its own agent's session end, by
+                   worker.end's stop, or by the host after its no-agent
+                   proof (cli#2201)
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -322,6 +328,15 @@ belongs to one worker: the config refuses one listed for two.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
+AGENTLESS SESSION END (cli#2201): a short-lived worker that finished its task
+without ending its session is closed only on the strict process census (the
+one recovery uses). worker.end for a stop_on_end: always worker with no live
+agent reports FAILED leading AGENT_ABSENT when the census proves its
+worktrees empty; the periodic pass (below: typed launch_via: orca, APPLY)
+asks the server to end the session of a worker whose desired state is
+STOPPED/NO_OPEN_TASK, after a fresh matching read. An error, an unproven
+census, an agent, a leave-alone, paused or long-lived worker never ends one.
+
 PERIODIC RECOVERY (Linux, typed launch_via: orca only) preserves an open
 session whose agent vanished. It requires APPLY and current RUNNING desired
 state, matching worker/session/App/server/worktree identity, two consecutive
@@ -340,6 +355,19 @@ launcher runs; VERIFY_FAILED identifies an unproven post-launch process check.
 An actual expired launch/proof wait remains TIMEOUT. Older servers rejecting
 the new reasons as schema skew keep FAILED with its local cause; no borrowed
 code or false CAP_REACHED is sent.
+
+After a verified relaunch, optional dead-tab cleanup runs AFTER the relaunch
+notice. Set orca_launch.cleanup_dead_tabs: true to enable it (default false;
+leave it off until the host manager validates the live close path). Every
+pane of an eligible tab must be disconnected, unidentified and in this
+worktree; connected shells may hold a human's build, ssh or editor and stay
+open. The tracked tab always stays open. Cleanup reacquires admission and
+rechecks binding, desired state and strict process proof before closing.
+The relaunched PID must be the sole agent match: even a nested agent in its
+own tree leaves the old tab open. Disconnected alone is not proof. Local
+relaunch-terminal-cleanup events say why a tab was closed or retained;
+cleanup delay or panic cannot suppress the preceding relaunch notice.
+Non-Linux hosts close no unidentified tab. No old terminal is reused.
 
 
 THE HOST KEY is never put in a launched agent's environment, argv or files.
@@ -452,6 +480,8 @@ The configuration (YAML):
     # iris:
     #   family: claude
     #   launch_via: orca
+    #   # mode: long|short. Both start the same interactive agent; short is for a
+    #   # worker that ends its own session when its task is done.
     #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
     #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
     #   worktrees: [hadron-cli/iris]
@@ -460,6 +490,7 @@ The configuration (YAML):
   #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
   # orca_launch:
   #   orca_bin: /absolute/path/to/orca
+  #   cleanup_dead_tabs: false      # opt in only after live host validation
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
