@@ -1257,6 +1257,12 @@ func codeForExtension(code string) int {
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
 	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
 		return exitcode.Forbidden
+	// #2308: a worker holds no signed schedule.create grant. An authority
+	// refusal like the boot-prompt one above, so it precedes the _REQUIRED
+	// suffix rule (create moves from 2 to 8; the path is latent while
+	// WORKER_TRIGGER_GRANT_ENFORCED is off).
+	case code == "TRIGGER_GRANT_REQUIRED":
+		return exitcode.Forbidden
 	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
 		return exitcode.Conflict
 	case code == "BOOT_PROMPT_INCLUDE_UNAVAILABLE":
