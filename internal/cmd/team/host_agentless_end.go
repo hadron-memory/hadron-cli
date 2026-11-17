@@ -36,7 +36,7 @@ func (s *hostServer) EndAgentless(ctx context.Context, e hostpoller.AgentlessEnd
 		}
 		return hostpoller.AgentlessEndResult{}, api.MapError(err)
 	}
-	if resp == nil || resp.EndAgentlessSession.SessionId != e.SessionID {
+	if resp == nil || resp.EndAgentlessSession == nil || resp.EndAgentlessSession.SessionId != e.SessionID {
 		return hostpoller.AgentlessEndResult{}, errors.New("the server's answer does not name the session that was asked to end")
 	}
 	return hostpoller.AgentlessEndResult{Ended: resp.EndAgentlessSession.Ended}, nil

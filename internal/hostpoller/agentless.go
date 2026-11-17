@@ -143,11 +143,16 @@ func (p *Poller) sweepAgentlessEnd(ctx context.Context, d *RelaunchDependencies,
 	if err != nil || fresh.AppID != initial.AppID || fresh.HostID != initial.HostID || fresh.SweepMode != "APPLY" {
 		return finish("SKIPPED", agentlessStateChanged, "the desired state could not be re-read as APPLY for this App and host")
 	}
+	// The proof is for ONE worktree. The fresh row must still be the same
+	// candidate and must still resolve to that same worktree (a changed, added
+	// or dropped registration voids it), so the end rests on the tree censused.
 	same := false
 	for _, w := range fresh.Workers {
-		if w.WorkerID == row.WorkerID {
-			same = agentlessCandidate(w) && w.SessionID == row.SessionID
+		if w.WorkerID != row.WorkerID {
+			continue
 		}
+		next, _, _, _, valid := p.relaunchTarget(fresh, w)
+		same = agentlessCandidate(w) && w.SessionID == row.SessionID && valid && next.Worktree == target.Worktree
 	}
 	if !same {
 		return finish("SKIPPED", agentlessStateChanged, "the worker's desired state or session changed since the census")

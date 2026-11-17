@@ -871,13 +871,16 @@ func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Au
 	}
 }
 
-// worktreeDirs are the paths of the worktrees a worker.end looks in: the tree
-// of the launch this host remembers, else every tree the worker has here (the
-// same choice the stop makes).
+// worktreeDirs are the paths of the worktrees a worker.end's census looks in:
+// every tree the worker has here, and the tree of the launch this host
+// remembers if that is not one of them, each once. The launch record outlives
+// its agent's exit, so it must never narrow the set: an exited launch in one
+// tree says nothing about another (#2207 BLIND F2). The stop keeps its own
+// narrower choice; this is a proof of absence, which needs every tree.
 func (p *Poller) worktreeDirs(op Operation, ref string, w WorkerConfig) []string {
-	trees := p.state.worktreesFor(ref, w.Worktrees)
-	if t, ok := p.agentWorktree(op.WorkerID); ok {
-		trees = []string{t}
+	trees := append([]string(nil), p.state.worktreesFor(ref, w.Worktrees)...)
+	if t, ok := p.agentWorktree(op.WorkerID); ok && !contains(trees, t) {
+		trees = append(trees, t)
 	}
 	dirs := make([]string, 0, len(trees))
 	for _, t := range trees {

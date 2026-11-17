@@ -228,3 +228,20 @@ func TestWorkerEndCensusesTheUnionOnceEach2201(t *testing.T) {
 		t.Fatalf("the remembered tree is one of the registered ones, not a third: %v", census.asked)
 	}
 }
+
+// The remembered launch tree is censused too when it is not a registered one:
+// an agent this host launched there is an agent in the worker's reach.
+func TestWorkerEndRememberedTreeOutsideTheRegistrationIsCensused2201(t *testing.T) {
+	census := &censusStub{obs: provenEmpty()}
+	p, srv, _ := agentlessEndPoller(t, census)
+	census.byDir = map[string]hostrelaunch.Observation{
+		p.cfg.WorktreePath("repo/ghost"): {Proven: true, PIDs: []int{88}},
+	}
+	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	close(exited.done)
+	p.trackAgent("id-iris", "repo/ghost", exited)
+	step(t, p)
+	if r := only(t, srv); strings.HasPrefix(r.reason, agentAbsentCode) || !strings.Contains(r.reason, "88") {
+		t.Fatalf("an agent in the remembered tree: %q", r.reason)
+	}
+}

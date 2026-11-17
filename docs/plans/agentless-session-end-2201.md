@@ -30,8 +30,9 @@ decides, and returns `Found` separately from "could not tell".
 1. **`worker.end`** (`ops.go`, Ask 1 and 2). For a worker with
    `stop_on_end: always` (the host's transitional short-lived marker; the host
    config has no lifecycle field until S3 reaches `host.yaml`), no live
-   launched agent and a session named: run the census over the worker's
-   worktrees. Proven empty: report FAILED with a reason that **leads** with
+   launched agent and a session named: run the census over EVERY worktree the worker has here plus the tree of the
+   launch this host remembers (each once; the launch record outlives its agent, so it
+   never narrows the set). Proven empty: report FAILED with a reason that **leads** with
    `AGENT_ABSENT` (the server reads the leading code and ends the session), and
    skip the stop scan, since nothing runs. Anything else: report as before with
    the census result appended. The report stays FAILED: the host still ends no
@@ -41,7 +42,7 @@ decides, and returns `Found` separately from "could not tell".
    target. `sweepAgentlessEnd` takes the worktree launch reservation, checks no
    live launched agent, censuses the worker's one worktree, re-reads the desired
    state (APPLY, same App and host, same worker, same session, still
-   STOPPED/NO_OPEN_TASK) and only then calls `endAgentlessSession` with reason
+   STOPPED/NO_OPEN_TASK, and its worktree still resolving to the censused one) and only then calls `endAgentlessSession` with reason
    `AGENT_ABSENT` under the host key, with no worker session. The server checks
    the rest again (open task, short-lived, this host runs the worker, session is
    the worker's).
