@@ -110,14 +110,14 @@ type Runner struct {
 }
 
 // scrubbedEnv is the adapter's environment: the CLI's own, minus every
-// Hadron credential. The adapter holds the team's tracker credential, never
+// Hadron-prefixed variable. The adapter holds the team's tracker credential, never
 // Hadron's (cor:agt:120, D2).
 func scrubbedEnv(environ []string) []string {
 	out := make([]string, 0, len(environ))
 	for _, kv := range environ {
 		name, _, _ := strings.Cut(kv, "=")
 		u := strings.ToUpper(name)
-		if strings.HasPrefix(u, "HADRON_") && (strings.Contains(u, "TOKEN") || strings.Contains(u, "KEY") || strings.Contains(u, "SECRET")) {
+		if strings.HasPrefix(u, "HADRON_") {
 			continue
 		}
 		out = append(out, kv)

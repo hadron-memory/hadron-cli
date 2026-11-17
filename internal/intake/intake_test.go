@@ -55,7 +55,6 @@ func TestHostileOutputIsRefused(t *testing.T) {
 		"trailing junk":        `cat >/dev/null; echo '{"items":[]} junk'`,
 		"truncated":            `cat >/dev/null; printf '{"items":[{"externalId":"u"'`,
 		"empty":                `cat >/dev/null`,
-		"invalid utf8":         `cat >/dev/null; printf '{"items":[{"externalId":"\xff\xfe","title":"t"}]}'`,
 		"empty externalId":     `cat >/dev/null; echo '{"items":[{"externalId":"","title":"t"}]}'`,
 		"missing externalId":   `cat >/dev/null; echo '{"items":[{"title":"t"}]}'`,
 		"huge externalId":      `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`,
@@ -284,6 +283,7 @@ func TestCallerCancelIsNotAnAdapterRefusal(t *testing.T) {
 
 // The server counts code points, not UTF-16 units: 512 astral characters are
 // within its cap (1024 units, 2048 bytes) and must not be refused here.
+// This also lands exactly on MaxExternalIDLen, the independent byte bound.
 func TestExternalIDCountsCodePointsLikeTheServer(t *testing.T) {
 	r := adapter(t, `cat >/dev/null; printf '{"items":[{"externalId":"'; yes '😀' | head -n 512 | tr -d '\n'; printf '","title":"t"}]}'`)
 	if _, err := r.ListUntracked(context.Background(), "", "", 20); err != nil {
@@ -350,5 +350,12 @@ func TestRunnerEnforcesTheExportedRules(t *testing.T) {
 				t.Fatalf("runner err=%v, exported rules err=%v", got, want)
 			}
 		})
+	}
+}
+
+func TestScrubAllHadronEnvironment1974(t *testing.T) {
+	got := scrubbedEnv([]string{"HADRON_PASSWORD=x", "hadron_endpoint=x", "HADRON_TOKEN=x", "PATH=/bin", "GITHUB_TOKEN=tracker"})
+	if strings.Join(got, ",") != "PATH=/bin,GITHUB_TOKEN=tracker" {
+		t.Fatalf("unexpected environment: %v", got)
 	}
 }

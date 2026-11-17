@@ -40,7 +40,7 @@ const (
 	MaxItemsPerPage     = 100
 	MaxPages            = 50
 	ServerExternalIDMax = 512  // the server's externalId cap, counted in code points
-	MaxExternalIDLen    = 2048 // the server's own cap is 512; this only bounds memory
+	MaxExternalIDLen    = 2048 // byte bound: 512 code points at up to 4 UTF-8 bytes each
 	MaxCursorLen        = 4096
 	MaxTextLen          = 1024 // adapter-supplied display text: name, title
 )
