@@ -73,6 +73,9 @@ publicAgentsTotal/publicAgentsHasMore.`,
 			if resp.PublicOrganization == nil {
 				return exitcode.Newf(exitcode.NotFound, "organization %q is not discoverable (or does not exist)", args[0])
 			}
+			if resp.PublicOrganization.PublicMemoriesPage == nil || resp.PublicOrganization.PublicAgentsPage == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned an incomplete public organization page")
+			}
 			dto := publicOrgDTOFrom(resp.PublicOrganization)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				listing := "not listed on marketplace"
