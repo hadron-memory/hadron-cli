@@ -13,6 +13,7 @@ import (
 
 func TestHostUpCensusUnknownTerminal2193(t *testing.T) {
 	known := "claude"
+	empty := ""
 	for _, tc := range []struct {
 		name          string
 		terms         []teamrouter.Terminal
@@ -21,6 +22,8 @@ func TestHostUpCensusUnknownTerminal2193(t *testing.T) {
 		want, unknown int
 	}{
 		{name: "shell beside identified agent", terms: []teamrouter.Terminal{{AgentIdentity: &known}, {}}, proof: hostrelaunch.Observation{Proven: true, PIDs: []int{42}}, want: 1},
+		{name: "empty identity bare shell", terms: []teamrouter.Terminal{{AgentIdentity: &empty}}, proof: hostrelaunch.Observation{Proven: true}, want: 0},
+		{name: "invalid census pid", terms: []teamrouter.Terminal{{AgentIdentity: &known}, {}}, proof: hostrelaunch.Observation{Proven: true, PIDs: []int{0}}, want: 2, unknown: 1},
 		{name: "bare shell", terms: []teamrouter.Terminal{{}}, proof: hostrelaunch.Observation{Proven: true}, want: 0},
 		{name: "unknown holds agent", terms: []teamrouter.Terminal{{}}, proof: hostrelaunch.Observation{Proven: true, PIDs: []int{42}}, want: 1, unknown: 1},
 		{name: "unavailable", terms: []teamrouter.Terminal{{}}, err: errors.New("unreadable"), want: 1, unknown: 1},

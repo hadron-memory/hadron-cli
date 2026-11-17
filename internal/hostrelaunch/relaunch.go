@@ -123,8 +123,12 @@ type Runner struct {
 	Lock func(context.Context, Target) (func(), error)
 	// Notice is nil until the server's honest outcome surface is available.
 	// Log is the caller's structured event/session logger; dry runs call neither.
-	Notice func(context.Context, Target, Result) error
-	Log    func(Target, Result)
+	// AfterLaunch performs optional local cleanup only after every launch proof
+	// and target guard passes, while launch admission is still held. It cannot
+	// change the operation outcome or add a server report.
+	AfterLaunch func(context.Context, Target, Agent)
+	Notice      func(context.Context, Target, Result) error
+	Log         func(Target, Result)
 	// ExitProof, when set, makes this an exit pass (cli#2161, C12): it is
 	// asked under the lock, after every guard and the cap, in place of the
 	// two-consecutive-sweep absence rule and nothing else. True means the
@@ -429,6 +433,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		return out, e
 	}
 	out.Status, out.Reason = Applied, "TERMINAL_MISSING"
+	if r.AfterLaunch != nil {
+		r.AfterLaunch(ctx, t, a)
+	}
 	notify("RELAUNCHED:" + now.Format(time.RFC3339Nano))
 	return out, nil
 }

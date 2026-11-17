@@ -155,9 +155,10 @@ WHAT IT NEVER DOES:
   the poller, and does not report RELAUNCH_PENDING_POLLER. Only the periodic
   poller relaunches an agent; this command does not trigger it.
   A worker it could not observe is reported as failed and not acted on.
-  A terminal in the worktree whose agent Orca does not identify counts as an
-  agent, so a leftover shell holds a start or reads DUPLICATE_AGENTS; the
-  item's detail says when a count includes one.
+  An unidentified terminal counts as a possible agent unless the strict Linux
+  process census proves no agent beyond those already accounted for by
+  identified terminals. Unreadable or ambiguous evidence, and non-Linux hosts,
+  keep it present; the item's detail says when a count includes one.
 
 Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
@@ -265,7 +266,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	engine := hostup.Engine{
 		Source:   source,
-		Observer: &hostUpObserver{client: client, app: scope.Ref, host: o.host, root: o.root, runner: runner},
+		Observer: &hostUpObserver{client: client, app: scope.Ref, host: o.host, root: o.root, runner: runner, census: hostUpCensus(o.orcaBin)},
 		Actuator: &hostUpQueue{client: client, app: scope.Ref, host: o.host, timeout: o.timeout},
 	}
 	res, runErr := engine.Run(ctx, hostup.Options{HostID: o.host, Apply: o.apply, Only: o.worker})
@@ -695,14 +696,6 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 		return obs, fmt.Errorf("orca did not list the terminals of %s", dir)
 	}
 	for _, term := range env.Result.Terminals {
-		// Connected or not: a terminal Orca lost the connection to may still
-		// hold a running agent, and a start beside it could make two
-		// (cli#2064 blind P3). Uncertain counts as present, and so does a
-		// terminal Orca reports with no agentIdentity: on orca1 the field is
-		// often null while the agent runs, and counting it absent planned a
-		// second agent (cli#2191, Wolfgang #110419). A leftover shell reads
-		// the same, so it counts too; only the process side (cli#2193) can
-		// prove an agent absent.
 		if filepath.Clean(term.WorktreePath) != filepath.Clean(dir) {
 			continue
 		}
@@ -711,7 +704,51 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 			obs.UnidentifiedTerminals++
 		}
 	}
+	if obs.UnidentifiedTerminals > 0 && o.census != nil {
+		proof, err := o.census(ctx, dir)
+		known := obs.AgentTerminals - obs.UnidentifiedTerminals
+		// This is worktree-level proof, not a terminal→PID association. Only
+		// when every process is accounted for by the identified terminals can
+		// the unidentified rows add no possible agent. Otherwise keep ALL of
+		// them: the census cannot say which unknown row holds the process.
+		if err == nil && proof.Proven && len(proof.PIDs) <= known && validCensusPIDs(proof.PIDs) {
+			obs.AgentTerminals = known
+			obs.UnidentifiedTerminals = 0
+		}
+	}
 	return obs, nil
+}
+
+// hostUpCensus uses the same managed-host readiness and strict process proof
+// as C5. A fake/remote Orca listing alone never grants process authority.
+func hostUpCensus(bin string) func(context.Context, string) (hostrelaunch.Observation, error) {
+	ready := managedDaemonProbe(&hostpoller.Config{OrcaLaunch: hostpoller.OrcaLaunchConfig{OrcaBin: bin}})
+	return func(ctx context.Context, worktree string) (hostrelaunch.Observation, error) {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := ready(ctx); err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		proof, err := hostpoller.ProbeWorktreeAgents(ctx, worktree)
+		if err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		if err := ready(ctx); err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		return proof, nil
+	}
+}
+
+func validCensusPIDs(pids []int) bool {
+	seen := map[int]bool{}
+	for _, pid := range pids {
+		if pid <= 0 || seen[pid] {
+			return false
+		}
+		seen[pid] = true
+	}
+	return true
 }
 
 // hostUpQueue carries a planned step out with worker onboard's queue steps:

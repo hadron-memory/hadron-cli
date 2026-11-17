@@ -40,6 +40,7 @@ func (fx *hostUpFixture1389) terminals2191(name string, identities ...*string) {
 func id2191(s string) *string { return &s }
 
 func TestTeamHostUpUnidentifiedTerminalCountsAsPresent2191(t *testing.T) {
+	unprovenCensus2191(t)
 	type state struct {
 		name, desired, reason, session string
 	}
@@ -126,6 +127,7 @@ func TestTeamHostUpUnidentifiedTerminalCountsAsPresent2191(t *testing.T) {
 // The APPLY leg: a worker between sessions whose only terminal is unidentified
 // is never given a second agent, and a stopped one is never reported in sync.
 func TestTeamHostUpApplyNeverStartsBesideAnUnidentifiedTerminal2191(t *testing.T) {
+	unprovenCensus2191(t)
 	fx := newHostUpFixture1389(t)
 	fx.terminals2191("Jonas", nil)
 	fx.terminals2191("Iris", id2191(""))
@@ -140,5 +142,49 @@ func TestTeamHostUpApplyNeverStartsBesideAnUnidentifiedTerminal2191(t *testing.T
 	wantItems1389(t, "skipped", dto.Skipped, "Iris - STOP_PENDING", "Jonas - TERMINAL_WITHOUT_SESSION")
 	if m := fx.mutations(); len(m) != 0 {
 		t.Fatalf("mutations beside an unidentified terminal: %v", m)
+	}
+}
+
+// These are the no-proof controls, independent of the developer host's actual
+// managed daemon or /proc contents. The census-positive cases live in team/.
+func unprovenCensus2191(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "systemctl"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestTeamHostUpUnidentifiedTerminalBoundaries2193(t *testing.T) {
+	unprovenCensus2191(t)
+	for _, tc := range []struct {
+		name   string
+		other  bool
+		reason string
+	}{
+		{"disconnected unknown still present", false, "Jonas - IN_SYNC"},
+		{"other worktree unknown excluded", true, "Jonas worker.relaunch RELAUNCH_UNPROVEN"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := newHostUpFixture1389(t)
+			fx.terminals2191("Jonas", nil)
+			dir := fx.dir("Jonas")
+			termWork := dir
+			if tc.other {
+				termWork = dir + "-other"
+			}
+			raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminals": []map[string]any{{"handle": "old", "worktreePath": termWork, "connected": false, "agentIdentity": nil}}}})
+			if err := os.WriteFile(filepath.Join(dir, ".terminals.json"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			fx.writeDesired("APPLY", hostUpWorker1389{ID: "wkr-jonas", Name: "Jonas", Desired: "RUNNING", Reason: "LONG_LIVED", Session: "s-jonas"})
+			dto, rawOut, err := fx.run()
+			if err != nil {
+				t.Fatalf("%v %s", err, rawOut)
+			}
+			wantItems1389(t, "skipped", dto.Skipped, tc.reason)
+			wantItems1389(t, "planned", dto.Planned)
+		})
 	}
 }
