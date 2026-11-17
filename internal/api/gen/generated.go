@@ -2947,6 +2947,16 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCloseSessionWhenDon
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -3052,6 +3062,10 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -3102,6 +3116,8 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -3254,6 +3270,16 @@ func (v *AgentTaskAssignAssignAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskAssignAssignAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskAssignAssignAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskAssignAssignAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -3359,6 +3385,10 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -3409,6 +3439,8 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -3568,6 +3600,16 @@ func (v *AgentTaskCancelCancelAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskCancelCancelAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskCancelCancelAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskCancelCancelAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -3673,6 +3715,10 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -3723,6 +3769,8 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -3878,6 +3926,16 @@ func (v *AgentTaskCloneCloneAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskCloneCloneAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskCloneCloneAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskCloneCloneAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskCloneCloneAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -3983,6 +4041,10 @@ type __premarshalAgentTaskCloneCloneAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -4033,6 +4095,8 @@ func (v *AgentTaskCloneCloneAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -4229,6 +4293,16 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCloseSessionWhenDone(
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskCreateBatchCreateAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskCreateBatchCreateAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -4334,6 +4408,10 @@ type __premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -4384,6 +4462,8 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__p
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -4570,6 +4650,16 @@ func (v *AgentTaskCreateCreateAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskCreateCreateAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskCreateCreateAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskCreateCreateAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -4677,6 +4767,10 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -4728,6 +4822,8 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -5307,8 +5403,15 @@ type AgentTaskFields struct {
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	// #4223: not read for a worker of a SHORT_LIVED Agent (Agent.lifecycle), whose session ends with its last open task.
-	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
-	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's own run settings (what a start for it launches); null when it names none.
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the settings the run actually used, from the assignee's open session when the
+	// task was started. Null until then, for a task a person runs, and when that session had reported none. Read it beside
+	// runSettings: a worker that was already running keeps its session's settings, so the two can differ. A hand-back
+	// clears it; a reassignment of a started task does not restamp it.
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+	Requirements       *AgentTaskFieldsRequirementsAgentTaskRequirements             `json:"requirements"`
 	// Set only on a finished task.
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): this task's OWN optional JSON object, which the team organises
@@ -5422,6 +5525,16 @@ func (v *AgentTaskFields) GetCancelledAt() *string { return v.CancelledAt }
 // GetCloseSessionWhenDone returns AgentTaskFields.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetCloseSessionWhenDone() bool { return v.CloseSessionWhenDone }
 
+// GetRunSettings returns AgentTaskFields.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskFields.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskFields.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.Requirements
@@ -5432,6 +5545,32 @@ func (v *AgentTaskFields) GetResult() *AgentTaskFieldsResultAgentTaskResult { re
 
 // GetProperties returns AgentTaskFields.Properties, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetProperties() *json.RawMessage { return v.Properties }
+
+// AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings includes the requested fields of the GraphQL type AgentTaskAppliedRunSettings.
+// The GraphQL type's documentation follows.
+//
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the settings a task's run actually used: its worker assignee's newest open
+// session's family, model and effort, read when the task was started. Each is null when that session had not reported it.
+type AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings struct {
+	Family *string      `json:"family"`
+	Model  *string      `json:"model"`
+	Effort *EffortLevel `json:"effort"`
+}
+
+// GetFamily returns AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings.Family, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings) GetFamily() *string {
+	return v.Family
+}
+
+// GetModel returns AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings.Model, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings) GetModel() *string {
+	return v.Model
+}
+
+// GetEffort returns AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings.Effort, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings) GetEffort() *EffortLevel {
+	return v.Effort
+}
 
 // AgentTaskFieldsAssignedByAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
@@ -6084,6 +6223,30 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
+// AgentTaskFieldsRunSettingsAgentTaskRunSettings includes the requested fields of the GraphQL type AgentTaskRunSettings.
+// The GraphQL type's documentation follows.
+//
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): a task's own run settings as stored. Each field is null when the task names none.
+type AgentTaskFieldsRunSettingsAgentTaskRunSettings struct {
+	Family *string `json:"family"`
+	Model  *string `json:"model"`
+	// high, mid or low; null when the task names an exact model or neither.
+	Tier   *string      `json:"tier"`
+	Effort *EffortLevel `json:"effort"`
+}
+
+// GetFamily returns AgentTaskFieldsRunSettingsAgentTaskRunSettings.Family, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRunSettingsAgentTaskRunSettings) GetFamily() *string { return v.Family }
+
+// GetModel returns AgentTaskFieldsRunSettingsAgentTaskRunSettings.Model, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRunSettingsAgentTaskRunSettings) GetModel() *string { return v.Model }
+
+// GetTier returns AgentTaskFieldsRunSettingsAgentTaskRunSettings.Tier, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRunSettingsAgentTaskRunSettings) GetTier() *string { return v.Tier }
+
+// GetEffort returns AgentTaskFieldsRunSettingsAgentTaskRunSettings.Effort, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRunSettingsAgentTaskRunSettings) GetEffort() *EffortLevel { return v.Effort }
+
 // #2663: every code resolves the finding, including deferred (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
 type AgentTaskFindingDispositionCode string
 
@@ -6397,6 +6560,16 @@ func (v *AgentTaskFinishFinishAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskFinishFinishAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskFinishFinishAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskFinishFinishAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -6502,6 +6675,10 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -6552,6 +6729,8 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -6754,6 +6933,16 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetCloseSessionWhenDone() b
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskFinishWithFindingsFinishAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskFinishWithFindingsFinishAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskFinishWithFindingsFinishAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -6861,6 +7050,10 @@ type __premarshalAgentTaskFinishWithFindingsFinishAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -6912,6 +7105,8 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) __premarshalJSON() (*__prem
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -7170,6 +7365,16 @@ func (v *AgentTaskGetAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskGetAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskGetAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskGetAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -7277,6 +7482,10 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -7329,6 +7538,8 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -7703,6 +7914,16 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskHandBackHandBackAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskHandBackHandBackAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskHandBackHandBackAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -7808,6 +8029,10 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -7858,6 +8083,8 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -8131,6 +8358,16 @@ func (v *AgentTaskListAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskListAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskListAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskListAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -8236,6 +8473,10 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -8286,6 +8527,8 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -8449,6 +8692,16 @@ func (v *AgentTaskListCreatorAgentTasksAgentTask) GetCloseSessionWhenDone() bool
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskListCreatorAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskListCreatorAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskListCreatorAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskListCreatorAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -8554,6 +8807,10 @@ type __premarshalAgentTaskListCreatorAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -8604,6 +8861,8 @@ func (v *AgentTaskListCreatorAgentTasksAgentTask) __premarshalJSON() (*__premars
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -8792,6 +9051,16 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetCloseSessionWhenDone() boo
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskListFilteredAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskListFilteredAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskListFilteredAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -8897,6 +9166,10 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -8947,6 +9220,8 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -9146,6 +9421,16 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskListTextAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskListTextAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskListTextAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -9251,6 +9536,10 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -9301,6 +9590,8 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -9497,6 +9788,16 @@ func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetCloseSessionWhenDone() b
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskListUnresolvedAgentTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskListUnresolvedAgentTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskListUnresolvedAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -9602,6 +9903,10 @@ type __premarshalAgentTaskListUnresolvedAgentTasksAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -9652,6 +9957,8 @@ func (v *AgentTaskListUnresolvedAgentTasksAgentTask) __premarshalJSON() (*__prem
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -9869,6 +10176,16 @@ func (v *AgentTaskParkParkAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskParkParkAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskParkParkAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskParkParkAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -9974,6 +10291,10 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -10024,6 +10345,8 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -10268,6 +10591,16 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetCloseSessionWhenD
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskProgressRecordAgentTaskProgressAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskProgressRecordAgentTaskProgressAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -10373,6 +10706,10 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -10423,6 +10760,8 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -10603,6 +10942,16 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCloseSessionWhenDone() bo
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskReadyMakeAgentTaskReadyAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskReadyMakeAgentTaskReadyAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -10708,6 +11057,10 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -10758,6 +11111,8 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -10930,6 +11285,16 @@ func (v *AgentTaskReassignReassignAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskReassignReassignAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskReassignReassignAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskReassignReassignAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -11035,6 +11400,10 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -11085,6 +11454,8 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -11333,6 +11704,16 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCloseSessionWhe
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -11438,6 +11819,10 @@ type __premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -11488,6 +11873,8 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) __premarshalJSON()
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -11682,6 +12069,16 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCloseSessionW
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -11787,6 +12184,10 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -11837,6 +12238,8 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -12056,13 +12459,13 @@ func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 // requirements.minTier).
 type AgentTaskRunSettingsInput struct {
 	// A generic effort; the launcher maps it to the family's own value. NOT_APPLICABLE is a report, not a request, and is refused.
-	Effort *EffortLevel `json:"effort"`
+	Effort *EffortLevel `json:"effort,omitempty"`
 	// A model family token, e.g. claude, codex or glm.
-	Family *string `json:"family"`
+	Family *string `json:"family,omitempty"`
 	// An exact model name (letters, digits, '.', '_' or '-'; at most 128 characters). Give this or tier, not both.
-	Model *string `json:"model"`
+	Model *string `json:"model,omitempty"`
 	// A generic tier instead of a model: high, mid or low. The host's launcher maps it to the family's model.
-	Tier *string `json:"tier"`
+	Tier *string `json:"tier,omitempty"`
 }
 
 // GetEffort returns AgentTaskRunSettingsInput.Effort, and is useful for accessing the field via an interface.
@@ -12259,6 +12662,16 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCloseSessionWhenD
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -12364,6 +12777,10 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -12414,6 +12831,8 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -12621,6 +13040,16 @@ func (v *AgentTaskStartStartAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskStartStartAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskStartStartAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskStartStartAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -12726,6 +13155,10 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -12776,6 +13209,8 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -13052,6 +13487,16 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskTreeAgentTaskTreeAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskTreeAgentTaskTreeAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskTreeAgentTaskTreeAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -13157,6 +13602,10 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -13207,6 +13656,8 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -13377,6 +13828,16 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetCloseSessionWhenDone() bool {
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns AgentTaskUpdateUpdateAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns AgentTaskUpdateUpdateAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns AgentTaskUpdateUpdateAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -13482,6 +13943,10 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -13532,6 +13997,8 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -28453,6 +28920,16 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -28558,6 +29035,10 @@ type __premarshalClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTas
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -28608,6 +29089,8 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -28817,6 +29300,16 @@ func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedT
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -28922,6 +29415,10 @@ type __premarshalClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUn
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -28972,6 +29469,8 @@ func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedT
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -29181,6 +29680,16 @@ func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntr
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -29286,6 +29795,10 @@ type __premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsC
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -29336,6 +29849,8 @@ func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntr
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -29599,6 +30114,16 @@ func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskI
 	return v.AgentTaskFields.CloseSessionWhenDone
 }
 
+// GetRunSettings returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.RunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRunSettings() *AgentTaskFieldsRunSettingsAgentTaskRunSettings {
+	return v.AgentTaskFields.RunSettings
+}
+
+// GetAppliedRunSettings returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppliedRunSettings, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppliedRunSettings() *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings {
+	return v.AgentTaskFields.AppliedRunSettings
+}
+
 // GetRequirements returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
 	return v.AgentTaskFields.Requirements
@@ -29704,6 +30229,10 @@ type __premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrac
 
 	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
 
+	RunSettings *AgentTaskFieldsRunSettingsAgentTaskRunSettings `json:"runSettings"`
+
+	AppliedRunSettings *AgentTaskFieldsAppliedRunSettingsAgentTaskAppliedRunSettings `json:"appliedRunSettings"`
+
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
@@ -29754,6 +30283,8 @@ func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskI
 	retval.FinishedAt = v.AgentTaskFields.FinishedAt
 	retval.CancelledAt = v.AgentTaskFields.CancelledAt
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.RunSettings = v.AgentTaskFields.RunSettings
+	retval.AppliedRunSettings = v.AgentTaskFields.AppliedRunSettings
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
@@ -79387,7 +79918,7 @@ type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
 	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
-	Effort *EffortLevel `json:"effort"`
+	Effort *EffortLevel `json:"effort,omitempty"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
 	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
 	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
@@ -127552,11 +128083,12 @@ func (v *__UpdateTeamRoleReposInput) GetRepos() []string { return v.Repos }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
-	Id       string  `json:"id"`
-	PrNumber *int    `json:"prNumber,omitempty"`
-	Branch   *string `json:"branch,omitempty"`
-	LlmModel *string `json:"llmModel,omitempty"`
-	Family   *string `json:"family,omitempty"`
+	Id       string       `json:"id"`
+	PrNumber *int         `json:"prNumber,omitempty"`
+	Branch   *string      `json:"branch,omitempty"`
+	LlmModel *string      `json:"llmModel,omitempty"`
+	Family   *string      `json:"family,omitempty"`
+	Effort   *EffortLevel `json:"effort,omitempty"`
 }
 
 // GetId returns __UpdateTeamSessionInput.Id, and is useful for accessing the field via an interface.
@@ -127573,6 +128105,9 @@ func (v *__UpdateTeamSessionInput) GetLlmModel() *string { return v.LlmModel }
 
 // GetFamily returns __UpdateTeamSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamSessionInput) GetFamily() *string { return v.Family }
+
+// GetEffort returns __UpdateTeamSessionInput.Effort, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
 // __UpdateTickerInput is used internally by genqlient
 type __UpdateTickerInput struct {
@@ -128784,6 +129319,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -128914,6 +129460,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129048,6 +129605,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129176,6 +129744,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129320,6 +129899,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129365,6 +129955,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
 // Absent unless --external-id is given, so an ordinary create is unchanged and
 // an older server never sees the field.
+// cli#2206: a task's run settings (cor:agt:050:01) are create-only and optional:
+// the whole object is omitted without a flag, and each field only when its flag
+// is given, never null.
 // cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
 // refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
 // them: a provider that predates the fields rejects them, even as null.
@@ -129475,6 +130068,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129776,6 +130380,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -129911,6 +130526,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130068,6 +130694,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130204,6 +130841,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130377,6 +131025,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130525,6 +131184,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130704,6 +131374,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -130882,6 +131563,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131031,6 +131723,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131208,6 +131911,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131340,6 +132054,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131468,6 +132193,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131599,6 +132335,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131731,6 +132478,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -131863,6 +132621,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -132045,6 +132814,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -132176,6 +132956,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -132358,6 +133149,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -132486,6 +133288,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -138024,6 +138837,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -138171,6 +138995,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -138324,6 +139159,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -138471,6 +139317,17 @@ fragment AgentTaskFields on AgentTask {
 	finishedAt
 	cancelledAt
 	closeSessionWhenDone
+	runSettings {
+		family
+		model
+		tier
+		effort
+	}
+	appliedRunSettings {
+		family
+		model
+		effort
+	}
 	requirements {
 		minTier
 		role
@@ -157404,6 +158261,7 @@ fragment WorkerReportingRefFields on Worker {
 // #842 over server #1956: recover the caller's worker binding with no worker
 // named. Every input field is optional provenance (or the CHOOSE pick), so each
 // is omitted when unset rather than sent as null.
+// cli#2206: a resume reports an effort only when --effort is given.
 func ResumeTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -169501,8 +170359,8 @@ func UpdateTeamRoleRepos(
 
 // The mutation executed by UpdateTeamSession.
 const UpdateTeamSession_Operation = `
-mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String, $llmModel: String, $family: String) {
-	updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family) {
+mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String, $llmModel: String, $family: String, $effort: EffortLevel) {
+	updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family, effort: $effort) {
 		... TeamSessionFields
 	}
 }
@@ -169554,6 +170412,7 @@ func UpdateTeamSession(
 	branch *string,
 	llmModel *string,
 	family *string,
+	effort *EffortLevel,
 ) (data_ *UpdateTeamSessionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamSession",
@@ -169564,6 +170423,7 @@ func UpdateTeamSession(
 			Branch:   branch,
 			LlmModel: llmModel,
 			Family:   family,
+			Effort:   effort,
 		},
 	}
 

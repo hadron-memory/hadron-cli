@@ -313,6 +313,9 @@ reports every outcome. One poller per host or container.
                    under), released at once after it: a bind landing
                    between the check and the signal waits, and a lock
                    not taken within 2s declines the stop (#2068).
+                   A plain directory whose binding cache or lock file is
+                   missing is declined, not created, when this host runs
+                   as a different user from the worktree's owner.
                    TRANSITIONAL: the field goes with host.yaml
                    (Agent.lifecycle replaces it, hadron-server#4224)
   worktree.remove  only the operation's own worker's registered tree;
@@ -596,8 +599,8 @@ func hostStepError(err error) error {
 	return exitcode.New(exitcode.FromError(err), err)
 }
 
-// hostEventDTO is one --json event line: every key always present, "" when
-// it does not apply.
+// hostEventDTO is one --json event line. Core event keys are always present;
+// fields tagged omitempty are optional when their value is zero or empty.
 type hostEventDTO struct {
 	ForeignUIDSkipped int    `json:"foreignUidSkipped,omitempty"`
 	LocalCause        string `json:"localCause,omitempty"`

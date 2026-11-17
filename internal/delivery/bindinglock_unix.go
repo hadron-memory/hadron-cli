@@ -3,6 +3,7 @@
 package delivery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ var afterDirOpenHook func(dir string)
 // and the file is opened RELATIVE to that descriptor, O_NOFOLLOW, so a worker
 // that swaps the directory for a link after the caller checked it changes
 // nothing: the descriptor already holds the directory that was checked.
-func openLockFile(dir, name string) (*os.File, error) {
+func openLockFile(dir, name string, beforeCreate func() error) (*os.File, error) {
 	dfd, err := unix.Open(dir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, fmt.Errorf("opening the session binding location (a link?): %w", err)
@@ -28,7 +29,18 @@ func openLockFile(dir, name string) (*os.File, error) {
 	if afterDirOpenHook != nil {
 		afterDirOpenHook(dir)
 	}
-	fd, err := unix.Openat(dfd, name, unix.O_RDWR|unix.O_CREAT|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0o600)
+	// Try without O_CREAT first: another uid may take an existing lock, but
+	// must never recreate one removed between observation and open.
+	flags := unix.O_RDWR | unix.O_NOFOLLOW | unix.O_CLOEXEC
+	fd, err := unix.Openat(dfd, name, flags, 0)
+	if errors.Is(err, unix.ENOENT) {
+		if beforeCreate != nil {
+			if err := beforeCreate(); err != nil {
+				return nil, err
+			}
+		}
+		fd, err = unix.Openat(dfd, name, flags|unix.O_CREAT, 0o600)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("opening the session binding lock (a link?): %w", err)
 	}

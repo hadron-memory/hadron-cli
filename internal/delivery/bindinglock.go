@@ -30,17 +30,19 @@ var ErrBindingLockBusy = errors.New("the worktree's session binding is being wri
 //
 // A path that is not a worktree or a plain directory at all has no binding
 // location and nothing to lock: the release is a no-op and the error nil. A
-// plain directory's cache is created if missing so the lock always exists. An
-// unreadable .git pointer is an error: nothing can be said about who writes
+// plain directory's cache is created if missing only as its owner's uid on
+// Unix. An unreadable .git pointer is an error: nothing can be said about who writes
 // there.
 func LockBinding(worktree string, wait time.Duration) (release func(), err error) {
 	dir, state := bindingDir(worktree)
+	var beforeCreate func() error
 	switch state {
 	case bindingDirNone:
 		return func() {}, nil
 	case bindingDirUnusable:
 		return nil, errors.New("the worktree's .git pointer cannot be read")
 	case bindingDirPlain:
+		beforeCreate = func() error { return allowBindingCreation(worktree) }
 		// A plain directory's cache is created by the first bind, under this
 		// same lock. Create it here, owner-only, as that bind does, so the
 		// lock exists for both sides before anyone reads or writes: a bind
@@ -50,6 +52,9 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 		// directory afterwards.
 		dir = filepath.Join(worktree, plainCacheName)
 		if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
+			if err := beforeCreate(); err != nil {
+				return nil, err
+			}
 			if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 				return nil, fmt.Errorf("creating the session binding cache: %w", err)
 			}
@@ -67,7 +72,7 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 	if lockOpenHook != nil {
 		lockOpenHook(dir)
 	}
-	f, err := openLockFile(dir, bindingLockFileName)
+	f, err := openLockFile(dir, bindingLockFileName, beforeCreate)
 	if err != nil {
 		return nil, err
 	}
