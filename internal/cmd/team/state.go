@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -519,11 +521,140 @@ type cacheHandle struct {
 
 func (h cacheHandle) path(name string) string { return filepath.Join(h.loc.dir, name) }
 
+// lockCreatedHook runs right after a new lock file exists and before its
+// creator has finished with it; a test opens the file there (cli#2238).
+var lockCreatedHook func(path string)
+
+// lockLinkHook, when set, stands in for the hard link that publishes a new
+// lock: a test makes it fail the way a filesystem without links does.
+var lockLinkHook func() error
+
+// lockFallbackChmodHook, when set, runs in the no-hard-link fallback after the
+// lock is created and before its chmod: a test pauses the creator there, or
+// returns an error to fail the chmod step.
+var lockFallbackChmodHook func() error
+
+// lockPermRetryHook, when set, runs each time a permission refusal is about
+// to be retried: a test releases a paused creator only once the second opener
+// has really met the restrictive mode.
+var lockPermRetryHook func()
+
+const (
+	lockPermRetries    = 20
+	lockPermRetryEvery = 10 * time.Millisecond
+)
+
 func (h cacheHandle) openLock() (*os.File, error) {
-	if h.root != nil {
-		return h.root.OpenFile(bindingLockFileName, os.O_CREATE|os.O_RDWR, 0o600)
+	open := func(name string, flag int) (*os.File, error) {
+		if h.root != nil {
+			return h.root.OpenFile(name, flag, 0o600)
+		}
+		return os.OpenFile(h.path(name), flag, 0o600) // #nosec G304 — derived from the worktree's git dir
 	}
-	return os.OpenFile(h.path(bindingLockFileName), os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's git dir
+	// openExisting opens the lock as it is, never chmodded. A permission
+	// refusal is retried for a bounded moment: it can only be a creator on a
+	// filesystem without hard links still between its create and its chmod
+	// (below); a genuinely inaccessible file fails after the same bound.
+	openExisting := func() (*os.File, error) {
+		var f *os.File
+		var err error
+		for range lockPermRetries {
+			f, err = open(bindingLockFileName, os.O_RDWR)
+			if !errors.Is(err, fs.ErrPermission) {
+				return f, err
+			}
+			if lockPermRetryHook != nil {
+				lockPermRetryHook()
+			}
+			time.Sleep(lockPermRetryEvery)
+		}
+		if errors.Is(err, fs.ErrPermission) {
+			err = fmt.Errorf("%w (the lock file is not readable and writable by you; if no bind or poller is running, remove %s: an interrupted create can leave it so)", err, h.path(bindingLockFileName))
+		}
+		return f, err
+	}
+	f, err := openExisting()
+	if !errors.Is(err, fs.ErrNotExist) {
+		return f, err
+	}
+	// A missing one is created WITH ITS FINAL MODE: the create mode is
+	// 0600 &^ umask (r-------- under 0277, 000 under 0777), so a file made at
+	// its own name and chmodded afterwards is visible, for a moment, in a mode
+	// a concurrent opener cannot open (cli#2238, Julius's P2). Instead a
+	// private temporary is created exclusively, set to exactly 0600 through
+	// its descriptor, and linked to the lock's name in one step: the name never
+	// exists in any other mode, and a lost race (the link finds the name taken)
+	// reopens the winner's file.
+	suffix := make([]byte, 6)
+	if _, err := rand.Read(suffix); err != nil {
+		return nil, err
+	}
+	tmp := bindingLockFileName + ".new-" + hex.EncodeToString(suffix)
+	f, err = open(tmp, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		return nil, err
+	}
+	removeTmp := func() {
+		if h.root != nil {
+			_ = h.root.Remove(tmp)
+		} else {
+			_ = os.Remove(h.path(tmp))
+		}
+	}
+	if lockCreatedHook != nil {
+		lockCreatedHook(h.path(bindingLockFileName))
+	}
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		removeTmp()
+		return nil, err
+	}
+	switch {
+	case lockLinkHook != nil:
+		err = lockLinkHook()
+	case h.root != nil:
+		err = h.root.Link(tmp, bindingLockFileName)
+	default:
+		err = os.Link(h.path(tmp), h.path(bindingLockFileName))
+	}
+	removeTmp()
+	if errors.Is(err, fs.ErrExist) {
+		_ = f.Close()
+		return openExisting() // another bind published it first
+	}
+	if err == nil {
+		return f, nil
+	}
+	_ = f.Close()
+	if !linkFallbackApplies(err) {
+		return nil, err // a real fault (EIO ...) surfaces; it is not "no hard links"
+	}
+	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
+	// CLI worked there before, so it still does. Create the lock at its own
+	// name and set it exact at once; the window in which a concurrent opener
+	// could see a restrictive mode is covered by openExisting's bounded retry.
+	f, err = open(bindingLockFileName, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+	if errors.Is(err, fs.ErrExist) {
+		return openExisting()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if lockFallbackChmodHook != nil {
+		err = lockFallbackChmodHook()
+	}
+	if err == nil {
+		err = f.Chmod(0o600)
+	}
+	if err != nil {
+		// The file is ours (O_EXCL) but not usable. It is NOT removed: a name
+		// is never deleted on a guess about which inode it still names, since a
+		// racing actor could have replaced it and the lock's mutual exclusion
+		// would go with it. The error says how to clear it (cli#2238).
+		_ = f.Close()
+		return nil, fmt.Errorf("setting the session binding lock mode: %w (if no bind or poller is running, remove %s)", err, h.path(bindingLockFileName))
+	}
+	return f, nil
 }
 
 // readBinding reads the binding file, or nil when there is none.
