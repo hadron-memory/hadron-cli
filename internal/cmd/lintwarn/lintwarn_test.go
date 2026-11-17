@@ -191,7 +191,7 @@ func TestLineNamesTheLocatorAndAddsNothing(t *testing.T) {
 	if got := Line(Warning{Kind: "WORKER_LINK_MISSING", Position: 0, Text: "x", WorkerField: &field}, false); got != "  WORKER_LINK_MISSING trailer: x" {
 		t.Errorf("worker line = %q", got)
 	}
-	if got := Line(Warning{Kind: "BROKEN_INCLUDE", Position: 3, Text: "x"}, true); got != "  BROKEN_INCLUDE occurrence #3: x" {
+	if got := Line(Warning{Kind: "BROKEN_INCLUDE", Position: 3, Text: "x"}, true); got != "  BROKEN_INCLUDE occurrence #3 (0-based): x" {
 		t.Errorf("compiled line = %q", got)
 	}
 	urn, p, n := "hrn:node:a:b:c", 2, 5
@@ -210,5 +210,27 @@ func TestLineNeutralisesControlCharacters(t *testing.T) {
 	got := Line(Warning{Kind: "BROKEN_INCLUDE\x1b[1m", Position: 0, Text: "x\x1b[2Jy", TargetURN: &urn}, true)
 	if strings.ContainsRune(got, 0x1b) {
 		t.Errorf("an escape byte reached the line: %q", got)
+	}
+}
+
+// Expire the real deadline after page one starts, without a wall-clock sleep.
+func TestDrain2014DeadlineMidPagination(t *testing.T) {
+	// Start with a live budget; install an expired deadline only once the first
+	// page is in flight. Scheduler delays before Drain cannot skip the page.
+	b := &Budget{ctx: context.Background()}
+	calls := 0
+	got := Drain(b.Ctx(), b.Allow, func(ctx context.Context, after *string) (*Raw, error) {
+		calls++
+		if after != nil {
+			t.Fatal("sent another request after the deadline")
+		}
+		late, cancel := context.WithDeadline(ctx, time.Now().Add(-time.Second))
+		defer cancel()
+		b.ctx = late
+		<-late.Done()
+		return raw(2, "next", 1), nil
+	})
+	if got != nil || calls != 1 || !errors.Is(b.Ctx().Err(), context.DeadlineExceeded) {
+		t.Fatalf("partial deadline result=%+v calls=%d err=%v", got, calls, b.Ctx().Err())
 	}
 }

@@ -77,7 +77,7 @@ func TestWorkerServedPromptLint2007AlwaysOnPagedAndSubjectNamed(t *testing.T) {
 		t.Errorf("the main read is unchanged and sent once, got %d", n)
 	}
 	_, text, _, _ := runCLI2007(t, h, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris")
-	for _, want := range []string{"current lint: 45 (the compiled revision recorded for this served prompt, provenance r5)", "BROKEN_INCLUDE occurrence #0: include 0 is broken"} {
+	for _, want := range []string{"current lint: 45 (the compiled revision recorded for this served prompt, provenance r5)", "BROKEN_INCLUDE occurrence #0 (0-based): include 0 is broken"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q:\n%s", want, text)
 		}
@@ -308,5 +308,54 @@ func TestHistoryLint2007WholeOrNullPerRecord(t *testing.T) {
 				t.Fatalf("err=%v ops=%v\n%s", err, fake.lintOps(), out)
 			}
 		})
+	}
+}
+
+func TestHistoryLint2014LimitZeroDoesNotReadLint(t *testing.T) {
+	for _, surface := range []string{"session", "chat"} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", surface, jsonMode), func(t *testing.T) {
+				args := []string{"team", "session", "served-prompts", "sess-1"}
+				op := "SessionServedPrompts"
+				if surface == "chat" {
+					args = []string{"chat", "served-prompts", "chat-1"}
+					op = "ChatServedPrompts"
+				}
+				args = append(args, "--limit", "0", "--lint-warnings")
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				fake, out, errOut, err := runCLI2007(t, func(got string, v map[string]any) string {
+					if got != op {
+						t.Errorf("unexpected operation %s", got)
+						return `{"errors":[{"message":"unexpected operation"}]}`
+					}
+					if v["historyLimit"] != float64(0) {
+						t.Errorf("historyLimit=%v", v["historyLimit"])
+					}
+					if surface == "chat" {
+						return `{"data":{"chatServedPrompts":{"items":[],"total":9}}}`
+					}
+					return session1280Page("[]", 9)
+				}, args...)
+				if err != nil || errOut != "" || len(fake.lintOps()) != 0 {
+					t.Fatalf("err=%v stderr=%q lint=%+v output=%s", err, errOut, fake.lintOps(), out)
+				}
+				if jsonMode {
+					var got struct {
+						ServedPrompts struct {
+							Items []json.RawMessage `json:"items"`
+							Total int               `json:"total"`
+							Limit int               `json:"limit"`
+						} `json:"servedPrompts"`
+					}
+					if e := json.Unmarshal([]byte(out), &got); e != nil || got.ServedPrompts.Items == nil || len(got.ServedPrompts.Items) != 0 || got.ServedPrompts.Total != 9 || got.ServedPrompts.Limit != 0 {
+						t.Fatalf("count-only output: %s (%v)", out, e)
+					}
+				} else if !strings.Contains(out, "served prompts: 0 of 9") {
+					t.Fatalf("count-only text: %s", out)
+				}
+			})
+		}
 	}
 }

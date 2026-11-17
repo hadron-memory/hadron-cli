@@ -215,7 +215,7 @@ describe the requests: the page size each one asked for, and offset 0.
 					return r.AppRun.ServedPrompt.Id, &r.AppRun.ServedPrompt.CurrentLint.LintWarningPageFields, nil
 				})
 				if page == nil {
-					lintwarn.ReportUnavailable(cmd)
+					lintwarn.ReportUnavailable(cmd, "current lint")
 				}
 				result.CurrentLint = &page
 			}
@@ -250,16 +250,19 @@ func currentLintHelp(worker bool) string {
 	}
 	return `
 CURRENT LINT: a warning means the compiled prompt behind this record has a
-defect; fix its template, or recompile the Agent. After the record is read, its
-current lint warnings are read in their own operation, 20 per request to the
+defect. Fix the source template for future prompts; recompiling can pick up
+changed sources, but cannot repair this recorded revision. After the record is
+read, its current lint warnings are read in their own operation, 20 per request to the
 end, within a 5-second budget shared by the command. ` + when + ` They describe the
 compiled revision recorded for this served prompt, not the Agent's newest
 compile. With --json, "currentLint" is {items, total, nextCursor} or null.
 null means unavailable (an older server, a record or lint the server would not
 answer, a lint page that changed while reading, or the budget ran out), never
 "no warnings": items [] with total 0 is the one clean answer. An unavailable
-read prints one fixed advisory line on stderr; rerun to retry. The record, its
-exit code and its provenance paging are unaffected. See cor:agt:040:13.`
+read prints one advisory line on stderr naming current lint. Retry only if a
+page changed while reading or the budget ran out; rerunning does not resolve an
+older server or an unreadable record. The record, its exit code and its
+provenance paging are unaffected. See cor:agt:040:13.`
 }
 
 func addLintFlag(cmd *cobra.Command, v *bool) {
@@ -311,7 +314,8 @@ func writeRecord(w io.Writer, r *recordDTO) error {
 
 const historyLintHelp = `
 CURRENT LINT (--lint-warnings): a warning means the compiled prompt behind a
-record has a defect; fix its template, or recompile the Agent. With the flag,
+record has a defect. Fix the source template for future prompts; recompiling can
+pick up changed sources, but cannot repair recorded revisions. With the flag,
 each record's current lint warnings are also read in their own operation, 20
 per request, within a 5-second budget shared by the whole command. They
 describe the compiled revision recorded for that record, not the Agent's
@@ -321,8 +325,10 @@ unavailable for THAT record, never "no warnings" (items [] with total 0 is the
 one clean answer): an older server, a record or lint the server would not
 answer, a history or lint page that changed while reading, or the budget ran
 out. A record is whole or null, never partial and never another record's
-warnings. One fixed advisory line on stderr marks an unavailable read; rerun
-to retry. The history and its exit code are unaffected. See cor:agt:040:13.`
+warnings. One advisory line on stderr names current lint when unavailable. Retry
+only if a page changed while reading or the budget ran out; rerunning does not
+resolve an older server or an unreadable record. The history and its exit code
+are unaffected. See cor:agt:040:13.`
 
 // readHistoryLint fills CurrentLint on every shown record: each is whole or null.
 func readHistoryLint(cmd *cobra.Command, budget *lintwarn.Budget, result *historyDTO, offset int, first lintwarn.HistFetch, at lintwarn.HistFetchAt) {
@@ -335,7 +341,7 @@ func readHistoryLint(cmd *cobra.Command, budget *lintwarn.Budget, result *histor
 		p := pages[i]
 		result.Items[i].CurrentLint = &p
 		if p == nil {
-			lintwarn.ReportUnavailable(cmd)
+			lintwarn.ReportUnavailable(cmd, "current lint")
 		}
 	}
 }
