@@ -259,3 +259,16 @@ func TestAccountFamiliesAreExplicit2199(t *testing.T) {
 		t.Fatal("a launcher's name must not grant a family")
 	}
 }
+
+// A Codex account without a codex_home (the field is optional) is valid and
+// launches its own family (#2204 LOCAL delta P2).
+func TestCodexAccountWithoutAHomeLaunchesCodex2199(t *testing.T) {
+	prof := LauncherProfile{Family: "codex", Mode: ModeShort, Account: "a"}
+	r, rec, _ := orcaStartWith(t, prof, AccountProfile{Bin: "codex"}, map[string]any{"family": "codex", "model": "gpt-6"})
+	if r.outcome != Succeeded || len(rec.specs) != 1 {
+		t.Fatalf("%+v launches %d", r, len(rec.specs))
+	}
+	if _, err := ResolveRun(claudeProf, AccountProfile{Bin: "codex"}, RunSettings{Family: "claude"}, "a"); err == nil {
+		t.Fatal("a Claude profile on a codex launcher must still be refused")
+	}
+}

@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -99,10 +100,15 @@ func accountLaunches(fam, profileFam string, a AccountProfile) bool {
 		return false // no launch template for this family at all
 	}
 	if len(a.Families) == 0 {
-		// Unlisted: the worker's own profile family, and only where the
-		// account's Codex home agrees (a Codex home is a Codex account; no
-		// home is not one). A mismatch is refused, never launched.
-		return fam == CanonicalFamily(profileFam) && (fam == "codex") == (a.CodexHome != "")
+		// Unlisted: the worker's own profile family, and nothing that
+		// contradicts it: codex_home is optional for a Codex account, so its
+		// absence refuses nothing, but a Claude-family profile on an account
+		// that looks like a Codex one (a Codex home, or a codex* launcher) is
+		// a misconfiguration and is refused, never launched.
+		codexLooking := a.CodexHome != "" || strings.HasPrefix(filepath.Base(a.Bin), "codex")
+		// A Codex profile needs a Codex-looking account too (a Claude launcher
+		// script cannot run it); the home is just optional.
+		return fam == CanonicalFamily(profileFam) && (fam == "codex") == codexLooking
 	}
 	for _, f := range a.Families {
 		if CanonicalFamily(f) == fam {
