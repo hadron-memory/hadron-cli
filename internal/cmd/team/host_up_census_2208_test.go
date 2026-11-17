@@ -30,11 +30,34 @@ func censusDependencies2208(t *testing.T, ready func(*hostpoller.Config) func(co
 	hostUpReadinessFactory, hostUpProcessProbe = ready, probe
 	t.Cleanup(func() { hostUpReadinessFactory, hostUpProcessProbe = oldReady, oldProbe })
 	// An unwired override must never fall through to a real managed host.
+	refuseRealDaemon2208(t)
+}
+
+func refuseRealDaemon2208(t *testing.T) {
+	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "systemctl"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir)
+}
+
+func TestHostUpNativeDefaultRefusals2208(t *testing.T) {
+	refuseRealDaemon2208(t)
+	ready := hostUpReadinessFactory(&hostpoller.Config{OrcaLaunch: hostpoller.OrcaLaunchConfig{OrcaBin: "unused-private-orca"}})
+	if err := ready(context.Background()); err == nil {
+		t.Fatal("default readiness accepted an unavailable managed daemon")
+	}
+	// Both calls refuse before any process listing: cancellation is checked
+	// first, and a relative root is invalid for the strict native census.
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, ctx := range []context.Context{context.Background(), cancelled} {
+		proof, err := hostUpProcessProbe(ctx, "relative-fixture-root")
+		if err == nil || proof.Proven || len(proof.PIDs) != 0 || proof.ForeignUIDSkipped != 0 {
+			t.Fatalf("default probe granted invalid-root proof: %+v %v", proof, err)
+		}
+	}
 }
 
 func TestHostUpCensusProductionAdapter2208(t *testing.T) {
