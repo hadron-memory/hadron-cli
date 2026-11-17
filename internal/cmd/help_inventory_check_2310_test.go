@@ -108,6 +108,16 @@ func TestHelpInventoryCheckComparesTheWholeFile2310(t *testing.T) {
 	if out, err := check2310(t, dir, oldFormat); err == nil || !strings.Contains(out, "help-inventory drift") {
 		t.Fatalf("an old-format file with the pin lines must fail the check: %v\n%s", err, out)
 	}
+	// Even a lone pin line, with nothing else different, is drift: the check no
+	// longer has an exemption for them (a Pinned-commit-only change is what an
+	// ignore-regex would have waved through).
+	strayPin := strings.Replace(fresh, "\nRules for what is a row:", "\nPinned commit: abc1234\nRules for what is a row:", 1)
+	if strayPin == fresh {
+		t.Fatal("fixture anchor not found")
+	}
+	if out, err := check2310(t, dir, strayPin); err == nil || !strings.Contains(out, "help-inventory drift") {
+		t.Fatalf("a lone pin line must fail the check: %v\n%s", err, out)
+	}
 	// One regeneration over the old-format file drops the lines, and the check
 	// passes again.
 	if err := os.WriteFile(filepath.Join(dir, "docs", "help-inventory.md"), []byte(oldFormat), 0o644); err != nil {
