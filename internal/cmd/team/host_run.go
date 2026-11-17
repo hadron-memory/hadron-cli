@@ -596,8 +596,8 @@ func hostStepError(err error) error {
 	return exitcode.New(exitcode.FromError(err), err)
 }
 
-// hostEventDTO is one --json event line: every key always present, "" when
-// it does not apply.
+// hostEventDTO is one --json event line. Core event keys are always present;
+// fields tagged omitempty are optional when their value is zero or empty.
 type hostEventDTO struct {
 	ForeignUIDSkipped int    `json:"foreignUidSkipped,omitempty"`
 	LocalCause        string `json:"localCause,omitempty"`
