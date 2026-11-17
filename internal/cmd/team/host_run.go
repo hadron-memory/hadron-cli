@@ -448,7 +448,6 @@ The configuration (YAML):
   # capabilities: [worker.reset-context]
   # reset_context:
   #   orca_bin: /absolute/path/to/orca
-  #   cleanup_dead_tabs: false      # opt in only after live host validation
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
