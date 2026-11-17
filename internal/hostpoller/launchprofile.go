@@ -13,8 +13,12 @@ import (
 // comes from the host config (ConfigProfiles); the typed server fields of
 // S1b (hadron-server#4230) replace that source behind the same seam.
 
-// The two run modes (G7): a long-lived worker runs its interactive TUI in an
-// Orca terminal; a short-lived one runs its task and exits.
+// The two run modes (G7). Both launch the SAME interactive agent in an Orca
+// terminal (#2200 C9): a short-lived run no longer runs headless (no -p, no
+// exec), so a stall (a login, a permission dialog, a question) is on screen
+// and a human can take it over. The modes differ in lifecycle, not in argv: a
+// short-lived worker's session is ended by its own agent (the fast path), by
+// worker.end's stop, or by the host after the no-agent proof (#2201 C10).
 const (
 	ModeLong  = "long"
 	ModeShort = "short"
@@ -118,18 +122,9 @@ func LaunchArgv(p LauncherProfile, a AccountProfile) ([]string, error) {
 		if p.Model != "" {
 			argv = append(argv, "--model", p.Model)
 		}
-		if p.Mode == ModeShort {
-			argv = append(argv, "-p") // runs the task to completion, then exits
-		}
 		return append(argv, PromptArg), nil
 	case fam == "codex":
-		argv := []string{a.Bin}
-		if p.Mode == ModeShort {
-			argv = append(argv, "exec") // the TUI needs a terminal and stays; exec runs and exits
-		} else {
-			argv = append(argv, "--no-daemon")
-		}
-		argv = append(argv, "--dangerously-bypass-approvals-and-sandbox")
+		argv := []string{a.Bin, "--no-daemon", "--dangerously-bypass-approvals-and-sandbox"}
 		if p.Model != "" {
 			argv = append(argv, "-m", p.Model)
 		}
