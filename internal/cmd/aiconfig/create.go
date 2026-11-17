@@ -216,7 +216,7 @@ stored apiStyle and effectiveApiStyle, plus the masked config and endpoints.`,
 	cmd.Flags().StringVar(&agent, "agent", "", "owning Agent (ID or URN)")
 	cmd.Flags().StringVar(&org, "org", "", "owning Organization (ID or URN)")
 	cmd.Flags().StringVar(&name, "name", "", "config name (1-64 chars, [a-z0-9_-], unique per owner)")
-	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, bedrock, openai-compatible)")
+	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, kimi, bedrock, openai-compatible)")
 	cmd.Flags().StringVar(&model, "model", "", "model identifier")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "provider base URL; omit for the server default")
 	cmd.Flags().StringVar(&apiStyle, "api-style", "", "OpenAI-compatible wire protocol: CHAT_COMPLETIONS or RESPONSES; omit for provider default")
