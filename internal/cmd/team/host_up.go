@@ -164,7 +164,7 @@ Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
   applied  the planned reason, with the host operation's id
   skipped  IN_SYNC, SWEEP_NOT_APPLY, NOT_ON_HOST, NOT_REGISTERED, STOP_PENDING,
-           RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
+           AGENTLESS_SESSION, RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
            TERMINAL_WITHOUT_SESSION, DUPLICATE_AGENTS, NO_WORKTREE_SOURCE,
            SETUP_INVALID, NOT_ASSIGNED, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
            or the platform's own reason

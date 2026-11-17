@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -200,6 +201,10 @@ type Poller struct {
 	// lockBinding takes a worktree's session-binding lock, waiting at most the
 	// given time (hadron-cli#2068).
 	lockBinding func(path string, wait time.Duration) (func(), error)
+	// agentCensus is the strict process census of one worktree (the one C5
+	// proves absence with, cli#2060); the agentless end (cli#2201) asks it
+	// before it says no agent runs. A seam so a test can answer it.
+	agentCensus func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
 	// BindPoll is how often a pending start asks whether its session bound.
 	BindPoll time.Duration
 	// Fatal, when set, decides that a failed check-in ends Run: a refused or
@@ -288,6 +293,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
 		lockBinding: delivery.LockBinding,
+		agentCensus: probeRelaunchWorktree,
 		BindPoll:    5 * time.Second,
 		inFlight:    map[string]bool{},
 		tails:       map[string]chan struct{}{},

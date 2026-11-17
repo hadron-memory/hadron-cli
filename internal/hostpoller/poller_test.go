@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"math"
 	"os"
 	"path/filepath"
@@ -302,6 +303,11 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		cfg.WorktreePath("repo/iris"): {Exists: true, IsWorktree: true, Branch: "iris/work", Upstream: "origin/iris/work"},
 	}}
 	p := New(cfg, srv, host, st, hostKey, nil)
+	// The fake host stands in for /proc, so the strict census (which reads the
+	// real one) proves nothing here unless a test installs its own (cli#2201).
+	p.agentCensus = func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		return hostrelaunch.Observation{}, errors.New("no census in this test")
+	}
 	// A fake clock: sleeping advances it, so bind waits run instantly.
 	now := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
 	var clock sync.Mutex

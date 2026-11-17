@@ -322,6 +322,15 @@ belongs to one worker: the config refuses one listed for two.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
+AGENTLESS SESSION END (cli#2201): a short-lived worker that finished its task
+without ending its session is closed only on the strict process census (the
+one recovery uses). worker.end for a stop_on_end: always worker with no live
+agent reports FAILED leading AGENT_ABSENT when the census proves its
+worktrees empty; the periodic pass (below: typed launch_via: orca, APPLY)
+asks the server to end the session of a worker whose desired state is
+STOPPED/NO_OPEN_TASK, after a fresh matching read. An error, an unproven
+census, an agent, a leave-alone, paused or long-lived worker never ends one.
+
 PERIODIC RECOVERY (Linux, typed launch_via: orca only) preserves an open
 session whose agent vanished. It requires APPLY and current RUNNING desired
 state, matching worker/session/App/server/worktree identity, two consecutive

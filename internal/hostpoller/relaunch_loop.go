@@ -34,6 +34,10 @@ type RelaunchDependencies struct {
 	Probe           func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
 	Verify          func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
 	Notice          func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
+	// EndAgentless asks the server to end a SHORT_LIVED worker's open session
+	// on this host's census proof that no agent runs (cli#2201). Unset, the
+	// sweep never ends a session.
+	EndAgentless func(context.Context, AgentlessEnd) (AgentlessEndResult, error)
 }
 
 func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
@@ -253,6 +257,13 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if d.EndAgentless != nil && agentlessCandidate(row) {
+			// cli#2201: a short-lived worker with no open task and an open
+			// session is not a relaunch target; its end is proven here.
+			outcome, code := p.sweepAgentlessEnd(ctx, d, initial, row)
+			report.add(row.WorkerID, outcome, code)
+			continue
+		}
 		runner, target, skip, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
 		if !ok {
 			report.add(row.WorkerID, "SKIPPED", skip)
@@ -459,6 +470,12 @@ func newRelaunchEpoch() (string, error) {
 // deadline bounds cooperative probes; parent cancellation always wins. An error
 // invalidates the entire observation, including any partial positive proof.
 func retryRelaunchCensus(ctx context.Context, d *RelaunchDependencies, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	return retryCensusProbe(ctx, d.Probe, t)
+}
+
+// retryCensusProbe is the retry policy over any strict probe: the relaunch
+// loop's, and the agentless end's (cli#2201), which asks the same census.
+func retryCensusProbe(ctx context.Context, probe func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error), t hostrelaunch.Target) (hostrelaunch.Observation, error) {
 	const maxProbes = 3
 	const pause = 20 * time.Millisecond
 	const budget = 3 * time.Second
@@ -475,7 +492,7 @@ func retryRelaunchCensus(ctx context.Context, d *RelaunchDependencies, t hostrel
 			break
 		}
 		probeCtx, stopProbe := context.WithTimeout(bounded, probeBudget)
-		observation, err := d.Probe(probeCtx, t)
+		observation, err := probe(probeCtx, t)
 		probeErr := probeCtx.Err()
 		stopProbe()
 		if parentErr := ctx.Err(); parentErr != nil {

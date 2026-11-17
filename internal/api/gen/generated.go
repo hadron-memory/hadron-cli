@@ -12042,6 +12042,41 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01; decision record run-settings-are-not-worker-identity) — a task's own run
+// settings: what a start for it launches. Anything left out falls back to the worker's last used (Worker.lastUsed), so
+// a missing value is never a refusal. They are run settings, not requirements: a worker that is already running takes
+// the task under its session's settings (AgentTask.appliedRunSettings shows them), and a task that must run on a
+// family says so with requirements.familyIn. For a short-lived worker with no open session the launch applies them, so
+// the matcher judges familyIn, familyNotIn and minTier against them (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
+//
+// Refused TASK_RUN_SETTINGS_INVALID, with extensions.reason: BAD_VALUE (a field that is not its token),
+// EFFORT_NOT_A_REQUEST (NOT_APPLICABLE), MODEL_AND_TIER (both named), MODEL_OUTSIDE_FAMILY (an exact model of another
+// family than the one named), FAMILY_EXCLUDED (the family, named or implied by the model, is outside
+// requirements.familyIn or inside familyNotIn), TIER_BELOW_MINIMUM (the tier, or the exact model's tier, is below
+// requirements.minTier).
+type AgentTaskRunSettingsInput struct {
+	// A generic effort; the launcher maps it to the family's own value. NOT_APPLICABLE is a report, not a request, and is refused.
+	Effort *EffortLevel `json:"effort"`
+	// A model family token, e.g. claude, codex or glm.
+	Family *string `json:"family"`
+	// An exact model name (letters, digits, '.', '_' or '-'; at most 128 characters). Give this or tier, not both.
+	Model *string `json:"model"`
+	// A generic tier instead of a model: high, mid or low. The host's launcher maps it to the family's model.
+	Tier *string `json:"tier"`
+}
+
+// GetEffort returns AgentTaskRunSettingsInput.Effort, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetEffort() *EffortLevel { return v.Effort }
+
+// GetFamily returns AgentTaskRunSettingsInput.Family, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetFamily() *string { return v.Family }
+
+// GetModel returns AgentTaskRunSettingsInput.Model, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetModel() *string { return v.Model }
+
+// GetTier returns AgentTaskRunSettingsInput.Tier, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetTier() *string { return v.Tier }
+
 // AgentTaskSetPriorityResponse is returned by AgentTaskSetPriority on success.
 type AgentTaskSetPriorityResponse struct {
 	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -14993,6 +15028,18 @@ func (v *AgentWebhooksResponse) GetAgentWebhooks() *AgentWebhooksAgentWebhooksAg
 	return v.AgentWebhooks
 }
 
+// #4292: the closed proofs a host gives for ending a session itself.
+type AgentlessEndReason string
+
+const (
+	// No agent process runs in the worker's worktree.
+	AgentlessEndReasonAgentAbsent AgentlessEndReason = "AGENT_ABSENT"
+)
+
+var AllAgentlessEndReason = []AgentlessEndReason{
+	AgentlessEndReasonAgentAbsent,
+}
+
 // AgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
 type AgentsAgentsAgentsPage struct {
 	Total int                                 `json:"total"`
@@ -17891,7 +17938,7 @@ func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRo
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
-	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
 	// How many operations a collection returned, or workers a registration listed.
 	Count *int `json:"count"`
@@ -34820,8 +34867,12 @@ type CreateAgentTaskInput struct {
 	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered references; any creator may set them, as it sets the title.
 	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
-	Source       *string                     `json:"source"`
-	StartBy      *string                     `json:"startBy"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's own run settings, each optional. What a start for this task
+	// launches, before the worker's last used; never a matching requirement. Checked here, at creation, and refused
+	// TASK_RUN_SETTINGS_INVALID with a reason. Set only here: no edit takes them, and a clone copies none.
+	RunSettings *AgentTaskRunSettingsInput `json:"runSettings,omitempty"`
+	Source      *string                    `json:"source"`
+	StartBy     *string                    `json:"startBy"`
 	// #1754 — PENDING (the default) or BACKLOG
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02). A BACKLOG task is parked: it takes no assignee (BAD_USER_INPUT),
 	// never enters the queue, and is moved to pending by assigning it or making it ready.
@@ -34874,6 +34925,9 @@ func (v *CreateAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { retu
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
+
+// GetRunSettings returns CreateAgentTaskInput.RunSettings, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetRunSettings() *AgentTaskRunSettingsInput { return v.RunSettings }
 
 // GetSource returns CreateAgentTaskInput.Source, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetSource() *string { return v.Source }
@@ -47629,6 +47683,32 @@ func (v *EffectiveModelGroupsResponse) GetEffectiveModelGroups() []*EffectiveMod
 	return v.EffectiveModelGroups
 }
 
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:060:04) — the generic effort scale of a run. LOW to MAX are levels the launcher maps to the
+// family's own values; UNSET is the family's default. NOT_APPLICABLE is report-only: a session whose family has no effort
+// control reports it, and a worker's last-used record may hold it; a task never carries it. Self-declared, like the family
+// and model: a reporting input, never authorization.
+type EffortLevel string
+
+const (
+	EffortLevelHigh          EffortLevel = "HIGH"
+	EffortLevelLow           EffortLevel = "LOW"
+	EffortLevelMax           EffortLevel = "MAX"
+	EffortLevelMedium        EffortLevel = "MEDIUM"
+	EffortLevelNotApplicable EffortLevel = "NOT_APPLICABLE"
+	EffortLevelUnset         EffortLevel = "UNSET"
+	EffortLevelXhigh         EffortLevel = "XHIGH"
+)
+
+var AllEffortLevel = []EffortLevel{
+	EffortLevelHigh,
+	EffortLevelLow,
+	EffortLevelMax,
+	EffortLevelMedium,
+	EffortLevelNotApplicable,
+	EffortLevelUnset,
+	EffortLevelXhigh,
+}
+
 // EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
 // The GraphQL type's documentation follows.
 //
@@ -47798,6 +47878,27 @@ type EncryptMemoryResponse struct {
 func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
+
+type EndAgentlessSessionInput struct {
+	AppRef string             `json:"appRef"`
+	Reason AgentlessEndReason `json:"reason"`
+	// The worker's open session to end.
+	SessionId string `json:"sessionId"`
+	// The worker: its id, URN or name within the App.
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetAppRef returns EndAgentlessSessionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetAppRef() string { return v.AppRef }
+
+// GetReason returns EndAgentlessSessionInput.Reason, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetReason() AgentlessEndReason { return v.Reason }
+
+// GetSessionId returns EndAgentlessSessionInput.SessionId, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetSessionId() string { return v.SessionId }
+
+// GetWorkerRef returns EndAgentlessSessionInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *EndAgentlessSessionInput) GetWorkerRef() string { return v.WorkerRef }
 
 // EndTeamSessionEndSession includes the requested fields of the GraphQL type Session.
 // The GraphQL type's documentation follows.
@@ -56526,6 +56627,53 @@ type HostDesiredStateResponse struct {
 // GetHostDesiredState returns HostDesiredStateResponse.HostDesiredState, and is useful for accessing the field via an interface.
 func (v *HostDesiredStateResponse) GetHostDesiredState() *HostDesiredStateHostDesiredState {
 	return v.HostDesiredState
+}
+
+// HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd includes the requested fields of the GraphQL type AgentlessSessionEnd.
+// The GraphQL type's documentation follows.
+//
+// #4292: the outcome of endAgentlessSession.
+type HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd struct {
+	// True when this call ended the session; false when it had already ended.
+	Ended bool `json:"ended"`
+	// Whether a handoff names this session. False means no handoff was recorded.
+	Handoff   bool   `json:"handoff"`
+	SessionId string `json:"sessionId"`
+}
+
+// GetEnded returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.Ended, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetEnded() bool {
+	return v.Ended
+}
+
+// GetHandoff returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.Handoff, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetHandoff() bool {
+	return v.Handoff
+}
+
+// GetSessionId returns HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd.SessionId, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd) GetSessionId() string {
+	return v.SessionId
+}
+
+// HostEndAgentlessSessionResponse is returned by HostEndAgentlessSession on success.
+type HostEndAgentlessSessionResponse struct {
+	// #4292 — a host ends an open session of a SHORT_LIVED worker it runs, after proving that no agent runs in the
+	// worker's worktree (reason AGENT_ABSENT); the backstop when the platform's worker.end never came or already failed
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed). A worker.end reported FAILED with a failureReason whose
+	// leading code is AGENT_ABSENT runs the same check and, when it holds, ends the session and reads SUCCEEDED.
+	// Refusals: HOST_DOES_NOT_RUN_WORKER (this host's registration does not list the worker, or under a server-held setup
+	// it is not assigned there, or the session runs on another host: a host-launched session is ended only by its launch
+	// host, a hand-started one only by the worker's sole live registration), SESSION_NOT_WORKERS, WORKER_NOT_SHORT_LIVED, WORKER_HAS_OPEN_TASK (the worker is the
+	// assignee of a PENDING or STARTED task; extensions.taskId names it). A session that already ended answers
+	// ended: false and writes nothing. The end is recorded with endReason agent_absent; it writes no handoff, and
+	// handoff in the result is true only when one the worker wrote before it exited names the session.
+	EndAgentlessSession *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd `json:"endAgentlessSession"`
+}
+
+// GetEndAgentlessSession returns HostEndAgentlessSessionResponse.EndAgentlessSession, and is useful for accessing the field via an interface.
+func (v *HostEndAgentlessSessionResponse) GetEndAgentlessSession() *HostEndAgentlessSessionEndAgentlessSessionAgentlessSessionEnd {
+	return v.EndAgentlessSession
 }
 
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
@@ -78142,6 +78290,8 @@ type ReportHostOperationResponse struct {
 	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
 	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
 	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
+	// #4292: an end-session operation FAILED with a reason whose leading code is AGENT_ABSENT ends the session when
+	// endAgentlessSession's conditions hold, and reads SUCCEEDED, writing no handoff; otherwise it stays FAILED, the session open.
 	ReportHostOperation *ReportHostOperationReportHostOperation `json:"reportHostOperation"`
 }
 
@@ -79236,6 +79386,8 @@ var AllResumeOutcome = []ResumeOutcome{
 type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
+	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
+	Effort *EffortLevel `json:"effort"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
 	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
 	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
@@ -79262,6 +79414,9 @@ type ResumeSessionInput struct {
 
 // GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetEffort returns ResumeSessionInput.Effort, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
 // GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
@@ -84255,13 +84410,16 @@ func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
 type SessionEndReason string
 
 const (
-	SessionEndReasonEnded      SessionEndReason = "ended"
-	SessionEndReasonExpired    SessionEndReason = "expired"
-	SessionEndReasonSuperseded SessionEndReason = "superseded"
-	SessionEndReasonUnknown    SessionEndReason = "unknown"
+	// #4292: the host running a SHORT_LIVED worker ended the session on its proof that no agent runs; no handoff was written.
+	SessionEndReasonAgentAbsent SessionEndReason = "agent_absent"
+	SessionEndReasonEnded       SessionEndReason = "ended"
+	SessionEndReasonExpired     SessionEndReason = "expired"
+	SessionEndReasonSuperseded  SessionEndReason = "superseded"
+	SessionEndReasonUnknown     SessionEndReason = "unknown"
 )
 
 var AllSessionEndReason = []SessionEndReason{
+	SessionEndReasonAgentAbsent,
 	SessionEndReasonEnded,
 	SessionEndReasonExpired,
 	SessionEndReasonSuperseded,
@@ -84483,6 +84641,11 @@ type SessionInput struct {
 	AppRef     *string `json:"appRef,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	CustomerId *string `json:"customerId,omitempty"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:060:04): the effort this session runs at, as the launcher applied it; NOT_APPLICABLE for a
+	// family with no effort control (never a refusal). Omitted on a host-started bind: the start's own effort is recorded
+	// when it names one of the scale, as its family and model are when the bind reports none. A worker-bound session's
+	// family, model and effort are also written to the worker's last-used record (Worker.lastUsed).
+	Effort *EffortLevel `json:"effort"`
 	// #1707 / hrn:node:hadronmemory.com:specs:cor:agt:060:04: the model family this session runs as, e.g.
 	// claude, codex or glm (a lowercase token). Omitted: derived from llmModel
 	// first, then tool — tool alone never classifies claude-code, since GLM runs
@@ -84582,6 +84745,9 @@ func (v *SessionInput) GetBranch() *string { return v.Branch }
 
 // GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
+
+// GetEffort returns SessionInput.Effort, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetEffort() *EffortLevel { return v.Effort }
 
 // GetFamily returns SessionInput.Family, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetFamily() *string { return v.Family }
@@ -110520,6 +110686,9 @@ type UpdateTeamSessionResponse struct {
 	// Updates on an ended session stay allowed (late PR-merge attribution).
 	// #1931 — llmModel refreshes the model-family derivation; an explicit family wins.
 	// Null or omitted family metadata preserves the existing family. Unclassified models do not clear it.
+	// #4291 — effort reports the effort the session now runs at; null or omitted leaves it as last recorded. A report
+	// (model, family or effort) on a worker's OPEN session is also written to that worker's last-used record
+	// (Worker.lastUsed, hrn:node:hadronmemory.com:specs:cor:agt:060:04); a report on an ended session moves no record.
 	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
 }
 
@@ -121091,6 +121260,14 @@ func (v *__HostDesiredStateInput) GetAppRef() string { return v.AppRef }
 
 // GetHostId returns __HostDesiredStateInput.HostId, and is useful for accessing the field via an interface.
 func (v *__HostDesiredStateInput) GetHostId() string { return v.HostId }
+
+// __HostEndAgentlessSessionInput is used internally by genqlient
+type __HostEndAgentlessSessionInput struct {
+	Input *EndAgentlessSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __HostEndAgentlessSessionInput.Input, and is useful for accessing the field via an interface.
+func (v *__HostEndAgentlessSessionInput) GetInput() *EndAgentlessSessionInput { return v.Input }
 
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
@@ -148765,6 +148942,45 @@ func HostDesiredState(
 	}
 
 	data_ = &HostDesiredStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by HostEndAgentlessSession.
+const HostEndAgentlessSession_Operation = `
+mutation HostEndAgentlessSession ($input: EndAgentlessSessionInput!) {
+	endAgentlessSession(input: $input) {
+		ended
+		handoff
+		sessionId
+	}
+}
+`
+
+// #4292 / hadron-cli#2201 (C10): a host ends an open session of a SHORT_LIVED
+// worker it runs, on its strict census proof that no agent runs in the worker's
+// worktree (reason AGENT_ABSENT). Host key, never the worker session.
+func HostEndAgentlessSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *EndAgentlessSessionInput,
+) (data_ *HostEndAgentlessSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostEndAgentlessSession",
+		Query:  HostEndAgentlessSession_Operation,
+		Variables: &__HostEndAgentlessSessionInput{
+			Input: input,
+		},
+	}
+
+	data_ = &HostEndAgentlessSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

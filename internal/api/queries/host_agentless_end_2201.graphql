@@ -1,0 +1,10 @@
+# #4292 / hadron-cli#2201 (C10): a host ends an open session of a SHORT_LIVED
+# worker it runs, on its strict census proof that no agent runs in the worker's
+# worktree (reason AGENT_ABSENT). Host key, never the worker session.
+mutation HostEndAgentlessSession($input: EndAgentlessSessionInput!) {
+  endAgentlessSession(input: $input) {
+    ended
+    handoff
+    sessionId
+  }
+}
