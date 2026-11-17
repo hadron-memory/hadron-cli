@@ -339,7 +339,7 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 				return hostrelaunch.Prepared{}, e
 			}
 			return hostrelaunch.Prepared{Fingerprint: p.relaunchEpoch + ":" + string(fingerprint), Launch: func(ctx context.Context) (hostrelaunch.Agent, error) {
-				spec, e := orcaProfileLaunchSpec(ref, w, t.Worktree, "", "", profile, account)
+				spec, e := orcaProfileLaunchSpec(ref, w, t.Worktree, "", "", profile, account, Bind{})
 				if e != nil {
 					return nil, e
 				}

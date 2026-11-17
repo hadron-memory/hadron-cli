@@ -651,6 +651,13 @@ var promptTaskRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 // the worker's session is still open and is never bound again): it only
 // recovers.
 func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
+	return firstPrompt(workerRef, family, taskID, hasGrant, Bind{})
+}
+
+// firstPrompt is FirstPrompt with what the bind reports (#2199): the family,
+// the model value actually passed and the effort applied, each only when the
+// start settled it. The zero Bind is the prompt as it always was.
+func firstPrompt(workerRef, family, taskID string, hasGrant bool, bind Bind) string {
 	recover := "run hadron team session recover and act on what it reports; never resume an earlier conversation."
 	if !hasGrant {
 		return "Hadron relaunched worker " + workerRef + " in its own worktree. Its worker session is still open, so do not start a new one: " + recover
@@ -663,7 +670,13 @@ func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
 	if promptTaskRE.MatchString(taskID) {
 		next = "then start and carry your task: hadron team task start " + taskID + " (and follow your briefing)."
 	}
-	return "Hadron started this fresh run for worker " + workerRef + ". First bind your worker session: hadron team session start --tool " + tool +
+	report := ""
+	for _, f := range []struct{ flag, v string }{{"family", bind.Family}, {"model", bind.Model}, {"effort", bind.Effort}} {
+		if f.v != "" && profileTokenRE.MatchString(f.v) {
+			report += " --" + f.flag + " " + f.v
+		}
+	}
+	return "Hadron started this fresh run for worker " + workerRef + ". First bind your worker session: hadron team session start --tool " + tool + report +
 		" (the launch grant is in HADRON_LAUNCH_GRANT, so no --as is needed); " + next
 }
 
@@ -675,12 +688,42 @@ func RelaunchPromptWithCheckpoint(prompt, checkpoint string) string {
 	return prompt + " This relaunch follows your own context reset: after recovering, read your checkpoint, hadron node get " + checkpoint + ", and continue its next action."
 }
 
+// resolveOrcaRun applies a start's run settings over the worker's launcher
+// profile BEFORE any process, terminal or reset: a family this host cannot
+// launch on the worker's account, or a malformed shape, fails the start with
+// a retryable reason that names the family and the account.
+func (p *Poller) resolveOrcaRun(ctx context.Context, op Operation, ref string, rs RunSettings) (Resolved, bool) {
+	if p.orcaLaunch == nil || p.profiles == nil {
+		p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: this poller has no Orca launcher (orca_launch is not wired)")
+		return Resolved{}, false
+	}
+	prof, acct, ok, err := p.profiles.Profile(ref)
+	if err == nil && !ok {
+		err = errors.New("the worker has no launcher profile")
+	}
+	if err == nil && !familyRE.MatchString(CanonicalFamily(rs.Family)) {
+		err = fmt.Errorf("start names no usable family (%q)", rs.Family)
+	}
+	var run Resolved
+	if err == nil {
+		run, err = ResolveRun(prof, acct, rs, prof.Account)
+	}
+	if err != nil {
+		p.finish(ctx, op, Failed, "", err.Error())
+		return Resolved{}, false
+	}
+	if run.Note != "" {
+		p.log("run-settings", op.ID, op.Type, "", run.Note)
+	}
+	return run, true
+}
+
 // orcaStart is worker.start's Orca path.
-func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string) (Agent, error) {
+func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string, run Resolved) (Agent, error) {
 	if p.orcaLaunch == nil || p.profiles == nil {
 		return nil, errors.New("this poller has no Orca launcher (orca_launch is not wired)")
 	}
-	spec, err := p.orcaLaunchSpec(ref, w, dir, op.LaunchGrant, argString(op, "taskId"))
+	spec, err := p.orcaLaunchSpec(ref, w, dir, op.LaunchGrant, argString(op, "taskId"), run)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +735,7 @@ func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w Work
 // is one), and the fixed first prompt. worker.start passes its grant; a
 // relaunch under a still-open session (C5, #2060) passes none, so the agent
 // gets no grant and the recover-only prompt.
-func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string) (OrcaLaunchSpec, error) {
+func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, run Resolved) (OrcaLaunchSpec, error) {
 	if p.profiles == nil {
 		return OrcaLaunchSpec{}, errors.New("this poller has no launcher profiles")
 	}
@@ -703,13 +746,16 @@ func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID s
 	if !ok {
 		return OrcaLaunchSpec{}, errors.New("the worker has no launcher profile")
 	}
-	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct)
+	if run.Profile.Family != "" {
+		prof = run.Profile // the start's settings, resolved against this very profile
+	}
+	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct, run.Bind)
 }
 
 // orcaProfileLaunchSpec is the shared builder with an immutable typed snapshot.
 // C5 prepares that snapshot without IO, then calls this only after claiming
 // its attempt. Normal worker.start uses this through orcaLaunchSpec too.
-func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile) (OrcaLaunchSpec, error) {
+func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile, bind Bind) (OrcaLaunchSpec, error) {
 	argv, err := LaunchArgv(prof, acct)
 	if err != nil {
 		return OrcaLaunchSpec{}, err
@@ -731,6 +777,6 @@ func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string
 	}
 	return OrcaLaunchSpec{
 		Argv: argv, Dir: dir, Env: env, Title: ref,
-		Prompt: FirstPrompt(ref, prof.Family, taskID, grant != ""),
+		Prompt: firstPrompt(ref, prof.Family, taskID, grant != "", bind),
 	}, nil
 }

@@ -775,6 +775,9 @@ fragment TeamSessionFields on Session {
 # @genqlient(for: "SessionInput.force", omitempty: true)
 # Schema refresh (#836): no family flag means omit, letting server classification run.
 # @genqlient(for: "SessionInput.family", omitempty: true)
+# effort (#2199, hadron-server#4295): sent only with --effort, so an ordinary
+# start never puts `"effort": null` on the wire.
+# @genqlient(for: "SessionInput.effort", omitempty: true)
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)

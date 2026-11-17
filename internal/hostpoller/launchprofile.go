@@ -107,11 +107,8 @@ func LaunchArgv(p LauncherProfile, a AccountProfile) ([]string, error) {
 	}
 	switch {
 	case claudeFamily[fam]:
-		if p.Effort != "" {
-			// No fixed Claude Code flag carries an effort: refused rather
-			// than silently dropped.
-			return nil, fmt.Errorf("an effort is not supported for the %s family", fam)
-		}
+		// No fixed Claude Code flag carries an effort: it launches without one
+		// and the bind reports NOT_APPLICABLE (#2199), never a refusal.
 		argv := []string{a.Bin, "--dangerously-skip-permissions"}
 		if p.Model != "" {
 			argv = append(argv, "--model", p.Model)
