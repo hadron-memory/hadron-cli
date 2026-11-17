@@ -60,6 +60,13 @@ type Factory struct {
 	// the original snapshot too. Reads keep the plain context.
 	WorkerWriteSession func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
 
+	// NoteApprovingAsPerson is installed by the root (cli#1843). An approval on
+	// the default path calls it just before its mutation: from a worktree bound
+	// to a worker session it prints one stderr note (once per run) that the
+	// approval is the person's. withAsWorker says the command has --as-worker
+	// to name. It changes nothing that is sent.
+	NoteApprovingAsPerson func(ctx context.Context, withAsWorker bool)
+
 	// Persistent flag values, bound by the root command.
 	JSON       bool
 	ServerFlag string
@@ -287,6 +294,14 @@ func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Req
 // AsWorkerFlagUsage is the one description of --as-worker on every command
 // that has it (cli#1872).
 const AsWorkerFlagUsage = "send this worktree's bound worker session with the compile/approve mutations, so the server judges a signed bootprompt.compile.approve grant (default: act as you, no session header)"
+
+// NoteApproval prints the cli#1843 note on the default (person) approval path;
+// a Factory without the hook prints nothing.
+func (f *Factory) NoteApproval(ctx context.Context, withAsWorker bool) {
+	if f.NoteApprovingAsPerson != nil {
+		f.NoteApprovingAsPerson(ctx, withAsWorker)
+	}
+}
 
 // ResolveWorkerWrite resolves the --as-worker session before any request. The
 // returned function wraps one mutation's context. targetApps are App refs the
