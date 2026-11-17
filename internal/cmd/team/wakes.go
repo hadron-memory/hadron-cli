@@ -20,10 +20,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-type dueWake = gen.TeamDueWakesDueWakesDueWakePageWakesDueWake
+type dueWake = gen.DueWakesPageFieldsWakesDueWake
 
 // Explicit DTOs: schema regeneration must not change this JSON contract.
 type dueWakesDTO struct {
+	Preview     bool             `json:"preview,omitempty"`
 	Status      string           `json:"status"`
 	Withheld    int              `json:"withheld"`
 	Wakes       []dueWakeDTO     `json:"wakes"`
@@ -135,15 +136,23 @@ func newCmdTeamWakesDue(f *cmdutil.Factory) *cobra.Command {
 	var workers []string
 	var first int
 	var after string
-	var acceptStop bool
+	var acceptStop, preview bool
 	cmd := &cobra.Command{
-		Use:   "due [--worker <ref>]... [--first N] [--after <cursor>] [--accept-stop]",
+		Use:   "due [--worker <ref>]... [--first N] [--after <cursor>] [--accept-stop] [--preview]",
 		Short: "List the wakes due now",
 		Long: `List the wakes due now (cor:agt:080:08): one merged wake per worker, with
 every reason (MENTION, TICK with its ticker, TASK with the task's handle and
 event, STOP with the notice), one seq range per channel, the unread counts and
 the proof that ` + "`team wakes ack`" + ` takes. It shows counts and ranges, never message
 text, and listing moves no read position.
+
+--preview looks without reserving wake capacity, withholding workers or
+posting a budget notice. Preview rows cannot be acknowledged: text prints no
+proof and JSON keeps proof as an empty string and adds preview:true. Without
+the flag the existing spending read and JSON shape remain unchanged.
+--preview --accept-stop declares no stop lane. The server owns these effects;
+the CLI never acknowledges a preview. An older server that lacks preview
+refuses it (exit 2); the CLI never retries as a spending read.
 Cancelled children appear as TASK <handle> <id> CHILD_CANCELLED, alongside
 CHILD_FINISHED. Unknown event values are shown as returned by the server.
 
@@ -219,14 +228,36 @@ held back, never dropped.`,
 			if acceptStop {
 				accepts = []gen.WakeKind{gen.WakeKindMention, gen.WakeKindTick, gen.WakeKindTask, gen.WakeKindStop}
 			}
-			resp, err := gen.TeamDueWakes(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts)
-			if err != nil {
-				return wakeFailure(err)
+			var page *gen.DueWakesPageFields
+			if preview {
+				resp, e := gen.TeamDueWakesPreview(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts)
+				if e != nil {
+					return wakeFailure(e)
+				}
+				if resp != nil && resp.DueWakes != nil {
+					page = &resp.DueWakes.DueWakesPageFields
+				}
+			} else {
+				resp, e := gen.TeamDueWakes(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts)
+				if e != nil {
+					return wakeFailure(e)
+				}
+				if resp != nil && resp.DueWakes != nil {
+					page = &resp.DueWakes.DueWakesPageFields
+				}
 			}
-			if resp == nil || resp.DueWakes == nil || resp.DueWakes.PageInfo == nil {
+			if page == nil || page.PageInfo == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no due-wakes page")
 			}
-			dto := dueWakesFrom(resp.DueWakes)
+			dto := dueWakesFrom(page)
+			dto.Preview = preview
+			if preview {
+				// A preview is never an acknowledgment offer, even if a skewed
+				// server accidentally returns a nonempty proof.
+				for i := range dto.Wakes {
+					dto.Wakes[i].Proof = ""
+				}
+			}
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return writeDueWakes(w, dto) }); err != nil {
 				return err
 			}
@@ -239,11 +270,12 @@ held back, never dropped.`,
 	cmd.Flags().StringArrayVar(&workers, "worker", nil, "only this worker (name, URN or id); repeatable")
 	cmd.Flags().IntVar(&first, "first", 0, "page size (server default without it)")
 	cmd.Flags().StringVar(&after, "after", "", "continue from a previous page's endCursor")
+	cmd.Flags().BoolVar(&preview, "preview", false, "look without reserving wake capacity or declaring a stop lane; no acknowledgment proof")
 	cmd.Flags().BoolVar(&acceptStop, "accept-stop", false, "also ask for stop notices; declares the lane you read (cor:agt:090:04)")
 	return cmd
 }
 
-func dueWakesFrom(p *gen.TeamDueWakesDueWakesDueWakePage) dueWakesDTO {
+func dueWakesFrom(p *gen.DueWakesPageFields) dueWakesDTO {
 	dto := dueWakesDTO{
 		Status: string(p.Status), Withheld: p.Withheld,
 		Wakes: []dueWakeDTO{}, Dormant: []dormantWakeDTO{},
@@ -322,6 +354,11 @@ func reasonLabel(r dueWakeReasonDTO) string {
 }
 
 func writeDueWakes(w io.Writer, dto dueWakesDTO) error {
+	if dto.Preview {
+		if _, err := fmt.Fprintln(w, "preview: no capacity reserved; these rows cannot be acknowledged"); err != nil {
+			return err
+		}
+	}
 	if dto.Status != string(gen.DueWakeStatusOk) {
 		if _, err := fmt.Fprintf(w, "status: %s (%d withheld; they stay due)\n", dto.Status, dto.Withheld); err != nil {
 			return err
@@ -349,7 +386,9 @@ func writeDueWakes(w io.Writer, dto dueWakesDTO) error {
 		for _, c := range wk.Channels {
 			lines = append(lines, fmt.Sprintf("  %s %d-%d", output.SafeCell(c.Loc), c.FromSeq, c.ThroughSeq))
 		}
-		lines = append(lines, "  proof: "+wk.Proof)
+		if !dto.Preview {
+			lines = append(lines, "  proof: "+wk.Proof)
+		}
 		for _, l := range lines {
 			if _, err := fmt.Fprintln(w, l); err != nil {
 				return err

@@ -62,8 +62,8 @@ type taskResultDTO struct {
 	Evidence *string `json:"evidence"`
 }
 
-// taskDTO is one task. OpenAlarms is set only by `task tree`, which joins the
-// unacknowledged alarms onto the nodes it renders; omitempty keeps the other
+// taskDTO is one task. OpenAlarms is set only by `task tree` (and `task list
+// --team`), which join the server's alarms in effect onto the tasks they render; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskMatchFailureDTO struct {
 	Reason   string `json:"reason"`

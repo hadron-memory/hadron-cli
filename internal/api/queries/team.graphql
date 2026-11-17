@@ -1931,3 +1931,45 @@ mutation UpdateTeamRoleRepos($appRef: ID!,
 ) {
  updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description, repos: $repos) { ...TeamRoleFields repos }
 }
+
+# cli1833: plural heads only; do not widen the singular document.
+query TeamChatTagsMulti(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRefs: [ID!]
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged) {
+    items { ...TeamChatMessageFields }
+  }
+}
+
+# cli1833: plural heads only; do not widen the singular document.
+query TeamChatTagsMultiAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRefs: [ID!]
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged, advanceReadState: false) {
+    items { ...TeamChatMessageFields }
+  }
+}
