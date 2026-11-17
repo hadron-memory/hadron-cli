@@ -286,16 +286,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			return
 		}
 	} else {
-		// The exec path applies the run's model, tier and effort too, by
-		// appending the family's own flags to the worker's fixed command.
-		argv, note := ExecRunArgs(w.Launch, w.Family, rs)
-		if note != "" {
+		// The exec path cannot apply the run's model, tier or effort (its
+		// argv is the worker's own fixed command), and does not refuse the
+		// start for it: it states they were not applied (#110836).
+		env := []string{launchGrantEnvVar + "=" + op.LaunchGrant}
+		if e, note, ok := settingsNotApplied(rs); ok {
+			env = append(env, e)
 			p.log("run-settings", op.ID, op.Type, "", note)
 		}
 		agent, err = p.host.Launch(ctx, LaunchSpec{
-			Argv: argv,
+			Argv: w.Launch,
 			Dir:  dir,
-			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
+			Env:  agentEnv(os.Environ(), p.key, env...),
 		})
 		if err != nil {
 			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())

@@ -112,35 +112,26 @@ func accountLaunches(fam, profileFam string, a AccountProfile) bool {
 	return false
 }
 
-// ExecRunArgs applies a start's model, tier and effort to an exec-path
-// worker's fixed argv by appending the family's own flags (the last flag
-// wins), so every launch path applies what the start named. The note says
-// what could not be mapped.
-func ExecRunArgs(argv []string, family string, rs RunSettings) (out []string, note string) {
-	out = append([]string(nil), argv...)
-	fam := CanonicalFamily(family)
-	model := rs.Model
-	if rs.Tier != "" {
-		if model = tierModels[fam][rs.Tier]; model == "" {
-			note = fmt.Sprintf("tier %s is not mapped for family %s; the worker's own command decides the model", rs.Tier, fam)
-		}
+// StartSettingsAppliedEnvVar is the launched agent's environment variable
+// that states a start's run settings were NOT applied: the exec path runs the
+// worker's own fixed command, so the model, tier and effort a start names
+// cannot be applied (Wolfgang, #110836). It is set to "false" only then, and
+// is absent otherwise. The agent's own `session start` bind is where the
+// server would otherwise inherit those settings from the start's args, so the
+// statement rides the environment beside the launch grant (hadron-server#4306,
+// carrier (a)); the report has no field for a SUCCEEDED statement.
+const StartSettingsAppliedEnvVar = "HADRON_START_SETTINGS_APPLIED"
+
+// settingsNotApplied is the one place the "not applied" statement is made, so
+// it can move to wherever the carrier is placed (#110847): the environment
+// entry for the agent and the log line for the host's own record. ok is false
+// when the start asked for nothing.
+func settingsNotApplied(rs RunSettings) (env, note string, ok bool) {
+	if !rs.requested() {
+		return "", "", false
 	}
-	switch {
-	case claudeFamily[fam]:
-		if model != "" {
-			out = append(out, "--model", model)
-		}
-	case fam == "codex":
-		if model != "" {
-			out = append(out, "-m", model)
-		}
-		if v, ok := codexEfforts[rs.Effort]; ok {
-			out = append(out, "-c", "model_reasoning_effort="+v)
-		} else if rs.Effort != "" && rs.Effort != EffortUnset {
-			out = append(out, "-c", "model_reasoning_effort="+rs.Effort)
-		}
-	}
-	return out, note
+	return StartSettingsAppliedEnvVar + "=false",
+		fmt.Sprintf("this worker launches from a fixed command: model %q, tier %q and effort %q are not applied", rs.Model, rs.Tier, rs.Effort), true
 }
 
 // ResolveRun applies a start's run settings over the worker's launcher

@@ -201,20 +201,24 @@ func TestStartRefusesAnIncompatibleAccountEvenForTheProfilesOwnFamily2199(t *tes
 	}
 }
 
-// Wolfgang's ruling (#110818): the exec path applies the run's model, tier
-// and effort too, by appending the family's own flags to its fixed command.
-func TestStartOnTheExecPathAppliesTheRunSettings2199(t *testing.T) {
+// Wolfgang's ruling (#110836): the exec path launches its own fixed command,
+// never refuses the start for settings it cannot apply, and states they were
+// not applied, in the log and in the agent's environment (the carrier for the
+// bind, hadron-server#4306).
+func TestStartOnTheExecPathStatesSettingsNotApplied2199(t *testing.T) {
 	for name, c := range map[string]struct {
 		args map[string]any
-		want []string
+		want bool
 	}{
-		"model":       {map[string]any{"model": "sonnet"}, []string{"claude-worker", "--model", "opus", "--model", "sonnet"}},
-		"tier":        {map[string]any{"tier": "low"}, []string{"claude-worker", "--model", "opus", "--model", "haiku"}},
-		"effort only": {map[string]any{"effort": "HIGH"}, []string{"claude-worker", "--model", "opus"}},
-		"none":        {nil, []string{"claude-worker", "--model", "opus"}},
+		"model":  {map[string]any{"model": "sonnet"}, true},
+		"tier":   {map[string]any{"tier": "low"}, true},
+		"effort": {map[string]any{"effort": "HIGH"}, true},
+		"none":   {nil, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			p, srv, host := testPoller(t)
+			var logged []string
+			p.emit = func(e Event) { logged = append(logged, e.Kind+": "+e.Detail) }
 			srv.notDone["s1"] = 1
 			op := startOp()
 			for k, v := range c.args {
@@ -222,14 +226,21 @@ func TestStartOnTheExecPathAppliesTheRunSettings2199(t *testing.T) {
 			}
 			srv.batches = [][]Operation{{op}}
 			step(t, p)
-			if len(host.launches) != 1 || !reflect.DeepEqual(host.launches[0].Argv, c.want) {
-				t.Fatalf("launches = %+v, want argv %q", host.launches, c.want)
+			if len(host.launches) != 1 || !reflect.DeepEqual(host.launches[0].Argv, []string{"claude-worker", "--model", "opus"}) {
+				t.Fatalf("the fixed command must launch unchanged: %+v", host.launches)
+			}
+			has := false
+			for _, kv := range host.launches[0].Env {
+				has = has || kv == StartSettingsAppliedEnvVar+"=false"
+			}
+			said := false
+			for _, l := range logged {
+				said = said || strings.Contains(l, "not applied")
+			}
+			if has != c.want || said != c.want {
+				t.Fatalf("env statement %v, log %v, want %v (env %q)", has, said, c.want, host.launches[0].Env)
 			}
 		})
-	}
-	got, note := ExecRunArgs([]string{"codex-worker"}, "codex", RunSettings{Tier: "mid", Effort: "MAX"})
-	if !reflect.DeepEqual(got, []string{"codex-worker", "-c", "model_reasoning_effort=xhigh"}) || !strings.Contains(note, "not mapped") {
-		t.Fatalf("codex exec argv %q note %q", got, note)
 	}
 }
 
