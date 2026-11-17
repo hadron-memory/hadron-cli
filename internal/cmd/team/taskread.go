@@ -51,6 +51,46 @@ func partyCell(p *taskPartyDTO) string {
 	return output.SafeCell(p.ID)
 }
 
+// reservedNoProjectParent reports whether a parented task's parent is the
+// App's reserved AT0 "No project" project (cli#1320; server#2553,
+// cor:agt:050:01). The handle grammar settles this without another read: the
+// first segment is the project, AT0 is reserved for "no project", and
+// parentage is fixed at creation, so a task parented on the reserved project
+// carries exactly the handle AT0.<n>, one child segment. A real project
+// (AT<n>, n >= 1), a subtask path (AT0.5.3, parented on a task), or a missing
+// or malformed handle is not the reserved parent, and the display keeps the
+// parent line: unknown shapes fail open, never hiding a real parent.
+func reservedNoProjectParent(handle string) bool {
+	rest, ok := strings.CutPrefix(handle, "AT0.")
+	if !ok || rest == "" || strings.Contains(rest, ".") {
+		return false
+	}
+	for i, r := range rest {
+		// The grammar's child segment: [1-9][0-9]*, no leading zero.
+		if r < '0' || r > '9' || (i == 0 && r == '0') {
+			return false
+		}
+	}
+	return true
+}
+
+// refNamesTask reports whether a task ref, as sent, names this task: its id,
+// its bare handle, or its handle qualified as hrn:agenttask:<root>:<slug>:<handle>
+// (typed, or composed from --app).
+func refNamesTask(ref, id, handle string) bool {
+	if ref == id {
+		return true
+	}
+	if handle == "" {
+		return false
+	}
+	if strings.EqualFold(ref, handle) {
+		return true
+	}
+	lower := strings.ToLower(ref)
+	return strings.HasPrefix(lower, "hrn:agenttask:") && strings.HasSuffix(lower, ":"+strings.ToLower(handle))
+}
+
 // ---- get ------------------------------------------------------------------
 
 func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
@@ -202,7 +242,15 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.ParentTaskID != nil {
-		if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
+		if reservedNoProjectParent(task.Handle) {
+			// cli#1320, option A (Holger 2026-11-04): the parent is the
+			// reserved AT0 "No project" project the server parents every
+			// --parent-less task on, not a parent anybody asked for; the
+			// task's own handle AT0.<n> already says "no project".
+			if err := line("  project: none"); err != nil {
+				return err
+			}
+		} else if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
 			return err
 		}
 	}
@@ -996,12 +1044,28 @@ walk is complete.`,
 			// NOTHING at exit 0 — the #470-class sin in this very render).
 			children := map[string][]*taskDTO{}
 			roots := []*taskDTO{}
+			// cli#1320: the reserved AT0 "No project" row is not drawn as a
+			// parent node. A task whose parent is AT0 renders as a root (its
+			// own handle AT0.<n> already says "no project"), unless AT0 is the
+			// root asked for by name (id, handle or qualified handle): then the
+			// row is the requested subject, not an implied parent.
+			reservedID, reservedAsked := "", false
 			for i := range tasks {
+				if tasks[i].Handle == "AT0" {
+					reservedID = tasks[i].ID
+					reservedAsked = refNamesTask(rootId, tasks[i].ID, tasks[i].Handle)
+				}
+			}
+			hideReserved := reservedID != "" && !reservedAsked
+			for i := range tasks {
+				if hideReserved && tasks[i].ID == reservedID {
+					continue // the implied reserved parent is not drawn
+				}
 				if tasks[i].ParentTaskID == nil {
 					roots = append(roots, &tasks[i])
 					continue
 				}
-				if parent, ok := findByID(tasks, *tasks[i].ParentTaskID); ok {
+				if parent, ok := findByID(tasks, *tasks[i].ParentTaskID); ok && (!hideReserved || parent.ID != reservedID) {
 					children[parent.ID] = append(children[parent.ID], &tasks[i])
 				} else {
 					roots = append(roots, &tasks[i])
