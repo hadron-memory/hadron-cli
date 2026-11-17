@@ -130,7 +130,7 @@ func TestCoordinatorCadenceAlarm1607(t *testing.T) {
 					keys = append(keys, k)
 				}
 				sort.Strings(keys)
-				if strings.Join(keys, ",") != "acknowledgedAt,acknowledgedBy,actor,actorRunId,appId,chain,createdAt,episodeStart,escalationEndedAt,id,payload,severity,subjectWorker,taskId,type,wakes" {
+				if strings.Join(keys, ",") != "acknowledgedAt,acknowledgedBy,actor,actorRunId,appId,chain,createdAt,episodeStart,escalationEndedAt,id,payload,severity,subjectWorker,taskHandle,taskId,type,wakes" {
 					t.Fatalf("JSON shape changed: %v", keys)
 				}
 			})

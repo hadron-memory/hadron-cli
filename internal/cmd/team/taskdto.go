@@ -62,8 +62,8 @@ type taskResultDTO struct {
 	Evidence *string `json:"evidence"`
 }
 
-// taskDTO is one task. OpenAlarms is set only by `task tree`, which joins the
-// unacknowledged alarms onto the nodes it renders; omitempty keeps the other
+// taskDTO is one task. OpenAlarms is set only by `task tree` (and `task list
+// --team`), which join the server's alarms in effect onto the tasks they render; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskMatchFailureDTO struct {
 	Reason   string `json:"reason"`
@@ -317,9 +317,12 @@ type alarmWakeDTO struct {
 }
 
 type teamEventDTO struct {
-	ID             string          `json:"id"`
-	AppID          string          `json:"appId"`
-	TaskID         *string         `json:"taskId"`
+	ID     string  `json:"id"`
+	AppID  string  `json:"appId"`
+	TaskID *string `json:"taskId"`
+	// TaskHandle is the task's stored handle exactly as the server sent it
+	// (cli#2005); null when the event has no task or the task is gone.
+	TaskHandle     *string         `json:"taskHandle"`
 	Type           string          `json:"type"`
 	Severity       *string         `json:"severity"`
 	CreatedAt      string          `json:"createdAt"`
@@ -343,6 +346,7 @@ func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 		ID:                e.Id,
 		AppID:             e.AppId,
 		TaskID:            e.TaskId,
+		TaskHandle:        e.TaskHandle,
 		Type:              e.Type,
 		CreatedAt:         e.CreatedAt,
 		Actor:             partyDTO(e.Actor),
