@@ -173,6 +173,11 @@ func TestNewArgumentSkewNeverWidens1833(t *testing.T) {
 		}
 		response, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}})
 		r[op] = string(response)
+		// A headerless plural retry can return the same refusal. Count it,
+		// rather than letting an unexpected-operation stub kill the test.
+		if kind == "heads" {
+			r["TeamChatTagsMulti"] = string(response)
+		}
 		calls, _, err := runTeamTask(t, r, args...)
 		if exitCodeFor(err) != 2 {
 			t.Fatalf("unknown argument should refuse: %v", err)
@@ -240,10 +245,6 @@ func TestPluralHeadRefusalParity2246(t *testing.T) {
 					if got := renderError(f, err); got != want {
 						t.Fatalf("exit=%d want=%d err=%v", got, want, err)
 					}
-					var wire struct {
-						Error struct{ ServerCode, Message string }
-					}
-					_ = wire
 					if !strings.Contains(out.String(), `"serverCode": "`+code+`"`) || !strings.Contains(out.String(), "uniform refusal") {
 						t.Fatalf("refusal lost: %s", out.String())
 					}
