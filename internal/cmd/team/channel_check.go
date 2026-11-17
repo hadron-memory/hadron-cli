@@ -32,6 +32,9 @@ func channelCheckLabel(check *channelCheckDTO) string {
 			return check.Status + " (ended)"
 		case "NEVER_BOUND":
 			return check.Status + " (never bound)"
+		case "":
+			// An empty reason is no reason: bare status, never "NO_SESSION ()".
+			return check.Status
 		default:
 			return check.Status + " (" + *check.NoSessionReason + ")"
 		}
@@ -50,14 +53,23 @@ func channelCheckActivityLabel(check *channelCheckDTO, lastActiveAt *string, now
 	if err != nil {
 		return label
 	}
-	age := "just now"
-	elapsed := now.Sub(at)
-	if elapsed >= time.Hour {
-		age = fmt.Sprintf("%dh", int64(elapsed/time.Hour))
-	} else if elapsed >= time.Minute {
-		age = fmt.Sprintf("%dm", int64(elapsed/time.Minute))
+	return check.Status + " (open, quiet " + quietAge(now.Sub(at)) + ")"
+}
+
+// quietAge renders an elapsed time for display only: "just now" under a
+// minute (and for a timestamp ahead of the local clock), then whole minutes,
+// whole hours, and whole days from 48 hours. Every unit truncates, never
+// rounds, matching the TERMINAL column's age.
+func quietAge(elapsed time.Duration) string {
+	switch {
+	case elapsed >= 48*time.Hour:
+		return fmt.Sprintf("%dd", int64(elapsed/(24*time.Hour)))
+	case elapsed >= time.Hour:
+		return fmt.Sprintf("%dh", int64(elapsed/time.Hour))
+	case elapsed >= time.Minute:
+		return fmt.Sprintf("%dm", int64(elapsed/time.Minute))
 	}
-	return "NO_SESSION (open, quiet " + age + ")"
+	return "just now"
 }
 
 func channelCheckFromFields(fields gen.ChannelCheckFields) *channelCheckDTO {
