@@ -3,10 +3,11 @@ package team
 // `team health install|uninstall|status` (hadron-cli#1374, slice C2b of the
 // team health sweep): put the sweep on a schedule on the Orca host without a
 // separate app. The entry is exactly
-//   <abs hadron> team health sweep --config <abs host.yaml>
-// in a systemd user timer, a crontab line or a launchd agent. The host key is
-// never read, written or passed on argv: it stays in the 0600 key file the
-// sweep reads. Scheduler calls go through healthsched's injected Runner.
+//   <abs hadron> team health sweep --dry-run=false --config <abs host.yaml>
+// in a systemd user timer, a crontab line or a launchd agent — the scheduled
+// sweep applies the duplicate fixes (#2027). The host key is never read,
+// written or passed on argv: it stays in the 0600 key file the sweep reads.
+// Scheduler calls go through healthsched's injected Runner.
 
 import (
 	"errors"
@@ -71,14 +72,18 @@ type installDTO struct {
 }
 
 func newHealthInstall(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledInstall(f, healthsched.Health)
+}
+
+func newScheduledInstall(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	var config, interval, bin string
 	c := &cobra.Command{
 		Use:   "install --config <host.yaml> --interval <duration> [--bin <path>]",
 		Short: "Run the team health sweep on a schedule on this host",
 		Long: `Install a user-level scheduler entry that runs
 "<hadron> team health sweep --config <host.yaml> --dry-run=false" every
---interval (the flag makes the scheduled sweep apply tab titles; a manual
-sweep only lists them): a systemd
+--interval (the flag makes the scheduled sweep apply tab titles and the
+duplicate fixes; a manual sweep only lists them): a systemd
 user timer on Linux (a crontab line where systemd user units are not
 available) or a launchd agent on macOS. There is no default interval; give
 whole minutes, at least 1m (cron needs one that divides an hour or a day
@@ -143,8 +148,13 @@ written (uninstall removes them).`,
 			if err != nil {
 				return mapSched(err)
 			}
+			// The zero Job already carries --dry-run=false in its Args
+			// (#2017): the scheduled sweep applies tab titles and duplicate
+			// fixes (#2027); a manual run stays dry by default.
 			spec := healthsched.Spec{Bin: bin, Config: abs, Interval: d, Path: path}
-			res, err := healthEnv(f).Install(spec)
+			env := healthEnv(f)
+			env.Job = job
+			res, err := env.Install(spec)
 			if err != nil {
 				return mapSched(err)
 			}
@@ -157,7 +167,7 @@ written (uninstall removes them).`,
 				if !res.Changed {
 					verb = "already installed, unchanged"
 				}
-				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s team health sweep --config %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, abs, orca)
+				_, e := fmt.Fprintf(w, "%s (%s): every %s, runs %s %s --config %s %s, orca %s\n", verb, dto.Scheduler, dto.Interval, bin, strings.Join(job.Sub, " "), abs, strings.Join(job.Args, " "), orca)
 				return e
 			})
 		},
@@ -175,6 +185,10 @@ type uninstallDTO struct {
 }
 
 func newHealthUninstall(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledUninstall(f, healthsched.Health)
+}
+
+func newScheduledUninstall(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	return &cobra.Command{
 		Use:   "uninstall",
 		Short: "Remove the scheduled team health sweep from this host",
@@ -184,7 +198,9 @@ midway. Other crontab lines are left alone. Nothing installed is success.`,
 		Example: "  hadron team health uninstall",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			res, err := healthEnv(f).Uninstall()
+			env := healthEnv(f)
+			env.Job = job
+			res, err := env.Uninstall()
 			if err != nil {
 				return mapSched(err)
 			}
@@ -227,6 +243,10 @@ func nz(s string) *string {
 }
 
 func newHealthStatus(f *cmdutil.Factory) *cobra.Command {
+	return newScheduledStatus(f, healthsched.Health)
+}
+
+func newScheduledStatus(f *cmdutil.Factory, job healthsched.Job) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show whether the team health sweep is scheduled on this host",
@@ -245,6 +265,7 @@ Details:
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			e := healthEnv(f)
+			e.Job = job
 			st := e.ReadStatus()
 			dto := healthStatusDTO{Installed: st.Installed, Active: st.Active, Files: append([]string{}, st.Files...), Notes: append([]string{}, st.Notes...)}
 			if st.Installed {

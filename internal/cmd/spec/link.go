@@ -26,6 +26,10 @@ type linkResultDTO struct {
 	// before this run, which wrote nothing; EdgeID is then that edge (#687).
 	AlreadyLinked bool `json:"alreadyLinked"`
 	DryRun        bool `json:"dryRun"`
+	// Warnings names each end that is tag-only: the "spec" tag without a
+	// spec / spec.* role, so a legacy candidate, not law (#1781). The edge is
+	// still created. Always a list, [] when both ends are governed.
+	Warnings []string `json:"warnings"`
 }
 
 func newCmdLink(f *cmdutil.Factory) *cobra.Command {
@@ -47,7 +51,10 @@ one — a field spec points at the entity it belongs to, a flow at its rule. So
 direction ` + "`spec extract`" + ` wires automatically.
 
 Both endpoints must already exist and be specs, at any valid loc (the
-"spec" tag or the spec/spec.* role family); reach for
+"spec" tag or the spec/spec.* role family). An end that has only the tag is a
+legacy candidate, not governed: the link is still made, and the output warns
+which end it is (JSON: warnings, a list, [] when both ends are governed);
+repair it with ` + "`node update <urn> --role spec`" + `. Reach for
 ` + "`edge add`" + ` to link arbitrary nodes, or across memories. With no --label, a
 sentence-style label is synthesized from the two titles in the corpus
 convention ("documents <from> on the <to> entity"); refine it with
@@ -103,6 +110,7 @@ label), it reports "already linked" and writes nothing.`,
 				Label:    label,
 				MemoryID: memURN,
 				DryRun:   dryRun,
+				Warnings: linkWarnings(memURN, specLinkEnd{from, fromNode}, specLinkEnd{to, toNode}),
 			}
 			// `spec link` is the repair the remedies name (#687), so a re-run
 			// must not stack a duplicate: an edge already there is reported,
@@ -178,6 +186,30 @@ func existingLink(from *gen.GetNodeNode, targetID, label string) (string, bool) 
 	return "", false
 }
 
+// specLinkEnd is one resolved end of a link, with the loc the caller typed.
+type specLinkEnd struct {
+	loc  string
+	node *gen.GetNodeNode
+}
+
+// linkWarnings lists one warning per end that is not governed. Both ends have
+// passed requireSpec, so "not governed" here is exactly the tag-only case; it
+// asks isGovernedSpec, the same signal list, describe and lint use (#1658).
+func linkWarnings(memURN string, ends ...specLinkEnd) []string {
+	warnings := []string{}
+	for _, e := range ends {
+		if isGovernedSpec(e.node.Role) {
+			continue
+		}
+		ref := cmdutil.NodeURN(memURN, e.loc)
+		if ref == "" {
+			ref = specNodeRef(memURN, e.loc)
+		}
+		warnings = append(warnings, fmt.Sprintf("%s is not governed (the spec tag alone is not law); use hadron node update %s --role spec", e.loc, cmdutil.ShellQuote(ref)))
+	}
+	return warnings
+}
+
 func renderLinkResult(w io.Writer, r linkResultDTO) error {
 	verb := "✓ linked"
 	switch {
@@ -187,5 +219,8 @@ func renderLinkResult(w io.Writer, r linkResultDTO) error {
 		verb = "would link"
 	}
 	fmt.Fprintf(w, "%s %s → %s  (%s)\n", verb, r.From, r.To, r.Label)
+	for _, warning := range r.Warnings {
+		fmt.Fprintf(w, "warning: %s\n", output.SafeCell(warning))
+	}
 	return nil
 }

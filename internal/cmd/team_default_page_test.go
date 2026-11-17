@@ -72,7 +72,7 @@ func TestTeamEventsAndHostOpsDefaultTo20(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := findCall(t, calls, "HostOperations"); c.Vars["first"] != float64(20) {
+	if c := findCall(t, calls, "HostOperationsWithReason"); c.Vars["first"] != float64(20) {
 		t.Errorf("team host operations default first %v, want 20", c.Vars["first"])
 	}
 }

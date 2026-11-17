@@ -115,7 +115,7 @@ func approveCommand(ref string, rev int, asWorker bool) string {
 // workerSend carries --as-worker for one batch: send wraps each compile
 // mutation's context (re-verifying the binding), nil on the default path.
 type workerSend struct {
-	send     func(context.Context) (context.Context, error)
+	send     cmdutil.WorkerWriteContext
 	asWorker bool
 }
 

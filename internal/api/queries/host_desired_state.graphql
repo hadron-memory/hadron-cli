@@ -1,0 +1,33 @@
+# hadron-cli#1389 server adapter over hadron-server#4242 (S3 of #4229): a
+# host's desired state, the source `team host up` reconciles against. A read:
+# it is sent without the worker session (no X-Hadron-Session).
+query HostDesiredState($appRef: String!, $hostId: String!) {
+  hostDesiredState(appRef: $appRef, hostId: $hostId) {
+    hostId
+    sweepMode
+    workers {
+      workerId
+      name
+      lifecycle
+      desired
+      reason
+      wouldBe
+      wouldBeReason
+      openSessionId
+      family
+      worktrees
+    }
+  }
+}
+
+# cli#2085: the repos a worker's role names (TeamRole.repos), the one source
+# `host up` may create a missing worktree from under hostSetupSource SERVER.
+# Only these fields (the full worker record carries the boot prompt). Masked to
+# [] for a caller who cannot read the worker, which `host up` treats as "no
+# repo". Sent without the worker session.
+query HostUpWorkerRepos($ref: ID!) {
+  worker(ref: $ref) {
+    id
+    repos
+  }
+}

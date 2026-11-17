@@ -14,7 +14,7 @@ import (
 )
 
 func newCmdWorkerCompile(f *cmdutil.Factory) *cobra.Command {
-	return bootcompile.NewWorker(f, func(cmd *cobra.Command, ref string) (string, error) {
+	return bootcompile.NewWorker(f, func(cmd *cobra.Command, ref string, checkApp func(string) error) (string, error) {
 		ref = strings.TrimSpace(ref)
 		client, err := f.GraphQLClient()
 		if err != nil {
@@ -22,8 +22,8 @@ func newCmdWorkerCompile(f *cmdutil.Factory) *cobra.Command {
 		}
 		source := "explicit worker reference"
 		var worker gen.WorkerFields
-		// An explicit casting identity is independent of every ambient App/binding,
-		// including an unreadable binding or one for another server.
+		// An explicit casting identity is independent of ambient scope on the
+		// person path. --as-worker validates its resolved App before any output.
 		if cmdutil.IsEntityID(ref) || strings.HasPrefix(strings.ToLower(ref), "hrn:worker:") || strings.HasPrefix(strings.ToLower(ref), "urn:worker:") {
 			r, err := gen.GetWorker(cmd.Context(), client, ref)
 			if err != nil {
@@ -43,6 +43,9 @@ func newCmdWorkerCompile(f *cmdutil.Factory) *cobra.Command {
 				return "", err
 			}
 			source = scope.Source
+		}
+		if err := checkApp(worker.AppId); err != nil {
+			return "", err
 		}
 		if !f.JSON {
 			label := worker.Id

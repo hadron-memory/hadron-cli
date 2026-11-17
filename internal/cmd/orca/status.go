@@ -58,12 +58,14 @@ func defaultEnv(f *cmdutil.Factory) Env {
 			}
 			return graphReads{client: client, app: app}, nil
 		},
-		BoundAt: boundAt,
+		BoundAt: BoundAt,
 	}
 }
 
-// boundAt reads the binding in worktree's git directory.
-func boundAt(ctx context.Context, worktree string) (Bound, bool) {
+// BoundAt reads the binding in worktree's git directory. Exported for the
+// team health sweep (#2027), which must never touch a worktree whose worker
+// has no binding.
+func BoundAt(ctx context.Context, worktree string) (Bound, bool) {
 	if !filepath.IsAbs(worktree) {
 		return Bound{}, false
 	}

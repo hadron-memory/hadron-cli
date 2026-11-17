@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"math"
 	"os"
 	"path/filepath"
@@ -28,6 +29,9 @@ type fakeServer struct {
 	endedOnce map[string]bool
 	// reportErr fails every Report (a report that does not reach the server).
 	reportErr error
+	// startSession, when set, is the sessionId a worker.start success carries
+	// back (the server's result for a bound start).
+	startSession string
 }
 
 func (s *fakeServer) Register(_ context.Context, r Registration) (RegisteredHost, error) {
@@ -72,7 +76,11 @@ func (s *fakeServer) Report(_ context.Context, id, outcome, worktree, reason str
 	if s.endedOnce[id] {
 		status = Succeeded // the server records a FAILED end on an ended session as success
 	}
-	return Operation{ID: id, Status: status, Result: map[string]any{"handoff": true}}, nil
+	res := map[string]any{"handoff": true}
+	if s.startSession != "" && outcome == Succeeded {
+		res = map[string]any{"sessionId": s.startSession}
+	}
+	return Operation{ID: id, Status: status, Result: res}, nil
 }
 
 func (s *fakeServer) finalReports() []report {
@@ -106,6 +114,16 @@ func (a *fakeAgent) Terminate() (bool, string) {
 	return true, "terminated the fake"
 }
 
+// TerminateWith is Terminate behind the authorization, as execAgent's is.
+func (a *fakeAgent) TerminateWith(authorize Authorize) (bool, string) {
+	release, ok := authorize()
+	if !ok {
+		return false, "declined before a signal"
+	}
+	defer release()
+	return a.Terminate()
+}
+
 func (a *fakeAgent) terminations() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -135,6 +153,57 @@ type fakeHost struct {
 	entered chan struct{}
 	// beforeLaunch, when set, runs as Launch is entered.
 	beforeLaunch func()
+	// stopped records every path StopAgents was asked about; stops/stopErr
+	// are its answers (#2057).
+	stopped []string
+	stops   []AgentStop
+	stopErr error
+	// betweenCheckAndStop runs inside StopAgents, before its still check:
+	// the window in which a replacement session can bind.
+	betweenCheckAndStop func()
+	// inspectErr fails Inspect (an untrusted repo config, say).
+	inspectErr error
+	// resets records the paths ResetWorkspace was asked about; resetOut/resetErr
+	// are its answers; resetOrder, when set, is told "reset" at the call so a
+	// test can pin it before the launch.
+	resets     []string
+	resetOut   ResetOutcome
+	resetErr   error
+	resetOrder func(string)
+	// whileHeld runs inside StopAgents at the moment of the signal, after the
+	// authorization granted it and before the release (#2068).
+	whileHeld func()
+}
+
+// ResetWorkspace records the call and answers resetOut/resetErr (#2057 C2b).
+func (h *fakeHost) ResetWorkspace(_ context.Context, path string) (ResetOutcome, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.resets = append(h.resets, path)
+	if h.resetOrder != nil {
+		h.resetOrder("reset")
+	}
+	return h.resetOut, h.resetErr
+}
+
+func (h *fakeHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.betweenCheckAndStop != nil {
+		h.betweenCheckAndStop()
+	}
+	if authorize != nil {
+		release, ok := authorize()
+		if !ok {
+			return []AgentStop{{Detail: "the binding moved on before the signal; nothing was touched"}}, nil
+		}
+		if h.whileHeld != nil {
+			h.whileHeld() // the instant of the signal, the binding lock held
+		}
+		release()
+	}
+	h.stopped = append(h.stopped, path)
+	return h.stops, h.stopErr
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
@@ -160,6 +229,9 @@ func (h *fakeHost) CreateWorktree(_ context.Context, _, path, branch, _ string) 
 func (h *fakeHost) Inspect(_ context.Context, path string) (WorktreeState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.inspectErr != nil {
+		return WorktreeState{}, h.inspectErr
+	}
 	return h.trees[path], nil
 }
 
@@ -185,6 +257,9 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	defer h.mu.Unlock()
 	if h.launchErr != nil {
 		return nil, h.launchErr
+	}
+	if h.resetOrder != nil {
+		h.resetOrder("launch")
 	}
 	h.launches = append(h.launches, spec)
 	if h.agent == nil {
@@ -228,6 +303,11 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		cfg.WorktreePath("repo/iris"): {Exists: true, IsWorktree: true, Branch: "iris/work", Upstream: "origin/iris/work"},
 	}}
 	p := New(cfg, srv, host, st, hostKey, nil)
+	// The fake host stands in for /proc, so the strict census (which reads the
+	// real one) proves nothing here unless a test installs its own (cli#2201).
+	p.agentCensus = func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error) {
+		return hostrelaunch.Observation{}, errors.New("no census in this test")
+	}
 	// A fake clock: sleeping advances it, so bind waits run instantly.
 	now := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
 	var clock sync.Mutex
@@ -1408,6 +1488,118 @@ func TestStepCollectsOncePerStepEvenOnAFullPage(t *testing.T) {
 	for _, r := range srv.finalReports() {
 		if r.id == "next" {
 			t.Error("the second page must wait for the next Step")
+		}
+	}
+}
+
+// refusingServer answers each registration with the next refusal set.
+type refusingServer struct {
+	*fakeServer
+	sets [][]RefusedWorker
+	n    int
+	// unknown: the server cannot report refusals (it predates #4241).
+	unknown bool
+}
+
+func (s *refusingServer) Register(ctx context.Context, r Registration) (RegisteredHost, error) {
+	ans, err := s.fakeServer.Register(ctx, r)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.n < len(s.sets) {
+		ans.Refused = s.sets[s.n]
+	}
+	ans.RefusedKnown = !s.unknown
+	s.n++
+	return ans, err
+}
+
+// hadron-cli#2091: a registration's per-worker refusals are visible, once per
+// change, and never fail the poll (cor:agt:070:01, hadron-server#4241).
+func TestPollerReportsRegistrationRefusalsOnceAndOnlyOnChange(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var events []Event
+	p.emit = func(e Event) { mu.Lock(); events = append(events, e); mu.Unlock() }
+	a := RefusedWorker{Worker: "Synthetic", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	b := RefusedWorker{Worker: "Other", Code: "HOST_WORKER_NOT_ASSIGNED"}
+	rs := &refusingServer{fakeServer: srv, sets: [][]RefusedWorker{nil, {a}, {a}, {b, a}, {a, b}, nil}}
+	p.server = rs
+	refused := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		var got []string
+		for _, e := range events {
+			if e.Kind == "worker-refused" {
+				got = append(got, e.Detail)
+			}
+		}
+		return got
+	}
+	wantAfter := []int{0, 1, 1, 3, 3, 3} // empty; new set; same set (silent); changed set; same set in another order (silent); cleared (silent)
+	for i, want := range wantAfter {
+		step(t, p)
+		if got := refused(); len(got) != want {
+			t.Fatalf("after poll %d: %d refusal events %v, want %d", i+1, len(got), got, want)
+		}
+	}
+	for _, d := range refused() {
+		if !strings.Contains(d, "HOST_WORKER_NOT_ASSIGNED") {
+			t.Fatalf("a refusal event must carry the server's code: %q", d)
+		}
+	}
+	if len(srv.regs) != len(wantAfter) {
+		t.Fatalf("every poll registers once: %d", len(srv.regs))
+	}
+}
+
+func TestPollerSaysOnceThatRefusalsAreUnknownOnAnOldServer(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var kinds []string
+	p.emit = func(e Event) { mu.Lock(); kinds = append(kinds, e.Kind); mu.Unlock() }
+	p.server = &refusingServer{fakeServer: srv, unknown: true}
+	for i := 0; i < 3; i++ {
+		step(t, p)
+	}
+	n := 0
+	for _, k := range kinds {
+		if k == "refusals-unknown" {
+			n++
+		}
+		if k == "worker-refused" {
+			t.Fatal("an unknown set is never reported as refused workers")
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d refusals-unknown events over three polls, want exactly one (%v)", n, kinds)
+	}
+}
+
+// cli#2100: a refused set that empties is said once; two different refusal
+// sets never share an identity just because their strings join alike.
+func TestPollerSaysWhenRefusalsClearAndNeverConfusesDifferentSets(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	var mu sync.Mutex
+	var kinds []string
+	p.emit = func(e Event) { mu.Lock(); kinds = append(kinds, e.Kind); mu.Unlock() }
+	one := RefusedWorker{Worker: "B C", Code: "A"}
+	other := RefusedWorker{Worker: "C", Code: "A B"} // the old space-joined key was identical
+	p.server = &refusingServer{fakeServer: srv, sets: [][]RefusedWorker{{one}, {other}, nil, nil, {one}}}
+	count := func(kind string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		n := 0
+		for _, k := range kinds {
+			if k == kind {
+				n++
+			}
+		}
+		return n
+	}
+	for i, want := range []struct{ refused, cleared int }{{1, 0}, {2, 0}, {2, 1}, {2, 1}, {3, 1}} {
+		step(t, p)
+		if count("worker-refused") != want.refused || count("worker-refusals-cleared") != want.cleared {
+			t.Fatalf("after poll %d: refused=%d cleared=%d, want %+v (%v)", i+1, count("worker-refused"), count("worker-refusals-cleared"), want, kinds)
 		}
 	}
 }

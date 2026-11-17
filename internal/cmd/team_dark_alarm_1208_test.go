@@ -74,7 +74,7 @@ func TestTaskAlarmBaseline1208(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)\nID    AT                    TYPE               ACTOR  TASK   ACK\nevt2  2026-10-12T03:00:00Z  stall.no-progress  —      task1  open\n"; out != want {
+	if want := "app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)\nID    AT                    TYPE               ACTOR  TASK   ACK   ESCALATION ENDED\nevt2  2026-10-12T03:00:00Z  stall.no-progress  —      task1  open  \n"; out != want {
 		t.Fatalf("task event changed: %q", out)
 	}
 	_, out, err = runTeamTask(t, r, "team", "alarm", "ack", "evt2")

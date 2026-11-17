@@ -24,16 +24,20 @@ const (
 	CredentialExplicit CredentialKind = "explicit"
 )
 
-// CredentialLedger records the kinds of credential this invocation actually put
-// on the wire, filled in at send time by the shared transport. The entry point
-// reads it to decide whether a refusal can honestly be blamed on the stored
-// login. A nil ledger records nothing and reports nothing.
+// CredentialLedger records the kinds of credential this invocation attempted to
+// send: a credential-bearing HTTP attempt, recorded after every local refusal
+// and immediately before http.Client.Do. It is not proof that the request was
+// transmitted or that the server received it; a rejecting transport or an
+// already-cancelled context still counts as an attempt (cli#1759). The entry
+// point reads it to decide whether a refusal can honestly be blamed on the
+// stored login, which needs a server answer anyway. A nil ledger records
+// nothing and reports nothing.
 type CredentialLedger struct {
 	mu    sync.Mutex
 	kinds map[CredentialKind]struct{}
 }
 
-// Sent records that a request carrying a credential of this kind was sent.
+// Sent records an attempt to send a request carrying a credential of this kind.
 func (l *CredentialLedger) Sent(kind CredentialKind) {
 	if l == nil || kind == "" {
 		return

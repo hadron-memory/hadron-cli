@@ -306,12 +306,7 @@ func TestPlainDirTerminalCheckoutBindingAbsentAdmitsMalformedHolds(t *testing.T)
 		} {
 			t.Run(name+"/"+c.label, func(t *testing.T) {
 				p := newPlainHarness(t)
-				p.d.Bound = func(w string) string {
-					if w == p.plain {
-						return plainBoundWorker(w)
-					}
-					return BoundWorker(w)
-				}
+				p.d.Bound = BoundWorker
 				p.orca.terms[0].WorktreePath = mk(t, t.TempDir(), c.content)
 				if !c.hold {
 					if o := p.deliver(p.batch()); o.Kind != Delivered {
@@ -328,7 +323,7 @@ func TestPlainDirTerminalCheckoutBindingAbsentAdmitsMalformedHolds(t *testing.T)
 
 // A binding that exists but cannot be read as a file (here a directory in
 // its place) is unusable, never absent.
-func TestBoundWorkerUnreadableBindingIsNotAbsent(t *testing.T) {
+func TestBoundWorkerUnusableBindingIsNotAbsent(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".git", bindingFileName), 0o755); err != nil {
 		t.Fatal(err)
@@ -380,6 +375,9 @@ func TestPlainBoundWorkerSymlinkedBindingIsNotAbsent(t *testing.T) {
 	}
 	if err := os.Symlink(target, filepath.Join(plain, ".hadron-team", bindingFileName)); err != nil {
 		t.Skip("no symlinks")
+	}
+	if got := plainBoundWorker(plain); got != unusableBinding {
+		t.Fatalf("plainBoundWorker = %q, want unusableBinding", got)
 	}
 	if got := BoundWorker(plain); got != unusableBinding {
 		t.Fatalf("BoundWorker = %q, want unusableBinding", got)

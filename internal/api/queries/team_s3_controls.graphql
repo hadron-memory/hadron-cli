@@ -1,0 +1,69 @@
+query GetAppSweepMode($appRef: ID!) {
+  app(ref: $appRef) { sweepMode }
+}
+
+mutation SetAppSweepMode(
+  $appRef: String!
+  $mode: SweepMode!
+  # @genqlient(omitempty: true)
+  $instruction: ActInstructionInput
+) {
+  setAppSweepMode(appRef: $appRef, mode: $mode, instruction: $instruction) { sweepMode }
+}
+
+# Omitted reason is absent, never null. The server validates its bound and
+# whether it is meaningful for this marker change.
+# @genqlient(for: "SetWorkerLeaveAloneInput.appRef", omitempty: true)
+# @genqlient(for: "SetWorkerLeaveAloneInput.reason", omitempty: true)
+mutation SetWorkerLeaveAlone(
+  $input: SetWorkerLeaveAloneInput!
+  # @genqlient(omitempty: true)
+  $instruction: ActInstructionInput
+) {
+  setWorkerLeaveAlone(input: $input, instruction: $instruction) {
+    workerId
+    leaveAlone
+    reason
+    by
+    at
+  }
+}
+
+# The new read command alone requires S3; shared WorkerFields stay unchanged.
+query GetWorkerLeaveAlone(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $appRef: ID
+) {
+  worker(ref: $ref, appRef: $appRef) {
+    id
+    leaveAlone
+    leaveAloneReason
+    leaveAloneBy
+    leaveAloneAt
+  }
+}
+
+# #4281 / hadron-cli#2190: one month of review-quality measures, read only.
+query TeamReviewQualityReport($appRef: ID!, $month: String!) {
+  reviewQualityReport(appRef: $appRef, month: $month) {
+    month
+    asOf
+    rows {
+      recorded
+      family
+      model
+      modelReported
+      reviews
+      findings
+      findingsPerReview
+      confirmedFindings
+      rejectedFindings
+      undisposedFindings
+      shareConfirmed
+      approvingReviews
+      defectsMissed
+      defectsMissedPerApprovingReview
+    }
+  }
+}

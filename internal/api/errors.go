@@ -290,6 +290,34 @@ func mapError(err error) error {
 	if errors.As(err, &coded) {
 		return err
 	}
+	// S11: ticker subscription is incompatible with the worker's lifecycle,
+	// not a permission or transport failure. Keep the original error chain so
+	// JSON metadata and callers can still identify the server refusal.
+	if HasErrorCode(err, "TICKER_ON_SHORT_LIVED") {
+		return exitcode.New(codeForExtension("TICKER_ON_SHORT_LIVED"), &serverError{
+			msg: "a short-lived worker is woken by its tasks, not by tickers",
+			err: err,
+		})
+	}
+
+	// cli#2206: a task's run settings the server refused. The reason names
+	// which rule (MODEL_OUTSIDE_FAMILY, FAMILY_EXCLUDED, TIER_BELOW_MINIMUM,
+	// BAD_VALUE, ...); it depends on the task's requirements, so the server
+	// judges it and the CLI shows it. A usage error: the caller fixes the input.
+	if HasErrorCode(err, "TASK_RUN_SETTINGS_INVALID") {
+		reason := ""
+		for _, e := range graphQLErrors(err) {
+			if e != nil && extensionCode(e) == "TASK_RUN_SETTINGS_INVALID" {
+				reason, _ = e.Extensions["reason"].(string)
+				break
+			}
+		}
+		msg := "the task's run settings were refused"
+		if reason != "" {
+			msg += ": " + reason
+		}
+		return exitcode.New(exitcode.Usage, &serverError{msg: msg, err: err})
+	}
 
 	// A curated command sends a query baked into this binary, so a GraphQL
 	// *validation* failure means the CLI and server disagree on the schema —
@@ -724,6 +752,60 @@ func isValidationErrorFor(e *gqlerror.Error, name string) bool {
 		strings.Contains(e.Message, "Cannot query field") ||
 		strings.Contains(e.Message, "Unknown field") ||
 		strings.Contains(e.Message, "Unknown argument")
+}
+
+// IsUnknownInputFieldOnly reports whether err is a GraphQL envelope in which
+// EVERY error is the server's variable-coercion refusal of one of fields as
+// not defined by the input type — an older server that lacks exactly those
+// input fields (`Field "<f>" is not defined by type "<inputType>"`). It is a
+// pre-execution refusal, so nothing was stored and a resend is safe. An error
+// with a path (it came from a resolver, possibly after a write), any other code
+// than BAD_USER_INPUT / GRAPHQL_VALIDATION_FAILED, any other message, transport
+// failures and a mixed envelope are all NOT this (cli#2063).
+func IsUnknownInputFieldOnly(err error, inputType string, fields ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 0 {
+			return false
+		}
+		if c := extensionCode(e); c != "" && c != "BAD_USER_INPUT" && c != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+		matched := false
+		for _, f := range fields {
+			if strings.Contains(e.Message, `Field "`+f+`" is not defined by type "`+inputType+`"`) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// IsDefiniteRefusal reports whether err is the server ANSWERING with a coded
+// refusal of the operation: a non-empty GraphQL error list in which every error
+// carries a code other than INTERNAL_SERVER_ERROR. Only then is it safe to say
+// the operation did not take effect. A transport failure, a timeout, a
+// malformed answer or an internal error can follow a commit, so they are an
+// unknown outcome, not a refusal (cli#2108).
+func IsDefiniteRefusal(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		c := extensionCode(e)
+		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
+			return false
+		}
+	}
+	return true
 }
 
 // IsSchemaSkew reports whether err is the server rejecting a query this build
@@ -1208,6 +1290,9 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "TICKER_SETTINGS_CONFLICT" || code == "DELIVERY_STANDBY_UNAVAILABLE":
 		return exitcode.Conflict
+	// A ticker subscription cannot work until the Agent's lifecycle changes.
+	case code == "TICKER_ON_SHORT_LIVED":
+		return exitcode.Conflict
 	// Comment operations retain typed permission, input and state refusals.
 	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":
 		return exitcode.Forbidden
@@ -1540,7 +1625,7 @@ func codeForExtension(code string) int {
 	// refusal is a permission one, not a usage one — the caller cannot fix
 	// it by rewording the argument.
 	case code == "TASK_NOT_OWNER" || code == "TASK_NOT_ASSIGNEE" ||
-		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED":
+		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED" || code == "WORKER_LEAVE_ALONE_NOT_PERMITTED":
 		return exitcode.Forbidden
 	// Host operations (hadron-cli#871 over server #1876, cor:agt:070:03/:05).
 	// Who may issue a worktree operation is the server's rule — a
@@ -1553,6 +1638,20 @@ func codeForExtension(code string) int {
 	case code == "HOST_OPERATION_TYPE_UNKNOWN" || code == "HOST_OPERATION_NOT_ISSUABLE" ||
 		code == "BAD_HOST_OPERATION_ARGS":
 		return exitcode.Usage
+	// The platform's record of which workers each host runs (hadron-cli#2080
+	// over hadron-server#4241). A field that is not its token shape is an input
+	// the caller changes; who may write is the server's rule, a permission; an
+	// existing assignment needs --replace (state), like WORKER_RETIRED above.
+	// WORKER_NOT_FOUND is NotFound where it is mapped.
+	case code == "BAD_HOST_ASSIGNMENT_ARGS", code == "BAD_LAUNCHER_PROFILE":
+		// BAD_LAUNCHER_PROFILE (S1b, hadron-server#4230): a model, effort or
+		// account profile that is not a profile token, or a family with no
+		// launcher. An input the caller changes, like the shape refusal above.
+		return exitcode.Usage
+	case code == "HOST_ASSIGNMENT_NOT_PERMITTED":
+		return exitcode.Forbidden
+	case code == "HOST_ASSIGNMENT_EXISTS":
+		return exitcode.Conflict
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
 		return exitcode.Conflict
 	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed

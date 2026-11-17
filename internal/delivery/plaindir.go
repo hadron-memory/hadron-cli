@@ -52,23 +52,23 @@ func isPlainDir(dir string) bool {
 // plainBoundWorker is the worker id a plain directory's binding names. The
 // file is worker-writable, so it is read as a bounded regular file only.
 func plainBoundWorker(dir string) string {
+	worker, _ := plainBoundIDs(dir)
+	return worker
+}
+
+// plainBoundIDs is plainBoundWorker plus the session id the same file names.
+func plainBoundIDs(dir string) (worker, session string) {
 	path := filepath.Join(dir, plainCacheName, bindingFileName)
 	b, ok := readSmallRegular(path)
 	if !ok {
 		// Absent is "no binding"; present but not a bounded regular file
 		// (a link, a FIFO, oversized) is unusable, never absent.
 		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
-			return ""
+			return "", ""
 		}
-		return unusableBinding
+		return unusableBinding, ""
 	}
-	var binding struct {
-		WorkerID string `json:"workerId"`
-	}
-	if json.Unmarshal(b, &binding) != nil || binding.WorkerID == "" {
-		return unusableBinding
-	}
-	return binding.WorkerID
+	return parseBinding(b)
 }
 
 // terminalRecord is what <dir>/.hadron-team/terminal.json holds that the

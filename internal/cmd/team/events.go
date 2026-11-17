@@ -39,7 +39,7 @@ type teamEventsPageDTO struct {
 }
 
 func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
-	var alarms bool
+	var alarms, alarmsInEffect bool
 	var since, after, before, task, codePrefix string
 	var newest bool
 	var types []string
@@ -74,9 +74,28 @@ and app.manager-act; only app.<slug>. is App-only. No prefix is added when
 omitted. App-defined action payloads may contain participant-readable values;
 keep secrets out of them.
 
---alarms keeps alarm events only; --task and --type filter further. Task-less
+--alarms keeps alarm events only; --task and --type filter further.
+--alarms-in-effect keeps only the alarms still in effect: unacknowledged and with
+no recorded escalation end. The server decides that, never worked out here, and
+it already means alarms only, so it returns the same rows with or without
+--alarms. An alarm that has left effect is not acknowledged and not hidden:
+read without this flag to see it, and its end time in the ESCALATION ENDED
+column (cor:agt:050:20). That column is when the server recorded the end; it
+is blank on every event that is not an alarm and on every alarm whose end is
+not recorded yet: one in effect, and also one already acknowledged or whose
+task already moved, until the server records the end. That record can lag the
+actual end by up to one evaluator pass (about a minute), and the alarm reads
+as in effect until it is written, so the column is not a real-time value. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
-reason or evidence is added. A missing subject stays —.
+reason or evidence is added. An alarm.start-failing (wake handle START: the
+platform's starts of a long-lived worker with no task keep failing) is task-less
+too and shows worker <name>; its failure count and window stay in --json. A missing subject stays —.
+A task event's TASK cell is the task's handle, then the first 12 hex of its id
+(AT0.7234 01a1d71218bb); when the server names no handle (the task is gone) the
+cell stays the bare id. --json adds taskHandle beside taskId, exactly as the
+server sent it, null for an event with no task. --task takes either form. The
+handle needs a server that carries AgentTeamEvent.taskHandle (hadron-server
+#4135); an older one refuses the read and nothing is printed.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -111,7 +130,7 @@ reason or evidence is added. A missing subject stays —.
 			if cmd.Flags().Changed("code-prefix") {
 				prefix = &codePrefix
 			}
-			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), &limit, optStr(since), optStr(task), types)
+			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), optBool(alarmsInEffect), &limit, optStr(since), optStr(task), types)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -128,7 +147,7 @@ reason or evidence is added. A missing subject stays —.
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "ID", "AT", "TYPE", "ACTOR", "TASK", "ACK")
+				t := output.NewTable(w, "ID", "AT", "TYPE", "ACTOR", "TASK", "ACK", "ESCALATION ENDED")
 				for _, e := range events {
 					ack := ""
 					if e.Severity != nil {
@@ -140,11 +159,17 @@ reason or evidence is added. A missing subject stays —.
 					}
 					var task string
 					if e.TaskID != nil {
-						task = *e.TaskID
+						task = eventTaskCell(e)
 					} else {
 						task = tasklessAlarmCell(e)
 					}
-					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack))
+					// Blank when the server recorded no end: no placeholder,
+					// and never the acknowledgement time (cor:agt:050:20).
+					ended := ""
+					if e.EscalationEndedAt != nil {
+						ended = output.SafeCell(*e.EscalationEndedAt)
+					}
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack), ended)
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -171,6 +196,7 @@ reason or evidence is added. A missing subject stays —.
 	}
 	cmd.Flags().StringVar(&codePrefix, "code-prefix", "", "server-side event code prefix (app.<slug>. for App-only)")
 	cmd.Flags().BoolVar(&alarms, "alarms", false, "alarm events only")
+	cmd.Flags().BoolVar(&alarmsInEffect, "alarms-in-effect", false, "only alarms still in effect (the server's filter; implies alarms only)")
 	cmd.Flags().StringVar(&since, "since", "", "RFC 3339 time; events strictly after it")
 	cmd.Flags().StringVar(&after, "after", "", "event id; the page continues strictly after it")
 	cmd.Flags().BoolVar(&newest, "newest", false, "read from the newest end, newest events first")
@@ -208,6 +234,22 @@ func eventActorCell(e teamEventDTO) string {
 	return partyCell(e.Actor)
 }
 
+// eventTaskCell is a task event's TASK cell: the server's handle first, then
+// the first 12 hex of the id (the form task list and task get print,
+// cli#1131). When the server names no handle (the task is gone) it stays the
+// bare id, as before; the handle is never derived here (cli#2005).
+func eventTaskCell(e teamEventDTO) string {
+	id := *e.TaskID
+	if e.TaskHandle == nil || *e.TaskHandle == "" {
+		return id
+	}
+	short := id
+	if len(short) > 12 {
+		short = short[:12]
+	}
+	return *e.TaskHandle + " " + short
+}
+
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
@@ -219,6 +261,10 @@ func tasklessAlarmCell(e teamEventDTO) string {
 		// The reason repeats the type, and hidden evidence may be absent.
 		// Render only the server's subject, never a payload-derived string.
 		return "coordinator " + partyCell(e.SubjectWorker)
+	case "alarm.start-failing":
+		// #4231: platform starts of the worker keep failing. Its payload
+		// (failure count, window) stays in --json only.
+		return "worker " + partyCell(e.SubjectWorker)
 	case "alarm.dark-worker":
 		// Only this alarm uses the fixed reason vocabulary below.
 	default:
@@ -258,7 +304,8 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Short: "Acknowledge an alarm",
 		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
 owners; it does not end the alarm episode. A coordinator-cadence alarm names
-its coordinator, without printing payload reasons or evidence. A finish-by episode ends when the
+its coordinator, and a start-failing alarm its worker, without printing payload
+reasons or evidence. A finish-by episode ends when the
 task finishes or is cancelled, or its finish-by value changes or is cleared;
 starting or assigning the task does not end that episode. A dark-worker
 episode ends when the worker is checking again and has no unacknowledged
@@ -290,7 +337,7 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 						return err
 					}
 				}
-				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence") && event.SubjectWorker != nil {
+				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}

@@ -207,6 +207,14 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 // fake Orca (#1192); nothing else replaces it.
 var orcaRunner = func(bin string) orcaterm.Runner { return orcaterm.Exec(bin, orcaterm.CallTimeout) }
 
+// sharedListWindow is how long one `orca terminal list` answers every
+// delivery: a cycle's worth, far under the poll interval (#2181).
+var sharedListWindow = 5 * time.Second
+
+// sharedListNow is the shared list's clock: nil is the wall clock. A test
+// replaces it so a cycle is a step of the clock, not a race with it.
+var sharedListNow func() time.Time
+
 // wireDelivery turns delivery on for this run: S1's chat batches and the
 // host's due tick and task wakes (hadron-cli#1178), typed through Orca on
 // the same per-worker chain, with the status snapshot written after each
@@ -216,7 +224,8 @@ var orcaRunner = func(bin string) orcaterm.Runner { return orcaterm.Exec(bin, or
 func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
-	d := delivery.New(srv, orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), stateDir)
+	// One `orca terminal list` serves every delivery of a cycle (#2181).
+	d := delivery.New(srv, delivery.NewSharedList(orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), sharedListWindow, sharedListNow), stateDir)
 	d.Emit = func(e delivery.Event) {
 		book.Observe(e)
 		emit(deliveryEvent(e))
