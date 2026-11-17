@@ -77,6 +77,33 @@ func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 	}
 }
 
+func TestTaskReleaseJSONCarriesMappedWarning2263(t *testing.T) {
+	r := releaseResponses1962()
+	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]}}`
+	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		ReleasedExternalID string `json:"releasedExternalId"`
+		Warnings           []struct {
+			Code     string `json:"code"`
+			Text     string `json:"text"`
+			Register *struct {
+				State   string  `json:"state"`
+				TaskLoc *string `json:"taskLoc"`
+				TaskURN *string `json:"taskUrn"`
+			} `json:"register"`
+		} `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("%v: %q", err, out)
+	}
+	if dto.ReleasedExternalID != releaseItem1962 || len(dto.Warnings) != 1 || dto.Warnings[0].Code != "future.release" || dto.Warnings[0].Text != "released with advice" || dto.Warnings[0].Register == nil || dto.Warnings[0].Register.State != "mapped" || dto.Warnings[0].Register.TaskLoc == nil || *dto.Warnings[0].Register.TaskLoc != "tasks:release-advice" || dto.Warnings[0].Register.TaskURN == nil || *dto.Warnings[0].Register.TaskURN != "hrn:node:acme.com:runbooks:tasks:release-advice" {
+		t.Fatalf("got %+v", dto)
+	}
+}
+
 // The server owns every refusal and the CLI shows it: a task holding no
 // external id (a second release included), a caller who may not cancel it.
 func TestTaskReleaseRefusalsAreTheServers1962(t *testing.T) {
