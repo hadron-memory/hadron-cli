@@ -832,8 +832,9 @@ THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
   driven         live (a session drove it recently), or when it last was
   check status   whether it reads its team chat as expected:
-                   NO_SESSION  server reason: IDLE (open, quiet, with age since
-                               lastActiveAt), ENDED, or NEVER_BOUND
+                   NO_SESSION  no live session; server reason: IDLE (open,
+                               quiet, with age since lastActiveAt), ENDED,
+                               or NEVER_BOUND
                    PENDING     not expected to (paused, dormant,
                                or no open task), with the reason
                    OK          has an open task and checked in time
@@ -845,12 +846,15 @@ THE FIELDS:
                  the prompt shape; "—" when never reported or not available to
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
-
-Quiet age uses this computer's clock for display only; it never classifies
-idleness or availability. A missing reason stays bare NO_SESSION, and a
-missing or invalid lastActiveAt has no quiet age. --json preserves both
-lastActiveAt and checkStatus.noSessionReason (nullable). Requires server
-#3084 or newer.
+  quiet age      for NO_SESSION IDLE only: time since lastActiveAt, by this
+                 computer's clock, for display only; it never classifies
+                 idleness or availability. It truncates (never rounds) to
+                 "just now" (under a minute, or a time ahead of this clock),
+                 minutes, hours, then whole days from 48h. A missing reason
+                 stays bare NO_SESSION; a missing or invalid lastActiveAt has
+                 no quiet age. --json preserves lastActiveAt and
+                 checkStatus.noSessionReason (nullable), and carries no age.
+                 Requires hadron-server#3084 or newer.
 
 availability   the worker's stored availability record (cor:agt:060:02): its
                  state, the reason only when unavailable, an optional end, and
