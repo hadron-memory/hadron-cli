@@ -21,7 +21,7 @@ func TestSweepSystemdVerify2183(t *testing.T) {
 	}
 	dir := t.TempDir()
 	s := Spec{Job: Sweep, Bin: "/bin/true", Config: filepath.Join(dir, "host.yaml"), Path: "/usr/bin:/bin", Logger: "/bin/true", Interval: time.Minute}
-	files := writeSweepUnits2183(t, dir, s)
+	files := writeSweepUnits2183(t, dir, s, nil)
 	args := append([]string{"verify"}, files...)
 	out, err := exec.Command("systemd-analyze", args...).CombinedOutput()
 	if err != nil || len(sweepUnitWarnings2183(string(out), files)) != 0 {
@@ -69,7 +69,7 @@ func TestSweepSystemdVerifyWarningScope2183(t *testing.T) {
 	}
 }
 
-func writeSweepUnits2183(t *testing.T, dir string, s Spec) []string {
+func writeSweepUnits2183(t *testing.T, dir string, s Spec, created func(string)) []string {
 	t.Helper()
 	bodies := []struct{ name, body string }{
 		{"hadron-team-sweep.service", SystemdService(s)},
@@ -79,12 +79,33 @@ func writeSweepUnits2183(t *testing.T, dir string, s Spec) []string {
 	var paths []string
 	for _, b := range bodies {
 		path := filepath.Join(dir, b.name)
-		if err := os.WriteFile(path, []byte(b.body), 0600); err != nil {
+		if err := writeSweepUnit2187(path, b.body, created); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, path)
 	}
 	return paths
+}
+
+func writeSweepUnit2187(path, body string, created func(string)) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	// Creation proves ownership. Register before writing content, including
+	// any renamed path, so a partial write cannot escape acceptance cleanup.
+	if created != nil {
+		created(path)
+	}
+	_, writeErr := f.WriteString(body)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return nil
 }
 
 // Run ONLY in a disposable systemd container with no Hadron units installed.
@@ -147,15 +168,27 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	for _, n := range names {
 		paths = append(paths, filepath.Join("/run/systemd/system", n))
 	}
+	cleanupPaths := make([]string, 0, len(paths))
 	t.Cleanup(func() {
 		_ = exec.Command("systemctl", append([]string{"stop"}, names...)...).Run()
-		for _, p := range paths {
+		for _, p := range cleanupPaths {
 			_ = os.Remove(p)
 		}
 		_ = exec.Command("systemctl", "daemon-reload").Run()
 		_ = exec.Command("systemctl", append([]string{"reset-failed"}, names...)...).Run()
 	})
-	writeSweepUnits2183(t, "/run/systemd/system", s)
+	if err := writeAndCheckSweepUnits2187(paths, func() []string {
+		return writeSweepUnits2183(t, "/run/systemd/system", s, func(path string) {
+			for _, existing := range cleanupPaths {
+				if existing == path {
+					return
+				}
+			}
+			cleanupPaths = append(cleanupPaths, path)
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	ctl(t, "daemon-reload")
 	duration := func(t *testing.T, unit, property string) time.Duration {
 		t.Helper()
@@ -173,16 +206,8 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	reset := func(t *testing.T) {
 		t.Helper()
 		t.Cleanup(func() { _, _ = command(append([]string{"stop"}, names...)...) })
-		// reset-failed alone does not cancel queued auto-restarts. Stop every
-		// owned unit first so a failed subtest cannot contaminate the next.
-		ctl(t, append([]string{"stop"}, names...)...)
-		for _, n := range names {
-			if ctl(t, "show", n, "-p", "ActiveState", "--value") == "failed" {
-				ctl(t, "reset-failed", n)
-			}
-			if got := ctl(t, "show", n, "-p", "ActiveState", "--value"); got != "inactive" {
-				t.Fatalf("%s did not stop: %s", n, got)
-			}
+		if err := resetSweepUnits2187(names, command); err != nil {
+			t.Fatal(err)
 		}
 	}
 	startRefusal := func(t *testing.T, code string) {
@@ -272,4 +297,222 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 			t.Fatal("SIGKILL did not cause one service restart")
 		}
 	})
+}
+
+// These test-only helpers expose the acceptance harness's command/path
+// boundary without requiring a manager in unit tests.
+func resetSweepUnits2187(names []string, command func(...string) ([]byte, error)) error {
+	if out, err := command(append([]string{"stop"}, names...)...); err != nil {
+		return fmt.Errorf("stop owned units: %w: %s", err, out)
+	}
+	for _, n := range names {
+		// Inactive units can still retain start-rate counters from a prior
+		// failed case. Reset every owned unit after cancelling queued restarts.
+		// A pattern matching only this name makes systemctl consider loaded
+		// units; a literal name fails after inactive-unit garbage collection.
+		// Unloading already flushes its counters. Never reset unrelated units.
+		pattern := "[" + n[:1] + "]" + n[1:]
+		if out, err := command("reset-failed", pattern); err != nil {
+			return fmt.Errorf("reset %s: %w: %s", n, err, out)
+		}
+		state, err := command("show", n, "-p", "ActiveState", "--value")
+		if err != nil {
+			return err
+		}
+		if got := strings.TrimSpace(string(state)); got != "inactive" {
+			return fmt.Errorf("%s did not stop: %s", n, got)
+		}
+	}
+	return nil
+}
+
+func writeAndCheckSweepUnits2187(owned []string, write func() []string) error {
+	written := write()
+	mismatch := func() error {
+		return fmt.Errorf("written unit paths do not match registered cleanup paths: got %v, want %v", written, owned)
+	}
+	if len(written) != len(owned) {
+		return mismatch()
+	}
+	remaining := make(map[string]bool, len(owned))
+	for _, path := range owned {
+		remaining[path] = true
+	}
+	for _, path := range written {
+		if !remaining[path] {
+			return mismatch()
+		}
+		delete(remaining, path)
+	}
+	if len(remaining) != 0 {
+		return mismatch()
+	}
+	return nil
+}
+
+func TestSweepAcceptanceResetClearsInactiveStartLimit2187(t *testing.T) {
+	names := []string{"hadron-team-sweep.timer", "hadron-team-sweep.service", "hadron-team-sweep-failed.service"}
+	limited := map[string]bool{}
+	for _, n := range names {
+		limited[n] = true
+	}
+	var calls []string
+	command := func(args ...string) ([]byte, error) {
+		calls = append(calls, strings.Join(args, " "))
+		switch args[0] {
+		case "stop":
+			return nil, nil // stopping does not clear start-rate counters
+		case "show":
+			return []byte("inactive\n"), nil
+		case "reset-failed":
+			if len(args) != 2 || !strings.Contains(args[1], "[") {
+				return nil, fmt.Errorf("expected exact-name loaded-unit pattern: %v", args)
+			}
+			for _, n := range names {
+				matched, err := filepath.Match(args[1], n)
+				if err != nil {
+					return nil, err
+				}
+				if matched {
+					limited[n] = false
+				}
+			}
+			for _, foreign := range []string{"unrelated.service", "hadron-team-sweep-other.service", "hadron-team-sweep.timer-other"} {
+				if matched, _ := filepath.Match(args[1], foreign); matched {
+					return nil, fmt.Errorf("pattern reaches unowned unit: %s", foreign)
+				}
+			}
+			return nil, nil
+		case "start":
+			if limited[args[1]] {
+				return nil, fmt.Errorf("prior case's start limit survived")
+			}
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("unexpected command %v", args)
+		}
+	}
+	if err := resetSweepUnits2187(names, command); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range names {
+		if limited[n] {
+			t.Errorf("inactive owned unit %s kept its prior start-limit counter; calls=%v", n, calls)
+		}
+	}
+	if _, err := command("start", names[1]); err != nil {
+		t.Errorf("successor case contaminated: %v", err)
+	}
+	if len(calls) == 0 || calls[0] != "stop "+strings.Join(names, " ") {
+		t.Errorf("must stop all owned units first: %v", calls)
+	}
+}
+
+func TestSweepAcceptanceWrittenPathsMatchCleanup2187(t *testing.T) {
+	dir := t.TempDir()
+	owned := []string{filepath.Join(dir, "hadron-team-sweep.service"), filepath.Join(dir, "hadron-team-sweep.timer"), filepath.Join(dir, "hadron-team-sweep-failed.service")}
+	for _, tc := range []struct {
+		name  string
+		paths []string
+		bad   bool
+	}{
+		{"same", owned, false},
+		{"reordered", []string{owned[2], owned[0], owned[1]}, false},
+		{"renamed", []string{owned[0] + "-renamed", owned[1], owned[2]}, true},
+		{"duplicate", []string{owned[0], owned[0], owned[2]}, true},
+		{"missing", owned[:2], true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			err := writeAndCheckSweepUnits2187(owned, func() []string { called = true; return tc.paths })
+			if !called {
+				t.Fatal("writer not exercised")
+			}
+			if tc.bad && (err == nil || !strings.Contains(err.Error(), "written unit paths do not match")) {
+				t.Fatalf("expected owned/written path mismatch refusal, got %v", err)
+			}
+			if !tc.bad && err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestSweepAcceptanceRealWriterRegistersOwnedPathsBeforeBody2187(t *testing.T) {
+	dir := t.TempDir()
+	owned := []string{filepath.Join(dir, "hadron-team-sweep.service"), filepath.Join(dir, "hadron-team-sweep.timer"), filepath.Join(dir, "hadron-team-sweep-failed.service")}
+	var created []string
+	spec := Spec{Job: Sweep, Bin: "/bin/true", Config: filepath.Join(dir, "host.yaml"), Path: "/usr/bin:/bin", Logger: "/bin/true", Interval: time.Minute}
+	err := writeAndCheckSweepUnits2187(owned, func() []string {
+		return writeSweepUnits2183(t, dir, spec, func(path string) {
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Error(err)
+			} else if info.Size() != 0 {
+				t.Errorf("cleanup registration happened after content write: %s", path)
+			}
+			created = append(created, path)
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(created) != 3 {
+		t.Fatalf("created-path ownership missing: %v", created)
+	}
+	for _, path := range created {
+		if body, err := os.ReadFile(path); err != nil || len(body) == 0 {
+			t.Errorf("writer did not finish %s: %v", path, err)
+		}
+	}
+}
+
+func TestSweepAcceptanceResetToleratesUnloadedOwnedUnits2187(t *testing.T) {
+	names := []string{"hadron-team-sweep.timer", "hadron-team-sweep.service", "hadron-team-sweep-failed.service"}
+	// Only the service remains loaded with a counter; the others were GC'd.
+	retained := true
+	command := func(args ...string) ([]byte, error) {
+		switch args[0] {
+		case "stop":
+			return nil, nil
+		case "show":
+			return []byte("inactive"), nil
+		case "reset-failed":
+			if !strings.Contains(args[1], "[") {
+				return nil, fmt.Errorf("literal reset of an unloaded unit is refused")
+			}
+			if ok, _ := filepath.Match(args[1], names[1]); ok {
+				retained = false
+			}
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("unexpected %v", args)
+		}
+	}
+	if err := resetSweepUnits2187(names, command); err != nil {
+		t.Fatal(err)
+	}
+	if retained {
+		t.Fatal("loaded inactive unit retained its counter")
+	}
+}
+
+func TestSweepAcceptanceWriterPreservesPreexistingPath2187(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hadron-team-sweep-renamed.service")
+	const sentinel = "pre-existing unowned unit contents"
+	if err := os.WriteFile(path, []byte(sentinel), 0600); err != nil {
+		t.Fatal(err)
+	}
+	claimed := false
+	err := writeSweepUnit2187(path, "new unit", func(string) { claimed = true })
+	if !errors.Is(err, os.ErrExist) {
+		t.Errorf("pre-existing unit must be refused: %v", err)
+	}
+	if claimed {
+		t.Error("pre-existing unit was claimed for cleanup")
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil || string(got) != sentinel {
+		t.Errorf("pre-existing unit contents changed: %q, %v", got, readErr)
+	}
 }

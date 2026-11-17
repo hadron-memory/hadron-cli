@@ -92,6 +92,9 @@ func TestSweepOutageReportReplaysUnknownOutcome2056(t *testing.T) {
 	if len(reports) != 2 {
 		t.Fatalf("pending outage must retry once: %+v", reports)
 	}
+	if got := reports[1].StartedAt.Sub(reports[0].StartedAt); got != 2*time.Hour {
+		t.Fatalf("captured replay interval = %s, want 2h", got)
+	}
 	if reports[0].RunID == "" || reports[0].RunID != reports[1].RunID || reports[0].AppID != reports[1].AppID || reports[0].HostID != reports[1].HostID {
 		t.Fatalf("retry changed row identity: %+v", reports)
 	}
