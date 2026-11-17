@@ -37421,6 +37421,87 @@ func (v *CreateAppSettingsCreateApp) GetMemberCount() *int { return v.MemberCoun
 // GetCreatedAt returns CreateAppSettingsCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppSettingsCreateApp) GetCreatedAt() string { return v.CreatedAt }
 
+// CreateAppSettingsPolicyCreateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type CreateAppSettingsPolicyCreateApp struct {
+	Id      string  `json:"id"`
+	Urn     string  `json:"urn"`
+	Name    string  `json:"name"`
+	AppType AppType `json:"appType"`
+	// SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+	// installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+	// which DROPPED the direct FK that 008-agent-installation had introduced) —
+	// see `appAgents` below for the real cardinality. Kept so single-Agent
+	// clients keep working; do not build new multi-Agent logic on it.
+	//
+	// `agentId` and `agent` name the PRIMARY install's Agent and answer as that
+	// Agent's own read does: both are null when the caller may not read it, even
+	// when a later install is readable. Null is not proof that nothing is
+	// installed; `appAgents` lists every install, an entry whose `agent` is null
+	// being an installed Agent withheld from this caller.
+	//
+	// A caller who reaches a user-owned App only as an owner-role member gets null on
+	// both for a different reason: WITHHELD (#2089). Render it as unknown.
+	AgentId *string `json:"agentId"`
+	// Member count. null means WITHHELD from this caller (#2089), never zero; the real count (a real 0 included) for callers who may see the roster.
+	MemberCount *int   `json:"memberCount"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+// GetId returns CreateAppSettingsPolicyCreateApp.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppSettingsPolicyCreateApp.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppSettingsPolicyCreateApp.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetName() string { return v.Name }
+
+// GetAppType returns CreateAppSettingsPolicyCreateApp.AppType, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetAppType() AppType { return v.AppType }
+
+// GetAgentId returns CreateAppSettingsPolicyCreateApp.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetAgentId() *string { return v.AgentId }
+
+// GetMemberCount returns CreateAppSettingsPolicyCreateApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetMemberCount() *int { return v.MemberCount }
+
+// GetCreatedAt returns CreateAppSettingsPolicyCreateApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppSettingsPolicyResponse is returned by CreateAppSettingsPolicy on success.
+type CreateAppSettingsPolicyResponse struct {
+	// Create an App and install its initial Agent. With orgRef, the App is owned
+	// by that Organization and requires org ADMIN; without orgRef, it is owned by
+	// the authenticated User and remains owner-only.
+	//
+	// An org-owned install auto-provisions an AgentOrgGrant only for its own
+	// Agent. A cross-org install requires an existing active grant; subscribe to
+	// a PUBLIC Agent through createAgentOrgGrant before creating the App.
+	// It adds the caller as an AppMember with role 'owner' only when that role is
+	// present in the Agent's installationPolicy and the caller is a User.
+	// Required AgentImports cascade automatically for org-owned Apps; optional
+	// imports cascade only when their id appears in installOptional. Personal
+	// Apps reject dependency cascades in v1.
+	//
+	// Selected dependencies must also be licensed before any App is created.
+	// The server enforces this even when a caller bypasses the portal.
+	//
+	// Accepts the entity's ID or URN.
+	CreateApp *CreateAppSettingsPolicyCreateApp `json:"createApp"`
+}
+
+// GetCreateApp returns CreateAppSettingsPolicyResponse.CreateApp, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsPolicyResponse) GetCreateApp() *CreateAppSettingsPolicyCreateApp {
+	return v.CreateApp
+}
+
 // CreateAppSettingsResponse is returned by CreateAppSettings on success.
 type CreateAppSettingsResponse struct {
 	// Create an App and install its initial Agent. With orgRef, the App is owned
@@ -120497,6 +120578,86 @@ func (v *__CreateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surf
 // GetInstallOptional returns __CreateAppSettingsInput.InstallOptional, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetInstallOptional() json.RawMessage { return v.InstallOptional }
 
+// __CreateAppSettingsPolicyInput is used internally by genqlient
+type __CreateAppSettingsPolicyInput struct {
+	OrgRef                *string               `json:"orgRef,omitempty"`
+	AgentRef              string                `json:"agentRef"`
+	Name                  string                `json:"name"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	Description           *string               `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	ExpiresAt             *string               `json:"expiresAt,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+	InstallOptional       json.RawMessage       `json:"installOptional,omitempty"`
+	Policy                json.RawMessage       `json:"policy,omitempty"`
+}
+
+// GetOrgRef returns __CreateAppSettingsPolicyInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetAgentRef returns __CreateAppSettingsPolicyInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetAgentRef() string { return v.AgentRef }
+
+// GetName returns __CreateAppSettingsPolicyInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetName() string { return v.Name }
+
+// GetUrn returns __CreateAppSettingsPolicyInput.Urn, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __CreateAppSettingsPolicyInput.AppType, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetAppType() *AppType { return v.AppType }
+
+// GetDescription returns __CreateAppSettingsPolicyInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetDescription() *string { return v.Description }
+
+// GetSessionTimeoutSeconds returns __CreateAppSettingsPolicyInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetSessionTimeoutSeconds() *int {
+	return v.SessionTimeoutSeconds
+}
+
+// GetExpiresAt returns __CreateAppSettingsPolicyInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRole returns __CreateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __CreateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __CreateAppSettingsPolicyInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __CreateAppSettingsPolicyInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __CreateAppSettingsPolicyInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __CreateAppSettingsPolicyInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __CreateAppSettingsPolicyInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetSurfaces() json.RawMessage { return v.Surfaces }
+
+// GetInstallOptional returns __CreateAppSettingsPolicyInput.InstallOptional, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetInstallOptional() json.RawMessage {
+	return v.InstallOptional
+}
+
+// GetPolicy returns __CreateAppSettingsPolicyInput.Policy, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsPolicyInput) GetPolicy() json.RawMessage { return v.Policy }
+
 // __CreateAppUserInput is used internally by genqlient
 type __CreateAppUserInput struct {
 	ExternalId string  `json:"externalId"`
@@ -142653,6 +142814,83 @@ func CreateAppSettings(
 	}
 
 	data_ = &CreateAppSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppSettingsPolicy.
+const CreateAppSettingsPolicy_Operation = `
+mutation CreateAppSettingsPolicy ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+		id
+		urn
+		name
+		appType
+		agentId
+		memberCount
+		createdAt
+	}
+}
+`
+
+// cli#1628 (the rest): the App-layer action-policy link on createApp. A separate
+// document on purpose, like UpdateAppSettingsPolicy (#1640): `app install`
+// without --policy-file keeps CreateApp / CreateAppSettings, which never mention
+// `policy`, so a server that predates it keeps working. This is the
+// CreateAppSettings superset plus $policy (omitted = no link).
+func CreateAppSettingsPolicy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	agentRef string,
+	name string,
+	urn *string,
+	appType *AppType,
+	description *string,
+	sessionTimeoutSeconds *int,
+	expiresAt *string,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+	installOptional json.RawMessage,
+	policy json.RawMessage,
+) (data_ *CreateAppSettingsPolicyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppSettingsPolicy",
+		Query:  CreateAppSettingsPolicy_Operation,
+		Variables: &__CreateAppSettingsPolicyInput{
+			OrgRef:                orgRef,
+			AgentRef:              agentRef,
+			Name:                  name,
+			Urn:                   urn,
+			AppType:               appType,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			ExpiresAt:             expiresAt,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+			InstallOptional:       installOptional,
+			Policy:                policy,
+		},
+	}
+
+	data_ = &CreateAppSettingsPolicyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
