@@ -719,6 +719,10 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 	return obs, nil
 }
 
+// Native defaults are replaced only by serial tests of the real adapter.
+var hostUpReadinessFactory = managedDaemonProbe
+var hostUpProcessProbe = hostpoller.ProbeWorktreeAgents
+
 // hostUpCensus uses the same managed-host readiness and strict process proof
 // as C5. A fake/remote Orca listing alone never grants process authority.
 func hostUpCensus(bin string) func(context.Context, string) (hostrelaunch.Observation, error) {
