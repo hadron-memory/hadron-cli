@@ -1,0 +1,23 @@
+# cli#1829 `team alarms`: the roster slice the per-task join needs — reporting
+# lines (the team set) and the server's own state, bound and live-session
+# answers per worker. Deliberately NOT the full TeamRoster: it carries none of
+# that read's newer fields (and their schema skew) or its modelGroups advisory.
+query TeamAlarmRoster($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    appId
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      reportsTo {
+        ...AgentTaskPartyFields
+      }
+      state
+      bound
+      liveSession
+      checkStatus {
+        ...ChannelCheckFields
+      }
+    }
+  }
+}
