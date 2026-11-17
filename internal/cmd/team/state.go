@@ -173,7 +173,9 @@ func locateBinding(ctx context.Context, writable bool) (bindingLoc, error) {
 	}
 	cwd, werr := os.Getwd()
 	if werr != nil {
-		return bindingLoc{}, err
+		// A deleted or unreadable working directory is not "no worktree":
+		// say what is wrong (cli#1969 F3).
+		return bindingLoc{}, exitcode.Newf(exitcode.Usage, "cannot determine the working directory: %w", werr)
 	}
 	loc := bindingLoc{dir: filepath.Join(cwd, plainDirCacheName), plain: true}
 	if writable {
@@ -259,15 +261,26 @@ func readBindingForBind(ctx context.Context) (b *binding, plain bool, err error)
 	if err != nil {
 		return nil, false, err
 	}
-	if !loc.plain {
-		b, _, err = readBinding(ctx)
-		return b, false, err
-	}
+	// Both kinds of directory read the binding where a bind would write it
+	// and then run the same ended-session note (#914), so a worktree start
+	// and a plain-directory start agree (cli#1969 F5).
 	b, err = readBindingAt(filepath.Join(loc.dir, bindingFileName))
 	if err == nil && b != nil {
 		noteEndedBinding(ctx, b)
 	}
-	return b, true, err
+	return b, loc.plain, err
+}
+
+// heldCachePath is the absolute path of the plain directory's binding file,
+// the spelling every "remove <path>" refusal uses so they agree with
+// writeBinding's (cli#1969 F4). Without a working directory it falls back to
+// the relative spelling.
+func heldCachePath() string {
+	rel := filepath.Join(plainDirCacheName, bindingFileName)
+	if cwd, err := os.Getwd(); err == nil {
+		return filepath.Join(cwd, rel)
+	}
+	return rel
 }
 
 // errDirectoryHeld refuses a second worker's bind in a plain directory that
@@ -385,6 +398,12 @@ func withBindingLockAt(loc bindingLoc, fn func() error) error {
 	if loc.plain {
 		if err := os.MkdirAll(loc.dir, 0o700); err != nil {
 			return fmt.Errorf("creating the session binding cache %s: %w", loc.dir, err)
+		}
+		// MkdirAll leaves an existing directory as it was, so a bind
+		// tightens one an earlier version or a person made loose: the
+		// cache is owner-only after every bind (cli#1969 F8).
+		if err := os.Chmod(loc.dir, 0o700); err != nil {
+			return fmt.Errorf("securing the session binding cache %s: %w", loc.dir, err)
 		}
 	}
 	path := filepath.Join(loc.dir, bindingLockFileName)

@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -1024,7 +1023,7 @@ ends the recovered session: run start again to pick it up.`,
 			// known after the bind; writeBinding's check under the lock
 			// refuses that one, and the bind is rolled back below.
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
-				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				return errDirectoryHeld(heldCachePath(), existing)
 			}
 			// The client opens early only for the plain-directory read below;
 			// everywhere else it opens after the existing-binding check, as
@@ -1072,7 +1071,7 @@ ends the recovered session: run start again to pick it up.`,
 				}
 				resolved = true
 				if existing.WorkerID == "" || w.Id != existing.WorkerID {
-					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+					return errDirectoryHeld(heldCachePath(), existing)
 				}
 			}
 			var lapsedBinding bool
