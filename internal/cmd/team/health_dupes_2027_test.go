@@ -802,6 +802,33 @@ func TestHealth2027InFlightResetBelowEndedMaxStillSkips(t *testing.T) {
 	}
 }
 
+// Gate edge 3, #2055 item 4 (the null-read pin): a reset the query cannot
+// SEE — contextReset reads null; a permission mask and a reaped record are
+// indistinguishable — counts as in flight, fail closed: the worker is
+// skipped, never acted on. A mutant that treats the invisible read as ended
+// acts inside the reset window and fails this pin.
+func TestHealth2027InvisibleResetReadCountsAsInFlight(t *testing.T) {
+	w := health2027Setup(t)
+	w.state = `{"hostId":"own","resets":{"vr1":{"resetId":"vr1","workerId":"w1"}}}`
+	w.stateFileWrite(t, w.state)
+	// vr1 is absent from the per-id answers, so its read returns contextReset
+	// null — the invisible (masked or reaped) shape, distinct from unreadable.
+	w.resetsByID = map[string]string{}
+	w.spawnAgent(t, "codex", true)
+	w.spawnAgent(t, "claude", false)
+	dto, _, err := w.run(t, false, "--dry-run=false")
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
+	if skip == nil || skip.Worker != "w1" {
+		t.Fatalf("an invisible reset read must skip the worker: %+v", dto.Skips)
+	}
+	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
+		t.Fatalf("acted on a reset the query could not see: %+v %q", dto.Fixes, terms)
+	}
+}
+
 // Gate edge 3, #2037 N2: a worker whose recorded resets all read ended is
 // not resetting — ended resets must not wedge the skip on.
 func TestHealth2027AllEndedResetsLeaveWorkerActionable(t *testing.T) {
