@@ -168,7 +168,7 @@ func writeSigningReceipt(cmd *cobra.Command, ctx context.Context, f *cmdutil.Fac
 		defer budget.Close()
 		dto.SignatureLint = lintwarn.ReadSignatureLint(budget, client, dto.ID)
 		if dto.SignatureLint == nil {
-			lintwarn.ReportUnavailable(cmd)
+			lintwarn.ReportUnavailable(cmd, "signature lint")
 		}
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
@@ -186,7 +186,7 @@ func writeSigningReceipt(cmd *cobra.Command, ctx context.Context, f *cmdutil.Fac
 		}
 		writeSigningTemplates(out, sig, trl)
 		if !masked {
-			if err := lintwarn.WriteSection(out, "signature lint (current check)", "the signature and trailer", dto.SignatureLint, false); err != nil {
+			if err := lintwarn.WriteSection(out, "signature lint", "the signature and trailer; current check after save", dto.SignatureLint, false); err != nil {
 				return err
 			}
 		}
