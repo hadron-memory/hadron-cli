@@ -1231,6 +1231,14 @@ func codeForExtension(code string) int {
 		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
+	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may
+	// read the task but not link is refused, not missing; a task that is not a
+	// PR build task, or a head never frozen on it, is the task's state, which a
+	// retry cannot change. An unreadable task is TASK_NOT_FOUND (exit 4).
+	case code == "DEFECT_LINK_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "PR_REFERENCE_MISSING" || code == "DEFECT_HEAD_NOT_FROZEN":
+		return exitcode.Conflict
 	// Node writes (cli#1341): a hard delete of a node with edges to other
 	// memories needs --cascade-cross-memory-edges, an argument the caller
 	// fixes; an inline --edge whose loc another edge of the node already
