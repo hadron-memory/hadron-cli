@@ -11,9 +11,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // cli#2238: the binding lock file is created through O_CREATE, whose mode is
@@ -142,6 +144,8 @@ func TestBindingLockCompetingCreators2238(t *testing.T) {
 	dir := t.TempDir()
 	h := cacheHandle{loc: bindingLoc{dir: dir}}
 	paused, resume := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(resume) }) }
 	var paused1 atomic.Bool
 	lockCreatedHook = func(string) {
 		if paused1.CompareAndSwap(false, true) { // only the first creator pauses
@@ -155,6 +159,17 @@ func TestBindingLockCompetingCreators2238(t *testing.T) {
 		err error
 	}
 	first := make(chan result, 1)
+	done := false
+	// However the test exits, the paused first opener is released and its
+	// descriptor closed, so a failure strands nothing.
+	defer func() {
+		release()
+		if !done {
+			if r := <-first; r.f != nil {
+				_ = r.f.Close()
+			}
+		}
+	}()
 	go func() { f, err := h.openLock(); first <- result{f, err} }()
 	<-paused
 	second, err := h.openLock()
@@ -162,8 +177,9 @@ func TestBindingLockCompetingCreators2238(t *testing.T) {
 		t.Fatalf("second opener: %v", err)
 	}
 	defer func() { _ = second.Close() }()
-	close(resume)
+	release()
 	r := <-first
+	done = true
 	if r.err != nil {
 		t.Fatalf("first opener after losing the race: %v", r.err)
 	}
@@ -203,4 +219,85 @@ func TestBindingLockWithoutHardLinks2238(t *testing.T) {
 		t.Fatalf("two binds without hard links: %v\n%s", err, out)
 	}
 	assertLockMode2238(t, filepath.Join(gitDir, bindingLockFileName))
+}
+
+// Julius's P3 on the delta: only "this filesystem cannot hard-link" falls
+// back to a direct create. A real fault surfaces, and leaves no lock and no
+// temporary behind.
+func TestBindingLockRealLinkFaultSurfaces2238(t *testing.T) {
+	dir := t.TempDir()
+	h := cacheHandle{loc: bindingLoc{dir: dir}}
+	lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.EIO} }
+	defer func() { lockLinkHook = nil }()
+	if f, err := h.openLock(); err == nil {
+		_ = f.Close()
+		t.Fatal("an EIO from the publish step was swallowed by the fallback")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("a failed publish left files behind: %v %v", entries, err)
+	}
+}
+
+// Julius's P2 on the delta: if setting the mode fails in the fallback, the
+// file this call created (and only that inode) is taken away again, so a later
+// call is not stuck on an unusable lock.
+func TestBindingLockFallbackChmodFailureLeavesNothing2238(t *testing.T) {
+	dir := t.TempDir()
+	h := cacheHandle{loc: bindingLoc{dir: dir}}
+	lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.ENOTSUP} }
+	lockFallbackChmodHook = func() error { return errors.New("chmod refused") }
+	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
+	if f, err := h.openLock(); err == nil {
+		_ = f.Close()
+		t.Fatal("a failed mode change was ignored")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("the unusable lock was left behind: %v %v", entries, err)
+	}
+}
+
+// Julius's P2 on the delta: a creator paused inside the fallback's window (the
+// lock exists, mode not yet set, umask 0277) is waited for by a second opener,
+// which succeeds once the creator finishes. The umask is set for this test only.
+func TestBindingLockFallbackPausedCreatorIsWaitedFor2238(t *testing.T) {
+	dir := t.TempDir()
+	h := cacheHandle{loc: bindingLoc{dir: dir}}
+	old := syscall.Umask(0o277)
+	defer syscall.Umask(old)
+	lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.ENOTSUP} }
+	paused, resume := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(resume) }) }
+	var first atomic.Bool
+	lockFallbackChmodHook = func() error {
+		if first.CompareAndSwap(false, true) {
+			close(paused)
+			<-resume
+		}
+		return nil
+	}
+	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
+	type result struct {
+		f   *os.File
+		err error
+	}
+	firstRes := make(chan result, 1)
+	go func() { f, err := h.openLock(); firstRes <- result{f, err} }()
+	defer func() {
+		release()
+		if r := <-firstRes; r.f != nil {
+			_ = r.f.Close()
+		}
+	}()
+	<-paused
+	// The lock exists in a mode the second opener cannot open until the
+	// creator finishes: release it shortly after the second opener starts.
+	time.AfterFunc(50*time.Millisecond, release)
+	second, err := h.openLock()
+	if err != nil {
+		t.Fatalf("second opener should wait out the creator: %v", err)
+	}
+	_ = second.Close()
 }

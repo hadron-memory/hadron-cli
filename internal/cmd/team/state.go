@@ -529,6 +529,11 @@ var lockCreatedHook func(path string)
 // lock: a test makes it fail the way a filesystem without links does.
 var lockLinkHook func() error
 
+// lockFallbackChmodHook, when set, runs in the no-hard-link fallback after the
+// lock is created and before its chmod: a test pauses the creator there, or
+// returns an error to fail the chmod step.
+var lockFallbackChmodHook func() error
+
 const (
 	lockPermRetries    = 20
 	lockPermRetryEvery = 10 * time.Millisecond
@@ -554,6 +559,9 @@ func (h cacheHandle) openLock() (*os.File, error) {
 				return f, err
 			}
 			time.Sleep(lockPermRetryEvery)
+		}
+		if errors.Is(err, fs.ErrPermission) {
+			err = fmt.Errorf("%w (the lock file is not readable and writable by you; if no bind or poller is running, remove %s: an interrupted create can leave it so)", err, h.path(bindingLockFileName))
 		}
 		return f, err
 	}
@@ -609,11 +617,14 @@ func (h cacheHandle) openLock() (*os.File, error) {
 	if err == nil {
 		return f, nil
 	}
+	_ = f.Close()
+	if !linkUnsupported(err) {
+		return nil, err // a real fault (EIO ...) surfaces; it is not "no hard links"
+	}
 	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
 	// CLI worked there before, so it still does. Create the lock at its own
 	// name and set it exact at once; the window in which a concurrent opener
 	// could see a restrictive mode is covered by openExisting's bounded retry.
-	_ = f.Close()
 	f, err = open(bindingLockFileName, os.O_RDWR|os.O_CREATE|os.O_EXCL)
 	if errors.Is(err, fs.ErrExist) {
 		return openExisting()
@@ -621,7 +632,31 @@ func (h cacheHandle) openLock() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := f.Chmod(0o600); err != nil {
+	if lockFallbackChmodHook != nil {
+		err = lockFallbackChmodHook()
+	}
+	if err == nil {
+		err = f.Chmod(0o600)
+	}
+	if err != nil {
+		// The file is ours (O_EXCL) and unusable: take it away again, but only
+		// if the name still is the inode we made, so nothing else is removed.
+		if st, serr := f.Stat(); serr == nil {
+			var cur os.FileInfo
+			var lerr error
+			if h.root != nil {
+				cur, lerr = h.root.Lstat(bindingLockFileName)
+			} else {
+				cur, lerr = os.Lstat(h.path(bindingLockFileName))
+			}
+			if lerr == nil && os.SameFile(st, cur) {
+				if h.root != nil {
+					_ = h.root.Remove(bindingLockFileName)
+				} else {
+					_ = os.Remove(h.path(bindingLockFileName))
+				}
+			}
+		}
 		_ = f.Close()
 		return nil, err
 	}

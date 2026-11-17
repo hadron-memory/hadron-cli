@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -99,6 +100,8 @@ func TestLockBindingCompetingCreators2238(t *testing.T) {
 	d := gitTree(t)
 	dir := filepath.Join(d, ".git")
 	paused, resume := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(resume) }) }
 	var paused1 atomic.Bool
 	lockCreatedHook = func(string) {
 		if paused1.CompareAndSwap(false, true) { // only the first creator pauses
@@ -112,6 +115,17 @@ func TestLockBindingCompetingCreators2238(t *testing.T) {
 		err error
 	}
 	first := make(chan result, 1)
+	done := false
+	// However the test exits, the paused first opener is released and its
+	// descriptor closed, so a failure strands nothing.
+	defer func() {
+		release()
+		if !done {
+			if r := <-first; r.f != nil {
+				_ = r.f.Close()
+			}
+		}
+	}()
 	go func() { f, err := openLockFile(dir, bindingLockFileName, nil); first <- result{f, err} }()
 	<-paused
 	second, err := openLockFile(dir, bindingLockFileName, nil)
@@ -119,8 +133,9 @@ func TestLockBindingCompetingCreators2238(t *testing.T) {
 		t.Fatalf("second opener: %v", err)
 	}
 	defer func() { _ = second.Close() }()
-	close(resume)
+	release()
 	r := <-first
+	done = true
 	if r.err != nil {
 		t.Fatalf("first opener after losing the race: %v", r.err)
 	}
@@ -130,7 +145,10 @@ func TestLockBindingCompetingCreators2238(t *testing.T) {
 	if errA != nil || errB != nil || !os.SameFile(a, b) {
 		t.Fatalf("the two openers hold different files: %v %v", errA, errB)
 	}
-	entries, _ := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, e := range entries {
 		if strings.Contains(e.Name(), ".new-") {
 			t.Fatalf("a temporary lock file was left behind: %s", e.Name())
@@ -167,4 +185,84 @@ func TestLockBindingWithoutHardLinks2238(t *testing.T) {
 	if err != nil || st.Mode().Perm() != 0o600 {
 		t.Fatalf("lock mode: %v %v", st, err)
 	}
+}
+
+// Julius's P3 on the delta: only "this filesystem cannot hard-link" falls
+// back to a direct create. A real fault surfaces and leaves nothing behind.
+func TestLockBindingRealLinkFaultSurfaces2238(t *testing.T) {
+	d := gitTree(t)
+	dir := filepath.Join(d, ".git")
+	lockLinkHook = func() error { return unix.EIO }
+	defer func() { lockLinkHook = nil }()
+	if f, err := openLockFile(dir, bindingLockFileName, nil); err == nil {
+		_ = f.Close()
+		t.Fatal("an EIO from the publish step was swallowed by the fallback")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), bindingLockFileName) {
+			t.Fatalf("a failed publish left %s behind", e.Name())
+		}
+	}
+}
+
+// If setting the mode fails in the fallback, the file this call created (and
+// only that inode) is taken away again.
+func TestLockBindingFallbackChmodFailureLeavesNothing2238(t *testing.T) {
+	d := gitTree(t)
+	dir := filepath.Join(d, ".git")
+	lockLinkHook = func() error { return unix.ENOTSUP }
+	lockFallbackChmodHook = func() error { return errors.New("chmod refused") }
+	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
+	if f, err := openLockFile(dir, bindingLockFileName, nil); err == nil {
+		_ = f.Close()
+		t.Fatal("a failed mode change was ignored")
+	}
+	if _, err := os.Lstat(filepath.Join(dir, bindingLockFileName)); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("the unusable lock was left behind: %v", err)
+	}
+}
+
+// A creator paused inside the fallback's window (lock created, mode not set,
+// umask 0277) is waited for by a second opener.
+func TestLockBindingFallbackPausedCreatorIsWaitedFor2238(t *testing.T) {
+	d := gitTree(t)
+	dir := filepath.Join(d, ".git")
+	old := syscall.Umask(0o277)
+	defer syscall.Umask(old)
+	lockLinkHook = func() error { return unix.ENOTSUP }
+	paused, resume := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(resume) }) }
+	var first atomic.Bool
+	lockFallbackChmodHook = func() error {
+		if first.CompareAndSwap(false, true) {
+			close(paused)
+			<-resume
+		}
+		return nil
+	}
+	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
+	type result struct {
+		f   *os.File
+		err error
+	}
+	firstRes := make(chan result, 1)
+	go func() { f, err := openLockFile(dir, bindingLockFileName, nil); firstRes <- result{f, err} }()
+	defer func() {
+		release()
+		if r := <-firstRes; r.f != nil {
+			_ = r.f.Close()
+		}
+	}()
+	<-paused
+	time.AfterFunc(50*time.Millisecond, release)
+	second, err := openLockFile(dir, bindingLockFileName, nil)
+	if err != nil {
+		t.Fatalf("second opener should wait out the creator: %v", err)
+	}
+	_ = second.Close()
 }

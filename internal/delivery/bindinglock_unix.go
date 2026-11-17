@@ -94,11 +94,14 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 	if err == nil {
 		return fd, nil
 	}
+	_ = unix.Close(fd)
+	if !linkUnsupported(err) {
+		return -1, err // a real fault (EIO ...) surfaces; it is not "no hard links"
+	}
 	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
 	// lock was created there before, so it still is. Create it at its own
 	// name and set it exact at once; a concurrent opener that meets the
 	// restrictive mode in that moment retries for a bounded time.
-	_ = unix.Close(fd)
 	fd, err = unix.Openat(dfd, name, flags|unix.O_CREAT|unix.O_EXCL, 0o600)
 	if errors.Is(err, unix.EEXIST) {
 		return openLockRetrying(dfd, name, flags)
@@ -106,16 +109,45 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	if err := unix.Fchmod(fd, 0o600); err != nil {
+	if lockFallbackChmodHook != nil {
+		err = lockFallbackChmodHook()
+	}
+	if err == nil {
+		err = unix.Fchmod(fd, 0o600)
+	}
+	if err != nil {
+		// The file is ours (O_EXCL) and unusable: take it away again, but only
+		// if the name still is the inode we made, so nothing else is removed.
+		var mine, cur unix.Stat_t
+		if unix.Fstat(fd, &mine) == nil && unix.Fstatat(dfd, name, &cur, unix.AT_SYMLINK_NOFOLLOW) == nil && mine.Dev == cur.Dev && mine.Ino == cur.Ino {
+			_ = unix.Unlinkat(dfd, name, 0)
+		}
 		_ = unix.Close(fd)
 		return -1, fmt.Errorf("setting the session binding lock mode: %w", err)
 	}
 	return fd, nil
 }
 
+// linkUnsupported says whether a failed hard link means the filesystem cannot
+// make one (FAT/exFAT, some network mounts, a cross-device or link-limited
+// directory), as opposed to a real fault such as EIO, which must surface.
+func linkUnsupported(err error) bool {
+	for _, e := range []error{unix.ENOTSUP, unix.EOPNOTSUPP, unix.EPERM, unix.EXDEV, unix.ENOSYS, unix.EMLINK} {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
+}
+
 // lockLinkHook, when set, stands in for the hard link that publishes a new
 // lock: a test makes it fail the way a filesystem without links does.
 var lockLinkHook func() error
+
+// lockFallbackChmodHook, when set, runs in the no-hard-link fallback after the
+// lock is created and before its chmod: a test pauses the creator there, or
+// returns an error to fail the chmod step.
+var lockFallbackChmodHook func() error
 
 const (
 	lockPermRetries    = 20
@@ -133,6 +165,9 @@ func openLockRetrying(dfd int, name string, flags int) (int, error) {
 			return fd, err
 		}
 		time.Sleep(lockPermRetryEvery)
+	}
+	if errors.Is(err, unix.EACCES) {
+		err = fmt.Errorf("%w (the lock file is not readable and writable by you; if no bind or poller is running, remove it: an interrupted create can leave it so)", err)
 	}
 	return fd, err
 }
