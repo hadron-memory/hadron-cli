@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 235: 198 command, 12 gap, 25 excluded
+[Query] 236: 198 command, 13 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -260,11 +260,12 @@ verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
 webPolls  command web-poll list
+webPollsPage  gap #2032: paged web-poll read not adopted yet
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 303 command, 42 gap, 14 excluded
+[Mutation] 357: 303 command, 42 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -307,7 +308,6 @@ claimContextReset  command team host run
 claimUntrackedTaskItems  command team task find-untracked
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
-clearWorkerIsolation  excluded deprecated: retired in server#3611 Phase 1; cli#1743 removes the compatibility door
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
 cloneMemory  command memory clone
@@ -430,7 +430,6 @@ handBackAgentTask  command team task hand-back
 importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite
-isolateWorker  excluded deprecated: retired in server#3611 Phase 1; cli#1743 removes the compatibility door
 issueHostOperation  command team host issue
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
@@ -625,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 77: 41 gap, 36 excluded
+[Arguments] 77: 42 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -673,7 +672,6 @@ Mutation.revokeAppGrant(instruction)  gap #1617
 Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
-Mutation.setAppDeliverySettings(input.standbyEnabled)  excluded deprecated: retired in server#3611 Phase 1; cli#1743 never sends the compatibility input
 Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
 Mutation.setAppProperties(instruction)  gap #1617
@@ -703,6 +701,7 @@ Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
+Query.webPolls(first)  gap #2032: the deprecated unpaged read takes no page size; webPollsPage supersedes it
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
