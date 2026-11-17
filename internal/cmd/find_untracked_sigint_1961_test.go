@@ -18,7 +18,7 @@ import (
 // in-process pins inject a context and cannot see this.
 func TestCompiledBinaryInterruptMidDescribeExitsCancelled1961(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("POSIX signals and a shell-script adapter")
+		t.Skip("Windows console events require a Windows-specific subprocess harness")
 	}
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "hadron")
@@ -27,13 +27,12 @@ func TestCompiledBinaryInterruptMidDescribeExitsCancelled1961(t *testing.T) {
 	}
 	started := filepath.Join(dir, "started")
 	adapter := filepath.Join(dir, "adapter")
-	script := "#!/bin/sh\ncat >/dev/null\n: > '" + started + "'\nsleep 20\n"
-	if err := os.WriteFile(adapter, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
+	if out, err := exec.Command("go", "build", "-o", adapter, "../intake/testdata/adapter").CombinedOutput(); err != nil {
+		t.Fatalf("build adapter: %v\n%s", err, out)
 	}
 
 	cmd := exec.Command(bin, "team", "task", "find-untracked", "--adapter", adapter)
-	cmd.Env = append(os.Environ(), "HADRON_TOKEN=unused", "HADRON_INTAKE_ADAPTER=", "HOME="+dir)
+	cmd.Env = append(os.Environ(), "HADRON_TOKEN=unused", "HADRON_INTAKE_ADAPTER=", "HOME="+dir, "TEST_INTAKE_STARTED="+started)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {

@@ -431,6 +431,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 			message = text
 		}
 		failure := map[string]any{"code": code, "message": message}
+		superseded, currentSession, currentStarted := api.SupersededSessionEvidence(err)
+		if superseded && currentSession != "" {
+			failure["sessionId"] = currentSession
+			failure["startedAt"] = currentStarted
+		}
 		// cli#898: additive fields for an internal fault; `code` already means
 		// the exit code, so the server's code is a new key.
 		if fault, ok := api.InternalFaultOf(err); ok {
@@ -461,6 +466,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var coded interface{ ServerCode() string }
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
+		}
+		// Specific marker wins after every generic/fault/wrapper code writer,
+		// regardless of envelope error order (Wolfgang ruling111707). On a
+		// gateway fault only this marker wins: numeric exit, fault message and
+		// requestId remain untouched; no successor pair or definitive hint.
+		if api.HasErrorCode(err, "SESSION_SUPERSEDED") {
+			failure["serverCode"] = "SESSION_SUPERSEDED"
 		}
 		// #1664: only PR_NOT_READY carries typed failing slots.
 		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
@@ -528,6 +540,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			message := humanErrorText(err) + api.CloneAgentDetailText(err)
+			if superseded {
+				if currentSession == "" {
+					message = "Session superseded. No current-session details are available. No retry or rebind was attempted."
+				} else {
+					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SafeLine(currentSession, len(currentSession)+1), output.SafeLine(currentStarted, len(currentStarted)+1))
+				}
+			}
 			if text, ok := authoredRefusalText(err); ok {
 				message = text
 			}

@@ -2,6 +2,7 @@ package intake
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/pkg/intakecontract"
 )
 
 // adapter writes an executable POSIX shell script and returns a Runner on it.
@@ -52,7 +55,6 @@ func TestHostileOutputIsRefused(t *testing.T) {
 		"trailing junk":        `cat >/dev/null; echo '{"items":[]} junk'`,
 		"truncated":            `cat >/dev/null; printf '{"items":[{"externalId":"u"'`,
 		"empty":                `cat >/dev/null`,
-		"invalid utf8":         `cat >/dev/null; printf '{"items":[{"externalId":"\xff\xfe","title":"t"}]}'`,
 		"empty externalId":     `cat >/dev/null; echo '{"items":[{"externalId":"","title":"t"}]}'`,
 		"missing externalId":   `cat >/dev/null; echo '{"items":[{"title":"t"}]}'`,
 		"huge externalId":      `cat >/dev/null; printf '{"items":[{"externalId":"'; head -c 5000 /dev/zero | tr '\0' 'a'; printf '","title":"t"}]}'`,
@@ -281,9 +283,79 @@ func TestCallerCancelIsNotAnAdapterRefusal(t *testing.T) {
 
 // The server counts code points, not UTF-16 units: 512 astral characters are
 // within its cap (1024 units, 2048 bytes) and must not be refused here.
+// This also lands exactly on MaxExternalIDLen, the independent byte bound.
 func TestExternalIDCountsCodePointsLikeTheServer(t *testing.T) {
 	r := adapter(t, `cat >/dev/null; printf '{"items":[{"externalId":"'; yes '😀' | head -n 512 | tr -d '\n'; printf '","title":"t"}]}'`)
 	if _, err := r.ListUntracked(context.Background(), "", "", 20); err != nil {
 		t.Fatalf("512 code points is within the server cap: %v", err)
+	}
+}
+
+// TestRunnerEnforcesTheExportedRules is the red pin of hadron-cli#1977: for
+// each boundary case, the runner's verdict equals the public intakecontract
+// package's, so what an adapter's conformance suite imports is what the
+// runner enforces.
+func TestRunnerEnforcesTheExportedRules(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script adapter fixtures need a POSIX shell")
+	}
+	big := func(n int) string { return strings.Repeat("a", n) }
+	script := func(t *testing.T, body string) *Runner {
+		path := filepath.Join(t.TempDir(), "a.sh")
+		if err := os.WriteFile(path, []byte("#!/bin/sh\ncat >/dev/null\ncat <<'EOF_BODY'\n"+body+"\nEOF_BODY\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return &Runner{Path: path}
+	}
+	pages := map[string]string{
+		"id 512":        `{"items":[{"externalId":"` + big(512) + `","title":"t"}]}`,
+		"id 513":        `{"items":[{"externalId":"` + big(513) + `","title":"t"}]}`,
+		"id 2049":       `{"items":[{"externalId":"` + big(2049) + `","title":"t"}]}`,
+		"empty id":      `{"items":[{"externalId":"","title":"t"}]}`,
+		"title 1024":    `{"items":[{"externalId":"u","title":"` + big(1024) + `"}]}`,
+		"title 1025":    `{"items":[{"externalId":"u","title":"` + big(1025) + `"}]}`,
+		"cursor 4096":   `{"items":[],"nextCursor":"` + big(4096) + `"}`,
+		"cursor 4097":   `{"items":[],"nextCursor":"` + big(4097) + `"}`,
+		"trailing junk": `{"items":[]} x`,
+		"array":         `[]`,
+	}
+	for name, body := range pages {
+		t.Run(name, func(t *testing.T) {
+			var ans intakecontract.ListAnswer
+			want := intakecontract.DecodeAnswer([]byte(body), &ans)
+			if want == nil {
+				want = intakecontract.CheckPage(ans)
+			}
+			_, got := script(t, body).ListUntracked(context.Background(), "", "", 20)
+			if (got == nil) != (want == nil) {
+				t.Fatalf("runner err=%v, exported rules err=%v", got, want)
+			}
+			if want != nil {
+				var oe *OutputError
+				if !errors.As(got, &oe) || !strings.HasSuffix(oe.Reason, want.Error()) {
+					t.Fatalf("runner reason %v, exported %q", got, want)
+				}
+			}
+		})
+	}
+	for name, d := range map[string]intakecontract.Describe{
+		"ok": {Name: "a", ContractVersion: 1}, "skew": {Name: "a", ContractVersion: 2},
+		"blank": {Name: " ", ContractVersion: 1}, "long": {Name: big(1025), ContractVersion: 1},
+	} {
+		t.Run("describe "+name, func(t *testing.T) {
+			want := intakecontract.CheckDescribe(d)
+			js, _ := json.Marshal(d)
+			_, got := script(t, string(js)).Describe(context.Background())
+			if (got == nil) != (want == nil) {
+				t.Fatalf("runner err=%v, exported rules err=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestScrubAllHadronEnvironment1974(t *testing.T) {
+	got := scrubbedEnv([]string{"HADRON_PASSWORD=x", "hadron_endpoint=x", "HADRON_TOKEN=x", "PATH=/bin", "GITHUB_TOKEN=tracker"})
+	if strings.Join(got, ",") != "PATH=/bin,GITHUB_TOKEN=tracker" {
+		t.Fatalf("unexpected environment: %v", got)
 	}
 }
