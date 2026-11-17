@@ -26,7 +26,7 @@ func allowBindingCreation(worktree string) error {
 	}
 	uid := bindingEffectiveUID()
 	if uint64(uid) != uint64(stat.Uid) {
-		return fmt.Errorf("the binding cache in %s is missing and this host runs as uid %d but the worktree belongs to uid %d: nothing was created; start the worker once so its own session start creates it, or run the host as that user", worktree, uid, stat.Uid)
+		return fmt.Errorf("the binding cache or lock file in %s is missing and this host runs as uid %d but the worktree belongs to uid %d: nothing was created; start the worker once so its own session start creates it, or run the host as that user", worktree, uid, stat.Uid)
 	}
 	return nil
 }
