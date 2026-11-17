@@ -169,6 +169,10 @@ func SetGitDirRunner(r GitDirRunner) (restore func()) {
 // chmod; a test replaces it to swap the directory for a symlink there.
 var beforeCacheChmod = func(string) {}
 
+// afterCacheSecure is the moment after the cache directory is secured; a test
+// replaces it to swap the directory there.
+var afterCacheSecure = func(string) {}
+
 // plainDirCacheName is the binding cache's home in a directory that is not a
 // git checkout (cli#1391, ruling 0230 = B): a hidden directory in the
 // directory the command runs from, holding the same binding and lock files a
@@ -459,6 +463,7 @@ func withBindingLockAt(loc bindingLoc, fn func() error) error {
 			return fmt.Errorf("securing the session binding cache %s: %w", loc.dir, err)
 		}
 	}
+	afterCacheSecure(loc.dir)
 	path := filepath.Join(loc.dir, bindingLockFileName)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 — derived from the worktree's git dir or the plain directory's cache
 	if err != nil {

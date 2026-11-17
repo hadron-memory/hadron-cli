@@ -155,3 +155,38 @@ func TestPlainDir1969TheCacheModeIsChangedThroughTheOpenedHandleOnly(t *testing.
 		}
 	}
 }
+
+// Jibril's BLIND delta on #2229 (b6580c77): the handle used to secure the
+// directory is closed before the lock and the binding are written by path, so
+// a swap AFTER the securing step still redirected them. The directory is
+// swapped for a symlink to a shared one right after it is secured: the lock
+// and the binding must land in the directory that was secured, and the shared
+// target must stay empty.
+func TestPlainDir1969SwapAfterSecuringDoesNotRedirectTheLockOrTheBinding(t *testing.T) {
+	dir := plainDir1391(t)
+	shared := t.TempDir()
+	cache := filepath.Join(dir, plainDirCacheName)
+	moved := filepath.Join(dir, "moved-cache")
+	restore := afterCacheSecure
+	t.Cleanup(func() { afterCacheSecure = restore })
+	afterCacheSecure = func(string) {
+		if err := os.Rename(cache, moved); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink(shared, cache); err != nil {
+			t.Error(err)
+		}
+	}
+	if _, err := writeBinding(context.Background(), &binding{SessionID: "s1", WorkerID: "wkr1", WorkerName: "Iris"}); err != nil {
+		t.Fatalf("the bind itself succeeds on the directory it secured: %v", err)
+	}
+	if ents, _ := os.ReadDir(shared); len(ents) != 0 {
+		t.Fatalf("nothing may be written through the swapped-in link: %v", ents)
+	}
+	for _, name := range []string{bindingFileName, bindingLockFileName} {
+		if _, err := os.Stat(filepath.Join(moved, name)); err != nil {
+			t.Errorf("%s must be in the secured directory: %v", name, err)
+		}
+	}
+}
