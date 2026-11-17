@@ -28,6 +28,11 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 | any other git failure | none: the hard `errNoWorktree`, as before |
 
 - `.hadron-team/` holds the same `hadron-team-session.json` and `hadron-team-session.lock` that a git dir holds. The directory is created owner-only (0700), and only by a bind.
+- Every bind tightens an existing `.hadron-team/` to 0700, so "owner-only" holds for a directory an earlier version or a person made loose (cli#1969 F8).
+- A symlinked `.hadron-team` is refused (it must be a real directory), so the chmod never reaches a shared target (Jibril's BLIND P2 on #2229). The directory is opened without following a symlink, chmodded through that handle, and held as an `os.Root`; the lock and every read, write and removal under the lock go through that root, never the path again, so a swap at any moment redirects nothing. Limit: reads made OUTSIDE the lock (`readBinding`, `whoami`) and the shed cooldown stamp still resolve the path; they change no mode and write nothing a swap could redirect except the cooldown stamp.
+- A deleted or unreadable working directory is reported as such (`cannot determine the working directory`), not as "not inside a git worktree" (cli#1969 F3).
+- **`git init` hides the cache.** A bound plain directory that later becomes a git checkout is a worktree to the CLI, and worktree mode wins: the binding is looked for in the git dir, so `whoami` shows none until the worker starts or resumes again, which creates the worktree's binding. Nothing is lost on the server; a resume recovers the session. This follows ruling 0230 ("inside a git worktree nothing changes") and is stated in the `session start` help (cli#1969 F9).
+- The git call is injectable (`team.SetGitDirRunner`), so the plain-directory tests run on every platform rather than through a shell script on PATH (cli#1969 F6).
 - Only the **current** directory is consulted, never a parent. A command run in a subdirectory therefore cannot pick up the binding of a directory above it.
 - A dubious-ownership refusal, or a corrupt repository, may sit inside a real worktree. That is why only git's own "not a git repository" makes a directory plain: reading a real worktree as plain would put its binding in the wrong place.
 - Only the discovery form, "not a git repository (or any of the parent directories)", counts. git says "not a git repository: <path>" for a worktree whose admin dir is gone, or a bad `GIT_DIR`, and that is a real checkout (Rico's §10 P3 on #1968).
@@ -43,6 +48,7 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 - `session start --as <worker>` refuses **before any session is started or ended** (exit 5) when the directory's binding names a different worker. This includes `--force`, which would otherwise end the other worker's session and then share its directory.
   - First a local check, with no server call: a ref that matches the binding by none of name (case-insensitive), worker id or `hrn:worker:` URN's last segment is another worker, and refuses.
   - A local match proves nothing, because a name is App-scoped and a slug repeats across Apps (Gizelle's LOCAL F1 on #1968: another App's `Iris` passed, and `--force` ended the cached session before the lock-time check refused). So the start then resolves the named worker, with reads only, and refuses unless its id is the binding's worker id. A binding with no worker id refuses: sameness can't be shown.
+- Every "remove <path>" a refusal prints is the absolute cache path, the same spelling `writeBinding`'s refusal uses (cli#1969 F4).
 - `writeBinding` re-checks under the lock, against a fresh read, by worker id. A cached binding with no worker id counts as held, since it can't show it is the same worker (Gloria's BLIND F2 on #1968). This backstop covers:
   - a launch grant, whose worker is known only after the bind (start rolls the bind back);
   - a resume (the session stays open, as every failed resume write leaves it);
@@ -61,7 +67,7 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
 | 2 | `TestPlainDir1391ResumeRedeemsAndCaches`, `TestPlainDir1391ShedWritesCheckpointAndClaim` |
 | 3 | `TestPlainDir1391UnboundPostRefusesWithNoWrite` (green on main by design: it pins the wall) |
 | 4 | the existing session suites, unchanged; `TestPlainDir1391WorktreeStillReplaces` |
-| 5 | `TestPlainDir1391SecondWorkerStartIsRefusedBeforeAnyWrite` (with and without `--force`), `TestPlainDir1391SecondWorkerIsRefusedUnderTheLock` |
+| 5 | `TestPlainDir1391SecondWorkerStartIsRefusedBeforeAnyWrite` (with and without `--force`), `TestPlainDir1391SecondWorkerIsRefusedUnderTheLock` (two sequential binds), `TestPlainDir1969ConcurrentBindsLeaveExactlyOneWorker` (the real concurrent pin) |
 
 More pins:
 - `TestPlainDir1391ReadsSeeNoCacheAndCreateNothing`: reads stay `errNoWorktree`, and only a bind creates the directory.
