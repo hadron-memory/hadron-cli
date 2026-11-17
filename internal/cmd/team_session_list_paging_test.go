@@ -243,7 +243,7 @@ func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
 	}
 }
 
-// cli#2030 (LOCAL F1): the recovered order feeds the --active slice, so the
+// The recovered order feeds the --active slice, so the
 // newest active session must be the one `--limit 1` returns.
 func TestSessionListActiveLimitPicksTheNewestAfterAnInsert(t *testing.T) {
 	ids, _, err := runSessionList(t, insertingSource(), "--active", "--limit", "1")
@@ -284,7 +284,7 @@ func TestSessionListFailsClosedWhenRestartsRunOut(t *testing.T) {
 	}
 }
 
-// cli#2030 (BLIND P2): churn and a stuck server must not share a diagnosis. A
+// Churn and a stuck server must not share a diagnosis. A
 // server that ignores the offset reads nothing new on a restarted pass, so the
 // "not advancing" signal survives and the message does not tell anyone to retry.
 func TestSessionListStuckServerKeepsTheNotAdvancingDiagnosis(t *testing.T) {
@@ -301,5 +301,25 @@ func TestSessionListStuckServerKeepsTheNotAdvancingDiagnosis(t *testing.T) {
 	}
 	if len(calls) > 8 {
 		t.Errorf("a stuck server must stop after one restarted pass, made %d requests", len(calls))
+	}
+}
+
+// A server that reports a total it never serves, with honest pages (the last
+// one ends the list), is not churn: a restarted pass reads nothing new, so the
+// scan fails with "not advancing", never a retry hint and never a partial list.
+func TestSessionListLyingTotalFailsAsNotAdvancing(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(44), serve: 20}
+	src.wrapAt = func(page []string, _ int, offset int) string {
+		return fmt.Sprintf(`{"data":{"sessionsPage":{"total":45,"hasMore":%v,"items":[%s]}}}`, offset+len(page) < len(src.rows), strings.Join(page, ","))
+	}
+	ids, calls, err := runSessionList(t, src)
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable || len(ids) != 0 {
+		t.Fatalf("want exit 7 and no list, got %v (%d rows)", err, len(ids))
+	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a lying total must read as not advancing, not as churn to retry: %v", err)
+	}
+	if len(calls) > 12 {
+		t.Errorf("a lying total must stop after one restarted pass, made %d requests", len(calls))
 	}
 }
