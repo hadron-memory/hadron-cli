@@ -779,6 +779,10 @@ fragment TeamSessionFields on Session {
 # effort (#2199, hadron-server#4295): sent only with --effort, so an ordinary
 # start never puts `"effort": null` on the wire.
 # @genqlient(for: "SessionInput.effort", omitempty: true)
+# startSettingsApplied (#2209, hadron-server#4306): sent ONLY as false, from the
+# launch environment, so an ordinary bind never puts `"startSettingsApplied": null`
+# on the wire (absent means applied).
+# @genqlient(for: "SessionInput.startSettingsApplied", omitempty: true)
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)

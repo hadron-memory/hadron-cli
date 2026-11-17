@@ -85222,7 +85222,15 @@ type SessionInput struct {
 	// caller manages the App, and refuses the bind with it. Omitted leaves the
 	// value unchanged. Needs workerRef and a person behind the request.
 	ReportsTo *string `json:"reportsTo,omitempty"`
-	Tool      *string `json:"tool,omitempty"`
+	// #4306 — with launchGrant only: whether the host applied the run settings (family, model, effort) its start named
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). false: the start's settings were NOT applied (an exec-path worker
+	// runs its own fixed command), so this bind inherits none of them; the session, the worker's last-used record and the
+	// task's applied settings hold only the family, model and effort this bind itself reports (a family derived from its
+	// own llmModel or tool included). true, null or omitted: a bind that reports none runs as its start said, as before,
+	// so a client that never sends this is unaffected. false without a launchGrant is refused BAD_USER_INPUT before
+	// anything is written, because there is no start to qualify.
+	StartSettingsApplied *bool   `json:"startSettingsApplied,omitempty"`
+	Tool                 *string `json:"tool,omitempty"`
 	// #928 coding-session provenance.
 	TranscriptPath *string `json:"transcriptPath,omitempty"`
 	Type           *string `json:"type,omitempty"`
@@ -85323,6 +85331,9 @@ func (v *SessionInput) GetRepo() *string { return v.Repo }
 
 // GetReportsTo returns SessionInput.ReportsTo, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetStartSettingsApplied returns SessionInput.StartSettingsApplied, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetStartSettingsApplied() *bool { return v.StartSettingsApplied }
 
 // GetTool returns SessionInput.Tool, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetTool() *string { return v.Tool }
@@ -162836,6 +162847,9 @@ fragment WorkerReportingRefFields on Worker {
 // Schema refresh (#836): no family flag means omit, letting server classification run.
 // effort (#2199, hadron-server#4295): sent only with --effort, so an ordinary
 // start never puts `"effort": null` on the wire.
+// startSettingsApplied (#2209, hadron-server#4306): sent ONLY as false, from the
+// launch environment, so an ordinary bind never puts `"startSettingsApplied": null`
+// on the wire (absent means applied).
 // plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 // the refreshed field still needs its omitempty line (the #139 trap).
 // launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
