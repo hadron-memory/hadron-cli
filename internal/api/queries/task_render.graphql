@@ -1,0 +1,10 @@
+# Committed schema includes renderRunNode from the snapshot refreshed against
+# hadron-server 39eb1dfb76a78dba0866445f94b6a00a731e00b3 (CLI 51db5f71).
+# Query only: read usage is recorded by the provider; no run/action-run.
+query RenderRunNode(
+  $nodeRef: String!
+  # @genqlient(omitempty: true)
+  $args: JSON
+) {
+  renderRunNode(nodeRef: $nodeRef, args: $args)
+}
