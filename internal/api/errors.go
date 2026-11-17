@@ -1618,6 +1618,13 @@ func codeForExtension(code string) int {
 		return exitcode.NotFound
 	case code == "TASK_NOT_FINISHED":
 		return exitcode.Conflict
+	// S12b defect linking: the task must name a PR and the introduction head
+	// must already be frozen. These are state conflicts, not malformed input.
+	case code == "PR_REFERENCE_MISSING" || code == "DEFECT_HEAD_NOT_FROZEN":
+		return exitcode.Conflict
+	// The server owns who may link; readable is not permission to write.
+	case code == "DEFECT_LINK_FORBIDDEN":
+		return exitcode.Forbidden
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
 	// may move a task or set availability is the server's rule
 	// (cor:agt:050:08/:09, cor:agt:060:08/:09, cor:agt:050:20), so a

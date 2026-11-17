@@ -61427,6 +61427,65 @@ type LeaveAppResponse struct {
 // GetLeaveApp returns LeaveAppResponse.LeaveApp, and is useful for accessing the field via an interface.
 func (v *LeaveAppResponse) GetLeaveApp() *LeaveAppLeaveAppLeaveAppPayload { return v.LeaveApp }
 
+// LinkDefectToPullRequestLinkDefectToPullRequestDefectLink includes the requested fields of the GraphQL type DefectLink.
+// The GraphQL type's documentation follows.
+//
+// #4280 — a defect linked to the pull request it escaped from (the review.defect-linked event on the PR's build task).
+type LinkDefectToPullRequestLinkDefectToPullRequestDefectLink struct {
+	// The PR's build task.
+	TaskId string `json:"taskId"`
+	// The defect's issue URL, as given.
+	Defect string `json:"defect"`
+	// The head that introduced the defect, or null when the link names none.
+	IntroducedAtHead *string `json:"introducedAtHead"`
+	// The review.defect-linked event that records the link.
+	EventId  string `json:"eventId"`
+	LinkedAt string `json:"linkedAt"`
+	// False when the pair was already linked: this is the existing link, and nothing was written.
+	Created bool `json:"created"`
+}
+
+// GetTaskId returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.TaskId, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetTaskId() string {
+	return v.TaskId
+}
+
+// GetDefect returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.Defect, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetDefect() string {
+	return v.Defect
+}
+
+// GetIntroducedAtHead returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.IntroducedAtHead, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetIntroducedAtHead() *string {
+	return v.IntroducedAtHead
+}
+
+// GetEventId returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.EventId, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetEventId() string {
+	return v.EventId
+}
+
+// GetLinkedAt returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.LinkedAt, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetLinkedAt() string {
+	return v.LinkedAt
+}
+
+// GetCreated returns LinkDefectToPullRequestLinkDefectToPullRequestDefectLink.Created, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink) GetCreated() bool {
+	return v.Created
+}
+
+// LinkDefectToPullRequestResponse is returned by LinkDefectToPullRequest on success.
+type LinkDefectToPullRequestResponse struct {
+	// #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+	LinkDefectToPullRequest *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink `json:"linkDefectToPullRequest"`
+}
+
+// GetLinkDefectToPullRequest returns LinkDefectToPullRequestResponse.LinkDefectToPullRequest, and is useful for accessing the field via an interface.
+func (v *LinkDefectToPullRequestResponse) GetLinkDefectToPullRequest() *LinkDefectToPullRequestLinkDefectToPullRequestDefectLink {
+	return v.LinkDefectToPullRequest
+}
+
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -123170,6 +123229,22 @@ func (v *__LeaveAppInstructedInput) GetAppId() string { return v.AppId }
 // GetInstruction returns __LeaveAppInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__LeaveAppInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __LinkDefectToPullRequestInput is used internally by genqlient
+type __LinkDefectToPullRequestInput struct {
+	PrTaskRef        string  `json:"prTaskRef"`
+	DefectRef        string  `json:"defectRef"`
+	IntroducedAtHead *string `json:"introducedAtHead,omitempty"`
+}
+
+// GetPrTaskRef returns __LinkDefectToPullRequestInput.PrTaskRef, and is useful for accessing the field via an interface.
+func (v *__LinkDefectToPullRequestInput) GetPrTaskRef() string { return v.PrTaskRef }
+
+// GetDefectRef returns __LinkDefectToPullRequestInput.DefectRef, and is useful for accessing the field via an interface.
+func (v *__LinkDefectToPullRequestInput) GetDefectRef() string { return v.DefectRef }
+
+// GetIntroducedAtHead returns __LinkDefectToPullRequestInput.IntroducedAtHead, and is useful for accessing the field via an interface.
+func (v *__LinkDefectToPullRequestInput) GetIntroducedAtHead() *string { return v.IntroducedAtHead }
+
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
 	MemoryId       string `json:"memoryId"`
@@ -152454,6 +152529,52 @@ func LeaveAppInstructed(
 	}
 
 	data_ = &LeaveAppInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LinkDefectToPullRequest.
+const LinkDefectToPullRequest_Operation = `
+mutation LinkDefectToPullRequest ($prTaskRef: ID!, $defectRef: String!, $introducedAtHead: String) {
+	linkDefectToPullRequest(prTaskRef: $prTaskRef, defectRef: $defectRef, introducedAtHead: $introducedAtHead) {
+		taskId
+		defect
+		introducedAtHead
+		eventId
+		linkedAt
+		created
+	}
+}
+`
+
+// S12b, server #4280/#4284. The committed snapshot was refreshed in CLI #2269
+// against server 33e89dcc2af6beca8220f42c9e11d76fc0edc089, containing 696ed50c.
+// No instruction argument in this client slice.
+func LinkDefectToPullRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	prTaskRef string,
+	defectRef string,
+	introducedAtHead *string,
+) (data_ *LinkDefectToPullRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LinkDefectToPullRequest",
+		Query:  LinkDefectToPullRequest_Operation,
+		Variables: &__LinkDefectToPullRequestInput{
+			PrTaskRef:        prTaskRef,
+			DefectRef:        defectRef,
+			IntroducedAtHead: introducedAtHead,
+		},
+	}
+
+	data_ = &LinkDefectToPullRequestResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

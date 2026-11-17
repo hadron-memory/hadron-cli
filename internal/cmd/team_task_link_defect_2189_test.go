@@ -183,3 +183,26 @@ func TestTaskLinkDefectHelp2189(t *testing.T) {
 		}
 	}
 }
+
+func TestTaskLinkDefectExistingReceiptWins2189(t *testing.T) {
+	calls, out, err := runTeamTask(t, map[string]string{"LinkDefectToPullRequest": defectReply2189(false, defectHead2189), "TeamAppIdentity": teamAppIdentityJSON}, "team", "task", "link-defect", "task1", "--defect", defectURL2189, "--introduced-at-head", strings.Repeat("f", 40), "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]any
+	if e := json.Unmarshal([]byte(out), &dto); e != nil {
+		t.Fatal(e)
+	}
+	if dto["introducedAtHead"] != defectHead2189 || dto["created"] != false || len(defectCalls2189(calls)) != 1 {
+		t.Fatalf("existing receipt replaced/retried: %s calls=%+v", out, *calls)
+	}
+}
+
+func TestTaskLinkDefectIncompleteReceipt2189(t *testing.T) {
+	for _, reply := range []string{`{"data":null}`, `{"data":{"linkDefectToPullRequest":null}}`, `{"data":{"linkDefectToPullRequest":{}}}`, `{"data":{"linkDefectToPullRequest":{"taskId":"task","defect":"issue","eventId":"event","created":true}}}`} {
+		calls, out, err := runTeamTask(t, map[string]string{"LinkDefectToPullRequest": reply, "TeamAppIdentity": teamAppIdentityJSON}, "team", "task", "link-defect", "task1", "--defect", defectURL2189, "--json")
+		if exitCodeFor(err) != 1 || !strings.Contains(err.Error(), "outcome unknown") || out != "" || len(defectCalls2189(calls)) != 1 {
+			t.Fatalf("err=%v out=%q calls=%+v", err, out, *calls)
+		}
+	}
+}

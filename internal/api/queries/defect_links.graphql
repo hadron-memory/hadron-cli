@@ -1,0 +1,18 @@
+# S12b, server #4280/#4284. The committed snapshot was refreshed in CLI #2269
+# against server 33e89dcc2af6beca8220f42c9e11d76fc0edc089, containing 696ed50c.
+# No instruction argument in this client slice.
+mutation LinkDefectToPullRequest(
+  $prTaskRef: ID!
+  $defectRef: String!
+  # @genqlient(omitempty: true)
+  $introducedAtHead: String
+) {
+  linkDefectToPullRequest(prTaskRef: $prTaskRef, defectRef: $defectRef, introducedAtHead: $introducedAtHead) {
+    taskId
+    defect
+    introducedAtHead
+    eventId
+    linkedAt
+    created
+  }
+}
