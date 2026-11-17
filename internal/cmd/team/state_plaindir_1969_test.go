@@ -129,3 +129,29 @@ func TestPlainDir1969SwapForASymlinkBeforeTheChmodChangesNothing(t *testing.T) {
 		t.Fatalf("nothing may be written through the link: %v", ents)
 	}
 }
+
+// Wolfgang's ruling on #2229: the cache directory's mode is changed only by
+// Fchmod on a handle opened without following a symlink, never by a path
+// chmod. A race cannot be won reliably in a test, so this pins the shape of
+// the code: no os.Chmod in the binding code, and the unix securing opens
+// with O_NOFOLLOW and chmods that handle.
+func TestPlainDir1969TheCacheModeIsChangedThroughTheOpenedHandleOnly(t *testing.T) {
+	read := func(name string) string {
+		b, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	for _, name := range []string{"state.go", "state_securedir_unix.go", "state_securedir_windows.go"} {
+		if strings.Contains(read(name), "os.Chmod(") {
+			t.Errorf("%s changes a mode by path; it must go through the opened handle", name)
+		}
+	}
+	unix := read("state_securedir_unix.go")
+	for _, want := range []string{"syscall.O_NOFOLLOW", "syscall.O_DIRECTORY", "f.Chmod(0o700)"} {
+		if !strings.Contains(unix, want) {
+			t.Errorf("state_securedir_unix.go must contain %q", want)
+		}
+	}
+}
