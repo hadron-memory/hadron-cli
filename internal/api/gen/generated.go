@@ -27083,6 +27083,192 @@ func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __p
 	return &retval, nil
 }
 
+// ChannelTagsMultiChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type ChannelTagsMultiChannelMessagesTeamChatMessagesPage struct {
+	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+	// range and mentionsRef filter, before limit/offset. It is not the total
+	// number of messages in the chat or Channel when a cursor/filter is present.
+	Total int                                                                        `json:"total"`
+	Items []*ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetTotal returns ChannelTagsMultiChannelMessagesTeamChatMessagesPage.Total, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChannelTagsMultiChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPage) GetItems() []*ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	ChannelMessageFields `json:"-"`
+}
+
+// GetSeq returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.ChannelMessageFields.Seq
+}
+
+// GetAt returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.ChannelMessageFields.At
+}
+
+// GetBody returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.ChannelMessageFields.Body
+}
+
+// GetAuthorName returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.ChannelMessageFields.AuthorName
+}
+
+// GetAuthorWorkerId returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.ChannelMessageFields.AuthorWorkerId
+}
+
+// GetAuthorUserId returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.ChannelMessageFields.AuthorUserId
+}
+
+// GetAuthorAppId returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorAppId() *string {
+	return v.ChannelMessageFields.AuthorAppId
+}
+
+// GetSessionId returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.ChannelMessageFields.SessionId
+}
+
+// GetReplyToSeq returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.ChannelMessageFields.ReplyToSeq
+}
+
+// GetMentions returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.ChannelMessageFields.Mentions
+}
+
+// GetNodeId returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.ChannelMessageFields.NodeId
+}
+
+// GetTeamTags returns ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	Seq int `json:"seq"`
+
+	At string `json:"at"`
+
+	Body string `json:"body"`
+
+	AuthorName *string `json:"authorName"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorAppId *string `json:"authorAppId"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalChannelTagsMultiChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.Seq = v.ChannelMessageFields.Seq
+	retval.At = v.ChannelMessageFields.At
+	retval.Body = v.ChannelMessageFields.Body
+	retval.AuthorName = v.ChannelMessageFields.AuthorName
+	retval.AuthorWorkerId = v.ChannelMessageFields.AuthorWorkerId
+	retval.AuthorUserId = v.ChannelMessageFields.AuthorUserId
+	retval.AuthorAppId = v.ChannelMessageFields.AuthorAppId
+	retval.SessionId = v.ChannelMessageFields.SessionId
+	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
+	retval.Mentions = v.ChannelMessageFields.Mentions
+	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
+	return &retval, nil
+}
+
+// ChannelTagsMultiResponse is returned by ChannelTagsMulti on success.
+type ChannelTagsMultiResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
+	ChannelMessages *ChannelTagsMultiChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns ChannelTagsMultiResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *ChannelTagsMultiResponse) GetChannelMessages() *ChannelTagsMultiChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
+}
+
 // ChannelTagsResponse is returned by ChannelTags on success.
 type ChannelTagsResponse struct {
 	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
@@ -47726,6 +47912,356 @@ type DueWakesDueWakesDueWakePageWakesDueWakeWorker struct {
 
 // GetId returns DueWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
+
+// DueWakesPageFields includes the GraphQL fields of DueWakePage requested by the fragment DueWakesPageFields.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type DueWakesPageFields struct {
+	Status DueWakeStatus `json:"status"`
+	// Wakes held back by the daily budget; each stays due.
+	Withheld int `json:"withheld"`
+	// Dormant workers with relevant mentions, and how many: withheld, never dropped silently.
+	Dormant  []*DueWakesPageFieldsDormantDormantWithheld `json:"dormant"`
+	Wakes    []*DueWakesPageFieldsWakesDueWake           `json:"wakes"`
+	PageInfo *DueWakesPageFieldsPageInfoDueWakePageInfo  `json:"pageInfo"`
+}
+
+// GetStatus returns DueWakesPageFields.Status, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFields) GetStatus() DueWakeStatus { return v.Status }
+
+// GetWithheld returns DueWakesPageFields.Withheld, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFields) GetWithheld() int { return v.Withheld }
+
+// GetDormant returns DueWakesPageFields.Dormant, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFields) GetDormant() []*DueWakesPageFieldsDormantDormantWithheld {
+	return v.Dormant
+}
+
+// GetWakes returns DueWakesPageFields.Wakes, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFields) GetWakes() []*DueWakesPageFieldsWakesDueWake { return v.Wakes }
+
+// GetPageInfo returns DueWakesPageFields.PageInfo, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFields) GetPageInfo() *DueWakesPageFieldsPageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// DueWakesPageFieldsDormantDormantWithheld includes the requested fields of the GraphQL type DormantWithheld.
+type DueWakesPageFieldsDormantDormantWithheld struct {
+	Worker   *DueWakesPageFieldsDormantDormantWithheldWorker `json:"worker"`
+	Mentions int                                             `json:"mentions"`
+}
+
+// GetWorker returns DueWakesPageFieldsDormantDormantWithheld.Worker, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsDormantDormantWithheld) GetWorker() *DueWakesPageFieldsDormantDormantWithheldWorker {
+	return v.Worker
+}
+
+// GetMentions returns DueWakesPageFieldsDormantDormantWithheld.Mentions, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsDormantDormantWithheld) GetMentions() int { return v.Mentions }
+
+// DueWakesPageFieldsDormantDormantWithheldWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueWakesPageFieldsDormantDormantWithheldWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns DueWakesPageFieldsDormantDormantWithheldWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsDormantDormantWithheldWorker) GetId() string { return v.Id }
+
+// GetName returns DueWakesPageFieldsDormantDormantWithheldWorker.Name, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsDormantDormantWithheldWorker) GetName() string { return v.Name }
+
+// DueWakesPageFieldsPageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type DueWakesPageFieldsPageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns DueWakesPageFieldsPageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsPageInfoDueWakePageInfo) GetHasNextPage() bool { return v.HasNextPage }
+
+// GetEndCursor returns DueWakesPageFieldsPageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsPageInfoDueWakePageInfo) GetEndCursor() *string { return v.EndCursor }
+
+// DueWakesPageFieldsWakesDueWake includes the requested fields of the GraphQL type DueWake.
+// The GraphQL type's documentation follows.
+//
+// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+type DueWakesPageFieldsWakesDueWake struct {
+	// Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
+	Proof  string                                `json:"proof"`
+	Worker *DueWakesPageFieldsWakesDueWakeWorker `json:"worker"`
+	// One server-written tick line, null without a tick (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Names are flattened; repeated task URNs appear once.
+	TickText       *string `json:"tickText"`
+	Unread         int     `json:"unread"`
+	UnreadMentions int     `json:"unreadMentions"`
+	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
+	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
+	AnchorAt string `json:"anchorAt"`
+	// Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
+	DeliverAfter string `json:"deliverAfter"`
+	// The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
+	BusyDeadline string                                              `json:"busyDeadline"`
+	Channels     []*DueWakesPageFieldsWakesDueWakeChannelsDueChannel `json:"channels"`
+	Reasons      []*DueWakesPageFieldsWakesDueWakeReasonsWakeReason  `json:"reasons"`
+}
+
+// GetProof returns DueWakesPageFieldsWakesDueWake.Proof, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetProof() string { return v.Proof }
+
+// GetWorker returns DueWakesPageFieldsWakesDueWake.Worker, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetWorker() *DueWakesPageFieldsWakesDueWakeWorker {
+	return v.Worker
+}
+
+// GetTickText returns DueWakesPageFieldsWakesDueWake.TickText, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetTickText() *string { return v.TickText }
+
+// GetUnread returns DueWakesPageFieldsWakesDueWake.Unread, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetUnread() int { return v.Unread }
+
+// GetUnreadMentions returns DueWakesPageFieldsWakesDueWake.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetUnreadMentions() int { return v.UnreadMentions }
+
+// GetAnchorAt returns DueWakesPageFieldsWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
+
+// GetDeliverAfter returns DueWakesPageFieldsWakesDueWake.DeliverAfter, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetDeliverAfter() string { return v.DeliverAfter }
+
+// GetBusyDeadline returns DueWakesPageFieldsWakesDueWake.BusyDeadline, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetBusyDeadline() string { return v.BusyDeadline }
+
+// GetChannels returns DueWakesPageFieldsWakesDueWake.Channels, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetChannels() []*DueWakesPageFieldsWakesDueWakeChannelsDueChannel {
+	return v.Channels
+}
+
+// GetReasons returns DueWakesPageFieldsWakesDueWake.Reasons, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWake) GetReasons() []*DueWakesPageFieldsWakesDueWakeReasonsWakeReason {
+	return v.Reasons
+}
+
+// DueWakesPageFieldsWakesDueWakeChannelsDueChannel includes the requested fields of the GraphQL type DueChannel.
+type DueWakesPageFieldsWakesDueWakeChannelsDueChannel struct {
+	Channel          *DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel `json:"channel"`
+	FromSeq          int                                                      `json:"fromSeq"`
+	ThroughSeq       int                                                      `json:"throughSeq"`
+	LatestMentionSeq *int                                                     `json:"latestMentionSeq"`
+}
+
+// GetChannel returns DueWakesPageFieldsWakesDueWakeChannelsDueChannel.Channel, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannel) GetChannel() *DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel {
+	return v.Channel
+}
+
+// GetFromSeq returns DueWakesPageFieldsWakesDueWakeChannelsDueChannel.FromSeq, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannel) GetFromSeq() int { return v.FromSeq }
+
+// GetThroughSeq returns DueWakesPageFieldsWakesDueWakeChannelsDueChannel.ThroughSeq, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannel) GetThroughSeq() int { return v.ThroughSeq }
+
+// GetLatestMentionSeq returns DueWakesPageFieldsWakesDueWakeChannelsDueChannel.LatestMentionSeq, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannel) GetLatestMentionSeq() *int {
+	return v.LatestMentionSeq
+}
+
+// DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel struct {
+	Id string `json:"id"`
+	// The reserved address of the chat root (e.g. chats:team).
+	Loc string `json:"loc"`
+}
+
+// GetId returns DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel) GetId() string { return v.Id }
+
+// GetLoc returns DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel.Loc, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeChannelsDueChannelChannel) GetLoc() string { return v.Loc }
+
+// DueWakesPageFieldsWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
+type DueWakesPageFieldsWakesDueWakeReasonsWakeReason struct {
+	Kind WakeKind `json:"kind"`
+	// #2790 (hrn:node:hadronmemory.com:specs:cor:agt:080:23) — set for kind TICK only, null for MENTION, TASK and STOP: the
+	// time of THIS ticker's oldest tick the worker has not acknowledged, up to the tick that fired. It is per reason, so a
+	// wake with an old mention and a fresh tick, or ticks of two tickers, shows each tick's own time; `anchorAt` stays the
+	// earliest over all reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:27) and is at or before every one of these.
+	// Computed at read time from the worker's acknowledged tick, never stored: a tick that joins an outstanding wake
+	// (hrn:node:hadronmemory.com:specs:cor:agt:080:12) leaves it at the oldest unacknowledged tick, not the joining one.
+	TickDueAt *string                                                `json:"tickDueAt"`
+	Ticker    *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+	// Set for kind TASK.
+	Task *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
+	// #2022 — set for kind STOP.
+	Stop *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
+}
+
+// GetKind returns DueWakesPageFieldsWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReason) GetKind() WakeKind { return v.Kind }
+
+// GetTickDueAt returns DueWakesPageFieldsWakesDueWakeReasonsWakeReason.TickDueAt, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReason) GetTickDueAt() *string { return v.TickDueAt }
+
+// GetTicker returns DueWakesPageFieldsWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReason) GetTicker() *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker {
+	return v.Ticker
+}
+
+// GetTask returns DueWakesPageFieldsWakesDueWakeReasonsWakeReason.Task, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReason) GetTask() *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason {
+	return v.Task
+}
+
+// GetStop returns DueWakesPageFieldsWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReason) GetStop() *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason {
+	return v.Stop
+}
+
+// DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
+// The GraphQL type's documentation follows.
+//
+// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+type DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
+	// The notice; acknowledging the wake records delivery on it.
+	EventId  string          `json:"eventId"`
+	SignalId string          `json:"signalId"`
+	Level    StopSignalLevel `json:"level"`
+	Notice   StopNoticeKind  `json:"notice"`
+	// True only for a halt's stop notice: the one notice that interrupts the worker.
+	Interrupt bool `json:"interrupt"`
+}
+
+// GetEventId returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetSignalId returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
+	return v.SignalId
+}
+
+// GetLevel returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
+	return v.Level
+}
+
+// GetNotice returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
+	return v.Notice
+}
+
+// GetInterrupt returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
+	return v.Interrupt
+}
+
+// DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
+// The GraphQL type's documentation follows.
+//
+// #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
+	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
+	Id string `json:"id"`
+	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
+	Handle string `json:"handle"`
+	// The task's title, for the nudge text.
+	Title string        `json:"title"`
+	Event TaskWakeEvent `json:"event"`
+	// 0, or the alarm chain position woken.
+	ChainIndex int `json:"chainIndex"`
+	// The event delivered; acknowledging the wake records delivery on it.
+	EventId string `json:"eventId"`
+}
+
+// GetId returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetId() string {
+	return v.Id
+}
+
+// GetHandle returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Handle, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetHandle() string {
+	return v.Handle
+}
+
+// GetTitle returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
+	return v.Title
+}
+
+// GetEvent returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Event, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEvent() TaskWakeEvent {
+	return v.Event
+}
+
+// GetChainIndex returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.ChainIndex, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetChainIndex() int {
+	return v.ChainIndex
+}
+
+// GetEventId returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEventId() string {
+	return v.EventId
+}
+
+// DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker) GetId() string { return v.Id }
+
+// GetName returns DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeReasonsWakeReasonTicker) GetName() string { return v.Name }
+
+// DueWakesPageFieldsWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueWakesPageFieldsWakesDueWakeWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns DueWakesPageFieldsWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeWorker) GetId() string { return v.Id }
+
+// GetName returns DueWakesPageFieldsWakesDueWakeWorker.Name, and is useful for accessing the field via an interface.
+func (v *DueWakesPageFieldsWakesDueWakeWorker) GetName() string { return v.Name }
 
 // DueWakesResponse is returned by DueWakes on success.
 type DueWakesResponse struct {
@@ -94694,6 +95230,406 @@ func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChat
 	return &retval, nil
 }
 
+// TeamChatTagsMultiAttributedResponse is returned by TeamChatTagsMultiAttributed on success.
+type TeamChatTagsMultiAttributedResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsMultiAttributedResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedResponse) GetTeamChatMessages() *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsMultiAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
+	return &retval, nil
+}
+
+// TeamChatTagsMultiResponse is returned by TeamChatTagsMulti on success.
+type TeamChatTagsMultiResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsMultiResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiResponse) GetTeamChatMessages() *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsMultiTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
+	return &retval, nil
+}
+
 // TeamChatTagsResponse is returned by TeamChatTags on success.
 type TeamChatTagsResponse struct {
 	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
@@ -95872,374 +96808,195 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 //
 // #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
 type TeamDueWakesDueWakesDueWakePage struct {
-	Status DueWakeStatus `json:"status"`
-	// Wakes held back by the daily budget; each stays due.
-	Withheld int `json:"withheld"`
-	// Dormant workers with relevant mentions, and how many: withheld, never dropped silently.
-	Dormant  []*TeamDueWakesDueWakesDueWakePageDormantDormantWithheld `json:"dormant"`
-	Wakes    []*TeamDueWakesDueWakesDueWakePageWakesDueWake           `json:"wakes"`
-	PageInfo *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo  `json:"pageInfo"`
+	DueWakesPageFields `json:"-"`
 }
 
 // GetStatus returns TeamDueWakesDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePage) GetStatus() DueWakeStatus { return v.Status }
+func (v *TeamDueWakesDueWakesDueWakePage) GetStatus() DueWakeStatus {
+	return v.DueWakesPageFields.Status
+}
 
 // GetWithheld returns TeamDueWakesDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePage) GetWithheld() int { return v.Withheld }
+func (v *TeamDueWakesDueWakesDueWakePage) GetWithheld() int { return v.DueWakesPageFields.Withheld }
 
 // GetDormant returns TeamDueWakesDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePage) GetDormant() []*TeamDueWakesDueWakesDueWakePageDormantDormantWithheld {
-	return v.Dormant
+func (v *TeamDueWakesDueWakesDueWakePage) GetDormant() []*DueWakesPageFieldsDormantDormantWithheld {
+	return v.DueWakesPageFields.Dormant
 }
 
 // GetWakes returns TeamDueWakesDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePage) GetWakes() []*TeamDueWakesDueWakesDueWakePageWakesDueWake {
-	return v.Wakes
+func (v *TeamDueWakesDueWakesDueWakePage) GetWakes() []*DueWakesPageFieldsWakesDueWake {
+	return v.DueWakesPageFields.Wakes
 }
 
 // GetPageInfo returns TeamDueWakesDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePage) GetPageInfo() *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo {
-	return v.PageInfo
+func (v *TeamDueWakesDueWakesDueWakePage) GetPageInfo() *DueWakesPageFieldsPageInfoDueWakePageInfo {
+	return v.DueWakesPageFields.PageInfo
 }
 
-// TeamDueWakesDueWakesDueWakePageDormantDormantWithheld includes the requested fields of the GraphQL type DormantWithheld.
-type TeamDueWakesDueWakesDueWakePageDormantDormantWithheld struct {
-	Worker   *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker `json:"worker"`
-	Mentions int                                                          `json:"mentions"`
+func (v *TeamDueWakesDueWakesDueWakePage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamDueWakesDueWakesDueWakePage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDueWakesDueWakesDueWakePage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DueWakesPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// GetWorker returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheld.Worker, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheld) GetWorker() *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker {
-	return v.Worker
+type __premarshalTeamDueWakesDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
+
+	Withheld int `json:"withheld"`
+
+	Dormant []*DueWakesPageFieldsDormantDormantWithheld `json:"dormant"`
+
+	Wakes []*DueWakesPageFieldsWakesDueWake `json:"wakes"`
+
+	PageInfo *DueWakesPageFieldsPageInfoDueWakePageInfo `json:"pageInfo"`
 }
 
-// GetMentions returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheld.Mentions, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheld) GetMentions() int { return v.Mentions }
+func (v *TeamDueWakesDueWakesDueWakePage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
 
-// TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker includes the requested fields of the GraphQL type Worker.
+func (v *TeamDueWakesDueWakesDueWakePage) __premarshalJSON() (*__premarshalTeamDueWakesDueWakesDueWakePage, error) {
+	var retval __premarshalTeamDueWakesDueWakesDueWakePage
+
+	retval.Status = v.DueWakesPageFields.Status
+	retval.Withheld = v.DueWakesPageFields.Withheld
+	retval.Dormant = v.DueWakesPageFields.Dormant
+	retval.Wakes = v.DueWakesPageFields.Wakes
+	retval.PageInfo = v.DueWakesPageFields.PageInfo
+	return &retval, nil
+}
+
+// TeamDueWakesPreviewDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
 // The GraphQL type's documentation follows.
 //
-// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
-// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
-// The Agent carries the reusable persona dressing; the Worker is the local
-// named identity that does attributable work. Names are unique per App,
-// case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
-// by its id or by the computed `urn` below (#991).
-type TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker struct {
-	Id string `json:"id"`
-	// The worker's name ('Iris') — the identity every surface renders.
-	Name string `json:"name"`
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type TeamDueWakesPreviewDueWakesDueWakePage struct {
+	DueWakesPageFields `json:"-"`
 }
 
-// GetId returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker.Id, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker) GetId() string { return v.Id }
-
-// GetName returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker.Name, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker) GetName() string { return v.Name }
-
-// TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
-type TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo struct {
-	HasNextPage bool    `json:"hasNextPage"`
-	EndCursor   *string `json:"endCursor"`
+// GetStatus returns TeamDueWakesPreviewDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) GetStatus() DueWakeStatus {
+	return v.DueWakesPageFields.Status
 }
 
-// GetHasNextPage returns TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
+// GetWithheld returns TeamDueWakesPreviewDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) GetWithheld() int {
+	return v.DueWakesPageFields.Withheld
 }
 
-// GetEndCursor returns TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() *string {
-	return v.EndCursor
+// GetDormant returns TeamDueWakesPreviewDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) GetDormant() []*DueWakesPageFieldsDormantDormantWithheld {
+	return v.DueWakesPageFields.Dormant
 }
 
-// TeamDueWakesDueWakesDueWakePageWakesDueWake includes the requested fields of the GraphQL type DueWake.
-// The GraphQL type's documentation follows.
-//
-// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
-type TeamDueWakesDueWakesDueWakePageWakesDueWake struct {
-	// Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
-	Proof  string                                             `json:"proof"`
-	Worker *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
-	// One server-written tick line, null without a tick (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Names are flattened; repeated task URNs appear once.
-	TickText       *string `json:"tickText"`
-	Unread         int     `json:"unread"`
-	UnreadMentions int     `json:"unreadMentions"`
-	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
-	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
-	AnchorAt string `json:"anchorAt"`
-	// Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
-	DeliverAfter string `json:"deliverAfter"`
-	// The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
-	BusyDeadline string                                                           `json:"busyDeadline"`
-	Channels     []*TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel `json:"channels"`
-	Reasons      []*TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason  `json:"reasons"`
+// GetWakes returns TeamDueWakesPreviewDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) GetWakes() []*DueWakesPageFieldsWakesDueWake {
+	return v.DueWakesPageFields.Wakes
 }
 
-// GetProof returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Proof, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetProof() string { return v.Proof }
-
-// GetWorker returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetWorker() *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker {
-	return v.Worker
+// GetPageInfo returns TeamDueWakesPreviewDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) GetPageInfo() *DueWakesPageFieldsPageInfoDueWakePageInfo {
+	return v.DueWakesPageFields.PageInfo
 }
 
-// GetTickText returns TeamDueWakesDueWakesDueWakePageWakesDueWake.TickText, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetTickText() *string { return v.TickText }
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) UnmarshalJSON(b []byte) error {
 
-// GetUnread returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Unread, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetUnread() int { return v.Unread }
+	if string(b) == "null" {
+		return nil
+	}
 
-// GetUnreadMentions returns TeamDueWakesDueWakesDueWakePageWakesDueWake.UnreadMentions, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetUnreadMentions() int {
-	return v.UnreadMentions
+	var firstPass struct {
+		*TeamDueWakesPreviewDueWakesDueWakePage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDueWakesPreviewDueWakesDueWakePage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DueWakesPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// GetAnchorAt returns TeamDueWakesDueWakesDueWakePageWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
+type __premarshalTeamDueWakesPreviewDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
 
-// GetDeliverAfter returns TeamDueWakesDueWakesDueWakePageWakesDueWake.DeliverAfter, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetDeliverAfter() string { return v.DeliverAfter }
+	Withheld int `json:"withheld"`
 
-// GetBusyDeadline returns TeamDueWakesDueWakesDueWakePageWakesDueWake.BusyDeadline, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetBusyDeadline() string { return v.BusyDeadline }
+	Dormant []*DueWakesPageFieldsDormantDormantWithheld `json:"dormant"`
 
-// GetChannels returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Channels, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetChannels() []*TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel {
-	return v.Channels
+	Wakes []*DueWakesPageFieldsWakesDueWake `json:"wakes"`
+
+	PageInfo *DueWakesPageFieldsPageInfoDueWakePageInfo `json:"pageInfo"`
 }
 
-// GetReasons returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
-	return v.Reasons
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
 }
 
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel includes the requested fields of the GraphQL type DueChannel.
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel struct {
-	Channel          *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel `json:"channel"`
-	FromSeq          int                                                                   `json:"fromSeq"`
-	ThroughSeq       int                                                                   `json:"throughSeq"`
-	LatestMentionSeq *int                                                                  `json:"latestMentionSeq"`
+func (v *TeamDueWakesPreviewDueWakesDueWakePage) __premarshalJSON() (*__premarshalTeamDueWakesPreviewDueWakesDueWakePage, error) {
+	var retval __premarshalTeamDueWakesPreviewDueWakesDueWakePage
+
+	retval.Status = v.DueWakesPageFields.Status
+	retval.Withheld = v.DueWakesPageFields.Withheld
+	retval.Dormant = v.DueWakesPageFields.Dormant
+	retval.Wakes = v.DueWakesPageFields.Wakes
+	retval.PageInfo = v.DueWakesPageFields.PageInfo
+	return &retval, nil
 }
 
-// GetChannel returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.Channel, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetChannel() *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel {
-	return v.Channel
+// TeamDueWakesPreviewResponse is returned by TeamDueWakesPreview on success.
+type TeamDueWakesPreviewResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
+	DueWakes *TeamDueWakesPreviewDueWakesDueWakePage `json:"dueWakes"`
 }
 
-// GetFromSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.FromSeq, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetFromSeq() int {
-	return v.FromSeq
+// GetDueWakes returns TeamDueWakesPreviewResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewResponse) GetDueWakes() *TeamDueWakesPreviewDueWakesDueWakePage {
+	return v.DueWakes
 }
-
-// GetThroughSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.ThroughSeq, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetThroughSeq() int {
-	return v.ThroughSeq
-}
-
-// GetLatestMentionSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.LatestMentionSeq, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetLatestMentionSeq() *int {
-	return v.LatestMentionSeq
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel includes the requested fields of the GraphQL type Channel.
-// The GraphQL type's documentation follows.
-//
-// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
-// hosted in ONE memory at ONE reserved address, server-ordered and
-// server-attributed — a platform entity, created one-to-one with its chat root.
-// Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
-// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
-// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
-// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel struct {
-	Id string `json:"id"`
-	// The reserved address of the chat root (e.g. chats:team).
-	Loc string `json:"loc"`
-}
-
-// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel.Id, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel) GetId() string {
-	return v.Id
-}
-
-// GetLoc returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel.Loc, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel) GetLoc() string {
-	return v.Loc
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
-	Kind WakeKind `json:"kind"`
-	// #2790 (hrn:node:hadronmemory.com:specs:cor:agt:080:23) — set for kind TICK only, null for MENTION, TASK and STOP: the
-	// time of THIS ticker's oldest tick the worker has not acknowledged, up to the tick that fired. It is per reason, so a
-	// wake with an old mention and a fresh tick, or ticks of two tickers, shows each tick's own time; `anchorAt` stays the
-	// earliest over all reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:27) and is at or before every one of these.
-	// Computed at read time from the worker's acknowledged tick, never stored: a tick that joins an outstanding wake
-	// (hrn:node:hadronmemory.com:specs:cor:agt:080:12) leaves it at the oldest unacknowledged tick, not the joining one.
-	TickDueAt *string                                                             `json:"tickDueAt"`
-	Ticker    *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
-	// Set for kind TASK.
-	Task *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
-	// #2022 — set for kind STOP.
-	Stop *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
-}
-
-// GetKind returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind {
-	return v.Kind
-}
-
-// GetTickDueAt returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.TickDueAt, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTickDueAt() *string {
-	return v.TickDueAt
-}
-
-// GetTicker returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker {
-	return v.Ticker
-}
-
-// GetTask returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Task, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason {
-	return v.Task
-}
-
-// GetStop returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason {
-	return v.Stop
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
-// The GraphQL type's documentation follows.
-//
-// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
-	// The notice; acknowledging the wake records delivery on it.
-	EventId  string          `json:"eventId"`
-	SignalId string          `json:"signalId"`
-	Level    StopSignalLevel `json:"level"`
-	Notice   StopNoticeKind  `json:"notice"`
-	// True only for a halt's stop notice: the one notice that interrupts the worker.
-	Interrupt bool `json:"interrupt"`
-}
-
-// GetEventId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
-	return v.EventId
-}
-
-// GetSignalId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
-	return v.SignalId
-}
-
-// GetLevel returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
-	return v.Level
-}
-
-// GetNotice returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
-	return v.Notice
-}
-
-// GetInterrupt returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
-	return v.Interrupt
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
-// The GraphQL type's documentation follows.
-//
-// #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
-	// The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's).
-	Id string `json:"id"`
-	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
-	Handle string `json:"handle"`
-	// The task's title, for the nudge text.
-	Title string        `json:"title"`
-	Event TaskWakeEvent `json:"event"`
-	// 0, or the alarm chain position woken.
-	ChainIndex int `json:"chainIndex"`
-	// The event delivered; acknowledging the wake records delivery on it.
-	EventId string `json:"eventId"`
-}
-
-// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Id, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetId() string {
-	return v.Id
-}
-
-// GetHandle returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Handle, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetHandle() string {
-	return v.Handle
-}
-
-// GetTitle returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
-	return v.Title
-}
-
-// GetEvent returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Event, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEvent() TaskWakeEvent {
-	return v.Event
-}
-
-// GetChainIndex returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.ChainIndex, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetChainIndex() int {
-	return v.ChainIndex
-}
-
-// GetEventId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEventId() string {
-	return v.EventId
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
-// The GraphQL type's documentation follows.
-//
-// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
-// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-}
-
-// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetId() string {
-	return v.Id
-}
-
-// GetName returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
-	return v.Name
-}
-
-// TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
-// The GraphQL type's documentation follows.
-//
-// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
-// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
-// The Agent carries the reusable persona dressing; the Worker is the local
-// named identity that does attributable work. Names are unique per App,
-// case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
-// by its id or by the computed `urn` below (#991).
-type TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker struct {
-	Id string `json:"id"`
-	// The worker's name ('Iris') — the identity every surface renders.
-	Name string `json:"name"`
-}
-
-// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
-
-// GetName returns TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker.Name, and is useful for accessing the field via an interface.
-func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker) GetName() string { return v.Name }
 
 // TeamDueWakesResponse is returned by TeamDueWakes on success.
 type TeamDueWakesResponse struct {
@@ -118529,6 +119286,42 @@ func (v *__ChannelTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
 // GetUntagged returns __ChannelTagsInput.Untagged, and is useful for accessing the field via an interface.
 func (v *__ChannelTagsInput) GetUntagged() *bool { return v.Untagged }
 
+// __ChannelTagsMultiInput is used internally by genqlient
+type __ChannelTagsMultiInput struct {
+	ChannelRef   string   `json:"channelRef"`
+	SinceSeq     *int     `json:"sinceSeq,omitempty"`
+	BeforeSeq    *int     `json:"beforeSeq,omitempty"`
+	Limit        *int     `json:"limit,omitempty"`
+	Offset       *int     `json:"offset,omitempty"`
+	MentionsRef  *string  `json:"mentionsRef,omitempty"`
+	TeamHeadRefs []string `json:"teamHeadRefs,omitempty"`
+	Untagged     *bool    `json:"untagged,omitempty"`
+}
+
+// GetChannelRef returns __ChannelTagsMultiInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetSinceSeq returns __ChannelTagsMultiInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetBeforeSeq returns __ChannelTagsMultiInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetLimit returns __ChannelTagsMultiInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChannelTagsMultiInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetOffset() *int { return v.Offset }
+
+// GetMentionsRef returns __ChannelTagsMultiInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetTeamHeadRefs returns __ChannelTagsMultiInput.TeamHeadRefs, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetTeamHeadRefs() []string { return v.TeamHeadRefs }
+
+// GetUntagged returns __ChannelTagsMultiInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsMultiInput) GetUntagged() *bool { return v.Untagged }
+
 // __ChannelThreadInput is used internally by genqlient
 type __ChannelThreadInput struct {
 	ChannelRef  string  `json:"channelRef"`
@@ -125373,6 +126166,70 @@ func (v *__TeamChatTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
 // GetUntagged returns __TeamChatTagsInput.Untagged, and is useful for accessing the field via an interface.
 func (v *__TeamChatTagsInput) GetUntagged() *bool { return v.Untagged }
 
+// __TeamChatTagsMultiAttributedInput is used internally by genqlient
+type __TeamChatTagsMultiAttributedInput struct {
+	AppRef       string   `json:"appRef"`
+	SinceSeq     *int     `json:"sinceSeq,omitempty"`
+	MentionsRef  *string  `json:"mentionsRef,omitempty"`
+	Limit        *int     `json:"limit,omitempty"`
+	BeforeSeq    *int     `json:"beforeSeq,omitempty"`
+	TeamHeadRefs []string `json:"teamHeadRefs,omitempty"`
+	Untagged     *bool    `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsMultiAttributedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsMultiAttributedInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsMultiAttributedInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsMultiAttributedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsMultiAttributedInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRefs returns __TeamChatTagsMultiAttributedInput.TeamHeadRefs, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetTeamHeadRefs() []string { return v.TeamHeadRefs }
+
+// GetUntagged returns __TeamChatTagsMultiAttributedInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiAttributedInput) GetUntagged() *bool { return v.Untagged }
+
+// __TeamChatTagsMultiInput is used internally by genqlient
+type __TeamChatTagsMultiInput struct {
+	AppRef       string   `json:"appRef"`
+	SinceSeq     *int     `json:"sinceSeq,omitempty"`
+	MentionsRef  *string  `json:"mentionsRef,omitempty"`
+	Limit        *int     `json:"limit,omitempty"`
+	BeforeSeq    *int     `json:"beforeSeq,omitempty"`
+	TeamHeadRefs []string `json:"teamHeadRefs,omitempty"`
+	Untagged     *bool    `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsMultiInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsMultiInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsMultiInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsMultiInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsMultiInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRefs returns __TeamChatTagsMultiInput.TeamHeadRefs, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetTeamHeadRefs() []string { return v.TeamHeadRefs }
+
+// GetUntagged returns __TeamChatTagsMultiInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsMultiInput) GetUntagged() *bool { return v.Untagged }
+
 // __TeamChatThreadAttributedInput is used internally by genqlient
 type __TeamChatThreadAttributedInput struct {
 	AppRef      string  `json:"appRef"`
@@ -125520,6 +126377,30 @@ func (v *__TeamDueWakesInput) GetAfter() *string { return v.After }
 
 // GetAccepts returns __TeamDueWakesInput.Accepts, and is useful for accessing the field via an interface.
 func (v *__TeamDueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
+
+// __TeamDueWakesPreviewInput is used internally by genqlient
+type __TeamDueWakesPreviewInput struct {
+	AppRef     string     `json:"appRef"`
+	WorkerRefs []string   `json:"workerRefs,omitempty"`
+	First      *int       `json:"first,omitempty"`
+	After      *string    `json:"after,omitempty"`
+	Accepts    []WakeKind `json:"accepts,omitempty"`
+}
+
+// GetAppRef returns __TeamDueWakesPreviewInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRefs returns __TeamDueWakesPreviewInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetFirst returns __TeamDueWakesPreviewInput.First, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __TeamDueWakesPreviewInput.After, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInput) GetAfter() *string { return v.After }
+
+// GetAccepts returns __TeamDueWakesPreviewInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInput) GetAccepts() []WakeKind { return v.Accepts }
 
 // __TeamGrantInput is used internally by genqlient
 type __TeamGrantInput struct {
@@ -138086,6 +138967,75 @@ func ChannelTags(
 	}
 
 	data_ = &ChannelTagsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChannelTagsMulti.
+const ChannelTagsMulti_Operation = `
+query ChannelTagsMulti ($channelRef: ID!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID, $teamHeadRefs: [ID!], $untagged: Boolean) {
+	channelMessages(channelRef: $channelRef, sinceSeq: $sinceSeq, beforeSeq: $beforeSeq, limit: $limit, offset: $offset, mentionsRef: $mentionsRef, teamHeadRefs: $teamHeadRefs, untagged: $untagged) {
+		total
+		items {
+			... ChannelMessageFields
+		}
+	}
+}
+fragment ChannelMessageFields on TeamChatMessage {
+	seq
+	at
+	body
+	authorName
+	authorWorkerId
+	authorUserId
+	authorAppId
+	sessionId
+	replyToSeq
+	mentions
+	nodeId
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli1833: plural heads only; do not widen the singular document.
+func ChannelTagsMulti(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	sinceSeq *int,
+	beforeSeq *int,
+	limit *int,
+	offset *int,
+	mentionsRef *string,
+	teamHeadRefs []string,
+	untagged *bool,
+) (data_ *ChannelTagsMultiResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelTagsMulti",
+		Query:  ChannelTagsMulti_Operation,
+		Variables: &__ChannelTagsMultiInput{
+			ChannelRef:   channelRef,
+			SinceSeq:     sinceSeq,
+			BeforeSeq:    beforeSeq,
+			Limit:        limit,
+			Offset:       offset,
+			MentionsRef:  mentionsRef,
+			TeamHeadRefs: teamHeadRefs,
+			Untagged:     untagged,
+		},
+	}
+
+	data_ = &ChannelTagsMultiResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -163990,6 +164940,136 @@ func TeamChatTagsAttributed(
 	return data_, err_
 }
 
+// The query executed by TeamChatTagsMulti.
+const TeamChatTagsMulti_Operation = `
+query TeamChatTagsMulti ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRefs: [ID!], $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli1833: plural heads only; do not widen the singular document.
+func TeamChatTagsMulti(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRefs []string,
+	untagged *bool,
+) (data_ *TeamChatTagsMultiResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTagsMulti",
+		Query:  TeamChatTagsMulti_Operation,
+		Variables: &__TeamChatTagsMultiInput{
+			AppRef:       appRef,
+			SinceSeq:     sinceSeq,
+			MentionsRef:  mentionsRef,
+			Limit:        limit,
+			BeforeSeq:    beforeSeq,
+			TeamHeadRefs: teamHeadRefs,
+			Untagged:     untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsMultiResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChatTagsMultiAttributed.
+const TeamChatTagsMultiAttributed_Operation = `
+query TeamChatTagsMultiAttributed ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRefs: [ID!], $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged, advanceReadState: false) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli1833: plural heads only; do not widen the singular document.
+func TeamChatTagsMultiAttributed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRefs []string,
+	untagged *bool,
+) (data_ *TeamChatTagsMultiAttributedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTagsMultiAttributed",
+		Query:  TeamChatTagsMultiAttributed_Operation,
+		Variables: &__TeamChatTagsMultiAttributedInput{
+			AppRef:       appRef,
+			SinceSeq:     sinceSeq,
+			MentionsRef:  mentionsRef,
+			Limit:        limit,
+			BeforeSeq:    beforeSeq,
+			TeamHeadRefs: teamHeadRefs,
+			Untagged:     untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsMultiAttributedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamChatThread.
 const TeamChatThread_Operation = `
 query TeamChatThread ($appRef: ID!, $replyToSeq: Int!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int) {
@@ -164382,64 +165462,67 @@ func TeamDeliverySettingsSet(
 const TeamDueWakes_Operation = `
 query TeamDueWakes ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!]) {
 	dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts) {
-		status
-		withheld
-		dormant {
-			worker {
+		... DueWakesPageFields
+	}
+}
+fragment DueWakesPageFields on DueWakePage {
+	status
+	withheld
+	dormant {
+		worker {
+			id
+			name
+		}
+		mentions
+	}
+	wakes {
+		proof
+		worker {
+			id
+			name
+		}
+		tickText
+		unread
+		unreadMentions
+		anchorAt
+		deliverAfter
+		busyDeadline
+		channels {
+			channel {
+				id
+				loc
+			}
+			fromSeq
+			throughSeq
+			latestMentionSeq
+		}
+		reasons {
+			kind
+			tickDueAt
+			ticker {
 				id
 				name
 			}
-			mentions
-		}
-		wakes {
-			proof
-			worker {
+			task {
 				id
-				name
+				handle
+				title
+				event
+				chainIndex
+				eventId
 			}
-			tickText
-			unread
-			unreadMentions
-			anchorAt
-			deliverAfter
-			busyDeadline
-			channels {
-				channel {
-					id
-					loc
-				}
-				fromSeq
-				throughSeq
-				latestMentionSeq
-			}
-			reasons {
-				kind
-				tickDueAt
-				ticker {
-					id
-					name
-				}
-				task {
-					id
-					handle
-					title
-					event
-					chainIndex
-					eventId
-				}
-				stop {
-					eventId
-					signalId
-					level
-					notice
-					interrupt
-				}
+			stop {
+				eventId
+				signalId
+				level
+				notice
+				interrupt
 			}
 		}
-		pageInfo {
-			hasNextPage
-			endCursor
-		}
+	}
+	pageInfo {
+		hasNextPage
+		endCursor
 	}
 }
 `
@@ -164471,6 +165554,109 @@ func TeamDueWakes(
 	}
 
 	data_ = &TeamDueWakesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamDueWakesPreview.
+const TeamDueWakesPreview_Operation = `
+query TeamDueWakesPreview ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!]) {
+	dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, preview: true) {
+		... DueWakesPageFields
+	}
+}
+fragment DueWakesPageFields on DueWakePage {
+	status
+	withheld
+	dormant {
+		worker {
+			id
+			name
+		}
+		mentions
+	}
+	wakes {
+		proof
+		worker {
+			id
+			name
+		}
+		tickText
+		unread
+		unreadMentions
+		anchorAt
+		deliverAfter
+		busyDeadline
+		channels {
+			channel {
+				id
+				loc
+			}
+			fromSeq
+			throughSeq
+			latestMentionSeq
+		}
+		reasons {
+			kind
+			tickDueAt
+			ticker {
+				id
+				name
+			}
+			task {
+				id
+				handle
+				title
+				event
+				chainIndex
+				eventId
+			}
+			stop {
+				eventId
+				signalId
+				level
+				notice
+				interrupt
+			}
+		}
+	}
+	pageInfo {
+		hasNextPage
+		endCursor
+	}
+}
+`
+
+// cli1833: explicit no-spend preview; ordinary reads never mention preview.
+func TeamDueWakesPreview(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRefs []string,
+	first *int,
+	after *string,
+	accepts []WakeKind,
+) (data_ *TeamDueWakesPreviewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDueWakesPreview",
+		Query:  TeamDueWakesPreview_Operation,
+		Variables: &__TeamDueWakesPreviewInput{
+			AppRef:     appRef,
+			WorkerRefs: workerRefs,
+			First:      first,
+			After:      after,
+			Accepts:    accepts,
+		},
+	}
+
+	data_ = &TeamDueWakesPreviewResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

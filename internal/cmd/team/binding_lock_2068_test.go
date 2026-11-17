@@ -37,7 +37,7 @@ func TestBindingWriterWaitsForTheHostsStopLock(t *testing.T) {
 	}()
 	wrote := make(chan error, 1)
 	go func() {
-		wrote <- withBindingLockAt(bindingLoc{dir: filepath.Join(dir, ".git")}, func() error { return nil })
+		wrote <- withBindingLockAt(bindingLoc{dir: filepath.Join(dir, ".git")}, func(cacheHandle) error { return nil })
 	}()
 	select {
 	case err := <-wrote:
@@ -66,7 +66,7 @@ func TestHostsStopLockIsRefusedWhileTheWriterHoldsIt(t *testing.T) {
 	t.Cleanup(leaveWriter)
 	done := make(chan error, 1)
 	go func() {
-		done <- withBindingLockAt(bindingLoc{dir: filepath.Join(dir, ".git")}, func() error {
+		done <- withBindingLockAt(bindingLoc{dir: filepath.Join(dir, ".git")}, func(cacheHandle) error {
 			close(inside)
 			<-leave
 			return nil
