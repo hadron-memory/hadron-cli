@@ -13,7 +13,7 @@ import (
 func TestStopDropBodyScopesTheUntypedClaimToThePostTime_1660(t *testing.T) {
 	now := time.Date(2026, 11, 4, 12, 5, 0, 0, time.UTC)
 	body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: time.Unix(0, 0)}, now)
-	want := "@ada Gil has not been told to halt as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event e) was not typed into its session as of then (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). The host retries every poll, but this is the only post about it; check Gil's terminal."
+	want := "@ada Gil had not been told to halt as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event e) was not typed into its session as of then (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed since. The host retries every poll and this is the only post about it, so check Gil's terminal."
 	if body != want {
 		t.Fatalf("body = %q", body)
 	}
@@ -25,7 +25,7 @@ func TestStopReporterScopesUntypedDropToItsPostTime_1660(t *testing.T) {
 	f := newReporterFixture(t)
 	f.run(f.reporter())
 	bodies := f.chat.bodies()
-	want := "@ada Gil has not been told to halt as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) was not typed into its session as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). The host retries every poll, but this is the only post about it; check Gil's terminal."
+	want := "@ada Gil had not been told to halt as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) was not typed into its session as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). It may have been typed since. The host retries every poll and this is the only post about it, so check Gil's terminal."
 	if len(bodies) != 1 || bodies[0] != want {
 		t.Fatalf("bodies = %q", bodies)
 	}

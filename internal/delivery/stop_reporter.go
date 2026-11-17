@@ -750,8 +750,9 @@ func holdText(code string) string {
 // A notice typed since it was held says so (TypedAt). The un-typed branch
 // posts once and nothing ever corrects it, and TypedAt is stamped only after
 // an ack, so a held-from-ack notice reads un-typed while typed — its claims
-// are therefore scoped to the post moment (#1660 ask 5, wording settled with
-// UX): "as of now", never forever.
+// are therefore scoped to the post moment (#1660 ask 5, Uma's UX ruling,
+// option B): past tense, an explicit "may have been typed since", and the
+// one action last.
 func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 	held := fmt.Sprintf("%s, since %s", holdText(rec.HoldReason), rec.HeldAt.UTC().Format(time.RFC3339))
 	if !rec.TypedAt.IsZero() {
@@ -759,7 +760,7 @@ func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 			recipient, rec.Worker, rec.Level, rec.EventID, held, rec.TypedAt.UTC().Format(time.RFC3339))
 	}
 	asOf := now.UTC().Format(time.RFC3339)
-	return fmt.Sprintf("@%s %s has not been told to halt as of %s and may still be running: its %s notice (event %s) was not typed into its session as of then (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
+	return fmt.Sprintf("@%s %s had not been told to halt as of %s and may still be running: its %s notice (event %s) was not typed into its session as of then (%s). It may have been typed since. The host retries every poll and this is the only post about it, so check %s's terminal.",
 		recipient, rec.Worker, asOf, rec.Level, rec.EventID, held, rec.Worker)
 }
 

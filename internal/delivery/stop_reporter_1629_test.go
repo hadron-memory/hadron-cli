@@ -184,7 +184,7 @@ func TestStopReporterPostsOnceAndRecordsReadBackSeq_1629(t *testing.T) {
 		t.Fatal("no .reported marker")
 	}
 	bodies := f.chat.bodies()
-	if len(bodies) != 1 || bodies[0] != "@ada Gil has not been told to halt as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) was not typed into its session as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). The host retries every poll, but this is the only post about it; check Gil's terminal." {
+	if len(bodies) != 1 || bodies[0] != "@ada Gil had not been told to halt as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) was not typed into its session as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). It may have been typed since. The host retries every poll and this is the only post about it, so check Gil's terminal." {
 		t.Fatalf("bodies = %q", bodies)
 	}
 	if strings.Contains(bodies[0], "@Gil") || strings.Contains(bodies[0], "@gil") {
