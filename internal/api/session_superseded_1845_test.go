@@ -95,9 +95,16 @@ func TestSupersededPairOrdering2251(t *testing.T) {
 }
 
 func TestSupersededGatewayExclusion2251(t *testing.T) {
-	for _, status := range []int{502, 503} {
+	for _, status := range []int{200, 409, 500, 502, 503, 504} {
 		err := &graphql.HTTPError{StatusCode: status, Response: graphql.Response{Errors: gqlerror.List{&gqlerror.Error{Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z"}}}}}
-		if definitive, id, stamp := SupersededSessionEvidence(err); definitive || id != "" || stamp != "" {
+		definitive, id, stamp := SupersededSessionEvidence(err)
+		if status < 500 {
+			// Same typed envelope as the fault rows: proves HTTPError extraction
+			// works, so an implementation ignoring all HTTPError values fails.
+			if !definitive || id != "A" || stamp != "2026-11-12T16:37:52Z" {
+				t.Errorf("HTTP %d lost definitive evidence: %v %q %q", status, definitive, id, stamp)
+			}
+		} else if definitive || id != "" || stamp != "" {
 			t.Errorf("HTTP %d became definitive: %v %q %q", status, definitive, id, stamp)
 		}
 	}

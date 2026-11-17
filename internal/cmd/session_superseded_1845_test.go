@@ -301,6 +301,9 @@ func TestSupersededMixedAuthoredControl2251(t *testing.T) {
 				if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
 					t.Fatal(err)
 				}
+				// Intentional independent fields: authored text controls presentation,
+				// while the existing specific-marker rule retains SESSION_SUPERSEDED
+				// even when mixed codes suppress successor evidence (#2243, #113282).
 				if doc.Error["message"] != message || doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
 					t.Fatalf("JSON answer changed: %s", out.String())
 				}
