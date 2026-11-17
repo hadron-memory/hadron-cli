@@ -455,7 +455,7 @@ func withBindingLockAt(loc bindingLoc, fn func() error) error {
 		// tightens one an earlier version or a person made loose: the
 		// cache is owner-only after every bind (cli#1969 F8).
 		beforeCacheChmod(loc.dir)
-		if err := os.Chmod(loc.dir, 0o700); err != nil {
+		if err := secureCacheDir(loc.dir); err != nil {
 			return fmt.Errorf("securing the session binding cache %s: %w", loc.dir, err)
 		}
 	}
