@@ -509,7 +509,7 @@ func TestSessionLogNoWorktreeStillRefusesWithoutTheNote(t *testing.T) {
 	noWorktreeCwd(t)
 	called := map[string]bool{}
 	var mu sync.Mutex
-	srv := statusServer1495(t, map[string]resp1495{"RecordTeamWork": {200, `{"data":{}}`}}, func(op string) {
+	srv := statusGraphQLServer(t, map[string]statusGraphQLResponse{"RecordTeamWork": {200, `{"data":{}}`}}, func(op string) {
 		mu.Lock()
 		called[op] = true
 		mu.Unlock()

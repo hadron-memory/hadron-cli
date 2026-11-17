@@ -504,7 +504,26 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list [--include-hidden]|validate|revoke <id>|delete <id>|hide <id>|unhide <id>   # the `auth token create --help` capture example checks GNU ln -T before minting; after any non-zero exit, run `hadron auth token list`, find any unexpected token by its label, then `hadron auth token revoke <id>` (add --yes when non-interactive)  # token delete <id> removes your own key for good, live or revoked (a live one is revoked first with its live subtree; keys it minted directly stay, revoked, parentless): exit 2 without --yes when non-interactive and nothing is sent, one request never retried or replayed (a 307/308 redirect is refused, not followed), unknown/foreign id exit 4; --json = id,keyId,keyPreview,revokedKeyIds,mintedKeyIds,deletedAt; revoke keeps the row, delete removes it  # token hide|unhide change DISPLAY only and only your own REVOKED keys (an active key is refused, exit 2, KEY_ACTIVE; foreign/unknown id exit 4); list --include-hidden also shows hidden keys and every key's JSON has hiddenAt (null when visible)
-hadron auth grants [--limit N] [--offset N] [--json]   # cli#2021: one page of grants directly naming the signed-in person as holder, across Apps/organizations, every state, newest first; not grants only issued/requested for others. Uses current credential without the worktree worker-session header; --app does not scope this read. Default limit 20, offset 0, server caps rows at 200 (larger valid limits pass through), both flags 0..2147483647. --limit 0 = {total} only. Otherwise JSON {items:[],total,hasMore,nextOffset}; items preserve id,appId,action,values,holderKind,holderId,startsAt,expiresAt,maxUses,useCount,reason,createdAt,activatedAt,revokedAt,allows,signatureStatus{state,integrityProblems}. Raw facts only: no derived lifecycle label. hasMore/nextOffset are page metadata; nextOffset null at end, never auto-fetch. Empty text is neutral because App keys, runs and impersonation also receive empty pages; auth whoami inspects the current credential. Missing credential exit 3; server without myGrants validation exit 2; other failures map normally, never empty success. No signatures/signer identities/manager-only end details requested. Read-only: signing needs the person's passkey on the server browser ceremony page; no CLI activation. Manager revoke/withdraw have separate authority and confirmation flows (cli#1846), not this listing. Existing top-level grant group unchanged. auth grants human count: total matching: N; page footer: total matching: N; rows on this page: R; offset: O; requested limit: L; has more: B. The next-offset line is retained. Limit 0 returns the total matching and no rows. Offset pages are not a snapshot; grants added or removed between calls can shift later pages.
+hadron auth grants [--limit N] [--offset N] [--json]   # cli#2021: one page of grants
+  directly naming the signed-in person as holder, across Apps/organizations, every state,
+  newest first; not grants only issued/requested for others. Uses current credential without
+  the worktree worker-session header; --app does not scope this read. Default limit 20,
+  offset 0, server caps rows at 200 (larger valid limits pass through), both flags
+  0..2147483647. --limit 0 = {total} only. Otherwise JSON
+  {items:[],total,hasMore,nextOffset}; items preserve
+  id,appId,action,values,holderKind,holderId,startsAt,expiresAt,maxUses,useCount,reason,createdAt,activatedAt,revokedAt,allows,signatureStatus{state,integrityProblems}.
+  Raw facts only: no derived lifecycle label. hasMore/nextOffset are page metadata;
+  nextOffset null at end, never auto-fetch. Empty text is neutral because App keys, runs and
+  impersonation also receive empty pages; auth whoami inspects the current credential.
+  Missing credential exit 3; server without myGrants validation exit 2; other failures map
+  normally, never empty success. No signatures/signer identities/manager-only end details
+  requested. Read-only: signing needs the person's passkey on the server browser ceremony
+  page; no CLI activation. Manager revoke/withdraw have separate authority and confirmation
+  flows (cli#1846), not this listing. Existing top-level grant group unchanged. auth grants
+  human count: total matching: N; page footer: total matching: N; rows on this page: R;
+  offset: O; requested limit: L; has more: B. The next-offset line is retained. Limit 0
+  returns the total matching and no rows. Offset pages are not a snapshot; grants added or
+  removed between calls can shift later pages.
 hadron auth passkey list [--json]   # cli#878 part 1: your OWN passkey records, newest first, revoked included; READ ONLY (no revoke verb: removal is the server's interactive revoke page; `auth passkey revoke-page` prints the address the server advertises, and the CLI builds no URL). Reads GET /capabilities first: without `passkey-registration` (switch off, older server, failed discovery) exit 2 with ZERO GraphQL requests, even with no credential: "this server does not offer passkeys" when the capability is absent, "could not confirm that this server offers passkeys (<why>)" when discovery itself failed (unknown, not no). App key exit 3 (serverCode UNAUTHENTICATED); impersonation exit 8 (FORBIDDEN). --json = [] or array of id (record id, NOT the credential id),label,state,registeredAt,lastUsedAt,revokedAt,window{endsAt,endedAt,outcome,registrationMethod}|null,cancel{at}|null,transports[],backupEligible,backedUp; never a credential id, public key or cancel IP/user agent. state is derived on the CLI clock: revoked (revokedAt set) > cooling-off (window not ended, endsAt ahead) > active; it is display, not authority
 hadron auth passkey revoke-page [--open] [--json]   # cli#878 revoke-page handoff: prints ServerInfo.passkeyRevokeUrl (the server's fixed, parameterless interactive revoke page) VERBATIM; never revokes, never builds or joins a URL, no same-origin check against --server (the value is the deployment's canonical baseUrl). No positional. No sign-in needed (public client; an existing credential still rides under the usual transport rules). Order: `--open` with --json, or `--open` when stdout is not a terminal, exit 2 before ANY request (no /capabilities read either); then refuse an insecure --server with exit 2 before discovery (https, loopback http, or HADRON_ALLOW_HTTP=1 permitted, for print and --open); then GET /capabilities exactly as `list` (absent `passkey-registration` or failed discovery: exit 2, zero GraphQL); then ONE query `PasskeyRevokeUrl` selecting only serverInfo{passkeyRevokeUrl}, no mutation. A validation envelope naming only passkeyRevokeUrl (an older server, or the switch went off since discovery) exit 2 "this server does not provide a passkey revoke page (it may be an older server, or passkey registration was switched off since the check)"; other validation keeps the skew advice; transport exit 7. The value must be an absolute http(s) URL with a host, no userinfo/opaque form, no leading '-', no control/format character, and pass the CLI's transport rule (https, http to loopback, or HADRON_ALLOW_HTTP=1), else exit 1 "the server returned an address that is not a valid, secure web address, so it was not printed or opened; tell the server operator" and nothing is opened. A null serverInfo, missing address or empty string exits 1 "the server did not return a passkey revoke page address". Text = the URL alone on one line; --json = {"passkeyRevokeUrl":"<url>"}. No auto-open: only an explicit --open in a terminal asks the default browser through the platform launcher (argv, no shell), once, then prints; launcher failure exit 1 with the URL in the message. A launcher start is not proof the page loaded or anything was revoked
 hadron usage activity [--from <iso>] [--to <iso>] [--bucket DAY|WEEK|MONTH] [--memory <ref>]... [--time-zone <IANA-zone>]  # omitted flags stay omitted; no zero-fill, client resource-count cap or fallback from empty resource scope (cor:acl:090:01); JSON [{date,reads,writes}]
@@ -5235,11 +5254,12 @@ shared guard serves signature/trailer edits, `team grant list|get|request` and
 `team task mine --app`: for those, a pure permission refusal on the App read
 now exits 2 with the missing-App usage text, where it was exit 8 before
 (cli#1896, cli#2239). Only a PURE permission refusal is normalized. A
-credential or token-scope refusal, a failed lookup, and a MIXED answer
-(FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages in the
-order sent and exit by the FIRST error's code: a mixed answer led by
-UNAUTHENTICATED exits 3, one led by FORBIDDEN exits 8. None of them reads as a
-missing App. Optional authored-write attribution (`node create` and the like)
+credential or token-scope refusal and a MIXED answer (FORBIDDEN together with
+UNAUTHENTICATED) keep the server's own messages in the order sent and exit by
+the FIRST error's code: a mixed answer led by UNAUTHENTICATED exits 3, one led
+by FORBIDDEN exits 8. A failed lookup keeps its ordinary mapped diagnostic, not
+the server's text: an internal error is masked to "the server hit an internal
+error" and exits 1 (cli#898, cli#2297). None of them reads as a missing App. Optional authored-write attribution (`node create` and the like)
 silently leaves the worker session off for a missing OR unreadable App and
 still sends your own write; a credential, mixed or failed lookup adds one note.
 
@@ -6346,6 +6366,29 @@ assignee alone, an App key or impersonation. No local inference or retry.
 `TASK_FINDING_NOT_FOUND` exits 4; server codes remain in the JSON error envelope
 and human message. A transport or unreadable-response failure may follow a
 committed write: read dispositions before deciding whether to write again.
+
+### Link a post-merge defect to its PR (server#4280; cli#2189)
+
+```sh
+hadron team task link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>]
+```
+
+Records that a defect found after a PR merged traces back to that PR's build
+task: one `review.defect-linked` event on the task (Proposed cor:agt:130:05).
+It sends exactly `prTaskRef`, `defectRef` and, when given, `introducedAtHead`
+(a full 40-hex head frozen on that PR; omitted when unset), never an
+instruction, once, with the bound session as the actor. A link never changes a
+verdict, a seat, readiness or the task. Linking the same pair again writes
+nothing and exits 0 with the existing link (`already linked`, `created: false`).
+Who may link is the server's: a bound `qa-engineer` or `coordinator` worker, or
+a person who manages the App; never the App key or a run.
+`DEFECT_LINK_FORBIDDEN` exits 8; `TASK_NOT_FOUND` (unknown, another App's or
+unreadable, all answered the same) exits 4; `PR_REFERENCE_MISSING` (not a PR
+build task) and `DEFECT_HEAD_NOT_FROZEN` exit 5; `BAD_USER_INPUT` (a defect URL
+or head in the wrong form) exits 2, and an empty `--defect` is refused with
+exit 2 before any request. No retry. `--json` is `{taskId, defect,
+introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
+the link names no head.
 
 `finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
 total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum

@@ -127,10 +127,13 @@ it does: an existence oracle. This is deliberate, and the same helper serves the
 reads and requests, and `task mine`.
 
 **What is NOT normalized: mixed and failed lookups.** Only a PURE permission refusal collapses. A credential or
-token-scope refusal, a failed lookup (an internal error) and a MIXED answer (FORBIDDEN together with UNAUTHENTICATED)
-keep the server's own messages, in the order the server sent them, and exit by the FIRST error's code. So a mixed
-answer led by UNAUTHENTICATED exits 3 and one led by FORBIDDEN exits 8; neither can be mistaken for a missing App, and
-the outcome is a function of the lookup answer alone (it does not depend on whether the App exists). This first-error
+token-scope refusal and a MIXED answer (FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages, in the
+order the server sent them, and exit by the FIRST error's code. A failed lookup keeps its ordinary mapped diagnostic, not
+the server's text: an internal error is masked to "the server hit an internal error" and exits 1 (the internal-fault
+contract, cli#898; the pin's fixture sends "lookup failed" and expects the masked text). So a mixed answer led by
+UNAUTHENTICATED exits 3 and one led by FORBIDDEN exits 8; none of these can be mistaken for a missing App, and the
+outcome is repeatable for the same lookup answer, which is all the CLI sees (the pin runs the identical fixture twice; it
+does not vary App state, since nothing but the lookup answer reaches this path; cli#2297). This first-error
 rule is the documented mapping, not part of the normalization; whether a mixed answer should always prefer the
 credential exit is an exit-code product decision, not made here. The pins are `TestMixedAndFailedAppLookupsKeepTheirMappedExit2239`
 and `TestMixedLookupAsWorkerRefusalSaysItCannotConfirm2239`, on all eight callers, text and JSON, both error orders.

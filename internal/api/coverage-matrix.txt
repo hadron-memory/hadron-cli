@@ -264,7 +264,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 302 command, 43 gap, 14 excluded
+[Mutation] 359: 303 command, 42 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -436,7 +436,7 @@ joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
-linkDefectToPullRequest  gap #2189: S12b CLI companion not yet implemented
+linkDefectToPullRequest  command team task link-defect
 linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready
@@ -625,7 +625,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 76: 40 gap, 36 excluded
+[Arguments] 77: 41 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -655,6 +655,7 @@ Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.importNode(input.authoredWith)  gap #684
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
+Mutation.linkDefectToPullRequest(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
