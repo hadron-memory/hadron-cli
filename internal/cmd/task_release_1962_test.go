@@ -79,7 +79,7 @@ func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 
 func TestTaskReleaseJSONCarriesMappedWarning2263(t *testing.T) {
 	r := releaseResponses1962()
-	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]}}`
+	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"mapped","taskLoc":"tasks:release-advice","taskUrn":"hrn:node:acme.com:runbooks:tasks:release-advice"}}]}}`
 	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
 	if err != nil {
 		t.Fatal(err)
