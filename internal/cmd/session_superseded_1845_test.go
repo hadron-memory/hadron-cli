@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 )
 
@@ -19,7 +20,6 @@ type supersededResult1845 struct {
 
 func runSuperseded1845(t *testing.T, status int, ext map[string]any, jsonMode bool) supersededResult1845 {
 	t.Helper()
-	writeTeamBinding(t)
 	message := "Session superseded."
 	if ext["code"] == "SESSION_ENDED" {
 		message = "session ended"
@@ -28,6 +28,12 @@ func runSuperseded1845(t *testing.T, status int, ext map[string]any, jsonMode bo
 		message = "session expired"
 	}
 	body, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": ext}}})
+	return runSupersededBody1845(t, status, string(body), jsonMode)
+}
+
+func runSupersededBody1845(t *testing.T, status int, body string, jsonMode bool) supersededResult1845 {
+	t.Helper()
+	writeTeamBinding(t)
 	calls := []string{}
 	srv := statusServer1495(t, map[string]resp1495{"GetWorker": {status, string(body)}}, func(op string) { calls = append(calls, op) })
 	setTeamBindingServer(t, srv.URL)
@@ -174,6 +180,54 @@ func TestSupersededEscapesAndRawEvidence1845(t *testing.T) {
 		human := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, false)
 		if strings.Count(human.stderr, "\n") != 1 || strings.ContainsAny(human.stderr, "\x1b\u2028") || !strings.Contains(human.stderr, "No retry or rebind was attempted.") {
 			t.Fatalf("unsafe human hint: %q", human.stderr)
+		}
+	}
+}
+
+func TestSupersededFaultCodePrecedence1845(t *testing.T) {
+	for _, status := range []int{502, 503} {
+		for _, reverse := range []bool{false, true} {
+			t.Run(jsonInt(status)+map[bool]string{false: "/superseded-first", true: "/fault-first"}[reverse], func(t *testing.T) {
+				superseded := map[string]any{"message": "Session superseded.", "extensions": map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "C", "startedAt": "2026-11-12T16:37:52Z"}}
+				fault := map[string]any{"message": "private fault detail", "extensions": map[string]any{"code": "INTERNAL_SERVER_ERROR", "requestId": "req-1845"}}
+				errors := []any{superseded, fault}
+				if reverse {
+					errors = []any{fault, superseded}
+				}
+				body, _ := json.Marshal(map[string]any{"errors": errors})
+				r := runSupersededBody1845(t, status, string(body), true)
+				var doc struct {
+					Error map[string]any `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(r.stdout), &doc); err != nil {
+					t.Fatal(err)
+				}
+				if r.exit != 1 || doc.Error["serverCode"] != "SESSION_SUPERSEDED" || doc.Error["requestId"] != "req-1845" || doc.Error["message"] != api.InternalFaultMessage("req-1845") {
+					t.Fatalf("specific marker must win, fault message/id/exit stay: %+v", r)
+				}
+				for _, key := range []string{"sessionId", "startedAt"} {
+					if _, ok := doc.Error[key]; ok {
+						t.Fatalf("mixed 5xx projected evidence: %s", r.stdout)
+					}
+				}
+				human := runSupersededBody1845(t, status, string(body), false)
+				if human.stderr != "hadron: "+api.InternalFaultMessage("req-1845")+"\n" || human.exit != 1 {
+					t.Fatalf("mixed 5xx hint changed: %+v", human)
+				}
+			})
+		}
+	}
+	// A single typed gateway error also retains the marker deterministically.
+	for _, status := range []int{502, 503} {
+		r := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED"}, true)
+		var doc struct {
+			Error map[string]any `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(r.stdout), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
+			t.Fatalf("typed gateway marker missing: %s", r.stdout)
 		}
 	}
 }
