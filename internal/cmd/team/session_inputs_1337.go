@@ -47,9 +47,6 @@ func (v *sessionStartInputs) validate(cmd *cobra.Command, resume bool) error {
 			}
 		}
 	}
-	if resume && cmd.Flags().Changed("effort") {
-		return exitcode.Newf(exitcode.Usage, "--effort is reported at a bind (--as or --launch-grant); resume mode does not take it")
-	}
 	if !resume && cmd.Flags().Changed("description") {
 		return exitcode.Newf(exitcode.Usage, "--description applies to resume mode; use --plan with --as or --launch-grant")
 	}
@@ -59,10 +56,7 @@ func (v *sessionStartInputs) apply(cmd *cobra.Command, in *gen.SessionInput) {
 	in.AgentRef = changedString1337(cmd, "agent", v.agent)
 	in.CustomerId = changedString1337(cmd, "customer", v.customer)
 	in.Family = changedString1337(cmd, "family", v.family)
-	if cmd.Flags().Changed("effort") {
-		e := gen.EffortLevel(strings.TrimSpace(v.effort))
-		in.Effort = &e
-	}
+	in.Effort = v.effortLevel(cmd)
 	in.Language = changedString1337(cmd, "language", v.language)
 	in.ParentSessionId = changedString1337(cmd, "parent-session", v.parent)
 	in.Plan = changedString1337(cmd, "plan", v.plan)
@@ -90,4 +84,14 @@ func validEffortLevel(s string) bool {
 		}
 	}
 	return false
+}
+
+// effortLevel is --effort as the generated enum, nil unless given (omitted,
+// never null). validate has already refused a value outside the scale.
+func (v *sessionStartInputs) effortLevel(cmd *cobra.Command) *gen.EffortLevel {
+	if !cmd.Flags().Changed("effort") {
+		return nil
+	}
+	e := gen.EffortLevel(strings.TrimSpace(v.effort))
+	return &e
 }

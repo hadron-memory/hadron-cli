@@ -88,10 +88,13 @@ func TestFindUntrackedNoTeamFilterOnAllThreePaths1622(t *testing.T) {
 // document, byte for byte, with no noTeam variable.
 func TestFindUntrackedWithoutNoTeamIsTheOldDocument1622(t *testing.T) {
 	// sha256 of the three documents as they were on main before this change.
+	// The two claim documents embed the AgentTaskFields fragment, so their
+	// hashes were re-pinned when cli#2206 added runSettings and
+	// appliedRunSettings to it; no other part of either document moved.
 	want := map[string]string{
 		listOpOld:  "8418811dd3df5a1c40c391044e353cf778d043f1e23f992f4f2f1a237ab2a5a5",
-		claimOpOld: "c6ed7bd643644dc609a2e765388b1e9442b7abe54eceaf77e9ec230572569180",
-		partyOpOld: "12335850e5570e9d56067b22bca1f49cabb5208e71dd74a6c8d32cc70a2f382d",
+		claimOpOld: "206f3cfef1731ee4472469bb460625028645ae6a63f6e3d257da0a6da97a0b8c",
+		partyOpOld: "7b70e0c2a36019be82eaeb624449a5f0504f2816f9035266f5216fd61ed61819",
 	}
 	for op, docs := range map[string]string{
 		listOpOld: gen.UntrackedTaskItems_Operation, claimOpOld: gen.ClaimUntrackedTaskItems_Operation,

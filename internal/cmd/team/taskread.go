@@ -291,6 +291,18 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			}
 		}
 	}
+	// cli#2206: the settings the task asks for, and beside them what its run
+	// applied (cor:agt:050:01); both, or neither.
+	if r := task.RunSettings; r != nil && task.AppliedRunSettings != nil {
+		if err := line("  run settings: family=%s model=%s tier=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Tier), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
+	if r := task.AppliedRunSettings; r != nil && task.RunSettings != nil {
+		if err := line("  applied: family=%s model=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
 	if task.Result != nil {
 		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
 			return err
@@ -1169,4 +1181,12 @@ func safeTaskRequirementList(values []string) string {
 		return "—"
 	}
 	return safeTaskValues(values, ",")
+}
+
+// settingCell renders one run setting: its value, or - when the task names none.
+func settingCell(v *string) string {
+	if v == nil {
+		return "-"
+	}
+	return output.SafeCell(*v)
 }
