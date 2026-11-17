@@ -184,8 +184,11 @@ finish, the output says it is incomplete and --json carries "incomplete".`,
 			dto := teamAlarmsDTO{AppID: rosterResp.TeamRoster.AppId, Scope: "app", All: all, Alarms: []teamAlarmDTO{}}
 			var inTeam map[string]bool
 			if teamGiven {
-				coordinatorRef, source := b.WorkerID, "the bound worker"
-				if team != teamFlagBound {
+				var coordinatorRef, source string
+				if team == teamFlagBound {
+					// Only a bare --team reads the binding (guarded above).
+					coordinatorRef, source = b.WorkerID, "the bound worker"
+				} else {
 					_, coordinatorRef, _ = strings.Cut(team, ":")
 					source = "from --team"
 				}

@@ -422,3 +422,24 @@ func TestTeamAlarms1829TextRowAndSanitising(t *testing.T) {
 		t.Fatalf("control bytes leaked: %q", out)
 	}
 }
+
+// BLIND P1 (#2335): --team=worker:<ref> with --app and NO worktree binding left
+// b nil, and the coordinator read b.WorkerID unconditionally — a nil deref. The
+// binding is read only for a bare --team.
+func TestTeamAlarms1829NamedTeamWithoutABindingDoesNotPanic(t *testing.T) {
+	responses := taskResponses()
+	responses["TeamAlarmRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` + strings.Join(alarmsRoster1829(), ",") + `]}}}`
+	responses["AgentTaskList"] = taskPage1044(alarmsTasks1829())
+	setAttnResponse(responses, pagedOp1919, alarmsPage1829()(0))
+	srv, _ := attnServerHook(t, responses, func(string) {})
+	noWorktreeCwd(t)
+	f, o := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "--app", "hrn:app:acme.com:team", "team", "alarms", "--team=worker:Marco", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if d := decodeAlarms1829(t, o.String()); d.Scope != "team" || d.Coordinator["name"] != "Marco" {
+		t.Fatalf("%+v", d)
+	}
+}
