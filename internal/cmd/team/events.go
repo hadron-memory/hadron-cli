@@ -81,14 +81,21 @@ it already means alarms only, so it returns the same rows with or without
 --alarms. An alarm that has left effect is not acknowledged and not hidden:
 read without this flag to see it, and its end time in the ESCALATION ENDED
 column (cor:agt:050:20). That column is when the server recorded the end; it
-is blank while an alarm is in effect and on every event that is not an alarm.
-The recorded end can lag by up to one evaluator pass (about a minute), and the
-alarm reads as in effect until it is written, so the column is not a real-time
-value. Task-less
+is blank on every event that is not an alarm and on every alarm whose end is
+not recorded yet: one in effect, and also one already acknowledged or whose
+task already moved, until the server records the end. That record can lag the
+actual end by up to one evaluator pass (about a minute), and the alarm reads
+as in effect until it is written, so the column is not a real-time value. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
 reason or evidence is added. An alarm.start-failing (wake handle START: the
 platform's starts of a long-lived worker with no task keep failing) is task-less
 too and shows worker <name>; its failure count and window stay in --json. A missing subject stays —.
+A task event's TASK cell is the task's handle, then the first 12 hex of its id
+(AT0.7234 01a1d71218bb); when the server names no handle (the task is gone) the
+cell stays the bare id. --json adds taskHandle beside taskId, exactly as the
+server sent it, null for an event with no task. --task takes either form. The
+handle needs a server that carries AgentTeamEvent.taskHandle (hadron-server
+#4135); an older one refuses the read and nothing is printed.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -152,7 +159,7 @@ too and shows worker <name>; its failure count and window stay in --json. A miss
 					}
 					var task string
 					if e.TaskID != nil {
-						task = *e.TaskID
+						task = eventTaskCell(e)
 					} else {
 						task = tasklessAlarmCell(e)
 					}
@@ -225,6 +232,22 @@ func eventActorCell(e teamEventDTO) string {
 		}
 	}
 	return partyCell(e.Actor)
+}
+
+// eventTaskCell is a task event's TASK cell: the server's handle first, then
+// the first 12 hex of the id (the form task list and task get print,
+// cli#1131). When the server names no handle (the task is gone) it stays the
+// bare id, as before; the handle is never derived here (cli#2005).
+func eventTaskCell(e teamEventDTO) string {
+	id := *e.TaskID
+	if e.TaskHandle == nil || *e.TaskHandle == "" {
+		return id
+	}
+	short := id
+	if len(short) > 12 {
+		short = short[:12]
+	}
+	return *e.TaskHandle + " " + short
 }
 
 // Task-less alarm metadata is server-owned. Only known reason words reach
