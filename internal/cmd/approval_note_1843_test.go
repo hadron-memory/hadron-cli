@@ -8,6 +8,8 @@ package cmd
 import (
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 const approvalNotePrefix1843 = "note: approving as you (the signed-in person)"
@@ -113,7 +115,10 @@ func TestApprovalNoteAbsentWhenNotApplicable1843(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, stderr, _ := runApprovalNote1843(t, c.bound, c.kind, c.argv...)
+			_, stderr, err := runApprovalNote1843(t, c.bound, c.kind, c.argv...)
+			if err != nil {
+				t.Fatalf("the command was meant to complete, so an absent note means something: %v", err)
+			}
 			if strings.Contains(stderr, "approving as you") {
 				t.Fatalf("unexpected note: %q", stderr)
 			}
@@ -136,5 +141,43 @@ func TestApprovalNoteLeavesStdoutAlone1843(t *testing.T) {
 	}
 	if !strings.Contains(boundErr, approvalNotePrefix1843) || strings.Contains(unboundErr, "approving as you") {
 		t.Fatalf("stderr: bound %q unbound %q", boundErr, unboundErr)
+	}
+}
+
+// The worker name is read from an unverified binding file: a note is one line
+// and never a terminal control (Jibril's P2 on #2242).
+func TestApprovalNoteNeutralisesTheWorkerName1843(t *testing.T) {
+	names := map[string]string{
+		"newline":        "Iris\nnote: FORGED",
+		"escape":         "Iris\x1b[2Jx",
+		"C1 and format":  "Iris\u0085\u202e\u200bx",
+		"line separator": "Iris\u2028x",
+		"oversized":      strings.Repeat("W", 5000),
+	}
+	for name, worker := range names {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "ApproveNode": asWorkerApproveNodeJSON})
+			writeTeamBinding(t)
+			setTeamBindingServer(t, srv.URL)
+			rewriteBinding1592(t, func(b map[string]any) { b["workerName"] = worker })
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"--server", srv.URL}, nodeApproveArgs1843()...))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+			if lines := strings.Split(strings.TrimRight(stderr, "\n"), "\n"); len(lines) != 1 || !strings.HasPrefix(lines[0], approvalNotePrefix1843) {
+				t.Fatalf("the note is not one line: %q", stderr)
+			}
+			for _, r := range strings.TrimRight(stderr, "\n") {
+				if output.Neutralised(r) {
+					t.Fatalf("control or format rune %U reached stderr: %q", r, stderr)
+				}
+			}
+			if len([]rune(stderr)) > 400 {
+				t.Fatalf("the note is not bounded (%d runes)", len([]rune(stderr)))
+			}
+		})
 	}
 }

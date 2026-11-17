@@ -6,7 +6,13 @@ import (
 	"sync"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// workerNameRunes bounds the name in the note: it comes from an unverified
+// binding file, so it passes output.SafeLine (controls and format characters
+// become spaces) and is cut here.
+const workerNameRunes = 64
 
 // ApprovalAsPersonNote is the hook behind Factory.NoteApprovingAsPerson
 // (cli#1843). An approval acts as the signed-in person unless --as-worker says
@@ -32,7 +38,7 @@ func ApprovalAsPersonNote(f *cmdutil.Factory) func(context.Context, bool) {
 			}
 			who := "the bound worker"
 			if b.WorkerName != "" {
-				who = "the bound worker " + b.WorkerName
+				who = "the bound worker " + output.SafeLine(b.WorkerName, workerNameRunes)
 			}
 			line := fmt.Sprintf("note: approving as you (the signed-in person), not as %s.", who)
 			if asWorkerFlag {
