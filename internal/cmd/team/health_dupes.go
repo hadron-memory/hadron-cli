@@ -310,18 +310,30 @@ func sweepPause(ctx context.Context, server *hostServer, appRef string) (paused,
 	return false, true
 }
 
+// resetsForWorker returns the worker's recorded resets in descending resetId
+// order (#2055 item 3). The order is deterministic — a map's is not — so the
+// gate's pin kills a first-read-only mutant (the historical "newest by string
+// max" shape) every run, not by map luck; descending puts the max id first,
+// the exact reset such a mutant stops at. Every reset is still asked; only
+// the order changes (cor:agt:050:27: unreadable counts as in flight).
+func resetsForWorker(state *hostpoller.State, workerID string) []hostpoller.ResetRecord {
+	if state == nil {
+		return nil
+	}
+	out := make([]hostpoller.ResetRecord, 0, len(state.Resets))
+	for _, r := range state.Resets {
+		if r.WorkerID == workerID {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ResetID > out[j].ResetID })
+	return out
+}
+
 // hasResetRecord reports whether the poller state holds any reset for the
 // worker, ended or not.
 func hasResetRecord(state *hostpoller.State, workerID string) bool {
-	if state == nil {
-		return false
-	}
-	for _, r := range state.Resets {
-		if r.WorkerID == workerID {
-			return true
-		}
-	}
-	return false
+	return len(resetsForWorker(state, workerID)) > 0
 }
 
 // workerResetting reports whether any of the worker's recorded resets is
@@ -342,10 +354,7 @@ func workerResetting(ctx context.Context, server *hostServer, appRef string, sta
 	if state == nil {
 		return false
 	}
-	for _, r := range state.Resets {
-		if r.WorkerID != workerID {
-			continue
-		}
+	for _, r := range resetsForWorker(state, workerID) {
 		resp, err := gen.ContextReset(ctx, server.client, appRef, r.ResetID)
 		if err != nil {
 			return true // unreadable: in flight

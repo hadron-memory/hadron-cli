@@ -194,20 +194,23 @@ func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
 // a same-root stray must survive untouched.
 func TestCollapseChainsMergesDescendantsIntoTheOldestMember(t *testing.T) {
 	root := t.TempDir()
+	// Large synthetic pids: 10-40 are real kernel-thread pids on Linux, so a
+	// regression that made the survivor walk consult /proc could resolve them
+	// by accident and mask itself (#2055 item 5). No live process is involved.
 	found := []rawAgent{
-		{agent: WorktreeAgent{PID: 30, Base: "codex", Display: "/x/codex"}, ppid: 20},
-		{agent: WorktreeAgent{PID: 20, Base: "claude", Display: "/x/claude"}, ppid: 10},
-		{agent: WorktreeAgent{PID: 40, Base: "codex", Display: "/y/codex"}, ppid: 1},
-		{agent: WorktreeAgent{PID: 10, Base: "claude", Display: "/x/claude"}, ppid: 1},
+		{agent: WorktreeAgent{PID: 410259, Base: "codex", Display: "/x/codex"}, ppid: 410247},
+		{agent: WorktreeAgent{PID: 410247, Base: "claude", Display: "/x/claude"}, ppid: 410234},
+		{agent: WorktreeAgent{PID: 410260, Base: "codex", Display: "/y/codex"}, ppid: 1},
+		{agent: WorktreeAgent{PID: 410234, Base: "claude", Display: "/x/claude"}, ppid: 1},
 	}
 	got := collapseChains(found, root)
 	if len(got) != 2 {
 		t.Fatalf("collapse answered %d logical agents for one chain and one stray: %+v", len(got), got)
 	}
-	if got[0].PID != 10 || got[0].Base != "claude" {
+	if got[0].PID != 410234 || got[0].Base != "claude" {
 		t.Fatalf("the chain's oldest census member survives, not its descendant: %+v", got[0])
 	}
-	if got[1].PID != 40 || got[1].Base != "codex" {
+	if got[1].PID != 410260 || got[1].Base != "codex" {
 		t.Fatalf("a stray with its own root is not part of the chain: %+v", got[1])
 	}
 	if got[0].PID > got[1].PID {
@@ -238,6 +241,26 @@ func TestScanWorktreeAgentsExcludesOwnAncestry(t *testing.T) {
 	}
 	root := t.TempDir()
 	result := filepath.Join(root, "scan.json")
+	// Control (#2055 item 2): a non-ancestor census match that MUST be
+	// reported. Without it this test passes vacuously — a census-breaking
+	// mutant that answers nothing also reports no ancestor. The sibling is a
+	// direct child of the test process, so it cannot be on the scan child's
+	// parent chain; its ready file hands the spawn race to a handshake
+	// instead of a sleep.
+	siblingReady := filepath.Join(root, "sibling-ready")
+	sibling := filepath.Join(root, "codex")
+	if err := os.WriteFile(sibling, []byte("#!/bin/sh\ntouch \""+siblingReady+"\"\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sc := exec.Command(sibling)
+	sc.Dir = root
+	startFixture2078(t, sc)
+	for i := 0; i < 500 && !chainReady(siblingReady); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !chainReady(siblingReady) {
+		t.Fatal("the sibling agent never ran; the control fixture is not up")
+	}
 	fake := filepath.Join(root, "claude") // a census match BY NAME
 	bin, err := os.Executable()
 	if err != nil {
@@ -272,5 +295,14 @@ func TestScanWorktreeAgentsExcludesOwnAncestry(t *testing.T) {
 		if f.Base == "claude" {
 			t.Fatalf("the caller's own agent ancestor was reported as a duplicate: %+v", got.Found)
 		}
+	}
+	reported := false
+	for _, f := range got.Found {
+		if f.Base == "codex" {
+			reported = true
+		}
+	}
+	if !reported {
+		t.Fatalf("the non-ancestor sibling was not reported; the census answered nothing and the exclusion passed vacuously: %+v", got.Found)
 	}
 }
