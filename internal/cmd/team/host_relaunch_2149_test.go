@@ -131,7 +131,7 @@ func TestNewRelaunchReasonReportsAndErrors2149(t *testing.T) {
 		{"multiple stored", `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"worker","urn":"p"},{"id":"other","urn":"q"}],"refused":[]}}}`, []string{"not confirmed stored", "stored 2", "want 1"}},
 		{"returned worker mismatch", `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"another-worker","urn":"p"}],"refused":[]}}}`, []string{"not confirmed stored", "another worker"}},
 		{"forbidden", `{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, []string{"denied"}},
-		{"transport", "", []string{""}},
+		{"transport", "", []string{"HTTP 503", "not a GraphQL error"}},
 	}
 	for _, reason := range []string{"SETUP_FAILED", "VERIFY_FAILED"} {
 		for _, mode := range modes {

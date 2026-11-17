@@ -194,3 +194,28 @@ func TestProofReadCauseSurvivesTerminalCleanup2172(t *testing.T) {
 		})
 	}
 }
+
+// Jibril's BLIND P3 on #2276: when closing the terminal also fails, the
+// original cause stays in the chain next to the unclosed-terminal error.
+func TestProofCauseSurvivesAFailedTerminalClose2172(t *testing.T) {
+	spec := launchSpec2172(t)
+	f := newFakeOrca(t)
+	proc := &causeProc{observeErr: context.Canceled}
+	l := orcaLauncherFor(t, f)
+	l.Proc = proc
+	run := l.Run
+	l.Run = func(ctx context.Context, argv []string) (int, string, string) {
+		if len(argv) > 1 && argv[1] == "close" {
+			return 1, "", "orca unreachable"
+		}
+		return run(ctx, argv)
+	}
+	a, err := l.Launch(context.Background(), spec)
+	var unclosed *UnclosedLaunchError
+	if a == nil || err == nil || !errors.As(err, &unclosed) {
+		t.Fatalf("a failed close must hand the agent back with an UnclosedLaunchError: agent=%v err=%v", a, err)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("the original cause was lost behind the unclosed terminal: %v", err)
+	}
+}
