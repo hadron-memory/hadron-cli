@@ -2486,6 +2486,12 @@ Conventions:
   `publicAgents` (each a `{id,name,urn,description}` ref) plus
   `listedOnMarketplace` — or a not-found when the org isn't discoverable (the
   server collapses not-found and not-discoverable for anti-enumeration).
+  Each public list is one page: `--limit` defaults to 20 (server cap 200),
+  `--offset` defaults to 0; both flags apply to both lists. Zero limit returns
+  counts only; negative values count as zero. Pages are not auto-drained.
+  Text labels partial lists `showing N of TOTAL`. JSON preserves the two arrays
+  and adds `publicMemoriesTotal`, `publicMemoriesHasMore`, `publicAgentsTotal`
+  and `publicAgentsHasMore`, including when counts are zero or hasMore is false.
   `org member list <org-id>` lists members; `member add|set-role <org-id> --user
   <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an

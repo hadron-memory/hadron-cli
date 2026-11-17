@@ -3,6 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -80,5 +84,61 @@ func TestOrgPublic1858PagingFlagsAndCompletePage(t *testing.T) {
 				t.Errorf("complete list has partial notice: %s", out.String())
 			}
 		})
+	}
+}
+
+func TestOrgPublic1858PagedQueryAndIndependentCounts(t *testing.T) {
+	calls := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			fmt.Fprint(w, `{"capabilities":[]}`)
+			return
+		}
+		var req struct {
+			Query string `json:"query"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+		}
+		calls++
+		if req.Query != gen.PublicOrganization_Operation {
+			t.Error("wire document differs from generated operation")
+		}
+		for _, field := range []string{"publicMemoriesPage(limit: $limit, offset: $offset)", "publicAgentsPage(limit: $limit, offset: $offset)"} {
+			found := false
+			for _, line := range strings.Split(gen.PublicOrganization_Operation, "\n") {
+				if strings.TrimSpace(line) == field+" {" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("missing exact paged selection: %s", field)
+			}
+		}
+		fmt.Fprint(w, `{"data":{"publicOrganization":{"id":"o","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemoriesPage":{"items":[],"total":42,"hasMore":true},"publicAgentsPage":{"items":[],"total":0,"hasMore":false}}}}`)
+	}))
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "acme.com", "--limit", "0", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("must fetch one page, calls=%d", calls)
+	}
+	if !strings.Contains(out.String(), "public memories: showing 0 of 42") || !strings.Contains(out.String(), "public agents: (none)") {
+		t.Errorf("independent count-only output: %s", out.String())
+	}
+}
+
+func TestOrgPublic1858NotFoundUnchanged(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"PublicOrganization": `{"data":{"publicOrganization":null}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "ghost.com", "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.NotFound || err.Error() != `organization "ghost.com" is not discoverable (or does not exist)` {
+		t.Fatalf("notfound contract: %v", err)
 	}
 }

@@ -268,17 +268,21 @@ fragment PublicResourceRefFields on PublicResourceRef {
   description
 }
 
-query PublicOrganization($ref: ID!) {
+query PublicOrganization($ref: ID!, $limit: Int!, $offset: Int!) {
   publicOrganization(ref: $ref) {
     id
     urn
     name
     listedOnMarketplace
-    publicMemories {
-      ...PublicResourceRefFields
+    publicMemoriesPage(limit: $limit, offset: $offset) {
+      items { ...PublicResourceRefFields }
+      total
+      hasMore
     }
-    publicAgents {
-      ...PublicResourceRefFields
+    publicAgentsPage(limit: $limit, offset: $offset) {
+      items { ...PublicResourceRefFields }
+      total
+      hasMore
     }
   }
 }
