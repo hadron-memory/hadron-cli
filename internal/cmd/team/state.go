@@ -165,6 +165,10 @@ func SetGitDirRunner(r GitDirRunner) (restore func()) {
 	return func() { runGitDir = prev }
 }
 
+// beforeCacheChmod is the moment between the cache directory's checks and its
+// chmod; a test replaces it to swap the directory for a symlink there.
+var beforeCacheChmod = func(string) {}
+
 // plainDirCacheName is the binding cache's home in a directory that is not a
 // git checkout (cli#1391, ruling 0230 = B): a hidden directory in the
 // directory the command runs from, holding the same binding and lock files a
@@ -450,6 +454,7 @@ func withBindingLockAt(loc bindingLoc, fn func() error) error {
 		// MkdirAll leaves an existing directory as it was, so a bind
 		// tightens one an earlier version or a person made loose: the
 		// cache is owner-only after every bind (cli#1969 F8).
+		beforeCacheChmod(loc.dir)
 		if err := os.Chmod(loc.dir, 0o700); err != nil {
 			return fmt.Errorf("securing the session binding cache %s: %w", loc.dir, err)
 		}

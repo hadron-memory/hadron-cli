@@ -96,3 +96,36 @@ func TestPlainDir1969BindRefusesASymlinkedCacheDirectory(t *testing.T) {
 		t.Fatalf("nothing may be written through the link: %v", ents)
 	}
 }
+
+// Jibril's BLIND delta on #2229: the Lstat check is not enough if the
+// directory is replaced by a symlink between the check and the chmod. The
+// swap happens at exactly that moment here; the target's mode must not move.
+func TestPlainDir1969SwapForASymlinkBeforeTheChmodChangesNothing(t *testing.T) {
+	dir := plainDir1391(t)
+	shared := t.TempDir()
+	if err := os.Chmod(shared, 0o755); err != nil { // #nosec G302 — the shared directory under test
+		t.Fatal(err)
+	}
+	cache := filepath.Join(dir, plainDirCacheName)
+	restore := beforeCacheChmod
+	t.Cleanup(func() { beforeCacheChmod = restore })
+	beforeCacheChmod = func(string) {
+		if err := os.RemoveAll(cache); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := os.Symlink(shared, cache); err != nil {
+			t.Error(err)
+		}
+	}
+	_, err := writeBinding(context.Background(), &binding{SessionID: "s1", WorkerID: "wkr1", WorkerName: "Iris"})
+	if err == nil {
+		t.Fatal("a cache swapped for a symlink at the chmod must refuse the bind")
+	}
+	if st, serr := os.Stat(shared); serr != nil || st.Mode().Perm() != 0o755 {
+		t.Fatalf("the target's mode must be unchanged: %v %v", st, serr)
+	}
+	if ents, _ := os.ReadDir(shared); len(ents) != 0 {
+		t.Fatalf("nothing may be written through the link: %v", ents)
+	}
+}
