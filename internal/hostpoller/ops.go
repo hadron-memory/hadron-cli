@@ -543,7 +543,24 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	} else if ctx.Err() != nil {
 		return
 	}
-	if stop {
+	// cli#2201 C10: a short-lived worker whose end finds no agent. Only the
+	// strict census can say so; its answer is the reason's first word, which
+	// is what the server reads (hadron-server#4292). Nothing runs, so nothing
+	// is scanned for or stopped. Anything short of a proof reports as before,
+	// with the census result appended, and never leads with AGENT_ABSENT.
+	absent := false
+	if agent == nil && session != "" && w.StopOnEnd == StopOnEndAlways {
+		proof := p.proveAgentAbsent(ctx, p.worktreeDirs(op, ref, w))
+		if proof.Absent {
+			absent = true
+			reason = AgentAbsent + ": " + proof.Detail + "; " + reason
+			p.log("agent-absent", op.ID, op.Type, "", proof.Detail)
+		} else {
+			reason += "; " + proof.Detail
+			p.log("agent-absent-unproven", op.ID, op.Type, "", proof.Detail)
+		}
+	}
+	if stop && !absent {
 		reason += "; " + p.stopWorkerProcess(ctx, op, ref, w, session, agent)
 	}
 	got, err := p.report(ctx, op, Failed, "", reason)
@@ -852,4 +869,19 @@ func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Au
 		}
 		return release, true
 	}
+}
+
+// worktreeDirs are the paths of the worktrees a worker.end looks in: the tree
+// of the launch this host remembers, else every tree the worker has here (the
+// same choice the stop makes).
+func (p *Poller) worktreeDirs(op Operation, ref string, w WorkerConfig) []string {
+	trees := p.state.worktreesFor(ref, w.Worktrees)
+	if t, ok := p.agentWorktree(op.WorkerID); ok {
+		trees = []string{t}
+	}
+	dirs := make([]string, 0, len(trees))
+	for _, t := range trees {
+		dirs = append(dirs, p.cfg.WorktreePath(t))
+	}
+	return dirs
 }

@@ -452,6 +452,12 @@ func newRelaunchEpoch() (string, error) {
 // deadline bounds cooperative probes; parent cancellation always wins. An error
 // invalidates the entire observation, including any partial positive proof.
 func retryRelaunchCensus(ctx context.Context, d *RelaunchDependencies, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	return retryCensusProbe(ctx, d.Probe, t)
+}
+
+// retryCensusProbe is the retry policy over any strict probe: the relaunch
+// loop's, and the agentless end's (cli#2201), which asks the same census.
+func retryCensusProbe(ctx context.Context, probe func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error), t hostrelaunch.Target) (hostrelaunch.Observation, error) {
 	const maxProbes = 3
 	const pause = 20 * time.Millisecond
 	const budget = 3 * time.Second
@@ -468,7 +474,7 @@ func retryRelaunchCensus(ctx context.Context, d *RelaunchDependencies, t hostrel
 			break
 		}
 		probeCtx, stopProbe := context.WithTimeout(bounded, probeBudget)
-		observation, err := d.Probe(probeCtx, t)
+		observation, err := probe(probeCtx, t)
 		probeErr := probeCtx.Err()
 		stopProbe()
 		if parentErr := ctx.Err(); parentErr != nil {
