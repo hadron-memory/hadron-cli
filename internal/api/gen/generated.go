@@ -26337,6 +26337,8 @@ func (v *ChangeWorkerAgentResponse) GetChangeWorkerAgent() *ChangeWorkerAgentCha
 // #2138 experiment: server-derived checking status, not local activity inference.
 type ChannelCheckFields struct {
 	Status WorkerCheckState `json:"status"`
+	// #3077: set only when status is NO_SESSION.
+	NoSessionReason *WorkerNoSessionReason `json:"noSessionReason"`
 	// Set only when status is PENDING.
 	PendingReason *WorkerPendingReason `json:"pendingReason"`
 	// When it last checked the App's team channel through its own session; null if never.
@@ -26345,6 +26347,9 @@ type ChannelCheckFields struct {
 
 // GetStatus returns ChannelCheckFields.Status, and is useful for accessing the field via an interface.
 func (v *ChannelCheckFields) GetStatus() WorkerCheckState { return v.Status }
+
+// GetNoSessionReason returns ChannelCheckFields.NoSessionReason, and is useful for accessing the field via an interface.
+func (v *ChannelCheckFields) GetNoSessionReason() *WorkerNoSessionReason { return v.NoSessionReason }
 
 // GetPendingReason returns ChannelCheckFields.PendingReason, and is useful for accessing the field via an interface.
 func (v *ChannelCheckFields) GetPendingReason() *WorkerPendingReason { return v.PendingReason }
@@ -98989,6 +98994,11 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus)
 	return v.ChannelCheckFields.Status
 }
 
+// GetNoSessionReason returns TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.NoSessionReason, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetNoSessionReason() *WorkerNoSessionReason {
+	return v.ChannelCheckFields.NoSessionReason
+}
+
 // GetPendingReason returns TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
 	return v.ChannelCheckFields.PendingReason
@@ -99027,6 +99037,8 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus)
 type __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus struct {
 	Status WorkerCheckState `json:"status"`
 
+	NoSessionReason *WorkerNoSessionReason `json:"noSessionReason"`
+
 	PendingReason *WorkerPendingReason `json:"pendingReason"`
 
 	LastCheckedAt *string `json:"lastCheckedAt"`
@@ -99044,6 +99056,7 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus)
 	var retval __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus
 
 	retval.Status = v.ChannelCheckFields.Status
+	retval.NoSessionReason = v.ChannelCheckFields.NoSessionReason
 	retval.PendingReason = v.ChannelCheckFields.PendingReason
 	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
 	return &retval, nil
@@ -114181,6 +114194,11 @@ func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetStatus() WorkerCheckState 
 	return v.ChannelCheckFields.Status
 }
 
+// GetNoSessionReason returns WorkerFieldsCheckStatusWorkerCheckStatus.NoSessionReason, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetNoSessionReason() *WorkerNoSessionReason {
+	return v.ChannelCheckFields.NoSessionReason
+}
+
 // GetPendingReason returns WorkerFieldsCheckStatusWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
 func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
 	return v.ChannelCheckFields.PendingReason
@@ -114219,6 +114237,8 @@ func (v *WorkerFieldsCheckStatusWorkerCheckStatus) UnmarshalJSON(b []byte) error
 type __premarshalWorkerFieldsCheckStatusWorkerCheckStatus struct {
 	Status WorkerCheckState `json:"status"`
 
+	NoSessionReason *WorkerNoSessionReason `json:"noSessionReason"`
+
 	PendingReason *WorkerPendingReason `json:"pendingReason"`
 
 	LastCheckedAt *string `json:"lastCheckedAt"`
@@ -114236,6 +114256,7 @@ func (v *WorkerFieldsCheckStatusWorkerCheckStatus) __premarshalJSON() (*__premar
 	var retval __premarshalWorkerFieldsCheckStatusWorkerCheckStatus
 
 	retval.Status = v.ChannelCheckFields.Status
+	retval.NoSessionReason = v.ChannelCheckFields.NoSessionReason
 	retval.PendingReason = v.ChannelCheckFields.PendingReason
 	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
 	return &retval, nil
@@ -114346,6 +114367,25 @@ func (v *WorkerLookupFields) GetName() string { return v.Name }
 
 // GetRetiredAt returns WorkerLookupFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerLookupFields) GetRetiredAt() *string { return v.RetiredAt }
+
+// #3077 — why a worker is NO_SESSION (hrn:node:hadronmemory.com:specs:cor:agt:100:03; idle versus ended per
+// hrn:node:hadronmemory.com:specs:cor:agt:020:03). A closed set: it carries no session id or timestamp.
+type WorkerNoSessionReason string
+
+const (
+	// Every session it had is over: ended, auto-expired, or past its promised expiresAt.
+	WorkerNoSessionReasonEnded WorkerNoSessionReason = "ENDED"
+	// An open session would bind it, but nobody drove it inside its idle window.
+	WorkerNoSessionReasonIdle WorkerNoSessionReason = "IDLE"
+	// It has never had a session. Deleted sessions count for nothing.
+	WorkerNoSessionReasonNeverBound WorkerNoSessionReason = "NEVER_BOUND"
+)
+
+var AllWorkerNoSessionReason = []WorkerNoSessionReason{
+	WorkerNoSessionReasonEnded,
+	WorkerNoSessionReasonIdle,
+	WorkerNoSessionReasonNeverBound,
+}
 
 // #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, NO_TASK. ISOLATED and STANDBY are compatibility-only values never returned.
 type WorkerPendingReason string
@@ -137325,6 +137365,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -137427,6 +137468,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -137631,6 +137673,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -137712,6 +137755,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -148528,6 +148572,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -148844,6 +148889,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -156957,6 +157003,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -158325,6 +158372,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -158407,6 +158455,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -161697,6 +161746,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -161822,6 +161872,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -165450,6 +165501,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -170601,6 +170653,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }
@@ -170685,6 +170738,7 @@ fragment WorkerReportingRefFields on Worker {
 }
 fragment ChannelCheckFields on WorkerCheckStatus {
 	status
+	noSessionReason
 	pendingReason
 	lastCheckedAt
 }

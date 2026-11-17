@@ -19,6 +19,7 @@ fragment WorkerReportingRefFields on Worker { id name urn }
 # #2138 experiment: server-derived checking status, not local activity inference.
 fragment ChannelCheckFields on WorkerCheckStatus {
   status
+  noSessionReason
   pendingReason
   lastCheckedAt
 }

@@ -15,12 +15,19 @@ func TestWorkerQuietServerReasonAndAge(t *testing.T) {
 			{"ended", "NO_SESSION", "ENDED", "30h10m", "NO_SESSION (ended)"},
 			{"never bound", "NO_SESSION", "NEVER_BOUND", "", "NO_SESSION (never bound)"},
 			{"old activity is not idle", "OK", "", "30h10m", "OK"},
+			{"status wins over reason", "OK", "IDLE", "30h10m", "OK"},
 			{"missing reason", "NO_SESSION", "", "30h10m", "NO_SESSION"},
 			{"idle without activity", "NO_SESSION", "IDLE", "", "NO_SESSION (open, quiet)"},
+			{"future activity", "NO_SESSION", "IDLE", "-2h", "NO_SESSION (open, quiet just now)"},
+			{"invalid activity", "NO_SESSION", "IDLE", "invalid", "NO_SESSION (open, quiet)"},
+			{"unknown reason", "NO_SESSION", "FUTURE_REASON", "30h10m", "NO_SESSION (FUTURE_REASON)"},
 		} {
 			t.Run(surface+"/"+tc.name, func(t *testing.T) {
 				var at *string
-				if tc.age != "" {
+				if tc.age == "invalid" {
+					s := "invalid"
+					at = &s
+				} else if tc.age != "" {
 					d, err := time.ParseDuration(tc.age)
 					if err != nil {
 						t.Fatal(err)
@@ -91,7 +98,7 @@ func TestWorkerQuietServerReasonAndAge(t *testing.T) {
 						if !strings.Contains(out, tc.want) {
 							t.Errorf("missing %q:\n%s", tc.want, out)
 						}
-						if tc.reason == "" && strings.Contains(out, "open, quiet") {
+						if (tc.reason == "" || tc.status != "NO_SESSION") && strings.Contains(out, "open, quiet") {
 							t.Errorf("classification inferred from age:\n%s", out)
 						}
 						if surface == "roster" && !strings.Contains(out, "UNAVAILABLE") {
