@@ -549,7 +549,7 @@ hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availa
 hadron app nodes <app-ref> [--prefix <loc>] [--type <type>] [--types <type,...>] [--object-type <collection>] [--tag <tag>] [--runnable[=false]] [--created-by <user-id>] [--role <family>] [--updated-after <RFC3339>] [--updated-before <RFC3339>] [--include-deleted] [--limit N] [--offset N]   # cli#1626: appNodesPage over the App's readable node scope; required App ID/URN (or root:slug), one page ordered loc then id across memories; default20, cap200,0/negative count-only,negative offset0; table loc/name/type/memory ID and stderr total/more/next-page edit; JSON {items:[{id,memoryId,loc,name,nodeType}],total,hasMore}, [] not null. Memory filters, children-of and where are local usage2/no request: use app memories then node list -m for those. No content/properties/data fan-out, no writes; server not-found/permission refusal unchanged (4/8 by code).
 hadron app list --agent <agent-id-or-URN> [--org <org> | --owned-by-me]   # cli#1626: filter.agentId matches the installed-Agent join, not a primary-agent label; no Agent pre-resolution; an unreadable/missing Agent gives []; filters AND, no active-org inference; follows pages <=20 to the complete selected list, existing bare-array --json unchanged; empty --agent is usage2/no request.
 hadron app memories [<app-ref>] [--limit N] [--offset N] (uses --app)   # cli#1209 over server#2190 appMemoryScope (cor:dmo:050:17): the memories App-wide reads (appNodes) cover for you, one row per memory with every source kind (AGENT_SYSTEM|AGENT_LINK|INHERITED_BASE|TEAM_SPACE|APP_MEMORY; APP_MEMORY is the App's own tenant memory) and the agent name only when you may read that Agent; one page ordered by memory URN, --limit 1..200 (default 20), next-page hint on stderr; WRITE (ADVISORY) yes|no|inherited, "inherited" = viewerCanWrite true but in scope only as an inherited base, so not a write target; --json {items[{memoryId,memoryUrn,name,class,sources[{kind,agentId,agentName}],viewerCanWrite,writeTarget}],total}; refusals are appNodes' (exit 8/4 by code)
-hadron app update <app-ref> [settings flags] [--yes]   # omitted = preserved; no changes = exit 2; confirmation names fields, except --urn names old/new full URNs; JSON {app,id,urn,name,sessionTimeoutSeconds,status,changed}; sent once, no retry; lost answer = exit 7 outcome unknown
+hadron app update <app-ref> [settings flags] [--yes]   # omitted = preserved; no changes = exit 2; confirmation names fields, except --urn names old/new full URNs; JSON {app,id,urn,name,sessionTimeoutSeconds,status,changed}; sent once, no retry; lost answer = exit 7 outcome unknown `--policy-file <path>` sets the App's action-policy link (cli#1640, server#3423/#3425; one JSON value such as `{"allow":["run.execute"]}`), `--clear-policy` removes it (sends null); mutually exclusive, and an empty file, invalid or multi-value JSON, an unreadable path or a JSON `null` is refused locally (exit 2, nothing sent). Neither flag sends no `policy` at all (separate `UpdateAppSettingsPolicy` document), so an older server keeps working; with a flag the older server refuses `policy` as returned, sent once. The confirmation and `changed` name `policy` or `policy (cleared)`, never its value. The server owns who may set it (App owner, or org ADMIN for an org-owned App) and its shape.
   Settings on install/update: --role ADMIN|CONTRIBUTOR|OWNER|READER, --create-user-permission DENY|EXPLICIT|IMPLICIT, --identify-user-method SECRET|USER_ID, --session-timeout-seconds <n>, --anonymous-ttl-days <n>, --expires-at <ISO8601>, --training-mode[=false], repeated --agent-tool <string>, repeated --surface <string>.
   Lists replace the whole stored list; strings pass verbatim. Surfaces are descriptive (portal chat tab iff chat is present), not authorization; --type does not change surfaces. Omitted install surfaces use the provider default ['chat'].
   Update also: --urn <slug>, --type <enum>, --session-dormancy-days <n>, --agent-sessions-expire[=false], --clear-expires-at (null), --clear-agent-tools/--clear-surfaces ([]), --name and --description/--clear-description. Explicit false/zero are sent, numbers remain server validated.
@@ -1218,18 +1218,28 @@ Conventions:
   mid-move. The confirmation identifies the node by its destination URN (carried
   in `--json`
   as `urn`).
-- `node move … --dry-run` reads an advisory inventory without writing: source
-  subtree URNs/names and nodes already present at the requested destination.
-  Both the ordinary/comment and system-type streams are paged; rows are unique by node id.
-  It does not predict rebased locs, success, refusals, write/schema permission
-  or broken links; hadron-server#3424 tracks the server planner. Reads page to
-  exhaustion; any failed, truncated, omitted or unavailable read prints
-  `INCOMPLETE` and exits 1. A complete read exits 0 but is not a snapshot or a
-  guarantee about a later move. `--json`: `{advisory: true, complete, message,
-  status, source: {nodes: [{urn, name}]}, destination: {requested, present:
-  [{urn, name}]}, notPredicted: [...]}`. Incomplete lists are empty, never a
-  partial inventory labelled complete. The requested destination is preserved
-  as typed. Normal moves (without `--dry-run`) keep their existing behavior.
+- `node move … --dry-run` asks the server to plan the move without writing
+  (`planNodeMove`, cor:api:190:03). The server runs the move's own checks; the
+  CLI predicts nothing. The plan lists each node that would move with its
+  current and new URN, in loc order, and the content-link warnings a
+  cross-memory move would report, or says they are withheld when you can't read
+  the destination memory. A move that would be refused fails the same way under
+  `--dry-run`: the move's error and exit code (for example exit 5 for an
+  occupied destination, exit 2 for a move into its own subtree), and no plan is
+  printed. The plan is true when answered and reserves nothing: a change before
+  the move can still end it with a conflict (exit 5). The server lists at most
+  `--limit` nodes (its default 100; it bounds the value; `--limit` is refused
+  without `--dry-run` and below 1). A plan that does not list every node prints
+  `TRUNCATED` with the shown and total counts and exits 1; a complete plan exits
+  0. When the server lists fewer nodes than `--limit` asked for, that is its
+  bound: the error says a plan cannot list this subtree in full, rather than
+  suggesting a larger `--limit` (a subtree beyond the bound can never plan
+  COMPLETE).
+  `--json`: `{status: COMPLETE|TRUNCATED, complete, totalCount, truncated,
+  pointInTime, nodes: [{id, currentUrn, newUrn}], linkWarnings: [{nodeId,
+  nodeLoc, raw, status: MISSING|RETARGETED|AMBIGUOUS, target}] | null,
+  linkWarningsWithheld}`; `linkWarnings` is null when withheld and `[]` when
+  there are none. Sends no `moveNode`.
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict
@@ -4767,7 +4777,8 @@ For NO_SESSION, the server's nullable noSessionReason distinguishes IDLE
 (open, quiet), ENDED (ended) and NEVER_BOUND (never bound). A missing reason
 stays bare NO_SESSION; the CLI never derives IDLE from an age. In worker get
 and roster CHECK, IDLE adds the age since lastActiveAt, such as
-`NO_SESSION (open, quiet 30h)`. That age uses this computer's clock for display
+`NO_SESSION (open, quiet 30h)`; the age truncates to minutes, hours, then whole
+days from 48h (`quiet 3d`). That age uses this computer's clock for display
 only: it changes no state, availability or exit code. Future times display
 "just now"; missing or invalid times have no age. JSON retains the absolute
 lastActiveAt and raw nullable noSessionReason. This selection needs a server
@@ -5214,10 +5225,25 @@ or an App mismatch through `--app` or the positional `<app>` of
 `app agent compile` (cli#1887). With
 `team worker compile --as-worker`, the resolved worker's App must match the
 original binding, including explicit worker ids/URNs (cli#1896). App comparison
-uses resolved ids. Unreadable and missing target Apps have byte-identical
-refusals, exit 2, including signature/trailer edits using the shared guard;
-credential and transport lookup errors keep their ordinary exits. Initial
-binding faults refuse before any request; App/worker identity reads can precede
+uses resolved ids.
+
+An App you cannot read is refused exactly like one that does not exist:
+byte-identical text and exit 2, so the refusal is no existence oracle (V58,
+hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-10-vera-rulings-app-refusals;
+specs cor:agt:050:21 and cor:dmo:050:11, both Proposed, not Decided). The same
+shared guard serves signature/trailer edits, `team grant list|get|request` and
+`team task mine --app`: for those, a pure permission refusal on the App read
+now exits 2 with the missing-App usage text, where it was exit 8 before
+(cli#1896, cli#2239). Only a PURE permission refusal is normalized. A
+credential or token-scope refusal, a failed lookup, and a MIXED answer
+(FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages in the
+order sent and exit by the FIRST error's code: a mixed answer led by
+UNAUTHENTICATED exits 3, one led by FORBIDDEN exits 8. None of them reads as a
+missing App. Optional authored-write attribution (`node create` and the like)
+silently leaves the worker session off for a missing OR unreadable App and
+still sends your own write; a credential, mixed or failed lookup adds one note.
+
+Initial binding faults refuse before any request; App/worker identity reads can precede
 an App mismatch refusal, but no compile/approve write is sent. A binding that
 changes during the run also refuses with exit 2; a mid-batch change files the
 remaining workers under `failed` with exit 2 and sends nothing more. Server
@@ -6239,7 +6265,7 @@ refused (exit 2, nothing sent); naming the same App it is sent unchanged. A
 task id or any other non-handle is sent unchanged. Without `--app` nothing
 changes: the configured App context and the worktree binding never qualify a
 handle, so a member of more than one App still gets the server's
-`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check.
+`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check; a pure permission refusal on its App read exits 2 as a missing App (cli#1896, #2239: see `--as-worker` above).
 
 ## Task single-shot matching (cli#1549)
 
@@ -6658,7 +6684,7 @@ and event reads do not change.
 
 ## Worker-own grants (cli#1832) and grant requests (cli#1868)
 
-`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it. The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
+`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it (a pure permission refusal on that App read exits 2 as a missing App, no longer 8: cli#1896, #2239). The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
 
 Scope as shipped: grants naming this worker directly as holder, plus its own requests that are neither activated nor revoked. Role-agent, other-worker, person and App holders are not listed. `list` and `get` only read; top-level `hadron grant list|get` remains the separate organization action-grants surface. The request verbs below ask for a grant and for its signing; no command here signs, activates or revokes one.
 

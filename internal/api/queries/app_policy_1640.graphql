@@ -1,0 +1,45 @@
+# cli1640 (server#3423, #3425): the App-layer action-policy link on updateApp.
+# A separate document on purpose: a server that predates `policy` rejects any
+# document that declares it, so `app update` without a policy flag keeps using
+# UpdateApp / UpdateAppSettings, which never mention it. This one is the
+# UpdateAppSettings superset plus $policy: a JSON value, explicit null clears,
+# omitted preserves (the bind keeps a null distinct from an absent argument).
+mutation UpdateAppSettingsPolicy(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $description: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+  # @genqlient(omitempty: true)
+  $urn: String
+  # @genqlient(omitempty: true)
+  $appType: AppType
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $expiresAt: String
+  # @genqlient(omitempty: true)
+  $sessionDormancyDays: Int
+  # @genqlient(omitempty: true)
+  $agentSessionsExpire: Boolean
+  # @genqlient(omitempty: true)
+  $role: AppMembershipRole
+  # @genqlient(omitempty: true)
+  $createUserPermission: CreateUserPermission
+  # @genqlient(omitempty: true)
+  $identifyUserMethod: IdentifyUserMethod
+  # @genqlient(omitempty: true)
+  $anonymousTtlDays: Int
+  # @genqlient(omitempty: true)
+  $trainingMode: Boolean
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $agentTools: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $surfaces: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $policy: JSON
+) {
+  updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
+    id urn name sessionTimeoutSeconds
+  }
+}
