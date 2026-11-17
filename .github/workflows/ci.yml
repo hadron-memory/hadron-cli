@@ -33,6 +33,11 @@ jobs:
       # platform-only identifier fails the PR, not the release tag.
       - name: Cross-build release targets
         run: make cross-build
+      # #2315: cross-build skips test files. Compile the hostpoller test package
+      # for the non-linux targets so a platform-tag mismatch between a test and
+      # its helper fails the PR (compilation only, not native execution).
+      - name: Cross-compile the hostpoller test package
+        run: make cross-test-build
       - name: Test
         run: go test ./...
       - name: Codegen freshness
