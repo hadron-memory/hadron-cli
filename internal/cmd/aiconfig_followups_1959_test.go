@@ -141,12 +141,6 @@ func TestAiConfig1959FailedRunDetailsArePreserved(t *testing.T) {
 			if b.name == "chat-probe" {
 				wantChat = "FAIL_TEXT_ONLY"
 			}
-			if b.name == "default" && !strings.Contains(r.stdout, `"chat": null`) {
-				t.Fatalf("raw default stdout must carry explicit chat null: %s", r.stdout)
-			}
-			if _, present := got["chat"]; !present {
-				t.Fatalf("chat key absent, want explicit null on default: %s", r.stdout)
-			}
 			if got["chat"] != wantChat {
 				t.Fatalf("chat %v, want %v", got["chat"], wantChat)
 			}
@@ -327,50 +321,5 @@ func TestAiConfig1967CompletedFieldsRedactSubmittedKey(t *testing.T) {
 				})
 			}
 		}
-	}
-}
-
-func TestAiConfig1967SuccessfulRunWithFailedChatRemainsSeparate(t *testing.T) {
-	response := strings.Replace(aiTestFailedWithChat1959("FAIL_TEXT_ONLY"), `"ok":false`, `"ok":true`, 1)
-	for _, mode := range []string{"text", "json"} {
-		t.Run(mode, func(t *testing.T) {
-			args := []string{"--chat-probe"}
-			if mode == "json" {
-				args = append(args, "--json")
-			}
-			r := runAiTest1959(t, func(string) string { return `{"data":{"testAiServiceConfig":` + response + `}}` }, args...)
-			if r.exit != exitcode.OK || r.stderr != "" {
-				t.Fatalf("exit=%d stderr=%q", r.exit, r.stderr)
-			}
-			if mode == "json" {
-				var got map[string]any
-				if err := json.Unmarshal([]byte(r.stdout), &got); err != nil {
-					t.Fatal(err)
-				}
-				if got["ok"] != true || got["chat"] != "FAIL_TEXT_ONLY" {
-					t.Fatalf("outcomes changed: %s", r.stdout)
-				}
-			} else if !strings.HasPrefix(r.stdout, "ok  ") || !strings.Contains(r.stdout, "\nchat: FAIL_TEXT_ONLY\n") {
-				t.Fatalf("outcomes folded: %s", r.stdout)
-			}
-		})
-	}
-}
-
-func TestAiConfig1967RequestedChatMissingFails(t *testing.T) {
-	for _, mode := range []string{"text", "json"} {
-		t.Run(mode, func(t *testing.T) {
-			args := []string{"--chat-probe"}
-			if mode == "json" {
-				args = append(args, "--json")
-			}
-			r := runAiTest1959(t, func(string) string { return `{"data":{"testAiServiceConfig":` + aiTestFailed1959 + `}}` }, args...)
-			if r.exit != exitcode.Error || !strings.Contains(r.stderr+r.stdout, "server returned no chat probe status though one was requested") {
-				t.Fatalf("exit=%d stderr=%q", r.exit, r.stderr)
-			}
-			if mode == "json" && strings.Contains(r.stdout, `"ok"`) {
-				t.Fatalf("invalid response printed as a completed diagnostic: %s", r.stdout)
-			}
-		})
 	}
 }

@@ -27,9 +27,10 @@ func TestTestResultAdaptersKeepNilAndNonNilKnobs(t *testing.T) {
 	}
 }
 
-// A new generated top-level field must be consciously mapped into the stable
-// DTO; typed adapters only make renamed/retyped fields fail compilation.
-func TestTestResultAdapterDocumentFieldsReachJSON(t *testing.T) {
+// A new generated top-level field must at least have a stable DTO key. Value
+// preservation is tested separately by the command fixtures; typed adapters
+// only make renamed/retyped fields fail compilation.
+func TestTestResultDocumentFieldsHaveStableJSONKeys(t *testing.T) {
 	raw, err := json.Marshal(testConfigDTO{})
 	if err != nil {
 		t.Fatal(err)
