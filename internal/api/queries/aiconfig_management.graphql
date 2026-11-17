@@ -119,3 +119,22 @@ mutation ClearAiServiceConfigApiStyle(
     ...AiServiceConfigStyleFields
   }
 }
+
+# cli#1882: AiServiceConfigsMasked plus the server-computed `urn`, as its OWN
+# document so an older server without the field keeps the query above working.
+query AiServiceConfigsMaskedWithUrn(
+  # @genqlient(omitempty: true)
+  $filter: AiServiceConfigFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  aiServiceConfigs(filter: $filter, limit: $limit, offset: $offset) {
+    items {
+      ...AiServiceConfigStyleFields
+      urn
+    }
+    total
+  }
+}

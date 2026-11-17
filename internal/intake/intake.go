@@ -26,58 +26,39 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/hadron-memory/hadron-cli/pkg/intakecontract"
 )
 
 // ContractVersion is the one contract version this CLI speaks. An adapter that
 // describes another is refused with a SkewError, never guessed at.
-const ContractVersion = 1
+//
+// The contract rules (version, bounds, answer validators) live in the public
+// intakecontract package so adapter conformance suites import them rather than
+// copy them (hadron-cli#1977); the runner enforces them through it.
+const ContractVersion = intakecontract.ContractVersion
 
 // Bounds on what an adapter may hand back. A hostile or broken adapter hits one
 // of these and the call is refused; nothing is truncated into a plausible
 // answer.
 const (
-	MaxOutputBytes      = 1 << 20 // stdout of one call
-	MaxStderrBytes      = 4096    // kept for the refusal message only
-	MaxItemsPerPage     = 100
-	MaxPages            = 50
-	ServerExternalIDMax = 512  // the server's externalId cap, counted in code points (references.ts: for..of)
-	MaxExternalIDLen    = 2048 // byte bound: 512 code points at up to 4 UTF-8 bytes each
-	MaxCursorLen        = 4096
-	MaxTextLen          = 1024 // adapter-supplied display text: name, title
+	MaxOutputBytes      = intakecontract.MaxOutputBytes
+	MaxStderrBytes      = intakecontract.MaxStderrBytes
+	MaxItemsPerPage     = intakecontract.MaxItemsPerPage
+	MaxPages            = intakecontract.MaxPages
+	ServerExternalIDMax = intakecontract.ServerExternalIDMax
+	MaxExternalIDLen    = intakecontract.MaxExternalIDLen
+	MaxCursorLen        = intakecontract.MaxCursorLen
+	MaxTextLen          = intakecontract.MaxTextLen
 	DefaultTimeout      = 60 * time.Second
 )
 
-// Item is one outside item the adapter says is not yet tracked.
-type Item struct {
-	// ExternalID is the item's canonical URL exactly as the adapter wrote it:
-	// compared exactly by the server, so the CLI never normalises it
-	// (cor:agt:120:02; `normalize` is the adapter's optional call).
-	ExternalID string `json:"externalId"`
-	Title      string `json:"title"`
-}
-
-// Describe is what `describe` answers.
-type Describe struct {
-	Name            string   `json:"name"`
-	ContractVersion int      `json:"contractVersion"`
-	Calls           []string `json:"calls"`
-	Filters         []string `json:"filters"`
-	Order           string   `json:"order"`
-}
-
-// Has reports whether the adapter says it answers call. Calls lists every call
-// the adapter answers, the core ones included (this CLI's invocation format).
-func (d Describe) Has(call string) bool {
-	for _, c := range d.Calls {
-		if c == call {
-			return true
-		}
-	}
-	return false
-}
+// Item and Describe are the contract's answer shapes (intakecontract).
+type (
+	Item     = intakecontract.Item
+	Describe = intakecontract.Describe
+)
 
 // Task and Worker are what `mark-tracked` is given (cor:agt:120:04). Empty
 // fields are omitted: the portal URL is the server's or nothing, and a worker
@@ -97,11 +78,7 @@ type Worker struct {
 
 // SkewError is a contract-version mismatch. The command maps it to its own
 // exit code.
-type SkewError struct{ Got int }
-
-func (e *SkewError) Error() string {
-	return fmt.Sprintf("the intake adapter speaks contract version %d; this CLI speaks version %d, so nothing was asked of it", e.Got, ContractVersion)
-}
+type SkewError = intakecontract.SkewError
 
 // RefusedError is an adapter that ran and exited non-zero (or could not run).
 type RefusedError struct {
@@ -233,24 +210,8 @@ func (r *Runner) call(ctx context.Context, name string, req map[string]any, out 
 		}
 		return &RefusedError{Call: name, Detail: detail}
 	}
-	raw := bytes.TrimSpace(stdout.buf.Bytes())
-	if len(raw) == 0 || raw[0] != '{' {
-		return &OutputError{Call: name, Reason: "stdout is not one JSON object"}
-	}
-	if !utf8.Valid(raw) {
-		return &OutputError{Call: name, Reason: "stdout is not valid UTF-8"}
-	}
-	// Unmarshal rejects text after the first value, so a second document or
-	// trailing junk is refused here too.
-	if err := json.Unmarshal(raw, out); err != nil {
-		return &OutputError{Call: name, Reason: "stdout is not one well-formed JSON object"}
-	}
-	return nil
-}
-
-func boundedText(call, field, s string, max int) error {
-	if len(s) > max {
-		return &OutputError{Call: call, Reason: fmt.Sprintf("%s is longer than %d bytes", field, max)}
+	if err := intakecontract.DecodeAnswer(stdout.buf.Bytes(), out); err != nil {
+		return &OutputError{Call: name, Reason: err.Error()}
 	}
 	return nil
 }
@@ -263,22 +224,15 @@ func (r *Runner) Describe(ctx context.Context) (Describe, error) {
 	if err := r.call(ctx, "describe", nil, &d); err != nil {
 		return Describe{}, err
 	}
-	if d.ContractVersion != ContractVersion {
-		return Describe{}, &SkewError{Got: d.ContractVersion}
-	}
-	if strings.TrimSpace(d.Name) == "" {
-		return Describe{}, &OutputError{Call: "describe", Reason: "no adapter name"}
-	}
-	if err := boundedText("describe", "name", d.Name, MaxTextLen); err != nil {
-		return Describe{}, err
+	if err := intakecontract.CheckDescribe(d); err != nil {
+		var skew *SkewError
+		if errors.As(err, &skew) {
+			return Describe{}, err
+		}
+		return Describe{}, &OutputError{Call: "describe", Reason: err.Error()}
 	}
 	d.Name = output.SafeLine(d.Name, 80)
 	return d, nil
-}
-
-type listResponse struct {
-	Items      []Item  `json:"items"`
-	NextCursor *string `json:"nextCursor"`
 }
 
 // Page is one validated page of `list-untracked`.
@@ -298,34 +252,15 @@ func (r *Runner) ListUntracked(ctx context.Context, cursor, forWorker string, li
 	if forWorker != "" {
 		req["for"] = forWorker
 	}
-	var resp listResponse
+	var resp intakecontract.ListAnswer
 	if err := r.call(ctx, "list-untracked", req, &resp); err != nil {
 		return Page{}, err
 	}
-	if len(resp.Items) > MaxItemsPerPage {
-		return Page{}, &OutputError{Call: "list-untracked", Reason: fmt.Sprintf("more than %d items in one page", MaxItemsPerPage)}
-	}
-	for i, it := range resp.Items {
-		if it.ExternalID == "" {
-			return Page{}, &OutputError{Call: "list-untracked", Reason: fmt.Sprintf("item %d has no externalId", i)}
-		}
-		if err := boundedText("list-untracked", "an externalId", it.ExternalID, MaxExternalIDLen); err != nil {
-			return Page{}, err
-		}
-		// The server refuses a whole externalIds batch if one entry exceeds
-		// its 512-code-point rule, so enforce it here per item.
-		if utf8.RuneCountInString(it.ExternalID) > ServerExternalIDMax {
-			return Page{}, &OutputError{Call: "list-untracked", Reason: fmt.Sprintf("item %d externalId is longer than %d characters", i, ServerExternalIDMax)}
-		}
-		if err := boundedText("list-untracked", "a title", it.Title, MaxTextLen); err != nil {
-			return Page{}, err
-		}
+	if err := intakecontract.CheckPage(resp); err != nil {
+		return Page{}, &OutputError{Call: "list-untracked", Reason: err.Error()}
 	}
 	p := Page{Items: resp.Items}
 	if resp.NextCursor != nil {
-		if err := boundedText("list-untracked", "nextCursor", *resp.NextCursor, MaxCursorLen); err != nil {
-			return Page{}, err
-		}
 		p.NextCursor = *resp.NextCursor
 	}
 	return p, nil
