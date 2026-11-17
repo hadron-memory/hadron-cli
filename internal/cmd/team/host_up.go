@@ -22,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"github.com/hadron-memory/hadron-cli/internal/hostup"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/hadron-memory/hadron-cli/internal/teamrouter"
@@ -643,6 +644,7 @@ type hostUpObserver struct {
 	root       string
 	runner     teamrouter.OrcaRunner
 	registered map[string]bool
+	census     func(context.Context, string) (hostrelaunch.Observation, error)
 }
 
 func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.Observation, error) {
