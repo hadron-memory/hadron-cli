@@ -443,3 +443,36 @@ func TestTeamAlarms1829NamedTeamWithoutABindingDoesNotPanic(t *testing.T) {
 		t.Fatalf("%+v", d)
 	}
 }
+
+// LOCAL F2 (#2335): a success response whose selected field is null or absent is
+// a command error, never a nil deref — at the roster read and at the alarm page.
+func TestTeamAlarms1829MissingSelectedResultIsAnErrorNotAPanic(t *testing.T) {
+	roster := `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` + strings.Join(alarmsRoster1829(), ",") + `]}}}`
+	for name, c := range map[string]struct{ roster, page string }{
+		"roster null":   {`{"data":{"teamRoster":null}}`, ""},
+		"roster absent": {`{"data":{}}`, ""},
+		"page null":     {roster, `{"data":{"agentTeamEventsPage":null}}`},
+		"page absent":   {roster, `{"data":{}}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			pages := alarmsPage1829()
+			if c.page != "" {
+				pages = static1919(c.page)
+			}
+			responses := taskResponses()
+			responses["AgentTaskList"] = taskPage1044(alarmsTasks1829())
+			responses["TeamAlarmRoster"] = c.roster
+			setAttnResponse(responses, pagedOp1919, pages(0))
+			srv, _ := attnServerHook(t, responses, func(string) {})
+			writeTeamBinding(t)
+			setTeamBindingServer(t, srv.URL)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "team", "alarms", "--json"})
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Error {
+				t.Fatalf("want exit 1, got %v", err)
+			}
+		})
+	}
+}

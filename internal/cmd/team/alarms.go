@@ -164,6 +164,9 @@ finish, the output says it is incomplete and --json carries "incomplete".`,
 			if err != nil {
 				return mapTaskError(err)
 			}
+			if rosterResp.TeamRoster == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no roster for %s; nothing was read", appLabel())
+			}
 			workers := []rosterWorker{}
 			rosterByWorker := map[string]*alarmRosterDTO{}
 			for _, w := range rosterResp.TeamRoster.Workers {
@@ -331,6 +334,9 @@ func walkAlarms(ctx context.Context, client graphql.Client, errOut io.Writer, ap
 			return nil, nil, api.MapError(err)
 		}
 		page := resp.AgentTeamEventsPage
+		if page == nil {
+			return nil, nil, exitcode.Newf(exitcode.Error, "the server returned no alarm page; the list cannot be trusted")
+		}
 		last := ""
 		for _, e := range page.Events {
 			if e == nil {
