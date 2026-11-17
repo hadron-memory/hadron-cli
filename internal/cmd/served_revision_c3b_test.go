@@ -234,3 +234,11 @@ func withoutLint2007(calls *[]attnCall) []attnCall {
 	}
 	return got
 }
+
+func TestWithoutLint2014KeepsUnrelatedOperations(t *testing.T) {
+	calls := []attnCall{{Op: "FutureLint"}, {Op: "FutureLintAt"}, {Op: "FuturePromptsLint"}, {Op: "GetWorkerSignatureLint"}, {Op: "ChatServedPromptLintAt"}}
+	got := withoutLint2007(&calls)
+	if len(got) != 3 || got[0].Op != "FutureLint" || got[1].Op != "FutureLintAt" || got[2].Op != "FuturePromptsLint" {
+		t.Fatalf("filter swallowed an unrelated operation: %+v", got)
+	}
+}

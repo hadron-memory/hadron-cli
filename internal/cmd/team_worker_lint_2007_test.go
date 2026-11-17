@@ -414,6 +414,18 @@ func TestWorkerGetLint2007IdentityAndTotalShiftsAreUnavailable(t *testing.T) {
 			}
 			return ""
 		}},
+		{"prompt: the served record vanishes between pages", func(op string, v map[string]any) string {
+			switch op {
+			case "GetWorkerSignatureLint":
+				return sigLint2007(lintPage2007(0, 0, "", false))
+			case "GetWorkerPromptLint":
+				if after2007(v) == "" {
+					return promptLint2007("rec9", 5, lintPage2007(2, 1, "c1", true))
+				}
+				return promptLint2007("", 0, "null")
+			}
+			return ""
+		}},
 		{"prompt: the provenance revision changes between pages", func(op string, v map[string]any) string {
 			switch op {
 			case "GetWorkerSignatureLint":
@@ -581,7 +593,7 @@ func TestWorkerUpdateLint2007ShownAsCurrentCheckAfterTheWrite(t *testing.T) {
 	if err != nil || errOut != "" {
 		t.Fatalf("err=%v stderr=%q", err, errOut)
 	}
-	if !strings.Contains(out, "signature lint (current check): 1 (the signature and trailer)") || !strings.Contains(out, "WORKER_LINK_MISSING signature:") {
+	if !strings.Contains(out, "signature lint: 1 (the signature and trailer; current check after save)") || !strings.Contains(out, "WORKER_LINK_MISSING signature:") {
 		t.Errorf("update text:\n%s", out)
 	}
 	w, l := fake.ops("UpdateWorkerSigning"), fake.ops("GetWorkerSignatureLint")
@@ -679,5 +691,29 @@ func TestWorkerLint2007UnrelatedCommandsSendNoLintOp(t *testing.T) {
 	_ = root.Execute()
 	if n := len(fake.lintOps()); n != 0 {
 		t.Errorf("worker list must not read lint, sent %d", n)
+	}
+}
+
+func TestWorkerGetLint2014UnavailableNamesOnlyFailedFields(t *testing.T) {
+	for _, signatureFails := range []bool{false, true} {
+		_, out, errOut, err := runWorkerGet2007(t, visibleWorker2007, func(op string, v map[string]any) string {
+			switch op {
+			case "GetWorkerSignatureLint":
+				if signatureFails {
+					return sigLint2007("null")
+				}
+				return sigLint2007(lintPage2007(0, 0, "", false))
+			case "GetWorkerPromptLint":
+				return promptLint2007("rec9", 5, "null")
+			}
+			return ""
+		}, "--json")
+		want := lintwarn.UnavailableClass + " [prompt lint]\n"
+		if signatureFails {
+			want = lintwarn.UnavailableClass + " [signature lint, prompt lint]\n"
+		}
+		if err != nil || errOut != want {
+			t.Fatalf("err=%v stderr=%q want=%q output=%s", err, errOut, want, out)
+		}
 	}
 }
