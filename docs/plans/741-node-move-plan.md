@@ -9,9 +9,13 @@ The first slice could only list what the caller can read, because predicting a m
 ## What the CLI does
 
 - Validates the destination flags exactly as the real move does (`relocationDestination`), resolves the source with the same helper (`cmdutil.ResolveNodeRef`, so a bare `<loc>` with `-m` works), then sends one `PlanNodeMove` with the same selector as `MoveNode`. Optional destination variables and `$limit` are omitted when unset, so the server sees exactly one destination and applies its own default limit.
-- `--limit` passes straight through (the server clamps it; the CLI copies no bound). It is refused without `--dry-run` before any request.
+- `--limit` passes straight through (the server clamps it; the CLI copies no bound). It is refused without `--dry-run`, or below 1, before any request.
 - **Refusals** are the move's: the server raises them, `api.MapError` maps them, and the CLI exits with the same code the real move would (for example `NODE_ALREADY_EXISTS` exit 5, `BAD_USER_INPUT` exit 2, `NODE_NOT_FOUND` exit 4). No plan is printed.
-- **Truncation:** the plan is COMPLETE only when the server says it is not truncated and it lists every node it counts. Otherwise it is printed with `TRUNCATED: the plan lists N of M nodes` and the command exits 1 with a hint to rerun with `--limit M`. A short list is never shown as the whole subtree.
+- **Truncation:** the plan is COMPLETE only when the server says it is not truncated and it lists every node it counts. Otherwise it is printed with `TRUNCATED: the plan lists N of M nodes` and the command exits 1. A short list is never shown as the whole subtree.
+  - **The hint never promises a limit the server may clamp** (fix for Gabriel's BLIND P2): it suggests a larger `--limit` and says the server bounds it.
+  - When the server lists fewer nodes than the `--limit` sent, that shortfall is its bound, and the error says a plan cannot list this subtree in full. The CLI does not copy the server's 1000 bound (built, not ruled).
+  - A subtree beyond the bound can never plan COMPLETE; it exits 1 by design.
+- **`--limit`:** refused below 1 before any request (shape, not a server rule).
 - **Link warnings:** listed as the server reports them; "withheld" when `linkWarningsWithheld` (the caller can't read the destination, ruling 0211), and never "none" in that case. JSON keeps the server's distinction: `null` when withheld, `[]` when there are none.
 - **Point in time:** the text says the plan reserves nothing and a change before the move can still end it with a conflict.
 

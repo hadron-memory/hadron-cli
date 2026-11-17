@@ -1215,8 +1215,12 @@ Conventions:
   printed. The plan is true when answered and reserves nothing: a change before
   the move can still end it with a conflict (exit 5). The server lists at most
   `--limit` nodes (its default 100; it bounds the value; `--limit` is refused
-  without `--dry-run`). A plan that does not list every node prints `TRUNCATED`
-  with the shown and total counts and exits 1; a complete plan exits 0.
+  without `--dry-run` and below 1). A plan that does not list every node prints
+  `TRUNCATED` with the shown and total counts and exits 1; a complete plan exits
+  0. When the server lists fewer nodes than `--limit` asked for, that is its
+  bound: the error says a plan cannot list this subtree in full, rather than
+  suggesting a larger `--limit` (a subtree beyond the bound can never plan
+  COMPLETE).
   `--json`: `{status: COMPLETE|TRUNCATED, complete, totalCount, truncated,
   pointInTime, nodes: [{id, currentUrn, newUrn}], linkWarnings: [{nodeId,
   nodeLoc, raw, status: MISSING|RETARGETED|AMBIGUOUS, target}] | null,

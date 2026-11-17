@@ -254,8 +254,10 @@ func TestNodeMovePlan741Truncated(t *testing.T) {
 			if got := exitCodeFor(err); got != exitcode.Error {
 				t.Fatalf("a truncated plan exits 1, got %d (%v)", got, err)
 			}
-			if err == nil || !strings.Contains(err.Error(), "--limit 250") {
-				t.Errorf("the error must say how to see the whole subtree: %v", err)
+			// #2271 BLIND P2 (Gabriel): never promise --limit <total>; the server
+			// bounds --limit, so the hint is a larger limit, not the total.
+			if err == nil || !strings.Contains(err.Error(), "larger --limit") || strings.Contains(err.Error(), "--limit 250") {
+				t.Errorf("the error must suggest a larger --limit without promising the total: %v", err)
 			}
 			if v := onlyPlan741(t, p); v["limit"] != float64(5) {
 				t.Fatalf("--limit must reach the server: %v", v)
@@ -282,6 +284,52 @@ func TestNodeMovePlan741Truncated(t *testing.T) {
 				t.Errorf("truncated JSON must carry the nodes the server listed: %s", out)
 			}
 		})
+	}
+}
+
+// #2271 BLIND P2 (Gabriel): when the server lists fewer nodes than --limit
+// asked for, that is its bound. The error says a plan cannot list this subtree
+// in full, and never sends the user to rerun with a limit it will clamp.
+func TestNodeMovePlan741TruncatedAtServerBound(t *testing.T) {
+	p := &planFake741{plan: plan741(1000, 2500, true, []any{}, false)}
+	_, err := run741(t, p, "--to-urn", "hrn:node:acme.com:archive:x", "--limit", "5000")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("exit = %d (%v)", got, err)
+	}
+	if v := onlyPlan741(t, p); v["limit"] != float64(5000) {
+		t.Fatalf("--limit must reach the server unchanged: %v", v)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "server's bound") || !strings.Contains(msg, "1000 of 2500") || strings.Contains(msg, "larger --limit") || strings.Contains(msg, "--limit 2500") {
+		t.Fatalf("at the server's bound the error must say so, not suggest a rerun: %v", msg)
+	}
+}
+
+// #2271 BLIND P3: --limit below 1 is refused before any request.
+func TestNodeMovePlan741LimitBelowOne(t *testing.T) {
+	for _, l := range []string{"0", "-3"} {
+		t.Run(l, func(t *testing.T) {
+			p := &planFake741{}
+			_, err := run741(t, p, "--to-urn", "hrn:node:acme.com:archive:x", "--limit="+l)
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Fatalf("exit = %d, want Usage (%v)", got, err)
+			}
+			if len(p.ops) != 0 {
+				t.Fatalf("a refused --limit sent %v", p.ops)
+			}
+		})
+	}
+}
+
+// #2271 BLIND P3: a null plan is an error, never an empty COMPLETE plan.
+func TestNodeMovePlan741NullPlan(t *testing.T) {
+	p := &planFake741{}
+	out, err := run741(t, p, "--to-urn", "hrn:node:acme.com:archive:x")
+	if got := exitCodeFor(err); got != exitcode.Error {
+		t.Fatalf("exit = %d (%v)", got, err)
+	}
+	if strings.Contains(out, "COMPLETE") {
+		t.Fatalf("a null plan printed a plan:\n%s", out)
 	}
 }
 

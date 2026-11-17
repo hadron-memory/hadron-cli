@@ -36,9 +36,11 @@ type movePlanLinkWarning struct {
 }
 
 // movePlanDTO is the stable --json shape of `node move --dry-run`.
-// LinkWarnings is null exactly when the server returned none to report:
-// withheld (LinkWarningsWithheld) because the caller can't read the
-// destination memory. An empty list means the server found none.
+// LinkWarnings carries the server's answer as sent, in three states: a list
+// of warnings; an empty list when the server found none; or null, which the
+// server sends when it withholds them (LinkWarningsWithheld, the caller can't
+// read the destination memory). A null without the withheld flag is passed
+// through as null and the text says the server reported none.
 type movePlanDTO struct {
 	Status               string                `json:"status"` // COMPLETE or TRUNCATED
 	Complete             bool                  `json:"complete"`
@@ -67,9 +69,21 @@ func planMove(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 		return err
 	}
 	if !dto.Complete {
-		return exitcode.Newf(exitcode.Error, "TRUNCATED: the plan lists %d of %d nodes; rerun with --limit %d to list them all (the server bounds the limit)", len(dto.Nodes), dto.TotalCount, dto.TotalCount)
+		return exitcode.New(exitcode.Error, truncatedPlanError(len(dto.Nodes), dto.TotalCount, limit))
 	}
 	return nil
+}
+
+// truncatedPlanError says how to see more without promising what the server
+// may not give: the server bounds --limit (cor:api:190:03), and the CLI does
+// not copy that bound. When the server listed fewer nodes than --limit asked
+// for, that shortfall IS its bound, so the message says a plan cannot list
+// this subtree in full rather than suggesting a rerun that cannot help.
+func truncatedPlanError(listed, total int, limit *int) error {
+	if limit != nil && listed < *limit {
+		return fmt.Errorf("TRUNCATED: the plan lists %d of %d nodes, fewer than --limit %d: that is the server's bound, so a plan cannot list this subtree in full", listed, total, *limit)
+	}
+	return fmt.Errorf("TRUNCATED: the plan lists %d of %d nodes; rerun with a larger --limit to list more (the server bounds it, so a subtree beyond that bound stays TRUNCATED)", listed, total)
 }
 
 // movePlanFrom copies the plan into the command's DTO. It is complete only
@@ -121,7 +135,7 @@ func renderMovePlan(w io.Writer, dto movePlanDTO) error {
 	}
 	t := output.NewTable(w)
 	for _, n := range dto.Nodes {
-		t.Row(output.SafeCell(n.CurrentURN), "→", output.SafeCell(n.NewURN))
+		t.Row(output.SafeCell(n.CurrentURN), output.SafeCell("→"), output.SafeCell(n.NewURN))
 	}
 	if err := t.Flush(); err != nil {
 		return err

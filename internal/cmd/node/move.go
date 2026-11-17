@@ -55,8 +55,10 @@ says they are withheld when you can't read the destination memory). If the move
 would be refused, --dry-run fails with the move's own error and exit code. The
 plan is true when answered and reserves nothing, so a change before the move can
 still end it with a conflict (exit 5). The server lists at most --limit nodes
-(its default 100; it bounds the value); a plan that does not list every node is
-labelled TRUNCATED and exits 1.`,
+(at least 1; its default 100; the server bounds the value). A plan that does
+not list every node is labelled TRUNCATED and exits 1; when the server lists
+fewer than --limit asked for, that is its bound, and a larger --limit cannot
+list the subtree in full.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
   hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive
   hadron node move findings -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive --dry-run`,
@@ -68,6 +70,9 @@ labelled TRUNCATED and exits 1.`,
 			limitSet := cmd.Flags().Changed("limit")
 			if limitSet && !dryRun {
 				return exitcode.Newf(exitcode.Usage, "--limit applies only to --dry-run")
+			}
+			if limitSet && limit < 1 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1")
 			}
 			// Validate the destination flags before touching the network, so a
 			// bad flag combo is a usage error even when unauthenticated.
