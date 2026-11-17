@@ -544,7 +544,7 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 		if err != nil {
 			return fail(fmt.Errorf("reading the channel head: %w", err))
 		}
-		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec), HeadSeq: head,
+		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec, r.now()), HeadSeq: head,
 			FirstAttemptAt: r.now(), AuthorWorkerID: workerID}
 		if r.beforeIntent != nil {
 			r.beforeIntent()
@@ -747,15 +747,20 @@ func holdText(code string) string {
 // stopDropBody is the flag. It names the halted worker without an @, so the
 // halted worker is not woken by it; it carries ids and codes only. It says
 // what is true of the worker and what to do, and promises no later post.
-// A notice typed since it was held says so (TypedAt).
-func stopDropBody(recipient string, rec StopDrop) string {
+// A notice typed since it was held says so (TypedAt). The un-typed branch
+// posts once and nothing ever corrects it, and TypedAt is stamped only after
+// an ack, so a held-from-ack notice reads un-typed while typed — its claims
+// are therefore scoped to the post moment (#1660 ask 5, wording settled with
+// UX): "as of now", never forever.
+func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 	held := fmt.Sprintf("%s, since %s", holdText(rec.HoldReason), rec.HeldAt.UTC().Format(time.RFC3339))
 	if !rec.TypedAt.IsZero() {
 		return fmt.Sprintf("@%s %s's %s notice (event %s) was held (%s) and has since been typed and acknowledged, at %s. No action needed; this is the only post about it.",
 			recipient, rec.Worker, rec.Level, rec.EventID, held, rec.TypedAt.UTC().Format(time.RFC3339))
 	}
-	return fmt.Sprintf("@%s %s has not been told to halt and may still be running: its %s notice (event %s) could not be typed into its session (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
-		recipient, rec.Worker, rec.Level, rec.EventID, held, rec.Worker)
+	asOf := now.UTC().Format(time.RFC3339)
+	return fmt.Sprintf("@%s %s has not been told to halt as of %s and may still be running: its %s notice (event %s) was not typed into its session as of then (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
+		recipient, rec.Worker, asOf, rec.Level, rec.EventID, held, rec.Worker)
 }
 
 // Structured classification never inspects error prose or returns remote text.
