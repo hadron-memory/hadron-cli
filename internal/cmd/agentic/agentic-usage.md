@@ -2414,13 +2414,16 @@ Conventions:
   through verbatim) prints on its own `chat:` line and is the `chat` key in
   `--json` (always present; null when not requested). It is a separate outcome
   from `ok`, and neither stands for the other. A completed test exits 0
-  whatever `ok` and the chat status say (cli#1959); only a request refusal or
-  an invalid server response uses the normal CLI error exits. Default requests omit `chatProbe` and select no
-  `chat`, so older servers work unchanged; with the flag an older server is
-  refused (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
-  The submitted override key is redacted locally from request-error messages
-  and completed-test error code/message fields (literal and string-escaped
-  echoes); this does not change the sent key or a request refusal's exit code.
+  whatever `ok` and the chat status say (cli#1959). Request refusals, invalid
+  server responses, argument, override-file and transport failures use normal
+  CLI error exits. Default requests omit `chatProbe` and select no `chat`, so
+  older servers work unchanged; with the flag an older server is refused (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
+  The submitted override key is redacted locally from request errors and every
+  completed-test string value (including reply, knob detail and value sources),
+  in literal and string-escaped spellings. This does not change JSON keys/nulls,
+  the sent override, the chat-probe wire, or a request refusal's exit code.
+  The server must still keep keys out of its responses; this local redaction is
+  defence in depth for the submitted override, not a substitute for that rule.
   When a nonempty override key is supplied, every mapped request error is
   detached from its original chain, including errors with a clean message but
   key-bearing metadata. Numeric code, message and supported structured

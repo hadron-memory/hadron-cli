@@ -29,10 +29,11 @@ var ErrBindingLockBusy = errors.New("the worktree's session binding is being wri
 // drops the lock when the descriptor closes, including on process death.
 //
 // A path that is not a worktree or a plain directory at all has no binding
-// location and nothing to lock: the release is a no-op and the error nil. A
-// plain directory's cache is created if missing only as its owner's uid on
-// Unix. An unreadable .git pointer is an error: nothing can be said about who writes
-// there.
+// location and nothing to lock: the release is a no-op and the error nil.
+// On Unix, a missing plain-directory cache or a missing lock in either
+// binding location is created only as the worktree owner's uid. Existing
+// locks are opened under normal OS permissions. An unreadable .git pointer
+// is an error: nothing can be said about who writes there.
 func LockBinding(worktree string, wait time.Duration) (release func(), err error) {
 	dir, state := bindingDir(worktree)
 	var beforeCreate func() error
@@ -41,6 +42,8 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 		return func() {}, nil
 	case bindingDirUnusable:
 		return nil, errors.New("the worktree's .git pointer cannot be read")
+	case bindingDirGit:
+		beforeCreate = func() error { return allowBindingCreation(worktree) }
 	case bindingDirPlain:
 		beforeCreate = func() error { return allowBindingCreation(worktree) }
 		// A plain directory's cache is created by the first bind, under this

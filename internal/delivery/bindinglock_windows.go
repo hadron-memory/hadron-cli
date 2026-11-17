@@ -10,6 +10,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// afterDirOpenHook runs while the directory handle is held, before file open.
+var afterDirOpenHook func(dir string)
+
 // openLockFile opens (creating) the lock file name inside dir WITHOUT following
 // a reparse point: FILE_FLAG_OPEN_REPARSE_POINT opens a link itself rather than
 // its target, and the opened handle's own attributes are checked, so a link
@@ -32,6 +35,9 @@ func openLockFile(dir, name string, _ func() error) (*os.File, error) {
 	defer func() { _ = windows.CloseHandle(dh) }()
 	if err := refuseReparse(dh); err != nil {
 		return nil, err
+	}
+	if afterDirOpenHook != nil {
+		afterDirOpenHook(dir)
 	}
 	path := filepath.Join(dir, name)
 	h, err := openNoReparse(path, 0, windows.OPEN_ALWAYS)

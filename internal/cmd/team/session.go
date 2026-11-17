@@ -22,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -929,7 +930,11 @@ there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
-way of an ordinary bind later. Redeem
+way of an ordinary bind later. When the host could not apply the run
+settings its start named (an exec-path worker runs its own fixed command), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+tells the server (startSettingsApplied: false) so the bind records none of
+those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -1295,17 +1300,19 @@ ends the recovered session: run start again to pick it up.`,
 				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
-				Id:             newSessionID(),
-				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      optStr(w.Id),
-				AppRef:         appRefArg,
-				LaunchGrant:    optStr(grant),
-				Repo:           optStr(repo),
-				Branch:         optStr(branch),
-				Host:           optStr(host),
-				Tool:           optStr(tool),
-				TranscriptPath: optStr(transcript),
-				LlmModel:       optStr(model),
+				Id:          newSessionID(),
+				ReportsTo:   optStr(reportsTo),
+				WorkerRef:   optStr(w.Id),
+				AppRef:      appRefArg,
+				LaunchGrant: optStr(grant),
+				// #2209: the host's "settings not applied", only with a grant.
+				StartSettingsApplied: startSettingsNotApplied(grant, os.Getenv(hostpoller.StartSettingsAppliedEnvVar)),
+				Repo:                 optStr(repo),
+				Branch:               optStr(branch),
+				Host:                 optStr(host),
+				Tool:                 optStr(tool),
+				TranscriptPath:       optStr(transcript),
+				LlmModel:             optStr(model),
 			}
 			// #940/#432: the server refuses a taken worker atomically
 			// (WORKER_TAKEN) unless force rides along — the activity check
