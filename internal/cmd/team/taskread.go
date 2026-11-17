@@ -395,8 +395,11 @@ does --external-id: the tasks that claim that outside item. An external id is
 held by at most one ACTIVE task (backlog, pending or started) per App; finished
 and cancelled tasks keep it, so the list can hold several, newest first. The
 live holder is the one still active, and one call finds it:
---external-id <id> --status BACKLOG --status PENDING --status STARTED (an empty
-list means nobody holds it now; the newest ended task is not a holder).
+--external-id <id> --status BACKLOG --status PENDING --status STARTED, against
+the same App as the refused create and with no other narrowing filter. An empty
+list then means no active task matched under these filters (the newest ended
+task is not a holder); any other filter can hide the holder. --unresolved lists
+finished tasks only, so with it the lookup cannot find an active holder.
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.

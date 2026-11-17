@@ -6075,7 +6075,10 @@ Adapter reconcile JSON (list and `--track`): `skipped` remains the total. Additi
   - A duplicate is `TASK_EXTERNAL_ID_TAKEN`, exit 5, `serverCode` in the
     envelope, naming no task. The holder is the ACTIVE task:
     `task list --external-id <id> --status BACKLOG --status PENDING --status STARTED`
-    finds it in one call (an empty list: nobody holds it now). Without the
+    finds it in one call, run against the same App as the refused create and
+    with no other narrowing filter (an empty list then means no active task
+    matched under these filters; any other filter, `--unresolved` among them,
+    which lists finished tasks only, can hide the holder). Without the
     status filter the same list also returns the id's finished and cancelled
     tasks, newest first, so it can hold several (an exact match, refused with
     `--team`).
