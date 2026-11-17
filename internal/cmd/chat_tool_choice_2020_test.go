@@ -126,3 +126,19 @@ func TestToolChoiceArgumentsAreRequired2020(t *testing.T) {
 		}
 	}
 }
+
+// Jake's LOCAL P2 on #2244: the help must not send the reader to a command
+// that does not do what it says. `chat config` manages offline chat
+// coordinates, not AI-config details.
+func TestChatToolChoiceHelpPointsNowhereWrong2020(t *testing.T) {
+	_, out, err := runToolChoice2020(t, map[string]string{}, "chat", "tool-choice", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "chat config") {
+		t.Errorf("the help points to `hadron chat config`, which does not show AI-config details:\n%s", out)
+	}
+	if !strings.Contains(out, "Proposed") {
+		t.Error("the help must say the decision is Proposed")
+	}
+}
