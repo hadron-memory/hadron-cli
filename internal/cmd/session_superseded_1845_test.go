@@ -20,7 +20,14 @@ type supersededResult1845 struct {
 func runSuperseded1845(t *testing.T, status int, ext map[string]any, jsonMode bool) supersededResult1845 {
 	t.Helper()
 	writeTeamBinding(t)
-	body, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": "Session superseded.", "extensions": ext}}})
+	message := "Session superseded."
+	if ext["code"] == "SESSION_ENDED" {
+		message = "session ended"
+	}
+	if ext["code"] == "SESSION_EXPIRED" {
+		message = "session expired"
+	}
+	body, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": ext}}})
 	calls := []string{}
 	srv := statusServer1495(t, map[string]resp1495{"GetWorker": {status, string(body)}}, func(op string) { calls = append(calls, op) })
 	setTeamBindingServer(t, srv.URL)
@@ -137,6 +144,36 @@ func TestSupersededUncertainAndOtherCodes1845(t *testing.T) {
 		r := runSuperseded1845(t, 409, map[string]any{"code": tc.code, "sessionId": "session-C", "startedAt": "2026-11-12T16:37:52Z"}, true)
 		if r.exit != tc.exit || strings.Contains(r.stdout, "session-C") || strings.Contains(r.stdout, "\"startedAt\"") {
 			t.Fatalf("ordinary ended/expired changed: %+v", r)
+		}
+		expected := "session ended"
+		if tc.code == "SESSION_EXPIRED" {
+			expected = "session expired"
+		}
+		human := runSuperseded1845(t, 409, map[string]any{"code": tc.code, "sessionId": "session-C", "startedAt": "2026-11-12T16:37:52Z"}, false)
+		if human.exit != tc.exit || human.stderr != "hadron: "+expected+"\n" {
+			t.Fatalf("ordinary human answer changed: %+v", human)
+		}
+
+	}
+}
+
+func TestSupersededEscapesAndRawEvidence1845(t *testing.T) {
+	const id = "session-C\n\x1b[31m\u2028tail"
+	const stamp = "2026-11-12T16:37:52Z"
+	for _, status := range []int{200, 409} {
+		machine := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, true)
+		var doc struct {
+			Error map[string]any `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(machine.stdout), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc.Error["sessionId"] != id || doc.Error["startedAt"] != stamp {
+			t.Fatalf("JSON escaped pair not lossless: %s", machine.stdout)
+		}
+		human := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, false)
+		if strings.Count(human.stderr, "\n") != 1 || strings.ContainsAny(human.stderr, "\x1b\u2028") || !strings.Contains(human.stderr, "No retry or rebind was attempted.") {
+			t.Fatalf("unsafe human hint: %q", human.stderr)
 		}
 	}
 }

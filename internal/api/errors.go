@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -2017,4 +2018,27 @@ func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
 		}
 	}
 	return true
+}
+
+// SupersededSessionEvidence projects only the server's independently read-gated
+// current open session pair. A gateway fault, mixed error list or another
+// refusal is not definitive supersession evidence. Never query to fill a gap.
+// definitive is true for a code-only refusal too; both detail strings then
+// remain empty so callers cannot distinguish unreadable from no open session.
+func SupersededSessionEvidence(err error) (definitive bool, sessionID, startedAt string) {
+	if !OnlyErrorCodes(err, "SESSION_SUPERSEDED") {
+		return false, "", ""
+	}
+	// OnlyErrorCodes guarantees a nonempty list. Use the first refusal's pair
+	// as a unit; another error never fills one of its missing fields.
+	e := graphQLErrors(err)[0]
+	id, idOK := e.Extensions["sessionId"].(string)
+	stamp, timeOK := e.Extensions["startedAt"].(string)
+	if !idOK || !timeOK || id == "" || stamp == "" {
+		return true, "", ""
+	}
+	if _, parseErr := time.Parse(time.RFC3339, stamp); parseErr != nil {
+		return true, "", ""
+	}
+	return true, id, stamp
 }
