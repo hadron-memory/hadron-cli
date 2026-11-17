@@ -95,7 +95,7 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 		return fd, nil
 	}
 	_ = unix.Close(fd)
-	if !linkUnsupported(err) {
+	if !linkFallbackApplies(err) {
 		return -1, err // a real fault (EIO ...) surfaces; it is not "no hard links"
 	}
 	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
@@ -116,22 +116,23 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 		err = unix.Fchmod(fd, 0o600)
 	}
 	if err != nil {
-		// The file is ours (O_EXCL) and unusable: take it away again, but only
-		// if the name still is the inode we made, so nothing else is removed.
-		var mine, cur unix.Stat_t
-		if unix.Fstat(fd, &mine) == nil && unix.Fstatat(dfd, name, &cur, unix.AT_SYMLINK_NOFOLLOW) == nil && mine.Dev == cur.Dev && mine.Ino == cur.Ino {
-			_ = unix.Unlinkat(dfd, name, 0)
-		}
+		// The file is ours (O_EXCL) but not usable. It is NOT removed: a name
+		// is never deleted on a guess about which inode it still names, since a
+		// racing actor could have replaced it and the lock's mutual exclusion
+		// would go with it. The error says how to clear it (cli#2238).
 		_ = unix.Close(fd)
-		return -1, fmt.Errorf("setting the session binding lock mode: %w", err)
+		return -1, fmt.Errorf("setting the session binding lock mode: %w (if no bind or poller is running, remove %s)", err, filepath.Join(dir, name))
 	}
 	return fd, nil
 }
 
-// linkUnsupported says whether a failed hard link means the filesystem cannot
+// linkFallbackApplies says whether a failed hard link means the filesystem cannot
 // make one (FAT/exFAT, some network mounts, a cross-device or link-limited
 // directory), as opposed to a real fault such as EIO, which must surface.
-func linkUnsupported(err error) bool {
+// EPERM qualifies because FAT-like filesystems and some kernels report it for
+// link(2) itself; a genuine policy denial then fails the direct create too and
+// that error is the one returned.
+func linkFallbackApplies(err error) bool {
 	for _, e := range []error{unix.ENOTSUP, unix.EOPNOTSUPP, unix.EPERM, unix.EXDEV, unix.ENOSYS, unix.EMLINK} {
 		if errors.Is(err, e) {
 			return true
@@ -149,6 +150,11 @@ var lockLinkHook func() error
 // returns an error to fail the chmod step.
 var lockFallbackChmodHook func() error
 
+// lockPermRetryHook, when set, runs each time a permission refusal is about
+// to be retried: a test releases a paused creator only once the second opener
+// has really met the restrictive mode.
+var lockPermRetryHook func()
+
 const (
 	lockPermRetries    = 20
 	lockPermRetryEvery = 10 * time.Millisecond
@@ -163,6 +169,9 @@ func openLockRetrying(dfd int, name string, flags int) (int, error) {
 		fd, err = unix.Openat(dfd, name, flags, 0)
 		if !errors.Is(err, unix.EACCES) {
 			return fd, err
+		}
+		if lockPermRetryHook != nil {
+			lockPermRetryHook()
 		}
 		time.Sleep(lockPermRetryEvery)
 	}

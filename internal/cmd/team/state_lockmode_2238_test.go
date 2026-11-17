@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"testing"
-	"time"
 )
 
 // cli#2238: the binding lock file is created through O_CREATE, whose mode is
@@ -229,9 +228,13 @@ func TestBindingLockRealLinkFaultSurfaces2238(t *testing.T) {
 	h := cacheHandle{loc: bindingLoc{dir: dir}}
 	lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.EIO} }
 	defer func() { lockLinkHook = nil }()
-	if f, err := h.openLock(); err == nil {
+	f, err := h.openLock()
+	if err == nil {
 		_ = f.Close()
 		t.Fatal("an EIO from the publish step was swallowed by the fallback")
+	}
+	if !errors.Is(err, syscall.EIO) {
+		t.Fatalf("the original EIO did not reach the caller: %v", err)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) != 0 {
@@ -239,22 +242,27 @@ func TestBindingLockRealLinkFaultSurfaces2238(t *testing.T) {
 	}
 }
 
-// Julius's P2 on the delta: if setting the mode fails in the fallback, the
-// file this call created (and only that inode) is taken away again, so a later
-// call is not stuck on an unusable lock.
-func TestBindingLockFallbackChmodFailureLeavesNothing2238(t *testing.T) {
+// If setting the mode fails in the fallback, the error is reported with how to
+// clear the file, and the name is NOT removed: deleting a name on a guess about
+// which inode it still names could delete a replacement (Julius's P2 on the
+// second delta).
+func TestBindingLockFallbackChmodFailureIsReportedNotRemoved2238(t *testing.T) {
 	dir := t.TempDir()
 	h := cacheHandle{loc: bindingLoc{dir: dir}}
 	lockLinkHook = func() error { return &os.LinkError{Op: "link", Err: syscall.ENOTSUP} }
-	lockFallbackChmodHook = func() error { return errors.New("chmod refused") }
+	boom := errors.New("chmod refused")
+	lockFallbackChmodHook = func() error { return boom }
 	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
-	if f, err := h.openLock(); err == nil {
+	f, err := h.openLock()
+	if err == nil {
 		_ = f.Close()
 		t.Fatal("a failed mode change was ignored")
 	}
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("the unusable lock was left behind: %v %v", entries, err)
+	if !errors.Is(err, boom) || !strings.Contains(err.Error(), "remove "+filepath.Join(dir, bindingLockFileName)) {
+		t.Fatalf("the error does not carry the cause and the remedy: %v", err)
+	}
+	if _, serr := os.Lstat(filepath.Join(dir, bindingLockFileName)); serr != nil {
+		t.Fatalf("the name was removed on a guess: %v", serr)
 	}
 }
 
@@ -293,9 +301,18 @@ func TestBindingLockFallbackPausedCreatorIsWaitedFor2238(t *testing.T) {
 	}()
 	<-paused
 	// The lock exists in a mode the second opener cannot open until the
-	// creator finishes: release it shortly after the second opener starts.
-	time.AfterFunc(50*time.Millisecond, release)
+	// creator finishes: release the creator only once the second opener has
+	// really met that mode and is retrying.
+	if os.Geteuid() == 0 {
+		t.Skip("root opens the restrictive file at once, so no retry happens")
+	}
+	var retried atomic.Bool
+	lockPermRetryHook = func() { retried.Store(true); release() }
+	defer func() { lockPermRetryHook = nil }()
 	second, err := h.openLock()
+	if !retried.Load() {
+		t.Fatal("the second opener never retried: the test did not exercise the window")
+	}
 	if err != nil {
 		t.Fatalf("second opener should wait out the creator: %v", err)
 	}

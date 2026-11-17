@@ -7,9 +7,9 @@ import (
 	"syscall"
 )
 
-// linkUnsupported says whether a failed hard link means the filesystem cannot
+// linkFallbackApplies says whether a failed hard link means the filesystem cannot
 // make one (FAT/exFAT, a share without links), as opposed to a real fault.
-func linkUnsupported(err error) bool {
+func linkFallbackApplies(err error) bool {
 	if errors.Is(err, errors.ErrUnsupported) {
 		return true
 	}

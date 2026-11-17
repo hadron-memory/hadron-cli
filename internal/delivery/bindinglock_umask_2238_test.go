@@ -194,9 +194,13 @@ func TestLockBindingRealLinkFaultSurfaces2238(t *testing.T) {
 	dir := filepath.Join(d, ".git")
 	lockLinkHook = func() error { return unix.EIO }
 	defer func() { lockLinkHook = nil }()
-	if f, err := openLockFile(dir, bindingLockFileName, nil); err == nil {
+	f, err := openLockFile(dir, bindingLockFileName, nil)
+	if err == nil {
 		_ = f.Close()
 		t.Fatal("an EIO from the publish step was swallowed by the fallback")
+	}
+	if !errors.Is(err, unix.EIO) {
+		t.Fatalf("the original EIO did not reach the caller: %v", err)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -209,20 +213,26 @@ func TestLockBindingRealLinkFaultSurfaces2238(t *testing.T) {
 	}
 }
 
-// If setting the mode fails in the fallback, the file this call created (and
-// only that inode) is taken away again.
-func TestLockBindingFallbackChmodFailureLeavesNothing2238(t *testing.T) {
+// If setting the mode fails in the fallback, the error is reported with how to
+// clear the file, and the name is NOT removed (a name is never deleted on a
+// guess about which inode it still names).
+func TestLockBindingFallbackChmodFailureIsReportedNotRemoved2238(t *testing.T) {
 	d := gitTree(t)
 	dir := filepath.Join(d, ".git")
 	lockLinkHook = func() error { return unix.ENOTSUP }
-	lockFallbackChmodHook = func() error { return errors.New("chmod refused") }
+	boom := errors.New("chmod refused")
+	lockFallbackChmodHook = func() error { return boom }
 	defer func() { lockLinkHook, lockFallbackChmodHook = nil, nil }()
-	if f, err := openLockFile(dir, bindingLockFileName, nil); err == nil {
+	f, err := openLockFile(dir, bindingLockFileName, nil)
+	if err == nil {
 		_ = f.Close()
 		t.Fatal("a failed mode change was ignored")
 	}
-	if _, err := os.Lstat(filepath.Join(dir, bindingLockFileName)); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("the unusable lock was left behind: %v", err)
+	if !errors.Is(err, boom) || !strings.Contains(err.Error(), "remove "+filepath.Join(dir, bindingLockFileName)) {
+		t.Fatalf("the error does not carry the cause and the remedy: %v", err)
+	}
+	if _, serr := os.Lstat(filepath.Join(dir, bindingLockFileName)); serr != nil {
+		t.Fatalf("the name was removed on a guess: %v", serr)
 	}
 }
 
@@ -259,8 +269,16 @@ func TestLockBindingFallbackPausedCreatorIsWaitedFor2238(t *testing.T) {
 		}
 	}()
 	<-paused
-	time.AfterFunc(50*time.Millisecond, release)
+	if os.Geteuid() == 0 {
+		t.Skip("root opens the restrictive file at once, so no retry happens")
+	}
+	var retried atomic.Bool
+	lockPermRetryHook = func() { retried.Store(true); release() }
+	defer func() { lockPermRetryHook = nil }()
 	second, err := openLockFile(dir, bindingLockFileName, nil)
+	if !retried.Load() {
+		t.Fatal("the second opener never retried: the test did not exercise the window")
+	}
 	if err != nil {
 		t.Fatalf("second opener should wait out the creator: %v", err)
 	}

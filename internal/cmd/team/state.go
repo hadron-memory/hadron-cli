@@ -534,6 +534,11 @@ var lockLinkHook func() error
 // returns an error to fail the chmod step.
 var lockFallbackChmodHook func() error
 
+// lockPermRetryHook, when set, runs each time a permission refusal is about
+// to be retried: a test releases a paused creator only once the second opener
+// has really met the restrictive mode.
+var lockPermRetryHook func()
+
 const (
 	lockPermRetries    = 20
 	lockPermRetryEvery = 10 * time.Millisecond
@@ -557,6 +562,9 @@ func (h cacheHandle) openLock() (*os.File, error) {
 			f, err = open(bindingLockFileName, os.O_RDWR)
 			if !errors.Is(err, fs.ErrPermission) {
 				return f, err
+			}
+			if lockPermRetryHook != nil {
+				lockPermRetryHook()
 			}
 			time.Sleep(lockPermRetryEvery)
 		}
@@ -618,7 +626,7 @@ func (h cacheHandle) openLock() (*os.File, error) {
 		return f, nil
 	}
 	_ = f.Close()
-	if !linkUnsupported(err) {
+	if !linkFallbackApplies(err) {
 		return nil, err // a real fault (EIO ...) surfaces; it is not "no hard links"
 	}
 	// The filesystem has no hard links (FAT/exFAT, some network mounts): the
@@ -639,26 +647,12 @@ func (h cacheHandle) openLock() (*os.File, error) {
 		err = f.Chmod(0o600)
 	}
 	if err != nil {
-		// The file is ours (O_EXCL) and unusable: take it away again, but only
-		// if the name still is the inode we made, so nothing else is removed.
-		if st, serr := f.Stat(); serr == nil {
-			var cur os.FileInfo
-			var lerr error
-			if h.root != nil {
-				cur, lerr = h.root.Lstat(bindingLockFileName)
-			} else {
-				cur, lerr = os.Lstat(h.path(bindingLockFileName))
-			}
-			if lerr == nil && os.SameFile(st, cur) {
-				if h.root != nil {
-					_ = h.root.Remove(bindingLockFileName)
-				} else {
-					_ = os.Remove(h.path(bindingLockFileName))
-				}
-			}
-		}
+		// The file is ours (O_EXCL) but not usable. It is NOT removed: a name
+		// is never deleted on a guess about which inode it still names, since a
+		// racing actor could have replaced it and the lock's mutual exclusion
+		// would go with it. The error says how to clear it (cli#2238).
 		_ = f.Close()
-		return nil, err
+		return nil, fmt.Errorf("setting the session binding lock mode: %w (if no bind or poller is running, remove %s)", err, h.path(bindingLockFileName))
 	}
 	return f, nil
 }
