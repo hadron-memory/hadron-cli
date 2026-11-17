@@ -136,3 +136,25 @@ func TestTeamEventsAgainstAServerWithoutTaskHandleFailsWithoutATable2005(t *test
 		t.Fatalf("half a table was printed:\n%s", out)
 	}
 }
+
+// The handle is server-supplied text: it reaches the table through the same
+// control-free cell rendering as every other cell, while --json keeps it raw.
+func TestTeamEventsHandleCellIsControlFree2005(t *testing.T) {
+	r := teamEventsWithHandles()
+	hostile := "AT0.7\\u001b[31m234"
+	r["AgentTeamEventsPage"] = strings.Replace(r["AgentTeamEventsPage"], `"AT0.7234"`, `"`+hostile+`"`, 1)
+	_, out, err := runTeamTask(t, r, "team", "events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out, 0x1b) {
+		t.Fatalf("a control character reached the table: %q", out)
+	}
+	_, jsonOut, err := runTeamTask(t, r, "team", "events", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(jsonOut, `\u001b[31m`) {
+		t.Fatalf("--json must keep the handle as sent: %s", jsonOut)
+	}
+}
