@@ -14012,6 +14012,8 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
+	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
+	TaskHandle *string `json:"taskHandle"`
 	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
@@ -14052,6 +14054,9 @@ func (v *AgentTeamEventFields) GetAppId() string { return v.AppId }
 
 // GetTaskId returns AgentTeamEventFields.TaskId, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetTaskId() *string { return v.TaskId }
+
+// GetTaskHandle returns AgentTeamEventFields.TaskHandle, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventFields) GetTaskHandle() *string { return v.TaskHandle }
 
 // GetType returns AgentTeamEventFields.Type, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetType() string { return v.Type }
@@ -14516,6 +14521,11 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetTaskId()
 	return v.AgentTeamEventFields.TaskId
 }
 
+// GetTaskHandle returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.TaskHandle, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetTaskHandle() *string {
+	return v.AgentTeamEventFields.TaskHandle
+}
+
 // GetType returns AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) GetType() string {
 	return v.AgentTeamEventFields.Type
@@ -14613,6 +14623,8 @@ type __premarshalAgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent stru
 
 	TaskId *string `json:"taskId"`
 
+	TaskHandle *string `json:"taskHandle"`
+
 	Type string `json:"type"`
 
 	Severity *AgentTeamEventSeverity `json:"severity"`
@@ -14654,6 +14666,7 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 	retval.Id = v.AgentTeamEventFields.Id
 	retval.AppId = v.AgentTeamEventFields.AppId
 	retval.TaskId = v.AgentTeamEventFields.TaskId
+	retval.TaskHandle = v.AgentTeamEventFields.TaskHandle
 	retval.Type = v.AgentTeamEventFields.Type
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
@@ -16949,6 +16962,11 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetTaskId() *string {
 	return v.AgentTeamEventFields.TaskId
 }
 
+// GetTaskHandle returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.TaskHandle, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetTaskHandle() *string {
+	return v.AgentTeamEventFields.TaskHandle
+}
+
 // GetType returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.Type, and is useful for accessing the field via an interface.
 func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetType() string {
 	return v.AgentTeamEventFields.Type
@@ -17046,6 +17064,8 @@ type __premarshalAlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent struct {
 
 	TaskId *string `json:"taskId"`
 
+	TaskHandle *string `json:"taskHandle"`
+
 	Type string `json:"type"`
 
 	Severity *AgentTeamEventSeverity `json:"severity"`
@@ -17087,6 +17107,7 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 	retval.Id = v.AgentTeamEventFields.Id
 	retval.AppId = v.AgentTeamEventFields.AppId
 	retval.TaskId = v.AgentTeamEventFields.TaskId
+	retval.TaskHandle = v.AgentTeamEventFields.TaskHandle
 	retval.Type = v.AgentTeamEventFields.Type
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
@@ -134308,6 +134329,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	id
 	appId
 	taskId
+	taskHandle
 	type
 	severity
 	createdAt
@@ -134845,6 +134867,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	id
 	appId
 	taskId
+	taskHandle
 	type
 	severity
 	createdAt
