@@ -215,19 +215,22 @@ func TestLineNeutralisesControlCharacters(t *testing.T) {
 
 // Expire the real deadline after page one starts, without a wall-clock sleep.
 func TestDrain2014DeadlineMidPagination(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancel()
-	b := &Budget{ctx: ctx, cancel: cancel}
+	// Start with a live budget; install an expired deadline only once the first
+	// page is in flight. Scheduler delays before Drain cannot skip the page.
+	b := &Budget{ctx: context.Background()}
 	calls := 0
 	got := Drain(b.Ctx(), b.Allow, func(ctx context.Context, after *string) (*Raw, error) {
 		calls++
 		if after != nil {
 			t.Fatal("sent another request after the deadline")
 		}
-		<-ctx.Done()
+		late, cancel := context.WithDeadline(ctx, time.Now().Add(-time.Second))
+		defer cancel()
+		b.ctx = late
+		<-late.Done()
 		return raw(2, "next", 1), nil
 	})
-	if got != nil || calls != 1 || !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		t.Fatalf("partial deadline result=%+v calls=%d err=%v", got, calls, ctx.Err())
+	if got != nil || calls != 1 || !errors.Is(b.Ctx().Err(), context.DeadlineExceeded) {
+		t.Fatalf("partial deadline result=%+v calls=%d err=%v", got, calls, b.Ctx().Err())
 	}
 }
