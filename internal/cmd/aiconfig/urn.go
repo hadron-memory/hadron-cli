@@ -32,14 +32,22 @@ type urnMaskedDTO struct {
 }
 
 // isMissingURNField reports whether err is an older server rejecting the urn
-// selection (and nothing else), so the caller may retry without it.
+// selection and nothing else, so the caller may retry without it. Every server
+// message must be the missing-urn shape (a repeat of the same message still
+// qualifies): a missing urn beside any other validation message is a refusal to
+// report as sent, not a probe answer, and retrying it would discard that
+// refusal (#2314).
 func isMissingURNField(err error) bool {
-	for _, message := range api.ServerMessages(err) {
-		if strings.Contains(message, `"urn"`) && isMissingSchemaField(message) {
-			return true
+	messages := api.ServerMessages(err)
+	if len(messages) == 0 {
+		return false
+	}
+	for _, message := range messages {
+		if !strings.Contains(message, `"urn"`) || !isMissingSchemaField(message) {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // notFoundConfig is the one answer for a null aiServiceConfig. A URN the caller

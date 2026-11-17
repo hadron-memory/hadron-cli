@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+// wantExit2314 is the exit a validation refusal maps to (api.MapError).
+const wantExit2314 = 2
+
 const (
 	aiOtherValidation2314 = `{"message":"Unknown argument \"bogus\" on field \"Query.resolveAiServiceConfigs\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
 	aiURNMsg2314          = `{"message":"Cannot query field \"urn\" on type \"AiServiceConfig\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
@@ -64,8 +67,10 @@ func TestAiConfigMixedValidationIsNotRetried2314(t *testing.T) {
 			if err == nil || len(calls) != 1 || calls[0] != s.withURN {
 				t.Fatalf("%s/%s: want one %s request and an error, got calls %v err %v", s.name, name, s.withURN, calls, err)
 			}
-			if !strings.Contains(stderr, "urn") || !strings.Contains(stderr, "bogus") {
-				t.Fatalf("%s/%s: the whole refusal must be reported: %q", s.name, name, stderr)
+			// The refusal keeps its ordinary mapped diagnostic and exit code (the
+			// same as any validation refusal), not a success from the retry.
+			if got := exitCodeFor(err); got != wantExit2314 || !strings.Contains(stderr, "out of sync") {
+				t.Fatalf("%s/%s: want exit %d with the mapped diagnostic, got %d %q", s.name, name, wantExit2314, got, stderr)
 			}
 		}
 	}
@@ -82,6 +87,17 @@ func TestAiConfigSingleMissingURNStillRetries2314(t *testing.T) {
 			if err != nil || len(calls) != 2 || calls[0] != s.withURN || calls[1] != s.fallback {
 				t.Fatalf("%s/%s: want %s then %s, got %v err %v %q", s.name, name, s.withURN, s.fallback, calls, err, stderr)
 			}
+		}
+	}
+}
+
+// Control: a failure carrying no server message at all (not a GraphQL
+// refusal) is not the older-server shape and is not retried.
+func TestAiConfigNoMessageFailureIsNotRetried2314(t *testing.T) {
+	for _, s := range aiURNSurfaces2314 {
+		calls, _, err := runAIURN2314(t, s.args, `not json`, s.withURN, s.fallback, s.okReply)
+		if err == nil || len(calls) != 1 {
+			t.Fatalf("%s: want one request and an error, got %v err %v", s.name, calls, err)
 		}
 	}
 }
