@@ -99,3 +99,20 @@ func TestEndAgentlessOnAServerWithoutTheMutationIsUnsupportedNotFailed2201(t *te
 		t.Fatalf("an older server without S15 is a standing no, not a failure each pass: %v", err)
 	}
 }
+
+// A success envelope with no mutation result is an ordinary error, never a nil
+// dereference (#2207 BLIND F1).
+func TestEndAgentlessMissingResultIsAnError2201(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty data":  `{"data":{}}`,
+		"null result": `{"data":{"endAgentlessSession":null}}`,
+		"null data":   `{"data":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := agentlessServer(t, 200, body, nil)
+			if _, err := s.EndAgentless(context.Background(), hostpoller.AgentlessEnd{AppID: "a", WorkerID: "w", SessionID: "s"}); err == nil {
+				t.Fatal("no result is not confirmation")
+			}
+		})
+	}
+}

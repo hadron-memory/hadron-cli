@@ -5,6 +5,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
@@ -252,5 +253,38 @@ func TestSweepWithoutAnEndDependencyEndsNothing2201(t *testing.T) {
 	f.sweep(t)
 	if len(f.ends) != 0 {
 		t.Fatal("no dependency, no end")
+	}
+}
+
+// #2207 BLIND F3: the guard read must still resolve to the censused worktree.
+func TestSweepEndsOnlyWhenTheFreshRowStillNamesTheCensusedWorktree2201(t *testing.T) {
+	changes := map[string]func(*RelaunchSnapshot){
+		"the worker's worktree changed":   func(s *RelaunchSnapshot) { s.Workers[0].Worktrees = []string{"repo/other"} },
+		"a second worktree was added":     func(s *RelaunchSnapshot) { s.Workers[0].Worktrees = []string{"repo/iris", "repo/other"} },
+		"the worktree no longer resolves": func(s *RelaunchSnapshot) { s.Workers[0].Worktrees = []string{"repo/elsewhere"} },
+		"the worktree was dropped":        func(s *RelaunchSnapshot) { s.Workers[0].Worktrees = nil },
+	}
+	for name, change := range changes {
+		f := newAgentlessFixture(t, stoppedRow("still-open"))
+		w := f.p.cfg.Workers["iris"]
+		w.Worktrees = []string{"repo/iris", "repo/other"}
+		f.p.cfg.Workers["iris"] = w
+		if err := os.MkdirAll(f.p.cfg.WorktreePath("repo/other"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		first := f.src.nth(1)
+		f.src.nth = func(read int) RelaunchSnapshot {
+			if read == 1 {
+				return first
+			}
+			next := first
+			next.Workers = append([]RelaunchWorker(nil), first.Workers...)
+			change(&next)
+			return next
+		}
+		f.sweep(t)
+		if len(f.ends) != 0 {
+			t.Errorf("%s: ended on a proof for a worktree the worker no longer has: %+v", name, f.ends)
+		}
 	}
 }

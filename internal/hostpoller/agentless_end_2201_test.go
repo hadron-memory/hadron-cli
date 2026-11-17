@@ -186,3 +186,45 @@ func TestWorkerEndAnEndWithNoSessionIsNotAgentAbsent2201(t *testing.T) {
 		t.Fatalf("with no session named there is nothing for the server to end: %q", r.reason)
 	}
 }
+
+// #2207 BLIND F2: a remembered launch worktree must not narrow the census. The
+// record outlives its agent's exit, so an exited launch in one tree must not
+// hide a live agent in another registered tree.
+func TestWorkerEndRememberedLaunchTreeDoesNotNarrowTheCensus2201(t *testing.T) {
+	census := &censusStub{obs: provenEmpty()}
+	p, srv, _ := agentlessEndPoller(t, census)
+	w := p.cfg.Workers["iris"]
+	w.Worktrees = []string{"repo/iris", "repo/iris2"}
+	p.cfg.Workers["iris"] = w
+	census.byDir = map[string]hostrelaunch.Observation{
+		p.cfg.WorktreePath("repo/iris2"): {Proven: true, PIDs: []int{55}},
+	}
+	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	close(exited.done)
+	p.trackAgent("id-iris", "repo/iris", exited)
+	step(t, p)
+	if r := only(t, srv); strings.HasPrefix(r.reason, agentAbsentCode) {
+		t.Fatalf("an agent runs in the second registered worktree: %q", r.reason)
+	}
+	if census.calls() != 2 {
+		t.Fatalf("both registered trees must be censused (once each): %v", census.asked)
+	}
+}
+
+func TestWorkerEndCensusesTheUnionOnceEach2201(t *testing.T) {
+	census := &censusStub{obs: provenEmpty()}
+	p, srv, _ := agentlessEndPoller(t, census)
+	w := p.cfg.Workers["iris"]
+	w.Worktrees = []string{"repo/iris", "repo/iris2"}
+	p.cfg.Workers["iris"] = w
+	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	close(exited.done)
+	p.trackAgent("id-iris", "repo/iris", exited)
+	step(t, p)
+	if r := only(t, srv); !strings.HasPrefix(r.reason, agentAbsentCode) {
+		t.Fatalf("every tree proven empty: %q", r.reason)
+	}
+	if census.calls() != 2 {
+		t.Fatalf("the remembered tree is one of the registered ones, not a third: %v", census.asked)
+	}
+}
