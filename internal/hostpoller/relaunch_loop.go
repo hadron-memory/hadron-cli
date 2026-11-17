@@ -20,7 +20,7 @@ import (
 // use the host key; only the poller may invoke this path. Ready proves the
 // daemon is reachable before any launch budget is spent.
 type RelaunchDependencies struct {
-	// Cleanup is local-only, after all launch proofs, under launch admission.
+	// Cleanup is local-only, after the outcome notice, under fresh admission.
 	Cleanup        func(context.Context, Agent, hostrelaunch.Target)
 	ReportSweep    func(context.Context, SweepReport) error
 	PostLaunchWait time.Duration
@@ -69,7 +69,7 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 		return errors.New("post-launch proof wait is outside its bound")
 	}
 
-	if d.Cleanup == nil {
+	if d.Cleanup == nil && p.cfg.OrcaLaunch.CleanupDeadTabs {
 		d.Cleanup = p.cleanupRelaunchTerminals
 	}
 	if d.Verify == nil {
@@ -384,8 +384,8 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 				bindingRelease()
 				release()
 			}, nil
-		}, AfterLaunch: func(ctx context.Context, t hostrelaunch.Target, _ hostrelaunch.Agent) {
-			d.Cleanup(ctx, launched, t)
+		}, AfterLaunch: func(ctx context.Context, t hostrelaunch.Target, a hostrelaunch.Agent) {
+			p.afterRelaunchCleanup(ctx, d, token, t, a)
 		}, Notice: d.Notice,
 		Log: func(t hostrelaunch.Target, result hostrelaunch.Result) { p.logRelaunch(t, result) },
 	}

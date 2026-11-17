@@ -341,13 +341,17 @@ An actual expired launch/proof wait remains TIMEOUT. Older servers rejecting
 the new reasons as schema skew keep FAILED with its local cause; no borrowed
 code or false CAP_REACHED is sent.
 
-After a verified relaunch, leftover unidentified tabs may be closed only with
-fresh strict process proof. The tracked tab, tabs with identified or foreign
-worktree panes, and tabs whose identity cannot be proved stay open. This
-cleanup currently requires the relaunched PID to be the sole agent match:
-even a nested agent in its own tree leaves the old tab open. Disconnected
-alone is not proof. Local relaunch-terminal-cleanup events say why a tab was
-closed or retained; cleanup failure does not change the relaunch outcome.
+After a verified relaunch, optional dead-tab cleanup runs AFTER the relaunch
+notice. Set orca_launch.cleanup_dead_tabs: true to enable it (default false;
+leave it off until the host manager validates the live close path). Every
+pane of an eligible tab must be disconnected, unidentified and in this
+worktree; connected shells may hold a human's build, ssh or editor and stay
+open. The tracked tab always stays open. Cleanup reacquires admission and
+rechecks binding, desired state and strict process proof before closing.
+The relaunched PID must be the sole agent match: even a nested agent in its
+own tree leaves the old tab open. Disconnected alone is not proof. Local
+relaunch-terminal-cleanup events say why a tab was closed or retained;
+cleanup delay or panic cannot suppress the preceding relaunch notice.
 Non-Linux hosts close no unidentified tab. No old terminal is reused.
 
 
@@ -444,6 +448,7 @@ The configuration (YAML):
   # capabilities: [worker.reset-context]
   # reset_context:
   #   orca_bin: /absolute/path/to/orca
+  #   cleanup_dead_tabs: false      # opt in only after live host validation
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
@@ -469,6 +474,7 @@ The configuration (YAML):
   #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
   # orca_launch:
   #   orca_bin: /absolute/path/to/orca
+  #   cleanup_dead_tabs: false      # opt in only after live host validation
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the

@@ -32,7 +32,7 @@ func (c *cleanupClient2193) CloseTab(_ context.Context, h string) error {
 func TestRelaunchTabProofBoundary2193(t *testing.T) {
 	known := "codex"
 	tracked := orcaterm.Terminal{Handle: "new", WorktreePath: "/work", TabID: "new-tab", AgentIdentity: &known}
-	shell := orcaterm.Terminal{Handle: "old", WorktreePath: "/work", TabID: "old-tab", Connected: true}
+	shell := orcaterm.Terminal{Handle: "old", WorktreePath: "/work", TabID: "old-tab", Connected: false}
 	for _, tc := range []struct {
 		name   string
 		mutate func(*cleanupClient2193)
@@ -40,7 +40,7 @@ func TestRelaunchTabProofBoundary2193(t *testing.T) {
 		want   int
 		reason string
 	}{
-		{name: "connected bare shell with own-agent proof", proof: true, want: 1, reason: "DEAD_TAB_CLOSED"},
+		{name: "connected bare shell retained", proof: true, want: 0, reason: "CONNECTED_TERMINAL", mutate: func(c *cleanupClient2193) { c.terms[1].Connected = true }},
 		{name: "disconnected bare shell with own-agent proof", proof: true, want: 1, reason: "DEAD_TAB_CLOSED", mutate: func(c *cleanupClient2193) { c.terms[1].Connected = false }},
 		{name: "unreadable or ambiguous census", reason: "CENSUS_UNPROVEN"},
 		{name: "disconnected alone proves nothing", reason: "CENSUS_UNPROVEN", mutate: func(c *cleanupClient2193) { c.terms[1].Connected = false }},
@@ -53,6 +53,10 @@ func TestRelaunchTabProofBoundary2193(t *testing.T) {
 		}},
 		{name: "missing tracked row", proof: true, reason: "TAB_UNPROVEN", mutate: func(c *cleanupClient2193) { c.terms = c.terms[1:] }},
 		{name: "missing tab id", proof: true, reason: "TAB_UNPROVEN", mutate: func(c *cleanupClient2193) { c.terms[1].TabID = "" }},
+		{name: "connected on fresh list", proof: true, reason: "TAB_UNPROVEN", mutate: func(c *cleanupClient2193) {
+			c.fresh = append([]orcaterm.Terminal{}, c.terms...)
+			c.fresh[1].Connected = true
+		}},
 		{name: "changed identity before close", proof: true, reason: "TAB_UNPROVEN", mutate: func(c *cleanupClient2193) {
 			c.fresh = append([]orcaterm.Terminal{}, c.terms...)
 			c.fresh[1].AgentIdentity = &known

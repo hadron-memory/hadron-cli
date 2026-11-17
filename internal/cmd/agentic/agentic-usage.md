@@ -4490,18 +4490,26 @@ recover prompt, never a new bind or `--resume`, then verifies its own pinned
 process and rechecks desired state and binding. Failed verification stops
 only that launch. Plain worktree bindings need no Git.
 
-After a verified C5 relaunch, the poller may close leftover unidentified tabs
-in that worktree. It never reuses a tab or closes the tracked tab. Every pane
-must be unidentified and in the same worktree, a fresh strict census must show
-only the pinned relaunched agent, and the tracked handle must still be in a
-separate tab. A nested agent match, even in the relaunched agent's own tree,
-leaves the old tab open (known conservative limit). Missing proof leaves the tab open; disconnected alone is not
-proof. Non-Linux closes no unidentified tab. Local `relaunch-terminal-cleanup`
-events carry the worker/session/terminal handle, outcome applied|skipped|failed
-and reason `DEAD_TAB_CLOSED`, `TRACKED_TERMINAL`, `IDENTIFIED_TERMINAL`,
-`TAB_UNPROVEN`, `CENSUS_UNPROVEN`, `TERMINAL_LIST_UNAVAILABLE` or
-`TERMINAL_CLOSE_FAILED`. No extra server event is sent and cleanup failure does
-not change the relaunch outcome. Cleanup has a cooperative 30-second deadline.
+Dead-tab cleanup is opt-in: `orca_launch.cleanup_dead_tabs: true` (default
+false; keep disabled until live host validation). After a verified C5 relaunch
+and its outcome notice, cleanup reacquires admission and rechecks binding and
+desired state, then may close a leftover tab only when every pane is
+disconnected, unidentified and in this worktree. A connected shell may hold a
+human's build, ssh or editor and stays open. The tracked handle must still be
+in a separate tab. A fresh strict census must show only the pinned relaunched
+agent; a nested agent match in its own tree leaves the old tab open (known
+conservative limit). Disconnected alone is not proof. Non-Linux closes no
+unidentified tab. Local `relaunch-terminal-cleanup` events carry existing
+worker/session/terminal fields, outcome applied|skipped|failed and reason
+`DEAD_TAB_CLOSED`, `TRACKED_TERMINAL`, `IDENTIFIED_TERMINAL`,
+`CONNECTED_TERMINAL`, `TAB_UNPROVEN`, `CENSUS_UNPROVEN`,
+`TERMINAL_LIST_UNAVAILABLE`, `TERMINAL_CLOSE_FAILED`, `CLEANUP_DISABLED`,
+`CLEANUP_UNAVAILABLE`, `CLEANUP_ADMISSION_UNAVAILABLE`,
+`CLEANUP_BINDING_UNPROVEN`, `CLEANUP_TARGET_UNPROVEN` or `CLEANUP_PANIC`.
+No extra server event is sent; cleanup runs after the notice and cannot
+suppress it. The pass has a cooperative 30-second deadline and catches cleanup
+panics without exposing their text. Unproven tabs have no autonomous retry;
+they wait for a later successful relaunch or manual operations.
 
 Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
 `attempt` and the absence observation's `checkedAt`, plus a terminal handle
