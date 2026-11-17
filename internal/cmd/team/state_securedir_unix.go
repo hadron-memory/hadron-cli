@@ -9,22 +9,32 @@ import (
 )
 
 // secureCacheDir makes the plain directory's cache owner-only through a
-// handle opened WITHOUT following a symlink, and checks that handle is still
-// the directory at the path. A symlink swapped in at any moment is refused,
-// never chmodded: the mode change lands on exactly the directory opened
-// (Jibril's BLIND delta on #2229).
-func secureCacheDir(dir string) error {
+// handle opened WITHOUT following a symlink, and returns an os.Root on that
+// same directory (proved by file identity) for every later access. A symlink
+// swapped in at any moment is refused, never chmodded or followed: the mode
+// change lands on exactly the directory opened, and the root is that
+// directory whatever happens to the path afterwards (Jibril's BLIND P2 and
+// delta on #2229).
+func secureCacheDir(dir string) (*os.Root, error) {
 	f, err := os.OpenFile(dir, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0) // #nosec G304 — the cache directory under the working directory
 	if err != nil {
-		return fmt.Errorf("the session binding cache %s must be a real directory (not a symbolic link): %w", dir, err)
+		return nil, fmt.Errorf("the session binding cache %s must be a real directory (not a symbolic link): %w", dir, err)
 	}
 	defer func() { _ = f.Close() }()
 	opened, err := f.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if now, lerr := os.Lstat(dir); lerr != nil || !os.SameFile(opened, now) {
-		return fmt.Errorf("the session binding cache %s changed while it was being secured: nothing was changed", dir)
+	if err := f.Chmod(0o700); err != nil {
+		return nil, err
 	}
-	return f.Chmod(0o700)
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	if rs, serr := root.Stat("."); serr != nil || !os.SameFile(opened, rs) {
+		_ = root.Close()
+		return nil, fmt.Errorf("the session binding cache %s changed while it was being secured: nothing was changed", dir)
+	}
+	return root, nil
 }

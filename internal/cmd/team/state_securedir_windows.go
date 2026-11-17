@@ -7,15 +7,24 @@ import (
 	"os"
 )
 
-// secureCacheDir on Windows only refuses a symbolic link or junction: file
+// secureCacheDir on Windows refuses a symbolic link or junction and returns an
+// os.Root on the directory, proved the same directory by file identity; file
 // modes are not owner-only bits there, so there is nothing to tighten.
-func secureCacheDir(dir string) error {
+func secureCacheDir(dir string) (*os.Root, error) {
 	st, err := os.Lstat(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
-		return fmt.Errorf("the session binding cache %s must be a real directory (not a symbolic link)", dir)
+		return nil, fmt.Errorf("the session binding cache %s must be a real directory (not a symbolic link)", dir)
 	}
-	return nil
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	if rs, serr := root.Stat("."); serr != nil || !os.SameFile(st, rs) {
+		_ = root.Close()
+		return nil, fmt.Errorf("the session binding cache %s changed while it was being secured: nothing was changed", dir)
+	}
+	return root, nil
 }

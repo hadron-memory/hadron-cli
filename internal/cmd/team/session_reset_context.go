@@ -2,13 +2,10 @@ package team
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -204,29 +201,7 @@ func writeRelaunchStamp(ctx context.Context, checkpoint string, now time.Time) e
 	if err != nil {
 		return err
 	}
-	return withBindingLockAt(loc, func() error {
-		var nonce [8]byte
-		if _, err := rand.Read(nonce[:]); err != nil {
-			return err
-		}
-		tmp := filepath.Join(loc.dir, delivery.RelaunchStampFile+"."+hex.EncodeToString(nonce[:])+".tmp")
-		fh, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // O_EXCL: never through an existing link
-		if err != nil {
-			return err
-		}
-		if _, err := fh.Write(raw); err != nil {
-			_ = fh.Close()
-			_ = os.Remove(tmp)
-			return err
-		}
-		if err := fh.Close(); err != nil {
-			_ = os.Remove(tmp)
-			return err
-		}
-		if err := os.Rename(tmp, filepath.Join(loc.dir, delivery.RelaunchStampFile)); err != nil {
-			_ = os.Remove(tmp)
-			return err
-		}
-		return nil
+	return withBindingLockAt(loc, func(h cacheHandle) error {
+		return h.writeAtomic(delivery.RelaunchStampFile, raw, 0o600)
 	})
 }
