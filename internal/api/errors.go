@@ -1530,8 +1530,9 @@ func codeForExtension(code string) int {
 	// Stop signals (#911 B1 over server #2022): HOST_SCOPE_REQUIRED (a host
 	// key acting beyond a HALT on its own host) and STOP_SIGNAL_SCOPE_FORBIDDEN
 	// name an authority, not a missing argument, so they also precede the
-	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses every set until
-	// the notice lane is on: the platform's state, which no input changes.
+	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses a set while a
+	// required worker's stop-notice lane is not freshly served: the platform's
+	// state, which no input changes.
 	case code == "HOST_SCOPE_REQUIRED" || code == "STOP_SIGNAL_SCOPE_FORBIDDEN":
 		return exitcode.Forbidden
 	case code == "STOP_SIGNAL_UNAVAILABLE":
