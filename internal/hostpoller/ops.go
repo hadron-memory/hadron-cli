@@ -550,7 +550,7 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	// with the census result appended, and never leads with AGENT_ABSENT.
 	absent := false
 	if agent == nil && session != "" && w.StopOnEnd == StopOnEndAlways {
-		proof := p.proveAgentAbsent(ctx, p.worktreeDirs(op, ref, w))
+		proof := p.proveAgentAbsent(ctx, p.agentCensus, p.worktreeDirs(op, ref, w))
 		if proof.Absent {
 			absent = true
 			reason = AgentAbsent + ": " + proof.Detail + "; " + reason

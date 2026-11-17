@@ -22,22 +22,25 @@ const AgentAbsent = "AGENT_ABSENT"
 // in never reads as absence (unknown is not zero, cli#2060).
 type absenceProof struct {
 	Absent bool
+	// Found is true when the census itself saw an agent (as opposed to being
+	// unable to say).
+	Found bool
 	// Detail is the census result, for the report's reason and the log.
 	Detail string
 }
 
 // proveAgentAbsent runs the strict census over each worktree dir. Every dir
 // must be proven empty; the first that is not decides, and says why.
-func (p *Poller) proveAgentAbsent(ctx context.Context, dirs []string) absenceProof {
+func (p *Poller) proveAgentAbsent(ctx context.Context, probe func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error), dirs []string) absenceProof {
 	if len(dirs) == 0 {
 		return absenceProof{Detail: "the strict census was not run: no worktree is registered for this worker on this host"}
 	}
-	if p.agentCensus == nil {
+	if probe == nil {
 		return absenceProof{Detail: "the strict census is not available on this host"}
 	}
 	skipped := 0
 	for _, dir := range dirs {
-		obs, err := retryCensusProbe(ctx, p.agentCensus, hostrelaunch.Target{Worktree: dir})
+		obs, err := retryCensusProbe(ctx, probe, hostrelaunch.Target{Worktree: dir})
 		switch {
 		case err != nil:
 			return absenceProof{Detail: fmt.Sprintf("the strict census could not prove no agent runs in %s: %v", dir, err)}
@@ -48,7 +51,7 @@ func (p *Poller) proveAgentAbsent(ctx context.Context, dirs []string) absencePro
 			for i, pid := range obs.PIDs {
 				pids[i] = strconv.Itoa(pid)
 			}
-			return absenceProof{Detail: fmt.Sprintf("the strict census found an agent process in %s (pid %s)", dir, strings.Join(pids, ", "))}
+			return absenceProof{Found: true, Detail: fmt.Sprintf("the strict census found an agent process in %s (pid %s)", dir, strings.Join(pids, ", "))}
 		}
 		skipped += obs.ForeignUIDSkipped
 	}
@@ -58,3 +61,18 @@ func (p *Poller) proveAgentAbsent(ctx context.Context, dirs []string) absencePro
 	}
 	return absenceProof{Absent: true, Detail: detail}
 }
+
+// AgentlessEnd names the session a host asks the server to end on its own proof
+// that no agent runs (endAgentlessSession, hadron-server#4292).
+type AgentlessEnd struct{ AppID, WorkerID, SessionID string }
+
+// AgentlessEndResult is the server's answer: Ended is false when the session
+// had already ended and nothing was written.
+type AgentlessEndResult struct{ Ended bool }
+
+// AgentlessRefusal is a server refusal of the end, by its closed code
+// (HOST_DOES_NOT_RUN_WORKER, SESSION_NOT_WORKERS, WORKER_NOT_SHORT_LIVED,
+// WORKER_HAS_OPEN_TASK).
+type AgentlessRefusal struct{ Code string }
+
+func (e *AgentlessRefusal) Error() string { return "the server refused the agentless end: " + e.Code }

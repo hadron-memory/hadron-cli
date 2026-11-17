@@ -32,6 +32,10 @@ type RelaunchDependencies struct {
 	Probe           func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
 	Verify          func(context.Context, Agent, hostrelaunch.Target, hostrelaunch.Observation) error
 	Notice          func(context.Context, hostrelaunch.Target, hostrelaunch.Result) error
+	// EndAgentless asks the server to end a SHORT_LIVED worker's open session
+	// on this host's census proof that no agent runs (cli#2201). Unset, the
+	// sweep never ends a session.
+	EndAgentless func(context.Context, AgentlessEnd) (AgentlessEndResult, error)
 }
 
 func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
