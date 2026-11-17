@@ -60,6 +60,7 @@ jobs:
       - name: Verify both reparse guard mutants are detected
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           $path = Join-Path $PWD 'internal/delivery/bindinglock_windows.go'
           $original = [IO.File]::ReadAllText($path)
           $utf8 = [Text.UTF8Encoding]::new($false)

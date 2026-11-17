@@ -137,3 +137,42 @@ func TestLockBinding2079LockFileReparse(t *testing.T) {
 		})
 	}
 }
+
+// Once openLockFile holds the directory without delete-sharing, a late swap
+// must be blocked, or the lock open must refuse it without touching outside.
+func TestLockBinding2079HeldDirectoryBlocksSwap(t *testing.T) {
+	root, _ := bindingCache2079(t)
+	outside := t.TempDir()
+	before, after := false, false
+	var swapErr error
+	lockOpenHook = func(string) { before = true }
+	afterDirOpenHook = func(dir string) {
+		after = true
+		if !before {
+			t.Fatal("directory handle hook ran before initial open hook")
+		}
+		swapErr = os.Rename(dir, dir+".moved")
+		if swapErr == nil {
+			junction2079(t, dir, outside)
+		}
+	}
+	defer func() { lockOpenHook = nil; afterDirOpenHook = nil }()
+	release, err := LockBinding(root, time.Second)
+	if release != nil {
+		release()
+	}
+	if !before || !after {
+		t.Fatalf("hooks not exercised: before=%t after=%t", before, after)
+	}
+	if swapErr != nil {
+		if !errors.Is(swapErr, windows.ERROR_SHARING_VIOLATION) {
+			t.Errorf("late directory swap failed unexpectedly: %v", swapErr)
+		}
+		if err != nil {
+			t.Errorf("unchanged held directory could not be locked: %v", err)
+		}
+	} else if err == nil {
+		t.Error("late directory reparse point was followed")
+	}
+	emptyOutside2079(t, outside)
+}
