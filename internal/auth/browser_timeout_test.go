@@ -81,7 +81,7 @@ func shortLoginTimeout(t *testing.T, d time.Duration) {
 
 // loginWithGuard runs Login on a goroutine and fails the test if it has not
 // returned within guard: an unbounded wait shows up as a failure, not a hang.
-func loginWithGuard(t *testing.T, ctx context.Context, opts LoginOptions, guard time.Duration) (*Token, error) {
+func loginWithGuard(t testing.TB, ctx context.Context, opts LoginOptions, guard time.Duration) (*Token, error) {
 	t.Helper()
 	type result struct {
 		tok *Token
