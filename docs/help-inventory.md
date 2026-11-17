@@ -446,6 +446,7 @@ section between the markers.
 | `team` |  |  | n | #1054 |  | unread |  |
 | `team alarm` |  |  | n | #1054 |  | unread |  |
 | `team alarm ack` |  |  | n | #1054 |  | unread |  |
+| `team alarms` |  |  | y | #1054 |  | unread |  |
 | `team app` |  |  | n | #1054 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 |  | unread |  |
 | `team attention` |  |  | n | #1054 |  | unread |  |

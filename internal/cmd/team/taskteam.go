@@ -293,35 +293,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		return &l
 	}
 
-	// Select: a team worker who owns, is assigned or created a task, then
-	// every descendant of a selected task (#1044 slice 2: the creator counts;
-	// createdBy is a person for a task they made themselves, never a team
-	// worker, so the worker kind is part of the test).
-	match := map[string]string{}
-	children := map[string][]string{}
-	for _, t := range all {
-		if t.ParentTaskID != nil {
-			children[*t.ParentTaskID] = append(children[*t.ParentTaskID], t.ID)
-		}
-		isTeamWorker := func(p *taskPartyDTO) bool {
-			return p != nil && p.Kind == string(gen.AgentTaskPartyKindWorker) && inTeam[p.ID]
-		}
-		if isTeamWorker(t.Owner) || isTeamWorker(t.Assignee) || isTeamWorker(t.CreatedBy) {
-			match[t.ID] = "party"
-		}
-	}
-	queue := []string{}
-	for id := range match {
-		queue = append(queue, id)
-	}
-	for ; len(queue) > 0; queue = queue[1:] {
-		for _, child := range children[queue[0]] {
-			if _, ok := match[child]; !ok {
-				match[child] = "descendant"
-				queue = append(queue, child)
-			}
-		}
-	}
+	match := selectTeamTasks(all, inTeam)
 
 	now := time.Now()
 	dto := teamTaskListDTO{
@@ -507,4 +479,39 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 		}
 	}
 	return nil
+}
+
+// selectTeamTasks is the team view's task set: a team worker who owns, is
+// assigned or created a task, then every descendant of a selected task (#1044
+// slice 2: the creator counts; createdBy is a person for a task they made
+// themselves, never a team worker, so the worker kind is part of the test).
+// The value is "party" or "descendant". `team alarms` reads the same set
+// (cli#1829), so the two views cannot disagree on what "my team's tasks" is.
+func selectTeamTasks(all []taskDTO, inTeam map[string]bool) map[string]string {
+	match := map[string]string{}
+	children := map[string][]string{}
+	for _, t := range all {
+		if t.ParentTaskID != nil {
+			children[*t.ParentTaskID] = append(children[*t.ParentTaskID], t.ID)
+		}
+		isTeamWorker := func(p *taskPartyDTO) bool {
+			return p != nil && p.Kind == string(gen.AgentTaskPartyKindWorker) && inTeam[p.ID]
+		}
+		if isTeamWorker(t.Owner) || isTeamWorker(t.Assignee) || isTeamWorker(t.CreatedBy) {
+			match[t.ID] = "party"
+		}
+	}
+	queue := []string{}
+	for id := range match {
+		queue = append(queue, id)
+	}
+	for ; len(queue) > 0; queue = queue[1:] {
+		for _, child := range children[queue[0]] {
+			if _, ok := match[child]; !ok {
+				match[child] = "descendant"
+				queue = append(queue, child)
+			}
+		}
+	}
+	return match
 }
