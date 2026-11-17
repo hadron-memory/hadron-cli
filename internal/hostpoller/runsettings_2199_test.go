@@ -42,7 +42,7 @@ func TestStartLaunchesAnotherFamilyOnACapableAccount2199(t *testing.T) {
 	if r.outcome != Succeeded || len(rec.specs) != 1 {
 		t.Fatalf("report %+v, launches %d", r, len(rec.specs))
 	}
-	if want := []string{"codex", "exec", "--dangerously-bypass-approvals-and-sandbox", PromptArg}; !reflect.DeepEqual(rec.specs[0].Argv, want) {
+	if want := []string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", PromptArg}; !reflect.DeepEqual(rec.specs[0].Argv, want) {
 		t.Fatalf("argv = %q", rec.specs[0].Argv)
 	}
 	if !strings.Contains(rec.specs[0].Prompt, "--tool codex --family codex") {
@@ -109,7 +109,7 @@ func TestStartTierOnAFamilyWithoutATableLaunchesWithTheDefaultModel2199(t *testi
 	if r.outcome != Succeeded || len(rec.specs) != 1 {
 		t.Fatalf("%+v", r)
 	}
-	if want := []string{"codex", "exec", "--dangerously-bypass-approvals-and-sandbox", PromptArg}; !reflect.DeepEqual(rec.specs[0].Argv, want) {
+	if want := []string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", PromptArg}; !reflect.DeepEqual(rec.specs[0].Argv, want) {
 		t.Fatalf("argv = %q (no -m: the account default runs)", rec.specs[0].Argv)
 	}
 	res, err := ResolveRun(prof, codexAcct, RunSettings{Family: "codex", Tier: "mid"}, "a")

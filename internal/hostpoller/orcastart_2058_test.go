@@ -57,7 +57,7 @@ func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
 		t.Fatalf("orca launches = %d", len(rec.specs))
 	}
 	s := rec.specs[0]
-	if want := []string{"codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "-m", "gpt-6-luna", PromptArg}; !reflect.DeepEqual(s.Argv, want) {
+	if want := []string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", "-m", "gpt-6-luna", PromptArg}; !reflect.DeepEqual(s.Argv, want) {
 		t.Fatalf("argv = %q", s.Argv)
 	}
 	if s.Dir != p.cfg.WorktreePath("repo/iris") || s.Title != "iris" {

@@ -288,7 +288,13 @@ reports every outcome. One poller per host or container.
                    always fresh (never --resume), the grant and first prompt
                    passed through a 0600 file beside the state, never typed;
                    the agent runs plainly in Orca's terminal scope; it never
-                   falls back to the exec path
+                   falls back to the exec path. Both launcher_profile modes
+                   (long, short) start the same interactive agent, so a
+                   stalled run shows on screen and can be taken over; short
+                   no longer runs headless or exits when its prompt ends.
+                   A short run is ended by its own agent's session end, by
+                   worker.end's stop, or by the host after its no-agent
+                   proof (cli#2201)
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -475,6 +481,8 @@ The configuration (YAML):
     # iris:
     #   family: claude
     #   launch_via: orca
+    #   # mode: long|short. Both start the same interactive agent; short is for a
+    #   # worker that ends its own session when its task is done.
     #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
     #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
     #   worktrees: [hadron-cli/iris]
