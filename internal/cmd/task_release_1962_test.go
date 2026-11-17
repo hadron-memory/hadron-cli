@@ -77,6 +77,80 @@ func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 	}
 }
 
+// #2263 pins mapped register values on release (introduced in #1962).
+// future.release is deliberately unknown: warning codes pass through verbatim.
+// The input path routes the warning to this mutation; it is not a JSON DTO field.
+func TestTaskReleaseJSONCarriesMappedWarning2263(t *testing.T) {
+	r := releaseResponses1962()
+	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"mapped","taskLoc":"tasks:release-advice","taskUrn":"hrn:node:acme.com:runbooks:tasks:release-advice"}}]}}`
+	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		ReleasedExternalID string `json:"releasedExternalId"`
+		Warnings           []struct {
+			Code     string `json:"code"`
+			Text     string `json:"text"`
+			Register *struct {
+				State   string  `json:"state"`
+				TaskLoc *string `json:"taskLoc"`
+				TaskURN *string `json:"taskUrn"`
+			} `json:"register"`
+		} `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("%v: %q", err, out)
+	}
+	if dto.ReleasedExternalID != releaseItem1962 {
+		t.Errorf("releasedExternalId: got %q, want %q", dto.ReleasedExternalID, releaseItem1962)
+	}
+	if len(dto.Warnings) != 1 {
+		t.Fatalf("warnings length: got %d, want 1: %s", len(dto.Warnings), out)
+	}
+	warning := dto.Warnings[0]
+	if warning.Code != "future.release" {
+		t.Errorf("warnings[0].code: got %q, want future.release", warning.Code)
+	}
+	if warning.Text != "released with advice" {
+		t.Errorf("warnings[0].text: got %q, want released with advice", warning.Text)
+	}
+	if warning.Register == nil {
+		t.Fatalf("warnings[0].register: got null, want mapped register: %s", out)
+	}
+	if warning.Register.State != "mapped" {
+		t.Errorf("warnings[0].register.state: got %q, want mapped", warning.Register.State)
+	}
+	if warning.Register.TaskLoc == nil {
+		t.Error("warnings[0].register.taskLoc: got null, want tasks:release-advice")
+	} else if *warning.Register.TaskLoc != "tasks:release-advice" {
+		t.Errorf("warnings[0].register.taskLoc: got %q, want tasks:release-advice", *warning.Register.TaskLoc)
+	}
+	if warning.Register.TaskURN == nil {
+		t.Error("warnings[0].register.taskUrn: got null, want hrn:node:acme.com:runbooks:tasks:release-advice")
+	} else if *warning.Register.TaskURN != "hrn:node:acme.com:runbooks:tasks:release-advice" {
+		t.Errorf("warnings[0].register.taskUrn: got %q, want hrn:node:acme.com:runbooks:tasks:release-advice", *warning.Register.TaskURN)
+	}
+}
+
+// Release always emits a warnings array; no server advice is [] rather than null.
+func TestTaskReleaseJSONAbsentWarningsAreEmpty2263(t *testing.T) {
+	out, stderr, err := runTeamTaskStreams(t, releaseResponses1962(), "--json", "team", "task", "release", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("invalid JSON: %v: %s", err, out)
+	}
+	if got := strings.TrimSpace(string(dto["warnings"])); got != "[]" {
+		t.Errorf("warnings: got %q, want []", got)
+	}
+	if stderr != "" {
+		t.Errorf("unexpected stderr: %q", stderr)
+	}
+}
+
 // The server owns every refusal and the CLI shows it: a task holding no
 // external id (a second release included), a caller who may not cancel it.
 func TestTaskReleaseRefusalsAreTheServers1962(t *testing.T) {
