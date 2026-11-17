@@ -1,8 +1,15 @@
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -26,25 +33,97 @@ func readBackJSON1720(status, previousID, urn string) string {
 }
 
 type end1720 struct {
-	out, errOut string
-	err         error
-	captured    map[string]json.RawMessage
+	out, errOut  string
+	err          error
+	captured     map[string]json.RawMessage
+	calls        []handoffRequest1720
+	faultReached bool
 }
+
+type handoffRequest1720 struct {
+	Operation string          `json:"operationName"`
+	Variables json.RawMessage `json:"variables"`
+}
+
+type handoffRoundTrip1720 func(*http.Request) (*http.Response, error)
+
+func (fn handoffRoundTrip1720) RoundTrip(req *http.Request) (*http.Response, error) { return fn(req) }
 
 func runEnd1720(t *testing.T, readBack string, extra ...string) end1720 {
 	t.Helper()
+	return runEndFault1720(t, readBack, "", extra...)
+}
+
+// Inject faults only when the post-commit read reaches the HTTP boundary.
+// Record every GraphQL attempt, including repeats; retain the loopback guard.
+func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1720 {
+	t.Helper()
 	bindWorktree(t)
 	stubs := endStubs()
+	if fault == "missing-worker" || fault == "empty-worker" {
+		const old = `"workerId":"wkr1",`
+		if strings.Count(stubs["EndTeamSession"], old) != 1 {
+			t.Fatal("worker-id fixture anchor changed")
+		}
+		replacement := ""
+		if fault == "empty-worker" {
+			replacement = `"workerId":"",`
+		}
+		stubs["EndTeamSession"] = strings.Replace(stubs["EndTeamSession"], old, replacement, 1)
+	}
 	if readBack != "" {
 		stubs["GetWorkerHandoffReadBack"] = readBack
 	}
 	gql, captured := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	base := f.HTTPClient.Transport
+	if base == nil {
+		t.Fatal("test factory must retain its loopback transport guard")
+	}
+	var mu sync.Mutex
+	var calls []handoffRequest1720
+	faultReached := false
+	f.HTTPClient.Transport = handoffRoundTrip1720(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost {
+			return base.RoundTrip(req)
+		}
+		body, err := io.ReadAll(req.Body)
+		_ = req.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		defer req.Body.Close()
+		var call handoffRequest1720
+		if err := json.Unmarshal(body, &call); err != nil {
+			return nil, err
+		}
+		mu.Lock()
+		calls = append(calls, call)
+		inject := call.Operation == "GetWorkerHandoffReadBack" && (fault == "transport" || fault == "cancel")
+		faultReached = faultReached || inject
+		mu.Unlock()
+		if inject {
+			if fault == "cancel" {
+				cancel()
+				if !errors.Is(req.Context().Err(), context.Canceled) {
+					t.Error("read-back request did not inherit command cancellation")
+				}
+				return nil, req.Context().Err()
+			}
+			return nil, errors.New("fixture read-back transport failure")
+		}
+		return base.RoundTrip(req)
+	})
 	root := NewRootCmd(f)
 	args := append([]string{"team", "session", "end", "--server", gql.URL}, extra...)
 	root.SetArgs(args)
-	err := root.Execute()
-	return end1720{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err, captured: captured}
+	err := root.ExecuteContext(ctx)
+	mu.Lock()
+	defer mu.Unlock()
+	return end1720{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err, captured: captured, calls: append([]handoffRequest1720(nil), calls...), faultReached: faultReached}
 }
 
 func TestSessionEndShowsTheSavedHandoffURN1720(t *testing.T) {
@@ -136,5 +215,97 @@ func TestSessionEndOnAServerWithoutContinuityIsToday1720(t *testing.T) {
 	}
 	if strings.Contains(r.out, "handoff") {
 		t.Errorf("an old server prints today's output, nothing more:\n%s", r.out)
+	}
+}
+
+// Read-back is narration after a committed end: even cancellation must not
+// turn the successful mutation into an error or cause a retry/second write.
+func TestSessionEndReadBackFaults1799(t *testing.T) {
+	for _, fault := range []string{"transport", "cancel", "missing-worker", "empty-worker"} {
+		for _, jsonOutput := range []bool{false, true} {
+			t.Run(fault+map[bool]string{false: "/text", true: "/json"}[jsonOutput], func(t *testing.T) {
+				args := []string{"--handoff", "text"}
+				if jsonOutput {
+					args = append(args, "--json")
+				}
+				r := runEndFault1720(t, readBackJSON1720("CURRENT", "s-new", handoffURN1720), fault, args...)
+				if r.err != nil || r.errOut != "" {
+					t.Fatalf("committed end must remain successful: err=%v stderr=%q stdout=%q", r.err, r.errOut, r.out)
+				}
+				wantReads := 1
+				if fault == "missing-worker" || fault == "empty-worker" {
+					wantReads = 0
+				}
+				assertHandoffRequests1799(t, r.calls, wantReads)
+				if r.faultReached != (wantReads == 1) {
+					t.Fatalf("read-back fault reached=%v want=%v", r.faultReached, wantReads == 1)
+				}
+				if jsonOutput {
+					var dto map[string]any
+					if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
+						t.Fatalf("invalid JSON: %v: %s", err, r.out)
+					}
+					want := map[string]any{"sessionId": "s-new", "workerName": "Iris", "endedAt": "2026-08-10T18:00:00Z", "resumeClaim": false}
+					if !reflect.DeepEqual(dto, want) {
+						t.Fatalf("degraded end payload=%v want=%v", dto, want)
+					}
+				} else {
+					lines := strings.Split(strings.TrimSuffix(r.out, "\n"), "\n")
+					if len(lines) != 2 || lines[0] != "✓ ended session s-new (worker Iris)" || !strings.HasPrefix(lines[1], "  handoff saved; URN not read back (") || !strings.HasSuffix(lines[1], ")") {
+						t.Fatalf("degraded text: %q", r.out)
+					}
+					if strings.Contains(r.out, handoffURN1720) {
+						t.Fatalf("unverified URN printed: %q", r.out)
+					}
+				}
+			})
+		}
+	}
+}
+
+func assertHandoffRequests1799(t *testing.T, calls []handoffRequest1720, reads int) {
+	t.Helper()
+	if len(calls) != 1+reads {
+		t.Fatalf("want one end and %d read-back attempts, got %+v", reads, calls)
+	}
+	for i, call := range calls {
+		wantOp := "EndTeamSession"
+		wantVars := map[string]any{"id": "s-new", "handoff": "text"}
+		if i == 1 {
+			wantOp = "GetWorkerHandoffReadBack"
+			wantVars = map[string]any{"ref": "wkr1"}
+		}
+		var vars map[string]any
+		if err := json.Unmarshal(call.Variables, &vars); err != nil {
+			t.Fatal(err)
+		}
+		if call.Operation != wantOp || !reflect.DeepEqual(vars, wantVars) {
+			t.Fatalf("request %d: %s %s; want %s %v", i, call.Operation, call.Variables, wantOp, wantVars)
+		}
+	}
+}
+
+func TestSessionEndReadBackRequestShapeAndCounts1799(t *testing.T) {
+	for _, jsonOutput := range []bool{false, true} {
+		args := []string{"--handoff", "text"}
+		if jsonOutput {
+			args = append(args, "--json")
+		}
+		r := runEnd1720(t, readBackJSON1720("CURRENT", "s-new", handoffURN1720), args...)
+		if r.err != nil || r.errOut != "" {
+			t.Fatalf("end: %v %s", r.err, r.errOut)
+		}
+		assertHandoffRequests1799(t, r.calls, 1)
+		if jsonOutput {
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if dto["handoff"] != handoffURN1720 {
+				t.Fatalf("positive-control handoff absent: %s", r.out)
+			}
+		} else if !strings.Contains(r.out, "handoff saved: "+handoffURN1720) {
+			t.Fatalf("positive-control handoff absent: %q", r.out)
+		}
 	}
 }
