@@ -173,12 +173,12 @@ type Observation struct {
 	Registered bool
 	// WorktreeExists: the worker's worktree (or plain directory) is there.
 	WorktreeExists bool
-	// AgentTerminals: live agent terminals in that worktree. A terminal
-	// whose agent Orca does not identify counts (cli#2191).
+	// AgentTerminals: terminals conservatively counted as possible agents.
+	// Unidentified terminals count unless the strict census proves them empty.
 	AgentTerminals int
 	// UnidentifiedTerminals: how many of AgentTerminals Orca listed with no
-	// agentIdentity. They count as present; the item's detail says so, since
-	// a leftover shell is one of them.
+	// agentIdentity and not proven empty. They count as present; the item's
+	// detail says when that count still includes possible leftover shells.
 	UnidentifiedTerminals int
 }
 

@@ -4413,11 +4413,13 @@ worker, and never removes anything. `--worker <ref>` narrows the run to one
 worker: an exact id, or a name (any case) only one worker has; a name two
 workers share exits 2 and nothing is planned. An agent terminal counts whether
 or not Orca reports it connected, so no second agent is started beside one.
-A terminal in the worktree whose `agentIdentity` Orca reports as null or empty
-counts as an agent too (cli#2191): unknown is never absent. A leftover shell
-therefore holds a start (`TERMINAL_WITHOUT_SESSION`) or reads as
-`DUPLICATE_AGENTS` beside the agent, and the item's `detail` says when a count
-includes such an unidentified terminal.
+A terminal whose `agentIdentity` is null or empty initially counts as a possible
+agent (cli#2191). On Linux, the managed-host strict process census can prove
+that it adds no agent beyond the identified terminals already counted
+(cli#2193). An unreadable or ambiguous census, unavailable managed-host proof,
+and non-Linux hosts keep it present. The item's `detail` names unknown
+terminals that still count; a leftover shell without proof still holds a start
+(`TERMINAL_WITHOUT_SESSION`) or reads `DUPLICATE_AGENTS` beside an agent.
 
 The desired state comes from the server by default: `hostDesiredState(appRef,
 hostId)` (S3, hadron-server#4224), read without the worker session. A worker
@@ -4521,6 +4523,27 @@ cancellation stops the retry. The launch uses a fresh
 recover prompt, never a new bind or `--resume`, then verifies its own pinned
 process and rechecks desired state and binding. Failed verification stops
 only that launch. Plain worktree bindings need no Git.
+
+Dead-tab cleanup is opt-in: `orca_launch.cleanup_dead_tabs: true` (default
+false; keep disabled until live host validation). After a verified C5 relaunch
+and its outcome notice, cleanup reacquires admission and rechecks binding and
+desired state, then may close a leftover tab only when every pane is
+disconnected, unidentified and in this worktree. A connected shell may hold a
+human's build, ssh or editor and stays open. The tracked handle must still be
+in a separate tab. A fresh strict census must show only the pinned relaunched
+agent; a nested agent match in its own tree leaves the old tab open (known
+conservative limit). Disconnected alone is not proof. Non-Linux closes no
+unidentified tab. Local `relaunch-terminal-cleanup` events carry existing
+worker/session/terminal fields, outcome applied|skipped|failed and reason
+`DEAD_TAB_CLOSED`, `TRACKED_TERMINAL`, `IDENTIFIED_TERMINAL`,
+`CONNECTED_TERMINAL`, `TAB_UNPROVEN`, `CENSUS_UNPROVEN`,
+`TERMINAL_LIST_UNAVAILABLE`, `TERMINAL_CLOSE_FAILED`, `CLEANUP_DISABLED`,
+`CLEANUP_UNAVAILABLE`, `CLEANUP_ADMISSION_UNAVAILABLE`,
+`CLEANUP_BINDING_UNPROVEN`, `CLEANUP_TARGET_UNPROVEN` or `CLEANUP_PANIC`.
+No extra server event is sent; cleanup runs after the notice and cannot
+suppress it. The pass has a cooperative 30-second deadline and catches cleanup
+panics without exposing their text. Unproven tabs have no autonomous retry;
+they wait for a later successful relaunch or manual operations.
 
 Poller `--json` relaunch events identify `workerId`, `sessionId`, `reason`,
 `attempt` and the absence observation's `checkedAt`, plus a terminal handle
