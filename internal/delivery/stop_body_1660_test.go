@@ -11,12 +11,13 @@ import (
 // instead of asserting the notice is un-typed for good (a notice typed after
 // the post — or typed but held from ack, so TypedAt is still zero — would
 // otherwise read as never typed). Wording per Uma's rulings: option B
-// (#112587), notice clause amended (#112917), full sentence re-amended
-// (#113270) after the BLIND delta P2 (Joaquin, 21d7dc97).
+// (#112587), notice clause amended (#112917), final sentence #113290
+// (superseding the #113270 interim) after the BLIND delta P2 (Joaquin,
+// 21d7dc97).
 func TestStopDropBodyScopesTheUntypedClaimToThePostTime_1660(t *testing.T) {
 	now := time.Date(2026, 11, 4, 12, 5, 0, 0, time.UTC)
 	body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: time.Unix(0, 0)}, now)
-	want := "@ada Gil had no acknowledged HALT notice as of 2026-11-04T12:05:00Z and may still be running: its notice (event e) was held (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed into its session, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
+	want := "@ada Gil had not acknowledged a halt notice as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event e) had no acknowledged typing as of then (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
 	if body != want {
 		t.Fatalf("body = %q", body)
 	}
@@ -27,12 +28,13 @@ func TestStopDropBodyScopesTheUntypedClaimToThePostTime_1660(t *testing.T) {
 // TypedAt is stamped only after an ack, so a notice typed but held from ack
 // has TypedAt == 0 and takes this branch; "had not been told to halt" can be
 // false in that state (the worker may already hold the halt text), so the
-// body claims only what the host knows — no acknowledged notice as of T —
-// and widens the typing hedge to "before or after then" (Uma, #113270).
+// body claims only the missing acknowledgment (Uma's final #113290: "had
+// not acknowledged a halt notice as of T") and widens the typing hedge to
+// "before or after then" (the typing may predate the post moment).
 func TestStopDropBodyClaimsOnlyWhatAnUnackedRecordEstablishes_1660(t *testing.T) {
 	now := time.Date(2026, 11, 4, 12, 5, 0, 0, time.UTC)
 	body := stopDropBody("ada", StopDrop{EventID: "ev-9", Worker: "Hana", Level: "HALT", HoldReason: "draft", HeldAt: time.Date(2026, 11, 4, 11, 0, 0, 0, time.UTC)}, now)
-	want := "@ada Hana had no acknowledged HALT notice as of 2026-11-04T12:05:00Z and may still be running: its notice (event ev-9) was held (draft: unsent text is in its input box, since 2026-11-04T11:00:00Z). It may have been typed into its session, before or after then. The host retries every poll and this is the only post about it, so check Hana's terminal."
+	want := "@ada Hana had not acknowledged a halt notice as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event ev-9) had no acknowledged typing as of then (draft: unsent text is in its input box, since 2026-11-04T11:00:00Z). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check Hana's terminal."
 	if body != want {
 		t.Fatalf("body = %q", body)
 	}
@@ -53,7 +55,7 @@ func TestStopDropBodyClaimsOnlyWhatAnUnackedRecordEstablishes_1660(t *testing.T)
 func TestStopDropBodyAsOfStampIsUTCWhateverTheClockSays_1660(t *testing.T) {
 	now := time.Date(2026, 11, 4, 13, 5, 0, 0, time.FixedZone("CET", 1*60*60))
 	body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: time.Unix(0, 0)}, now)
-	want := "@ada Gil had no acknowledged HALT notice as of 2026-11-04T12:05:00Z and may still be running: its notice (event e) was held (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed into its session, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
+	want := "@ada Gil had not acknowledged a halt notice as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event e) had no acknowledged typing as of then (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
 	if body != want {
 		t.Fatalf("body = %q", body)
 	}
@@ -65,7 +67,7 @@ func TestStopReporterScopesUntypedDropToItsPostTime_1660(t *testing.T) {
 	f := newReporterFixture(t)
 	f.run(f.reporter())
 	bodies := f.chat.bodies()
-	want := "@ada Gil had no acknowledged HALT notice as of 2026-11-04T12:00:00Z and may still be running: its notice (event ev-1) was held (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). It may have been typed into its session, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
+	want := "@ada Gil had not acknowledged a halt notice as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) had no acknowledged typing as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal."
 	if len(bodies) != 1 || bodies[0] != want {
 		t.Fatalf("bodies = %q", bodies)
 	}
