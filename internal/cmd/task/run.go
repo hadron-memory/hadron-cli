@@ -45,7 +45,11 @@ instead EXECUTES the task server-side — minting a headless run under that App
 'hadron run get <id>'. --as-self runs on behalf of you (reaches your personal
 memories; authenticated user only). --agent names the installed Agent the run
 is served as (an ID or URN); omitted, the App's single installed Agent serves
-it, and an App with several refuses until you name one.`,
+it, and an App with several refuses until you name one.
+
+For the renderRunNode Query without execution, use 'hadron task render'. Both
+record content read usage; task run's render mode also records an action-run,
+while task render records no action-run and never executes.`,
 		Example: `  hadron task run hrn:node:hadronmemory.com:experiments:email:send --arg to=user@example.com --arg subject="Hello"
   hadron task run send -m hrn:mem:hadronmemory.com:experiments --arg to=user@example.com
   hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --arg topic=security --as-self

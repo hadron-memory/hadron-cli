@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -192,5 +193,59 @@ func TestReconcileServerWithoutTheFeedIsUsage1962(t *testing.T) {
 	_, _, _, err := run1962(t, path, bad)
 	if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "predates hadron-server#4084") {
 		t.Fatalf("want usage naming #4084, got %v", err)
+	}
+}
+
+func TestReconcileTextNoteAndTrackJSON1976(t *testing.T) {
+	for _, track := range []bool{false, true} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("track=%v/json=%v", track, asJSON), func(t *testing.T) {
+				path, _ := fakeAdapter1962(t, describeAll1962, "")
+				args := []string{}
+				if track {
+					args = append(args, "--track")
+				}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				_, out, stderr, err := run1962(t, path, feed1962(false, "", change1962("FINISHED", itemR1, "c1", "t1", "AT1", "", "")), args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if asJSON {
+					var dto struct {
+						Reconcile *struct {
+							Read              int  `json:"read"`
+							Skipped           int  `json:"skipped"`
+							SkippedKind       int  `json:"skippedKind"`
+							SkippedNull       *int `json:"skippedNull"`
+							SkippedUndeclared *int `json:"skippedUndeclared"`
+							SkippedNoAssignee *int `json:"skippedNoAssignee"`
+							SkippedNoTask     *int `json:"skippedNoTask"`
+						} `json:"reconcile"`
+					}
+					if err := json.Unmarshal([]byte(out), &dto); err != nil {
+						t.Fatal(err)
+					}
+					d := dto.Reconcile
+					if d == nil {
+						t.Fatalf("missing reconcile: %s", out)
+					}
+					if d.Read != 1 || d.Skipped != 1 || d.SkippedKind != 1 {
+						t.Fatalf("wrong counters: %+v", d)
+					}
+					for _, zero := range []*int{d.SkippedNull, d.SkippedUndeclared, d.SkippedNoAssignee, d.SkippedNoTask} {
+						if zero == nil || *zero != 0 {
+							t.Fatalf("zero reason counter missing or nonzero: %s", out)
+						}
+					}
+					if strings.Contains(stderr, "note: reconcile:") {
+						t.Fatalf("JSON note: %s", stderr)
+					}
+				} else if !strings.Contains(stderr, "note: reconcile: read 1 change(s): 0 marked, 0 untracked, 0 reported, 1 skipped\n") || strings.Contains(out, "note: reconcile:") {
+					t.Fatalf("note belongs on stderr: stdout=%q stderr=%q", out, stderr)
+				}
+			})
+		}
 	}
 }

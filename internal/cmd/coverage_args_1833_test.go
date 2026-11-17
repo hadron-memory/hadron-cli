@@ -156,11 +156,16 @@ func TestChatHeadsValidationAndRefusals1833(t *testing.T) {
 }
 
 func TestNewArgumentSkewNeverWidens1833(t *testing.T) {
-	for _, kind := range []string{"heads", "preview"} {
+	for _, kind := range []string{"heads", "channel-heads", "preview"} {
 		r := taskResponses()
 		op := "TeamChatTagsMultiAttributed"
 		args := []string{"team", "chat", "read", "--team-head", "a", "--team-head", "b", "--json"}
 		message := "Unknown argument \"teamHeadRefs\" on field \"Query.teamChatMessages\"."
+		if kind == "channel-heads" {
+			op = "ChannelTagsMulti"
+			args = []string{"channel", "read", "hrn:node:acme.com:kb:chat", "--team-head", "a", "--team-head", "b", "--json"}
+			message = "Unknown argument \"teamHeadRefs\" on field \"Query.channelMessages\"."
+		}
 		if kind == "preview" {
 			op = "TeamDueWakesPreview"
 			args = []string{"team", "wakes", "due", "--preview"}
@@ -168,12 +173,20 @@ func TestNewArgumentSkewNeverWidens1833(t *testing.T) {
 		}
 		response, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}})
 		r[op] = string(response)
+		// A headerless plural retry can return the same refusal. Count it,
+		// rather than letting an unexpected-operation stub kill the test.
+		if kind == "heads" {
+			r["TeamChatTagsMulti"] = string(response)
+		}
 		calls, _, err := runTeamTask(t, r, args...)
 		if exitCodeFor(err) != 2 {
 			t.Fatalf("unknown argument should refuse: %v", err)
 		}
-		seen := 0
+		seen, reads := 0, 0
 		for _, c := range *calls {
+			if strings.Contains(c.Op, "Tags") || strings.HasPrefix(c.Op, "TeamDueWakes") {
+				reads++
+			}
 			if c.Op == op {
 				seen++
 			}
@@ -181,7 +194,7 @@ func TestNewArgumentSkewNeverWidens1833(t *testing.T) {
 				t.Fatalf("requested capability widened on skew: %+v", c)
 			}
 		}
-		if seen != 1 {
+		if seen != 1 || reads != 1 {
 			t.Fatalf("capability request retried: %+v", *calls)
 		}
 	}
@@ -210,5 +223,81 @@ func TestPluralHeadsAttributionFallback1833(t *testing.T) {
 	}
 	if n != 2 {
 		t.Fatalf("want attributed and headerless plural attempts: %+v", *calls)
+	}
+}
+
+func TestPluralHeadRefusalParity2246(t *testing.T) {
+	for _, surface := range []string{"team", "channel"} {
+		for code, want := range map[string]int{"TEAM_CHAT_TEAM_HEAD_INVALID": 4, "TEAM_CHAT_TEAM_METADATA_FORBIDDEN": 8} {
+			t.Run(surface+"/"+code, func(t *testing.T) {
+				var previous string
+				for _, plural := range []bool{false, true} {
+					teamGitDir(t)
+					srv, calls := tag936Server(t, "null", code)
+					f, out := testFactory(t)
+					root := NewRootCmd(f)
+					extra := []string{"--team-head", "invalid"}
+					if plural {
+						extra = append(extra, "--team-head", "also-invalid")
+					}
+					root.SetArgs(tag936Args(surface, srv.URL, extra...))
+					err := root.Execute()
+					if got := renderError(f, err); got != want {
+						t.Fatalf("exit=%d want=%d err=%v", got, want, err)
+					}
+					if !strings.Contains(out.String(), `"serverCode": "`+code+`"`) || !strings.Contains(out.String(), "uniform refusal") {
+						t.Fatalf("refusal lost: %s", out.String())
+					}
+					if plural && out.String() != previous {
+						t.Fatalf("singular/plural refusal differs: %q / %q", previous, out.String())
+					}
+					previous = out.String()
+					n := 0
+					for _, c := range *calls {
+						if strings.Contains(c.Op, "Tags") {
+							n++
+							if plural && !reflect.DeepEqual(c.Vars["teamHeadRefs"], []any{"invalid", "also-invalid"}) {
+								t.Fatalf("filter lost: %+v", c)
+							}
+						}
+					}
+					if n != 1 {
+						t.Fatalf("refusal retried: %+v", *calls)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestPreviewArgumentsPassThrough2246(t *testing.T) {
+	for _, acceptStop := range []bool{false, true} {
+		t.Run(jsonInt(map[bool]int{false: 0, true: 1}[acceptStop]), func(t *testing.T) {
+			r := c1279Responses(c1279Page("OK", 0, ""))
+			r["TeamDueWakesPreview"] = r["TeamDueWakes"]
+			args := []string{"team", "wakes", "due", "--preview", "--worker", "Iris", "--first", "7", "--after", "opaque+cursor", "--json"}
+			if acceptStop {
+				args = append(args, "--accept-stop")
+			}
+			calls, _, err := runTeamTask(t, r, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reads := stopCalls(calls, "TeamDueWakesPreview")
+			if len(reads) != 1 || len(stopCalls(calls, "TeamDueWakes")) != 0 {
+				t.Fatalf("preview widened: %+v", *calls)
+			}
+			v := reads[0].Vars
+			if !reflect.DeepEqual(v["workerRefs"], []any{"wkr1"}) || v["first"] != float64(7) || v["after"] != "opaque+cursor" {
+				t.Fatalf("args lost: %+v", v)
+			}
+			if acceptStop {
+				if !reflect.DeepEqual(v["accepts"], []any{"MENTION", "TICK", "TASK", "STOP"}) {
+					t.Fatalf("accepts lost: %+v", v)
+				}
+			} else if _, exists := v["accepts"]; exists {
+				t.Fatalf("omitted accepts sent: %+v", v)
+			}
+		})
 	}
 }

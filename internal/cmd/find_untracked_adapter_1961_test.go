@@ -195,7 +195,7 @@ func TestAdapterTrackClaimsThenMarks1961(t *testing.T) {
 	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "Fix the thing")+`]}'`, "")
 	r := map[string]string{
 		"IntakeTasksByExternalIds": held1961(),
-		"IntakeClaimTask":          claimed1961("t1", itemA1961, "wkr1", "Iris", "https://portal.test/app/apps/a1/tasks/t1", "PENDING"),
+		"IntakeClaimTask":          claimed1961("t1", itemA1961, "wkr1", "Iris", "https://portal.test/app/apps/a1/tasks/t1", "STARTED"),
 		"IntakeStartTask":          started1961,
 	}
 	calls, out, _, err := run1961(t, path, r, "--track", "--json")
@@ -214,8 +214,8 @@ func TestAdapterTrackClaimsThenMarks1961(t *testing.T) {
 			t.Errorf("no tracker label or extra field reaches Hadron: %s in %v", banned, in)
 		}
 	}
-	if len(opsOf1961(calls, "IntakeStartTask")) != 1 {
-		t.Fatal("a claim the caller holds is started")
+	if len(opsOf1961(calls, "IntakeStartTask")) != 0 {
+		t.Fatal("the server starts the claim in its create")
 	}
 	marks := adapterLog1961(t, log, "mark-tracked")
 	if len(marks) != 1 {
@@ -236,7 +236,7 @@ func TestAdapterTrackClaimsThenMarks1961(t *testing.T) {
 		Complete bool
 	}
 	_ = json.Unmarshal([]byte(out), &dto)
-	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "STARTED" || !dto.Tasks[0].Marked || !dto.Complete || len(dto.Lost) != 0 {
+	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "STARTED" || !dto.Tasks[0].Marked || dto.Complete || len(dto.Lost) != 0 {
 		t.Fatalf("got %s", out)
 	}
 }
@@ -432,7 +432,7 @@ func TestAdapterHostileAnswersRefuseSafelyAndClaimNothing1961(t *testing.T) {
 }
 
 func TestAdapterTerminalEscapesInItemTextNeverReachHadronOrTheTerminal1961(t *testing.T) {
-	list := `printf '{"items":[{"externalId":"` + itemA1961 + `","title":"\\u001b[2Jevil\\u202e"}]}'`
+	list := `printf '%s\n' '{"items":[{"externalId":"` + itemA1961 + `","title":"\u001b[2Jevil\u202e"}]}'`
 	path, _ := fakeAdapter1961(t, "", list, "")
 	r := map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": claimed1961("t1", itemA1961, "wkr1", "Iris", "", "PENDING"), "IntakeStartTask": started1961}
 	calls, out, _, err := run1961(t, path, r, "--track")
@@ -524,10 +524,9 @@ func runFindHook1961(t *testing.T, responses map[string]string, hook func(op str
 	return calls, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
 
-// A failure between the create and the start (gate addendum 2): the task
-// exists and is PENDING, the CLI reports it, the mark still happens (the claim
-// stands), and a retry finds the external id held, so it creates nothing.
-func TestAdapterStartFailureAfterCreateIsReportedAndRetryDedupes1961(t *testing.T) {
+// An older server may create PENDING; the CLI reports the server state,
+// marks the held claim and never attempts a second mutation. A retry dedupes.
+func TestAdapterPendingCreateIsReportedAndRetryDedupes1974(t *testing.T) {
 	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 	r := map[string]string{
 		"IntakeTasksByExternalIds": held1961(),
@@ -546,10 +545,10 @@ func TestAdapterStartFailureAfterCreateIsReportedAndRetryDedupes1961(t *testing.
 		}
 	}
 	_ = json.Unmarshal([]byte(out), &dto)
-	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "PENDING" || dto.Tasks[0].StartError == nil || !dto.Tasks[0].Marked {
+	if len(dto.Tasks) != 1 || dto.Tasks[0].Status != "PENDING" || dto.Tasks[0].StartError != nil || !dto.Tasks[0].Marked {
 		t.Fatalf("got %s", out)
 	}
-	if !strings.Contains(errOut, "could not be started") || len(adapterLog1961(t, log, "mark-tracked")) != 1 {
+	if !strings.Contains(errOut, "is PENDING for Iris") || len(adapterLog1961(t, log, "mark-tracked")) != 1 {
 		t.Fatalf("the failure is reported and the claim still marked: %q", errOut)
 	}
 	// The retry: Hadron now holds the id, so nothing is created.
@@ -662,7 +661,7 @@ func withEmptyChanges1962(responses map[string]string) map[string]string {
 // cli#1978: a server with hadron-server#4113 answers the caller's own claim
 // STARTED in the create, so no startAgentTask follows and the claim is
 // reported (and marked) as STARTED. The PENDING-answer tests above pin the
-// older-server path (start call kept, startError reported).
+// older-server path (PENDING reported without a second mutation).
 func TestAdapterStartedCreateMakesNoStartCall1978(t *testing.T) {
 	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 	created := claimed1961("t1", itemA1961, "wkr1", "Iris", "", "STARTED")
@@ -794,5 +793,86 @@ func TestAdapterStartedCreateOutputs1981(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAdapterFollowups1974(t *testing.T) {
+	t.Run("empty integration refuses instead of selecting env", func(t *testing.T) {
+		t.Setenv(adapterEnvForTest, "must-not-run")
+		calls, _, _, err := runFind1524(t, nil, "--integration", "")
+		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+			t.Fatalf("err=%v calls=%v", err, *calls)
+		}
+	})
+	t.Run("list limit is not exhaustion", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`],"nextCursor":"next"}'`, "")
+		_, out, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--json", "--limit", "1")
+		var d struct {
+			Complete      bool
+			StoppedReason string
+		}
+		_ = json.Unmarshal([]byte(out), &d)
+		if err != nil || d.Complete || d.StoppedReason != "limit_reached" {
+			t.Fatalf("%v %s", err, out)
+		}
+	})
+	t.Run("pending create is not started locally and null name has fallback", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+		response := strings.Replace(claimed1961("t1", itemA1961, "wkr1", "Iris", "", "PENDING"), `"name":"Iris"`, `"name":null`, 1)
+		calls, out, errOut, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": response, "IntakeStartTask": started1961}, "--track", "--json")
+		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 || !strings.Contains(out, `"assignee": "wkr1"`) || strings.Contains(errOut, "PENDING for ,") {
+			t.Fatalf("%v %s %s starts=%v", err, out, errOut, opsOf1961(calls, "IntakeStartTask"))
+		}
+	})
+}
+
+func TestAdapterCoverage1974(t *testing.T) {
+	t.Run("server predating externalIds", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+		calls, out, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": `{"errors":[{"message":"Unknown argument \"externalIds\" on field \"Query.agentTasks\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}, "--track", "--json")
+		if exitCodeFor(err) != exitcode.Usage || len(opsOf1961(calls, "IntakeClaimTask")) != 0 || !strings.Contains(out, `"check_failed"`) {
+			t.Fatalf("%v %s", err, out)
+		}
+	})
+	t.Run("owner forwarded", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+		calls, _, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": claimed1961("t1", itemA1961, "wkr1", "Iris", "", "STARTED")}, "--track", "--owner", "user:holger")
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner, _ := inputOf1961(t, opsOf1961(calls, "IntakeClaimTask")[0])["owner"].(map[string]any)
+		if owner["user"] != "holger" {
+			t.Fatalf("owner=%v", owner)
+		}
+	})
+	for _, withFor := range []bool{false, true} {
+		t.Run(fmt.Sprintf("unbound for=%v", withFor), func(t *testing.T) {
+			t.Setenv(adapterEnvForTest, "")
+			teamGitDir(t)
+			path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+			srv, calls := attnServer(t, withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": claimed1961("t1", itemA1961, "wkrM", "Marco", "", "PENDING")}))
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"--server", srv.URL, "--app", "capp100000000000000000000", "team", "task", "find-untracked", "--adapter", path, "--track"}
+			if withFor {
+				args = append(args, "--for", "Marco")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			claims := opsOf1961(calls, "IntakeClaimTask")
+			if !withFor {
+				if exitCodeFor(err) != exitcode.Usage || len(claims) != 0 {
+					t.Fatalf("%v %v", err, claims)
+				}
+				return
+			}
+			if err != nil || len(claims) != 1 {
+				t.Fatalf("%v %v", err, claims)
+			}
+			a, _ := inputOf1961(t, claims[0])["assignee"].(map[string]any)
+			if a["worker"] != "Marco" {
+				t.Fatalf("assignee=%v", a)
+			}
+		})
 	}
 }

@@ -14687,7 +14687,8 @@ func (v *AgentTeamEventsPageAgentTeamEventsPageEventsAgentTeamEvent) __premarsha
 type AgentTeamEventsPageResponse struct {
 	// #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
 	// filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
-	// another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+	// another read. For the forward stream, hasMore describes the eligible prefix below the snapshot horizon; keep the
+	// cursor and poll again while older transactions remain open. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
 	// newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
 	// limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
 	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
@@ -16719,6 +16720,210 @@ func (v *AiServiceConfigWithEndpointResponse) GetAiServiceConfig() *AiServiceCon
 	return v.AiServiceConfig
 }
 
+// AiServiceConfigWithUrnAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type AiServiceConfigWithUrnAiServiceConfig struct {
+	AiServiceConfigEndpointFields `json:"-"`
+	// The config's URN, computed from its owner's current URN plus its name
+	// (hrn:node:hadronmemory.com:specs:cor:urn:010:01, V60-V63): hrn:aiconf:<org>:org:<name>,
+	// hrn:aiconf:<root>:app:<app-slug>:<name>, hrn:aiconf:<author-root>:agent:<agent-slug>:<name>,
+	// or hrn:aiconf:server:<name> for a HadronServer owner. Null for a name that cannot be a
+	// URN atom (a trailing '-' or '_'), for a stored name that is not lower-case canonical, and for a
+	// validly named config of a HadronServer that is not the current one (the oldest live row).
+	// Renaming the config re-addresses it, with no alias.
+	Urn *string `json:"urn"`
+}
+
+// GetUrn returns AiServiceConfigWithUrnAiServiceConfig.Urn, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetUrn() *string { return v.Urn }
+
+// GetId returns AiServiceConfigWithUrnAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetId() string {
+	return v.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns AiServiceConfigWithUrnAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetName() string {
+	return v.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns AiServiceConfigWithUrnAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns AiServiceConfigWithUrnAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns AiServiceConfigWithUrnAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns AiServiceConfigWithUrnAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns AiServiceConfigWithUrnAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns AiServiceConfigWithUrnAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns AiServiceConfigWithUrnAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns AiServiceConfigWithUrnAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns AiServiceConfigWithUrnAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns AiServiceConfigWithUrnAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns AiServiceConfigWithUrnAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns AiServiceConfigWithUrnAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *AiServiceConfigWithUrnAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiServiceConfigWithUrnAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiServiceConfigWithUrnAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigEndpointFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiServiceConfigWithUrnAiServiceConfig struct {
+	Urn *string `json:"urn"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *AiServiceConfigWithUrnAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiServiceConfigWithUrnAiServiceConfig) __premarshalJSON() (*__premarshalAiServiceConfigWithUrnAiServiceConfig, error) {
+	var retval __premarshalAiServiceConfigWithUrnAiServiceConfig
+
+	retval.Urn = v.Urn
+	retval.Id = v.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
+// AiServiceConfigWithUrnResponse is returned by AiServiceConfigWithUrn on success.
+type AiServiceConfigWithUrnResponse struct {
+	// The uniform single-config read. 'ref' is the config's ID or its hrn:aiconf: URN
+	// (#3857, hrn:node:hadronmemory.com:specs:cor:urn:010:01; see AiServiceConfig.urn).
+	// On the URN path a config the caller may not read answers null, exactly as a
+	// missing one does, because names such as 'default' are guessable
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:01); the ID path keeps the
+	// posture below.
+	// Masked: never returns key material, only hasApiKey + apiKeyPreview
+	// (resolveAIConfig is the privileged decrypted read). Auth mirrors the list:
+	// platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
+	// the App/Agent's owner or owning-org ADMIN for APP/AGENT. User-owned
+	// Apps and Agents use their strict owner-only credential gate, even for
+	// platform admins. Denied throws Forbidden, except an unreadable owning
+	// Agent answers AGENT_NOT_FOUND. A missing config returns null.
+	AiServiceConfig *AiServiceConfigWithUrnAiServiceConfig `json:"aiServiceConfig"`
+}
+
+// GetAiServiceConfig returns AiServiceConfigWithUrnResponse.AiServiceConfig, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigWithUrnResponse) GetAiServiceConfig() *AiServiceConfigWithUrnAiServiceConfig {
+	return v.AiServiceConfig
+}
+
 // AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage includes the requested fields of the GraphQL type AiServiceConfigsPage.
 type AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage struct {
 	Items []*AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig `json:"items"`
@@ -16933,6 +17138,241 @@ type AiServiceConfigsMaskedResponse struct {
 
 // GetAiServiceConfigs returns AiServiceConfigsMaskedResponse.AiServiceConfigs, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigsMaskedResponse) GetAiServiceConfigs() *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage {
+	return v.AiServiceConfigs
+}
+
+// AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage includes the requested fields of the GraphQL type AiServiceConfigsPage.
+type AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage struct {
+	Items []*AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig `json:"items"`
+	Total int                                                                                      `json:"total"`
+}
+
+// GetItems returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage.Items, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage) GetItems() []*AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig {
+	return v.Items
+}
+
+// GetTotal returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage.Total, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage) GetTotal() int {
+	return v.Total
+}
+
+// AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig struct {
+	AiServiceConfigStyleFields `json:"-"`
+	// The config's URN, computed from its owner's current URN plus its name
+	// (hrn:node:hadronmemory.com:specs:cor:urn:010:01, V60-V63): hrn:aiconf:<org>:org:<name>,
+	// hrn:aiconf:<root>:app:<app-slug>:<name>, hrn:aiconf:<author-root>:agent:<agent-slug>:<name>,
+	// or hrn:aiconf:server:<name> for a HadronServer owner. Null for a name that cannot be a
+	// URN atom (a trailing '-' or '_'), for a stored name that is not lower-case canonical, and for a
+	// validly named config of a HadronServer that is not the current one (the oldest live row).
+	// Renaming the config re-addresses it, with no alias.
+	Urn *string `json:"urn"`
+}
+
+// GetUrn returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Urn, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetUrn() *string {
+	return v.Urn
+}
+
+// GetApiStyle returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.ApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.ApiStyle
+}
+
+// GetEffectiveApiStyle returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEffectiveApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.EffectiveApiStyle
+}
+
+// GetId returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetName() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigStyleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig struct {
+	Urn *string `json:"urn"`
+
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) __premarshalJSON() (*__premarshalAiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig, error) {
+	var retval __premarshalAiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig
+
+	retval.Urn = v.Urn
+	retval.ApiStyle = v.AiServiceConfigStyleFields.ApiStyle
+	retval.EffectiveApiStyle = v.AiServiceConfigStyleFields.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
+// AiServiceConfigsMaskedWithUrnResponse is returned by AiServiceConfigsMaskedWithUrn on success.
+type AiServiceConfigsMaskedWithUrnResponse struct {
+	// 036-ai-service-config: masked, paginated list of AI configs (#473).
+	// Never returns key material — only hasApiKey + apiKeyPreview.
+	//
+	// filter names the owning entity. Auth: platform ADMIN/OWNER for
+	// HADRON_SERVER owners; org ADMIN of the owning org for ORGANIZATION /
+	// APP / AGENT owners. filter omitted entirely = the platform ADMIN/OWNER
+	// cross-owner view of every config (non-admin callers must filter).
+	//
+	// Name-ascending order (id tiebreak); limit default 20 / cap 200;
+	// limit: 0 -> count only.
+	AiServiceConfigs *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage `json:"aiServiceConfigs"`
+}
+
+// GetAiServiceConfigs returns AiServiceConfigsMaskedWithUrnResponse.AiServiceConfigs, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedWithUrnResponse) GetAiServiceConfigs() *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage {
 	return v.AiServiceConfigs
 }
 
@@ -67010,8 +67450,7 @@ func (v *MyGrantsMyGrantsGrantsPage) GetItems() []*MyGrantsMyGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type MyGrantsMyGrantsGrantsPageItemsGrant struct {
 	Id    string `json:"id"`
 	AppId string `json:"appId"`
@@ -75109,10 +75548,10 @@ type PublicOrganizationPublicOrganization struct {
 	Urn                 string `json:"urn"`
 	Name                string `json:"name"`
 	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
-	// SUPERSEDED by publicMemoriesPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC, non-app-scoped memories (sanitized refs), now only the first page of 20 in (name, id) order. Use publicMemoriesPage to reach the rest.
-	PublicMemories []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef `json:"publicMemories"`
-	// SUPERSEDED by publicAgentsPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC agents (sanitized refs), now only the first page of 20 in (name, id) order. Use publicAgentsPage to reach the rest.
-	PublicAgents []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef `json:"publicAgents"`
+	// The org's PUBLIC, non-app-scoped memories (sanitized refs), one page in (name, id) order. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. total counts exactly the rows the public gate admits (hrn:node:hadronmemory.com:specs:cor:acl:080:02, hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	PublicMemoriesPage *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage `json:"publicMemoriesPage"`
+	// The org's PUBLIC agents (sanitized refs), one page in (name, id) order; same paging rules as publicMemoriesPage.
+	PublicAgentsPage *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage `json:"publicAgentsPage"`
 }
 
 // GetId returns PublicOrganizationPublicOrganization.Id, and is useful for accessing the field via an interface.
@@ -75129,55 +75568,80 @@ func (v *PublicOrganizationPublicOrganization) GetListedOnMarketplace() bool {
 	return v.ListedOnMarketplace
 }
 
-// GetPublicMemories returns PublicOrganizationPublicOrganization.PublicMemories, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicMemories() []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef {
-	return v.PublicMemories
+// GetPublicMemoriesPage returns PublicOrganizationPublicOrganization.PublicMemoriesPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicMemoriesPage() *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage {
+	return v.PublicMemoriesPage
 }
 
-// GetPublicAgents returns PublicOrganizationPublicOrganization.PublicAgents, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicAgents() []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef {
-	return v.PublicAgents
+// GetPublicAgentsPage returns PublicOrganizationPublicOrganization.PublicAgentsPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicAgentsPage() *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage {
+	return v.PublicAgentsPage
 }
 
-// PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                 `json:"total"`
+	HasMore bool                                                                                                `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75192,7 +75656,7 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Unma
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75202,7 +75666,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceR
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75210,8 +75674,8 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Mars
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -75220,45 +75684,70 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __pr
 	return &retval, nil
 }
 
-// PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                   `json:"total"`
+	HasMore bool                                                                                                  `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75273,7 +75762,7 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Un
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75283,7 +75772,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourc
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75291,8 +75780,8 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Ma
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -78171,6 +78660,42 @@ type RemoveOrgMemberResponse struct {
 // GetRemoveOrgMember returns RemoveOrgMemberResponse.RemoveOrgMember, and is useful for accessing the field via an interface.
 func (v *RemoveOrgMemberResponse) GetRemoveOrgMember() bool { return v.RemoveOrgMember }
 
+// RenderRunNodeResponse is returned by RenderRunNode on success.
+type RenderRunNodeResponse struct {
+	// Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
+	// hadron_run_action, which despite its name executes nothing: it loads the
+	// node, resolves its dependency edges, and renders with args.
+	//
+	// runTask covers the EXECUTE half. This is the render half, for previewing a
+	// task before running it (a task run --dry-run), for reading an action's
+	// assembled instructions when the CALLER is the executor, and for debugging
+	// template/dependency resolution without side effects.
+	//
+	// A Query because it is side-effect-free, and unlike the MCP tool it records
+	// NO action-run UsageEvent — metering a preview would inflate the ledger with
+	// actions nobody took.
+	//
+	// Uses the SAME assembler runTask executes (Mustache compilation via
+	// compileTemplate; flow-ROUTING edges skipped, since they are the walker's
+	// rails rather than references), so a dry run predicts the real prompt.
+	//
+	// Two deliberate narrowings relative to execution, both fail-safe: a
+	// referenced node the caller cannot READ is omitted rather than inlined
+	// (an edge may cross memories), and an edge whose target was soft-deleted is
+	// skipped so a preview cannot resurrect removed instructions.
+	//
+	// NOTE this is NOT the legacy MCP hadron_run_action bundle, which does a
+	// literal placeholder replace and inlines every outgoing edge. Where the two
+	// differ, this one matches execution.
+	//
+	// nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
+	// missing both raise NODE_NOT_FOUND - no existence oracle.
+	RenderRunNode string `json:"renderRunNode"`
+}
+
+// GetRenderRunNode returns RenderRunNodeResponse.RenderRunNode, and is useful for accessing the field via an interface.
+func (v *RenderRunNodeResponse) GetRenderRunNode() string { return v.RenderRunNode }
+
 // RenumberSpecRenumberSpecSpecRenumberResult includes the requested fields of the GraphQL type SpecRenumberResult.
 // The GraphQL type's documentation follows.
 //
@@ -79703,6 +80228,221 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 	return v.ResolveAiServiceConfigs
 }
 
+// ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig struct {
+	AiServiceConfigEndpointFields `json:"-"`
+	// The config's URN, computed from its owner's current URN plus its name
+	// (hrn:node:hadronmemory.com:specs:cor:urn:010:01, V60-V63): hrn:aiconf:<org>:org:<name>,
+	// hrn:aiconf:<root>:app:<app-slug>:<name>, hrn:aiconf:<author-root>:agent:<agent-slug>:<name>,
+	// or hrn:aiconf:server:<name> for a HadronServer owner. Null for a name that cannot be a
+	// URN atom (a trailing '-' or '_'), for a stored name that is not lower-case canonical, and for a
+	// validly named config of a HadronServer that is not the current one (the oldest live row).
+	// Renaming the config re-addresses it, with no alias.
+	Urn *string `json:"urn"`
+}
+
+// GetUrn returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Urn, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetUrn() *string {
+	return v.Urn
+}
+
+// GetId returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetId() string {
+	return v.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetName() string {
+	return v.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigEndpointFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig struct {
+	Urn *string `json:"urn"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig) __premarshalJSON() (*__premarshalResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig, error) {
+	var retval __premarshalResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig
+
+	retval.Urn = v.Urn
+	retval.Id = v.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
+// ResolveAiServiceConfigsWithEndpointAndUrnResponse is returned by ResolveAiServiceConfigsWithEndpointAndUrn on success.
+type ResolveAiServiceConfigsWithEndpointAndUrnResponse struct {
+	// 036-ai-service-config: the MASKED set of configs RESOLVABLE in an
+	// execution context — every distinct config name a chat in this context
+	// could select. Populates a config picker in the chatbot UI.
+	//
+	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
+	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// one: configs are deduped by name with the innermost owner winning, so
+	// each entry is the row the resolution walk selects for that name; this
+	// masked listing does not grant permission to decrypt it. Only
+	// the Agent named here contributes — sibling Agents installed in the same
+	// App are not consulted. Disabled configs are skipped. Never returns key
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
+	//
+	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
+	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
+	// resolveAIConfig and the aiServiceConfigs management list. Platform
+	// ADMIN/OWNER are always allowed and may omit appRef.
+	//
+	// appRef/agentRef accept the entity's ID or URN.
+	ResolveAiServiceConfigs []*ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig `json:"resolveAiServiceConfigs"`
+}
+
+// GetResolveAiServiceConfigs returns ResolveAiServiceConfigsWithEndpointAndUrnResponse.ResolveAiServiceConfigs, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithEndpointAndUrnResponse) GetResolveAiServiceConfigs() []*ResolveAiServiceConfigsWithEndpointAndUrnResolveAiServiceConfigsAiServiceConfig {
+	return v.ResolveAiServiceConfigs
+}
+
 // ResolveAiServiceConfigsWithEndpointResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
 //
@@ -79899,6 +80639,142 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 
 // GetResolveAiServiceConfigs returns ResolveAiServiceConfigsWithEndpointResponse.ResolveAiServiceConfigs, and is useful for accessing the field via an interface.
 func (v *ResolveAiServiceConfigsWithEndpointResponse) GetResolveAiServiceConfigs() []*ResolveAiServiceConfigsWithEndpointResolveAiServiceConfigsAiServiceConfig {
+	return v.ResolveAiServiceConfigs
+}
+
+// ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig struct {
+	Id        string            `json:"id"`
+	Name      string            `json:"name"`
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+	// ID of the owning HadronServer / Organization / App / Agent.
+	OwnerId string `json:"ownerId"`
+	// Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'kimi' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
+	Provider string `json:"provider"`
+	// Model identifier, passed verbatim to the provider.
+	Model     string `json:"model"`
+	HasApiKey bool   `json:"hasApiKey"`
+	// Ellipsis + last 4 characters of the stored key; null when no key.
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+	// Provider-specific knobs (maxTokens, thinking, effort, baseUrl, ...).
+	Params *json.RawMessage `json:"params"`
+	// Disabled configs are skipped by resolution (the walk continues outward).
+	Enabled   bool    `json:"enabled"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt *string `json:"updatedAt"`
+	// The config's URN, computed from its owner's current URN plus its name
+	// (hrn:node:hadronmemory.com:specs:cor:urn:010:01, V60-V63): hrn:aiconf:<org>:org:<name>,
+	// hrn:aiconf:<root>:app:<app-slug>:<name>, hrn:aiconf:<author-root>:agent:<agent-slug>:<name>,
+	// or hrn:aiconf:server:<name> for a HadronServer owner. Null for a name that cannot be a
+	// URN atom (a trailing '-' or '_'), for a stored name that is not lower-case canonical, and for a
+	// validly named config of a HadronServer that is not the current one (the oldest live row).
+	// Renaming the config re-addresses it, with no alias.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetId() string {
+	return v.Id
+}
+
+// GetName returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetName() string {
+	return v.Name
+}
+
+// GetOwnerType returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.OwnerType
+}
+
+// GetOwnerId returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetOwnerId() string {
+	return v.OwnerId
+}
+
+// GetProvider returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetProvider() string {
+	return v.Provider
+}
+
+// GetModel returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetModel() string {
+	return v.Model
+}
+
+// GetHasApiKey returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetHasApiKey() bool {
+	return v.HasApiKey
+}
+
+// GetApiKeyPreview returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetApiKeyPreview() *string {
+	return v.ApiKeyPreview
+}
+
+// GetParams returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetParams() *json.RawMessage {
+	return v.Params
+}
+
+// GetEnabled returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetCreatedAt returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetUpdatedAt() *string {
+	return v.UpdatedAt
+}
+
+// GetUrn returns ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig.Urn, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig) GetUrn() *string {
+	return v.Urn
+}
+
+// ResolveAiServiceConfigsWithUrnResponse is returned by ResolveAiServiceConfigsWithUrn on success.
+type ResolveAiServiceConfigsWithUrnResponse struct {
+	// 036-ai-service-config: the MASKED set of configs RESOLVABLE in an
+	// execution context — every distinct config name a chat in this context
+	// could select. Populates a config picker in the chatbot UI.
+	//
+	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
+	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// one: configs are deduped by name with the innermost owner winning, so
+	// each entry is the row the resolution walk selects for that name; this
+	// masked listing does not grant permission to decrypt it. Only
+	// the Agent named here contributes — sibling Agents installed in the same
+	// App are not consulted. Disabled configs are skipped. Never returns key
+	// material. hasApiKey remains visible; params and apiKeyPreview are null
+	// unless the caller manages the selected source.
+	//
+	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
+	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// must be installed and live-licensed in that App. Because the result is
+	// masked (no key material), App membership — not org admin — is the bar, unlike
+	// resolveAIConfig and the aiServiceConfigs management list. Platform
+	// ADMIN/OWNER are always allowed and may omit appRef.
+	//
+	// appRef/agentRef accept the entity's ID or URN.
+	ResolveAiServiceConfigs []*ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig `json:"resolveAiServiceConfigs"`
+}
+
+// GetResolveAiServiceConfigs returns ResolveAiServiceConfigsWithUrnResponse.ResolveAiServiceConfigs, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsWithUrnResponse) GetResolveAiServiceConfigs() []*ResolveAiServiceConfigsWithUrnResolveAiServiceConfigsAiServiceConfig {
 	return v.ResolveAiServiceConfigs
 }
 
@@ -96350,8 +97226,7 @@ func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompos
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamCreateGrantCreateGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -96909,8 +97784,7 @@ func (v *TeamDueWakesResponse) GetDueWakes() *TeamDueWakesDueWakesDueWakePage { 
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -97245,8 +98119,7 @@ func (v *TeamGrantsGrantsGrantsPage) GetItems() []*TeamGrantsGrantsGrantsPageIte
 // The GraphQL type's documentation follows.
 //
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-// through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-// cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamGrantsGrantsGrantsPageItemsGrant struct {
 	Id string `json:"id"`
 	// The registered action this grant allows.
@@ -118030,6 +118903,14 @@ type __AiServiceConfigWithEndpointInput struct {
 // GetRef returns __AiServiceConfigWithEndpointInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AiServiceConfigWithEndpointInput) GetRef() string { return v.Ref }
 
+// __AiServiceConfigWithUrnInput is used internally by genqlient
+type __AiServiceConfigWithUrnInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AiServiceConfigWithUrnInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigWithUrnInput) GetRef() string { return v.Ref }
+
 // __AiServiceConfigsMaskedInput is used internally by genqlient
 type __AiServiceConfigsMaskedInput struct {
 	Filter *AiServiceConfigFilter `json:"filter,omitempty"`
@@ -118045,6 +118926,22 @@ func (v *__AiServiceConfigsMaskedInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AiServiceConfigsMaskedInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AiServiceConfigsMaskedInput) GetOffset() *int { return v.Offset }
+
+// __AiServiceConfigsMaskedWithUrnInput is used internally by genqlient
+type __AiServiceConfigsMaskedWithUrnInput struct {
+	Filter *AiServiceConfigFilter `json:"filter,omitempty"`
+	Limit  *int                   `json:"limit,omitempty"`
+	Offset *int                   `json:"offset,omitempty"`
+}
+
+// GetFilter returns __AiServiceConfigsMaskedWithUrnInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedWithUrnInput) GetFilter() *AiServiceConfigFilter { return v.Filter }
+
+// GetLimit returns __AiServiceConfigsMaskedWithUrnInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedWithUrnInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AiServiceConfigsMaskedWithUrnInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedWithUrnInput) GetOffset() *int { return v.Offset }
 
 // __AlarmAcknowledgeInput is used internally by genqlient
 type __AlarmAcknowledgeInput struct {
@@ -123944,11 +124841,19 @@ func (v *__PublicAgentsInput) GetOffset() *int { return v.Offset }
 
 // __PublicOrganizationInput is used internally by genqlient
 type __PublicOrganizationInput struct {
-	Ref string `json:"ref"`
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __PublicOrganizationInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
 // __PurgeUnansweredDecisionInput is used internally by genqlient
 type __PurgeUnansweredDecisionInput struct {
@@ -124356,6 +125261,18 @@ func (v *__RemoveOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 // GetUserRef returns __RemoveOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__RemoveOrgMemberInput) GetUserRef() string { return v.UserRef }
 
+// __RenderRunNodeInput is used internally by genqlient
+type __RenderRunNodeInput struct {
+	NodeRef string           `json:"nodeRef"`
+	Args    *json.RawMessage `json:"args,omitempty"`
+}
+
+// GetNodeRef returns __RenderRunNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// GetArgs returns __RenderRunNodeInput.Args, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetArgs() *json.RawMessage { return v.Args }
+
 // __RenumberSpecInput is used internally by genqlient
 type __RenumberSpecInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -124480,6 +125397,18 @@ func (v *__ResolveAiServiceConfigsInput) GetAppRef() *string { return v.AppRef }
 // GetAgentRef returns __ResolveAiServiceConfigsInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__ResolveAiServiceConfigsInput) GetAgentRef() *string { return v.AgentRef }
 
+// __ResolveAiServiceConfigsWithEndpointAndUrnInput is used internally by genqlient
+type __ResolveAiServiceConfigsWithEndpointAndUrnInput struct {
+	AppRef   *string `json:"appRef,omitempty"`
+	AgentRef *string `json:"agentRef,omitempty"`
+}
+
+// GetAppRef returns __ResolveAiServiceConfigsWithEndpointAndUrnInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsWithEndpointAndUrnInput) GetAppRef() *string { return v.AppRef }
+
+// GetAgentRef returns __ResolveAiServiceConfigsWithEndpointAndUrnInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsWithEndpointAndUrnInput) GetAgentRef() *string { return v.AgentRef }
+
 // __ResolveAiServiceConfigsWithEndpointInput is used internally by genqlient
 type __ResolveAiServiceConfigsWithEndpointInput struct {
 	AppRef   *string `json:"appRef,omitempty"`
@@ -124491,6 +125420,18 @@ func (v *__ResolveAiServiceConfigsWithEndpointInput) GetAppRef() *string { retur
 
 // GetAgentRef returns __ResolveAiServiceConfigsWithEndpointInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__ResolveAiServiceConfigsWithEndpointInput) GetAgentRef() *string { return v.AgentRef }
+
+// __ResolveAiServiceConfigsWithUrnInput is used internally by genqlient
+type __ResolveAiServiceConfigsWithUrnInput struct {
+	AppRef   *string `json:"appRef,omitempty"`
+	AgentRef *string `json:"agentRef,omitempty"`
+}
+
+// GetAppRef returns __ResolveAiServiceConfigsWithUrnInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsWithUrnInput) GetAppRef() *string { return v.AppRef }
+
+// GetAgentRef returns __ResolveAiServiceConfigsWithUrnInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsWithUrnInput) GetAgentRef() *string { return v.AgentRef }
 
 // __ResolveCommentThreadInput is used internally by genqlient
 type __ResolveCommentThreadInput struct {
@@ -134705,6 +135646,63 @@ func AiServiceConfigWithEndpoint(
 	return data_, err_
 }
 
+// The query executed by AiServiceConfigWithUrn.
+const AiServiceConfigWithUrn_Operation = `
+query AiServiceConfigWithUrn ($ref: ID!) {
+	aiServiceConfig(ref: $ref) {
+		... AiServiceConfigEndpointFields
+		urn
+	}
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// cli#1882 / hadron-server#3857: the server-computed AiServiceConfig URN. These
+// are their OWN documents, so the operations above keep today's selection and an
+// older server (no `urn` field) only fails validation when one of these is sent;
+// the aiconfig package then falls back to the operation above. `ref` accepts an
+// id or the URN form; on the URN path a config the caller cannot read answers
+// null, exactly as a missing one does (cor:api:120:01).
+func AiServiceConfigWithUrn(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AiServiceConfigWithUrnResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiServiceConfigWithUrn",
+		Query:  AiServiceConfigWithUrn_Operation,
+		Variables: &__AiServiceConfigWithUrnInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AiServiceConfigWithUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AiServiceConfigsMasked.
 const AiServiceConfigsMasked_Operation = `
 query AiServiceConfigsMasked ($filter: AiServiceConfigFilter, $limit: Int, $offset: Int) {
@@ -134756,6 +135754,71 @@ func AiServiceConfigsMasked(
 	}
 
 	data_ = &AiServiceConfigsMaskedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AiServiceConfigsMaskedWithUrn.
+const AiServiceConfigsMaskedWithUrn_Operation = `
+query AiServiceConfigsMaskedWithUrn ($filter: AiServiceConfigFilter, $limit: Int, $offset: Int) {
+	aiServiceConfigs(filter: $filter, limit: $limit, offset: $offset) {
+		items {
+			... AiServiceConfigStyleFields
+			urn
+		}
+		total
+	}
+}
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+	... AiServiceConfigEndpointFields
+	apiStyle
+	effectiveApiStyle
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// cli#1882: AiServiceConfigsMasked plus the server-computed `urn`, as its OWN
+// document so an older server without the field keeps the query above working.
+func AiServiceConfigsMaskedWithUrn(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *AiServiceConfigFilter,
+	limit *int,
+	offset *int,
+) (data_ *AiServiceConfigsMaskedWithUrnResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiServiceConfigsMaskedWithUrn",
+		Query:  AiServiceConfigsMaskedWithUrn_Operation,
+		Variables: &__AiServiceConfigsMaskedWithUrnInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AiServiceConfigsMaskedWithUrnResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -156733,17 +157796,25 @@ func PublicAgents(
 
 // The query executed by PublicOrganization.
 const PublicOrganization_Operation = `
-query PublicOrganization ($ref: ID!) {
+query PublicOrganization ($ref: ID!, $limit: Int!, $offset: Int!) {
 	publicOrganization(ref: $ref) {
 		id
 		urn
 		name
 		listedOnMarketplace
-		publicMemories {
-			... PublicResourceRefFields
+		publicMemoriesPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
-		publicAgents {
-			... PublicResourceRefFields
+		publicAgentsPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
 	}
 }
@@ -156759,12 +157830,16 @@ func PublicOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
+	limit int,
+	offset int,
 ) (data_ *PublicOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "PublicOrganization",
 		Query:  PublicOrganization_Operation,
 		Variables: &__PublicOrganizationInput{
-			Ref: ref,
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -158145,6 +159220,43 @@ func RemoveOrgMember(
 	return data_, err_
 }
 
+// The query executed by RenderRunNode.
+const RenderRunNode_Operation = `
+query RenderRunNode ($nodeRef: String!, $args: JSON) {
+	renderRunNode(nodeRef: $nodeRef, args: $args)
+}
+`
+
+// Committed schema includes renderRunNode from the snapshot refreshed against
+// hadron-server 39eb1dfb76a78dba0866445f94b6a00a731e00b3 (CLI 51db5f71).
+// Query only: read usage is recorded by the provider; no run/action-run.
+func RenderRunNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	args *json.RawMessage,
+) (data_ *RenderRunNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RenderRunNode",
+		Query:  RenderRunNode_Operation,
+		Variables: &__RenderRunNodeInput{
+			NodeRef: nodeRef,
+			Args:    args,
+		},
+	}
+
+	data_ = &RenderRunNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RenumberSpec.
 const RenumberSpec_Operation = `
 mutation RenumberSpec ($memoryRef: ID!, $fromLoc: String!, $toLoc: String!, $dryRun: Boolean!) {
@@ -158831,6 +159943,110 @@ func ResolveAiServiceConfigsWithEndpoint(
 	}
 
 	data_ = &ResolveAiServiceConfigsWithEndpointResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ResolveAiServiceConfigsWithEndpointAndUrn.
+const ResolveAiServiceConfigsWithEndpointAndUrn_Operation = `
+query ResolveAiServiceConfigsWithEndpointAndUrn ($appRef: ID, $agentRef: ID) {
+	resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
+		... AiServiceConfigEndpointFields
+		urn
+	}
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+func ResolveAiServiceConfigsWithEndpointAndUrn(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	agentRef *string,
+) (data_ *ResolveAiServiceConfigsWithEndpointAndUrnResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResolveAiServiceConfigsWithEndpointAndUrn",
+		Query:  ResolveAiServiceConfigsWithEndpointAndUrn_Operation,
+		Variables: &__ResolveAiServiceConfigsWithEndpointAndUrnInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &ResolveAiServiceConfigsWithEndpointAndUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ResolveAiServiceConfigsWithUrn.
+const ResolveAiServiceConfigsWithUrn_Operation = `
+query ResolveAiServiceConfigsWithUrn ($appRef: ID, $agentRef: ID) {
+	resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
+		id
+		name
+		ownerType
+		ownerId
+		provider
+		model
+		hasApiKey
+		apiKeyPreview
+		params
+		enabled
+		createdAt
+		updatedAt
+		urn
+	}
+}
+`
+
+// cli#1882: ResolveAiServiceConfigs plus the server-computed `urn`. A separate
+// document so an older server without the field keeps working (the command
+// falls back to ResolveAiServiceConfigs on a missing-`urn` validation error).
+func ResolveAiServiceConfigsWithUrn(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	agentRef *string,
+) (data_ *ResolveAiServiceConfigsWithUrnResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResolveAiServiceConfigsWithUrn",
+		Query:  ResolveAiServiceConfigsWithUrn_Operation,
+		Variables: &__ResolveAiServiceConfigsWithUrnInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &ResolveAiServiceConfigsWithUrnResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

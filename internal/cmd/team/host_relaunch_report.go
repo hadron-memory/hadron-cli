@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -70,10 +71,70 @@ func (s *hostServer) ReportRelaunch(ctx context.Context, t hostrelaunch.Target, 
 	if err != nil {
 		return api.MapError(err)
 	}
-	if response == nil || response.SetHostWorkerTerminals == nil || len(response.SetHostWorkerTerminals.Refused) != 0 || len(response.SetHostWorkerTerminals.Stored) != 1 || response.SetHostWorkerTerminals.Stored[0] == nil || response.SetHostWorkerTerminals.Stored[0].Id != t.WorkerID {
-		return errors.New("repair report was not confirmed stored")
+	if response == nil || response.SetHostWorkerTerminals == nil {
+		return errors.New("repair report was not confirmed stored: the server returned no result")
 	}
-	return nil
+	refused := make([]string, 0, len(response.SetHostWorkerTerminals.Refused))
+	for _, row := range response.SetHostWorkerTerminals.Refused {
+		code := ""
+		if row != nil {
+			code = row.Code
+		}
+		refused = append(refused, code)
+	}
+	stored := make([]string, 0, len(response.SetHostWorkerTerminals.Stored))
+	for _, row := range response.SetHostWorkerTerminals.Stored {
+		id := "" // a null row counts, and never names this worker
+		if row != nil {
+			id = row.Id
+		}
+		stored = append(stored, id)
+	}
+	return confirmRepairStored(t.WorkerID, refused, stored)
+}
+
+// confirmRepairStored is nil only for exactly one stored row naming this
+// worker and no refusal. Otherwise the error says which of those failed, as
+// LOCAL diagnostics: the server's refused codes (a closed set, shown only
+// when they are plain codes) and the stored count or the mismatch, never an
+// id and never anything that reaches the report (cor:agt:070:01: a repair
+// outcome is never free text; cli#2172).
+func confirmRepairStored(workerID string, refused, stored []string) error {
+	if len(refused) == 0 && len(stored) == 1 && stored[0] == workerID {
+		return nil
+	}
+	parts := []string{"repair report was not confirmed stored"}
+	if len(refused) > 0 {
+		codes := make([]string, 0, len(refused))
+		for _, c := range refused {
+			codes = append(codes, plainRefusalCode(c))
+		}
+		parts = append(parts, "refused "+strings.Join(codes, ", "))
+	}
+	parts = append(parts, fmt.Sprintf("stored %d, want 1", len(stored)))
+	if len(stored) == 1 && stored[0] != workerID {
+		parts = append(parts, "the stored row names another worker")
+	}
+	return errors.New(strings.Join(parts, ": "))
+}
+
+// refusalCodes is the closed set the server refuses a worker's terminal
+// report with (#2771). Only these are shown in a local diagnostic: anything
+// else, however plain it looks, is not copied (an id or a name in upper case
+// would pass any character filter).
+var refusalCodes = map[string]bool{
+	"WORKER_NOT_FOUND": true, "TERMINAL_REPORT_STALE": true, "REPAIR_NOT_DARK": true,
+	"REPAIR_ATTEMPT_INVALID": true, "REPAIR_REASON_INVALID": true,
+}
+
+// plainRefusalCode is the refusal code when it is one of the closed set, else
+// a fixed placeholder, so an unexpected answer cannot put server text into a
+// local error.
+func plainRefusalCode(code string) string {
+	if refusalCodes[code] {
+		return code
+	}
+	return "(not a known refusal code)"
 }
 func relaunchRepair(r hostrelaunch.Result) (gen.WorkerTerminalRepair, string, bool) {
 	if r.Status == hostrelaunch.Applied {
@@ -130,8 +191,24 @@ func (s *hostServer) reportNewRelaunchFailure(ctx context.Context, t hostrelaunc
 	if err != nil {
 		return api.MapError(err)
 	}
-	if stored == nil || len(stored.Refused) != 0 || len(stored.Stored) != 1 || stored.Stored[0] == nil || stored.Stored[0].Id != t.WorkerID {
-		return errors.New("repair report was not confirmed stored")
+	if stored == nil {
+		return errors.New("repair report was not confirmed stored: the server returned no result")
 	}
-	return nil
+	refused := make([]string, 0, len(stored.Refused))
+	for _, row := range stored.Refused {
+		code := ""
+		if row != nil {
+			code = row.Code
+		}
+		refused = append(refused, code)
+	}
+	ids := make([]string, 0, len(stored.Stored))
+	for _, row := range stored.Stored {
+		id := "" // a null row counts, and never names this worker
+		if row != nil {
+			id = row.Id
+		}
+		ids = append(ids, id)
+	}
+	return confirmRepairStored(t.WorkerID, refused, ids)
 }
