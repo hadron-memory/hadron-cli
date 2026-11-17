@@ -591,6 +591,7 @@ section between the markers.
 | `team usage show` |  |  | y | #1054 |  | unread |  |
 | `team usage status` |  |  | y | #1054 |  | unread |  |
 | `team usage uninstall` |  |  | y | #1054 |  | unread |  |
+| `team utilization` |  |  | y | #1054 |  | unread |  |
 | `team wake-settings` |  |  | n | #1054 |  | unread |  |
 | `team wake-settings get` |  |  | y | #1054 |  | unread |  |
 | `team wake-settings set` |  |  | y | #1054 |  | unread |  |

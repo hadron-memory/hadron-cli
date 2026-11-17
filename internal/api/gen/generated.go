@@ -102736,6 +102736,92 @@ func (v *TeamTickerSettingsSetSetAppTickerSettings) GetDailyWakeBudgetDerived() 
 	return v.DailyWakeBudgetDerived
 }
 
+// TeamUtilizationResponse is returned by TeamUtilization on success.
+type TeamUtilizationResponse struct {
+	// #3819 slice 1: advisory utilization in the roster audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Window defaults to 24h, range 1–168; tier is high/mid/low. Failed-match saturation and alarms await their historical provider.
+	TeamUtilization *TeamUtilizationTeamUtilization `json:"teamUtilization"`
+}
+
+// GetTeamUtilization returns TeamUtilizationResponse.TeamUtilization, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationResponse) GetTeamUtilization() *TeamUtilizationTeamUtilization {
+	return v.TeamUtilization
+}
+
+// TeamUtilizationTeamUtilization includes the requested fields of the GraphQL type TeamUtilization.
+// The GraphQL type's documentation follows.
+//
+// Advisory current eligible workers and task-held utilization, grouped and ranked; no matching or authority effect.
+type TeamUtilizationTeamUtilization struct {
+	AppId        string                                                         `json:"appId"`
+	WindowHours  int                                                            `json:"windowHours"`
+	ComputedAt   string                                                         `json:"computedAt"`
+	Combinations []*TeamUtilizationTeamUtilizationCombinationsWorkerUtilization `json:"combinations"`
+}
+
+// GetAppId returns TeamUtilizationTeamUtilization.AppId, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilization) GetAppId() string { return v.AppId }
+
+// GetWindowHours returns TeamUtilizationTeamUtilization.WindowHours, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilization) GetWindowHours() int { return v.WindowHours }
+
+// GetComputedAt returns TeamUtilizationTeamUtilization.ComputedAt, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilization) GetComputedAt() string { return v.ComputedAt }
+
+// GetCombinations returns TeamUtilizationTeamUtilization.Combinations, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilization) GetCombinations() []*TeamUtilizationTeamUtilizationCombinationsWorkerUtilization {
+	return v.Combinations
+}
+
+// TeamUtilizationTeamUtilizationCombinationsWorkerUtilization includes the requested fields of the GraphQL type WorkerUtilization.
+// The GraphQL type's documentation follows.
+//
+// One current family/tier/role combination. Unknown tier has its own null row; retired workers are excluded.
+type TeamUtilizationTeamUtilizationCombinationsWorkerUtilization struct {
+	Family          string  `json:"family"`
+	Tier            *string `json:"tier"`
+	Role            *string `json:"role"`
+	EligibleWorkers int     `json:"eligibleWorkers"`
+	BusyWorkers     int     `json:"busyWorkers"`
+	Utilization     float64 `json:"utilization"`
+	// Slice 1: true only for zero eligible workers (then utilization=1). Failure-only saturation reads false until the deferred match-outcome integration; no alarm is emitted by this read.
+	Saturated bool `json:"saturated"`
+}
+
+// GetFamily returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Family, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetFamily() string {
+	return v.Family
+}
+
+// GetTier returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Tier, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetTier() *string {
+	return v.Tier
+}
+
+// GetRole returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Role, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetRole() *string {
+	return v.Role
+}
+
+// GetEligibleWorkers returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.EligibleWorkers, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetEligibleWorkers() int {
+	return v.EligibleWorkers
+}
+
+// GetBusyWorkers returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.BusyWorkers, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetBusyWorkers() int {
+	return v.BusyWorkers
+}
+
+// GetUtilization returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Utilization, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetUtilization() float64 {
+	return v.Utilization
+}
+
+// GetSaturated returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Saturated, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetSaturated() bool {
+	return v.Saturated
+}
+
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
 type TeamWithdrawGrantSigningRequestResponse struct {
 	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -127914,6 +128000,30 @@ func (v *__TeamTickerSettingsSetInput) GetWakeDailyBudget() *int { return v.Wake
 
 // GetClearWakeDailyBudget returns __TeamTickerSettingsSetInput.ClearWakeDailyBudget, and is useful for accessing the field via an interface.
 func (v *__TeamTickerSettingsSetInput) GetClearWakeDailyBudget() *bool { return v.ClearWakeDailyBudget }
+
+// __TeamUtilizationInput is used internally by genqlient
+type __TeamUtilizationInput struct {
+	AppRef      string  `json:"appRef"`
+	Family      *string `json:"family,omitempty"`
+	Role        *string `json:"role,omitempty"`
+	Tier        *string `json:"tier,omitempty"`
+	WindowHours *int    `json:"windowHours,omitempty"`
+}
+
+// GetAppRef returns __TeamUtilizationInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamUtilizationInput) GetAppRef() string { return v.AppRef }
+
+// GetFamily returns __TeamUtilizationInput.Family, and is useful for accessing the field via an interface.
+func (v *__TeamUtilizationInput) GetFamily() *string { return v.Family }
+
+// GetRole returns __TeamUtilizationInput.Role, and is useful for accessing the field via an interface.
+func (v *__TeamUtilizationInput) GetRole() *string { return v.Role }
+
+// GetTier returns __TeamUtilizationInput.Tier, and is useful for accessing the field via an interface.
+func (v *__TeamUtilizationInput) GetTier() *string { return v.Tier }
+
+// GetWindowHours returns __TeamUtilizationInput.WindowHours, and is useful for accessing the field via an interface.
+func (v *__TeamUtilizationInput) GetWindowHours() *int { return v.WindowHours }
 
 // __TeamWithdrawGrantSigningRequestInput is used internally by genqlient
 type __TeamWithdrawGrantSigningRequestInput struct {
@@ -168836,6 +168946,62 @@ func TeamTickerSettingsSet(
 	}
 
 	data_ = &TeamTickerSettingsSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamUtilization.
+const TeamUtilization_Operation = `
+query TeamUtilization ($appRef: ID!, $family: String, $role: String, $tier: String, $windowHours: Int) {
+	teamUtilization(appRef: $appRef, family: $family, role: $role, tier: $tier, windowHours: $windowHours) {
+		appId
+		windowHours
+		computedAt
+		combinations {
+			family
+			tier
+			role
+			eligibleWorkers
+			busyWorkers
+			utilization
+			saturated
+		}
+	}
+}
+`
+
+// Advisory current utilization by family/tier/role (hadron-server#3828, cli#1836
+// slice 1) — `team utilization` renders it. Optional filters carry omitempty so
+// an unset flag is OMITTED (server default), never sent as null.
+func TeamUtilization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	family *string,
+	role *string,
+	tier *string,
+	windowHours *int,
+) (data_ *TeamUtilizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamUtilization",
+		Query:  TeamUtilization_Operation,
+		Variables: &__TeamUtilizationInput{
+			AppRef:      appRef,
+			Family:      family,
+			Role:        role,
+			Tier:        tier,
+			WindowHours: windowHours,
+		},
+	}
+
+	data_ = &TeamUtilizationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
