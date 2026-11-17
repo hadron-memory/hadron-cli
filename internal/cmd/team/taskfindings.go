@@ -199,4 +199,7 @@ when absent. The immutable result is neither sent nor modified.`,
 }
 
 // Keep structured serverCode on these new surfaces without changing legacy task envelopes.
+// mapFindingError is a task-family mapper, not a findings-only one: it wraps
+// mapTaskError, which consults taskErrorCodes, and adds the structured server
+// code. The findings verbs and `task link-defect` use it (hadron-cli#2296).
 func mapFindingError(err error) error { return api.WithServerCode(mapTaskError(err), err) }

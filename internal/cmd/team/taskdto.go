@@ -507,6 +507,8 @@ func (e safeTaskError) Unwrap() error { return e.err }
 // taskErrorCodes are the public refusal codes shown as the message prefix: every
 // TASK_ code the schema documents on the task mutations, plus BAD_USER_INPUT
 // (#1285). Add a new TASK_ code here when the server documents one.
+// Both task-family wrappers read this list: mapTaskError directly, and
+// mapFindingError (taskfindings.go) through it (hadron-cli#2296).
 var taskErrorCodes = []string{
 	"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER",
 	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
