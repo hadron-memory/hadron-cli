@@ -75232,10 +75232,10 @@ type PublicOrganizationPublicOrganization struct {
 	Urn                 string `json:"urn"`
 	Name                string `json:"name"`
 	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
-	// SUPERSEDED by publicMemoriesPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC, non-app-scoped memories (sanitized refs), now only the first page of 20 in (name, id) order. Use publicMemoriesPage to reach the rest.
-	PublicMemories []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef `json:"publicMemories"`
-	// SUPERSEDED by publicAgentsPage (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04): the org's PUBLIC agents (sanitized refs), now only the first page of 20 in (name, id) order. Use publicAgentsPage to reach the rest.
-	PublicAgents []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef `json:"publicAgents"`
+	// The org's PUBLIC, non-app-scoped memories (sanitized refs), one page in (name, id) order. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. total counts exactly the rows the public gate admits (hrn:node:hadronmemory.com:specs:cor:acl:080:02, hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	PublicMemoriesPage *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage `json:"publicMemoriesPage"`
+	// The org's PUBLIC agents (sanitized refs), one page in (name, id) order; same paging rules as publicMemoriesPage.
+	PublicAgentsPage *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage `json:"publicAgentsPage"`
 }
 
 // GetId returns PublicOrganizationPublicOrganization.Id, and is useful for accessing the field via an interface.
@@ -75252,55 +75252,80 @@ func (v *PublicOrganizationPublicOrganization) GetListedOnMarketplace() bool {
 	return v.ListedOnMarketplace
 }
 
-// GetPublicMemories returns PublicOrganizationPublicOrganization.PublicMemories, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicMemories() []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef {
-	return v.PublicMemories
+// GetPublicMemoriesPage returns PublicOrganizationPublicOrganization.PublicMemoriesPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicMemoriesPage() *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage {
+	return v.PublicMemoriesPage
 }
 
-// GetPublicAgents returns PublicOrganizationPublicOrganization.PublicAgents, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganization) GetPublicAgents() []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef {
-	return v.PublicAgents
+// GetPublicAgentsPage returns PublicOrganizationPublicOrganization.PublicAgentsPage, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicAgentsPage() *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage {
+	return v.PublicAgentsPage
 }
 
-// PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                 `json:"total"`
+	HasMore bool                                                                                                `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75315,7 +75340,7 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Unma
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75325,7 +75350,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceR
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75333,8 +75358,8 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) Mars
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -75343,45 +75368,70 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __pr
 	return &retval, nil
 }
 
-// PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
+// The GraphQL type's documentation follows.
+//
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage struct {
+	Items   []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
+	Total   int                                                                                                   `json:"total"`
+	HasMore bool                                                                                                  `json:"hasMore"`
+}
+
+// GetItems returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetItems() []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// GetTotal returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	PublicResourceRefFields `json:"-"`
 }
 
-// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetId() string {
+// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetId() string {
 	return v.PublicResourceRefFields.Id
 }
 
-// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetName() string {
+// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetName() string {
 	return v.PublicResourceRefFields.Name
 }
 
-// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetUrn() string {
+// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetUrn() string {
 	return v.PublicResourceRefFields.Urn
 }
 
-// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetDescription() *string {
+// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) GetDescription() *string {
 	return v.PublicResourceRefFields.Description
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+		*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef = v
+	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75396,7 +75446,7 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Un
 	return nil
 }
 
-type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -75406,7 +75456,7 @@ type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourc
 	Description *string `json:"description"`
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -75414,8 +75464,8 @@ func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) Ma
 	return json.Marshal(premarshaled)
 }
 
-func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef, error) {
-	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef
 
 	retval.Id = v.PublicResourceRefFields.Id
 	retval.Name = v.PublicResourceRefFields.Name
@@ -124095,11 +124145,19 @@ func (v *__PublicAgentsInput) GetOffset() *int { return v.Offset }
 
 // __PublicOrganizationInput is used internally by genqlient
 type __PublicOrganizationInput struct {
-	Ref string `json:"ref"`
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __PublicOrganizationInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
 // __PurgeUnansweredDecisionInput is used internally by genqlient
 type __PurgeUnansweredDecisionInput struct {
@@ -156990,17 +157048,25 @@ func PublicAgents(
 
 // The query executed by PublicOrganization.
 const PublicOrganization_Operation = `
-query PublicOrganization ($ref: ID!) {
+query PublicOrganization ($ref: ID!, $limit: Int!, $offset: Int!) {
 	publicOrganization(ref: $ref) {
 		id
 		urn
 		name
 		listedOnMarketplace
-		publicMemories {
-			... PublicResourceRefFields
+		publicMemoriesPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
-		publicAgents {
-			... PublicResourceRefFields
+		publicAgentsPage(limit: $limit, offset: $offset) {
+			items {
+				... PublicResourceRefFields
+			}
+			total
+			hasMore
 		}
 	}
 }
@@ -157016,12 +157082,16 @@ func PublicOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
+	limit int,
+	offset int,
 ) (data_ *PublicOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "PublicOrganization",
 		Query:  PublicOrganization_Operation,
 		Variables: &__PublicOrganizationInput{
-			Ref: ref,
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
