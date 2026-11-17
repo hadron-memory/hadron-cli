@@ -33,7 +33,7 @@ nothing; it is a normal answer, not a failure, and no reason is implied.
 
 A chat you may not read answers exactly as a missing one: exit 4, the same
 message, with no hint which. Only the decision comes back: never a key, an id,
-a name, a provider or a model (use ` + "`hadron chat config`" + ` for those).`,
+a name, a provider or a model.`,
 		Example: `  hadron chat tool-choice chat_123
   hadron chat tool-choice chat_123 --json`,
 		Args: cobra.ExactArgs(1),
