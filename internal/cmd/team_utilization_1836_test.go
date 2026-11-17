@@ -145,6 +145,17 @@ func TestTeamUtilizationJSONKeepsNullTierAndRoleKeys(t *testing.T) {
 	}
 }
 
+func TestTeamUtilizationFilteredWithNoMatchIsAnEmptyListExit0(t *testing.T) {
+	empty := `{"data":{"teamUtilization":{"appId":"a","windowHours":24,"computedAt":"2026-11-17T17:00:00Z","combinations":[]}}}`
+	_, out, err := runTeamTask(t, utilResponses(empty), "team", "utilization", "--family", "claude", "--tier", "low", "--json")
+	if err != nil {
+		t.Fatalf("no match is an answer, not an error: %v", err)
+	}
+	if !strings.Contains(out, `"combinations": []`) && !strings.Contains(out, `"combinations":[]`) {
+		t.Fatalf("want an empty list, got %s", out)
+	}
+}
+
 func TestTeamUtilizationOmitsWindowWhenNotGiven(t *testing.T) {
 	calls, _, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all")
 	if err != nil {

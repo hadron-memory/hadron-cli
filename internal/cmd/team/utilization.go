@@ -60,7 +60,7 @@ with the server's match-outcome integration. An unknown tier is its own row
 --all lists every combination, highest utilization first (a tie keeps the
 server's order): the first row is where to expand. Without --all the filters
 must narrow to ONE combination, else the command refuses and says to add
---tier/--role or --all.
+--tier/--role or --all. No matching combination prints an empty list and exits 0.
 
 --all takes no --family/--tier/--role (refused, exit 2).
 
