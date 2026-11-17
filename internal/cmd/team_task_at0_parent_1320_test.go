@@ -180,6 +180,11 @@ func TestTaskTreeRealProjectChainUnchanged1320(t *testing.T) {
 	if !strings.Contains(out, "• AT1.2 task12 [PENDING]") {
 		t.Fatalf("the real-project task renders:\n%s", out)
 	}
+	// #2345 BLIND P2 (Joost): AT0 is hidden only as an implied parent. Here
+	// no returned row points at it, so it is a standalone root and renders.
+	if !strings.Contains(out, "• AT0 at0id [BACKLOG]") {
+		t.Fatalf("an AT0 row that is nobody's parent is not hidden:\n%s", out)
+	}
 }
 
 // ---- team list --tree -----------------------------------------------------
