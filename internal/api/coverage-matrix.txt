@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 235: 196 command, 14 gap, 25 excluded
+[Query] 235: 197 command, 13 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -205,7 +205,7 @@ registerEntries  command channel register list
 registerEntry  command channel register rm
 registerRoleCandidates  command team register candidates
 registerRolePick  command team register pick
-renderRunNode  gap #1010
+renderRunNode  command task render
 resendSender  command org resend-sender get
 resendSenders  command org resend-sender list
 resolveAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`

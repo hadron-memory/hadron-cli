@@ -13,5 +13,6 @@ func NewCmdTask(f *cmdutil.Factory) *cobra.Command {
 		Short: "Run a task node",
 	}
 	cmd.AddCommand(newCmdRun(f))
+	cmd.AddCommand(newCmdRender(f))
 	return cmd
 }

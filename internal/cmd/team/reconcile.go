@@ -47,9 +47,15 @@ type reconcileDTO struct {
 	Marked    int `json:"marked"`
 	Untracked int `json:"untracked"`
 	Reported  int `json:"reported"`
-	// Skipped are changes whose call the adapter does not answer (describe did
-	// not list it) or that v1 does nothing for.
-	Skipped int `json:"skipped"`
+	// Skipped remains the aggregate for output compatibility. The reason
+	// counters partition it; missing task/assignee takes precedence over an
+	// undeclared call when both apply. Null feed elements are not Read.
+	Skipped           int `json:"skipped"`
+	SkippedNull       int `json:"skippedNull"`
+	SkippedUndeclared int `json:"skippedUndeclared"`
+	SkippedKind       int `json:"skippedKind"`
+	SkippedNoAssignee int `json:"skippedNoAssignee"`
+	SkippedNoTask     int `json:"skippedNoTask"`
 	// Complete is false when the pass stopped early (an adapter failure, or
 	// the per-run page bound); the next run resumes at the stored cursor.
 	Complete bool `json:"complete"`
@@ -127,6 +133,7 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 		for _, ch := range page.Changes {
 			if ch == nil { // a null element cannot be told to an adapter
 				dto.Skipped++
+				dto.SkippedNull++
 				continue
 			}
 			dto.Read++
@@ -176,8 +183,14 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 	switch kind {
 	case gen.AgentTaskExternalIdChangeKindReassigned:
 		// A task now without an assignee names no worker to mark.
-		if t == nil || t.Assignee == nil || !desc.Has("mark-tracked") {
+		if t == nil || t.Assignee == nil {
 			dto.Skipped++
+			dto.SkippedNoAssignee++
+			return nil
+		}
+		if !desc.Has("mark-tracked") {
+			dto.Skipped++
+			dto.SkippedUndeclared++
 			return nil
 		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
@@ -201,6 +214,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 	case gen.AgentTaskExternalIdChangeKindReleased:
 		if !desc.Has("untrack") {
 			dto.Skipped++
+			dto.SkippedUndeclared++
 			return nil
 		}
 		if err := r.Untrack(ctx, externalID); err != nil {
@@ -208,8 +222,14 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 		}
 		dto.Untracked++
 	case gen.AgentTaskExternalIdChangeKindCancelled:
-		if t == nil || !desc.Has("report") { // the adapter's choice: only when declared
+		if t == nil {
 			dto.Skipped++
+			dto.SkippedNoTask++
+			return nil
+		}
+		if !desc.Has("report") { // the adapter's choice: only when declared
+			dto.Skipped++
+			dto.SkippedUndeclared++
 			return nil
 		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
@@ -222,6 +242,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 		dto.Reported++
 	default: // ASSIGNED, HANDED_BACK, FINISHED: nothing in v1 (cor:agt:120 D4)
 		dto.Skipped++
+		dto.SkippedKind++
 	}
 	return nil
 }

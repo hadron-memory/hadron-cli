@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -1529,8 +1530,9 @@ func codeForExtension(code string) int {
 	// Stop signals (#911 B1 over server #2022): HOST_SCOPE_REQUIRED (a host
 	// key acting beyond a HALT on its own host) and STOP_SIGNAL_SCOPE_FORBIDDEN
 	// name an authority, not a missing argument, so they also precede the
-	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses every set until
-	// the notice lane is on: the platform's state, which no input changes.
+	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses a set while a
+	// required worker's stop-notice lane is not freshly served: the platform's
+	// state, which no input changes.
 	case code == "HOST_SCOPE_REQUIRED" || code == "STOP_SIGNAL_SCOPE_FORBIDDEN":
 		return exitcode.Forbidden
 	case code == "STOP_SIGNAL_UNAVAILABLE":
@@ -2017,4 +2019,32 @@ func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
 		}
 	}
 	return true
+}
+
+// SupersededSessionEvidence projects only the server's independently read-gated
+// current open session pair. A gateway fault, mixed error list or another
+// refusal is not definitive supersession evidence. Never query to fill a gap.
+// definitive is true for a code-only refusal too; both detail strings then
+// remain empty so callers cannot distinguish unreadable from no open session.
+func SupersededSessionEvidence(err error) (definitive bool, sessionID, startedAt string) {
+	if !OnlyErrorCodes(err, "SESSION_SUPERSEDED") {
+		return false, "", ""
+	}
+	// Guard the local extraction independently of OnlyErrorCodes, including
+	// an error with a custom As method whose answer changes between reads.
+	list := graphQLErrors(err)
+	if len(list) == 0 || list[0] == nil {
+		return false, "", ""
+	}
+	// Use the first refusal's pair as a unit; another error never fills a gap.
+	e := list[0]
+	id, idOK := e.Extensions["sessionId"].(string)
+	stamp, timeOK := e.Extensions["startedAt"].(string)
+	if !idOK || !timeOK || id == "" || stamp == "" {
+		return true, "", ""
+	}
+	if _, parseErr := time.Parse(time.RFC3339, stamp); parseErr != nil {
+		return true, "", ""
+	}
+	return true, id, stamp
 }
