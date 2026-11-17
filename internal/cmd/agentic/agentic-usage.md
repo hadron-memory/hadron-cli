@@ -549,16 +549,16 @@ hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availa
 hadron app nodes <app-ref> [--prefix <loc>] [--type <type>] [--types <type,...>] [--object-type <collection>] [--tag <tag>] [--runnable[=false]] [--created-by <user-id>] [--role <family>] [--updated-after <RFC3339>] [--updated-before <RFC3339>] [--include-deleted] [--limit N] [--offset N]   # cli#1626: appNodesPage over the App's readable node scope; required App ID/URN (or root:slug), one page ordered loc then id across memories; default20, cap200,0/negative count-only,negative offset0; table loc/name/type/memory ID and stderr total/more/next-page edit; JSON {items:[{id,memoryId,loc,name,nodeType}],total,hasMore}, [] not null. Memory filters, children-of and where are local usage2/no request: use app memories then node list -m for those. No content/properties/data fan-out, no writes; server not-found/permission refusal unchanged (4/8 by code).
 hadron app list --agent <agent-id-or-URN> [--org <org> | --owned-by-me]   # cli#1626: filter.agentId matches the installed-Agent join, not a primary-agent label; no Agent pre-resolution; an unreadable/missing Agent gives []; filters AND, no active-org inference; follows pages <=20 to the complete selected list, existing bare-array --json unchanged; empty --agent is usage2/no request.
 hadron app memories [<app-ref>] [--limit N] [--offset N] (uses --app)   # cli#1209 over server#2190 appMemoryScope (cor:dmo:050:17): the memories App-wide reads (appNodes) cover for you, one row per memory with every source kind (AGENT_SYSTEM|AGENT_LINK|INHERITED_BASE|TEAM_SPACE|APP_MEMORY; APP_MEMORY is the App's own tenant memory) and the agent name only when you may read that Agent; one page ordered by memory URN, --limit 1..200 (default 20), next-page hint on stderr; WRITE (ADVISORY) yes|no|inherited, "inherited" = viewerCanWrite true but in scope only as an inherited base, so not a write target; --json {items[{memoryId,memoryUrn,name,class,sources[{kind,agentId,agentName}],viewerCanWrite,writeTarget}],total}; refusals are appNodes' (exit 8/4 by code)
-hadron app update <app-ref> [settings flags] [--yes]   # omitted = preserved; no changes = exit 2; confirmation names fields, except --urn names old/new full URNs; JSON {app,id,urn,name,sessionTimeoutSeconds,status,changed}; sent once, no retry; lost answer = exit 7 outcome unknown
+hadron app update <app-ref> [settings flags] [--yes]   # omitted = preserved; no changes = exit 2; confirmation names fields, except --urn names old/new full URNs; JSON {app,id,urn,name,sessionTimeoutSeconds,status,changed}; sent once, no retry; lost answer = exit 7 outcome unknown `--policy-file <path>` sets the App's action-policy link (cli#1640, server#3423/#3425; one JSON value such as `{"allow":["run.execute"]}`), `--clear-policy` removes it (sends null); mutually exclusive, and an empty file, invalid or multi-value JSON, an unreadable path or a JSON `null` is refused locally (exit 2, nothing sent). Neither flag sends no `policy` at all (separate `UpdateAppSettingsPolicy` document), so an older server keeps working; with a flag the older server refuses `policy` as returned, sent once. The confirmation and `changed` name `policy` or `policy (cleared)`, never its value. The server owns who may set it (App owner, or org ADMIN for an org-owned App) and its shape.
   Settings on install/update: --role ADMIN|CONTRIBUTOR|OWNER|READER, --create-user-permission DENY|EXPLICIT|IMPLICIT, --identify-user-method SECRET|USER_ID, --session-timeout-seconds <n>, --anonymous-ttl-days <n>, --expires-at <ISO8601>, --training-mode[=false], repeated --agent-tool <string>, repeated --surface <string>.
   Lists replace the whole stored list; strings pass verbatim. Surfaces are descriptive (portal chat tab iff chat is present), not authorization; --type does not change surfaces. Omitted install surfaces use the provider default ['chat'].
   Update also: --urn <slug>, --type <enum>, --session-dormancy-days <n>, --agent-sessions-expire[=false], --clear-expires-at (null), --clear-agent-tools/--clear-surfaces ([]), --name and --description/--clear-description. Explicit false/zero are sent, numbers remain server validated.
   Install also: repeated --install-optional <Agent-ref>. Policy-file is deferred to a separate companion change. New settings require confirmation/--yes; legacy-only install keeps its existing no-prompt behavior. Install JSON stays the seven-field App receipt. Policy writes are not exposed by these commands. Legacy AI shims have no argv flags: use ai-config create/update.
 
-hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints]
-hadron ai-config list (--owner-type APP|AGENT|ORGANIZATION|HADRON_SERVER --owner-id <id-or-urn> | --all-owners) [--limit N] [--offset N]
+hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints]   # cli#1882: each config carries the server-computed `urn` (JSON `urn`, null when the server gives none or is too old; text shows it only when present); an older server without the field still lists
+hadron ai-config list (--owner-type APP|AGENT|ORGANIZATION|HADRON_SERVER --owner-id <id-or-urn> | --all-owners) [--limit N] [--offset N]   # cli#1882: each config carries the server-computed `urn` (JSON `urn`, null when the server gives none or is too old; text adds a URN column only when some config has one); an older server without the field still lists
 hadron ai-config test <id> [--override-file <path|->] [--chat-probe] [--json]
-hadron ai-config get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-style CHAT_COMPLETIONS|RESPONSES] [--api-key -] [--file <path>]
+hadron ai-config get <id-or-urn> (cli#1882: shows `urn`; a URN ref is sent unchanged, never parsed; URN ref the caller cannot read = exit 4 identical to a missing one (cor:api:120:01); an id ref keeps the server's answer incl. FORBIDDEN exit 8; older server: no urn, URN ref = exit 4) | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-style CHAT_COMPLETIONS|RESPONSES] [--api-key -] [--file <path>]
 hadron ai-config update <id> [--endpoint <url|"">] [--api-style CHAT_COMPLETIONS|RESPONSES | --clear-api-style] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | signing get|off <org> | signing preview <org> [--first N] [--after C] [--all] | signing on <org>   # boot-prompt signing switch (#1879); off|on take [--yes] | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] [--app-context <app>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
@@ -5214,10 +5214,25 @@ or an App mismatch through `--app` or the positional `<app>` of
 `app agent compile` (cli#1887). With
 `team worker compile --as-worker`, the resolved worker's App must match the
 original binding, including explicit worker ids/URNs (cli#1896). App comparison
-uses resolved ids. Unreadable and missing target Apps have byte-identical
-refusals, exit 2, including signature/trailer edits using the shared guard;
-credential and transport lookup errors keep their ordinary exits. Initial
-binding faults refuse before any request; App/worker identity reads can precede
+uses resolved ids.
+
+An App you cannot read is refused exactly like one that does not exist:
+byte-identical text and exit 2, so the refusal is no existence oracle (V58,
+hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-10-vera-rulings-app-refusals;
+specs cor:agt:050:21 and cor:dmo:050:11, both Proposed, not Decided). The same
+shared guard serves signature/trailer edits, `team grant list|get|request` and
+`team task mine --app`: for those, a pure permission refusal on the App read
+now exits 2 with the missing-App usage text, where it was exit 8 before
+(cli#1896, cli#2239). Only a PURE permission refusal is normalized. A
+credential or token-scope refusal, a failed lookup, and a MIXED answer
+(FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages in the
+order sent and exit by the FIRST error's code: a mixed answer led by
+UNAUTHENTICATED exits 3, one led by FORBIDDEN exits 8. None of them reads as a
+missing App. Optional authored-write attribution (`node create` and the like)
+silently leaves the worker session off for a missing OR unreadable App and
+still sends your own write; a credential, mixed or failed lookup adds one note.
+
+Initial binding faults refuse before any request; App/worker identity reads can precede
 an App mismatch refusal, but no compile/approve write is sent. A binding that
 changes during the run also refuses with exit 2; a mid-batch change files the
 remaining workers under `failed` with exit 2 and sends nothing more. Server
@@ -6239,7 +6254,7 @@ refused (exit 2, nothing sent); naming the same App it is sent unchanged. A
 task id or any other non-handle is sent unchanged. Without `--app` nothing
 changes: the configured App context and the worktree binding never qualify a
 handle, so a member of more than one App still gets the server's
-`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check.
+`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check; a pure permission refusal on its App read exits 2 as a missing App (cli#1896, #2239: see `--as-worker` above).
 
 ## Task single-shot matching (cli#1549)
 
@@ -6658,7 +6673,7 @@ and event reads do not change.
 
 ## Worker-own grants (cli#1832) and grant requests (cli#1868)
 
-`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it. The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
+`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it (a pure permission refusal on that App read exits 2 as a missing App, no longer 8: cli#1896, #2239). The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
 
 Scope as shipped: grants naming this worker directly as holder, plus its own requests that are neither activated nor revoked. Role-agent, other-worker, person and App holders are not listed. `list` and `get` only read; top-level `hadron grant list|get` remains the separate organization action-grants surface. The request verbs below ask for a grant and for its signing; no command here signs, activates or revokes one.
 

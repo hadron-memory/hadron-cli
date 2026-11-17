@@ -81,6 +81,13 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cm
 		// The first failed verification is latched for the rest of the run: a
 		// binding that changes and is then restored must not let a later write
 		// of the same batch resume (blind P2 on PR #1883).
+		//
+		// The mutex is held across the late App lookup on purpose: verify,
+		// look up, verify again is one step per write, so two writes cannot
+		// interleave a rebind check. It is command-local and used serially
+		// today (a batch writes one worker at a time). If a parallel batch
+		// consumer is ever added, this lock would serialize its App lookups
+		// and is the thing to revisit (cli#2239 P3-5).
 		var mu sync.Mutex
 		var latched error
 		return func(mctx context.Context, resolvedTargetApps ...string) (context.Context, error) {

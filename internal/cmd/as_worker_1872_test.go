@@ -589,8 +589,8 @@ func TestAsWorkerPositionalAppDifferentFromBindingRefuses1887(t *testing.T) {
 func TestAsWorkerPositionalAppSameAppAnySpellingSends1887(t *testing.T) {
 	for _, ref := range []string{"capp100000000000000000000", "hrn:app:acme.com:eng-team", "acme.com:eng-team", "hrn:app:acme.com::eng-team"} {
 		t.Run(ref, func(t *testing.T) {
-			args := append([]string{}, c1Commands[1].args...)
-			args[3] = ref
+			// Literal command, not a slice edited by position (cli#2239 P3-3).
+			args := []string{"app", "agent", "compile", ref, c1AgentRef}
 			calls, _, err := runBoundSingle(t, nil, c1Responses(), append(args, "--as-worker")...)
 			if err != nil {
 				t.Fatal(err)
