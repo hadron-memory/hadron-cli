@@ -81,10 +81,11 @@ it already means alarms only, so it returns the same rows with or without
 --alarms. An alarm that has left effect is not acknowledged and not hidden:
 read without this flag to see it, and its end time in the ESCALATION ENDED
 column (cor:agt:050:20). That column is when the server recorded the end; it
-is blank while an alarm is in effect and on every event that is not an alarm.
-The recorded end can lag by up to one evaluator pass (about a minute), and the
-alarm reads as in effect until it is written, so the column is not a real-time
-value. Task-less
+is blank on every event that is not an alarm and on every alarm whose end is
+not recorded yet: one in effect, and also one already acknowledged or whose
+task already moved, until the server records the end. That record can lag the
+actual end by up to one evaluator pass (about a minute), and the alarm reads
+as in effect until it is written, so the column is not a real-time value. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
 reason or evidence is added. An alarm.start-failing (wake handle START: the
 platform's starts of a long-lived worker with no task keep failing) is task-less
