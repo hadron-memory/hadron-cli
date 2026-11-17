@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// Synthetic server responses model the issue's IDLE/30h case; the original
+// historical wire payload is unavailable. Extra minutes keep hour rounding
+// away from a boundary while the command uses its real display clock.
 func TestWorkerQuietServerReasonAndAge(t *testing.T) {
 	for _, surface := range []string{"worker", "roster"} {
 		for _, tc := range []struct{ name, status, reason, age, want string }{
@@ -135,7 +138,13 @@ func TestWorkerQuietQueriesSelectServerReason(t *testing.T) {
 			if len(reads) != 1 {
 				t.Fatalf("reads=%d", len(reads))
 			}
-			if !strings.Contains(reads[0].Query, "noSessionReason") {
+			selected := false
+			for _, line := range strings.Split(reads[0].Query, "\n") {
+				if strings.TrimSpace(line) == "noSessionReason" {
+					selected = true
+				}
+			}
+			if !selected {
 				t.Error("query does not select noSessionReason: fixture fields must be requested on the wire")
 			}
 		})
