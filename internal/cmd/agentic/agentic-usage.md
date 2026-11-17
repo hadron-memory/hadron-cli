@@ -6393,8 +6393,11 @@ a person who manages the App; never the App key or a run.
 `DEFECT_LINK_FORBIDDEN` exits 8; `TASK_NOT_FOUND` (unknown, another App's or
 unreadable, all answered the same) exits 4; `PR_REFERENCE_MISSING` (not a PR
 build task) and `DEFECT_HEAD_NOT_FROZEN` exit 5; `BAD_USER_INPUT` (a defect URL
-or head in the wrong form) exits 2, and an empty `--defect` is refused with
-exit 2 before any request. No retry. `--json` is `{taskId, defect,
+or head in the wrong form) exits 2, and an empty `--defect` or
+`--introduced-at-head` is refused with exit 2 before any request. A response
+with no link exits 1: the link may have been recorded, so read the events of
+the task the message names (`hadron team events --task <ref>`) before
+retrying. No retry. `--json` is `{taskId, defect,
 introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
 the link names no head.
 
