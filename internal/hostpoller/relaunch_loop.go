@@ -162,6 +162,14 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return
 	}
+	if d.ReportSweep != nil && initial.SweepMode != "APPLY" {
+		// cli#2156 F7: an outage episode does not survive the sweep leaving
+		// APPLY; a later outage is a new one with its own announcement.
+		if e := p.state.clearSweepOutage(); e != nil {
+			p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
+		}
+		p.outageDelay, p.outageRetryAfter = 0, time.Time{}
+	}
 	var report *SweepReport
 	outagePending := false
 	if d.ReportSweep != nil && (initial.SweepMode == "APPLY" || initial.SweepMode == "OBSERVE") {
@@ -175,9 +183,14 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 				if report == nil || report.Applied+report.Failed == 0 {
 					return
 				}
-				if !p.sendRecoveryReport(ctx, d, report) {
+				ok, unavailable := p.sendRecoveryReport(ctx, d, report)
+				if !ok {
+					if outagePending && unavailable {
+						p.backOffOutageReport()
+					}
 					return
 				}
+				p.outageDelay, p.outageRetryAfter = 0, time.Time{}
 				if outagePending {
 					if e := p.state.markSweepOutage(report.RunID); e != nil {
 						p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
@@ -215,9 +228,14 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 			if errors.Is(err, ErrOrcaDown) && eligible {
 				id, reported, e := p.state.sweepOutageToken(initial.AppID, hostID)
 				if e != nil {
+					// Without a persisted token the report cannot be replayed.
+					p.log("sweep-record-failed", "", "worker.relaunch", "", "STATE_SAVE_FAILED")
 					report = nil
 				} else {
 					outcome := "SKIPPED"
+					if !reported && p.now().Before(p.outageRetryAfter) {
+						reported = true // S10 was unavailable; wait out the backoff
+					}
 					if !reported {
 						report.RunID = id
 						outagePending = true
@@ -572,10 +590,11 @@ func (p *Poller) relaunchCause(raw string) string {
 // sendRecoveryReport records one recovery pass's S10 row (#2056): the sweep
 // pass and the exit pass (cli#2161) both report through it, and only when
 // the pass applied or failed something. It says whether the row was recorded.
-func (p *Poller) sendRecoveryReport(ctx context.Context, d *RelaunchDependencies, report *SweepReport) bool {
+func (p *Poller) sendRecoveryReport(ctx context.Context, d *RelaunchDependencies, report *SweepReport) (ok, unavailable bool) {
 	report.EndedAt = p.now()
 	if e := d.ReportSweep(ctx, *report); e != nil {
 		if errors.Is(e, ErrSweepReportingUnavailable) {
+			unavailable = true
 			p.log("sweep-record-skipped", "", "worker.relaunch", "", "S10_UNAVAILABLE")
 		} else {
 			code := "RECORD_FAILED"
@@ -585,7 +604,15 @@ func (p *Poller) sendRecoveryReport(ctx context.Context, d *RelaunchDependencies
 			}
 			p.log("sweep-record-failed", "", "worker.relaunch", "", code)
 		}
-		return false
+		return false, unavailable
 	}
-	return true
+	return true, false
+}
+
+// backOffOutageReport doubles the wait before the pending outage report is
+// tried again after S10_UNAVAILABLE: one minute up to thirty (cli#2156 F9).
+func (p *Poller) backOffOutageReport() {
+	const first, ceiling = time.Minute, 30 * time.Minute
+	p.outageDelay = min(max(p.outageDelay*2, first), ceiling)
+	p.outageRetryAfter = p.now().Add(p.outageDelay)
 }

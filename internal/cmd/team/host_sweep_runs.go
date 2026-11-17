@@ -27,6 +27,20 @@ var sweepWorkerToken = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$`
 var sweepReasonCode = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
 var sweepRunToken = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`)
 
+// hostLoadFailureCode names which part of loading the host failed (cli#2156
+// F14). Each code is a closed constant: no path, key or message is carried
+// (cor:agt:070:09).
+func hostLoadFailureCode(err error) string {
+	switch exitcode.FromError(err) {
+	case exitcode.Usage:
+		return "HOST_CONFIG_UNREADABLE"
+	case exitcode.AuthRequired:
+		return "HOST_KEY_UNAVAILABLE"
+	default:
+		return "HOST_CLIENT_UNAVAILABLE"
+	}
+}
+
 // Record with a distinct host-only client. Reporting never borrows the manager
 // client's credential, and never changes the reconciliation exit code.
 func recordSweepRun(ctx context.Context, f *cmdutil.Factory, configPath, app, host, runID string, started time.Time, apply bool, res hostup.Result) sweepRecordDTO {
@@ -37,7 +51,7 @@ func recordSweepRun(ctx context.Context, f *cmdutil.Factory, configPath, app, ho
 	}
 	cfg, _, server, err := loadHostPoller(f, configPath)
 	if err != nil {
-		status.Reason = "HOST_KEY_UNAVAILABLE"
+		status.Reason = hostLoadFailureCode(err)
 		return status
 	}
 	reconcileServer, err := f.Server()
@@ -127,6 +141,9 @@ func sweepWorkerCount(items []hostup.Item) int {
 		key := it.WorkerID
 		if key == "" {
 			key = it.Worker
+		}
+		if key == "" {
+			continue // no identifier, no lawful line: not a worker (cli#2156 F15)
 		}
 		seen[key] = true
 	}

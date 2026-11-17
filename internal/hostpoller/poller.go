@@ -181,8 +181,12 @@ type Event struct {
 // Poller is one host's loop.
 type Poller struct {
 	relaunchEpoch string
-	relaunch      *RelaunchDependencies
-	relaunchMu    sync.Mutex
+	// outageBackoff paces S10_UNAVAILABLE retries of a pending outage report
+	// (cli#2156 F9). In memory only: a restart may retry at once.
+	outageRetryAfter time.Time
+	outageDelay      time.Duration
+	relaunch         *RelaunchDependencies
+	relaunchMu       sync.Mutex
 	// relaunchCancel is guarded by mu. A fatal check-in cancels the owned
 	// recovery job before joining it, without cancelling unrelated operations.
 	relaunchCancel     context.CancelFunc
