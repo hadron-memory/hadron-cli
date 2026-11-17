@@ -2125,7 +2125,10 @@ Conventions:
   same corpus and synthesizes the field→entity label when `--label` is omitted
   (`--dry-run` previews), and is safe to rerun: an edge already there under
   the same label is reported as `already linked` (`alreadyLinked: true`,
-  its `edgeId`) and nothing is written; `spec find` is semantic by default (`--match-exactly`
+  its `edgeId`) and nothing is written; an end with only the `spec` tag (no spec role)
+  is not governed: the edge is still made, text prints `warning: <loc> is not governed …`
+  per such end and `--json` adds `warnings` (a list, `[]` when both ends are governed;
+  repair with `node update <urn> --role spec`, cli#1781); `spec find` is semantic by default (`--match-exactly`
   forces literal regex matching); `spec list`/`spec find` run unscoped when no
   memory is given (`-m`, `HADRON_SPEC_MEMORY`, `spec use`, then the active
   memory), and since citations and names collide across corpora, results
