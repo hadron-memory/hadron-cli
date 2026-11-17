@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// wantExit2314 is the exit a validation refusal maps to (api.MapError).
-const wantExit2314 = 2
+// wantValidationExitCode is the exit a validation refusal maps to (api.MapError); #2314.
+const wantValidationExitCode = 2
 
 const (
 	aiOtherValidation2314 = `{"message":"Unknown argument \"bogus\" on field \"Query.resolveAiServiceConfigs\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
@@ -60,17 +60,24 @@ func runAIURN2314(t *testing.T, args []string, first, withURN, fallback, okReply
 func TestAiConfigMixedValidationIsNotRetried2314(t *testing.T) {
 	mixed := `{"errors":[` + aiURNMsg2314 + `,` + aiOtherValidation2314 + `]}`
 	reversed := `{"errors":[` + aiOtherValidation2314 + `,` + aiURNMsg2314 + `]}`
+	// The type name, not the rejected field, is "urn" (BLIND P2): a substring
+	// match on "urn" would take this for a second missing-urn message.
+	collision := `{"errors":[` + aiURNMsg2314 + `,{"message":"Cannot query field \"bogus\" on type \"urn\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	collisionOnly := `{"errors":[{"message":"Cannot query field \"bogus\" on type \"urn\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	// A blank-message error is still an error: ServerMessages drops it, so a
+	// message-only check would take this envelope for a lone missing urn.
+	blank := `{"errors":[` + aiURNMsg2314 + `,{"message":"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	other := `{"errors":[` + aiURNMsg2314 + `,{"message":"Cannot query field \"bogus\" on type \"AiServiceConfig\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	for _, s := range aiURNSurfaces2314 {
-		for name, first := range map[string]string{"mixed": mixed, "reversed": reversed, "other-field": other} {
+		for name, first := range map[string]string{"mixed": mixed, "reversed": reversed, "other-field": other, "type-name-collision": collision, "collision-alone": collisionOnly, "blank-error": blank} {
 			calls, stderr, err := runAIURN2314(t, s.args, first, s.withURN, s.fallback, s.okReply)
 			if err == nil || len(calls) != 1 || calls[0] != s.withURN {
 				t.Fatalf("%s/%s: want one %s request and an error, got calls %v err %v", s.name, name, s.withURN, calls, err)
 			}
 			// The refusal keeps its ordinary mapped diagnostic and exit code (the
 			// same as any validation refusal), not a success from the retry.
-			if got := exitCodeFor(err); got != wantExit2314 || !strings.Contains(stderr, "out of sync") {
-				t.Fatalf("%s/%s: want exit %d with the mapped diagnostic, got %d %q", s.name, name, wantExit2314, got, stderr)
+			if got := exitCodeFor(err); got != wantValidationExitCode || !strings.Contains(stderr, "out of sync") {
+				t.Fatalf("%s/%s: want exit %d with the mapped diagnostic, got %d %q", s.name, name, wantValidationExitCode, got, stderr)
 			}
 		}
 	}
