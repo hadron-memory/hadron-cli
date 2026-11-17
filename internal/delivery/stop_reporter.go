@@ -752,10 +752,12 @@ func holdText(code string) string {
 // an ack, so a held-from-ack notice reads un-typed while typed — and the
 // record cannot distinguish that state from never-typed. Its claims are
 // therefore scoped to the post moment (#1660 ask 5, Uma's rulings: option B,
-// #112587, amended #112917 after the BLIND P2) and claim only what an
-// unacknowledged record establishes: past tense, "no acknowledged typing"
-// rather than "not typed", an explicit "may have been typed since", and the
-// one action last.
+// #112587, amended #112917, full sentence re-amended #113270 after the BLIND
+// delta P2) and claim only what the host knows: "had no acknowledged HALT
+// notice as of T" rather than "had not been told to halt" (the worker may
+// already hold the halt text while its ack is pending), and a typing hedge
+// of "before or after then" rather than "since" (the typing may predate the
+// post moment). The one action stays last.
 func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 	held := fmt.Sprintf("%s, since %s", holdText(rec.HoldReason), rec.HeldAt.UTC().Format(time.RFC3339))
 	if !rec.TypedAt.IsZero() {
@@ -763,8 +765,8 @@ func stopDropBody(recipient string, rec StopDrop, now time.Time) string {
 			recipient, rec.Worker, rec.Level, rec.EventID, held, rec.TypedAt.UTC().Format(time.RFC3339))
 	}
 	asOf := now.UTC().Format(time.RFC3339)
-	return fmt.Sprintf("@%s %s had not been told to halt as of %s and may still be running: its %s notice (event %s) had no acknowledged typing as of then (%s). It may have been typed since. The host retries every poll and this is the only post about it, so check %s's terminal.",
-		recipient, rec.Worker, asOf, rec.Level, rec.EventID, held, rec.Worker)
+	return fmt.Sprintf("@%s %s had no acknowledged %s notice as of %s and may still be running: its notice (event %s) was held (%s). It may have been typed into its session, before or after then. The host retries every poll and this is the only post about it, so check %s's terminal.",
+		recipient, rec.Worker, rec.Level, asOf, rec.EventID, held, rec.Worker)
 }
 
 // Structured classification never inspects error prose or returns remote text.

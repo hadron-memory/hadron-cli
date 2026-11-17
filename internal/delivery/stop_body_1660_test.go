@@ -37,7 +37,7 @@ func TestStopDropBodyClaimsOnlyWhatAnUnackedRecordEstablishes_1660(t *testing.T)
 		t.Fatalf("body = %q", body)
 	}
 	for _, overclaim := range []string{
-		"had not been told",       // false when typing preceded a held ack (BLIND P2)
+		"had not been told",             // false when typing preceded a held ack (BLIND P2)
 		"It may have been typed since.", // superseded hedge: typing may predate T too
 	} {
 		if strings.Contains(body, overclaim) {
