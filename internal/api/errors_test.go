@@ -60,8 +60,10 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
-		// #1706 content-validation report refusals.
+		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
+
+		// #1706 content-validation report refusals.
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
 		{"validation node_revision_invalid", gqlErr("CONTENT_VALIDATION_NODE_REVISION_INVALID"), exitcode.Usage},

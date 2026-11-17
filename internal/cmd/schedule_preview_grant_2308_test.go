@@ -89,14 +89,18 @@ func TestScheduleCreateGrantRequired2308(t *testing.T) {
 		_, _ = w.Write(reply)
 	}))
 	defer srv.Close()
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"schedule", "create", "--server", srv.URL, "--app", "acme.com:ops", "--entry", "acme.com::ops::entry", "--cron", "0 6 * * *", "--name", "n"})
 	err := root.Execute()
+	if err != nil {
+		renderError(f, err)
+	}
 	if exitCodeFor(err) != 8 {
 		t.Fatalf("exit %d: %v", exitCodeFor(err), err)
 	}
-	if err != nil && !strings.Contains(err.Error(), "signed grant") {
-		t.Fatal(err)
+	stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if strings.TrimSpace(stderr) != "hadron: "+msg || strings.TrimSpace(out.String()) != "" {
+		t.Fatalf("stderr %q stdout %q", stderr, out.String())
 	}
 }
