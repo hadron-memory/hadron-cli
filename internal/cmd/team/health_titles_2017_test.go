@@ -543,22 +543,36 @@ func TestHealthTitlesReceiptCarriesOrcaVersion2166(t *testing.T) {
 	}
 }
 
-// Control bytes in Orca's answer never reach the receipt as controls: the
-// version is one bounded line.
-func TestHealthTitlesOrcaVersionIsOneBoundedLine2166(t *testing.T) {
-	o := newOrca2017()
-	o.version = "1.4.247\x1b[31m\nsecond line " + strings.Repeat("x", 200)
-	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var r struct {
-		OrcaVersion *string `json:"orcaVersion"`
-	}
-	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion == nil {
-		t.Fatalf("%v %s", e, out)
-	}
-	if v := *r.OrcaVersion; len(v) > 64 || strings.ContainsAny(v, "\x1b\n") {
-		t.Fatalf("version not one bounded plain line: %q", v)
+// Only a version-shaped first line is carried: control bytes, an error body or
+// an over-long token are no answer (null), and a plain build-suffixed version
+// is kept whole.
+func TestHealthTitlesOrcaVersionMustLookLikeOne2166(t *testing.T) {
+	for in, want := range map[string]string{
+		"1.4.247":               "1.4.247",
+		"v1.4.247+build.5":      "v1.4.247+build.5",
+		"1.4.247\x1b[31m":       "",
+		"{\"ok\":true}":         "",
+		"orca 1.4.247":          "",
+		strings.Repeat("1", 65): "",
+	} {
+		o := newOrca2017()
+		o.version = in
+		out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r struct {
+			OrcaVersion *string `json:"orcaVersion"`
+		}
+		if e := json.Unmarshal([]byte(out), &r); e != nil {
+			t.Fatalf("%v %s", e, out)
+		}
+		got := ""
+		if r.OrcaVersion != nil {
+			got = *r.OrcaVersion
+		}
+		if got != want {
+			t.Errorf("version %q -> %q, want %q", in, got, want)
+		}
 	}
 }

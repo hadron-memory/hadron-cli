@@ -47,6 +47,10 @@ type healthReceipt struct {
 	// Renames is the title pass (cli#2017): one entry per tab renamed, or that
 	// a dry run would rename. Always a list.
 	Renames []healthRename `json:"renames"`
+	// OrcaVersion is what `orca --version` printed when the title pass ran
+	// (cli#2166); null when it did not run or Orca gave no answer. Local
+	// receipt only, never sent to the platform.
+	OrcaVersion *string `json:"orcaVersion"`
 	// DryRun is the shared #2017/#2027 posture: true unless the run passed
 	// --dry-run=false (the scheduled entry always does).
 	DryRun bool        `json:"dryRun"`
@@ -174,7 +178,11 @@ nothing. A tab is matched by its worktree's session binding, so a plain shell
 or a worktree with no registered worker is never touched. --dry-run is on by
 default: a manual run lists the renames it would make and changes nothing; the
 installed timer passes --dry-run=false. A tab that fails to rename is listed
-with its error, the rest still go ahead, and the sweep then exits 1.
+with its error, the rest still go ahead, and the sweep then exits 1. The title
+pass needs Orca 1.4.232 or later (terminal list and rename with a tab title);
+the receipt carries the version "orca --version" printed (orcaVersion, null when
+Orca gave no version), for the operator only: it is never sent to the platform.
+The pass runs delivery.orca_bin when that path resolves, else "orca" on PATH.
 
 Duplicate agents and tabs. Also after the batch is stored, the sweep detects
 more than one agent process and more than one terminal tab per bound-worker
@@ -346,6 +354,9 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 			}
 			renames, titleErr := healthTitles(c.Context(), cfg, workerNames, !dryRun)
 			dto.Renames = append(dto.Renames, renames...)
+			if len(workerNames) > 0 {
+				dto.OrcaVersion = healthOrcaVersion(c.Context(), cfg)
+			}
 			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
 			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -363,6 +374,11 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 						suffix = " (refused: " + code + ")"
 					}
 					if _, e := fmt.Fprintf(w, "%s  %s  %s%s\n", output.SafeCell(display[r.Worker]), r.Status, reason, suffix); e != nil {
+						return e
+					}
+				}
+				if dto.OrcaVersion != nil {
+					if _, e := fmt.Fprintf(w, "orca  %s\n", output.SafeCell(*dto.OrcaVersion)); e != nil {
 						return e
 					}
 				}

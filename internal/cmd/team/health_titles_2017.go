@@ -2,10 +2,13 @@ package team
 
 import (
 	"context"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/healthsched"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
@@ -33,12 +36,40 @@ type healthRename struct {
 // healthOrcaBin is the orca the title pass runs: the host configuration's
 // delivery.orca_bin, else "orca" found on PATH. `team health install` accepts
 // either (it refuses only when neither resolves), so a health-only host with
-// no delivery section must not fail its sweep on an empty binary name.
+// no delivery section must not fail its sweep on an empty binary name. A
+// configured path that no longer resolves (removed, a directory, not
+// executable: the same test install applies) is not used either: the sweep
+// falls back to "orca" on PATH, so a stale host config costs one rename pass
+// nothing instead of failing it every run (cli#2166).
 func healthOrcaBin(cfg *hostpoller.Config) string {
-	if cfg.Delivery.OrcaBin != "" {
-		return cfg.Delivery.OrcaBin
+	if p, err := healthsched.ResolveOrca(cfg.Delivery.OrcaBin, ""); err == nil {
+		return p
 	}
 	return "orca"
+}
+
+// healthOrcaVersionRE is what a version looks like: a digit-led token of at
+// most 64 characters ("1.4.247", "v1.4.247+build.5"). Anything else Orca
+// prints (an error body, a banner, control bytes) is not a version.
+var healthOrcaVersionRE = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+_-]{0,63}$`)
+
+// healthOrcaVersion is `orca --version` for the receipt (cli#2166): the first
+// line when it is version-shaped, else nil (Orca did not answer, or answered
+// something that is not a version). It is local output only: the platform's
+// host and sweep records have fixed shapes (cor:agt:070:01, :09), so the value
+// is never sent anywhere, and a failure here never fails the sweep. Terminal
+// list and rename need Orca 1.4.232 or later.
+func healthOrcaVersion(ctx context.Context, cfg *hostpoller.Config) *string {
+	res := orcaRunner(healthOrcaBin(cfg))(ctx, []string{"--version"})
+	if res.Code != 0 {
+		return nil
+	}
+	line, _, _ := strings.Cut(res.Stdout, "\n")
+	line = strings.TrimSpace(line)
+	if !healthOrcaVersionRE.MatchString(line) {
+		return nil
+	}
+	return &line
 }
 
 // healthTitles is the sweep's title pass (cli#2017): every tab whose
