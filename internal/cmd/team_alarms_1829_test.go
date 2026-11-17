@@ -272,6 +272,12 @@ func TestTeamAlarms1829StalledWalkIsMarkedIncomplete(t *testing.T) {
 	if err != nil || !strings.Contains(text, "INCOMPLETE") {
 		t.Fatalf("text output must say so: %v\n%s", err, text)
 	}
+	// An incomplete walk that found nothing must not claim "none in effect".
+	empty := page1919(nil, true, "")
+	text, _, _, err = runAlarms1829(t, alarmsTasks1829(), static1919(empty), "--team=worker:Marco")
+	if err != nil || !strings.Contains(text, "INCOMPLETE") || strings.Contains(text, "no alarms in effect") {
+		t.Fatalf("an incomplete empty read must not claim none in effect: %v\n%s", err, text)
+	}
 }
 
 // --type and --since go to the server as filters.

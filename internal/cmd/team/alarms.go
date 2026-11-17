@@ -283,6 +283,12 @@ finish, the output says it is incomplete and --json carries "incomplete".`,
 					}
 				}
 				if len(dto.Alarms) == 0 {
+					// An incomplete walk proves nothing about the pages it never
+					// read: "none in effect" would be a claim outrunning its evidence.
+					if stop != nil {
+						_, err := fmt.Fprintln(w, "no alarms found in the pages read")
+						return err
+					}
 					if all {
 						_, err := fmt.Fprintln(w, "no alarms")
 						return err
