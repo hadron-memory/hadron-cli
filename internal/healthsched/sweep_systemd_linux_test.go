@@ -168,7 +168,7 @@ func TestSweepSystemdAcceptance2183(t *testing.T) {
 	for _, n := range names {
 		paths = append(paths, filepath.Join("/run/systemd/system", n))
 	}
-	cleanupPaths := append([]string(nil), paths...)
+	cleanupPaths := make([]string, 0, len(paths))
 	t.Cleanup(func() {
 		_ = exec.Command("systemctl", append([]string{"stop"}, names...)...).Run()
 		for _, p := range cleanupPaths {
