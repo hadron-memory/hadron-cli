@@ -75,11 +75,27 @@ already carries the bound session.
 ## App-identity follow-up (#1896)
 
 The shared `bindingsAppIdentity` helper treats a pure App-read FORBIDDEN as a
-missing App. The --app, positional-App and signature/trailer callers therefore
-produce byte-identical unreadable/missing refusals, exit2, with no mutation.
+missing App. The worker-write --app, positional-App and signature/trailer
+callers produce byte-identical unreadable/missing refusals, exit 2, with no
+mutation. The helper also serves worker-bound grant reads, grant request
+verbs and `team task mine --app`: each now returns its existing missing-App
+usage refusal (exit 2), rather than the former permission error (exit 8).
+Optional authored-write attribution silently omits the session for either a
+missing or unreadable App and still sends the legitimate person write;
+previously unreadability printed a diagnostic note. This silent fallback
+matches the existing missing-App path and does not grant access.
+
+The conservative `isBindingsApp` wrapper already discarded lookup errors, so
+its register, chat-attribution and chat-cursor callers keep their prior bool
+behavior. The complete caller inventory is that wrapper, grant reads, grant
+requests, task mine, worker-write initial scope and late target, signing, and
+authored-write attribution.
 Known credential-scope refusals, mixed failures and transport errors retain
-normal classifications. This follows the gate's V58/FIT interpretation on
-App-scoped team surfaces; the server's generic App read is unchanged.
+normal classifications, including diagnostic notes in optional attribution.
+This follows the #1896 gate's App-scoped refusal rule; the server's generic
+App read is unchanged. Pins compare complete text/JSON streams for the four
+additional callers and check that credential failures retain their exits or
+diagnostic notes. A helper-normalization mutant kills all four callers.
 
 A single worker compile first validates its binding, then resolves the worker
 as the person. With --as-worker, its returned App is checked against the SAME

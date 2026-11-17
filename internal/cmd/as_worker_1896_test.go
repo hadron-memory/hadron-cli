@@ -42,8 +42,8 @@ func assertNoWrite1896(t *testing.T, r asWorkerResult1896) {
 	}
 }
 
-// The shared helper serves all three callers: no App existence oracle through
-// their text OR JSON errors. Other lookup failures retain their own exits.
+// These are the worker-write and signing arms of the shared App helper.
+// Other helper callers are pinned separately below. Lookup failures retain their exits.
 func TestAsWorkerAppRefusalParity1896(t *testing.T) {
 	for _, arm := range []string{"flag", "positional", "signing", "worker-target"} {
 		for _, jsonMode := range []bool{false, true} {
@@ -235,4 +235,92 @@ func TestAsWorkerResolvedTargetLookupRebind1896(t *testing.T) {
 func swapSessionBack1896(t *testing.T) {
 	t.Helper()
 	rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "s-new" })
+}
+
+// The helper also serves grant reads/requests, task mine and optional write
+// attribution. Missing/unreadable Apps agree at each caller; optional
+// attribution sends the legitimate person write silently, without a session.
+func TestBindingsAppOtherCallerParity1896(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		args     []string
+		authored bool
+	}{
+		{"grant-read", []string{"team", "grant", "list"}, false},
+		{"grant-request", []string{"team", "grant", "request", "--action", "node.read", "--values", `{"node":["n1"]}`, "--reason", "need it"}, false},
+		{"task-mine", []string{"team", "task", "mine"}, false},
+		{"write-attribution", []string{"node", "create", "-m", "acme.com:kb", "--loc", "test:authored", "--name", "Authored"}, true},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(tc.name+map[bool]string{false: "/text", true: "/json"}[jsonMode], func(t *testing.T) {
+				args := append(append([]string{}, tc.args...), "--app", "hrn:app:acme.com:other")
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				var missing asWorkerResult1896
+				for _, kind := range []string{"missing", "forbidden", "auth", "scope"} {
+					responses := c1Responses()
+					responses["CreateNode"] = `{"data":{"createNode":` + nodeJSON + `}}`
+					switch kind {
+					case "missing":
+						responses["TeamAppIdentity"] = `{"data":{"app":null}}`
+					case "forbidden":
+						responses["TeamAppIdentity"] = `{"errors":[{"message":"private App exists","extensions":{"code":"FORBIDDEN"}}]}`
+					case "auth":
+						responses["TeamAppIdentity"] = `{"errors":[{"message":"sign in again","extensions":{"code":"UNAUTHENTICATED"}}]}`
+					case "scope":
+						responses["TeamAppIdentity"] = `{"errors":[{"message":"credential needs account scope","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_INSUFFICIENT"}}]}`
+					}
+					r := runAsWorker1896(t, responses, nil, args...)
+					if tc.authored {
+						if r.exit != exitcode.OK {
+							t.Fatalf("person write refused: %+v", r)
+						}
+						writes := 0
+						for _, c := range r.calls {
+							if c.Session != "" {
+								t.Fatalf("request attributed after failed App match: %+v", c)
+							}
+							if c.Op == "CreateNode" {
+								writes++
+							} else if c.Op != "TeamAppIdentity" {
+								t.Fatalf("unexpected operation: %+v", c)
+							}
+						}
+						if writes != 1 {
+							t.Fatalf("expected one person write: %+v", r.calls)
+						}
+					} else {
+						assertNoWrite1896(t, r)
+						if len(r.calls) != 1 || r.calls[0].Op != "TeamAppIdentity" {
+							t.Fatalf("unexpected lookup sequence: %+v", r.calls)
+						}
+					}
+					switch kind {
+					case "missing":
+						missing = r
+						if tc.authored {
+							if r.stderr != "" {
+								t.Fatalf("missing App should silently omit attribution: %q", r.stderr)
+							}
+						} else if r.exit != exitcode.Usage {
+							t.Fatalf("missing App not usage: %+v", r)
+						}
+					case "forbidden":
+						if r.exit != missing.exit || r.stdout != missing.stdout || r.stderr != missing.stderr {
+							t.Fatalf("unreadable differs from missing: got %+v; missing %+v", r, missing)
+						}
+					case "auth", "scope":
+						if tc.authored {
+							if strings.Count(r.stderr, "worker attribution unavailable") != 1 {
+								t.Fatalf("credential failure note missing: %+v", r)
+							}
+						} else if r.exit != exitcode.AuthRequired {
+							t.Fatalf("credential failure reclassified: %+v", r)
+						}
+					}
+				}
+			})
+		}
+	}
 }
