@@ -461,7 +461,7 @@ func withBindingLockAt(loc bindingLoc, fn func(cacheHandle) error) error {
 		if st, err := os.Lstat(loc.dir); err == nil && st.Mode()&os.ModeSymlink != 0 {
 			return exitcode.Newf(exitcode.Usage, "the session binding cache %s is a symbolic link: it must be a real directory, so nothing is written through it (remove the link, then start again)", loc.dir)
 		}
-		if err := os.MkdirAll(loc.dir, 0o700); err != nil {
+		if err := mkdirCache(loc.dir); err != nil {
 			return fmt.Errorf("creating the session binding cache %s: %w", loc.dir, err)
 		}
 		// MkdirAll leaves an existing directory as it was, so a bind
@@ -537,6 +537,12 @@ func (h cacheHandle) writeAtomic(name string, data []byte, perm os.FileMode) err
 		return err
 	}
 	defer func() { _ = h.root.Remove(tmp) }() // a no-op once the rename has consumed it
+	// The exact mode, whatever the umask: OpenFile only asks for it (Jake's
+	// LOCAL P2 on #2229), as config.WriteFileAtomic's chmod always did.
+	if err := f.Chmod(perm); err != nil {
+		_ = f.Close()
+		return err
+	}
 	if _, err := f.Write(data); err != nil {
 		_ = f.Close()
 		return err

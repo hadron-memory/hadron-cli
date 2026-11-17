@@ -38,3 +38,12 @@ func secureCacheDir(dir string) (*os.Root, error) {
 	}
 	return root, nil
 }
+
+// mkdirCache creates the cache directory owner-only whatever the umask: the
+// mask is narrowed to group and other bits for the call, so a restrictive
+// umask cannot leave the owner without access to the directory it must open.
+func mkdirCache(dir string) error {
+	old := syscall.Umask(0o077)
+	defer syscall.Umask(old)
+	return os.MkdirAll(dir, 0o700)
+}

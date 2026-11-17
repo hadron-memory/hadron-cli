@@ -28,3 +28,6 @@ func secureCacheDir(dir string) (*os.Root, error) {
 	}
 	return root, nil
 }
+
+// mkdirCache creates the cache directory; Windows has no umask.
+func mkdirCache(dir string) error { return os.MkdirAll(dir, 0o700) }
