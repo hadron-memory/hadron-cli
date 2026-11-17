@@ -120,6 +120,20 @@ func TestAuthGrantsServerCapAndContinuation2021(t *testing.T) {
 	if len(dto.Items) != 200 || dto.Total != 201 || !dto.HasMore || dto.NextOffset == nil || *dto.NextOffset != 200 {
 		t.Fatalf("continuation lost: %s", out)
 	}
+	assertContinuationKeys2038(t, out, "201", "true", "200")
+}
+
+// A struct decode is case-insensitive and reads a missing key as false/nil, so
+// the nonzero continuation also pins the exact key spellings and raw values.
+func assertContinuationKeys2038(t *testing.T, out, total, hasMore, nextOffset string) {
+	t.Helper()
+	var page map[string]json.RawMessage
+	decodeGrantJSON2028(t, []byte(out), &page)
+	if string(requireGrantKey2028(t, page, "total")) != total ||
+		string(requireGrantKey2028(t, page, "hasMore")) != hasMore ||
+		string(requireGrantKey2028(t, page, "nextOffset")) != nextOffset {
+		t.Fatalf("exact continuation keys/values changed: %s", out)
+	}
 }
 
 func TestAuthGrantsFailureIsNotEmpty2021(t *testing.T) {
@@ -199,9 +213,21 @@ func TestAuthGrantsHumanCellsSafe2021(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out, "\x1b") || strings.Contains(out, "line\nnext") ||
-		!strings.Contains(out, "unsafe") || !strings.Contains(out, "line") || !strings.Contains(out, "next") {
-		t.Fatalf("unsafe cell: %q", out)
+	if strings.Contains(out, "\x1b") {
+		t.Fatalf("raw escape reached the table: %q", out)
+	}
+	// Anchor on the one grant row and the REASON column (right after USE COUNT,
+	// before CREATED; three words, so 19 cells): the cleaned text must sit there, on one line, not merely
+	// appear somewhere in the output.
+	cells := grantHumanRow2028(t, out, "g1")
+	if len(cells) != 19 || cells[9] != "2" || strings.Join(cells[10:13], " ") != "unsafe [31mline next" ||
+		cells[13] != "2026-10-01T00:00:00Z" {
+		t.Fatalf("cleaned reason is not in its row cell: %v; output=%q", cells, out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "next") && !strings.HasPrefix(line, "g1") {
+			t.Fatalf("reason text escaped its row: %q", out)
+		}
 	}
 }
 
@@ -281,10 +307,12 @@ func TestAuthGrantsRawDecisionFactsJSONAndTable2021(t *testing.T) {
 					t.Fatalf("missing public columns: %s", out)
 				}
 				cells := grantHumanRow2028(t, out, "g1")
-				// Controlled short fixture: USE COUNT is column 10; the final three
-				// columns are ALLOWS / SIGNATURE STATE / INTEGRITY PROBLEMS. A reason
-				// may contain spaces, so it is deliberately not a split-column anchor.
-				if len(cells) < 13 || cells[9] != fmt.Sprint(tc.uses) ||
+				// Controlled short fixture: 17 columns, and the two-word reason
+				// ("Past terms") makes exactly 18 cells. USE COUNT is column 10; the
+				// final three columns are ALLOWS / SIGNATURE STATE / INTEGRITY
+				// PROBLEMS. An added or lost column fails the exact count rather than
+				// hiding behind a minimum.
+				if len(cells) != 18 || cells[9] != fmt.Sprint(tc.uses) ||
 					cells[len(cells)-3] != fmt.Sprint(tc.allows) ||
 					cells[len(cells)-2] != stateCell || cells[len(cells)-1] != fmt.Sprint(tc.problems) {
 					t.Fatalf("raw human decision cells changed: %v; output=%s", cells, out)
@@ -381,6 +409,7 @@ func TestAuthGrantsContinuationText2028(t *testing.T) {
 				if len(result.Items) != 2 || result.Total != 10 || !result.HasMore || result.NextOffset == nil || *result.NextOffset != 9 {
 					t.Fatalf("continuation changed: %s", out)
 				}
+				assertContinuationKeys2038(t, out, "10", "true", "9")
 			} else if !strings.Contains(out, "g1") || !strings.Contains(out, "g2") ||
 				!strings.Contains(out, "next offset: 9\n") ||
 				!strings.HasSuffix(out, "total matching: 10; rows on this page: 2; offset: 7; requested limit: 2; has more: true\n") {
@@ -452,6 +481,21 @@ func TestAuthGrantsPastEndIsEmptyPage2028(t *testing.T) {
 	}
 }
 
+// The human past-end page was covered only by compiled QA: no table, the neutral
+// empty-audience line, no next-offset line, and an exact footer.
+func TestAuthGrantsPastEndHumanFooter2038(t *testing.T) {
+	calls, out, err := runTeamTask(t, map[string]string{"MyGrants": `{"data":{"myGrants":{"items":[],"total":41}}}`},
+		"auth", "grants", "--offset", "99")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "No rows returned on this page; empty responses also cover credentials outside the person audience.\n" +
+		"total matching: 41; rows on this page: 0; offset: 99; requested limit: 20; has more: false\n"
+	if out != want || len(*calls) != 1 || (*calls)[0].Vars["offset"] != float64(99) {
+		t.Fatalf("past-end human page: %q calls=%+v", out, *calls)
+	}
+}
+
 func TestAuthGrantsExplicitAppNeverScopesPersonalRead2028(t *testing.T) {
 	for _, bound := range []bool{true, false} {
 		t.Run(fmt.Sprintf("bound=%v", bound), func(t *testing.T) {
@@ -507,8 +551,11 @@ func TestAuthGrantsExplicitAppNeverScopesPersonalRead2028(t *testing.T) {
 				got[0].vars["limit"] != float64(20) || got[0].vars["offset"] != float64(0) {
 				t.Fatalf("App flag added a variable/resolution: op=%s vars=%+v", got[0].op, got[0].vars)
 			}
-			if got[0].header.Get("Authorization") == "" {
-				t.Fatal("personal credential not sent")
+			// testFactory's synthetic credential is HADRON_TOKEN=hdr_user_test; no
+			// separate worker credential exists in this fixture, so the exact value
+			// (not just "nonempty") shows the personal token is what was sent.
+			if got[0].header.Get("Authorization") != "Bearer hdr_user_test" {
+				t.Fatalf("personal credential not sent exactly: %q", got[0].header.Get("Authorization"))
 			}
 			for name := range got[0].header {
 				lower := strings.ToLower(name)
