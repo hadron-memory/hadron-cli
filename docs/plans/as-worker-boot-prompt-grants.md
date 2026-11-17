@@ -26,8 +26,9 @@ person's. So `--as-worker` uses `internal/cmd/team/worker_write_session.go`,
 reached from `bootcompile` and `node` through `Factory.WorkerWriteSession`
 (`cmdutil/factory.go`, `ResolveWorkerWrite`). It refuses with exit 2 and sends
 nothing for: no worktree, no binding file, an unreadable or incomplete binding,
-a binding for another server, an `--app` naming another App. It runs before the
-first request of every command, including a batch's dry run.
+a binding for another server, an `--app` naming another App. Initial binding
+faults refuse before the first request, including a batch's dry run. An App
+identity read may precede an App mismatch refusal; no mutation is sent.
 
 It returns a function called immediately before each mutation. That function
 re-reads the binding and compares it with the snapshot taken at resolve time; a
@@ -69,3 +70,29 @@ and on single compile, and `approveNode`/`compileWorkerBootPrompt` added to
 Asking for or signing grants (`team grant request`, hadron-cli#1868, shipped);
 docs (hadron-docs#703). `bootprompt.source.edit` rides `updateNode`, which
 already carries the bound session.
+
+
+## App-identity follow-up (#1896)
+
+The shared `bindingsAppIdentity` helper treats a pure App-read FORBIDDEN as a
+missing App. The --app, positional-App and signature/trailer callers therefore
+produce byte-identical unreadable/missing refusals, exit2, with no mutation.
+Known credential-scope refusals, mixed failures and transport errors retain
+normal classifications. This follows the gate's V58/FIT interpretation on
+App-scoped team surfaces; the server's generic App read is unchanged.
+
+A single worker compile first validates its binding, then resolves the worker
+as the person. With --as-worker, its returned App is checked against the SAME
+captured binding snapshot before any worker label or compile mutation. The
+returned `WorkerWriteContext` accepts late-resolved target Apps and rechecks
+the binding before and after identity lookup; a refusal returns nil context
+and stays latched. The final pre-mutation recheck remains. Explicit worker
+ids/URNs still ignore ambient scope on the default person path; no grant is
+checked locally. Unknown workers retain their original refusal.
+
+Pins cover four positional App spellings, all shared-helper callers in text
+and JSON, pure permission vs credential/mixed errors, cross-App workers,
+unchanged person/same-App paths, and rebinding during positional/worker/late
+App lookups. The server grant remains the authorization barrier; these are
+client consistency and refusal-oracle checks. No schema or request projection
+changes or real server/production claims.

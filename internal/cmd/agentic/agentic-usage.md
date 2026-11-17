@@ -5163,12 +5163,19 @@ reads stay yours. The server then admits only a new revision of an existing
 compiled node that a signed `bootprompt.compile.approve` grant names (any worker
 in the App, not only the bound one), forces `pointerSet` false, and never
 creates a node; the CLI sends no `setPointer` it did not send before and
-checks no grant. `--as-worker` never falls back to you: no worktree, no
-binding, an incomplete binding, a binding for another server, another `--app`
-(or, for `app agent compile`, another positional `<app>`, cli#1887; compared by resolved App),
-or a binding that changes during the run refuses with exit 2 (before any
-request for single commands and batches; a mid-batch change files the
-remaining workers under `failed` with exit 2 and sends nothing more). Server
+checks no grant. `--as-worker` never falls back to you. It refuses (exit 2)
+for no worktree, a missing/incomplete binding, a binding for another server,
+or an App mismatch through `--app` or the positional `<app>` of
+`app agent compile` (cli#1887). With
+`team worker compile --as-worker`, the resolved worker's App must match the
+original binding, including explicit worker ids/URNs (cli#1896). App comparison
+uses resolved ids. Unreadable and missing target Apps have byte-identical
+refusals, exit 2, including signature/trailer edits using the shared guard;
+credential and transport lookup errors keep their ordinary exits. Initial
+binding faults refuse before any request; App/worker identity reads can precede
+an App mismatch refusal, but no compile/approve write is sent. A binding that
+changes during the run also refuses with exit 2; a mid-batch change files the
+remaining workers under `failed` with exit 2 and sends nothing more. Server
 refusals (`BOOT_PROMPT_COMPILE_NOT_PERMITTED`, `BOOT_PROMPT_GRANT_REQUIRED`,
 `BOOT_PROMPT_WORKER_SESSION_REFUSED`, `BOOT_PROMPT_APPROVAL_FORBIDDEN`) print
 with their codes, exit 8. The grant does not cover signing: where an organisation has switched on signing of compiled boot prompts (its own setting, not the passkey switch) a person still signs each compiled

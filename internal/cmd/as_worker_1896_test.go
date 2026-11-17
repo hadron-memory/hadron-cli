@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -43,7 +45,7 @@ func assertNoWrite1896(t *testing.T, r asWorkerResult1896) {
 // The shared helper serves all three callers: no App existence oracle through
 // their text OR JSON errors. Other lookup failures retain their own exits.
 func TestAsWorkerAppRefusalParity1896(t *testing.T) {
-	for _, arm := range []string{"flag", "positional", "signing"} {
+	for _, arm := range []string{"flag", "positional", "signing", "worker-target"} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(arm+map[bool]string{false: "/text", true: "/json"}[jsonMode], func(t *testing.T) {
 				args := []string{"agent", "compile", "hrn:agent:acme.com:support-bot", "--as-worker", "--app", "hrn:app:acme.com:other"}
@@ -53,12 +55,18 @@ func TestAsWorkerAppRefusalParity1896(t *testing.T) {
 				if arm == "signing" {
 					args = []string{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris", "--signature", "new template", "--app", "hrn:app:acme.com:other"}
 				}
+				if arm == "worker-target" {
+					args = []string{"team", "worker", "compile", "hrn:worker:acme.com:other:iris", "--as-worker"}
+				}
 				if jsonMode {
 					args = append(args, "--json")
 				}
 				var missing asWorkerResult1896
 				for _, kind := range []string{"missing", "forbidden", "auth", "scope", "internal", "mixed"} {
 					responses := c1Responses()
+					if arm == "worker-target" {
+						responses["GetWorker"] = strings.ReplaceAll(responses["GetWorker"], "capp100000000000000000000", "capp900000000000000000000")
+					}
 					switch kind {
 					case "missing":
 						responses["TeamAppIdentity"] = `{"data":{"app":null}}`
@@ -192,4 +200,39 @@ func TestAsWorkerWorkerResolutionRebindStopsWrite1896(t *testing.T) {
 		t.Fatalf("worker resolution rebind not refused: %+v", r)
 	}
 	assertNoWrite1896(t, r)
+}
+
+// This exercises the new late-target guard with an ordinary App URN, not a
+// fictional worker profile. A lookup can race a rebind after the first check.
+func TestAsWorkerResolvedTargetLookupRebind1896(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServerHook(t, c1Responses(), func(op string) {
+		if op == "TeamAppIdentity" {
+			swapSession(t)
+		}
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	f.ServerFlag = srv.URL
+	send, err := team.WorkerWriteSession(f)(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := send(context.Background(), "hrn:app:acme.com:eng-team")
+	if ctx != nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "binding changed") {
+		t.Fatalf("late lookup rebind returned ctx=%v err=%v", ctx, err)
+	}
+	if len(*calls) != 1 || (*calls)[0].Op != "TeamAppIdentity" || (*calls)[0].Session != "" {
+		t.Fatalf("unexpected lookup attribution: %+v", *calls)
+	}
+	// The failed check remains latched even after the original binding returns.
+	swapSessionBack1896(t)
+	if ctx, err = send(context.Background()); ctx != nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("restored binding resumed after refusal: ctx=%v err=%v", ctx, err)
+	}
+}
+
+func swapSessionBack1896(t *testing.T) {
+	t.Helper()
+	rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "s-new" })
 }
