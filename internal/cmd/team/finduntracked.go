@@ -103,7 +103,9 @@ claimed; a failed mark leaves the claim standing and exits 1.
 On the adapter path, JSON complete means the list ran out without an error.
 Reaching --limit is a successful stop (exit 0), with complete:false and
 stoppedReason:"limit_reached"; no extra page is fetched. Both list and track
-report stoppedReason (null on exhaustion, otherwise the failing stage).
+report stoppedReason: null on exhaustion, "limit_reached" on that successful
+limit stop, otherwise the stage that failed (check_failed, claim_failed,
+mark_failed, walk_failed or reconcile_failed).
 
 RECONCILE (every adapter run, before the list). The CLI reads, from the server,
 what changed on the App's tasks that carry an outside item since its cursor, and
