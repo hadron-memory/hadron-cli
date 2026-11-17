@@ -63,7 +63,9 @@ func TestResumeSendsEffortWhenGiven2206(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"team", "session", "start", "--server", srv.URL}, tc.args...))
-		_ = root.Execute()
+		if err := root.Execute(); err != nil {
+			t.Fatalf("a resume with %v must succeed against the RESUMED stub: %v", tc.args, err)
+		}
 		var v struct {
 			Input map[string]any `json:"input"`
 		}

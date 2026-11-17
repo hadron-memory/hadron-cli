@@ -165,6 +165,7 @@ func TestTaskBatchRefusesInvalidRunSettings2206(t *testing.T) {
 func TestTaskGetShowsRunSettingsAndAppliedTogether2206(t *testing.T) {
 	withBoth := strings.Replace(taskFieldsJSON, `"id":"task1"`, `"id":"task1","runSettings":{"family":"claude","model":null,"tier":"high","effort":"HIGH"},"appliedRunSettings":{"family":"claude","model":"opus","effort":"HIGH"}`, 1)
 	onlyAsked := strings.Replace(taskFieldsJSON, `"id":"task1"`, `"id":"task1","runSettings":{"family":"codex","model":null,"tier":null,"effort":null},"appliedRunSettings":null`, 1)
+	onlyApplied := strings.Replace(taskFieldsJSON, `"id":"task1"`, `"id":"task1","runSettings":null,"appliedRunSettings":{"family":"claude","model":"sonnet","effort":null}`, 1)
 	neither := taskFieldsJSON
 	for name, c := range map[string]struct {
 		fields       string
@@ -172,9 +173,10 @@ func TestTaskGetShowsRunSettingsAndAppliedTogether2206(t *testing.T) {
 		wantApplied  string
 		wantAskedKey string
 	}{
-		"both":       {withBoth, true, `"model":"opus"`, `"tier":"high"`},
-		"asked only": {onlyAsked, true, `"appliedRunSettings":{}`, `"family":"codex"`},
-		"neither":    {neither, false, "", ""},
+		"both":         {withBoth, true, `"model":"opus"`, `"tier":"high"`},
+		"asked only":   {onlyAsked, true, `"appliedRunSettings":{}`, `"family":"codex"`},
+		"applied only": {onlyApplied, true, `"runSettings":{}`, `"model":"sonnet"`},
+		"neither":      {neither, false, "", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := taskResponses()
@@ -193,6 +195,12 @@ func TestTaskGetShowsRunSettingsAndAppliedTogether2206(t *testing.T) {
 			if c.wantApplied != "" && !strings.Contains(out, c.wantApplied) {
 				t.Fatalf("missing %s\n%s", c.wantApplied, out)
 			}
+			if c.wantAskedKey != "" && !strings.Contains(out, c.wantAskedKey) {
+				t.Fatalf("the requested settings must be shown: missing %s\n%s", c.wantAskedKey, out)
+			}
+			if name == "both" && strings.Contains(out, `"model":null`) {
+				t.Fatalf("a null requested field must be omitted, not printed as null\n%s", out)
+			}
 			_, text, err := runTeamTask(t, r, "team", "task", "get", "task1")
 			if err != nil {
 				t.Fatal(err)
@@ -201,5 +209,25 @@ func TestTaskGetShowsRunSettingsAndAppliedTogether2206(t *testing.T) {
 				t.Fatalf("text output pair present = %v, want %v\n%s", has, c.wantRun, text)
 			}
 		})
+	}
+}
+
+// The model and family rules are the server's contract, no stricter: letters,
+// digits, '.', '_' and '-', any of them first, model up to 128 characters.
+func TestRunSettingTokensMatchTheContract2206(t *testing.T) {
+	for _, model := range []string{"_custom-model", ".custom", "-x", "gpt-6.1-sol", strings.Repeat("a", 128)} {
+		input, err := createInput2206(t, "--model", model)
+		if err != nil {
+			t.Errorf("model %q must reach the server: %v", model, err)
+			continue
+		}
+		if rs, _ := input["runSettings"].(map[string]any); rs["model"] != model {
+			t.Errorf("model %q not sent: %#v", model, input["runSettings"])
+		}
+	}
+	for _, model := range []string{strings.Repeat("a", 129), "has space", "a/b"} {
+		if _, err := createInput2206(t, "--model", model); err == nil {
+			t.Errorf("model %q must be refused before any call", model)
+		}
 	}
 }

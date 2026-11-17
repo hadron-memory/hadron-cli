@@ -234,7 +234,10 @@ settings (cor:agt:050:01): what to launch, not whom to match (that is
 short-lived; a platform start of a long-lived worker uses the worker's own
 record and ignores them, so --family codex does not relaunch a long-lived Claude
 worker. They are set at creation and never edited, and a clone copies none.
-The CLI refuses a model with a tier and an effort of NOT_APPLICABLE (exit 2);
+Every task command now selects runSettings and appliedRunSettings, so this needs
+a server with hadron-server#4295 (S14) or later, as the matching metadata above
+needs its provider. The CLI refuses a model with a tier and an effort of
+NOT_APPLICABLE (exit 2);
 anything depending on the task's requirements is the server's, shown as
 TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
 
