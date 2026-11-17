@@ -72,6 +72,7 @@ jobs:
               Replacement = 'flags'
               Test = '^TestLockBinding2079LockFileReparse$'
               Failure = 'file reparse point was followed'
+              ShouldFail = $true
             },
             @{
               Name = 'directory-reparse-attributes'
@@ -79,6 +80,15 @@ jobs:
               Replacement = ''
               Test = '^TestLockBinding2079DirectorySwapJunction$'
               Failure = 'directory reparse point was followed|outside directory changed'
+              ShouldFail = $true
+            },
+            @{
+              Name = 'equivalent-file-reparse-flag'
+              Pattern = [regex]::Escape('flags|windows.FILE_FLAG_OPEN_REPARSE_POINT')
+              Replacement = 'flags|(windows.FILE_FLAG_OPEN_REPARSE_POINT)'
+              Test = '2079'
+              Failure = ''
+              ShouldFail = $false
             }
           )
           foreach ($mutant in $mutants) {
@@ -86,14 +96,21 @@ jobs:
               $regex = [regex]::new($mutant.Pattern)
               if ($regex.Matches($original).Count -ne 1) { throw "Mutation anchor must occur once: $($mutant.Name)" }
               [IO.File]::WriteAllText($path, $regex.Replace($original, $mutant.Replacement), $utf8)
+              git diff -- internal/delivery/bindinglock_windows.go
               go test -c ./internal/delivery/ -o $binary
               if ($LASTEXITCODE -ne 0) { throw "Mutant did not compile: $($mutant.Name)" }
               $output = & $binary -test.run $mutant.Test -test.v 2>&1
               $result = $LASTEXITCODE
               $output | Out-Host
-              if ($result -eq 0) { throw "Mutant survived: $($mutant.Name)" }
-              if (($output -join "`n") -notmatch $mutant.Failure) { throw "Mutant failed for another reason: $($mutant.Name)" }
-              Write-Host "PASS: compiling mutant $($mutant.Name) killed by $($mutant.Test)"
+              $text = $output -join "`n"
+              if ($mutant.ShouldFail) {
+                if ($result -eq 0) { throw "Mutant survived: $($mutant.Name)" }
+                if ($text -notmatch '--- FAIL:' -or $text -notmatch $mutant.Failure) { throw "Mutant failed for another reason: $($mutant.Name)" }
+                Write-Host "PASS: compiling mutant $($mutant.Name) killed by $($mutant.Test)"
+              } else {
+                if ($result -ne 0 -or $text -match '--- SKIP:' -or $text -notmatch '--- PASS: TestLockBinding2079PlainDirectoryControl') { throw "Equivalent control did not survive: $($mutant.Name)" }
+                Write-Host "PASS: equivalent mutant $($mutant.Name) survived"
+              }
             } finally {
               [IO.File]::WriteAllText($path, $original, $utf8)
             }
