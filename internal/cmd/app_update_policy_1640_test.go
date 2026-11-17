@@ -132,3 +132,27 @@ func TestAppUpdatePolicyOlderServerRefusalIsNotRetried1640(t *testing.T) {
 		t.Fatalf("err=%v requests=%d", err, n)
 	}
 }
+
+// The confirmation names the policy change, never its value, and declining
+// sends nothing.
+func TestAppUpdatePolicyConfirmationNamesTheChangeNotTheValue1640(t *testing.T) {
+	for _, tc := range []struct {
+		flags []string
+		want  string
+	}{
+		{[]string{"--policy-file", policyFile1640(t, `{"allow":["private-sentinel-value"]}`)}, "Update App " + appRef1058 + ": policy?"},
+		{[]string{"--clear-policy"}, "Update App " + appRef1058 + ": policy (cleared)?"},
+	} {
+		srv, calls := appSettingsServer(t)
+		f, _, prompt := testFactoryTTY(t, "n\n")
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"app", "update", appRef1058}, tc.flags...), "--server", srv.URL))
+		err := root.Execute()
+		if exitCodeFor(err) != 6 || len(*calls) != 0 {
+			t.Fatalf("declined: %v calls=%+v", err, *calls)
+		}
+		if !strings.Contains(prompt.String(), tc.want) || strings.Contains(prompt.String(), "private-sentinel-value") {
+			t.Fatalf("prompt=%q want %q without the value", prompt.String(), tc.want)
+		}
+	}
+}
