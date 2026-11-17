@@ -39,10 +39,9 @@ unreported stop notices. Install creates only the new one-minute sweep timer.
 On typed Orca-launch hosts, managed-daemon preflight is shared with C5;
 exec-launch hosts retain ordinary host-up readiness. A missing daemon scope or an
 unreachable terminal list records ORCA_DOWN skips and queues nothing; unreadable
-or ambiguous readiness stays RELAUNCH_UNPROVEN. C5 reports the first outage once
-and replays its persisted token until confirmed. C5 records only applied/failed
-passes; routine empty/observe/skipped passes do not refresh the stale-sweep
-clock. This one-minute command records the quiet passes. An expected unavailable
+or ambiguous readiness stays RELAUNCH_UNPROVEN. The poller (C5) reports the first outage once and replays its
+token until confirmed, backing off while S10 is unavailable; it records only
+applied/failed passes, so this one-minute command records the quiet passes. An expected unavailable
 observation exits 0 and waits for the next timer tick. Lock contention exits 5
 without a service restart. Exec-host preflight refusals keep exit 2, record
 nothing and wait for the next timer tick without service restart. A failed record does not change
@@ -76,10 +75,7 @@ This command requests no daemon start, kill or restart; the service manager owns
 			}
 			f.ServerFlag = cfg.Server
 		}
-		orca := configuredOrcaBin(cfg)
-		if orca == "" {
-			orca = "orca"
-		}
+		orca := configuredOrcaBin(cfg) // never empty: it falls back to "orca"
 		dir, err := config.Dir()
 		if err != nil {
 			return exitcode.New(exitcode.Error, err)
@@ -112,7 +108,16 @@ units are required; cron and launchd are refused. No schedule hides in a script.
 The host key stays in key_file; unit argv contains only the config path.
 Existing health/report-stops timers are retained. Installing does not change
 the App's sweepMode: only an App set to APPLY permits reconciliation actions.
-Repeated install is idempotent; another config requires uninstall first.`
+Repeated install is idempotent; another config requires uninstall first.
+
+Requires systemd 244 or newer: the service pairs Type=oneshot with
+Restart=on-failure, which systemd 243 and older refuse to load. Exit codes 2 and 5
+are not restarted at once (RestartPreventExitStatus); an unhandled Go panic also
+exits 2, so it waits for the next one-minute tick.
+
+The unit embeds no server or token. The scheduled user's normal login and server
+configuration performs reconciliation; the 0600 key_file is used only to record
+S10. Test drop-ins that pin a non-default server are not production setup.`
 	if err := install.Flags().Set("interval", "1m"); err != nil {
 		panic(err)
 	}
@@ -164,9 +169,6 @@ func reportUnavailableSweep(cmd *cobra.Command, f *cmdutil.Factory, cfg *hostpol
 	if err := writeHostUp(f, dto, func() string { return cfg.App + " (from --config)" }); err != nil {
 		return err
 	}
-	if snap.SweepMode == "OFF" {
-		return nil
-	}
-	// A confirmed unavailable observation is a completed sweep, not a crash.
+	// An unavailable observation (OFF included) is a completed sweep, not a crash.
 	return nil
 }
