@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build cross-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
+.PHONY: build cross-build cross-test-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -45,6 +45,17 @@ cross-build:
 	  echo "go build $$t"; \
 	  GOOS=$${t%/*} GOARCH=$${t#*/} go build ./... || exit 1; \
 	done
+
+# cli#2315: cross-build compiles the PACKAGES for every release target, but not
+# their TEST files, so a test file whose platform tag disagrees with its helper
+# (patientKillWait, defined for unix only and called by untagged tests) failed to
+# compile on Windows and nobody noticed. Compile the hostpoller test package for
+# the non-linux release targets, without running it: cross-compilation only, no
+# claim of native execution. One explicit command per target, no loop.
+cross-test-build:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
 
 test:
 	go test ./...
