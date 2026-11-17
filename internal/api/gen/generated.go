@@ -63047,62 +63047,62 @@ func (v *MarkOwnTeamChatReadResponse) GetMarkOwnTeamChatRead() *MarkOwnTeamChatR
 	return v.MarkOwnTeamChatRead
 }
 
-// MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage includes the requested fields of the GraphQL type MarketplaceResourcePage.
 // The GraphQL type's documentation follows.
 //
 // A paginated page of sanitized public resource refs (marketplace catalogue).
-type MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage struct {
-	Total int                                                                              `json:"total"`
-	Items []*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+type MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage struct {
+	Total int                                                                                `json:"total"`
+	Items []*MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef `json:"items"`
 }
 
-// GetTotal returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage) GetTotal() int { return v.Total }
+// GetTotal returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage) GetTotal() int { return v.Total }
 
-// GetItems returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage) GetItems() []*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef {
+// GetItems returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage) GetItems() []*MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef {
 	return v.Items
 }
 
-// MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef struct {
+type MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef struct {
 	DiscoveryPublicRef `json:"-"`
 }
 
-// GetId returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+// GetId returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) GetId() string {
 	return v.DiscoveryPublicRef.Id
 }
 
-// GetName returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+// GetName returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) GetName() string {
 	return v.DiscoveryPublicRef.Name
 }
 
-// GetUrn returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+// GetUrn returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) GetUrn() string {
 	return v.DiscoveryPublicRef.Urn
 }
 
-// GetDescription returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+// GetDescription returns MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) GetDescription() *string {
 	return v.DiscoveryPublicRef.Description
 }
 
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef
+		*MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef = v
+	firstPass.MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -63117,7 +63117,7 @@ func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResou
 	return nil
 }
 
-type __premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef struct {
+type __premarshalMarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -63127,7 +63127,7 @@ type __premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPub
 	Description *string `json:"description"`
 }
 
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -63135,8 +63135,8 @@ func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResou
 	return json.Marshal(premarshaled)
 }
 
-func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef, error) {
-	var retval __premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef
+func (v *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceAgentsMarketplaceAgentsMarketplaceResourcePageItemsPublicResourceRef
 
 	retval.Id = v.DiscoveryPublicRef.Id
 	retval.Name = v.DiscoveryPublicRef.Name
@@ -63147,70 +63147,72 @@ func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResou
 
 // MarketplaceAgentsResponse is returned by MarketplaceAgents on success.
 type MarketplaceAgentsResponse struct {
-	MarketplaceAgents *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage `json:"marketplaceAgents"`
+	MarketplaceAgents *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage `json:"marketplaceAgents"`
 }
 
 // GetMarketplaceAgents returns MarketplaceAgentsResponse.MarketplaceAgents, and is useful for accessing the field via an interface.
-func (v *MarketplaceAgentsResponse) GetMarketplaceAgents() *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage {
+func (v *MarketplaceAgentsResponse) GetMarketplaceAgents() *MarketplaceAgentsMarketplaceAgentsMarketplaceResourcePage {
 	return v.MarketplaceAgents
 }
 
-// MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage includes the requested fields of the GraphQL type MarketplaceResourcePage.
 // The GraphQL type's documentation follows.
 //
 // A paginated page of sanitized public resource refs (marketplace catalogue).
-type MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage struct {
-	Total int                                                                                  `json:"total"`
-	Items []*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+type MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage struct {
+	Total int                                                                                    `json:"total"`
+	Items []*MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef `json:"items"`
 }
 
-// GetTotal returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage) GetTotal() int { return v.Total }
+// GetTotal returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage) GetTotal() int {
+	return v.Total
+}
 
-// GetItems returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage) GetItems() []*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef {
+// GetItems returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage) GetItems() []*MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef {
 	return v.Items
 }
 
-// MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef struct {
+type MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef struct {
 	DiscoveryPublicRef `json:"-"`
 }
 
-// GetId returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+// GetId returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) GetId() string {
 	return v.DiscoveryPublicRef.Id
 }
 
-// GetName returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+// GetName returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) GetName() string {
 	return v.DiscoveryPublicRef.Name
 }
 
-// GetUrn returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+// GetUrn returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) GetUrn() string {
 	return v.DiscoveryPublicRef.Urn
 }
 
-// GetDescription returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+// GetDescription returns MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) GetDescription() *string {
 	return v.DiscoveryPublicRef.Description
 }
 
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef
+		*MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef = v
+	firstPass.MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -63225,7 +63227,7 @@ func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicR
 	return nil
 }
 
-type __premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef struct {
+type __premarshalMarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -63235,7 +63237,7 @@ type __premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItem
 	Description *string `json:"description"`
 }
 
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -63243,8 +63245,8 @@ func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicR
 	return json.Marshal(premarshaled)
 }
 
-func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef, error) {
-	var retval __premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef
+func (v *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePageItemsPublicResourceRef
 
 	retval.Id = v.DiscoveryPublicRef.Id
 	retval.Name = v.DiscoveryPublicRef.Name
@@ -63255,72 +63257,72 @@ func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicR
 
 // MarketplaceMemoriesResponse is returned by MarketplaceMemories on success.
 type MarketplaceMemoriesResponse struct {
-	MarketplaceMemories *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage `json:"marketplaceMemories"`
+	MarketplaceMemories *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage `json:"marketplaceMemories"`
 }
 
 // GetMarketplaceMemories returns MarketplaceMemoriesResponse.MarketplaceMemories, and is useful for accessing the field via an interface.
-func (v *MarketplaceMemoriesResponse) GetMarketplaceMemories() *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage {
+func (v *MarketplaceMemoriesResponse) GetMarketplaceMemories() *MarketplaceMemoriesMarketplaceMemoriesMarketplaceResourcePage {
 	return v.MarketplaceMemories
 }
 
-// MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage includes the requested fields of the GraphQL type MarketplaceResourcePage.
 // The GraphQL type's documentation follows.
 //
 // A paginated page of sanitized public resource refs (marketplace catalogue).
-type MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage struct {
-	Total int                                                                                            `json:"total"`
-	Items []*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+type MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage struct {
+	Total int                                                                                              `json:"total"`
+	Items []*MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef `json:"items"`
 }
 
-// GetTotal returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage) GetTotal() int {
+// GetTotal returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage) GetTotal() int {
 	return v.Total
 }
 
-// GetItems returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage) GetItems() []*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef {
+// GetItems returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage) GetItems() []*MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef {
 	return v.Items
 }
 
-// MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
 // The GraphQL type's documentation follows.
 //
 // A minimal, safe reference to a public resource (marketplace / discovery).
-type MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef struct {
+type MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef struct {
 	DiscoveryPublicRef `json:"-"`
 }
 
-// GetId returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+// GetId returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) GetId() string {
 	return v.DiscoveryPublicRef.Id
 }
 
-// GetName returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+// GetName returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) GetName() string {
 	return v.DiscoveryPublicRef.Name
 }
 
-// GetUrn returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+// GetUrn returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) GetUrn() string {
 	return v.DiscoveryPublicRef.Urn
 }
 
-// GetDescription returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+// GetDescription returns MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) GetDescription() *string {
 	return v.DiscoveryPublicRef.Description
 }
 
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef
+		*MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef = v
+	firstPass.MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -63335,7 +63337,7 @@ func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageIt
 	return nil
 }
 
-type __premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef struct {
+type __premarshalMarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -63345,7 +63347,7 @@ type __premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceR
 	Description *string `json:"description"`
 }
 
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -63353,8 +63355,8 @@ func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageIt
 	return json.Marshal(premarshaled)
 }
 
-func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef, error) {
-	var retval __premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePageItemsPublicResourceRef
 
 	retval.Id = v.DiscoveryPublicRef.Id
 	retval.Name = v.DiscoveryPublicRef.Name
@@ -63373,11 +63375,11 @@ type MarketplaceOrganizationsResponse struct {
 	// - marketplaceAgents: listed + visibility=PUBLIC agents.
 	// - marketplaceMemories: listed + public-readable memories.
 	// Drill into an org's public footprint via publicOrganization(ref:).
-	MarketplaceOrganizations *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage `json:"marketplaceOrganizations"`
+	MarketplaceOrganizations *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage `json:"marketplaceOrganizations"`
 }
 
 // GetMarketplaceOrganizations returns MarketplaceOrganizationsResponse.MarketplaceOrganizations, and is useful for accessing the field via an interface.
-func (v *MarketplaceOrganizationsResponse) GetMarketplaceOrganizations() *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage {
+func (v *MarketplaceOrganizationsResponse) GetMarketplaceOrganizations() *MarketplaceOrganizationsMarketplaceOrganizationsMarketplaceResourcePage {
 	return v.MarketplaceOrganizations
 }
 
@@ -74667,7 +74669,7 @@ func (v *PlanNodeMovePlanNodeMoveNodeMovePlanNodesNodeMovePlanEntry) GetNewUrn()
 
 // PlanNodeMoveResponse is returned by PlanNodeMove on success.
 type PlanNodeMoveResponse struct {
-	// Plan with the real move's gates and raised refusals, without locks, reconciliation, writes or mirror effects. Nodes in loc order; limit clamps to 1–1000 (default 100), with total and truncation disclosed. No edges. A point-in-time answer, not a reservation. hrn:node:hadronmemory.com:specs:cor:api:190:03.
+	// Plan with the real move's gates and raised refusals, without locks, reconciliation, writes or mirror effects. Nodes in loc order; limit clamps to 1–1000 (default 100), with total and truncation disclosed. No edges. A point-in-time answer, not a reservation. This plan-only call is on the mutation root by rulings 0210/0211, so impersonation sessions are refused even though planning writes nothing. hrn:node:hadronmemory.com:specs:cor:api:190:03.
 	PlanNodeMove *PlanNodeMovePlanNodeMoveNodeMovePlan `json:"planNodeMove"`
 }
 
@@ -75662,7 +75664,7 @@ func (v *PublicOrganizationPublicOrganization) GetPublicAgentsPage() *PublicOrga
 // PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
 // The GraphQL type's documentation follows.
 //
-// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps MarketplaceResourcePage.
 type PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPage struct {
 	Items   []*PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
 	Total   int                                                                                                 `json:"total"`
@@ -75768,7 +75770,7 @@ func (v *PublicOrganizationPublicOrganizationPublicAgentsPagePublicResourceRefsP
 // PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage includes the requested fields of the GraphQL type PublicResourceRefsPage.
 // The GraphQL type's documentation follows.
 //
-// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps PublicResourceRefPage.
+// A page of sanitized public resource refs that says whether more rows follow (#3873, hrn:node:hadronmemory.com:specs:cor:api:120:04). The marketplace catalogue keeps MarketplaceResourcePage.
 type PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPage struct {
 	Items   []*PublicOrganizationPublicOrganizationPublicMemoriesPagePublicResourceRefsPageItemsPublicResourceRef `json:"items"`
 	Total   int                                                                                                   `json:"total"`
@@ -86657,9 +86659,10 @@ type SessionInput struct {
 	ReportsTo *string `json:"reportsTo,omitempty"`
 	// #4306 — with launchGrant only: whether the host applied the run settings (family, model, effort) its start named
 	// (hrn:node:hadronmemory.com:specs:cor:agt:070:08). false: the start's settings were NOT applied (an exec-path worker
-	// runs its own fixed command), so this bind inherits none of them; the session, the worker's last-used record and the
-	// task's applied settings hold only the family, model and effort this bind itself reports (a family derived from its
-	// own llmModel or tool included). true, null or omitted: a bind that reports none runs as its start said, as before,
+	// runs its own fixed command), so this bind inherits none of them from its start: the session holds only the family,
+	// model and effort this bind itself reports (a family derived from its own llmModel or tool included), and the
+	// worker's last-used record and the task's applied settings follow the session, so a record the worker already had
+	// stays as it was (a null never clears it). true, null or omitted: a bind that reports none runs as its start said, as before,
 	// so a client that never sends this is unaffected. false without a launchGrant is refused BAD_USER_INPUT before
 	// anything is written, because there is no start to qualify.
 	StartSettingsApplied *bool   `json:"startSettingsApplied,omitempty"`
@@ -93404,6 +93407,10 @@ type SubscribeTickerResponse struct {
 	// behind the call, for OTHER workers only. Idempotent for a live subscription. A grant use is announced
 	// to the team chat, best-effort: announcement says POSTED or FAILED, and the subscription stands either way.
 	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	// #4234: a worker of a SHORT_LIVED Agent is refused TICKER_ON_SHORT_LIVED, after authorization and before anything is
+	// written (it runs only while it holds a task, so a ticker could not wake it). The refusal comes before the idempotent
+	// answer: re-subscribing such a worker that already has a live subscription is refused too, not answered changed false.
+	// Unsubscribing it stays allowed.
 	SubscribeWorker *SubscribeTickerSubscribeWorkerSubscribeResult `json:"subscribeWorker"`
 }
 
@@ -97592,7 +97599,7 @@ func (v *TeamDeliverySettingsResponse) GetAppDeliverySettings() *TeamDeliverySet
 
 // TeamDeliverySettingsSetResponse is returned by TeamDeliverySettingsSet on success.
 type TeamDeliverySettingsSetResponse struct {
-	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	// App managers only; omitted preserves, null refuses. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAppDeliverySettings *TeamDeliverySettingsSetSetAppDeliverySettings `json:"setAppDeliverySettings"`
 }
 
@@ -100444,9 +100451,10 @@ type TeamRosterResponse struct {
 // GetTeamRoster returns TeamRosterResponse.TeamRoster, and is useful for accessing the field via an interface.
 func (v *TeamRosterResponse) GetTeamRoster() *TeamRosterTeamRoster { return v.TeamRoster }
 
-// #1707 — a worker's derived state on the team roster (plan
-// design:agent-tasks §7.4). Plan-derived, not a spec. A worker can be in
-// several at once; it is shown in the first that holds, in this order.
+// #1707 — a worker's derived state on the team roster, as defined by
+// hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
+// the states are Proposed). A worker can be in several at once; it is shown in the
+// first that holds, in this order. NO_FAMILY is served but not yet defined in the spec.
 type TeamRosterState string
 
 const (
@@ -104313,7 +104321,7 @@ type TickerReason string
 const (
 	// Fires on every tick, with or without unread. The floor, budget, pause and dormancy still apply.
 	TickerReasonEveryTick TickerReason = "EVERY_TICK"
-	// #2138: fires when the subscriber has not checked its team channel within the ticker's cadence, whatever is unread, and never for a worker not expected to check (no task, isolated, paused, or a team pause).
+	// #2138: fires when the subscriber has not checked its team channel within the ticker's cadence, whatever is unread, and never for a worker not expected to check (no task, paused, or a team pause).
 	TickerReasonLiveCheck TickerReason = "LIVE_CHECK"
 	// Fires only when the subscriber has relevant unread in the ticker's channels (what relevance counts is the ticker's relevance).
 	TickerReasonReadTeamChannel TickerReason = "READ_TEAM_CHANNEL"
@@ -114964,8 +114972,8 @@ var AllWakeKind = []WakeKind{
 type WebPollsResponse struct {
 	// The organization's active page-monitor watches (#1562): what web_poll_list
 	// returns inside a run, for org ADMIN/OWNER outside one. Refused with
-	// POLICY_DENIED when the org, user or App policy omits tool.web_poll. Jobs
-	// with no routing binding in this org are not listed.
+	// POLICY_DENIED when the org, caller user or App-in-context policy omits tool.web_poll (no App layer when the context has no App). Jobs
+	// with no routing binding in this org are not listed. One page only: default 20, clamp 1–100, use webPollsPage for hasMore and nextCursor.
 	WebPolls []*WebPollsWebPollsWebPoll `json:"webPolls"`
 }
 
@@ -114985,7 +114993,7 @@ type WebPollsWebPollsWebPoll struct {
 	// The run that started the watch.
 	SourceRunId string `json:"sourceRunId"`
 	Url         string `json:"url"`
-	// The sidecar's job state, such as active or cancelled.
+	// An open string supplied by hadrontool-webfetch. Values seen include active and cancelled; these examples are not exhaustive, and clients must tolerate other states.
 	Status              string  `json:"status"`
 	ConsecutiveFailures int     `json:"consecutiveFailures"`
 	TriggerCount        int     `json:"triggerCount"`
@@ -116228,18 +116236,14 @@ var AllWorkerNoSessionReason = []WorkerNoSessionReason{
 	WorkerNoSessionReasonNeverBound,
 }
 
-// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, NO_TASK. ISOLATED and STANDBY are compatibility-only values never returned.
+// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, NO_TASK.
 type WorkerPendingReason string
 
 const (
-	// Deprecated compatibility value; isolation is removed and this value is never returned.
-	WorkerPendingReasonIsolated WorkerPendingReason = "ISOLATED"
 	// No open task assigned, and its Agent uses tasks.
 	WorkerPendingReasonNoTask WorkerPendingReason = "NO_TASK"
 	// Its own pause (pausedUntil) is in force.
 	WorkerPendingReasonPaused WorkerPendingReason = "PAUSED"
-	// Compatibility-only value: standby has been removed; never returned.
-	WorkerPendingReasonStandby WorkerPendingReason = "STANDBY"
 	// #2022: a PAUSE or HALT stop signal covers the worker, so it is not ticked (hrn:node:hadronmemory.com:specs:cor:agt:090:03).
 	WorkerPendingReasonStopped WorkerPendingReason = "STOPPED"
 	// A team pause is in force (App.teamPausedAt); the worker can't lift it.
@@ -116247,10 +116251,8 @@ const (
 )
 
 var AllWorkerPendingReason = []WorkerPendingReason{
-	WorkerPendingReasonIsolated,
 	WorkerPendingReasonNoTask,
 	WorkerPendingReasonPaused,
-	WorkerPendingReasonStandby,
 	WorkerPendingReasonStopped,
 	WorkerPendingReasonTeamPaused,
 }
