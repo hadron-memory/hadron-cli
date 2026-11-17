@@ -38,11 +38,24 @@ type fakeOrca2017 struct {
 	failList  bool
 	failOn    string
 	failBody  string // the rename failure answer; default is a stale-handle code
+	// cli#2166: bins records the binary each runner was built for; version is
+	// what `orca --version` prints (failVersion makes it fail); orcaBin, when
+	// set, becomes delivery.orca_bin in the host config.
+	bins        []string
+	version     string
+	failVersion bool
+	orcaBin     string
 }
 
 func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if len(argv) == 1 && argv[0] == "--version" {
+		if o.failVersion {
+			return orcaterm.Result{Code: 1, Stderr: "boom"}
+		}
+		return orcaterm.Result{Stdout: o.version + "\n"}
+	}
 	switch strings.Join(argv[:2], " ") {
 	case "terminal list":
 		if o.failList {
@@ -91,7 +104,7 @@ func term2017(handle, tab, worktree, title string) map[string]any {
 }
 
 func newOrca2017() *fakeOrca2017 {
-	return &fakeOrca2017{terminals: []map[string]any{
+	return &fakeOrca2017{version: "1.4.247", terminals: []map[string]any{
 		term2017("h1", "tab1", "/wt/iris", "Iris SHED recovery"),
 		term2017("h1b", "tab1", "/wt/iris", "Iris SHED recovery"), // a second pane of the same tab
 		term2017("h2", "tab2", "/wt/iris", "orca@host: ~/orca/workspaces"),
@@ -111,7 +124,12 @@ func title2017Run(t *testing.T, o *fakeOrca2017, irisName string, args ...string
 func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON bool, args ...string) (string, int, error) {
 	t.Helper()
 	oldRunner, oldBound := orcaRunner, healthBoundWorker
-	orcaRunner = func(string) orcaterm.Runner { return o.run }
+	orcaRunner = func(bin string) orcaterm.Runner {
+		o.mu.Lock()
+		o.bins = append(o.bins, bin)
+		o.mu.Unlock()
+		return o.run
+	}
 	healthBoundWorker = func(wt string) string {
 		return map[string]string{"/wt/iris": "w1", "/wt/otto": "w2", "/wt/stranger": "wX"}[wt]
 	}
@@ -124,7 +142,13 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 		var q struct {
 			OperationName string `json:"operationName"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&q)
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &q)
+		// cli#2166: Orca's version is the local receipt's, never the platform's
+		// (cor:agt:070:01 / :070:09 fix the host and sweep record shapes).
+		if o.version != "" && strings.Contains(string(raw), o.version) {
+			t.Errorf("Orca's version reached the server: %s", raw)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch q.OperationName {
 		case "HostRegistrations":
@@ -145,6 +169,9 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n  w2:\n    family: codex\n    launch: [fake]\n    worktrees: [otto]\n", srv.URL, dir)
+	if o.orcaBin != "" {
+		cfg += fmt.Sprintf("delivery:\n  orca_bin: %q\n", o.orcaBin)
+	}
 	path := filepath.Join(dir, "host.yaml")
 	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
 		t.Fatal(e)
@@ -299,8 +326,8 @@ func TestHealthOrcaBinFallsBackToPath2017(t *testing.T) {
 		t.Fatalf("empty orca_bin -> %q", got)
 	}
 	cfg := &hostpoller.Config{}
-	cfg.Delivery.OrcaBin = "/opt/orca/bin/orca"
-	if got := healthOrcaBin(cfg); got != "/opt/orca/bin/orca" {
+	cfg.Delivery.OrcaBin = fakeExecutable2166(t)
+	if got := healthOrcaBin(cfg); got != cfg.Delivery.OrcaBin {
 		t.Fatalf("configured orca_bin -> %q", got)
 	}
 }
@@ -420,5 +447,118 @@ func TestHealthTitlesReceiptCarriesOrcaCode2040(t *testing.T) {
 	r = decodeTitleReceipt(t, out)
 	if r.Renames[0].Error == nil || r.Renames[0].OrcaCode != nil {
 		t.Fatalf("code-less failure: %+v", r.Renames[0])
+	}
+}
+
+func fakeExecutable2166(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// cli#2166 item 1: the helper pin alone let the call site drift. The runner
+// factory must receive the RESOLVED binary: "orca" when nothing is configured,
+// the configured path when it resolves. Reverting healthTitles to
+// cfg.Delivery.OrcaBin passes an empty name here and fails this test.
+func TestHealthTitlesRunnerReceivesResolvedBin2166(t *testing.T) {
+	o := newOrca2017()
+	if _, _, err := title2017Run(t, o, "Iris", "--dry-run=false"); err != nil {
+		t.Fatal(err)
+	}
+	if len(o.bins) == 0 {
+		t.Fatal("the title pass never built a runner")
+	}
+	for _, b := range o.bins {
+		if b != "orca" {
+			t.Fatalf("no orca_bin configured: runner built for %q, want \"orca\"", o.bins)
+		}
+	}
+	o = newOrca2017()
+	o.orcaBin = fakeExecutable2166(t)
+	if _, _, err := title2017Run(t, o, "Iris", "--dry-run=false"); err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range o.bins {
+		if b != o.orcaBin {
+			t.Fatalf("configured orca_bin: runner built for %q, want %q", o.bins, o.orcaBin)
+		}
+	}
+}
+
+// cli#2166 item 2: a configured delivery.orca_bin that no longer resolves (gone,
+// a directory, not executable) falls back to "orca" on PATH rather than failing
+// every sweep with an exec error; a resolving one is used as written.
+func TestHealthOrcaBinUnresolvableFallsBack2166(t *testing.T) {
+	dir := t.TempDir()
+	notExec := filepath.Join(dir, "orca-noexec")
+	if err := os.WriteFile(notExec, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, bin := range map[string]string{
+		"missing": filepath.Join(dir, "gone"), "directory": dir, "not executable": notExec,
+	} {
+		cfg := &hostpoller.Config{}
+		cfg.Delivery.OrcaBin = bin
+		if got := healthOrcaBin(cfg); got != "orca" {
+			t.Errorf("%s: orca_bin %q -> %q, want the PATH fallback", name, bin, got)
+		}
+	}
+}
+
+// cli#2166 item 3: the receipt carries Orca's version (local only; the helper
+// fails the test if it reaches the server), and a failing or empty version call
+// never fails the sweep.
+func TestHealthTitlesReceiptCarriesOrcaVersion2166(t *testing.T) {
+	o := newOrca2017()
+	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct {
+		OrcaVersion *string `json:"orcaVersion"`
+	}
+	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion == nil || *r.OrcaVersion != "1.4.247" {
+		t.Fatalf("orcaVersion: %v %+v\n%s", e, r, out)
+	}
+	for name, mod := range map[string]func(*fakeOrca2017){
+		"fails": func(o *fakeOrca2017) { o.failVersion = true },
+		"empty": func(o *fakeOrca2017) { o.version = "" },
+	} {
+		o := newOrca2017()
+		mod(o)
+		out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+		if err != nil {
+			t.Fatalf("%s: a version failure failed the sweep: %v", name, err)
+		}
+		if !strings.Contains(out, `"orcaVersion": null`) && !strings.Contains(out, `"orcaVersion":null`) {
+			t.Fatalf("%s: orcaVersion must render null:\n%s", name, out)
+		}
+	}
+	text, _, err := title2017RunMode(t, newOrca2017(), "Iris", false, "--dry-run=false")
+	if err != nil || !strings.Contains(text, "orca  1.4.247") {
+		t.Fatalf("text receipt lacks the version line: %v\n%s", err, text)
+	}
+}
+
+// Control bytes in Orca's answer never reach the receipt as controls: the
+// version is one bounded line.
+func TestHealthTitlesOrcaVersionIsOneBoundedLine2166(t *testing.T) {
+	o := newOrca2017()
+	o.version = "1.4.247\x1b[31m\nsecond line " + strings.Repeat("x", 200)
+	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct {
+		OrcaVersion *string `json:"orcaVersion"`
+	}
+	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion == nil {
+		t.Fatalf("%v %s", e, out)
+	}
+	if v := *r.OrcaVersion; len(v) > 64 || strings.ContainsAny(v, "\x1b\n") {
+		t.Fatalf("version not one bounded plain line: %q", v)
 	}
 }

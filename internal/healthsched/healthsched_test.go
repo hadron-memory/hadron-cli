@@ -518,6 +518,55 @@ func TestSystemdReinstallRewritesAnOlderEntry2017(t *testing.T) {
 	}
 }
 
+// cli#2166: the older-entry rewrite pin covered systemd only. The crontab and
+// launchd entries an older CLI wrote (no --dry-run=false) are rewritten too,
+// not refused and not left stale.
+func TestCronReinstallRewritesAnOlderEntry2166(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.ReplaceAll(f.crontab, " '--dry-run=false'", "")
+	if stale == f.crontab {
+		t.Fatal("the entry never carried --dry-run=false")
+	}
+	f.crontab = stale
+	res, err := e.Install(spec)
+	if err != nil || !res.Changed {
+		t.Fatalf("reinstall over an older entry: changed=%v err=%v", res.Changed, err)
+	}
+	if !strings.Contains(f.crontab, "'--dry-run=false'") || strings.Count(f.crontab, Name) != 1 {
+		t.Fatalf("the older entry was not rewritten in place:\n%s", f.crontab)
+	}
+}
+
+func TestLaunchdReinstallRewritesAnOlderEntry2166(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.ReadFile(e.plistPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.ReplaceAll(string(old), "\t\t<string>--dry-run=false</string>\n", "")
+	if stale == string(old) {
+		t.Fatal("the plist never carried --dry-run=false")
+	}
+	if err := os.WriteFile(e.plistPath(), []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.Install(spec)
+	if err != nil || !res.Changed {
+		t.Fatalf("reinstall over an older entry: changed=%v err=%v", res.Changed, err)
+	}
+	if got, _ := os.ReadFile(e.plistPath()); !strings.Contains(string(got), "<string>--dry-run=false</string>") {
+		t.Fatalf("the older plist was not rewritten:\n%s", got)
+	}
+}
+
 func TestLaunchdReinstallRepairsAFailedBootstrap(t *testing.T) {
 	f := &fake{fail: map[string]bool{"launchctl bootstrap": true, "launchctl print": true}}
 	e := f.env(t, "darwin", "launchctl")
