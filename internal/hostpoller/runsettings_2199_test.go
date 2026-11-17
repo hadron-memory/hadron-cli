@@ -170,3 +170,55 @@ func TestStartOnTheExecPathKeepsTheFamilyGuard2199(t *testing.T) {
 		t.Fatalf("%+v %d", r, launches)
 	}
 }
+
+// Review fix (#2204 LOCAL P2, BLIND P2): the account must be able to launch
+// exactly the family the start names, switched or not, and a Claude-family
+// launcher script never "switches" to another Claude-family backend.
+func TestStartRefusesAnIncompatibleAccountEvenForTheProfilesOwnFamily2199(t *testing.T) {
+	for name, c := range map[string]struct {
+		prof LauncherProfile
+		acct AccountProfile
+		args map[string]any
+		fam  string
+	}{
+		"claude request on a codex account, model given":  {claudeProf, codexAcct, map[string]any{"family": "claude", "model": "sonnet"}, "claude"},
+		"claude request on a codex account, family only":  {claudeProf, codexAcct, map[string]any{"family": "claude"}, "claude"},
+		"codex request on a claude account, effort given": {LauncherProfile{Family: "codex", Mode: ModeLong, Account: "a"}, claudeAcct, map[string]any{"family": "codex", "effort": "HIGH"}, "codex"},
+		"claude launcher switched to glm":                 {claudeProf, claudeAcct, map[string]any{"family": "glm"}, "glm"},
+		"glm launcher switched to claude":                 {LauncherProfile{Family: "glm", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-glm"}, map[string]any{"family": "claude"}, "claude"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r, rec, host := orcaStartWith(t, c.prof, c.acct, c.args)
+			if r.outcome != Failed || len(rec.specs) != 0 || len(host.launches) != 0 {
+				t.Fatalf("report %+v, launches %d", r, len(rec.specs))
+			}
+			if !strings.Contains(r.reason, c.fam) || !strings.Contains(r.reason, `"a"`) {
+				t.Fatalf("the reason must name the family and the account: %q", r.reason)
+			}
+		})
+	}
+}
+
+// An exec-path start carrying settings its fixed argv cannot apply still
+// launches (the server sends the recorded settings on every start); it is
+// logged as not applied.
+func TestStartOnTheExecPathLogsSettingsItCannotApply2199(t *testing.T) {
+	p, srv, host := testPoller(t)
+	var logged []string
+	p.emit = func(e Event) { logged = append(logged, e.Kind+": "+e.Detail) }
+	srv.notDone["s1"] = 1
+	op := startOp()
+	op.Args["model"], op.Args["effort"] = "sonnet", "HIGH"
+	srv.batches = [][]Operation{{op}}
+	step(t, p)
+	if len(host.launches) != 1 {
+		t.Fatalf("launches = %d", len(host.launches))
+	}
+	found := false
+	for _, l := range logged {
+		found = found || strings.Contains(l, "not applied")
+	}
+	if !found {
+		t.Fatalf("log = %q", logged)
+	}
+}

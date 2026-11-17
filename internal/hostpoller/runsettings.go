@@ -91,16 +91,20 @@ type Resolved struct {
 	Note    string
 }
 
-// accountLaunches reports whether an account can launch a family: a Codex
-// account (it has a Codex home, or its launcher is named codex) launches only
-// Codex; every other account launches the Claude-family templates.
-func accountLaunches(fam string, a AccountProfile) bool {
+// accountLaunches reports whether the worker's account can launch fam. A
+// Codex account (it has a Codex home, or its launcher is named codex*)
+// launches only Codex. Any other account is a Claude-family launcher script
+// that selects its own backend (claude-holger, claude-glm, ...), so it can
+// launch only the family it already launches: nothing here can demonstrably
+// switch it to another provider, and a switch is refused rather than
+// reported as a family that never ran.
+func accountLaunches(fam, profileFam string, a AccountProfile) bool {
 	codexAccount := a.CodexHome != "" || strings.HasPrefix(filepath.Base(a.Bin), "codex")
 	switch {
 	case fam == "codex":
 		return codexAccount
 	case claudeFamily[fam]:
-		return !codexAccount
+		return !codexAccount && fam == CanonicalFamily(profileFam)
 	}
 	return false
 }
@@ -115,17 +119,21 @@ func ResolveRun(prof LauncherProfile, acct AccountProfile, rs RunSettings, accou
 	out := Resolved{Profile: prof}
 	fam := CanonicalFamily(prof.Family)
 	switchedFamily := false
-	if rs.Family != "" && !SameFamily(rs.Family, prof.Family) {
+	if rs.Family != "" {
+		// Checked for every start that names a family, switched or not: the
+		// account must be able to launch exactly what the start asks for.
 		fam = CanonicalFamily(rs.Family)
 		if !familyRE.MatchString(fam) {
 			return Resolved{}, fmt.Errorf("malformed start: family %q is not a family token", rs.Family)
 		}
-		if (!claudeFamily[fam] && fam != "codex") || !accountLaunches(fam, acct) {
+		if (!claudeFamily[fam] && fam != "codex") || !accountLaunches(fam, prof.Family, acct) {
 			return Resolved{}, fmt.Errorf("this host cannot launch family %q on account %q (no launch template for it there); nothing was launched", fam, accountName)
 		}
-		// The profile's model and effort belong to its own family.
-		out.Profile.Family, out.Profile.Model, out.Profile.Effort = fam, "", ""
-		switchedFamily = true
+		if !SameFamily(rs.Family, prof.Family) {
+			// The profile's model and effort belong to its own family.
+			out.Profile.Family, out.Profile.Model, out.Profile.Effort = fam, "", ""
+			switchedFamily = true
+		}
 	}
 	if !switchedFamily && !rs.requested() {
 		return out, nil
