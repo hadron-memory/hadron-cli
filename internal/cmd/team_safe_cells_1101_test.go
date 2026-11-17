@@ -106,6 +106,20 @@ func TestTeamSafeCells1101(t *testing.T) {
 		r["TeamRoster"] = `{"data":{"teamRoster":` + row + `}}`
 		return r
 	}
+	// NO_SESSION with a reason the CLI does not know: the default branch of the
+	// check label echoes the server's text, so it is an attack surface the
+	// PENDING fixture above never reaches (cli#2237 P3-7).
+	rosterNoSession := func(t *testing.T) map[string]string {
+		t.Helper()
+		r := make(map[string]string, len(base))
+		for op, body := range base {
+			r[op] = body
+		}
+		row := stamp(t, rosterJSON, `"unavailableUntil":null`,
+			`"checkStatus":{"status":"NO_SESSION","noSessionReason":"FUTURE_REASON","pendingReason":null,"lastCheckedAt":null}`)
+		r["TeamRoster"] = `{"data":{"teamRoster":` + row + `}}`
+		return r
+	}
 	// worker list's activity columns: the staff fixture carries no
 	// family/model/tier/reportsTo/liveness at all, so those cells rendered
 	// fixed dashes. held-by rides the failed-lookup path deliberately —
@@ -319,6 +333,9 @@ func TestTeamSafeCells1101(t *testing.T) {
 			{"held-by-name", "Ada Hostmark"},
 			{"held-at", "2026-10-12T03:00:00Z"},
 		}},
+		{"roster-no-session", []string{"roster"}, rosterNoSession, "TeamRoster", []cellAttack{
+			{"no-session-reason", "FUTURE_REASON"},
+		}},
 		{"host-list", []string{"host", "list"}, fixed(hostResponses()), "HostRegistrations", []cellAttack{
 			{"label", "Orca box 1"},
 			{"host", "orca1"},
@@ -462,6 +479,8 @@ func TestTeamSafeCells1101(t *testing.T) {
 	refine := map[string]cellRefine{
 		// CHECK composes "PENDING (<pendingReason>)".
 		"roster-extra/check-reason": {prefix: "PENDING ("},
+		// CHECK composes "NO_SESSION (<noSessionReason>)" for an unknown reason.
+		"roster-no-session/no-session-reason": {prefix: "NO_SESSION ("},
 		// WORKERS composes name/family[worktrees] per host row.
 		"host-list/worker-family": {prefix: "Jonas/"},
 		"host-list/worktree":      {prefix: "Jonas/claude["},

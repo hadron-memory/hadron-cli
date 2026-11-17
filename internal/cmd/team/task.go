@@ -110,6 +110,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTaskFindingDispositions(f))
 	cmd.AddCommand(newCmdTaskResultFindings(f))
 	cmd.AddCommand(newCmdTaskDisposeFinding(f))
+	cmd.AddCommand(newCmdTaskLinkDefect(f))
 	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
 		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
 	}
