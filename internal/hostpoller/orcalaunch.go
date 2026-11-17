@@ -219,6 +219,16 @@ type orcaCreated struct {
 	} `json:"error"`
 }
 
+// closedLaunchError is a launch failure whose terminal was closed. It keeps
+// the structured cause behind the message for errors.Is/As (cli#2172).
+type closedLaunchError struct {
+	msg   string
+	cause error
+}
+
+func (e *closedLaunchError) Error() string { return e.msg }
+func (e *closedLaunchError) Unwrap() error { return e.cause }
+
 // Launch creates the terminal, waits for the marker, proves the process is
 // the one the terminal runs, and pins it. Every failure after the terminal
 // exists closes it: nothing this launch started is left running unrecorded.
@@ -277,7 +287,11 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return nil, cause
 	}
 	handle, opid := created.Result.Terminal.Handle, created.Result.Terminal.ProcessID
-	fail := func(format string, a ...any) (*OrcaAgent, error) {
+	// failCause closes the terminal this launch created and returns the
+	// failure. A structured cause (a context error from a proof read) rides
+	// along through Unwrap, so classification never has to parse the text
+	// (cli#2172).
+	failCause := func(cause error, format string, a ...any) (*OrcaAgent, error) {
 		// Ours to close: this launch created it moments ago.
 		why := fmt.Sprintf(format, a...)
 		if code, _, errOut := l.Run(context.WithoutCancel(ctx), []string{"terminal", "close", "--terminal", handle, "--json"}); code != 0 {
@@ -288,8 +302,9 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 			u := &OrcaAgent{l: l, handle: handle, done: make(chan struct{}), unclosed: true}
 			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply")}
 		}
-		return nil, errors.New(why + "; the terminal was closed")
+		return nil, &closedLaunchError{msg: why + "; the terminal was closed", cause: cause}
 	}
+	fail := func(format string, a ...any) (*OrcaAgent, error) { return failCause(nil, format, a...) }
 	// Only now, with the terminal's handle in hand, may the command start
 	// the agent (cli#2130). Before this point a failure leaves no agent: the
 	// shell waits, gives up, and stays an empty shell, which fail closes.
@@ -306,7 +321,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {
-		agent, finalErr := fail("%v", err)
+		agent, finalErr := failCause(err, "%v", err)
 		var classified interface{ RelaunchFailureReason() string }
 		if errors.As(err, &classified) {
 			return agent, &hostrelaunch.LaunchError{Code: classified.RelaunchFailureReason(), Err: finalErr}
@@ -319,9 +334,22 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		}
 		return agent, finalErr
 	}
-	proofFail := func(format string, args ...any) (*OrcaAgent, error) {
-		agent, err := fail(format, args...)
+	// proofFailCause is a failed proof of the launched process. The reason is
+	// read from the structured cause: a pure cancellation is not a failed
+	// proof (no reason), a pure deadline is a timeout, anything else cannot
+	// prove the agent came up (VERIFY_FAILED).
+	proofFailCause := func(cause error, format string, args ...any) (*OrcaAgent, error) {
+		agent, err := failCause(cause, format, args...)
+		switch {
+		case errors.Is(cause, context.Canceled):
+			return agent, err
+		case errors.Is(cause, context.DeadlineExceeded):
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: err}
+		}
 		return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureVerifyFailed, Err: err}
+	}
+	proofFail := func(format string, args ...any) (*OrcaAgent, error) {
+		return proofFailCause(nil, format, args...)
 	}
 	if l.onMarker != nil {
 		l.onMarker(envFile)
@@ -354,7 +382,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return exited()
 	}
 	if err != nil {
-		return proofFail("pid %d could not be pinned: %v", pid, err)
+		return proofFailCause(err, "pid %d could not be pinned: %v", pid, err)
 	}
 	// alive is a positive answer or an error: only a successful liveness
 	// check lets the reads count (cli#2088 blind delta P2). "Not seen gone"
@@ -391,7 +419,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	live, lerr := alive()
 	if lerr != nil {
 		h.Close()
-		return proofFail("pid %d's liveness could not be established after its checks: %v", pid, lerr)
+		return proofFailCause(lerr, "pid %d's liveness could not be established after its checks: %v", pid, lerr)
 	}
 	if !live {
 		h.Close()

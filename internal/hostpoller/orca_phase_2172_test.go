@@ -27,10 +27,10 @@ func reasonOf(err error) string {
 	return ""
 }
 
-func launchSpec2172(t *testing.T) (OrcaLaunchSpec, string) {
+func launchSpec2172(t *testing.T) OrcaLaunchSpec {
 	t.Helper()
 	wt, tools := t.TempDir(), t.TempDir()
-	return OrcaLaunchSpec{Argv: []string{fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true), PromptArg}, Dir: wt, Prompt: "go"}, wt
+	return OrcaLaunchSpec{Argv: []string{fakeAgentScript(t, tools, filepath.Join(tools, "agent.out"), true), PromptArg}, Dir: wt, Prompt: "go"}
 }
 
 // A marker that names no usable process or no pts is the launched command's
@@ -42,7 +42,7 @@ func TestMalformedOrPtylessMarkerIsVerifyFailed2172(t *testing.T) {
 		"process 1 is init": func(f *fakeOrca) { f.markerPID = "1" },
 	} {
 		t.Run(name, func(t *testing.T) {
-			spec, _ := launchSpec2172(t)
+			spec := launchSpec2172(t)
 			f := newFakeOrca(t)
 			arrange(f)
 			a, err := orcaLauncherFor(t, f).Launch(context.Background(), spec)
@@ -56,7 +56,7 @@ func TestMalformedOrPtylessMarkerIsVerifyFailed2172(t *testing.T) {
 // A cancelled marker wait is not a failed proof: no VERIFY_FAILED, and not a
 // timeout either. The terminal is still closed.
 func TestCancelledMarkerWaitIsNotVerifyFailed2172(t *testing.T) {
-	spec, _ := launchSpec2172(t)
+	spec := launchSpec2172(t)
 	f := newFakeOrca(t)
 	f.runNoCmd = true
 	l := orcaLauncherFor(t, f)
@@ -74,7 +74,7 @@ func TestCancelledMarkerWaitIsNotVerifyFailed2172(t *testing.T) {
 
 // A process proven to be somewhere other than the worktree is a failed proof.
 func TestWrongWorktreeCwdProofIsVerifyFailed2172(t *testing.T) {
-	spec, _ := launchSpec2172(t)
+	spec := launchSpec2172(t)
 	elsewhere := t.TempDir()
 	f := newFakeOrca(t)
 	// Orca says the terminal is in the worktree, but the shell runs elsewhere.
@@ -103,7 +103,7 @@ func TestEnvFileWriteFailureIsSetupFailed2172(t *testing.T) {
 		"NUL in prompt": func(s *OrcaLaunchSpec) { s.Prompt = "a\x00b" },
 	} {
 		t.Run(name, func(t *testing.T) {
-			spec, _ := launchSpec2172(t)
+			spec := launchSpec2172(t)
 			mutate(&spec)
 			f := newFakeOrca(t)
 			a, err := orcaLauncherFor(t, f).Launch(context.Background(), spec)
@@ -175,7 +175,7 @@ func TestProofReadCauseSurvivesTerminalCleanup2172(t *testing.T) {
 		{"liveness plain failure", nil, errors.New("clock unavailable"), hostrelaunch.FailureVerifyFailed, nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			spec, _ := launchSpec2172(t)
+			spec := launchSpec2172(t)
 			f := newFakeOrca(t)
 			proc := &causeProc{observeErr: c.observeErr, nowErr: c.nowErr}
 			l := orcaLauncherFor(t, f)
