@@ -9,8 +9,8 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// These are literal public JSON values, deliberately independent of the
-// producer's strings. A stage rename must fail the corresponding command pin.
+// Failure-stage strings are intentional wire expectations, independent of
+// producer constants. Limit/exhaustion scenarios map to their own reasons.
 func TestIntakeFailureStages2257(t *testing.T) {
 	for _, track := range []bool{false, true} {
 		mode := "list"
@@ -61,6 +61,9 @@ func TestIntakeFailureStages2257(t *testing.T) {
 					wantCode = 0
 					wantReason = ""
 					wantCount = 1
+				}
+				if stage == "limit_reached" || stage == "reconcile_over_limit" {
+					list = `case "$req" in *'"cursor":"more"'*) echo '{"items":[]}';; *) echo '{"items":[` + item1961(itemA1961, "one") + `,` + item1961(itemB1961, "two") + `],"nextCursor":"more"}';; esac`
 				}
 				path, log := fakeAdapter1961(t, "", list, mark)
 				args := []string{"--json", "--limit", fmt.Sprint(limit)}
@@ -116,12 +119,62 @@ func TestIntakeFailureStages2257(t *testing.T) {
 				} else if receipt.Items == nil || len(receipt.Items) != wantCount {
 					t.Fatalf("wrong list in partial receipt: %s", out)
 				}
+				if !strings.HasPrefix(stage, "reconcile_") && (!receipt.Reconcile.Complete || receipt.Reconcile.Error != nil) {
+					t.Fatalf("unrelated reconcile failure: %s", out)
+				}
+				if stage == "claim_failed" || stage == "check_failed" || stage == "walk_failed" {
+					if marks := adapterLog1961(t, log, "mark-tracked"); len(marks) != 0 {
+						t.Fatalf("failed pre-mark stage wrote back: %v", marks)
+					}
+				}
 				if strings.HasPrefix(stage, "reconcile_") {
 					if receipt.Reconcile.Complete || receipt.Reconcile.Error == nil {
 						t.Fatalf("reconcile failure hidden: %s", out)
 					}
 					if len(adapterLog1961(t, log, "list-untracked")) != 1 {
 						t.Fatal("reconcile failure suppressed the walk")
+					}
+				}
+				if stage == "limit_reached" || stage == "reconcile_over_limit" {
+					if len(adapterLog1961(t, log, "list-untracked")) != 1 {
+						t.Fatal("limit did not stop paging")
+					}
+					if strings.Contains(out, itemB1961) {
+						t.Fatalf("second item escaped limit: %s", out)
+					}
+					claims := opsOf1961(calls, "IntakeClaimTask")
+					wantClaims := 0
+					if track {
+						wantClaims = 1
+					}
+					if len(claims) != wantClaims {
+						t.Fatalf("limit did not stop claims: %+v", claims)
+					}
+					for _, c := range claims {
+						if inputOf1961(t, c)["externalId"] != itemA1961 {
+							t.Fatal("second item was claimed")
+						}
+					}
+				}
+				if strings.HasPrefix(stage, "reconcile_") && !track {
+					// Every run reconciles existing tasks before listing. This one
+					// failed mark belongs only to the pre-existing reassigned task;
+					// listing does not claim or mark either newly listed item.
+					marks := adapterLog1961(t, log, "mark-tracked")
+					if len(marks) != 1 || len(opsOf1961(calls, "IntakeClaimTask")) != 0 {
+						t.Fatalf("list write escaped reconciliation: %v", marks)
+					}
+					var request struct {
+						ExternalID string `json:"externalId"`
+						Task       struct {
+							ID string `json:"id"`
+						} `json:"task"`
+					}
+					if err := json.Unmarshal([]byte(marks[0]), &request); err != nil {
+						t.Fatal(err)
+					}
+					if request.Task.ID != "old-task" || request.ExternalID != itemR1 {
+						t.Fatalf("mark belongs to newly listed item: %+v", request)
 					}
 				}
 				if stage == "reconcile_over_limit" && track {
