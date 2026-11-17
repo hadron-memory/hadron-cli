@@ -113,3 +113,32 @@ func TestSweepOutageBacksOffWhileS10Unavailable2156(t *testing.T) {
 		t.Fatalf("must retry after the backoff window: attempts=%d", attempts)
 	}
 }
+
+// F9 (LOCAL P2, AT0.7887.2): readiness recovery ends the episode, so the
+// backoff it left pending must not suppress the next outage's first report.
+func TestSweepOutageBackoffClearsOnReadinessRecovery2156(t *testing.T) {
+	f := newLoopFixture2060(t)
+	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	f.p.now = func() time.Time { return clock }
+	down := true
+	f.p.relaunch.Ready = func(context.Context) error {
+		if down {
+			return ErrOrcaDown
+		}
+		return nil
+	}
+	attempts := 0
+	f.p.relaunch.ReportSweep = func(context.Context, SweepReport) error { attempts++; return ErrSweepReportingUnavailable }
+	stepSweep2056(t, f) // attempt 1, S10 unavailable: backoff pending
+	down = false
+	f.source.snapshot.Workers[0].Reason = "PAUSED" // quiet recovery
+	clock = clock.Add(time.Second)
+	stepSweep2056(t, f)
+	down = true
+	f.source.snapshot.Workers[0].Reason = "HOLDS_TASK"
+	clock = clock.Add(time.Second)
+	stepSweep2056(t, f)
+	if attempts != 2 {
+		t.Fatalf("a new outage's first report must not wait on the old episode's backoff: attempts=%d", attempts)
+	}
+}
