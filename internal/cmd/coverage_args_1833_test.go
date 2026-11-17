@@ -122,3 +122,93 @@ func TestDueWakesPreview1833(t *testing.T) {
 		}
 	}
 }
+
+func TestChatHeadsValidationAndRefusals1833(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--team-head", "a", "--team-head", " ", "--json"},
+		{"--team-head", "a", "--team-head", "b", "--tagged"},
+		{"--team-head", "a", "--team-head", "b", "--untagged"},
+		{"--team-head", "a", "--team-head", "b", "--thread", "1"},
+	} {
+		calls, _, err := runTeamTask(t, taskResponses(), append([]string{"team", "chat", "read"}, extra...)...)
+		if exitCodeFor(err) != 2 {
+			t.Fatalf("conflict/blank not refused: %v", err)
+		}
+		if len(*calls) != 0 {
+			t.Fatalf("invalid flags sent requests: %+v", *calls)
+		}
+	}
+	// No local 20-head cap: the server owns it and its refusal remains visible.
+	args := []string{"team", "chat", "read", "--json"}
+	for i := 0; i < 21; i++ {
+		args = append(args, "--team-head", jsonInt(i))
+	}
+	r := taskResponses()
+	r["TeamChatTagsMultiAttributed"] = c1279Errors("BAD_USER_INPUT")
+	calls, _, err := runTeamTask(t, r, args...)
+	if exitCodeFor(err) != 2 {
+		t.Fatalf("cap refusal mapping: %v", err)
+	}
+	found := stopCalls(calls, "TeamChatTagsMultiAttributed")
+	if len(found) != 1 || len(found[0].Vars["teamHeadRefs"].([]any)) != 21 {
+		t.Fatalf("cap handled locally or retried: %+v", *calls)
+	}
+}
+
+func TestNewArgumentSkewNeverWidens1833(t *testing.T) {
+	for _, kind := range []string{"heads", "preview"} {
+		r := taskResponses()
+		op := "TeamChatTagsMultiAttributed"
+		args := []string{"team", "chat", "read", "--team-head", "a", "--team-head", "b", "--json"}
+		message := "Unknown argument \"teamHeadRefs\" on field \"Query.teamChatMessages\"."
+		if kind == "preview" {
+			op = "TeamDueWakesPreview"
+			args = []string{"team", "wakes", "due", "--preview"}
+			message = "Unknown argument \"preview\" on field \"Query.dueWakes\"."
+		}
+		response, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}})
+		r[op] = string(response)
+		calls, _, err := runTeamTask(t, r, args...)
+		if exitCodeFor(err) != 2 {
+			t.Fatalf("unknown argument should refuse: %v", err)
+		}
+		seen := 0
+		for _, c := range *calls {
+			if c.Op == op {
+				seen++
+			}
+			if c.Op == "TeamDueWakes" || c.Op == "TeamChatTags" || c.Op == "TeamChatTagsAttributed" || c.Op == "TeamChatReadPage" {
+				t.Fatalf("requested capability widened on skew: %+v", c)
+			}
+		}
+		if seen != 1 {
+			t.Fatalf("capability request retried: %+v", *calls)
+		}
+	}
+}
+
+func TestPluralHeadsAttributionFallback1833(t *testing.T) {
+	r := taskResponses()
+	r["TeamChatTagsMultiAttributed"] = `{"errors":[{"message":"Unknown argument \"advanceReadState\" on field \"Query.teamChatMessages\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	r["TeamChatTagsMulti"] = `{"data":{"teamChatMessages":{"items":[]}}}`
+	calls, _, err := runTeamTask(t, r, "team", "chat", "read", "--team-head", "a", "--team-head", "b", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, c := range *calls {
+		if !strings.Contains(c.Op, "Tags") {
+			continue
+		}
+		n++
+		if !reflect.DeepEqual(c.Vars["teamHeadRefs"], []any{"a", "b"}) {
+			t.Fatalf("fallback lost plural filter: %+v", c)
+		}
+		if c.Op == "TeamChatTagsMulti" && c.Session != "" {
+			t.Fatalf("fallback not headerless: %+v", c)
+		}
+	}
+	if n != 2 {
+		t.Fatalf("want attributed and headerless plural attempts: %+v", *calls)
+	}
+}
