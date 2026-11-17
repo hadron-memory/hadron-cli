@@ -94,12 +94,12 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			// that a silent no-op that leaves content plaintext even though
 			// the caller asked for encryption; Changed() routes the empty
 			// value into readDataKey, which rejects it (review on #301).
-			key0, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
+			keyInput, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
 			if err != nil {
 				return err
 			}
-			wantsEncryption := key0.Supplied()
-			key0.WarnLiteral(f.IOStreams.ErrOut)
+			wantsEncryption := keyInput.Supplied()
+			keyInput.WarnLiteral(f.IOStreams.ErrOut)
 
 			what := fmt.Sprintf("memory %s to external user %q", args[0], externalUser)
 			prompt := "Promote " + what +
@@ -115,7 +115,7 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 
 			var key *string
 			if wantsEncryption {
-				k, err := key0.Read(f.IOStreams.In)
+				k, err := keyInput.Read(f.IOStreams.In)
 				if err != nil {
 					return err
 				}

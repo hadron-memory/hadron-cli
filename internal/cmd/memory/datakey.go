@@ -77,7 +77,7 @@ func (d *dataKeyInput) Read(stdin io.Reader) (string, error) {
 	case d.fileSet: // "-"
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return "", err
+			return "", exitcode.Newf(exitcode.Usage, "reading --data-key-file from stdin: the input could not be read. Nothing was sent")
 		}
 		key := strings.TrimSpace(string(data))
 		if key == "" {

@@ -67,7 +67,7 @@ index is on. It asks "Encrypt memory <memoryRef>? This rewrites ALL node
 content as ciphertext and cannot be undone from the CLI" on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise
 exit 2).`,
-		Example: `  openssl rand -base64 32 > diary.key   # keep this file safe
+		Example: `  (umask 077; openssl rand -base64 32 > diary.key)   # keep this file safe, mode 600
   hadron memory encrypt hrn:mem:jane:diary --data-key-file diary.key --yes
   hadron memory encrypt hrn:mem:jane:diary --data-key-file - --yes < diary.key
   hadron memory encrypt hrn:mem:jane:diary --passphrase-file ~/.diary-pass --yes
