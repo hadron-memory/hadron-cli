@@ -129,6 +129,7 @@ func TestReconcileRefusedChangeIsRetriedByTheNextRun(t *testing.T) {
 	}
 
 	second := &feedClient{pages: []string{page(releasedChange("https://x/2", "c2"), releasedChange("https://x/3", "c3"))}}
+	// Two calls in run one, then one retry refusal in run two: three total.
 	d2, aerr, ferr := reconcile(context.Background(), second, store, key, "app", r, desc)
 	if ferr != nil || aerr == nil || d2.Complete || d2.Error == nil || d2.Read != 1 || d2.Untracked != 0 || untrackCalls(t, log) != 3 {
 		t.Fatalf("retry must stop at the same refused change: %+v %v %v", d2, aerr, ferr)
@@ -289,7 +290,7 @@ func TestReconcilePageCapResumesWithoutError1976(t *testing.T) {
 	}
 	c := &feedClient{pages: pages}
 	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
-	if aerr != nil || ferr != nil || d.Complete || d.Error != nil || d.Read != 25 || len(c.after) != 25 || len(c.pages) != 1 {
+	if aerr != nil || ferr != nil || d.Complete || d.Error != nil || d.Read != 25 || d.Skipped != 25 || d.SkippedKind != 25 || len(c.after) != 25 || len(c.pages) != 1 {
 		t.Fatalf("cap must stop after 25 pages without error: %+v %v %v reads=%d", d, aerr, ferr, len(c.after))
 	}
 	if got, err := store.Get("k"); err != nil || got != "c25" {
@@ -309,10 +310,15 @@ func TestReconcileSkippedReasonsRemainAdditive1976(t *testing.T) {
 	c := &feedClient{pages: []string{page("null", releasedChange("x", "c1"),
 		`{"cursor":"c2","kind":"FINISHED","externalId":"x","task":null}`,
 		`{"cursor":"c3","kind":"REASSIGNED","externalId":"x","task":{"id":"t","handle":"AT1","assignee":null}}`,
-		`{"cursor":"c4","kind":"CANCELLED","externalId":"x","task":null}`)}}
+		`{"cursor":"c4","kind":"CANCELLED","externalId":"x","task":null}`,
+		`{"cursor":"c5","kind":"REASSIGNED","externalId":"x","task":{"id":"t","handle":"AT1","assignee":{"id":"w"}}}`,
+		`{"cursor":"c6","kind":"CANCELLED","externalId":"x","task":{"id":"t","handle":"AT1"}}`)}}
 	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
 	if aerr != nil || ferr != nil {
 		t.Fatalf("%v %v", aerr, ferr)
+	}
+	if d.Skipped != d.SkippedNull+d.SkippedUndeclared+d.SkippedKind+d.SkippedNoAssignee+d.SkippedNoTask {
+		t.Fatalf("skip reasons do not partition total: %+v", d)
 	}
 	b, err := json.Marshal(d)
 	if err != nil {
@@ -322,7 +328,7 @@ func TestReconcileSkippedReasonsRemainAdditive1976(t *testing.T) {
 	if err := json.Unmarshal(b, &got); err != nil {
 		t.Fatal(err)
 	}
-	for key, want := range map[string]float64{"skipped": 5, "skippedNull": 1, "skippedUndeclared": 1, "skippedKind": 1, "skippedNoAssignee": 1, "skippedNoTask": 1} {
+	for key, want := range map[string]float64{"skipped": 7, "skippedNull": 1, "skippedUndeclared": 3, "skippedKind": 1, "skippedNoAssignee": 1, "skippedNoTask": 1} {
 		if got[key] != want {
 			t.Errorf("%s = %v, want %v; %s", key, got[key], want, b)
 		}

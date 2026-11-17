@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -212,9 +213,30 @@ func TestReconcileTextNoteAndTrackJSON1976(t *testing.T) {
 					t.Fatal(err)
 				}
 				if asJSON {
-					for _, want := range []string{`"reconcile": {`, `"read": 1`, `"skipped": 1`, `"skippedKind": 1`} {
-						if !strings.Contains(out, want) {
-							t.Errorf("missing %s: %s", want, out)
+					var dto struct {
+						Reconcile *struct {
+							Read              int  `json:"read"`
+							Skipped           int  `json:"skipped"`
+							SkippedKind       int  `json:"skippedKind"`
+							SkippedNull       *int `json:"skippedNull"`
+							SkippedUndeclared *int `json:"skippedUndeclared"`
+							SkippedNoAssignee *int `json:"skippedNoAssignee"`
+							SkippedNoTask     *int `json:"skippedNoTask"`
+						} `json:"reconcile"`
+					}
+					if err := json.Unmarshal([]byte(out), &dto); err != nil {
+						t.Fatal(err)
+					}
+					d := dto.Reconcile
+					if d == nil {
+						t.Fatalf("missing reconcile: %s", out)
+					}
+					if d.Read != 1 || d.Skipped != 1 || d.SkippedKind != 1 {
+						t.Fatalf("wrong counters: %+v", d)
+					}
+					for _, zero := range []*int{d.SkippedNull, d.SkippedUndeclared, d.SkippedNoAssignee, d.SkippedNoTask} {
+						if zero == nil || *zero != 0 {
+							t.Fatalf("zero reason counter missing or nonzero: %s", out)
 						}
 					}
 					if strings.Contains(stderr, "note: reconcile:") {

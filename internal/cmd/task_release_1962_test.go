@@ -72,7 +72,7 @@ func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("%v: %q", err, out)
 	}
-	if dto.ReleasedExternalID != releaseItem1962 || len(dto.Warnings) != 1 || dto.Warnings[0].Code != "future.release" || dto.Warnings[0].Text != "released with advice" || dto.Warnings[0].Register == nil || dto.Warnings[0].Register.State != "unmapped" {
+	if dto.ReleasedExternalID != releaseItem1962 || len(dto.Warnings) != 1 || dto.Warnings[0].Code != "future.release" || dto.Warnings[0].Text != "released with advice" || dto.Warnings[0].Register == nil || dto.Warnings[0].Register.State != "unmapped" || dto.Warnings[0].Register.TaskLoc != nil || dto.Warnings[0].Register.TaskURN != nil {
 		t.Fatalf("got %+v", dto)
 	}
 }
