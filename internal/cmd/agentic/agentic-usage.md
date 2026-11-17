@@ -5214,10 +5214,25 @@ or an App mismatch through `--app` or the positional `<app>` of
 `app agent compile` (cli#1887). With
 `team worker compile --as-worker`, the resolved worker's App must match the
 original binding, including explicit worker ids/URNs (cli#1896). App comparison
-uses resolved ids. Unreadable and missing target Apps have byte-identical
-refusals, exit 2, including signature/trailer edits using the shared guard;
-credential and transport lookup errors keep their ordinary exits. Initial
-binding faults refuse before any request; App/worker identity reads can precede
+uses resolved ids.
+
+An App you cannot read is refused exactly like one that does not exist:
+byte-identical text and exit 2, so the refusal is no existence oracle (V58,
+hrn:node:hadronmemory.com:hadron-dev-team-shared:decisions:2026-11-10-vera-rulings-app-refusals;
+specs cor:agt:050:21 and cor:dmo:050:11, both Proposed, not Decided). The same
+shared guard serves signature/trailer edits, `team grant list|get|request` and
+`team task mine --app`: for those, a pure permission refusal on the App read
+now exits 2 with the missing-App usage text, where it was exit 8 before
+(cli#1896, cli#2239). Only a PURE permission refusal is normalized. A
+credential or token-scope refusal, a failed lookup, and a MIXED answer
+(FORBIDDEN together with UNAUTHENTICATED) keep the server's own messages in the
+order sent and exit by the FIRST error's code: a mixed answer led by
+UNAUTHENTICATED exits 3, one led by FORBIDDEN exits 8. None of them reads as a
+missing App. Optional authored-write attribution (`node create` and the like)
+silently leaves the worker session off for a missing OR unreadable App and
+still sends your own write; a credential, mixed or failed lookup adds one note.
+
+Initial binding faults refuse before any request; App/worker identity reads can precede
 an App mismatch refusal, but no compile/approve write is sent. A binding that
 changes during the run also refuses with exit 2; a mid-batch change files the
 remaining workers under `failed` with exit 2 and sends nothing more. Server
@@ -6239,7 +6254,7 @@ refused (exit 2, nothing sent); naming the same App it is sent unchanged. A
 task id or any other non-handle is sent unchanged. Without `--app` nothing
 changes: the configured App context and the worktree binding never qualify a
 handle, so a member of more than one App still gets the server's
-`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check.
+`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check; a pure permission refusal on its App read exits 2 as a missing App (cli#1896, #2239: see `--as-worker` above).
 
 ## Task single-shot matching (cli#1549)
 
@@ -6658,7 +6673,7 @@ and event reads do not change.
 
 ## Worker-own grants (cli#1832) and grant requests (cli#1868)
 
-`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it. The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
+`hadron team grant list [--limit N] [--offset N]` reads one page (default20, maximum200; offset default0). `--limit 0` counts only. `hadron team grant get <id>` reads one row. These require a worktree worker binding on the targeted server; sign in and use `hadron team session start` first. `--app` may restate that App, never switch it (a pure permission refusal on that App read exits 2 as a missing App, no longer 8: cli#1896, #2239). The server serves only a person-driven worker-bound session in its own App; other callers receive empty/null, so an empty answer does not prove that you have no grants.
 
 Scope as shipped: grants naming this worker directly as holder, plus its own requests that are neither activated nor revoked. Role-agent, other-worker, person and App holders are not listed. `list` and `get` only read; top-level `hadron grant list|get` remains the separate organization action-grants surface. The request verbs below ask for a grant and for its signing; no command here signs, activates or revokes one.
 
