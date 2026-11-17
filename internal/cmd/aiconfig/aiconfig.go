@@ -21,5 +21,6 @@ func NewCmdAiConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdToolChoice(f))
 	return cmd
 }
