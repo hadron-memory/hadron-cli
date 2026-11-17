@@ -2,9 +2,13 @@ package hostpoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // runTreeKill is the Windows taskkill result boundary, shared so the runner's
@@ -16,10 +20,30 @@ func runTreeKill(pid int, timeout time.Duration, run func(context.Context, int) 
 	// release the caller's binding authority while the runner still acts.
 	out, err := run(ctx, pid)
 	if ctx.Err() != nil {
-		return false, fmt.Sprintf("taskkill for the launched process tree (pid %d) received cancellation after %s; stop not confirmed, records kept", pid, timeout)
+		return false, fmt.Sprintf("taskkill for the launched process tree (pid %d) received cancellation after %s; stop not confirmed, records kept", pid, timeout) + treeKillRunnerContext(out, err)
+	}
+	if errors.Is(err, exec.ErrWaitDelay) {
+		return false, fmt.Sprintf("taskkill for the launched process tree (pid %d): output collection incomplete; stop not confirmed, records kept", pid) + treeKillRunnerContext(out, err)
 	}
 	if err != nil {
 		return false, fmt.Sprintf("could not stop the launched process tree (pid %d): %v: %s", pid, err, strings.TrimSpace(string(out)))
 	}
 	return true, fmt.Sprintf("terminated the launched process tree (pid %d)", pid)
+}
+
+// Only runner-provided context is appended: no argv or environment collection.
+func treeKillRunnerContext(out []byte, err error) string {
+	var parts []string
+	if err != nil {
+		if detail := strings.TrimSpace(output.SafeLine(strings.TrimSpace(err.Error()), 512)); detail != "" {
+			parts = append(parts, "error: "+detail)
+		}
+	}
+	if detail := strings.TrimSpace(output.SafeLine(strings.TrimSpace(string(out)), 512)); detail != "" {
+		parts = append(parts, "output: "+detail)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; runner context: " + strings.Join(parts, "; ")
 }
