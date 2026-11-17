@@ -25,10 +25,10 @@ type linkUserDTO struct {
 }
 
 func newCmdLinkUser(f *cmdutil.Factory) *cobra.Command {
-	var externalUser, dataKey string
+	var externalUser, dataKey, dataKeyFile string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "link-user <memoryRef> --external-user <id> [--data-key -] [--yes]",
+		Use:   "link-user <memoryRef> --external-user <id> [--data-key-file <file|->] [--yes]",
 		Short: "Promote an anonymous memory to a registered user (App key only)",
 		Long: `Link an anonymous memory to a real user. An App runs this when someone who
 used it without an account signs up, so the notes they made as a guest become
@@ -52,12 +52,14 @@ Two effects are worth planning for:
   * The memory stops expiring. Its anonymous TTL is cleared, so it is no
     longer garbage-collected.
 
-Passing --data-key additionally encrypts the memory at rest in the same
+Passing --data-key-file (or --data-key -) additionally encrypts the memory at rest in the same
 transaction: every node's content, abstract, and data are rewritten as
 ciphertext and the memory lands private and owned by that user. Like
 ` + "`hadron memory encrypt`" + `, this is ONE-WAY — there is no decrypt command — so
-keep the key. Pass it on stdin with ` + "`--data-key -`" + ` to keep it out of shell
-history. The key must be canonical base64 for exactly 32 bytes (43 characters
+keep the key. Put it in a file only you can read (` + "`--data-key-file`" + `, "-" reads stdin;
+a file that group or others can access is refused) to keep it out of shell
+history and process listings; a literal ` + "`--data-key <key>`" + ` still works but is
+DEPRECATED, warns, and will be refused in a later release. The key must be canonical base64 for exactly 32 bytes (43 characters
 plus '='), is sent once in a request header — never in
 the request body, where logging would capture it — and is refused locally
 before any request when malformed. An older server ignores the key: the
@@ -67,7 +69,9 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 --yes when run non-interactively.`,
 		Example: `  hadron memory link-user hrn:mem:acme.com:anon-7f3 --external-user 'auth0|abc123' --yes
   printf '%s' "$DATA_KEY" | hadron memory link-user hrn:mem:acme.com:anon-7f3 \
-    --external-user 'auth0|abc123' --data-key - --yes --json`,
+    --external-user 'auth0|abc123' --data-key-file - --yes --json
+  hadron memory link-user hrn:mem:acme.com:anon-7f3 --external-user 'auth0|abc123' \
+    --data-key-file ~/.anon.key --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			externalUser = strings.TrimSpace(externalUser)
@@ -90,7 +94,12 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			// that a silent no-op that leaves content plaintext even though
 			// the caller asked for encryption; Changed() routes the empty
 			// value into readDataKey, which rejects it (review on #301).
-			wantsEncryption := cmd.Flags().Changed("data-key")
+			key0, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
+			if err != nil {
+				return err
+			}
+			wantsEncryption := key0.Supplied()
+			key0.WarnLiteral(f.IOStreams.ErrOut)
 
 			what := fmt.Sprintf("memory %s to external user %q", args[0], externalUser)
 			prompt := "Promote " + what +
@@ -106,7 +115,7 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 
 			var key *string
 			if wantsEncryption {
-				k, err := readDataKey(dataKey, f.IOStreams.In)
+				k, err := key0.Read(f.IOStreams.In)
 				if err != nil {
 					return err
 				}
@@ -201,7 +210,8 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 	}
 	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own identifier for the end user (not a Hadron user id) (required)")
 	_ = cmd.MarkFlagRequired("external-user")
-	cmd.Flags().StringVar(&dataKey, "data-key", "", `also encrypt the memory at rest with this key ("-" reads stdin, recommended)`)
+	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `also encrypt the memory at rest with the key in this file (mode 600; "-" reads stdin)`)
+	cmd.Flags().StringVar(&dataKey, "data-key", "", `also encrypt the memory at rest with the key from stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
