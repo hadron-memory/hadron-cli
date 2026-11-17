@@ -9,7 +9,7 @@ Companion to hadron-server#4258 (S4b, closes #4225). The server now issues a `wo
 - **Schema**: re-pinned. `taskId` maps to "" when null. `cause` is in the `ContextResetFields` fragment.
 
 ## Schema pin
-Pinned against hadron-server#4258's re-frozen head `91333e99e` (server main merged in) as a **draft pin** (the re-freeze, which put `cause` in the op args, changes no GraphQL type: the snapshot is identical to the pin at `cc136d0a`); re-pin at #4258's merge commit before merging this. The refresh also brought the already-merged #4247 `WorkerTerminalReportInput.repairReason`; the health-report mutation now omits it like `repair` (otherwise the exact-wire golden of #1181 sends `"repairReason": null`).
+Pinned at hadron-server **57bc0604f**, #4258's merge commit (== server `origin/main`; `make schema-check` passes against it). This change does not touch the health-report mutation: the #4247 `WorkerTerminalReportInput.repairReason` omission it first carried is on main through another PR. `taskId` maps to "" when null; `cause` is in the `ContextResetFields` fragment.
 
 ## Not here
 Measuring the context (C8, merged), removing `worker-auto-shed`, and activating the reset driver (C3).

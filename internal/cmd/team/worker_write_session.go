@@ -22,8 +22,8 @@ import (
 // The returned function is called immediately before each mutation. It
 // re-reads the binding and refuses if it changed since the resolve (a rebind
 // mid-run), so a batch never sends under a session it did not verify.
-func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (func(context.Context) (context.Context, error), error) {
-	return func(ctx context.Context, targetApps ...string) (func(context.Context) (context.Context, error), error) {
+func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cmdutil.WorkerWriteContext, error) {
+	return func(ctx context.Context, targetApps ...string) (cmdutil.WorkerWriteContext, error) {
 		b, _, err := readBindingFile(ctx)
 		switch {
 		case errors.Is(err, errNoWorktree):
@@ -81,9 +81,16 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (fu
 		// The first failed verification is latched for the rest of the run: a
 		// binding that changes and is then restored must not let a later write
 		// of the same batch resume (blind P2 on PR #1883).
+		//
+		// The mutex is held across the late App lookup on purpose: verify,
+		// look up, verify again is one step per write, so two writes cannot
+		// interleave a rebind check. It is command-local and used serially
+		// today (a batch writes one worker at a time). If a parallel batch
+		// consumer is ever added, this lock would serialize its App lookups
+		// and is the thing to revisit (cli#2239 P3-5).
 		var mu sync.Mutex
 		var latched error
-		return func(mctx context.Context) (context.Context, error) {
+		return func(mctx context.Context, resolvedTargetApps ...string) (context.Context, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			// On every refusal the context is nil, never the person's: a caller
@@ -91,10 +98,36 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (fu
 			if latched != nil {
 				return nil, latched
 			}
-			now, _, err := readBindingFile(mctx)
-			if err != nil || !sameWriteBinding(now, &snapshot) {
-				latched = exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
+			verify := func() error {
+				now, _, err := readBindingFile(mctx)
+				if err != nil || !sameWriteBinding(now, &snapshot) {
+					return exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
+				}
+				return nil
+			}
+			if latched = verify(); latched != nil {
 				return nil, latched
+			}
+			// A worker lookup can reveal its App only after the initial
+			// resolve. Compare it to this original snapshot, never a freshly
+			// read session that could belong to a replacement binding.
+			for _, target := range resolvedTargetApps {
+				same, err := bindingsAppIdentity(mctx, f, target, snapshot.AppID)
+				if err != nil {
+					latched = exitcode.Newf(exitcode.FromError(err), "cannot confirm the binding's App (%v); nothing was sent", err)
+					return nil, latched
+				}
+				if !same {
+					latched = refuse("it belongs to a different App than the worker this command names")
+					return nil, latched
+				}
+			}
+			// A target identity read is itself a round trip. Re-check after
+			// it too, before returning a session-bearing mutation context.
+			if len(resolvedTargetApps) != 0 {
+				if latched = verify(); latched != nil {
+					return nil, latched
+				}
 			}
 			return api.WithSession(mctx, snapshot.SessionID), nil
 		}, nil

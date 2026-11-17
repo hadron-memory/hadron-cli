@@ -68,6 +68,7 @@ func TestExecHostTerminateAfterExitSignalsNothing(t *testing.T) {
 // zombie (Linux), so the group's number is still the launch's and the stop
 // reaches the member through it.
 func TestExecHostTerminateStopsTheGroupAfterTheLeaderExits(t *testing.T) {
+	patientKillWait(t)
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
 	}

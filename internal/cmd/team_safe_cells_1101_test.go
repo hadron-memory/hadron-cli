@@ -106,6 +106,20 @@ func TestTeamSafeCells1101(t *testing.T) {
 		r["TeamRoster"] = `{"data":{"teamRoster":` + row + `}}`
 		return r
 	}
+	// NO_SESSION with a reason the CLI does not know: the default branch of the
+	// check label echoes the server's text, so it is an attack surface the
+	// PENDING fixture above never reaches (cli#2237 P3-7).
+	rosterNoSession := func(t *testing.T) map[string]string {
+		t.Helper()
+		r := make(map[string]string, len(base))
+		for op, body := range base {
+			r[op] = body
+		}
+		row := stamp(t, rosterJSON, `"unavailableUntil":null`,
+			`"checkStatus":{"status":"NO_SESSION","noSessionReason":"FUTURE_REASON","pendingReason":null,"lastCheckedAt":null}`)
+		r["TeamRoster"] = `{"data":{"teamRoster":` + row + `}}`
+		return r
+	}
 	// worker list's activity columns: the staff fixture carries no
 	// family/model/tier/reportsTo/liveness at all, so those cells rendered
 	// fixed dashes. held-by rides the failed-lookup path deliberately —
@@ -233,6 +247,19 @@ func TestTeamSafeCells1101(t *testing.T) {
 		r["TeamComposition"] = body
 		return r
 	}
+	// the events ESCALATION ENDED cell (cli#1940): no fixture event carries a
+	// recorded end, so the cell was always blank until an alarm with one rides
+	// along (cli#2053 F6).
+	eventsEnded := func(t *testing.T) map[string]string {
+		t.Helper()
+		r := make(map[string]string, len(base))
+		for op, body := range base {
+			r[op] = body
+		}
+		alarm := stamp(t, alarmEventFieldsJSON, `"acknowledgedBy":null`, `"escalationEndedAt":"2026-10-12T03:30:00Z"`)
+		r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + alarm + `],"hasMore":false,"nextCursor":null}}}`
+		return r
+	}
 	fixed := func(m map[string]string) responseSet {
 		return func(*testing.T) map[string]string { return m }
 	}
@@ -284,6 +311,9 @@ func TestTeamSafeCells1101(t *testing.T) {
 			{"type", "task.created"},
 			{"task", "task1"},
 		}},
+		{"events-escalation-ended", []string{"events"}, eventsEnded, "AgentTeamEventsPage", []cellAttack{
+			{"escalation-ended", "2026-10-12T03:30:00Z"},
+		}},
 		{"role-list", []string{"role", "list"}, fixed(base), "TeamRoles", []cellAttack{
 			{"description", "Backend role"},
 			{"role", "backend-engineer"},
@@ -302,6 +332,9 @@ func TestTeamSafeCells1101(t *testing.T) {
 			{"check-reason", "queued behind host restart"},
 			{"held-by-name", "Ada Hostmark"},
 			{"held-at", "2026-10-12T03:00:00Z"},
+		}},
+		{"roster-no-session", []string{"roster"}, rosterNoSession, "TeamRoster", []cellAttack{
+			{"no-session-reason", "FUTURE_REASON"},
 		}},
 		{"host-list", []string{"host", "list"}, fixed(hostResponses()), "HostRegistrations", []cellAttack{
 			{"label", "Orca box 1"},
@@ -446,6 +479,8 @@ func TestTeamSafeCells1101(t *testing.T) {
 	refine := map[string]cellRefine{
 		// CHECK composes "PENDING (<pendingReason>)".
 		"roster-extra/check-reason": {prefix: "PENDING ("},
+		// CHECK composes "NO_SESSION (<noSessionReason>)" for an unknown reason.
+		"roster-no-session/no-session-reason": {prefix: "NO_SESSION ("},
 		// WORKERS composes name/family[worktrees] per host row.
 		"host-list/worker-family": {prefix: "Jonas/"},
 		"host-list/worktree":      {prefix: "Jonas/claude["},

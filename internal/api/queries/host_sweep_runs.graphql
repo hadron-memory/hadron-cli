@@ -1,0 +1,14 @@
+# S10, server fd9442d6. Host-key-only write; never send a worker session.
+mutation RecordHostSweepRun($input: RecordHostSweepRunInput!) {
+  recordHostSweepRun(input: $input) { id runId }
+}
+query HostSweepRuns($appRef: String!, $hostId: String!, $limit: Int) {
+  hostSweepRuns(appRef: $appRef, hostId: $hostId, limit: $limit) {
+    id hostId runId startedAt endedAt mode planned applied skipped failed recordedAt
+    lines { worker outcome reason }
+  }
+}
+# Separate from the S10 write, so schema fallback never changes reconciliation.
+query HostSweepIdentity($appRef: String!, $hostId: String!) {
+  hostDesiredState(appRef: $appRef, hostId: $hostId) { hostId }
+}

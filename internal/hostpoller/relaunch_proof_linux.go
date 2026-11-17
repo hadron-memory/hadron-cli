@@ -17,8 +17,19 @@ func openRelaunchJournal(path string) (hostrelaunch.Journal, uint64, func(), err
 	}
 	return j, j.Sweep(), func() { _ = j.Close() }, nil
 }
-func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
-	agents, err := strictRelaunchCensus(ctx, "/proc", t.Worktree, func(ctx context.Context) error {
+func openRelaunchJournalHeld(path string) (hostrelaunch.Journal, uint64, func(), error) {
+	j, err := hostrelaunch.OpenJournalHeld(path)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	return j, j.Sweep(), func() { _ = j.Close() }, nil
+}
+
+// ProbeWorktreeAgents shares C5's strict, complete census with host up.
+// Errors never return partial proof. It includes the caller and ancestors.
+func ProbeWorktreeAgents(ctx context.Context, worktree string) (hostrelaunch.Observation, error) {
+	skipped := 0
+	agents, err := strictRelaunchCensusCounted(ctx, "/proc", worktree, func(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -30,15 +41,18 @@ func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrela
 			return errors.New("proc is not the kernel proc filesystem")
 		}
 		return nil
-	})
+	}, &skipped)
 	if err != nil {
 		return hostrelaunch.Observation{}, err
 	}
-	out := hostrelaunch.Observation{Proven: true, PIDs: []int{}}
+	out := hostrelaunch.Observation{Proven: true, PIDs: []int{}, ForeignUIDSkipped: skipped}
 	for _, a := range agents {
 		out.PIDs = append(out.PIDs, a.PID)
 	}
 	return out, nil
+}
+func probeRelaunchWorktree(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
+	return ProbeWorktreeAgents(ctx, t.Worktree)
 }
 func verifyRelaunchProcess(ctx context.Context, a Agent, _ hostrelaunch.Target, o hostrelaunch.Observation) error {
 	if err := ctx.Err(); err != nil {

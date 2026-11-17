@@ -21,7 +21,7 @@ paths are mutually exclusive and nothing is chosen silently.
   object on stdout, exit 0. Any other exit is the adapter's refusal.
 - Selection: `--adapter`, else `$HADRON_INTAKE_ADAPTER`. An explicit `--integration`
   is the server path; `--adapter` with `--integration` is a usage error.
-- Environment: the CLI's own, minus `HADRON_*` credentials (token/key/secret). The
+- Environment: the CLI's own, minus every `HADRON_*` variable (case-insensitive prefix; cli#1974). The
   adapter holds the team's tracker credential, never Hadron's.
 - Contract version: `describe` runs first, before the worktree binding or the App is
   resolved; any version but 1 exits **15** (`exitcode.AdapterSkew`) before the adapter
@@ -69,21 +69,44 @@ becomes a task title; nothing else from the tracker reaches Hadron.
 
 ## STARTED versus PENDING (ruled: Ada #103270, gate addendum 2 on #1961)
 
-`createAgentTask` accepts only BACKLOG|PENDING and `startAgentTask` is
-assignee-only, so: create, then start only when the caller is the assignee (the
-bound-worker default); with `--for` / `--assignee` someone else the claim stays
-PENDING and the output says so. No server change. A failure between the create
-and the start leaves the task PENDING; the CLI reports it (`startError`, stderr
-note), still marks the claim, and a retry finds the external id held and creates
-nothing. All three are pinned.
+The server determines the caller's party and starts caller-own claims atomically
+in `createAgentTask` (server#4115, merged 2026-11-13). The CLI sends one create,
+reports its returned status and never sends `startAgentTask` (cli#1974). This
+also covers a person's own claim without trying to resolve the authenticated
+person locally. Other-assignee claims remain PENDING. Against an older server,
+PENDING stays PENDING and the assignee starts it; the claim is still marked and
+a retry cannot duplicate it. `startError` stays present and null for JSON
+compatibility. Missing/blank assignee display names fall back to the server ID.
 
-**Update (cli#1978; hadron-server fix PR #4115, closing issue #4113;
-cor:agt:050:02 caller-own arm):** a server that lands the caller's own outside-item
-claim STARTED in `createAgentTask` makes the window above disappear. When the create answers STARTED the CLI makes no
-`startAgentTask` call and reports STARTED; when it answers PENDING (a server
-without the hadron-server#4115 fix for issue #4113) the start call and
-`startError` stay as described.
-Another assignee's claim is unchanged: PENDING with the existing note. All pinned.
+## Follow-up decisions (cli#1974)
+
+- `complete` means exhaustion without an error. Reaching N is a successful
+  `limit_reached` stop with `complete:false`, even at the end of a page; no extra
+  page is fetched to prove exhaustion. Both list and track carry `stoppedReason`:
+  null on exhaustion, otherwise `limit_reached`, `check_failed`, `claim_failed`,
+  `mark_failed`, `walk_failed`, or `reconcile_failed`. An error takes precedence
+  over a limit stop. Exit codes are unchanged; limit stops exit 0.
+- No `HADRON_*` environment variable is promised to adapters. Configure tracker
+  credentials under their own names. The executable is still selected in the CLI
+  before the environment is scrubbed.
+- `Describe.Filters` and `Order` remain parsed metadata, intentionally unconsumed.
+  They are Proposed in cor:agt:120:04; neither this flow nor reconcile (#1962)
+  invents their semantics (item 10).
+- Native Go fixture coverage exercises real exec/stdin/stdout, refusal, timeout,
+  invalid UTF-8 and output caps on Linux and the existing Windows CI job (7–8).
+  The terminal-control JSON pin uses a literal `%s` format; byte-sensitive
+  invalid-UTF-8 and astral-cap fixtures are emitted by Go. Remaining POSIX shell
+  orchestration fixtures are retained rather than rewritten wholesale; their
+  Unix-only process scenarios supplement the portable runner pins. Windows
+  console interrupt testing is still outside the Linux QA evidence.
+- Root-wide signal context migration (item 13) is declined here: it changes every
+  command's cancellation lifecycle and needs a separate scoped contract/review.
+  Adapter cancellation remains local; after the first interrupt it restores
+  default signal handling so a second interrupt can force exit (item 14).
+- Items 11, 12 and 15: import grouping, byte/code-point cap comments and the
+  simultaneous 512-code-point/2048-byte boundary are clarified.
+- Item 9: command tests cover old-server refusal, owner forwarding, unbound `--for`
+  and no-party refusal; none requires production access.
 
 ## Side effects of the schema refresh
 

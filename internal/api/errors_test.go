@@ -60,6 +60,9 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
+		// #2308: a worker without a signed schedule.create grant.
+		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
+
 		// #1706 content-validation report refusals.
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
@@ -133,6 +136,10 @@ func TestMapError(t *testing.T) {
 		// platform limit pending a ruling, so no input or state change helps.
 		{"app memory forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		// cli#2189 (rows as Jake drafted them on jake/2189-link-defect).
+		{"defect link is forbidden", gqlErr("DEFECT_LINK_FORBIDDEN"), exitcode.Forbidden},
+		{"defect link task lacks PR reference", gqlErr("PR_REFERENCE_MISSING"), exitcode.Conflict},
+		{"defect introduction head was not frozen", gqlErr("DEFECT_HEAD_NOT_FROZEN"), exitcode.Conflict},
 		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
 		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
 		// Manual runs in an App with several installed Agents (cli#1268,

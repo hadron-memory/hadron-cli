@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"os"
 	"path/filepath"
@@ -189,6 +190,10 @@ func writeLaunchEnv(path string, env []string, prompt string) error {
 		return errors.New("the first prompt holds a NUL")
 	}
 	b.WriteString("export " + firstPromptVar + "=" + shq(prompt) + "\n")
+	// The agent's own pid (cli#2161): sourced by the shell the command then
+	// exec's into the agent, so "$$" there is the pinned pid. Written last, so
+	// a value inherited from the poller's environment never wins.
+	b.WriteString("export " + delivery.AgentPIDEnv + "=\"$$\"\n")
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
@@ -214,20 +219,33 @@ type orcaCreated struct {
 	} `json:"error"`
 }
 
+// closedLaunchError is a launch failure whose terminal was closed. It keeps
+// the structured cause behind the message for errors.Is/As (cli#2172).
+type closedLaunchError struct {
+	msg   string
+	cause error
+}
+
+func (e *closedLaunchError) Error() string { return e.msg }
+func (e *closedLaunchError) Unwrap() error { return e.cause }
+
 // Launch creates the terminal, waits for the marker, proves the process is
 // the one the terminal runs, and pins it. Every failure after the terminal
 // exists closes it: nothing this launch started is left running unrecorded.
 func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAgent, error) {
+	setupFailed := func(err error) (*OrcaAgent, error) {
+		return nil, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureSetupFailed, Err: err}
+	}
 	dir := filepath.Join(l.StateDir, "launch")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("preparing the launch directory: %w", err)
+		return setupFailed(fmt.Errorf("preparing the launch directory: %w", err))
 	}
 	if err := os.Chmod(dir, 0o700); err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	var rb [12]byte
 	if _, err := rand.Read(rb[:]); err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	id := hex.EncodeToString(rb[:])
 	envFile, marker, gate := filepath.Join(dir, id+".env"), filepath.Join(dir, id+".marker"), filepath.Join(dir, id+".go")
@@ -237,11 +255,11 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		}
 	}()
 	if err := writeLaunchEnv(envFile, spec.Env, spec.Prompt); err != nil {
-		return nil, fmt.Errorf("writing the launch environment: %w", err)
+		return setupFailed(fmt.Errorf("writing the launch environment: %w", err))
 	}
 	cmd, err := launchCommand(envFile, marker, gate, spec.Argv)
 	if err != nil {
-		return nil, err
+		return setupFailed(err)
 	}
 	argv := []string{"terminal", "create", "--worktree", "path:" + spec.Dir, "--command", cmd, "--json"}
 	if spec.Title != "" {
@@ -269,7 +287,11 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return nil, cause
 	}
 	handle, opid := created.Result.Terminal.Handle, created.Result.Terminal.ProcessID
-	fail := func(format string, a ...any) (*OrcaAgent, error) {
+	// failCause closes the terminal this launch created and returns the
+	// failure. A structured cause (a context error from a proof read) rides
+	// along through Unwrap, so classification never has to parse the text
+	// (cli#2172).
+	failCause := func(cause error, format string, a ...any) (*OrcaAgent, error) {
 		// Ours to close: this launch created it moments ago.
 		why := fmt.Sprintf(format, a...)
 		if code, _, errOut := l.Run(context.WithoutCancel(ctx), []string{"terminal", "close", "--terminal", handle, "--json"}); code != 0 {
@@ -278,10 +300,11 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 			// keeps it recorded (one agent per worktree holds) and a later
 			// stop retries the close (cli#2088 blind P2).
 			u := &OrcaAgent{l: l, handle: handle, done: make(chan struct{}), unclosed: true}
-			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply")}
+			return u, &UnclosedLaunchError{Handle: handle, Why: why, CloseErr: firstNonEmpty(strings.TrimSpace(errOut), "no reply"), Cause: cause}
 		}
-		return nil, errors.New(why + "; the terminal was closed")
+		return nil, &closedLaunchError{msg: why + "; the terminal was closed", cause: cause}
 	}
+	fail := func(format string, a ...any) (*OrcaAgent, error) { return failCause(nil, format, a...) }
 	// Only now, with the terminal's handle in hand, may the command start
 	// the agent (cli#2130). Before this point a failure leaves no agent: the
 	// shell waits, gives up, and stays an empty shell, which fail closes.
@@ -298,7 +321,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	}
 	pid, tty, err := l.awaitMarker(ctx, marker)
 	if err != nil {
-		agent, finalErr := fail("%v", err)
+		agent, finalErr := failCause(err, "%v", err)
 		var classified interface{ RelaunchFailureReason() string }
 		if errors.As(err, &classified) {
 			return agent, &hostrelaunch.LaunchError{Code: classified.RelaunchFailureReason(), Err: finalErr}
@@ -306,13 +329,33 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		if errors.Is(err, context.DeadlineExceeded) {
 			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: finalErr}
 		}
+		if !errors.Is(err, context.Canceled) {
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureVerifyFailed, Err: finalErr}
+		}
 		return agent, finalErr
+	}
+	// proofFailCause is a failed proof of the launched process. The reason is
+	// read from the structured cause: a pure cancellation is not a failed
+	// proof (no reason), a pure deadline is a timeout, anything else cannot
+	// prove the agent came up (VERIFY_FAILED).
+	proofFailCause := func(cause error, format string, args ...any) (*OrcaAgent, error) {
+		agent, err := failCause(cause, format, args...)
+		switch {
+		case errors.Is(cause, context.Canceled):
+			return agent, err
+		case errors.Is(cause, context.DeadlineExceeded):
+			return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureTimeout, Err: err}
+		}
+		return agent, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureVerifyFailed, Err: err}
+	}
+	proofFail := func(format string, args ...any) (*OrcaAgent, error) {
+		return proofFailCause(nil, format, args...)
 	}
 	if l.onMarker != nil {
 		l.onMarker(envFile)
 	}
 	if opid <= 1 {
-		return fail("Orca named no process for the terminal")
+		return proofFail("Orca named no process for the terminal")
 	}
 	// Pin first: every later read is then of this process, or it is known
 	// gone. A launch whose process already exited (a short task, or a
@@ -328,7 +371,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	// terminal's own process still runs).
 	exited := func() (*OrcaAgent, error) {
 		if pid != opid {
-			return fail("pid %d exited before it could be proven the process of Orca's terminal (pid %d)", pid, opid)
+			return proofFail("pid %d exited before it could be proven the process of Orca's terminal (pid %d)", pid, opid)
 		}
 		a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, done: make(chan struct{})}
 		a.closeOnce.Do(func() { close(a.done) })
@@ -339,7 +382,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 		return exited()
 	}
 	if err != nil {
-		return fail("pid %d could not be pinned: %v", pid, err)
+		return proofFailCause(err, "pid %d could not be pinned: %v", pid, err)
 	}
 	// alive is a positive answer or an error: only a successful liveness
 	// check lets the reads count (cli#2088 blind delta P2). "Not seen gone"
@@ -376,7 +419,7 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	live, lerr := alive()
 	if lerr != nil {
 		h.Close()
-		return fail("pid %d's liveness could not be established after its checks: %v", pid, lerr)
+		return proofFailCause(lerr, "pid %d's liveness could not be established after its checks: %v", pid, lerr)
 	}
 	if !live {
 		h.Close()
@@ -384,16 +427,16 @@ func (l OrcaLauncher) Launch(ctx context.Context, spec OrcaLaunchSpec) (*OrcaAge
 	}
 	if !parent {
 		h.Close()
-		return fail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
+		return proofFail("the process that started (pid %d) is not the one Orca's terminal runs (pid %d)", pid, opid)
 	}
 	if ferr != nil || fd0 != tty {
 		h.Close()
-		return fail("pid %d's terminal is not the tty it reported", pid)
+		return proofFail("pid %d's terminal is not the tty it reported", pid)
 	}
 	root, rerr := filepath.EvalSymlinks(spec.Dir)
 	if cerr != nil || rerr != nil || !within(cwd, root) {
 		h.Close()
-		return fail("pid %d is not working in the worktree", pid)
+		return proofFail("pid %d is not working in the worktree", pid)
 	}
 	a := &OrcaAgent{l: l, handle: handle, pid: pid, tty: tty, h: h, done: make(chan struct{})}
 	go a.watch()
@@ -487,7 +530,14 @@ func descendsFrom(pid, ancestor int) bool {
 // UnclosedLaunchError is a launch that could not be proven AND whose terminal
 // could not be closed: Launch returns it together with an agent that stays
 // recorded until a stop closes the terminal.
-type UnclosedLaunchError struct{ Handle, Why, CloseErr string }
+type UnclosedLaunchError struct {
+	Handle, Why, CloseErr string
+	// Cause is the failure that made the launch close its terminal (a context
+	// error from a proof read, for one), kept for errors.Is/As (cli#2172).
+	Cause error
+}
+
+func (e *UnclosedLaunchError) Unwrap() error { return e.Cause }
 
 func (e *UnclosedLaunchError) Error() string {
 	return e.Why + "; closing Orca terminal " + e.Handle + " failed (" + e.CloseErr + "), so it stays recorded until a stop closes it"
@@ -636,6 +686,13 @@ var promptTaskRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 // the worker's session is still open and is never bound again): it only
 // recovers.
 func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
+	return firstPrompt(workerRef, family, taskID, hasGrant, Bind{})
+}
+
+// firstPrompt is FirstPrompt with what the bind reports (#2199): the family,
+// the model value actually passed and the effort applied, each only when the
+// start settled it. The zero Bind is the prompt as it always was.
+func firstPrompt(workerRef, family, taskID string, hasGrant bool, bind Bind) string {
 	recover := "run hadron team session recover and act on what it reports; never resume an earlier conversation."
 	if !hasGrant {
 		return "Hadron relaunched worker " + workerRef + " in its own worktree. Its worker session is still open, so do not start a new one: " + recover
@@ -648,16 +705,60 @@ func FirstPrompt(workerRef, family, taskID string, hasGrant bool) string {
 	if promptTaskRE.MatchString(taskID) {
 		next = "then start and carry your task: hadron team task start " + taskID + " (and follow your briefing)."
 	}
-	return "Hadron started this fresh run for worker " + workerRef + ". First bind your worker session: hadron team session start --tool " + tool +
+	report := ""
+	for _, f := range []struct{ flag, v string }{{"family", bind.Family}, {"model", bind.Model}, {"effort", bind.Effort}} {
+		if f.v != "" && profileTokenRE.MatchString(f.v) {
+			report += " --" + f.flag + " " + f.v
+		}
+	}
+	return "Hadron started this fresh run for worker " + workerRef + ". First bind your worker session: hadron team session start --tool " + tool + report +
 		" (the launch grant is in HADRON_LAUNCH_GRANT, so no --as is needed); " + next
 }
 
+// RelaunchPromptWithCheckpoint adds a context reset's checkpoint to a
+// relaunch prompt (cli#2161): `session recover` reads the state note, tasks
+// and mentions but not the checkpoint, which holds where the old agent was.
+// The URN is checked by the stamp reader (delivery.ValidCheckpointURN).
+func RelaunchPromptWithCheckpoint(prompt, checkpoint string) string {
+	return prompt + " This relaunch follows your own context reset: after recovering, read your checkpoint, hadron node get " + checkpoint + ", and continue its next action."
+}
+
+// resolveOrcaRun applies a start's run settings over the worker's launcher
+// profile BEFORE any process, terminal or reset: a family this host cannot
+// launch on the worker's account, or a malformed shape, fails the start with
+// a retryable reason that names the family and the account.
+func (p *Poller) resolveOrcaRun(ctx context.Context, op Operation, ref string, rs RunSettings) (Resolved, bool) {
+	if p.orcaLaunch == nil || p.profiles == nil {
+		p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: this poller has no Orca launcher (orca_launch is not wired)")
+		return Resolved{}, false
+	}
+	prof, acct, ok, err := p.profiles.Profile(ref)
+	if err == nil && !ok {
+		err = errors.New("the worker has no launcher profile")
+	}
+	if err == nil && !familyRE.MatchString(CanonicalFamily(rs.Family)) {
+		err = fmt.Errorf("start names no usable family (%q)", rs.Family)
+	}
+	var run Resolved
+	if err == nil {
+		run, err = ResolveRun(prof, acct, rs, prof.Account)
+	}
+	if err != nil {
+		p.finish(ctx, op, Failed, "", err.Error())
+		return Resolved{}, false
+	}
+	if run.Note != "" {
+		p.log("run-settings", op.ID, op.Type, "", run.Note)
+	}
+	return run, true
+}
+
 // orcaStart is worker.start's Orca path.
-func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string) (Agent, error) {
+func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w WorkerConfig, dir string, run Resolved) (Agent, error) {
 	if p.orcaLaunch == nil || p.profiles == nil {
 		return nil, errors.New("this poller has no Orca launcher (orca_launch is not wired)")
 	}
-	spec, err := p.orcaLaunchSpec(ref, w, dir, op.LaunchGrant, argString(op, "taskId"))
+	spec, err := p.orcaLaunchSpec(ref, w, dir, op.LaunchGrant, argString(op, "taskId"), run)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +770,7 @@ func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w Work
 // is one), and the fixed first prompt. worker.start passes its grant; a
 // relaunch under a still-open session (C5, #2060) passes none, so the agent
 // gets no grant and the recover-only prompt.
-func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string) (OrcaLaunchSpec, error) {
+func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, run Resolved) (OrcaLaunchSpec, error) {
 	if p.profiles == nil {
 		return OrcaLaunchSpec{}, errors.New("this poller has no launcher profiles")
 	}
@@ -680,19 +781,22 @@ func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID s
 	if !ok {
 		return OrcaLaunchSpec{}, errors.New("the worker has no launcher profile")
 	}
-	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct)
+	if run.Profile.Family != "" {
+		prof = run.Profile // the start's settings, resolved against this very profile
+	}
+	return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, prof, acct, run.Bind)
 }
 
 // orcaProfileLaunchSpec is the shared builder with an immutable typed snapshot.
 // C5 prepares that snapshot without IO, then calls this only after claiming
 // its attempt. Normal worker.start uses this through orcaLaunchSpec too.
-func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile) (OrcaLaunchSpec, error) {
+func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, prof LauncherProfile, acct AccountProfile, bind Bind) (OrcaLaunchSpec, error) {
 	argv, err := LaunchArgv(prof, acct)
 	if err != nil {
 		return OrcaLaunchSpec{}, err
 	}
 	if err := os.MkdirAll(w.DiskTmp, 0o700); err != nil {
-		return OrcaLaunchSpec{}, fmt.Errorf("preparing disk_tmp: %w", err)
+		return OrcaLaunchSpec{}, &hostrelaunch.LaunchError{Code: hostrelaunch.FailureSetupFailed, Err: fmt.Errorf("preparing disk_tmp: %w", err)}
 	}
 	var env []string
 	if grant != "" {
@@ -708,6 +812,6 @@ func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string
 	}
 	return OrcaLaunchSpec{
 		Argv: argv, Dir: dir, Env: env, Title: ref,
-		Prompt: FirstPrompt(ref, prof.Family, taskID, grant != ""),
+		Prompt: firstPrompt(ref, prof.Family, taskID, grant != "", bind),
 	}, nil
 }

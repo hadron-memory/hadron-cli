@@ -183,7 +183,7 @@ const memoryRefToken = "<memoryRef>"
 // matching, so both schemes work everywhere. memoryRefFormsAreAccepted
 // pins every form named here against the parser.
 const memoryRefHelp = `<memoryRef> is the memory's id or URN, hrn:mem:<root>:<slug>, where <root> is
-an organization name or a user handle (an --owner-me memory). The short forms
+an organization domain or a user handle (an --owner-me memory). The short forms
 <root>:<slug> and <root>::<slug>, the legacy hrn:memory:<root>::<slug>, and
 urn: in place of hrn: are accepted too.`
 

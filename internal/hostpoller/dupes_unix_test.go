@@ -29,10 +29,7 @@ func TestScanWorktreeAgentsScopesOnCwd(t *testing.T) {
 	spawn := func(dir string) *exec.Cmd {
 		c := exec.Command(bin)
 		c.Dir = dir
-		if err := c.Start(); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+		startFixture2078(t, c)
 		time.Sleep(50 * time.Millisecond)
 		return c
 	}
@@ -123,10 +120,7 @@ func TestScanWorktreeAgentsCollapsesAChainToOneSupervisedAgent(t *testing.T) {
 	}
 	c := exec.Command(wrap)
 	c.Dir = root
-	if err := c.Start(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+	startFixture2078(t, c)
 	for i := 0; i < 500 && !chainReady(ready); i++ {
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -175,10 +169,7 @@ func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
 	}
 	c := exec.Command(agent)
 	c.Dir = root
-	if err := c.Start(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+	startFixture2078(t, c)
 	for i := 0; i < 500 && !chainReady(ready); i++ {
 		time.Sleep(10 * time.Millisecond)
 	}

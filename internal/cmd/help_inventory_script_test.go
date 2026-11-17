@@ -28,12 +28,19 @@ esac
 
 func runInventoryScript(t *testing.T, dir, existing string) string {
 	t.Helper()
+	return runInventoryScriptAs(t, dir, existing, "v9.9.9-1-gabc1234 (abc1234,")
+}
+
+// runInventoryScriptAs runs the generator against the fake binary reporting the
+// given version prefix, so a test can build "the same tree at another commit".
+func runInventoryScriptAs(t *testing.T, dir, existing, versionPrefix string) string {
+	t.Helper()
 	bash, err := exec.LookPath("bash")
 	if err != nil {
 		t.Skip("bash not available")
 	}
 	bin := filepath.Join(dir, "hadron")
-	if err := os.WriteFile(bin, []byte(fakeHadron), 0o755); err != nil {
+	if err := os.WriteFile(bin, []byte(strings.Replace(fakeHadron, "v9.9.9-1-gabc1234 (abc1234,", versionPrefix, 1)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	groups := filepath.Join(dir, "groups.txt")
@@ -51,9 +58,12 @@ func runInventoryScript(t *testing.T, dir, existing string) string {
 
 func TestHelpInventoryGeneratorStructure(t *testing.T) {
 	out := runInventoryScript(t, t.TempDir(), "")
+	for _, unwanted := range []string{"Pinned commit:", "CLI version:"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("the generator must not print %q (cli#2310)\n%s", unwanted, out)
+		}
+	}
 	for _, want := range []string{
-		"Pinned commit: abc1234\n",
-		"CLI version: v9.9.9-1-gabc1234\n", // no build date: two builds of one commit generate the same bytes
 		"| `alpha` | alphas |  | n | #7001 |  | unread |  |",
 		"| `alpha one` | uno, ein |  | y | #7001 |  | unread |  |", // own name dropped from aliases, examples seen
 		"| `alpha two` |  |  | n | #7001 |  | unread |  |",

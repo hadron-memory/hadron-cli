@@ -106,8 +106,11 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short: "Subscribe an organization to a memory",
-		Long: `Give another organization access to a public knowledge memory, with a role
-(see memory subscription). You must be an admin of that organization.
+		Long: `Give another organization access to a memory with visibility PUBLIC.
+You must be an ADMIN of the subscribing organization (--org). The owning
+organization cannot subscribe: it already has access. The owning organization's
+admin can change its role or remove it; an admin of the subscribing organization
+can also remove it.
 
 To change the role of an organization already subscribed, use subscription
 set-role; create does not change an existing subscription and fails.`,
@@ -128,7 +131,13 @@ set-role; create does not change an existing subscription and fails.`,
 			}
 			resp, err := gen.CreateMemorySubscription(cmd.Context(), client, memID, org, r)
 			if err != nil {
-				return api.MapError(err)
+				mapped := api.MapError(err)
+				// Only a permission refusal gets creation guidance. In particular,
+				// hidden and missing memories keep the same generic not-found.
+				if api.HasErrorCode(err, "FORBIDDEN") && exitcode.FromError(mapped) == exitcode.Forbidden {
+					return fmt.Errorf("%w; creating a subscription requires an ADMIN of the subscribing organization (--org)", mapped)
+				}
+				return mapped
 			}
 			if resp.CreateMemorySubscription == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no subscription")

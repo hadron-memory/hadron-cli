@@ -15,22 +15,29 @@ import (
 )
 
 const (
-	Planned          = "planned"
-	Applied          = "applied"
-	Skipped          = "skipped"
-	Failed           = "failed"
-	Pending          = "RELAUNCH_PENDING_CONTINUITY"
-	RateLimited      = "RELAUNCH_RATE_LIMITED"
-	IdentityChanged  = "RELAUNCH_IDENTITY_CHANGED"
-	Unproven         = "RELAUNCH_UNPROVEN"
-	AgentPresent     = "RELAUNCH_AGENT_PRESENT"
-	DuplicateAgents  = "DUPLICATE_AGENTS"
-	NoProfile        = "NO_LAUNCHER_PROFILE"
-	LaunchFailed     = "RELAUNCH_FAILED"
-	VerifyFailed     = "RELAUNCH_UNVERIFIED"
-	RollbackFailed   = "RELAUNCH_CLEANUP_UNCONFIRMED"
-	StateUnavailable = "RELAUNCH_STATE_UNAVAILABLE"
+	Planned           = "planned"
+	Applied           = "applied"
+	Skipped           = "skipped"
+	Failed            = "failed"
+	Pending           = "RELAUNCH_PENDING_CONTINUITY"
+	RateLimited       = "RELAUNCH_RATE_LIMITED"
+	IdentityChanged   = "RELAUNCH_IDENTITY_CHANGED"
+	Unproven          = "RELAUNCH_UNPROVEN"
+	CensusUnavailable = "RELAUNCH_CENSUS_UNAVAILABLE"
+	AgentPresent      = "RELAUNCH_AGENT_PRESENT"
+	DuplicateAgents   = "DUPLICATE_AGENTS"
+	NoProfile         = "NO_LAUNCHER_PROFILE"
+	LaunchFailed      = "RELAUNCH_FAILED"
+	VerifyFailed      = "RELAUNCH_UNVERIFIED"
+	RollbackFailed    = "RELAUNCH_CLEANUP_UNCONFIRMED"
+	StateUnavailable  = "RELAUNCH_STATE_UNAVAILABLE"
+	// NoExitProof: an exit pass (cli#2161) found no proof the agent ended for
+	// a context reset of this session; the sweep's two-absence rule decides.
+	NoExitProof = "RELAUNCH_NO_EXIT_PROOF"
 )
+
+// ErrCensusUnavailable means a complete process census remained unavailable.
+var ErrCensusUnavailable = errors.New("complete relaunch census unavailable")
 
 // Target is an exact, already-bound identity, not a request to bind one.
 type Target struct{ AppID, HostID, WorkerID, SessionID, Server, Worktree string }
@@ -49,8 +56,10 @@ type Binding struct {
 
 // Observation is strict evidence. A default/partial result cannot prove zero.
 type Observation struct {
-	PIDs   []int
-	Proven bool
+	// ForeignUIDSkipped counts identity-checked foreign exclusions in this census.
+	ForeignUIDSkipped int
+	PIDs              []int
+	Proven            bool
 }
 
 // Agent is only the launch this attempt created. Rollback must never select
@@ -86,6 +95,8 @@ type Journal interface {
 // Result has closed status codes and optional diagnostic causes. Adapters must
 // bound and redact causes before exposing them; causes may include launcher errors.
 type Result struct {
+	// ForeignUIDSkipped is the maximum count in a completed census this attempt.
+	ForeignUIDSkipped         int
 	LocalCause, NoticeCause   string
 	Status, Reason, Reference string
 	FailureReason             string
@@ -112,8 +123,19 @@ type Runner struct {
 	Lock func(context.Context, Target) (func(), error)
 	// Notice is nil until the server's honest outcome surface is available.
 	// Log is the caller's structured event/session logger; dry runs call neither.
-	Notice func(context.Context, Target, Result) error
-	Log    func(Target, Result)
+	// AfterLaunch performs optional local cleanup after the outcome notice.
+	// Admission is released first; the callback must acquire its own fresh
+	// authority before side effects. Cleanup cannot suppress the notice.
+	AfterLaunch func(context.Context, Target, Agent)
+	Notice      func(context.Context, Target, Result) error
+	Log         func(Target, Result)
+	// ExitProof, when set, makes this an exit pass (cli#2161, C12): it is
+	// asked under the lock, after every guard and the cap, in place of the
+	// two-consecutive-sweep absence rule and nothing else. True means the
+	// agent this host launched has exited for a context reset of this exact
+	// session. An exit pass never records an absence observation: it saw one
+	// worker, not a sweep.
+	ExitProof func(context.Context, Target) (bool, error)
 }
 
 func (t Target) valid() bool {
@@ -161,6 +183,9 @@ func (r Runner) guard(ctx context.Context, t Target) (string, error) {
 	}
 	o, err := r.Probe(ctx, t)
 	if err != nil {
+		if errors.Is(err, ErrCensusUnavailable) {
+			return CensusUnavailable, err
+		}
 		return Unproven, err
 	}
 	if !o.Proven {
@@ -216,6 +241,15 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 			r.Log(t, out)
 		}
 	}()
+	// Keep the local receipt count without changing guard or notice contracts.
+	probe := r.Probe
+	r.Probe = func(ctx context.Context, t Target) (Observation, error) {
+		o, e := probe(ctx, t)
+		if e == nil && o.Proven && o.ForeignUIDSkipped > out.ForeignUIDSkipped {
+			out.ForeignUIDSkipped = o.ForeignUIDSkipped
+		}
+		return o, e
+	}
 	if e := ctx.Err(); e != nil {
 		out.Reason = "RELAUNCH_CANCELLED"
 		return out, e
@@ -289,7 +323,13 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		return out, nil
 	}
 	fp := fingerprint(t, prepared.Fingerprint)
-	if rec.AbsentFor != fp || rec.AbsentSweep+1 != r.Sweep {
+	if r.ExitProof != nil {
+		proven, e := r.ExitProof(ctx, t)
+		if e != nil || !proven {
+			out.Reason = NoExitProof
+			return out, e
+		}
+	} else if rec.AbsentFor != fp || rec.AbsentSweep+1 != r.Sweep {
 		rec.AbsentFor, rec.AbsentSweep = fp, r.Sweep
 		if e := r.Journal.Save(t.WorkerID, rec); e != nil {
 			return out, e
@@ -324,6 +364,9 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if e != nil || a == nil {
 		out.Status, out.Reason = Failed, LaunchFailed
 		out.FailureReason = observedFailureReason(e)
+		if a != nil && out.FailureReason == FailureSetupFailed {
+			out.FailureReason = "" // A returned agent cannot prove pre-launch setup failure.
+		}
 
 		if a != nil {
 			out.Reference = a.Reference()
@@ -344,14 +387,18 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		e = ctx.Err()
 	}
 	var verified Observation
+	proofFailed := false
 	if e == nil {
 		verified, e = r.Probe(ctx, t)
+		proofFailed = e != nil
 	}
 	if e == nil && (!verified.Proven || len(verified.PIDs) != 1 || verified.PIDs[0] <= 0) {
 		e = errors.New("no unique process proven after relaunch")
+		proofFailed = true
 	}
 	if e == nil {
 		e = a.Verify(ctx, t, verified)
+		proofFailed = e != nil
 	}
 	if e == nil {
 		// The agent can never change a binding on this path; server/binding changes
@@ -369,6 +416,16 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 	if e != nil {
 		out.Status, out.Reason = Failed, VerifyFailed
 		out.FailureReason = observedFailureReason(e)
+		if proofFailed {
+			if errors.Is(e, context.Canceled) {
+				out.FailureReason = ""
+			} else if out.FailureReason == "" || out.FailureReason == FailureSetupFailed {
+				out.FailureReason = FailureVerifyFailed
+			}
+		} else if out.FailureReason == FailureSetupFailed || out.FailureReason == FailureVerifyFailed {
+			// A fresh server/binding refusal is not a process-proof failure.
+			out.FailureReason = ""
+		}
 		if stopErr := a.Rollback(ctx); stopErr != nil {
 			out.Reason = RollbackFailed
 		}
@@ -376,7 +433,11 @@ func (r Runner) Execute(ctx context.Context, t Target) (out Result, err error) {
 		return out, e
 	}
 	out.Status, out.Reason = Applied, "TERMINAL_MISSING"
+	unlock() // track the launch before reporting; cleanup reacquires fresh authority
 	notify("RELAUNCHED:" + now.Format(time.RFC3339Nano))
+	if r.AfterLaunch != nil {
+		r.AfterLaunch(ctx, t, a)
+	}
 	return out, nil
 }
 
@@ -437,7 +498,7 @@ func observedFailureReason(err error) string {
 	var classified interface{ RelaunchFailureReason() string }
 	if errors.As(err, &classified) {
 		switch reason := classified.RelaunchFailureReason(); reason {
-		case FailureTimeout, FailureTerminalCreateRefused, FailureLaunchExitNonzero:
+		case FailureTimeout, FailureTerminalCreateRefused, FailureLaunchExitNonzero, FailureSetupFailed, FailureVerifyFailed:
 			return reason
 		}
 	}

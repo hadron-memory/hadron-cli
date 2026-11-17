@@ -18,27 +18,51 @@ func wireRelaunch(p *hostpoller.Poller, cfg *hostpoller.Config, server *hostServ
 	if !cfg.UsesOrcaLaunch() {
 		return nil
 	}
-	client := orcaterm.NewClient(orcaRunner(cfg.OrcaLaunch.OrcaBin))
 	return p.EnableRelaunch(hostpoller.RelaunchDependencies{
-		Source: server,
-		Ready: func(ctx context.Context) error {
-			checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			defer cancel()
-			return relaunchDaemonReady(checkCtx, func(ctx context.Context) ([]byte, error) {
-				return exec.CommandContext(ctx, "systemctl", "--user", "list-units", "orca-daemon-*.scope", "--state=running", "--no-legend", "--plain", "--no-pager").Output()
-			}, func(ctx context.Context) error { _, err := client.List(ctx); return err })
-		},
-		Notice: server.ReportRelaunch,
+		Source:       server,
+		ReportSweep:  server.RecordRecoverySweep,
+		Ready:        managedDaemonProbe(cfg),
+		Notice:       server.ReportRelaunch,
+		EndAgentless: server.EndAgentless,
 	})
 }
 
+func configuredOrcaBin(cfg *hostpoller.Config) string {
+	bin := cfg.OrcaLaunch.OrcaBin
+	if bin == "" {
+		bin = cfg.Delivery.OrcaBin
+	}
+	if bin == "" {
+		bin = "orca"
+	}
+	return bin
+}
+
+// managedDaemonProbe is shared by the C5 owner and the C1 queue-only sweep.
+// It checks readiness; it never creates a terminal or starts a daemon.
+func managedDaemonProbe(cfg *hostpoller.Config) func(context.Context) error {
+	client := orcaterm.NewClient(orcaRunner(configuredOrcaBin(cfg)))
+	return func(ctx context.Context) error {
+		checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return relaunchDaemonReady(checkCtx, func(ctx context.Context) ([]byte, error) {
+			return exec.CommandContext(ctx, "systemctl", "--user", "list-units", "orca-daemon-*.scope", "--state=running", "--no-legend", "--plain", "--no-pager").Output()
+		}, func(ctx context.Context) error { _, err := client.List(ctx); return err })
+	}
+}
+
 // relaunchDaemonReady implements the Linux-only, fail-closed C5 preflight
-// (Wolfgang #108866). Scope evidence is local to the poller user and host.
+// by design: a restart must never act on a daemon it cannot prove is the one
+// running here, so absence of proof is a refusal, not a guess. Scope evidence is
+// local to the poller user and host.
 // A successful serve status or an empty terminal list alone proves nothing.
 func relaunchDaemonReady(ctx context.Context, scopes func(context.Context) ([]byte, error), list func(context.Context) error) error {
 	raw, err := scopes(ctx)
 	if err != nil {
 		return fmt.Errorf("daemon scope proof unavailable: %w", err)
+	}
+	if strings.TrimSpace(string(raw)) == "" {
+		return fmt.Errorf("%w: no managed daemon scope", hostpoller.ErrOrcaDown)
 	}
 	rows := strings.Split(strings.TrimSpace(string(raw)), "\n")
 	if len(rows) != 1 {
@@ -51,5 +75,8 @@ func relaunchDaemonReady(ctx context.Context, scopes func(context.Context) ([]by
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return list(ctx)
+	if err := list(ctx); err != nil {
+		return fmt.Errorf("%w: terminal list unavailable", hostpoller.ErrOrcaDown)
+	}
+	return nil
 }

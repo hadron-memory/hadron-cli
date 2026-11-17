@@ -11,6 +11,14 @@ import (
 func openRelaunchJournal(string) (hostrelaunch.Journal, uint64, func(), error) {
 	return nil, 0, nil, errors.New("relaunch requires Linux")
 }
+func openRelaunchJournalHeld(string) (hostrelaunch.Journal, uint64, func(), error) {
+	return nil, 0, nil, errors.New("relaunch requires Linux")
+}
+
+// ProbeWorktreeAgents cannot prove host process absence outside Linux.
+func ProbeWorktreeAgents(context.Context, string) (hostrelaunch.Observation, error) {
+	return hostrelaunch.Observation{}, errors.New("process census requires Linux")
+}
 func probeRelaunchWorktree(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error) {
 	return hostrelaunch.Observation{}, errors.New("relaunch requires Linux")
 }

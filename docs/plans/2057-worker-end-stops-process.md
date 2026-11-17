@@ -57,7 +57,8 @@ the server ending a session whose process was stopped (S2), a spec change
 
 ## Follow-ups #2068 and #2070
 - **Lock (#2068).** `delivery.LockBinding` takes the same `hadron-team-session.lock`
-  `session start` writes under (flock / LockFileEx, a bounded try-lock, 2 s). Every
+  `session start` writes under. Session writers block on flock / LockFileEx
+  without a deadline; the STOPPER's acquisition is a bounded try-lock (2 s). Every
   signal is preceded by `Authorize`: take the lock, re-read the binding under it,
   on Unix signal and release at once, before the SIGTERM grace or any wait.
   On Windows the authorization instead spans the synchronous taskkill command,
@@ -65,7 +66,10 @@ the server ending a session whose process was stopped (S2), a spec change
   `execAgent.TerminateWith` asks before SIGTERM and again before
   SIGKILL. A lock that cannot be taken declines the stop and the report says so.
   A plain directory without a binding cache creates and locks that cache before
-  checking the binding.
+  checking the binding only when the Unix host uid matches the worktree owner
+  (#2076). The same owner proof is required to create a missing lock file in
+  an existing cache; existing locks remain usable across uids. An unreadable
+  owner declines creation. Windows behavior is unchanged.
 - **Session identity (#2070).** The reset relaunch records the session the reset names;
   a launch the server had already finished has none recorded, so only a binding that
   names this worker AND the session being ended identifies it (an empty binding declines).
@@ -127,8 +131,17 @@ Authority is NOT released on a timer or by an abandoned runner goroutine: the
 runner must return first. A deadline makes the stop unconfirmed and keeps its
 records, even if the runner returns a successful exit status afterward. Taskkill
 may already have killed some targets when cancellation happens; the timeout
-report does not claim that nothing was touched. Live success and ordinary
-failure still propagate as before; refusal still invokes no runner.
+report does not claim that nothing was touched: the tree may already be dead
+or partly stopped. Available runner error and trimmed output are retained as
+bounded, control-safe single-line context on cancellation. If the helper exits
+successfully but inherited output pipes remain open past WaitDelay, Go returns
+exec.ErrWaitDelay: output collection is incomplete, the stop is unconfirmed and
+records remain. Cancellation observed after a successful runner return still
+wins, including when ErrWaitDelay also occurs. A session start waiting on the
+binding lock can wait through synchronous taskkill cancellation/drain; the
+stopper's 2-second acquisition limit is not a writer timeout or a hard 11-second
+stop bound. Live success and ordinary failure still propagate as before;
+refusal still invokes no runner.
 
 The shared stop decision is named stopTreeAuthorized. One helper describes an
 exit observed after authorization without reading the waiter's mutex-protected
@@ -262,3 +275,12 @@ HTTPS). Now, after the config allowlist, `ownRepoProblem` requires `rev-parse --
 the directory (symlinks resolved); otherwise `ResetWorktree` refuses `WORKTREE_RESET_FAILED` and `Inspect` returns
 `BrokenRepoError`, never "not a worktree". A plain child with no `.git` of its own is still a worker without Git; valid
 roots, linked worktrees and symlinked roots are unchanged; an invalid `.git` FILE already refused.
+
+## Follow-up #2128: portable diagnostics and construction verification
+
+The Windows default runner uses the shared taskkillCommand constructor so
+portable tests inspect the supplied cancellation context, WaitDelay=1s and
+exact taskkill /PID <pid> /T /F argument order. Injected runners pin cancellation
+context and ErrWaitDelay without executing taskkill. Linux execution and
+Windows cross-compilation/vet do not establish native taskkill behavior, OS
+latency or PID-reuse safety. No held handle, Job Object or stop-policy change.

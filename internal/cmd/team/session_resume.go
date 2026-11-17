@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,6 +40,7 @@ func noBindingRefusal(what string, asMe bool) error {
 type resumeFlags struct {
 	pick, tool, host, model, transcript string
 	description, family                 *string
+	effort                              *gen.EffortLevel // cli#2206: reported on a resume only when --effort is given
 }
 
 // resumeCandidateDTO is the stable --json shape of one CHOOSE candidate.
@@ -94,7 +94,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	// and the lock would refuse only after it was consumed: refuse first
 	// (Gloria's BLIND F2, #1968).
 	if plainDir && existing != nil && strings.TrimSpace(existing.WorkerID) == "" {
-		return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+		return errDirectoryHeld(heldCachePath(), existing)
 	}
 	var lapsedBinding bool
 	// The worker this worktree was last bound to (cli#1839, cor:agt:020:03):
@@ -142,6 +142,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		Host:             optStr(host),
 		LlmModel:         optStr(rf.model),
 		TranscriptPath:   optStr(rf.transcript),
+		Effort:           rf.effort,
 	})
 	if err != nil {
 		if m, ok := api.ResumeWorkerMismatch(err); ok {

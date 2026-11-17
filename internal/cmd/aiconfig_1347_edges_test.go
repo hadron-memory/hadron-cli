@@ -14,7 +14,7 @@ import (
 
 func TestAiConfig1347MaskedItemDoesNotExposeKey(t *testing.T) {
 	item := strings.TrimSuffix(aiDefaultCfgJSON, "}") + `,"apiKey":"unselected-secret-1347","apiStyle":"RESPONSES","effectiveApiStyle":"RESPONSES"}`
-	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigsMasked": `{"data":{"aiServiceConfigs":{"items":[` + item + `],"total":1}}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigsMaskedWithUrn": `{"data":{"aiServiceConfigs":{"items":[` + item + `],"total":1}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "list", "--owner-type", "HADRON_SERVER", "--owner-id", "hs1", "--json", "--server", gql.URL})
@@ -69,7 +69,7 @@ func TestAiConfig1347RefusalsMap(t *testing.T) {
 		op   string
 		args []string
 	}{
-		{"AiServiceConfigsMasked", []string{"ai-config", "list", "--all-owners"}},
+		{"AiServiceConfigsMaskedWithUrn", []string{"ai-config", "list", "--all-owners"}},
 		{"TestAiServiceConfig", []string{"ai-config", "test", "cfg1"}},
 		{"CreateAiServiceConfigWithApiStyle", []string{"ai-config", "create", "--org", "acme.com", "--name", "x", "--provider", "openai", "--model", "m", "--api-style", "RESPONSES"}},
 		{"UpdateAiServiceConfigWithApiStyle", []string{"ai-config", "update", "cfg1", "--api-style", "CHAT_COMPLETIONS"}},

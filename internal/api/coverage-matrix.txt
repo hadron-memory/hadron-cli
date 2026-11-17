@@ -4,7 +4,8 @@
 # These output fields are documented here because the sections below enumerate roots and inputs only.
 # Monitoring argument binding (cli#1984): Query.dueWakes(preview) is reached by
 # DueTickWakes (orca terminal status / team health sweep), always as preview:true.
-# Public TeamDueWakes --preview remains a separate capability gap, cli#1833.
+# Public TeamDueWakesPreview binds --preview (cli#1833); ordinary reads stay unchanged.
+# cli#1833 binds channelMessages/teamChatMessages(teamHeadRefs) via repeatable --team-head.
 # CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
 # exposes, and how the CLI reaches it. Regenerate with `make coverage-matrix`; `make coverage-matrix-check` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
@@ -26,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 234: 192 command, 17 gap, 25 excluded
+[Query] 235: 197 command, 13 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -92,10 +93,10 @@ channelMessages  command channel read
 channelReadState  command channel read-state
 channels  command channel list
 chatAiConfigChoices  command app chatbot-ai-config list
-chatEffectiveToolChoice  gap #2020: decision-only read of a chat's effective tool choice (server#4042)
+chatEffectiveToolChoice  command chat tool-choice
 chatHistory  gap #64
 chatServedPrompts  command chat served-prompts
-chatToolChoiceFor  gap #2020: decision-only read for an unsaved provider+model pair (server#4042)
+chatToolChoiceFor  command ai-config tool-choice
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
@@ -142,7 +143,7 @@ hostDesiredState  command team host up
 hostOperations  command team host ops
 hostRegistrations  command team host list
 hostSetup  command team host setup
-hostSweepRuns  gap #2056: C1 (the host sweep client) reads the run history
+hostSweepRuns  command team host sweep-runs
 impersonationSession  command admin impersonation get
 impersonationSessions  command admin impersonation list
 installMemory  command node list
@@ -204,12 +205,13 @@ registerEntries  command channel register list
 registerEntry  command channel register rm
 registerRoleCandidates  command team register candidates
 registerRolePick  command team register pick
-renderRunNode  gap #1010
+renderRunNode  command task render
 resendSender  command org resend-sender get
 resendSenders  command org resend-sender list
 resolveAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 resolveAiServiceConfigs  command ai-config list
 resolveUrn  command node get
+reviewQualityReport  command team review-stats
 scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
@@ -262,7 +264,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 299 command, 44 gap, 14 excluded
+[Mutation] 359: 303 command, 42 gap, 14 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -412,6 +414,7 @@ emailSendDraft  gap #198
 emailUpdateDraft  gap #198
 encryptMemory  command memory encrypt
 endAgentSession  gap #58
+endAgentlessSession  command team host run
 endSession  command team session end
 ensureAppMember  command app member add
 exchangeMoveMessage  gap #198
@@ -433,6 +436,7 @@ joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
+linkDefectToPullRequest  command team task link-defect
 linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready
@@ -445,7 +449,7 @@ mintMemoryNodes  command node mint
 mintSpecCorpus  command spec mint
 moveNode  command node move
 parkAgentTask  command team task park
-planNodeMove  gap #741
+planNodeMove  command node move
 processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  gap #61
@@ -455,7 +459,7 @@ reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
 recordAppAction  command app action record
-recordHostSweepRun  gap #2056: C1 (the host sweep client) records each run
+recordHostSweepRun  command team host up
 recordNodeContentValidationReport  command node validation record
 recordReadyCall  command team pr ready
 recordReviewVerdict  command team pr verdict
@@ -621,7 +625,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 84: 48 gap, 36 excluded
+[Arguments] 77: 41 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -630,15 +634,11 @@ Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (acce
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
-Mutation.assignHostWorker(input.accountProfile)  gap #2157
-Mutation.assignHostWorker(input.effort)  gap #2157
 Mutation.cancelAgentTask(instruction)  gap #1617
-Mutation.createAgent(contextCap)  gap #2162
 Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.createApp(policy)  gap #1628
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
@@ -655,6 +655,7 @@ Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.importNode(input.authoredWith)  gap #684
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
+Mutation.linkDefectToPullRequest(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
@@ -684,12 +685,10 @@ Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
 Mutation.subscribeWorker(instruction)  gap #1617
 Mutation.unsubscribeWorker(instruction)  gap #1617
-Mutation.updateAgent(contextCap)  gap #2162
 Mutation.updateAgentTask(instruction)  gap #1617
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.updateApp(policy)  gap #1640
 Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
@@ -702,10 +701,8 @@ Mutation.updateTicker(instruction)  gap #1617
 Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
-Query.channelMessages(teamHeadRefs)  gap #1833
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.teamChatMessages(teamHeadRefs)  gap #1833
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -298,6 +299,25 @@ func mapError(err error) error {
 			msg: "a short-lived worker is woken by its tasks, not by tickers",
 			err: err,
 		})
+	}
+
+	// cli#2206: a task's run settings the server refused. The reason names
+	// which rule (MODEL_OUTSIDE_FAMILY, FAMILY_EXCLUDED, TIER_BELOW_MINIMUM,
+	// BAD_VALUE, ...); it depends on the task's requirements, so the server
+	// judges it and the CLI shows it. A usage error: the caller fixes the input.
+	if HasErrorCode(err, "TASK_RUN_SETTINGS_INVALID") {
+		reason := ""
+		for _, e := range graphQLErrors(err) {
+			if e != nil && extensionCode(e) == "TASK_RUN_SETTINGS_INVALID" {
+				reason, _ = e.Extensions["reason"].(string)
+				break
+			}
+		}
+		msg := "the task's run settings were refused"
+		if reason != "" {
+			msg += ": " + reason
+		}
+		return exitcode.New(exitcode.Usage, &serverError{msg: msg, err: err})
 	}
 
 	// A curated command sends a query baked into this binary, so a GraphQL
@@ -1212,6 +1232,14 @@ func codeForExtension(code string) int {
 		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
+	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may
+	// read the task but not link is refused, not missing; a task that is not a
+	// PR build task, or a head never frozen on it, is the task's state, which a
+	// retry cannot change. An unreadable task is TASK_NOT_FOUND (exit 4).
+	case code == "DEFECT_LINK_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "PR_REFERENCE_MISSING" || code == "DEFECT_HEAD_NOT_FROZEN":
+		return exitcode.Conflict
 	// Node writes (cli#1341): a hard delete of a node with edges to other
 	// memories needs --cascade-cross-memory-edges, an argument the caller
 	// fixes; an inline --edge whose loc another edge of the node already
@@ -1228,6 +1256,12 @@ func codeForExtension(code string) int {
 	// Boot compile: explicit classifications precede generic suffix handling
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
 	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
+		return exitcode.Forbidden
+	// #2308: a worker holds no signed schedule.create grant. An authority
+	// refusal like the boot-prompt one above, so it precedes the _REQUIRED
+	// suffix rule (create moves from 2 to 8; the path is latent while
+	// WORKER_TRIGGER_GRANT_ENFORCED is off).
+	case code == "TRIGGER_GRANT_REQUIRED":
 		return exitcode.Forbidden
 	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
 		return exitcode.Conflict
@@ -1510,8 +1544,9 @@ func codeForExtension(code string) int {
 	// Stop signals (#911 B1 over server #2022): HOST_SCOPE_REQUIRED (a host
 	// key acting beyond a HALT on its own host) and STOP_SIGNAL_SCOPE_FORBIDDEN
 	// name an authority, not a missing argument, so they also precede the
-	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses every set until
-	// the notice lane is on: the platform's state, which no input changes.
+	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses a set while a
+	// required worker's stop-notice lane is not freshly served: the platform's
+	// state, which no input changes.
 	case code == "HOST_SCOPE_REQUIRED" || code == "STOP_SIGNAL_SCOPE_FORBIDDEN":
 		return exitcode.Forbidden
 	case code == "STOP_SIGNAL_UNAVAILABLE":
@@ -1624,7 +1659,10 @@ func codeForExtension(code string) int {
 	// the caller changes; who may write is the server's rule, a permission; an
 	// existing assignment needs --replace (state), like WORKER_RETIRED above.
 	// WORKER_NOT_FOUND is NotFound where it is mapped.
-	case code == "BAD_HOST_ASSIGNMENT_ARGS":
+	case code == "BAD_HOST_ASSIGNMENT_ARGS", code == "BAD_LAUNCHER_PROFILE":
+		// BAD_LAUNCHER_PROFILE (S1b, hadron-server#4230): a model, effort or
+		// account profile that is not a profile token, or a family with no
+		// launcher. An input the caller changes, like the shape refusal above.
 		return exitcode.Usage
 	case code == "HOST_ASSIGNMENT_NOT_PERMITTED":
 		return exitcode.Forbidden
@@ -1995,4 +2033,32 @@ func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
 		}
 	}
 	return true
+}
+
+// SupersededSessionEvidence projects only the server's independently read-gated
+// current open session pair. A gateway fault, mixed error list or another
+// refusal is not definitive supersession evidence. Never query to fill a gap.
+// definitive is true for a code-only refusal too; both detail strings then
+// remain empty so callers cannot distinguish unreadable from no open session.
+func SupersededSessionEvidence(err error) (definitive bool, sessionID, startedAt string) {
+	if !OnlyErrorCodes(err, "SESSION_SUPERSEDED") {
+		return false, "", ""
+	}
+	// Guard the local extraction independently of OnlyErrorCodes, including
+	// an error with a custom As method whose answer changes between reads.
+	list := graphQLErrors(err)
+	if len(list) == 0 || list[0] == nil {
+		return false, "", ""
+	}
+	// Use the first refusal's pair as a unit; another error never fills a gap.
+	e := list[0]
+	id, idOK := e.Extensions["sessionId"].(string)
+	stamp, timeOK := e.Extensions["startedAt"].(string)
+	if !idOK || !timeOK || id == "" || stamp == "" {
+		return true, "", ""
+	}
+	if _, parseErr := time.Parse(time.RFC3339, stamp); parseErr != nil {
+		return true, "", ""
+	}
+	return true, id, stamp
 }

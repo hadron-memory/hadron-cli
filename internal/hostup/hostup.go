@@ -45,6 +45,10 @@ const (
 	// ActionWorkerRelaunch labels skipped work in reconciliation output. The
 	// CLI never plans or applies it; the periodic poller is the launch owner.
 	ActionWorkerRelaunch = "worker.relaunch"
+	// ActionSessionEnd labels, the same way, the end of a short-lived
+	// worker's agentless session (cli#2201): the host poller proves no agent
+	// runs and asks the server to end it; host up reports it, never acts.
+	ActionSessionEnd = "session.end"
 )
 
 // Reason codes. They are part of the `--json` contract: add, never repurpose.
@@ -76,6 +80,9 @@ const (
 	ReasonRelaunchPendingPoller  = "RELAUNCH_PENDING_POLLER"
 	ReasonActionUnavailable      = "ACTION_UNAVAILABLE"
 	ReasonStopPending            = "STOP_PENDING"
+	// ReasonAgentlessSession: a SHORT_LIVED worker with no open task still has
+	// an open session and no agent terminal (cli#2201).
+	ReasonAgentlessSession = "AGENTLESS_SESSION"
 
 	// Why a step failed.
 	ReasonObserveFailed = "OBSERVE_FAILED"
@@ -166,8 +173,37 @@ type Observation struct {
 	Registered bool
 	// WorktreeExists: the worker's worktree (or plain directory) is there.
 	WorktreeExists bool
-	// AgentTerminals: live agent terminals in that worktree.
+	// AgentTerminals: terminals conservatively counted as possible agents.
+	// Unidentified terminals count unless the strict census proves them empty.
 	AgentTerminals int
+	// UnidentifiedTerminals: how many of AgentTerminals Orca listed with no
+	// agentIdentity and not proven empty. They count as present; the item's
+	// detail says when that count still includes possible leftover shells.
+	UnidentifiedTerminals int
+}
+
+// unidentifiedNote says when a count of present terminals rests on terminals
+// with no agent identity, so a stray shell that holds a start or reads as a
+// duplicate is visible in the output (cli#2191).
+func unidentifiedNote(obs Observation, detail string) string {
+	n := obs.UnidentifiedTerminals
+	if n == 0 {
+		return detail
+	}
+	var note string
+	if obs.AgentTerminals == 1 {
+		note = "its terminal has no agent identity in Orca and counts as present (a leftover shell reads the same)"
+	} else {
+		verb := " has no agent identity in Orca and counts"
+		if n > 1 {
+			verb = " have no agent identity in Orca and count"
+		}
+		note = strconv.Itoa(n) + " of its " + strconv.Itoa(obs.AgentTerminals) + " terminals" + verb + " as present (a leftover shell reads the same)"
+	}
+	if detail == "" {
+		return note
+	}
+	return detail + "; " + note
 }
 
 // Observer reads the host. An error means "could not tell", and the engine
@@ -407,7 +443,13 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	if w.Desired == Stopped {
 		if obs.AgentTerminals > 0 {
 			// Stopping is the platform's worker.end (cli#2057), not this pass.
-			return skip(ReasonStopPending, "", "an agent is running; the platform's worker.end stops it")
+			return skip(ReasonStopPending, "", unidentifiedNote(obs, "an agent is running; the platform's worker.end stops it"))
+		}
+		if session && w.Reason == "NO_OPEN_TASK" {
+			// A short-lived worker with nothing to do and a session still open:
+			// not in sync. The end needs the strict census and a host-key call,
+			// which only the host poller has, so this pass reports it.
+			return skip(ReasonAgentlessSession, ActionSessionEnd, "the session is open, the worker has no open task and no agent terminal runs; the host poller proves no agent runs and asks the server to end it")
 		}
 		return skip(ReasonInSync, "", "")
 	}
@@ -415,14 +457,14 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 	var steps []Step
 	switch {
 	case obs.AgentTerminals > 1:
-		return skip(ReasonDuplicateAgents, "", "more than one agent terminal in its worktree")
+		return skip(ReasonDuplicateAgents, "", unidentifiedNote(obs, "more than one agent terminal in its worktree"))
 	case session && obs.AgentTerminals == 1:
-		return skip(ReasonInSync, "", "")
+		return skip(ReasonInSync, "", unidentifiedNote(obs, ""))
 	case !obs.Registered:
 		return skip(ReasonNotRegistered, "", "this host's registration does not list the worker")
 	case !session && obs.AgentTerminals == 1:
 		// An agent with no session: never bound from here, never a second one.
-		return skip(ReasonTerminalWithoutSession, "", "an agent terminal is open with no worker session")
+		return skip(ReasonTerminalWithoutSession, "", unidentifiedNote(obs, "an agent terminal is open with no worker session"))
 	case session && !obs.WorktreeExists:
 		// A live session is never rebound, and there is nowhere to relaunch.
 		return skip(ReasonSessionWithoutWorktree, "", "the session is open and its worktree is missing")

@@ -1,5 +1,12 @@
 package hostpoller
 
+import "os"
+
+// procLister lists a /proc directory. The package default is os.ReadDir through the
+// readProcDir seam; a test can give ONE launch its own (ExecHost.procList), so it
+// never has to replace the package-wide seam under other agents (hadron-cli#2042).
+type procLister func(string) ([]os.DirEntry, error)
+
 // drainWhy is WHY a held group reads as held: a code, never text read from
 // /proc (the drain-held events carry it, hadron-cli#2142). It lives outside the
 // per-platform scan files so the watcher and its tests build everywhere; only

@@ -89,16 +89,16 @@ func TestSafeCell1105AAiConfig(t *testing.T) {
 	}
 	for _, c := range []safeCell1105Case{
 		{name: "ai-config list", args: []string{"ai-config", "list", "--app", "acme.com:juno-app"}, lines: 3,
-			resp: list("ResolveAiServiceConfigs", false)},
+			resp: list("ResolveAiServiceConfigsWithUrn", false)},
 		{name: "ai-config list --with-endpoints", args: []string{"ai-config", "list", "--app", "acme.com:juno-app", "--with-endpoints"}, lines: 3,
-			resp: list("ResolveAiServiceConfigsWithEndpoint", true)},
+			resp: list("ResolveAiServiceConfigsWithEndpointAndUrn", true)},
 		{name: "ai-config endpoints", args: []string{"ai-config", "endpoints", "glm"}, lines: 3,
 			resp: func(cell string) map[string]string {
 				e := `{"url":` + q1105(cell) + `,"label":` + q1105(cell) + `,"isDefault":true,"note":` + q1105(cell) + `}`
 				return map[string]string{"AiProviderEndpoints": `{"data":{"aiProviderEndpoints":[` + e + `,` + e + `]}}`}
 			}},
 		{name: "ai-config get", args: []string{"ai-config", "get", "cfg1"}, lines: 4,
-			resp: one("AiServiceConfigWithEndpoint", "aiServiceConfig", true)},
+			resp: one("AiServiceConfigWithUrn", "aiServiceConfig", true)},
 		{name: "ai-config create", args: []string{"ai-config", "create", "--org", "acme.com", "--name", "x", "--provider", "p", "--model", "m"}, lines: 2,
 			resp: one("CreateAiServiceConfig", "createAiServiceConfig", false)},
 		{name: "ai-config create --endpoint", args: []string{"ai-config", "create", "--org", "acme.com", "--name", "x", "--provider", "p", "--model", "m", "--endpoint", "https://e"}, lines: 4,

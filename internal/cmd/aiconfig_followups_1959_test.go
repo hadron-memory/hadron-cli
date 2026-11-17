@@ -158,7 +158,7 @@ func TestAiConfig1959FailedRunDetailsArePreserved(t *testing.T) {
 				"PROVIDER_ERROR: upstream said no (transient: true)\n",
 				"used: provider=SAVED model=OVERRIDE endpoint=OVERRIDE apiStyle=SAVED key=OVERRIDE params=DEFAULT\n",
 				"temperature: REJECTED out of range\n",
-				"top_p: ACCEPTED \n",
+				"top_p: ACCEPTED\n",
 			} {
 				if !strings.Contains(text.stdout, line) {
 					t.Fatalf("text lost %q:\n%s", line, text.stdout)
@@ -172,11 +172,12 @@ func TestAiConfig1959FailedRunDetailsArePreserved(t *testing.T) {
 // forwarded on BOTH request branches, and the key is never printed — not in
 // text output, not in --json output, not in any error message.
 func TestAiConfig1959SubmittedKeyIsForwardedAndNeverPrinted(t *testing.T) {
-	const key = "sk-1959-submitted-secret"
+	const key = "sk-1959-\"submitted\\secret"
 	quoted, _ := json.Marshal(key)
 	echo := "provider rejected apiKey=" + key + " encoded=" + string(quoted)
 	path := filepath.Join(t.TempDir(), "override.json")
-	if err := os.WriteFile(path, []byte(`{"apiKey":"`+key+`","model":"m-1959"}`), 0o600); err != nil {
+	overrideJSON, _ := json.Marshal(map[string]any{"apiKey": key, "model": "m-1959"})
+	if err := os.WriteFile(path, overrideJSON, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	completedEcho := func(b string) string {
@@ -242,8 +243,7 @@ func assertNeverPrinted1959(t *testing.T, r aiRun1959, key string) {
 }
 
 // The help states the exit contract once and unambiguously: a completed test
-// exits 0 whatever either outcome says; only request and invalid-response
-// errors use the CLI's error exits. The old "follows the run alone" sentence
+// exits 0 whatever either outcome says; other failures retain normal CLI exits. The old "follows the run alone" sentence
 // contradicted the ok:false line before it.
 func TestAiConfig1959HelpStatesOneExitContract(t *testing.T) {
 	f, _ := testFactory(t)
@@ -263,6 +263,63 @@ func TestAiConfig1959HelpStatesOneExitContract(t *testing.T) {
 	} {
 		if !strings.Contains(long, want) {
 			t.Fatalf("help missing %q:\n%s", want, cmd.Long)
+		}
+	}
+}
+
+// Each echo is isolated so one redaction cannot hide another missing guard.
+// These are synthetic server responses, not evidence of a live provider echo.
+func TestAiConfig1967CompletedFieldsRedactSubmittedKey(t *testing.T) {
+	const key = "sk-1959-\"submitted\\secret"
+	quoted, _ := json.Marshal(key)
+	escaped := string(quoted[1 : len(quoted)-1])
+	if escaped == key {
+		t.Fatal("fixture must have distinct literal and JSON-escaped key spellings")
+	}
+	path := filepath.Join(t.TempDir(), "override.json")
+	overrideJSON, _ := json.Marshal(map[string]any{"apiKey": key, "model": "m-1959"})
+	if err := os.WriteFile(path, overrideJSON, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fields := []string{"reply", "knobs.detail", "used.provider", "used.model", "used.endpoint", "used.apiStyle", "used.key", "used.params", "provider", "model", "endpoint", "apiStyle", "knobs.param", "knobs.state", "chat"}
+	for _, field := range fields {
+		for _, b := range aiBranches1959() {
+			if field == "chat" && b.name == "default" {
+				continue
+			}
+			for _, mode := range []string{"text", "json"} {
+				t.Run(field+"/"+b.name+"/"+mode, func(t *testing.T) {
+					var result map[string]any
+					if err := json.Unmarshal([]byte(b.result()), &result); err != nil {
+						t.Fatal(err)
+					}
+					echo := "echo " + key + " encoded=" + escaped + " safe-tail"
+					switch {
+					case strings.HasPrefix(field, "knobs."):
+						result["knobs"].([]any)[0].(map[string]any)[strings.TrimPrefix(field, "knobs.")] = echo
+					case strings.HasPrefix(field, "used."):
+						result["used"].(map[string]any)[strings.TrimPrefix(field, "used.")] = echo
+					case field == "chat":
+						result["chat"].(map[string]any)["status"] = echo
+					default:
+						result[field] = echo
+					}
+					raw, _ := json.Marshal(result)
+					args := append([]string{"--override-file", path}, b.args...)
+					if mode == "json" {
+						args = append(args, "--json")
+					}
+					r := runAiTest1959(t, func(string) string { return `{"data":{"testAiServiceConfig":` + string(raw) + `}}` }, args...)
+					if r.exit != exitcode.OK || r.stderr != "" {
+						t.Fatalf("exit=%d stderr=%q", r.exit, r.stderr)
+					}
+					assertForwarded1959(t, r, b.op, key)
+					assertNeverPrinted1959(t, r, key)
+					if !strings.Contains(r.stdout, "[redacted]") || !strings.Contains(r.stdout, "safe-tail") {
+						t.Fatal("echo field was dropped rather than redacted")
+					}
+				})
+			}
 		}
 	}
 }

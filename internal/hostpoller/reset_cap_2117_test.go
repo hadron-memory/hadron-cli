@@ -105,6 +105,28 @@ func TestCapResetWithoutAReportedCauseSaysSo2117(t *testing.T) {
 	if !strings.Contains(c, "no task") {
 		t.Fatalf("the checkpoint must say the reset names no task:\n%s", c)
 	}
+	// #2164 (Jibril F1): the fallback sentence itself, not just "no task".
+	if !strings.Contains(c, "the server did not say why it was asked for") {
+		t.Fatalf("the checkpoint must say the server gave no cause:\n%s", c)
+	}
+}
+
+// #2164 (Jibril F2): a taskId of the WRONG TYPE is a malformed operation, not
+// an intentionally task-less reset. Absent, null and "" stay accepted.
+func TestResetRefusesATaskIdOfTheWrongType2164(t *testing.T) {
+	for name, v := range map[string]any{"number": float64(7), "bool": true, "object": map[string]any{"id": "t1"}, "list": []any{"t1"}} {
+		t.Run(name, func(t *testing.T) {
+			x := newResetFixture(t)
+			r := x.run(t, capOp(v, true))
+			wantReason(t, r, "HOST_UNSUPPORTED")
+			if !strings.Contains(r.reason, "taskId") {
+				t.Fatalf("the refusal must name taskId: %q", r.reason)
+			}
+			if len(x.resets.calls) != 0 {
+				t.Fatalf("a malformed reset must not reach the server: %v", x.resets.calls)
+			}
+		})
+	}
 }
 
 // A task-end reset is unchanged: it registers its task and prints the line.

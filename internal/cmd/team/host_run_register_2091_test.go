@@ -3,11 +3,13 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -149,7 +151,8 @@ func TestRegisterReprobesAPinnedServerAfterTheInterval(t *testing.T) {
 	}
 	clock = clock.Add(2 * time.Second)
 	reg() // interval over: asks again, still old, plain again, re-pinned
-	want := "RegisterHostWithRefused,RegisterHost,RegisterHost,RegisterHostWithRefused,RegisterHost"
+	reg() // same instant: the renewed pin must suppress another extended request
+	want := "RegisterHostWithRefused,RegisterHost,RegisterHost,RegisterHostWithRefused,RegisterHost,RegisterHost"
 	if strings.Join(ops(), ",") != want {
 		t.Fatalf("calls = %v, want %s", ops(), want)
 	}
@@ -179,13 +182,16 @@ func TestRegisterFallbackEdgeCases(t *testing.T) {
 		}
 	})
 	t.Run("transport failure is an error with no second document", func(t *testing.T) {
-		s, ops := regServer2091(t, map[string]string{})
-		s.client = graphql.NewClient("http://127.0.0.1:1/graphql", http.DefaultClient)
-		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
-			t.Fatal("an unreachable server is an error")
+		transport := &failingRegistrationTransport2111{}
+		s := &hostServer{
+			client: graphql.NewClient("http://registration.invalid/graphql", &http.Client{Transport: transport}),
+			app:    "hrn:app:acme.com:eng-team",
 		}
-		if len(ops()) != 0 {
-			t.Fatalf("the failing server saw %v", ops())
+		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
+			t.Fatal("a transport failure is an error")
+		}
+		if got := transport.attempts.Load(); got != 1 {
+			t.Fatalf("transport attempts = %d, want 1 (no retry or fallback)", got)
 		}
 	})
 	t.Run("plain failing after skew pins nothing, then recovery pins", func(t *testing.T) {
@@ -245,4 +251,14 @@ func TestRegisterPinsNothingWhenThePlainDocumentFailsWithAServerError(t *testing
 	if strings.Join(ops(), ",") != "RegisterHostWithRefused,RegisterHost" || s.noRefusedAt.Load() != 0 {
 		t.Fatalf("calls = %v pinned=%d", ops(), s.noRefusedAt.Load())
 	}
+}
+
+// Count attempts at the failing boundary itself; no DNS or socket is used.
+type failingRegistrationTransport2111 struct {
+	attempts atomic.Int32
+}
+
+func (t *failingRegistrationTransport2111) RoundTrip(*http.Request) (*http.Response, error) {
+	t.attempts.Add(1)
+	return nil, errors.New("synthetic registration transport failure")
 }

@@ -162,11 +162,26 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error()+"; not launching on an unclear answer")
 		return
 	}
-	// Compared as the server's canonical identity on BOTH sides (cli#971): a
-	// provider alias and its family are one family; a genuine mismatch, an
-	// empty family or a malformed one still launches nothing.
-	if fam := argString(op, "family"); !SameFamily(fam, w.Family) {
-		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, fam))
+	// The start's run settings (#2199). args.family is the family to LAUNCH,
+	// not an echo of the registration: a worker launched through Orca may run
+	// as another family when this host has a template and the worker's
+	// account can launch it (checked below, before any process). A worker on
+	// the exec path has one fixed argv, so it keeps the same-family guard
+	// (cli#971: compared as the canonical identity on BOTH sides; an empty or
+	// malformed family launches nothing).
+	rs := RunSettingsFrom(op)
+	if err := rs.Validate(); err != nil {
+		p.finish(ctx, op, Failed, "", err.Error()+"; nothing was launched")
+		return
+	}
+	var run Resolved
+	if w.launchesViaOrca() {
+		var ok bool
+		if run, ok = p.resolveOrcaRun(ctx, op, ref, rs); !ok {
+			return
+		}
+	} else if !SameFamily(rs.Family, w.Family) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, rs.Family))
 		return
 	}
 	token := argString(op, "worktree")
@@ -259,7 +274,7 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		// C3 (#2058): through an Orca terminal, from the launcher profile.
 		// No fallback to the exec path: a worker configured for Orca that
 		// cannot launch there launches nothing.
-		agent, err = p.orcaStart(ctx, op, ref, w, dir)
+		agent, err = p.orcaStart(ctx, op, ref, w, dir, run)
 		if err != nil {
 			if agent != nil {
 				// An unproven launch whose terminal could not be closed: it
@@ -271,10 +286,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 			return
 		}
 	} else {
+		// The exec path cannot apply the run's model, tier or effort (its
+		// argv is the worker's own fixed command), and does not refuse the
+		// start for it: it states they were not applied (#110836).
+		env := []string{launchGrantEnvVar + "=" + op.LaunchGrant}
+		if e, note, ok := settingsNotApplied(rs); ok {
+			env = append(env, e)
+			p.log("run-settings", op.ID, op.Type, "", note)
+		}
 		agent, err = p.host.Launch(ctx, LaunchSpec{
 			Argv: w.Launch,
 			Dir:  dir,
-			Env:  agentEnv(os.Environ(), p.key, launchGrantEnvVar+"="+op.LaunchGrant),
+			Env:  agentEnv(os.Environ(), p.key, env...),
 		})
 		if err != nil {
 			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
@@ -543,7 +566,24 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	} else if ctx.Err() != nil {
 		return
 	}
-	if stop {
+	// cli#2201 C10: a short-lived worker whose end finds no agent. Only the
+	// strict census can say so; its answer is the reason's first word, which
+	// is what the server reads (hadron-server#4292). Nothing runs, so nothing
+	// is scanned for or stopped. Anything short of a proof reports as before,
+	// with the census result appended, and never leads with AGENT_ABSENT.
+	absent := false
+	if agent == nil && session != "" && w.StopOnEnd == StopOnEndAlways {
+		proof := p.proveAgentAbsent(ctx, p.agentCensus, p.worktreeDirs(op, ref, w))
+		if proof.Absent {
+			absent = true
+			reason = AgentAbsent + ": " + proof.Detail + "; " + reason
+			p.log("agent-absent", op.ID, op.Type, "", proof.Detail)
+		} else {
+			reason += "; " + proof.Detail
+			p.log("agent-absent-unproven", op.ID, op.Type, "", proof.Detail)
+		}
+	}
+	if stop && !absent {
 		reason += "; " + p.stopWorkerProcess(ctx, op, ref, w, session, agent)
 	}
 	got, err := p.report(ctx, op, Failed, "", reason)
@@ -745,6 +785,7 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 	if err := p.state.recordAgent(workerID, token, a.PID(), start); err != nil {
 		p.log("state-failed", "", "", "", err.Error())
 	}
+	p.watchForExit(workerID, a)
 }
 
 // launchIdentity observes a just-launched agent's process identity, when
@@ -851,4 +892,22 @@ func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Au
 		}
 		return release, true
 	}
+}
+
+// worktreeDirs are the paths of the worktrees a worker.end's census looks in:
+// every tree the worker has here, and the tree of the launch this host
+// remembers if that is not one of them, each once. The launch record outlives
+// its agent's exit, so it must never narrow the set: an exited launch in one
+// tree says nothing about another (#2207 BLIND F2). The stop keeps its own
+// narrower choice; this is a proof of absence, which needs every tree.
+func (p *Poller) worktreeDirs(op Operation, ref string, w WorkerConfig) []string {
+	trees := append([]string(nil), p.state.worktreesFor(ref, w.Worktrees)...)
+	if t, ok := p.agentWorktree(op.WorkerID); ok && !contains(trees, t) {
+		trees = append(trees, t)
+	}
+	dirs := make([]string, 0, len(trees))
+	for _, t := range trees {
+		dirs = append(dirs, p.cfg.WorktreePath(t))
+	}
+	return dirs
 }

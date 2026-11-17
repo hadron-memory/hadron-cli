@@ -18,9 +18,15 @@ import (
 )
 
 // withEnded1940 gives a row from alarmRow1919 the escalation end the server
-// recorded for it.
-func withEnded1940(row, endedAt string) string {
-	return strings.Replace(row, `"wakes":null}`, `"escalationEndedAt":"`+endedAt+`","wakes":null}`, 1)
+// recorded for it. A replace that does not take fails the test: a row whose
+// shape moved would otherwise silently keep a null end (cli#2053 F1).
+func withEnded1940(t *testing.T, row, endedAt string) string {
+	t.Helper()
+	const sentinel = `"wakes":null}`
+	if strings.Count(row, sentinel) != 1 {
+		t.Fatalf("withEnded1940: row lacks exactly one %s, so the end would not be stamped: %s", sentinel, row)
+	}
+	return strings.Replace(row, sentinel, `"escalationEndedAt":"`+endedAt+`",`+sentinel, 1)
 }
 
 func jsonEvents1940(t *testing.T, out string) []map[string]any {
@@ -91,7 +97,7 @@ func TestTeamEvents1940NeverDerivesInEffectItself(t *testing.T) {
 
 func TestTeamEvents1940JSONCarriesEscalationEndedAtOrNull(t *testing.T) {
 	page := static1919(page1919([]string{
-		withEnded1940(alarmRow1919("ended", "task1", false), "2026-10-01T00:30:00Z"),
+		withEnded1940(t, alarmRow1919("ended", "task1", false), "2026-10-01T00:30:00Z"),
 		alarmRow1919("in-effect", "task2", false),
 		eventRow1919("plain"),
 	}, false, ""))
@@ -127,7 +133,7 @@ func TestTeamEvents1940JSONCarriesEscalationEndedAtOrNull(t *testing.T) {
 
 func TestTeamEvents1940TextShowsTheEndOrBlank(t *testing.T) {
 	page := static1919(page1919([]string{
-		withEnded1940(alarmRow1919("ended", "task1", false), "2026-10-01T00:30:00Z"),
+		withEnded1940(t, alarmRow1919("ended", "task1", false), "2026-10-01T00:30:00Z"),
 		alarmRow1919("in-effect", "task2", false),
 		alarmRow1919("acked", "task3", true),
 	}, false, ""))
@@ -189,6 +195,65 @@ func TestTeamEvents1940HelpStatesTheContractAndPromisesNoRealTime(t *testing.T) 
 		"not acknowledged",      // an ended alarm is not acknowledged ...
 		"without this flag",     // ... and is read, not hidden
 		"never worked out here", // the CLI does not derive "in effect"
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help is missing %q:\n%s", want, help)
+		}
+	}
+}
+
+// cli#2053 F2: `alarm ack --json` carries escalationEndedAt, the recorded end
+// or null — the key agentic-usage promises, pinned rather than only observed.
+func TestTeamAlarmAck2053JSONCarriesEscalationEndedAt(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		row  string
+		want any
+	}{
+		{"recorded", strings.Replace(ackedAlarmEventFieldsJSON, `"wakes":[]}`, `"escalationEndedAt":"2026-10-12T03:05:00Z","wakes":[]}`, 1), "2026-10-12T03:05:00Z"},
+		{"not-yet-recorded", ackedAlarmEventFieldsJSON, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.want != nil && !strings.Contains(tc.row, "escalationEndedAt") {
+				t.Fatal("fixture stamp did not take")
+			}
+			r := taskResponses()
+			r["AlarmAcknowledge"] = `{"data":{"acknowledgeAlarm":` + tc.row + `}}`
+			_, out, err := runTeamTask(t, r, "team", "alarm", "ack", "evt2", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal([]byte(out), &got); err != nil {
+				t.Fatalf("not JSON: %v\n%s", err, out)
+			}
+			v, ok := got["escalationEndedAt"]
+			if !ok {
+				t.Fatalf("escalationEndedAt key missing: %s", out)
+			}
+			if v != tc.want {
+				t.Fatalf("escalationEndedAt = %v, want %v", v, tc.want)
+			}
+		})
+	}
+}
+
+// cli#2053 F5: the blank-cell sentence also covers an alarm that is no longer
+// in effect but whose end the server has not recorded yet — an acknowledged
+// one included (the evaluator lag in cor:agt:050:20).
+func TestTeamEvents2053HelpBlankCellCoversUnrecordedEnd(t *testing.T) {
+	f, o := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "events", "--help"})
+	root.SetOut(o)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(o.String()), " ")
+	for _, want := range []string{
+		"whose end is not recorded yet",
+		"already acknowledged",
+		"until the server records the end",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help is missing %q:\n%s", want, help)

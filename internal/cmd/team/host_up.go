@@ -15,12 +15,14 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/google/uuid"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 	"github.com/hadron-memory/hadron-cli/internal/hostup"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/hadron-memory/hadron-cli/internal/teamrouter"
@@ -43,16 +45,20 @@ import (
 // heartbeats or moves read state for the worker bound there.
 
 type hostUpOptions struct {
+	startedAt                                time.Time
+	lockHeld, readyChecked                   bool
 	host, worker, desiredFile, root, orcaBin string
+	configPath, runID                        string
 	apply, dryRun                            bool
 	timeout                                  time.Duration
 }
 
 // hostUpDTO is the --json shape. Every list is always present.
 type hostUpDTO struct {
-	AppRef string `json:"appRef"`
-	HostID string `json:"hostId"`
-	DryRun bool   `json:"dryRun"`
+	SweepRun sweepRecordDTO `json:"sweepRun"`
+	AppRef   string         `json:"appRef"`
+	HostID   string         `json:"hostId"`
+	DryRun   bool           `json:"dryRun"`
 	// SweepMode is the App's sweep mode as the desired state reported it;
 	// null when the desired state could not be read.
 	SweepMode *string `json:"sweepMode"`
@@ -90,9 +96,22 @@ func newCmdTeamHostUp(f *cmdutil.Factory) *cobra.Command {
 		Long: `Reconcile one host: for every worker the host should run, check its host
 registration, its worktree, its agent terminal and its worker session, and
 plan only what is missing. The default is a dry run: it prints the plan and
-issues nothing. --apply carries the plan out through the typed host-operation
+issues no worker operation. --apply carries the plan out through the typed host-operation
 queue (cor:agt:070:05): worktree.create when the worktree is missing, then
 worker.start. There is no direct Orca create or launch call.
+
+SWEEP RUN RECORDS (S10):
+  --config supplies a separate host key for recording this run. It never
+  replaces the manager credential used to reconcile. Each completed engine
+  pass in OBSERVE or APPLY reports one run token, times, counts and up to 50
+  worker outcome/reason-code lines; no free-text detail is sent. OFF records
+  nothing. --run-id replays the same host token (default: a fresh UUID).
+  No --config: prints "sweep run not recorded: no host key (pass --config)";
+  JSON includes sweepRun.recorded=false and reason NO_HOST_KEY. An old server
+  without S10 reports S10_UNAVAILABLE. Other record errors are codes only.
+  Recording failures never change the reconcile exit code. The server owns
+  summary posts and stale-sweep alarms; this command posts nothing itself.
+  Read server history with "team host sweep-runs --host <id>".
 
 WHERE THE DESIRED STATE COMES FROM:
   By default, the server: hostDesiredState for the App and --host (S3,
@@ -136,12 +155,16 @@ WHAT IT NEVER DOES:
   the poller, and does not report RELAUNCH_PENDING_POLLER. Only the periodic
   poller relaunches an agent; this command does not trigger it.
   A worker it could not observe is reported as failed and not acted on.
+  An unidentified terminal counts as a possible agent unless the strict Linux
+  process census proves no agent beyond those already accounted for by
+  identified terminals. Unreadable or ambiguous evidence, and non-Linux hosts,
+  keep it present; the item's detail says when a count includes one.
 
 Each worker appears once per list, with a reason code:
   planned  WORKTREE_MISSING, NO_SESSION
   applied  the planned reason, with the host operation's id
   skipped  IN_SYNC, SWEEP_NOT_APPLY, NOT_ON_HOST, NOT_REGISTERED, STOP_PENDING,
-           RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
+           AGENTLESS_SESSION, RELAUNCH_UNPROVEN, SESSION_WITHOUT_WORKTREE,
            TERMINAL_WITHOUT_SESSION, DUPLICATE_AGENTS, NO_WORKTREE_SOURCE,
            SETUP_INVALID, NOT_ASSIGNED, UNKNOWN_DESIRED, UNKNOWN_REASON, ACTION_UNAVAILABLE,
            or the platform's own reason
@@ -163,6 +186,8 @@ run holds the lock.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}
+	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate S10 reporting key")
+	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for S10 replay (default: fresh UUID)")
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
 	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "read the desired state from this JSON file instead of the server")
@@ -184,7 +209,17 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	if !filepath.IsAbs(o.root) || o.timeout < time.Second || o.timeout > 30*time.Minute {
 		return exitcode.Newf(exitcode.Usage, "--worktrees-root must be absolute; --timeout must be 1s to 30m")
 	}
-	ctx := cmd.Context()
+	started := o.startedAt
+	if started.IsZero() {
+		started = time.Now()
+	}
+	if o.runID == "" {
+		o.runID = uuid.NewString()
+	}
+	if !sweepRunToken.MatchString(o.runID) {
+		return exitcode.Newf(exitcode.Usage, "--run-id must be a 1..64 character host run token")
+	}
+	ctx := api.WithoutSession(cmd.Context())
 	var source hostup.Source
 	sourceName := "server"
 	if o.desiredFile != "" {
@@ -203,8 +238,10 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 		return err
 	}
 	runner := teamrouter.ExecOrca(o.orcaBin)
-	if err := onboardOrcaAvailable(ctx, runner); err != nil {
-		return err
+	if !o.readyChecked {
+		if err := onboardOrcaAvailable(ctx, runner); err != nil {
+			return err
+		}
 	}
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -213,7 +250,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	if source == nil {
 		source = hostUpServerSource{client: client, app: scope.Ref}
 	}
-	if o.apply {
+	if o.apply && !o.lockHeld {
 		dir, err := config.Dir()
 		if err != nil {
 			return exitcode.New(exitcode.Error, err)
@@ -229,12 +266,13 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	}
 	engine := hostup.Engine{
 		Source:   source,
-		Observer: &hostUpObserver{client: client, app: scope.Ref, host: o.host, root: o.root, runner: runner},
+		Observer: &hostUpObserver{client: client, app: scope.Ref, host: o.host, root: o.root, runner: runner, census: hostUpCensus(o.orcaBin)},
 		Actuator: &hostUpQueue{client: client, app: scope.Ref, host: o.host, timeout: o.timeout},
 	}
 	res, runErr := engine.Run(ctx, hostup.Options{HostID: o.host, Apply: o.apply, Only: o.worker})
 
-	dto := hostUpDTO{AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
+	record := recordSweepRun(ctx, f, o.configPath, scope.Ref, o.host, o.runID, started, o.apply, res)
+	dto := hostUpDTO{SweepRun: record, AppRef: scope.Ref, HostID: o.host, DryRun: !o.apply, Source: sourceName,
 		Planned: hostUpItems(res.Planned), Applied: hostUpItems(res.Applied), Skipped: hostUpItems(res.Skipped), Failed: hostUpItems(res.Failed)}
 	if res.SetupSource != "" {
 		dto.SetupSource = &res.SetupSource
@@ -281,7 +319,16 @@ func hostUpItems(items []hostup.Item) []hostUpItemDTO {
 
 func writeHostUp(f *cmdutil.Factory, dto hostUpDTO, appLabel func() string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		mode := "dry-run (nothing issued or changed)"
+		if !dto.SweepRun.Recorded {
+			reason := dto.SweepRun.Reason
+			if reason == "NO_HOST_KEY" {
+				reason = "no host key (pass --config)"
+			}
+			if _, err := fmt.Fprintln(w, "sweep run not recorded:", reason); err != nil {
+				return err
+			}
+		}
+		mode := "dry-run (no worker operation issued)"
 		if !dto.DryRun {
 			mode = "apply"
 		}
@@ -598,6 +645,7 @@ type hostUpObserver struct {
 	root       string
 	runner     teamrouter.OrcaRunner
 	registered map[string]bool
+	census     func(context.Context, string) (hostrelaunch.Observation, error)
 }
 
 func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.Observation, error) {
@@ -648,14 +696,63 @@ func (o *hostUpObserver) Observe(ctx context.Context, w hostup.Worker) (hostup.O
 		return obs, fmt.Errorf("orca did not list the terminals of %s", dir)
 	}
 	for _, term := range env.Result.Terminals {
-		// Connected or not: a terminal Orca lost the connection to may still
-		// hold a running agent, and a start beside it could make two
-		// (cli#2064 blind P3). Uncertain counts as present.
-		if filepath.Clean(term.WorktreePath) == filepath.Clean(dir) && term.AgentIdentity != nil && *term.AgentIdentity != "" {
-			obs.AgentTerminals++
+		if filepath.Clean(term.WorktreePath) != filepath.Clean(dir) {
+			continue
+		}
+		obs.AgentTerminals++
+		if term.AgentIdentity == nil || *term.AgentIdentity == "" {
+			obs.UnidentifiedTerminals++
+		}
+	}
+	if obs.UnidentifiedTerminals > 0 && o.census != nil {
+		proof, err := o.census(ctx, dir)
+		known := obs.AgentTerminals - obs.UnidentifiedTerminals
+		// This is worktree-level proof, not a terminal→PID association. Only
+		// when every process is accounted for by the identified terminals can
+		// the unidentified rows add no possible agent. Otherwise keep ALL of
+		// them: the census cannot say which unknown row holds the process.
+		if err == nil && proof.Proven && len(proof.PIDs) <= known && validCensusPIDs(proof.PIDs) {
+			obs.AgentTerminals = known
+			obs.UnidentifiedTerminals = 0
 		}
 	}
 	return obs, nil
+}
+
+// Native defaults are replaced only by serial tests of the real adapter.
+var hostUpReadinessFactory = managedDaemonProbe
+var hostUpProcessProbe = hostpoller.ProbeWorktreeAgents
+
+// hostUpCensus uses the same managed-host readiness and strict process proof
+// as C5. A fake/remote Orca listing alone never grants process authority.
+func hostUpCensus(bin string) func(context.Context, string) (hostrelaunch.Observation, error) {
+	ready := hostUpReadinessFactory(&hostpoller.Config{OrcaLaunch: hostpoller.OrcaLaunchConfig{OrcaBin: bin}})
+	return func(ctx context.Context, worktree string) (hostrelaunch.Observation, error) {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := ready(ctx); err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		proof, err := hostUpProcessProbe(ctx, worktree)
+		if err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		if err := ready(ctx); err != nil {
+			return hostrelaunch.Observation{}, err
+		}
+		return proof, nil
+	}
+}
+
+func validCensusPIDs(pids []int) bool {
+	seen := map[int]bool{}
+	for _, pid := range pids {
+		if pid <= 0 || seen[pid] {
+			return false
+		}
+		seen[pid] = true
+	}
+	return true
 }
 
 // hostUpQueue carries a planned step out with worker onboard's queue steps:

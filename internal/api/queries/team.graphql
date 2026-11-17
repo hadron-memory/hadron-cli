@@ -19,6 +19,7 @@ fragment WorkerReportingRefFields on Worker { id name urn }
 # #2138 experiment: server-derived checking status, not local activity inference.
 fragment ChannelCheckFields on WorkerCheckStatus {
   status
+  noSessionReason
   pendingReason
   lastCheckedAt
 }
@@ -775,6 +776,13 @@ fragment TeamSessionFields on Session {
 # @genqlient(for: "SessionInput.force", omitempty: true)
 # Schema refresh (#836): no family flag means omit, letting server classification run.
 # @genqlient(for: "SessionInput.family", omitempty: true)
+# effort (#2199, hadron-server#4295): sent only with --effort, so an ordinary
+# start never puts `"effort": null` on the wire.
+# @genqlient(for: "SessionInput.effort", omitempty: true)
+# startSettingsApplied (#2209, hadron-server#4306): sent ONLY as false, from the
+# launch environment, so an ordinary bind never puts `"startSettingsApplied": null`
+# on the wire (absent means applied).
+# @genqlient(for: "SessionInput.startSettingsApplied", omitempty: true)
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)
@@ -820,8 +828,13 @@ mutation UpdateTeamSession(
   # supplies it — never the sync-model hook, never inferred from a tool name.
   # @genqlient(omitempty: true)
   $family: String
+  # cli#2206 (hadron-server#4295, cor:agt:060:04): the effort the session runs
+  # at, a REPORT never a control. Omitted unless --effort is given, never null
+  # (a null never clears one).
+  # @genqlient(omitempty: true)
+  $effort: EffortLevel
 ) {
-  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family) {
+  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family, effort: $effort) {
     ...TeamSessionFields
   }
 }
@@ -890,6 +903,8 @@ mutation CreateResumeClaim($sessionId: ID!) {
 # @genqlient(for: "ResumeSessionInput.host", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.llmModel", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.family", omitempty: true)
+# cli#2206: a resume reports an effort only when --effort is given.
+# @genqlient(for: "ResumeSessionInput.effort", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.expectedWorkerId", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.transcriptPath", omitempty: true)
 mutation ResumeTeamSession(
@@ -1915,4 +1930,46 @@ mutation UpdateTeamRoleRepos($appRef: ID!,
  $repos: [String!]!
 ) {
  updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description, repos: $repos) { ...TeamRoleFields repos }
+}
+
+# cli1833: plural heads only; do not widen the singular document.
+query TeamChatTagsMulti(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRefs: [ID!]
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged) {
+    items { ...TeamChatMessageFields }
+  }
+}
+
+# cli1833: plural heads only; do not widen the singular document.
+query TeamChatTagsMultiAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRefs: [ID!]
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRefs: $teamHeadRefs, untagged: $untagged, advanceReadState: false) {
+    items { ...TeamChatMessageFields }
+  }
 }

@@ -64,7 +64,7 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	isMutation := DocumentHasMutation(query)
 
 	if token != "" {
-		rawCredentialSent(ctx) // cli#1624: diagnostics only
+		rawCredentialSent(ctx) // cli#1624: diagnostics only; records the attempt, not transmission (cli#1759)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {

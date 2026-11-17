@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -162,6 +163,7 @@ func ErrFinalWithRecorded(msg, recorded string) *FinalError {
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {
+	ForeignUIDSkipped                           int
 	LocalCause, NoticeCause                     string
 	FailureReason                               string
 	CheckedAt                                   time.Time
@@ -179,8 +181,12 @@ type Event struct {
 // Poller is one host's loop.
 type Poller struct {
 	relaunchEpoch string
-	relaunch      *RelaunchDependencies
-	relaunchMu    sync.Mutex
+	// outageBackoff paces S10_UNAVAILABLE retries of a pending outage report
+	// (cli#2156 F9). In memory only: a restart may retry at once.
+	outageRetryAfter time.Time
+	outageDelay      time.Duration
+	relaunch         *RelaunchDependencies
+	relaunchMu       sync.Mutex
 	// relaunchCancel is guarded by mu. A fatal check-in cancels the owned
 	// recovery job before joining it, without cancelling unrelated operations.
 	relaunchCancel     context.CancelFunc
@@ -199,6 +205,10 @@ type Poller struct {
 	// lockBinding takes a worktree's session-binding lock, waiting at most the
 	// given time (hadron-cli#2068).
 	lockBinding func(path string, wait time.Duration) (func(), error)
+	// agentCensus is the strict process census of one worktree (the one C5
+	// proves absence with, cli#2060); the agentless end (cli#2201) asks it
+	// before it says no agent runs. A seam so a test can answer it.
+	agentCensus func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
 	// BindPoll is how often a pending start asks whether its session bound.
 	BindPoll time.Duration
 	// Fatal, when set, decides that a failed check-in ends Run: a refused or
@@ -266,6 +276,16 @@ type Poller struct {
 	// resetStopWait bounds how long the old agent has to exit after the
 	// one stop; zero means defaultResetStopWait.
 	resetStopWait time.Duration
+
+	// Exit relaunch (cli#2161): exitWake is made by EnableRelaunch and wakes
+	// the run loop when a tracked agent exits; exited holds those agents by
+	// worker id until an exit pass takes them.
+	exitWake chan struct{}
+	exited   map[string]Agent
+	// Test hooks, nil in production: told when an exit pass for a worker has
+	// finished, and when a relaunch job has released its lock.
+	afterExitPass    func(workerID string)
+	afterRelaunchJob func()
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -277,6 +297,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
 		lockBinding: delivery.LockBinding,
+		agentCensus: probeRelaunchWorktree,
 		BindPoll:    5 * time.Second,
 		inFlight:    map[string]bool{},
 		tails:       map[string]chan struct{}{},
@@ -318,10 +339,48 @@ func (p *Poller) Run(ctx context.Context) error {
 				return err
 			}
 		}
-		if err := p.sleep(ctx, interval); err != nil {
+		if err := p.pause(ctx, interval); err != nil {
 			p.wg.Wait()
 			return nil
 		}
+	}
+}
+
+// pause sleeps out the interval. An exit wake (cli#2161) runs the exit passes
+// at once and sleeps on to the same deadline: it never brings the next
+// check-in forward.
+func (p *Poller) pause(ctx context.Context, interval time.Duration) error {
+	if p.exitWake == nil {
+		return p.sleep(ctx, interval)
+	}
+	deadline := time.Now().Add(interval)
+	for {
+		left := time.Until(deadline)
+		if left <= 0 {
+			return ctx.Err()
+		}
+		sctx, cancel := context.WithCancel(ctx)
+		stop, woke := make(chan struct{}), make(chan bool, 1)
+		go func() {
+			select {
+			case <-p.exitWake:
+				cancel()
+				woke <- true
+			case <-stop:
+				woke <- false
+			}
+		}()
+		err := p.sleep(sctx, left)
+		close(stop)
+		woken := <-woke // the watcher has finished: a wake is never lost
+		cancel()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !woken {
+			return err
+		}
+		p.relaunchExitStep(ctx)
 	}
 }
 
