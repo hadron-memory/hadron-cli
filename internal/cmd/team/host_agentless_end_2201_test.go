@@ -116,3 +116,26 @@ func TestEndAgentlessMissingResultIsAnError2201(t *testing.T) {
 		})
 	}
 }
+
+// Only the server's four documented no-write refusals, and only when they are
+// the WHOLE envelope, are standing refusals; an internal error, an unknown code
+// or a mix that hides one beside a refusal stays an error, so it is FAILED and
+// visible (#2207 LOCAL F3).
+func TestEndAgentlessOnlyTheKnownRefusalsAreRefusals2201(t *testing.T) {
+	for name, body := range map[string]string{
+		"internal error":           `{"data":null,"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		"an unknown code":          `{"data":null,"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}}]}`,
+		"refusal beside internal":  `{"data":null,"errors":[{"message":"no","extensions":{"code":"WORKER_HAS_OPEN_TASK"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		"internal beside refusal":  `{"data":null,"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}},{"message":"no","extensions":{"code":"WORKER_HAS_OPEN_TASK"}}]}`,
+		"refusal beside code-less": `{"data":null,"errors":[{"message":"no","extensions":{"code":"WORKER_HAS_OPEN_TASK"}},{"message":"plain"}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := agentlessServer(t, 200, body, nil)
+			_, err := s.EndAgentless(context.Background(), hostpoller.AgentlessEnd{AppID: "a", WorkerID: "w", SessionID: "s"})
+			var refused *hostpoller.AgentlessRefusal
+			if err == nil || errors.As(err, &refused) {
+				t.Fatalf("not a standing refusal: %v", err)
+			}
+		})
+	}
+}
