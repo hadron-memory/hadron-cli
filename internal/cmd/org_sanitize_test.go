@@ -179,8 +179,8 @@ func TestOrgPublicSanitizesDetailValues(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"PublicOrganization": `{"data":{"publicOrganization":{` +
 			`"id":"o1","urn":` + jsonText("acme.com") + `,"name":` + jsonText(hostileCellLabel) + `,"listedOnMarketplace":true,` +
-			`"publicMemories":[{"id":"m1","name":` + jsonText("KB") + `,"urn":` + jsonText("hrn:mem:acme.com:kb") + `,"description":` + jsonText(longCellText) + `}],` +
-			`"publicAgents":[{"id":"a1","name":` + jsonText(hostileCellLabel) + `,"urn":"hrn:agent:acme.com:ops","description":null}]}}}`,
+			`"publicMemoriesPage":{"total":1,"hasMore":false,"items":[{"id":"m1","name":` + jsonText("KB") + `,"urn":` + jsonText("hrn:mem:acme.com:kb") + `,"description":` + jsonText(longCellText) + `}]},` +
+			`"publicAgentsPage":{"total":1,"hasMore":false,"items":[{"id":"a1","name":` + jsonText(hostileCellLabel) + `,"urn":"hrn:agent:acme.com:ops","description":null}]}}}}`,
 	})
 	defer gql.Close()
 	f, out := testFactory(t)

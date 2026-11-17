@@ -952,6 +952,11 @@ type AgentTask {
   later read is null (as is a match that assigned, and a create without match: true).
   """
   matchSkipped: [AgentTaskSkippedCandidate!]
+
+  """
+  #2654: true exactly when the overdue filter of the task list would list this task at the moment of the read (same rule, judged on the server clock). A client shows this field and computes no overdue predicate of its own.
+  """
+  overdue: Boolean!
   owner: AgentTaskParty!
 
   """Null for a root task."""
@@ -6428,8 +6433,7 @@ type GlobalSearchResult {
 
 """
 A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
-through it. Its stored facts as stored, and allows, which is computed. There is deliberately NO state label: nothing names the
-cases hrn:node:hadronmemory.com:specs:cor:acl:140:03 leaves open (withdrawn, past expiry while pending, signed before its start, a departed holder).
+through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 """
 type Grant {
   """The registered action this grant allows."""
@@ -6476,6 +6480,11 @@ type Grant {
   """
   signatureStatus: GrantSignatureStatus!
   startsAt: DateTime
+
+  """
+  #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+  """
+  state: GrantState!
   useCount: Int!
 
   """
@@ -6704,6 +6713,38 @@ enum GrantSigningRequestState {
   STALE
 
   """The requester account withdrew it."""
+  WITHDRAWN
+}
+
+"""
+#4173 (hrn:node:hadronmemory.com:specs:cor:acl:140:03): where a grant stands, worked out from its record on every read and never stored. An
+ended grant keeps its first end. A grant withdrawn before #4173 shipped reads REVOKED (its withdrawal was not recorded separately). No
+name exists yet for an end from a deleted secret or from protection being turned on.
+"""
+enum GrantState {
+  """
+  Signed and not ended. Allows its action once its start has come (allows says whether that is now).
+  """
+  ACTIVE
+
+  """Its expiry came first (a pending grant past its expiry too)."""
+  EXPIRED
+
+  """
+  The holder went (a person erased, a worker retired, an agent or App deleted).
+  """
+  HOLDER_GONE
+
+  """Asked for and not yet signed. Allows nothing."""
+  PENDING
+
+  """Ended by a person's revoke."""
+  REVOKED
+
+  """Its use limit was reached."""
+  SPENT
+
+  """Its pending request was withdrawn."""
   WITHDRAWN
 }
 
@@ -14746,7 +14787,7 @@ type Query {
     creator: AgentTaskPartyInput
 
     """
-    #3125 S2: the task with exactly this externalId (compared as written, 1 to 512 characters, else BAD_USER_INPUT). Runs inside the App read gate, so it only finds this App's task.
+    #3125 S2, #4217: the tasks with exactly this externalId (compared as written, 1 to 512 characters, else BAD_USER_INPUT): at most one ACTIVE task (backlog, pending or started) holds it, and any number of finished or cancelled tasks that held it before it. Newest first, so a caller that wants the live one picks the active one. Runs inside the App read gate, so it only finds this App's tasks.
     """
     externalId: String
 
@@ -14754,9 +14795,10 @@ type Query {
     #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the tasks holding any of these external ids, each compared
     exactly as written. 1 to 100 ids; each entry passes the externalId check (1 to 512 characters, no unpaired
     surrogate), and ONE bad entry refuses the whole list with BAD_USER_INPUT naming its position (externalIds[i]), never
-    its text; an empty list is BAD_USER_INPUT, never "no narrowing". At most one task holds an id, so with limit omitted
-    — and offset omitted or 0 — the page is as long as the list and answers every id; an explicit offset windows the
-    batch like any list. An id no task of this App holds matches nothing. Runs inside
+    its text; an empty list is BAD_USER_INPUT, never "no narrowing". At most one ACTIVE task holds an id, but finished
+    and cancelled tasks keep it (#4217, hrn:node:hadronmemory.com:specs:cor:agt:120:02, 2026-11-14), so an id can match several tasks: with limit
+    omitted — and offset omitted or 0 — the page is every task holding any of the ids, up to the list cap (200); an
+    explicit limit or offset windows the batch like any list. An id no task of this App holds matches nothing. Runs inside
     the App read gate (hrn:node:hadronmemory.com:specs:cor:agt:050:21), so another App's task with the same id never
     appears. ANDed with every other filter, externalId included.
     """
@@ -14780,7 +14822,7 @@ type Query {
     offset: Int
 
     """
-    True: start-by passed on the database clock, not started, not ended, not backlog. False: all other tasks. Not an alarm.
+    True: overdue on the server clock (the database clock). Two arms: a pending task, not started, whose start-by has passed; or a pending or started task whose finish-by has passed and which has not ended. An ended (finished or cancelled) task and a backlog task are never overdue, and neither is a task with neither time. Blocking is ignored. False: all other tasks. Not an alarm: listing raises nothing.
     """
     overdue: Boolean
     owner: AgentTaskPartyInput
@@ -14826,13 +14868,13 @@ type Query {
   ): [AgentTask!]!
 
   """
-  #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
-  order. To read the next page pass after: the id of the last event you
-  read; the cursor is the (createdAt, id) pair, so events sharing a
-  timestamp are never skipped. since is a coarse time filter (strictly
-  after), not a continuation. limit defaults to 20 (cap 200).
-  #3933 (hrn:node:hadronmemory.com:specs:cor:agt:050:11): newestFirst reads from the newest end instead, the exact mirror
-  order with the same gate, filters and paging, continued with before (the id of the oldest event read).
+  #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+  #4098: oldest-first follows the writing transaction, then (createdAt, id) within it. Only transactions below
+  the snapshot xmin are served: a poll can lag while an older transaction is open, but late commits and later
+  writes with older caller timestamps cannot fall behind a served forward cursor. after remains the id of the
+  last event read, not an opaque token. since is a coarse time filter (strictly after), not a continuation.
+  limit defaults to 20 (cap 200). newestFirst/before retain descending (createdAt, id) history order with the
+  same gate, filters and paging; they are not a forward continuation.
   task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
   """
   agentTeamEvents(
@@ -14862,7 +14904,7 @@ type Query {
     limit: Int
 
     """
-    #3933: true reads from the NEWEST end, the exact mirror of the default order, with the same gate, filters and paging (default 20, cap 200); continue with before, not after (refused with after). Omitted or false: the oldest-first read, unchanged.
+    #3933: true reads history from the NEWEST timestamp by (createdAt, id) descending, with the same gate, filters and paging (default 20, cap 200); continue with before, not after (refused with after). Omitted or false: the commit-safe forward stream.
     """
     newestFirst: Boolean
     since: DateTime
@@ -14873,7 +14915,8 @@ type Query {
   """
   #3933 (hrn:node:hadronmemory.com:specs:cor:api:120:04) — agentTeamEvents with the page's end told: the same arguments, gate,
   filters, order and paging (except the page-size floor below), returning hasMore and nextCursor so a reader knows whether older (or newer) events remain without
-  another read. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
+  another read. For the forward stream, hasMore describes the eligible prefix below the snapshot horizon; keep the
+  cursor and poll again while older transactions remain open. nextCursor is the id of the last event served when more remain, to pass as after (oldest-first) or, with
   newestFirst, as before; null on the last page, and non-null whenever hasMore is true. The page size has a floor of 1:
   limit is at least 1 (0 or less reads one event, never an empty page), default 20, cap 200 served and never refused
   (hrn:node:hadronmemory.com:specs:cor:api:120:04). The legacy agentTeamEvents keeps limit 0 as an empty list.
