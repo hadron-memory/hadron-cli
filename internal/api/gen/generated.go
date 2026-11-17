@@ -78252,6 +78252,42 @@ type RemoveOrgMemberResponse struct {
 // GetRemoveOrgMember returns RemoveOrgMemberResponse.RemoveOrgMember, and is useful for accessing the field via an interface.
 func (v *RemoveOrgMemberResponse) GetRemoveOrgMember() bool { return v.RemoveOrgMember }
 
+// RenderRunNodeResponse is returned by RenderRunNode on success.
+type RenderRunNodeResponse struct {
+	// Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
+	// hadron_run_action, which despite its name executes nothing: it loads the
+	// node, resolves its dependency edges, and renders with args.
+	//
+	// runTask covers the EXECUTE half. This is the render half, for previewing a
+	// task before running it (a task run --dry-run), for reading an action's
+	// assembled instructions when the CALLER is the executor, and for debugging
+	// template/dependency resolution without side effects.
+	//
+	// A Query because it is side-effect-free, and unlike the MCP tool it records
+	// NO action-run UsageEvent — metering a preview would inflate the ledger with
+	// actions nobody took.
+	//
+	// Uses the SAME assembler runTask executes (Mustache compilation via
+	// compileTemplate; flow-ROUTING edges skipped, since they are the walker's
+	// rails rather than references), so a dry run predicts the real prompt.
+	//
+	// Two deliberate narrowings relative to execution, both fail-safe: a
+	// referenced node the caller cannot READ is omitted rather than inlined
+	// (an edge may cross memories), and an edge whose target was soft-deleted is
+	// skipped so a preview cannot resurrect removed instructions.
+	//
+	// NOTE this is NOT the legacy MCP hadron_run_action bundle, which does a
+	// literal placeholder replace and inlines every outgoing edge. Where the two
+	// differ, this one matches execution.
+	//
+	// nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
+	// missing both raise NODE_NOT_FOUND - no existence oracle.
+	RenderRunNode string `json:"renderRunNode"`
+}
+
+// GetRenderRunNode returns RenderRunNodeResponse.RenderRunNode, and is useful for accessing the field via an interface.
+func (v *RenderRunNodeResponse) GetRenderRunNode() string { return v.RenderRunNode }
+
 // RenumberSpecRenumberSpecSpecRenumberResult includes the requested fields of the GraphQL type SpecRenumberResult.
 // The GraphQL type's documentation follows.
 //
@@ -124445,6 +124481,18 @@ func (v *__RemoveOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 // GetUserRef returns __RemoveOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__RemoveOrgMemberInput) GetUserRef() string { return v.UserRef }
 
+// __RenderRunNodeInput is used internally by genqlient
+type __RenderRunNodeInput struct {
+	NodeRef string           `json:"nodeRef"`
+	Args    *json.RawMessage `json:"args,omitempty"`
+}
+
+// GetNodeRef returns __RenderRunNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// GetArgs returns __RenderRunNodeInput.Args, and is useful for accessing the field via an interface.
+func (v *__RenderRunNodeInput) GetArgs() *json.RawMessage { return v.Args }
+
 // __RenumberSpecInput is used internally by genqlient
 type __RenumberSpecInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -158259,6 +158307,43 @@ func RemoveOrgMember(
 	}
 
 	data_ = &RemoveOrgMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RenderRunNode.
+const RenderRunNode_Operation = `
+query RenderRunNode ($nodeRef: String!, $args: JSON) {
+	renderRunNode(nodeRef: $nodeRef, args: $args)
+}
+`
+
+// Committed schema includes renderRunNode from the snapshot refreshed against
+// hadron-server 39eb1dfb76a78dba0866445f94b6a00a731e00b3 (CLI 51db5f71).
+// Query only: read usage is recorded by the provider; no run/action-run.
+func RenderRunNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	args *json.RawMessage,
+) (data_ *RenderRunNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RenderRunNode",
+		Query:  RenderRunNode_Operation,
+		Variables: &__RenderRunNodeInput{
+			NodeRef: nodeRef,
+			Args:    args,
+		},
+	}
+
+	data_ = &RenderRunNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

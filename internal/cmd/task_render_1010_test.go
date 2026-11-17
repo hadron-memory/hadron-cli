@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
+
+const renderNodeRef1010 = "hrn:node:acme.com:kb:tasks:brief"
 
 // The fixture accepts only the Query: any lookup, legacy renderer or launch is
 // an error. Counting requests also detects fallback/retry on refused answers.
@@ -45,7 +48,7 @@ func TestTaskRenderBytesAndArguments1010(t *testing.T) {
 					b, _ := json.Marshal(map[string]any{"data": map[string]string{"renderRunNode": rendered}})
 					server, requests := renderFixture1010(t, string(b))
 					f, out := testFactory(t)
-					args := []string{"task", "render", nodeURN, "--server", server.URL, "--app", "ambient-app"}
+					args := []string{"task", "render", renderNodeRef1010, "--server", server.URL, "--app", "ambient-app"}
 					expected := arg
 					if arg == "file" {
 						expected = `{"count":9007199254740993,"null":null}`
@@ -72,7 +75,7 @@ func TestTaskRenderBytesAndArguments1010(t *testing.T) {
 					_ = json.Unmarshal((*requests)[0]["variables"], &vars)
 					var ref string
 					_ = json.Unmarshal(vars["nodeRef"], &ref)
-					if ref != nodeURN {
+					if ref != renderNodeRef1010 {
 						t.Fatalf("ref=%q", ref)
 					}
 					if arg == "omitted" {
@@ -80,13 +83,15 @@ func TestTaskRenderBytesAndArguments1010(t *testing.T) {
 							t.Fatalf("omitted args sent: %s", vars["args"])
 						}
 					} else {
-						var want, got any
-						_ = json.Unmarshal([]byte(expected), &want)
-						_ = json.Unmarshal(vars["args"], &got)
-						wb, _ := json.Marshal(want)
-						gb, _ := json.Marshal(got)
-						if string(wb) != string(gb) {
-							t.Fatalf("args=%s want %s", gb, wb)
+						var want, got bytes.Buffer
+						if err := json.Compact(&want, []byte(expected)); err != nil {
+							t.Fatal(err)
+						}
+						if err := json.Compact(&got, vars["args"]); err != nil {
+							t.Fatal(err)
+						}
+						if want.String() != got.String() {
+							t.Fatalf("args=%s want %s", &got, &want)
 						}
 					}
 					if len(vars) > 2 {
@@ -117,9 +122,9 @@ func TestTaskRenderInvalidArgumentsBeforeRequests1010(t *testing.T) {
 			server, requests := renderFixture1010(t, `{"data":{"renderRunNode":"wrong"}}`)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"task", "render", nodeURN, "--args", arg, "--server", server.URL})
+			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--args", arg, "--server", server.URL})
 			err := root.Execute()
-			if exitcode.FromError(err) != exitcode.Usage || len(*requests) != 0 {
+			if exitCodeFor(err) != exitcode.Usage || len(*requests) != 0 {
 				t.Fatalf("err=%v requests=%d", err, len(*requests))
 			}
 		})
@@ -128,7 +133,7 @@ func TestTaskRenderInvalidArgumentsBeforeRequests1010(t *testing.T) {
 
 func TestTaskRenderReferenceForms1010(t *testing.T) {
 	for _, tc := range []struct{ ref, memory, want string }{
-		{nodeURN, "", nodeURN}, {"0123456789abcdef0123456789abcdef", "", "0123456789abcdef0123456789abcdef"},
+		{renderNodeRef1010, "", renderNodeRef1010}, {"0123456789abcdef0123456789abcdef", "", "0123456789abcdef0123456789abcdef"},
 		{"tasks:brief", "acme.com::kb", "hrn:node:acme.com:kb:tasks:brief"},
 		{"acme.com::kb::tasks:brief", "", "hrn:node:acme.com::kb::tasks:brief"},
 	} {
@@ -165,10 +170,26 @@ func TestTaskRenderRefusalsNeverFallback1010(t *testing.T) {
 			server, requests := renderFixture1010(t, fmt.Sprintf(`{"errors":[{"message":"refused","extensions":{"code":%q,"requestId":"req-render"}}]}`, tc.code))
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"task", "render", nodeURN, "--server", server.URL, "--json"})
+			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--server", server.URL, "--json"})
 			err := root.Execute()
-			if exitcode.FromError(err) != tc.exit || len(*requests) != 1 || strings.Contains(out.String(), `"rendered"`) {
+			if exitCodeFor(err) != tc.exit || len(*requests) != 1 || strings.Contains(out.String(), `"rendered"`) {
 				t.Fatalf("err=%v requests=%d output=%s", err, len(*requests), out)
+			}
+			if got := renderError(f, err); got != tc.exit {
+				t.Fatalf("rendered exit=%d", got)
+			}
+			var envelope struct {
+				Error struct {
+					Code       int    `json:"code"`
+					ServerCode string `json:"serverCode"`
+					RequestID  string `json:"requestId"`
+				} `json:"error"`
+			}
+			if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil || envelope.Error.Code != tc.exit {
+				t.Fatalf("envelope=%s err=%v", out, e)
+			}
+			if tc.code == "INTERNAL_SERVER_ERROR" && (envelope.Error.ServerCode != tc.code || envelope.Error.RequestID != "req-render") {
+				t.Fatalf("fault metadata lost: %s", out)
 			}
 		})
 	}
@@ -189,5 +210,35 @@ func TestTaskRenderHelp1010(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTaskRenderBrokenReplyNeverRetries1010(t *testing.T) {
+	for _, reply := range []string{"not JSON", `{"errors":[{"message":"unavailable","extensions":{"code":"SERVICE_UNAVAILABLE"}}]}`} {
+		t.Run(reply, func(t *testing.T) {
+			server, requests := renderFixture1010(t, reply)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--server", server.URL, "--json"})
+			if err := root.Execute(); err == nil || len(*requests) != 1 || strings.Contains(out.String(), `"rendered"`) {
+				t.Fatalf("err=%v requests=%d output=%s", err, len(*requests), out)
+			}
+		})
+	}
+}
+
+func TestTaskRenderInvalidFileAndRefBeforeRequests1010(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "args.json")
+	if err := os.WriteFile(file, []byte("null"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"task", "render", renderNodeRef1010, "--args", "@" + file}, {"task", "render", "unqualified"}} {
+		server, requests := renderFixture1010(t, `{"data":{"renderRunNode":"wrong"}}`)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", server.URL))
+		if err := root.Execute(); exitCodeFor(err) != exitcode.Usage || len(*requests) != 0 {
+			t.Fatalf("err=%v requests=%d", err, len(*requests))
+		}
 	}
 }
