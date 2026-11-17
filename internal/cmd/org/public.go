@@ -56,8 +56,8 @@ apply to both lists; the server caps a page at 200. Zero limit returns counts
 only; negative limits and offsets count as zero. No pages are fetched automatically.
 A list that is not whole says "showing N of TOTAL": more rows follow, the page is
 the short end of the list, an offset skipped past the rows, or the limit was
-zero. When --offset skips rows (above zero; an explicit 0 or a negative offset
-skips none) the notice adds "(offset O)". "(none)" means the list holds
+zero. When --offset was given, the notice adds "(offset O)" with the offset sent
+(0 for a negative one). "(none)" means the list holds
 nothing. --json retains publicMemories and
 publicAgents arrays and adds publicMemoriesTotal/publicMemoriesHasMore and
 publicAgentsTotal/publicAgentsHasMore.`,
@@ -81,14 +81,20 @@ publicAgentsTotal/publicAgentsHasMore.`,
 				return exitcode.Newf(exitcode.Error, "the server returned an incomplete public organization page")
 			}
 			dto := publicOrgDTOFrom(resp.PublicOrganization)
+			// The notice echoes the offset that was sent, so it appears whenever
+			// --offset was given (zero included; a negative one is sent as 0).
+			offsetShown := -1
+			if cmd.Flags().Changed("offset") {
+				offsetShown = max(0, offset)
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				listing := "not listed on marketplace"
 				if dto.ListedOnMarketplace {
 					listing = "listed on marketplace"
 				}
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), listing)
-				printPublicResources(w, "public memories", dto.PublicMemories, dto.PublicMemoriesTotal, dto.PublicMemoriesHasMore, max(0, offset))
-				printPublicResources(w, "public agents", dto.PublicAgents, dto.PublicAgentsTotal, dto.PublicAgentsHasMore, max(0, offset))
+				printPublicResources(w, "public memories", dto.PublicMemories, dto.PublicMemoriesTotal, dto.PublicMemoriesHasMore, offsetShown)
+				printPublicResources(w, "public agents", dto.PublicAgents, dto.PublicAgentsTotal, dto.PublicAgentsHasMore, offsetShown)
 				return nil
 			})
 		},
@@ -134,19 +140,19 @@ func publicResourceFrom(f gen.PublicResourceRefFields) publicResourceDTO {
 // printPublicResources prints one list. A list is partial when the server says
 // more rows follow OR fewer rows came back than the list holds (a short last
 // page, an offset past the end, counts only): it then says "showing N of
-// TOTAL", with the offset when it skips rows (above zero: an explicit 0 or a
-// negative one skips nothing and adds no suffix), so a partial list never reads
-// as the whole one. "(none)" is printed only when the list holds nothing at all
+// TOTAL", with the offset that was sent when --offset was given (offsetShown is
+// -1 when it was not; zero is shown, a negative one is sent as 0), so a partial
+// list never reads as the whole one. "(none)" is printed only when the list holds nothing at all
 // (cli#2248, cor:api:120:04). --json is unaffected.
-func printPublicResources(w io.Writer, label string, rs []publicResourceDTO, total int, hasMore bool, offset int) {
+func printPublicResources(w io.Writer, label string, rs []publicResourceDTO, total int, hasMore bool, offsetShown int) {
 	if total == 0 && len(rs) == 0 && !hasMore {
 		fmt.Fprintf(w, "  %s: (none)\n", label)
 		return
 	}
 	if hasMore || len(rs) < total {
 		suffix := ""
-		if offset > 0 {
-			suffix = fmt.Sprintf(" (offset %d)", offset)
+		if offsetShown >= 0 {
+			suffix = fmt.Sprintf(" (offset %d)", offsetShown)
 		}
 		fmt.Fprintf(w, "  %s: showing %d of %d%s\n", label, len(rs), total, suffix)
 	} else {
