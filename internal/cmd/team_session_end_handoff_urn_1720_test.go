@@ -33,11 +33,10 @@ func readBackJSON1720(status, previousID, urn string) string {
 }
 
 type end1720 struct {
-	out, errOut  string
-	err          error
-	captured     map[string]json.RawMessage
-	calls        []handoffRequest1720
-	faultReached bool
+	out, errOut string
+	err         error
+	captured    map[string]json.RawMessage
+	calls       []handoffRequest1720
 }
 
 type handoffRequest1720 struct {
@@ -78,13 +77,15 @@ func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1
 	f, out := testFactory(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	if f.HTTPClient == nil {
+		t.Fatal("test factory must provide an HTTP client")
+	}
 	base := f.HTTPClient.Transport
 	if base == nil {
 		t.Fatal("test factory must retain its loopback transport guard")
 	}
 	var mu sync.Mutex
 	var calls []handoffRequest1720
-	faultReached := false
 	f.HTTPClient.Transport = handoffRoundTrip1720(func(req *http.Request) (*http.Response, error) {
 		if req.Method != http.MethodPost {
 			return base.RoundTrip(req)
@@ -102,8 +103,7 @@ func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1
 		}
 		mu.Lock()
 		calls = append(calls, call)
-		inject := call.Operation == "GetWorkerHandoffReadBack" && (fault == "transport" || fault == "cancel")
-		faultReached = faultReached || inject
+		inject := call.Operation == "GetWorkerHandoffReadBack" && (fault == "transport" || fault == "cancel" || fault == "http-500" || fault == "graphql-errors" || fault == "malformed-json")
 		mu.Unlock()
 		if inject {
 			if fault == "cancel" {
@@ -113,7 +113,17 @@ func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1
 				}
 				return nil, req.Context().Err()
 			}
-			return nil, errors.New("fixture read-back transport failure")
+			if fault == "transport" {
+				return nil, errors.New("fixture read-back transport failure")
+			}
+			status, body := http.StatusOK, `{"errors":[{"message":"fixture read-back refused"}]}`
+			if fault == "http-500" {
+				status = http.StatusInternalServerError
+			}
+			if fault == "malformed-json" {
+				body = `{`
+			}
+			return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
 		}
 		return base.RoundTrip(req)
 	})
@@ -123,7 +133,7 @@ func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1
 	err := root.ExecuteContext(ctx)
 	mu.Lock()
 	defer mu.Unlock()
-	return end1720{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err, captured: captured, calls: append([]handoffRequest1720(nil), calls...), faultReached: faultReached}
+	return end1720{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err, captured: captured, calls: append([]handoffRequest1720(nil), calls...)}
 }
 
 func TestSessionEndShowsTheSavedHandoffURN1720(t *testing.T) {
@@ -221,7 +231,7 @@ func TestSessionEndOnAServerWithoutContinuityIsToday1720(t *testing.T) {
 // Read-back is narration after a committed end: even cancellation must not
 // turn the successful mutation into an error or cause a retry/second write.
 func TestSessionEndReadBackFaults1799(t *testing.T) {
-	for _, fault := range []string{"transport", "cancel", "missing-worker", "empty-worker"} {
+	for _, fault := range []string{"transport", "cancel", "http-500", "graphql-errors", "malformed-json", "missing-worker", "empty-worker"} {
 		for _, jsonOutput := range []bool{false, true} {
 			t.Run(fault+map[bool]string{false: "/text", true: "/json"}[jsonOutput], func(t *testing.T) {
 				args := []string{"--handoff", "text"}
@@ -237,9 +247,6 @@ func TestSessionEndReadBackFaults1799(t *testing.T) {
 					wantReads = 0
 				}
 				assertHandoffRequests1799(t, r.calls, wantReads)
-				if r.faultReached != (wantReads == 1) {
-					t.Fatalf("read-back fault reached=%v want=%v", r.faultReached, wantReads == 1)
-				}
 				if jsonOutput {
 					var dto map[string]any
 					if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
