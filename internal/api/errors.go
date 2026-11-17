@@ -2029,9 +2029,14 @@ func SupersededSessionEvidence(err error) (definitive bool, sessionID, startedAt
 	if !OnlyErrorCodes(err, "SESSION_SUPERSEDED") {
 		return false, "", ""
 	}
-	// OnlyErrorCodes guarantees a nonempty list. Use the first refusal's pair
-	// as a unit; another error never fills one of its missing fields.
-	e := graphQLErrors(err)[0]
+	// Guard the local extraction independently of OnlyErrorCodes, including
+	// an error with a custom As method whose answer changes between reads.
+	list := graphQLErrors(err)
+	if len(list) == 0 || list[0] == nil {
+		return false, "", ""
+	}
+	// Use the first refusal's pair as a unit; another error never fills a gap.
+	e := list[0]
 	id, idOK := e.Extensions["sessionId"].(string)
 	stamp, timeOK := e.Extensions["startedAt"].(string)
 	if !idOK || !timeOK || id == "" || stamp == "" {

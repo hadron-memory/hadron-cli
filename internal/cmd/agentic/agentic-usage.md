@@ -160,7 +160,7 @@ matches `^[A-Za-z0-9._:-]{1,64}$`; otherwise it is treated as absent. Under `--j
 the failure envelope gains `serverCode` (`"INTERNAL_SERVER_ERROR"`) and, when an id is
 known, `requestId`, additively; `code` stays the exit code. `hadron api` stays verbatim.
 
-A definitive SESSION_SUPERSEDED refusal keeps serverCode:"SESSION_SUPERSEDED".
+A typed SESSION_SUPERSEDED error gains serverCode:"SESSION_SUPERSEDED".
 Only when the server supplies both a nonempty string sessionId and a valid
 RFC3339 startedAt does the curated JSON error add those two exact values;
 otherwise both fields are absent. These name the independently readable current
@@ -168,7 +168,9 @@ open session, not a historical successor pointer. Text names that pair or says
 no current-session details are available, with no distinction between unreadable
 and absent. No retry, successor fetch or automatic rebind is attempted.
 A 5xx carrying that typed code retains the existing uncertainty/message/exit and
-may retain serverCode, but adds no successor fields or definitive hint. Ended
+serverCode:"SESSION_SUPERSEDED", but adds no successor fields or definitive hint.
+When it also carries an internal fault, this more specific marker wins regardless
+of error order; the internal-fault message, numeric exit and requestId stay as before. Ended
 and expired sessions keep their existing answers and exits (cli#1845).
 
 `team chat check` additionally uses **9** for an empty tagged range whose sampled

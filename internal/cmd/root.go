@@ -431,11 +431,6 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		failure := map[string]any{"code": code, "message": message}
 		superseded, currentSession, currentStarted := api.SupersededSessionEvidence(err)
-		// The typed code stays matchable even on a 5xx, but its successor
-		// evidence and definitive human hint are withheld on uncertain answers.
-		if api.HasErrorCode(err, "SESSION_SUPERSEDED") {
-			failure["serverCode"] = "SESSION_SUPERSEDED"
-		}
 		if superseded && currentSession != "" {
 			failure["sessionId"] = currentSession
 			failure["startedAt"] = currentStarted
@@ -470,6 +465,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var coded interface{ ServerCode() string }
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
+		}
+		// Specific marker wins after every generic/fault/wrapper code writer,
+		// regardless of envelope error order (Wolfgang ruling111707). On a
+		// gateway fault only this marker wins: numeric exit, fault message and
+		// requestId remain untouched; no successor pair or definitive hint.
+		if api.HasErrorCode(err, "SESSION_SUPERSEDED") {
+			failure["serverCode"] = "SESSION_SUPERSEDED"
 		}
 		// #1664: only PR_NOT_READY carries typed failing slots.
 		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
