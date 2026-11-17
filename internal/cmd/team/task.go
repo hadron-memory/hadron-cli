@@ -224,10 +224,14 @@ refused). Pass --source (an issue URL or node URN) so readers can trace the
 task: without one the server adds the warning task.create.no-source.
 
 --external-id <id> records the outside item the task CLAIMS, such as the
-issue URL (cor:agt:120:02). It is unique per App and set once: a second task
-with the same value is refused TASK_EXTERNAL_ID_TAKEN (exit 5), which names no
-task; find the holder with ` + "`task list --external-id <id>`" + `. The value is sent as
-given; only the server judges its form.
+issue URL (cor:agt:120:02). At most one ACTIVE task (backlog, pending or
+started) per App holds a given value, and it is set once, never edited. A
+finished or cancelled task keeps its value but no longer blocks a new claim. A
+claim on a value an active task holds is refused TASK_EXTERNAL_ID_TAKEN (exit
+5), which names no task; find the holder with
+` + "`task list --external-id <id> --status BACKLOG --status PENDING --status STARTED`" + `
+(the unfiltered ` + "`task list --external-id <id>`" + ` also lists ended tasks, newest
+first). The value is sent as given; only the server judges its form.
 
 --family, --model or --tier (not both), and --effort set the task's run
 settings (cor:agt:050:01): what to launch, not whom to match (that is
@@ -649,7 +653,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by; server validates it against now and start-by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
 	runFlags.register(cmd)
-	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; unique per App, set once (never edited)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; one ACTIVE task per App holds a value (finished and cancelled tasks keep it); set once, never edited")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
