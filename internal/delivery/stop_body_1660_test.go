@@ -19,6 +19,21 @@ func TestStopDropBodyScopesTheUntypedClaimToThePostTime_1660(t *testing.T) {
 	}
 }
 
+// #1660 ask 5, BLIND P2 (Joaquin), amended ruling (Uma, team chat #112917):
+// TypedAt is stamped only after an ack, so a notice typed but held from ack
+// has TypedAt == 0 and takes this branch — and the record cannot distinguish
+// that state from never-typed. The body must therefore claim only what an
+// unacknowledged record establishes: "had no acknowledged typing as of then"
+// is true whether the notice was never typed or typed-awaiting-ack.
+func TestStopDropBodyClaimsOnlyWhatAnUnackedRecordEstablishes_1660(t *testing.T) {
+	now := time.Date(2026, 11, 4, 12, 5, 0, 0, time.UTC)
+	body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: "draft", HeldAt: time.Unix(0, 0)}, now)
+	want := "@ada Gil had not been told to halt as of 2026-11-04T12:05:00Z and may still be running: its HALT notice (event e) had no acknowledged typing as of then (draft: unsent text is in its input box, since 1970-01-01T00:00:00Z). It may have been typed since. The host retries every poll and this is the only post about it, so check Gil's terminal."
+	if body != want {
+		t.Fatalf("body = %q", body)
+	}
+}
+
 // #1660 ask 5, LOCAL P3-1 (Jonas): the ruling pins the as-of stamp to RFC3339
 // UTC, but the fixtures above pass UTC times, so dropping the .UTC() conversion
 // would pass them while a local-clock reporter printed its offset. Pin the
