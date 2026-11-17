@@ -46,7 +46,7 @@ shared — give each worker its own directory. Only the directory a command
 runs in is looked at, never a parent. Running git init in such a directory
 makes it a worktree: the binding then lives in the git dir and the cache in
 .hadron-team/ is no longer read, so whoami there shows no binding until you
-start again (or remove .hadron-team/).
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)

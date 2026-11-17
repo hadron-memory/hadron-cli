@@ -196,6 +196,16 @@ type bindingLoc struct {
 //   - a BINDING WRITE (writable true: start, resume, shed's stamp) gets the
 //     cache directory, which withBindingLock creates.
 func locateBinding(ctx context.Context, writable bool) (bindingLoc, error) {
+	// A deleted or unreadable working directory is named first: real git
+	// answers it with "Unable to read current working directory", which is
+	// not "not a git repository" and would otherwise surface as a missing
+	// worktree (cli#1969 F3, QA on #2229). GitDirEnv names a directory
+	// outright and needs no cwd.
+	if os.Getenv(GitDirEnv) == "" {
+		if _, werr := os.Getwd(); werr != nil {
+			return bindingLoc{}, exitcode.Newf(exitcode.Usage, "cannot determine the working directory: %w", werr)
+		}
+	}
 	dir, plain, err := gitDirOrPlain(ctx)
 	if err == nil {
 		return bindingLoc{dir: dir}, nil
@@ -428,6 +438,12 @@ func withBindingLock(ctx context.Context, fn func() error) error {
 // bind (locateBinding's writable mode is the only way to reach a missing one).
 func withBindingLockAt(loc bindingLoc, fn func() error) error {
 	if loc.plain {
+		// A symlinked cache is refused: MkdirAll accepts it, and the chmod
+		// below would change a shared target's mode (Jibril's BLIND P2 on
+		// #2229). The cache is always the directory itself.
+		if st, err := os.Lstat(loc.dir); err == nil && st.Mode()&os.ModeSymlink != 0 {
+			return exitcode.Newf(exitcode.Usage, "the session binding cache %s is a symbolic link: it must be a real directory, so nothing is written through it (remove the link, then start again)", loc.dir)
+		}
 		if err := os.MkdirAll(loc.dir, 0o700); err != nil {
 			return fmt.Errorf("creating the session binding cache %s: %w", loc.dir, err)
 		}
