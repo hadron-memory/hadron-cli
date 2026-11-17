@@ -211,3 +211,26 @@ func TestTeamListTreeHoistsAT0Children1320(t *testing.T) {
 		}
 	}
 }
+
+// On main a task ref may arrive qualified (typed, or composed from --app), so
+// asking for the reserved project by its qualified handle is still asking for
+// it BY NAME: the row renders and its children nest under it.
+func TestTaskTreeQualifiedAT0RootStillRenders1320(t *testing.T) {
+	for name, args := range map[string][]string{
+		"typed":   {"team", "task", "tree", "hrn:agenttask:acme.com:team:AT0"},
+		"viaApp":  {"team", "task", "tree", "AT0", "--app", "hrn:app:acme.com:team"},
+		"idAsked": {"team", "task", "tree", "at0id"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			responses := taskResponses()
+			responses["AgentTaskTree"] = `{"data":{"agentTaskTree":[` + at0ProjectFieldsJSON1320 + `,` + at0ChildFieldsJSON1320 + `]}}`
+			_, out, err := runTeamTask(t, responses, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, "• AT0 at0id [BACKLOG]") || !strings.Contains(out, "\n  • AT0.7 task7 ") {
+				t.Fatalf("the reserved project asked for by name renders with its children nested:\n%s", out)
+			}
+		})
+	}
+}
