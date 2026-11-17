@@ -93,6 +93,9 @@ type health2027World struct {
 	failList2  string
 	agentTerms string // file the fake agents append SIGTERM traps to
 	agents     []*exec.Cmd
+	// spawns numbers every fixture process launch, keeping ready-file names
+	// unique across spawns of the same name (#2055 item 1).
+	spawns int
 
 	srv     *httptest.Server
 	cfgPath string
@@ -325,12 +328,32 @@ func (w *health2027World) stateFileWrite(t *testing.T, content string) {
 	}
 }
 
+// awaitReady polls a fixture's ready marker for up to 5s and fails the test
+// when it never appears (#2055 item 1): the marker is touched by the fixture
+// process itself, so spawnAgent/spawnChain return only once the process the
+// census must see is provably running — the same handshake the scanner chain
+// tests use (chainReady, dupes_unix_test.go), in-package. A suppressed marker
+// fails HERE, deterministically, instead of letting a half-spawned fixture
+// flake the assertions downstream.
+func (w *health2027World) awaitReady(t *testing.T, ready string) {
+	t.Helper()
+	for i := 0; i < 500; i++ {
+		if _, err := os.Stat(ready); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("fixture never became ready: %s", ready)
+}
+
 // spawnAgent starts a sleeping process named claude or codex with its cwd in
 // the worktree; supervised runs it under a worker-supervise wrapper.
 func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool) int {
 	t.Helper()
 	bin := filepath.Join(w.dir, "bin", name)
-	script := "#!/bin/sh\ntrap 'echo \"term " + name + "\" >> \"" + w.agentTerms + "\"; exit 0' TERM INT\nwhile :; do sleep 1; done\n"
+	w.spawns++
+	ready := filepath.Join(w.dir, fmt.Sprintf("ready-%d-%s", w.spawns, name))
+	script := "#!/bin/sh\ntrap 'echo \"term " + name + "\" >> \"" + w.agentTerms + "\"; exit 0' TERM INT\ntouch \"" + ready + "\"\nwhile :; do sleep 1; done\n"
 	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +375,7 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	c.Dir = w.worktree
 	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
-	time.Sleep(50 * time.Millisecond) // let /proc settle
+	w.awaitReady(t, ready)
 	return c.Process.Pid
 }
 
@@ -410,7 +433,10 @@ func (w *health2027World) settle(t *testing.T, cond func() bool) bool {
 
 // records reads the signal and close records after a quiesce, so a negative
 // assertion ("nothing was touched") cannot pass by reading before a signal
-// lands.
+// lands. This one is deliberately NOT a ready-file handshake (#2055 item 1
+// scope note): it debounces an asynchronous trap whose positive observable
+// (the record file) exists only when the negative assertion is already wrong —
+// there is no marker for "no signal will ever arrive" to wait on.
 func (w *health2027World) records() (string, string) {
 	time.Sleep(200 * time.Millisecond)
 	return w.terms(), w.closes()
@@ -484,8 +510,10 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(w.dir, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	w.spawns++
+	ready := filepath.Join(w.dir, fmt.Sprintf("ready-%d-chain", w.spawns))
 	child := filepath.Join(w.dir, "bin", "claude-child")
-	if err := os.WriteFile(child, []byte("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+	if err := os.WriteFile(child, []byte("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\ntouch \""+ready+"\"\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	shim := filepath.Join(w.dir, "bin", "claude")
@@ -502,7 +530,9 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	c.Dir = w.worktree
 	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
-	time.Sleep(50 * time.Millisecond) // let /proc settle
+	// The LEAF is the chain's last member up; its marker proves the whole
+	// chain exists before the census reads it.
+	w.awaitReady(t, ready)
 }
 
 // #2027 review P1: one logical agent running as a CHAIN (wrapper → shim →
@@ -536,10 +566,12 @@ func TestHealth2027LayeredChainIsOneAgentAndTheStrayIsStopped(t *testing.T) {
 // refused, so a reused pid is skipped, not killed.
 func TestHealth2027StopRefusedWhenIdentityDoesNotMatch(t *testing.T) {
 	w := health2027Setup(t)
-	sleeper := exec.Command("sh", "-c", "while :; do sleep 1; done")
+	w.spawns++
+	ready := filepath.Join(w.dir, fmt.Sprintf("ready-%d-sleeper", w.spawns))
+	sleeper := exec.Command("sh", "-c", "touch \""+ready+"\"\nwhile :; do sleep 1; done")
 	sleeper.Dir = w.worktree
 	startFixture2078(t, sleeper)
-	time.Sleep(50 * time.Millisecond)
+	w.awaitReady(t, ready)
 	if err := stopAgent(sleeper.Process.Pid, 1); err == nil {
 		t.Fatal("a start-time mismatch must refuse the stop")
 	}
