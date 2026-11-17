@@ -4494,7 +4494,8 @@ After a verified C5 relaunch, the poller may close leftover unidentified tabs
 in that worktree. It never reuses a tab or closes the tracked tab. Every pane
 must be unidentified and in the same worktree, a fresh strict census must show
 only the pinned relaunched agent, and the tracked handle must still be in a
-separate tab. Missing proof leaves the tab open; disconnected alone is not
+separate tab. A nested agent match, even in the relaunched agent's own tree,
+leaves the old tab open (known conservative limit). Missing proof leaves the tab open; disconnected alone is not
 proof. Non-Linux closes no unidentified tab. Local `relaunch-terminal-cleanup`
 events carry the worker/session/terminal handle, outcome applied|skipped|failed
 and reason `DEAD_TAB_CLOSED`, `TRACKED_TERMINAL`, `IDENTIFIED_TERMINAL`,

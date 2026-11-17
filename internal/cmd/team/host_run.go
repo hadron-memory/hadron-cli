@@ -341,6 +341,15 @@ An actual expired launch/proof wait remains TIMEOUT. Older servers rejecting
 the new reasons as schema skew keep FAILED with its local cause; no borrowed
 code or false CAP_REACHED is sent.
 
+After a verified relaunch, leftover unidentified tabs may be closed only with
+fresh strict process proof. The tracked tab, tabs with identified or foreign
+worktree panes, and tabs whose identity cannot be proved stay open. This
+cleanup currently requires the relaunched PID to be the sole agent match:
+even a nested agent in its own tree leaves the old tab open. Disconnected
+alone is not proof. Local relaunch-terminal-cleanup events say why a tab was
+closed or retained; cleanup failure does not change the relaunch outcome.
+Non-Linux hosts close no unidentified tab. No old terminal is reused.
+
 
 THE HOST KEY is never put in a launched agent's environment, argv or files.
 It is read only from key_file, which must be mode 0600 or tighter — never

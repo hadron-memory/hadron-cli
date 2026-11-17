@@ -43,7 +43,10 @@ each close, re-run the strict census and verify the launched agent's pinned
 identity. The accepted proof is deliberately stricter than merely tree
 membership: exactly the pinned launched PID and no other agent match. A nested
 agent/tool subprocess therefore defers cleanup until another relaunch rather
-than being guessed safe. This satisfies the no-other-tree rule conservatively.
+than being guessed safe. Wolfgang accepted this conservative limit in team chat #110808. QA must
+check real Claude and Codex relaunches on scratch workers for nested agent
+matches; if the ordinary tree prevents cleanup, file the ancestry-proof
+follow-up with that evidence.
 A disconnected flag alone never authorizes a close. Connected bare shells may
 close under the stronger census proof that no agent exists apart from the
 relaunched one. Non-Linux never closes an unidentified tab, even with an
