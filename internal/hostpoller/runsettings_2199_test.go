@@ -272,3 +272,32 @@ func TestCodexAccountWithoutAHomeLaunchesCodex2199(t *testing.T) {
 		t.Fatal("a Claude profile on a codex launcher must still be refused")
 	}
 }
+
+// The families list is an exhaustive allowlist (#2204 BLIND P3): a list that
+// leaves out the profile's own family refuses even that family.
+func TestAccountFamiliesListIsExhaustive2199(t *testing.T) {
+	prof := LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}
+	acct := AccountProfile{Bin: "claude-holger", Families: []string{"glm"}}
+	if _, err := ResolveRun(prof, acct, RunSettings{Family: "claude"}, "a"); err == nil {
+		t.Fatal("a list without the profile family must refuse it")
+	}
+}
+
+// Load-time validation of account families (#2204 BLIND P3): an unsupported
+// family is refused; canonical aliases are accepted.
+func TestAccountFamiliesLoadValidation2199(t *testing.T) {
+	cfg := func(families ...string) *Config {
+		return &Config{App: "hrn:app:acme.com:team", Label: "box1", PollIntervalSeconds: 30, WorktreesRoot: "/w", StateFile: "/w/s.json",
+			Workers: map[string]WorkerConfig{"iris": {Family: "claude", LaunchVia: LaunchViaOrca, DiskTmp: "/disk/iris", Worktrees: []string{"r/iris"},
+				Profile: &LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}}},
+			Accounts:   map[string]AccountProfile{"a": {Bin: "claude-holger", Families: families}},
+			OrcaLaunch: OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"},
+		}
+	}
+	if err := cfg("claude", "gemini").validate(); err == nil {
+		t.Fatal("a family with no launch template must be refused at load")
+	}
+	if err := cfg("anthropic", "openai", "glm", "kimi").validate(); err != nil {
+		t.Fatalf("canonical aliases and supported families load: %v", err)
+	}
+}

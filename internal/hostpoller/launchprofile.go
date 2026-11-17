@@ -46,9 +46,10 @@ type AccountProfile struct {
 	// account); empty for the Claude family, whose launcher scripts select
 	// their own CLAUDE_CONFIG_DIR.
 	CodexHome string `yaml:"codex_home"`
-	// Families are the families this account explicitly has a template for
-	// (#2199): the only ones a start may name other than the worker's own
-	// profile family. Unset, the account launches just that family.
+	// Families is the explicit allowlist (#2199): when present it must name
+	// EVERY family this account launches, the worker's own profile family
+	// included; a start naming a family not in it is refused. Unset, the
+	// account launches just the worker's profile family.
 	Families []string `yaml:"families"`
 }
 
