@@ -40,6 +40,12 @@ CHECK is the separate server-derived team-channel checking status:
 NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
 server did not make the result available. This experiment adds no overdue
 alarm, and the CLI does not calculate the status from local time or tasks.
+NO_SESSION carries the server's reason: IDLE reads "open, quiet" with the
+age since lastActiveAt (30h, for example), ENDED reads "ended", and
+NEVER_BOUND reads "never bound". A missing reason stays bare NO_SESSION.
+Quiet age uses this computer's clock for display only and decides nothing;
+a missing or invalid timestamp has no age. --json preserves lastActiveAt
+and checkStatus.noSessionReason (nullable). Requires server #3084 or newer.
 
 TERMINAL is the worker's latest terminal report from a host (hadron-server
 #2771): the status (busy, idle, locked or dark), the reason for locked or dark,
@@ -208,7 +214,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(modelGroupsCell(e.ModelGroups, e.ModelGroupsError)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
+					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckActivityLabel(e.CheckStatus, e.LastActiveAt, now)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(modelGroupsCell(e.ModelGroups, e.ModelGroupsError)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
