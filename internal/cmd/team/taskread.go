@@ -391,7 +391,12 @@ refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
 tag, not a separator. --source matches the exact value, never a prefix, and so
-does --external-id: the task claiming that outside item (at most one per App).
+does --external-id: the tasks that claim that outside item. An external id is
+held by at most one ACTIVE task (backlog, pending or started) per App; finished
+and cancelled tasks keep it, so the list can hold several, newest first. The
+live holder is the one still active, and one call finds it:
+--external-id <id> --status BACKLOG --status PENDING --status STARTED (an empty
+list means nobody holds it now; the newest ended task is not a holder).
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
@@ -596,7 +601,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
-	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the tasks claiming exactly this external id, such as an issue URL (no prefix matching); several can match (one ACTIVE holder plus finished or cancelled history, newest first)")
 	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")

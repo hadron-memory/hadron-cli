@@ -701,7 +701,7 @@ query AgentTaskListFiltered(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN. It can match several tasks (at most one ACTIVE plus finished or cancelled history, newest first); with status [BACKLOG, PENDING, STARTED] it finds the live holder.
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)
@@ -987,7 +987,7 @@ query AgentTaskListUnresolved(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN. It can match several tasks (at most one ACTIVE plus finished or cancelled history, newest first); with status [BACKLOG, PENDING, STARTED] it finds the live holder.
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)
@@ -1139,7 +1139,7 @@ query AgentTaskListCreator(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN. It can match several tasks (at most one ACTIVE plus finished or cancelled history, newest first); with status [BACKLOG, PENDING, STARTED] it finds the live holder.
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)

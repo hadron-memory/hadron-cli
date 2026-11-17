@@ -6058,13 +6058,19 @@ Adapter reconcile JSON (list and `--track`): `skipped` remains the total. Additi
   | `PROPERTIES_KEY_RESERVED` | 2 |
   | `APP_PROPERTIES_CONFLICT` | 5 |
 - **`task create --external-id <id>`** records the outside item the task
-  claims (an issue's URL). It is unique per App, set once and never edited, so
-  there is no update flag.
+  claims (an issue's URL). At most one ACTIVE task (backlog, pending or started)
+  per App holds a given id; finished and cancelled tasks keep it without
+  blocking a new claim (cor:agt:120:02, cli#2264). It is set once and never
+  edited, so there is no update flag.
   - A supplied blank is exit 2 before any call; every other check (length,
     characters) is the server's.
   - A duplicate is `TASK_EXTERNAL_ID_TAKEN`, exit 5, `serverCode` in the
-    envelope, naming no task. `task list --external-id <id>` finds the holder
-    (an exact match, refused with `--team`).
+    envelope, naming no task. The holder is the ACTIVE task:
+    `task list --external-id <id> --status BACKLOG --status PENDING --status STARTED`
+    finds it in one call (an empty list: nobody holds it now). Without the
+    status filter the same list also returns the id's finished and cancelled
+    tasks, newest first, so it can hold several (an exact match, refused with
+    `--team`).
   - `task get` prints an `external id:` line, and every task `--json` carries
     `externalId` (null when none). Every task read selects it, so it needs a
     server with #3125 S2; no CLI release before that deployment.
