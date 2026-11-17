@@ -301,3 +301,22 @@ func TestAccountFamiliesLoadValidation2199(t *testing.T) {
 		t.Fatalf("canonical aliases and supported families load: %v", err)
 	}
 }
+
+// #2209: the "settings not applied" statement is per start. A poller that was
+// itself started with the variable set must not hand it to every agent, or a
+// start that named nothing would bind as "not applied".
+func TestAnInheritedSettingsAppliedVariableNeverReachesAnAgent2209(t *testing.T) {
+	t.Setenv(StartSettingsAppliedEnvVar, "false")
+	p, srv, host := testPoller(t)
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}} // names no settings
+	step(t, p)
+	if len(host.launches) != 1 {
+		t.Fatalf("launches = %d", len(host.launches))
+	}
+	for _, kv := range host.launches[0].Env {
+		if strings.HasPrefix(kv, StartSettingsAppliedEnvVar+"=") {
+			t.Fatalf("an inherited statement reached the agent: %q", kv)
+		}
+	}
+}
