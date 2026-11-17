@@ -32,6 +32,11 @@ func TestLockBindingDeclinesForeignCreation2076(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "nothing was created") || !strings.Contains(err.Error(), "start the worker once") || !strings.Contains(err.Error(), fmt.Sprintf("uid %d", os.Geteuid()+1000000)) || !strings.Contains(err.Error(), fmt.Sprintf("uid %d", os.Geteuid())) {
 				t.Errorf("expected actionable uid refusal, got %v", err)
 			}
+			// #2222: the refusal covers a missing lock inside an existing
+			// cache as well as a missing cache directory, so it names both.
+			if err != nil && !strings.Contains(err.Error(), "binding cache or lock file") {
+				t.Errorf("refusal must name the cache directory or the lock file, got %v", err)
+			}
 			missing := cache
 			if existingCache {
 				missing = filepath.Join(cache, bindingLockFileName)
