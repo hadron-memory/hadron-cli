@@ -62,7 +62,8 @@ func TestUsageActivity65OmissionAndScope(t *testing.T) {
 }
 func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 	response := `{"data":{"usageActivity":[{"date":"2026-10-01","reads":3,"writes":0},{"date":"2026-10-03","reads":0,"writes":4}]}}`
-	args := []string{"usage", "activity", "--from", "2026-10-01T00:00:00Z", "--to", "2026-10-04T00:00:00Z", "--bucket", "WEEK", "--time-zone", "Asia/Tokyo", "--memory", "m1"}
+	const from, to = "2026-10-01T00:00:00Z", "2026-10-04T00:00:00Z"
+	args := []string{"usage", "activity", "--from", from, "--to", to, "--bucket", "WEEK", "--time-zone", "Asia/Tokyo", "--memory", "m1"}
 	out, stderr, code, calls, n := activity65Run(t, response, append(args, "--json")...)
 	if code != 0 || n != 1 {
 		t.Fatalf("%d %s %s", code, out, stderr)
@@ -73,7 +74,7 @@ func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 	}
 	var v map[string]any
 	_ = json.Unmarshal(calls["UsageActivity"], &v)
-	for key, want := range map[string]any{"from": args[3], "to": args[5], "bucket": "WEEK", "timeZone": "Asia/Tokyo"} {
+	for key, want := range map[string]any{"from": from, "to": to, "bucket": "WEEK", "timeZone": "Asia/Tokyo"} {
 		if v[key] != want {
 			t.Fatal(key, v)
 		}

@@ -61,8 +61,10 @@ func TestAsWorkerAppRefusalParity1896(t *testing.T) {
 				if jsonMode {
 					args = append(args, "--json")
 				}
-				var missing asWorkerResult1896
-				for _, kind := range []string{"missing", "forbidden", "auth", "scope", "internal", "mixed"} {
+				// The missing-App result is the baseline every other kind is
+				// compared with, so it is run explicitly first and does not
+				// depend on the order of the kinds below (cli#2239 D-P3-3).
+				run := func(kind string) asWorkerResult1896 {
 					responses := c1Responses()
 					if arm == "worker-target" {
 						responses["GetWorker"] = strings.ReplaceAll(responses["GetWorker"], "capp100000000000000000000", "capp900000000000000000000")
@@ -83,12 +85,15 @@ func TestAsWorkerAppRefusalParity1896(t *testing.T) {
 					}
 					r := runAsWorker1896(t, responses, nil, args...)
 					assertNoWrite1896(t, r)
+					return r
+				}
+				missing := run("missing")
+				if missing.exit != exitcode.Usage || !strings.Contains(missing.stdout+missing.stderr, "nothing was") {
+					t.Fatalf("missing App: %+v", missing)
+				}
+				for _, kind := range []string{"forbidden", "auth", "scope", "internal", "mixed"} {
+					r := run(kind)
 					switch kind {
-					case "missing":
-						missing = r
-						if r.exit != exitcode.Usage || !strings.Contains(r.stdout+r.stderr, "nothing was") {
-							t.Fatalf("missing App: %+v", r)
-						}
 					case "forbidden":
 						if r.exit != missing.exit || r.stdout != missing.stdout || r.stderr != missing.stderr {
 							t.Fatalf("unreadable App differs from missing: got exit=%d stdout=%q stderr=%q; missing exit=%d stdout=%q stderr=%q", r.exit, r.stdout, r.stderr, missing.exit, missing.stdout, missing.stderr)
@@ -257,8 +262,9 @@ func TestBindingsAppOtherCallerParity1896(t *testing.T) {
 				if jsonMode {
 					args = append(args, "--json")
 				}
-				var missing asWorkerResult1896
-				for _, kind := range []string{"missing", "forbidden", "auth", "scope"} {
+				// Baseline run explicitly first: no kind depends on loop order
+				// (cli#2239 D-P3-3).
+				run := func(kind string) asWorkerResult1896 {
 					responses := c1Responses()
 					responses["CreateNode"] = `{"data":{"createNode":` + nodeJSON + `}}`
 					switch kind {
@@ -296,16 +302,19 @@ func TestBindingsAppOtherCallerParity1896(t *testing.T) {
 							t.Fatalf("unexpected lookup sequence: %+v", r.calls)
 						}
 					}
+					return r
+				}
+				missing := run("missing")
+				if tc.authored {
+					if missing.stderr != "" {
+						t.Fatalf("missing App should silently omit attribution: %q", missing.stderr)
+					}
+				} else if missing.exit != exitcode.Usage {
+					t.Fatalf("missing App not usage: %+v", missing)
+				}
+				for _, kind := range []string{"forbidden", "auth", "scope"} {
+					r := run(kind)
 					switch kind {
-					case "missing":
-						missing = r
-						if tc.authored {
-							if r.stderr != "" {
-								t.Fatalf("missing App should silently omit attribution: %q", r.stderr)
-							}
-						} else if r.exit != exitcode.Usage {
-							t.Fatalf("missing App not usage: %+v", r)
-						}
 					case "forbidden":
 						if r.exit != missing.exit || r.stdout != missing.stdout || r.stderr != missing.stderr {
 							t.Fatalf("unreadable differs from missing: got %+v; missing %+v", r, missing)
