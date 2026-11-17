@@ -35,7 +35,7 @@ func runSupersededBody1845(t *testing.T, status int, body string, jsonMode bool)
 	t.Helper()
 	writeTeamBinding(t)
 	calls := []string{}
-	srv := statusServer1495(t, map[string]resp1495{"GetWorker": {status, string(body)}}, func(op string) { calls = append(calls, op) })
+	srv := statusServer1495(t, map[string]resp1495{"GetWorker": {status, body}}, func(op string) { calls = append(calls, op) })
 	setTeamBindingServer(t, srv.URL)
 	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
 	before, err := os.ReadFile(path)
