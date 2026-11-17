@@ -1,0 +1,11 @@
+# cli#2020 (hadron-server#4042/#4151, cor:dmo:050:10 Proposed, cor:acl:030:01):
+# the server's tool-choice DECISION, nothing else: AUTO, FORCED, or null when
+# nothing resolved. Never a key, id, name, provider or model.
+query ChatEffectiveToolChoice($chatId: String!) {
+  chatEffectiveToolChoice(chatId: $chatId)
+}
+
+# Pure: no rows read, no usage. Any signed-in caller; no owner argument.
+query ChatToolChoiceFor($provider: String!, $model: String!) {
+  chatToolChoiceFor(provider: $provider, model: $model)
+}

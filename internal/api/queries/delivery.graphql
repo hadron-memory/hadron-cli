@@ -135,6 +135,27 @@ query TeamDueWakes($appRef: String!,
  $accepts: [WakeKind!]
 ) {
   dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts) {
+    ...DueWakesPageFields
+  }
+}
+
+# cli1833: explicit no-spend preview; ordinary reads never mention preview.
+query TeamDueWakesPreview($appRef: String!,
+ # @genqlient(omitempty: true)
+ $workerRefs: [String!],
+ # @genqlient(omitempty: true)
+ $first: Int,
+ # @genqlient(omitempty: true)
+ $after: String,
+ # @genqlient(omitempty: true)
+ $accepts: [WakeKind!]
+) {
+  dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, preview: true) {
+    ...DueWakesPageFields
+  }
+}
+
+fragment DueWakesPageFields on DueWakePage {
     status
     withheld
     dormant { worker { id name } mentions }
@@ -157,5 +178,4 @@ query TeamDueWakes($appRef: String!,
       }
     }
     pageInfo { hasNextPage endCursor }
-  }
 }

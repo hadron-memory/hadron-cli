@@ -166,6 +166,18 @@ func (e Env) Install(s Spec) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if e.job().Name == Sweep.Name && k != Systemd {
+		return Result{}, usagef("the team sweep requires systemd user units for crash limiting and OnFailure logging; nothing written")
+	}
+	if e.job().Name == Sweep.Name {
+		s.Logger, err = e.Which("logger")
+		if err != nil {
+			return Result{}, usagef("logger is required on PATH for sweep OnFailure logging")
+		}
+		if err := ValidatePath("logger", s.Logger); err != nil {
+			return Result{}, err
+		}
+	}
 	if k == Cron {
 		if _, err := cronSchedule(s.Interval); err != nil {
 			return Result{}, err
@@ -244,7 +256,11 @@ func (e Env) cronSnapshot() ([]string, error) {
 
 func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 	var changed bool
-	for _, f := range []struct{ path, body string }{{e.servicePath(), SystemdService(s)}, {e.timerPath(), SystemdTimer(s)}} {
+	files := []struct{ path, body string }{{e.servicePath(), SystemdService(s)}, {e.timerPath(), SystemdTimer(s)}}
+	if e.job().Name == Sweep.Name {
+		files = append(files, struct{ path, body string }{filepath.Join(e.unitDir(), Sweep.Name+"-failed.service"), SweepFailureService(s)})
+	}
+	for _, f := range files {
 		c, err := writeFile(f.path, f.body)
 		if err != nil {
 			return res, err
@@ -382,7 +398,11 @@ func (e Env) Uninstall() (Result, error) {
 			errs = append(errs, fmt.Errorf("%s failed (%s); the timer may still be running, files kept; run `%s` again", strings.Join(argv, " "), oneLine(out, err), e.job().UninstallCmd))
 		} else {
 			res.Kind, res.Changed = Systemd, true
-			for _, p := range []string{e.timerPath(), e.servicePath()} {
+			paths := []string{e.timerPath(), e.servicePath()}
+			if e.job().Name == Sweep.Name {
+				paths = append(paths, filepath.Join(e.unitDir(), Sweep.Name+"-failed.service"))
+			}
+			for _, p := range paths {
 				if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 					errs = append(errs, err)
 				} else {

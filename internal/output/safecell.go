@@ -23,6 +23,20 @@ const cellMaxRunes = 256
 // unchanged (roster, automation and member keep their own guards).
 func SafeCell(s string) string { return SafeLine(s, cellMaxRunes) }
 
+// Neutralised reports whether a rune is replaced by a space in terminal text:
+// the control characters, the format characters (bidi overrides and isolates,
+// directional marks, zero-width characters, the byte order mark, the soft
+// hyphen) and the line and paragraph separators. It is the ONE classification:
+// SafeLine applies it, and the typed wake line (internal/delivery) folds the same
+// control and format characters, so a table and the agent's composer agree on
+// which characters are neutralised (hadron-cli#2154). The two differ in what
+// they do around that classification: the typed line also folds ordinary
+// whitespace, collapses runs and trims the ends, while SafeLine keeps spacing
+// as it is and may truncate to its rune bound.
+func Neutralised(r rune) bool {
+	return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp)
+}
+
 // SafeLine is SafeCell with the caller's rune bound, for one-line messages
 // (an error refusal) that need more room than a table cell.
 func SafeLine(s string, maxRunes int) string {
@@ -34,7 +48,7 @@ func SafeLine(s string, maxRunes int) string {
 			out := []rune(b.String())
 			return string(out[:maxRunes-1]) + "…"
 		}
-		if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
+		if Neutralised(r) {
 			r = ' '
 		}
 		b.WriteRune(r)

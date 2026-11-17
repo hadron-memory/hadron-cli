@@ -228,9 +228,22 @@ func TestC3bAllHumanPrintsCompletedProvenance(t *testing.T) {
 func withoutLint2007(calls *[]attnCall) []attnCall {
 	var got []attnCall
 	for _, c := range *calls {
-		if !strings.HasSuffix(c.Op, "Lint") && !strings.HasSuffix(c.Op, "LintAt") && !strings.HasSuffix(c.Op, "PromptsLint") {
+		switch c.Op {
+		case "GetWorkerSignatureLint", "GetWorkerPromptLint", "WorkerServedPromptLint", "RunServedPromptLint",
+			"SessionServedPromptsLint", "SessionServedPromptLintAt", "ChatServedPromptsLint", "ChatServedPromptLintAt":
+		default:
 			got = append(got, c)
 		}
 	}
 	return got
+}
+
+func TestWithoutLint2014KeepsUnrelatedOperations(t *testing.T) {
+	calls := []attnCall{{Op: "FutureLint"}, {Op: "FutureLintAt"}, {Op: "FuturePromptsLint"},
+		{Op: "GetWorkerSignatureLint"}, {Op: "GetWorkerPromptLint"}, {Op: "WorkerServedPromptLint"}, {Op: "RunServedPromptLint"},
+		{Op: "SessionServedPromptsLint"}, {Op: "SessionServedPromptLintAt"}, {Op: "ChatServedPromptsLint"}, {Op: "ChatServedPromptLintAt"}}
+	got := withoutLint2007(&calls)
+	if len(got) != 3 || got[0].Op != "FutureLint" || got[1].Op != "FutureLintAt" || got[2].Op != "FuturePromptsLint" {
+		t.Fatalf("filter swallowed an unrelated operation: %+v", got)
+	}
 }

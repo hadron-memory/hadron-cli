@@ -291,6 +291,18 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			}
 		}
 	}
+	// cli#2206: the settings the task asks for, and beside them what its run
+	// applied (cor:agt:050:01); both, or neither.
+	if r := task.RunSettings; r != nil && task.AppliedRunSettings != nil {
+		if err := line("  run settings: family=%s model=%s tier=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Tier), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
+	if r := task.AppliedRunSettings; r != nil && task.RunSettings != nil {
+		if err := line("  applied: family=%s model=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
 	if task.Result != nil {
 		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
 			return err
@@ -410,9 +422,14 @@ Every other filter, and --limit/--offset, is refused with --team (exit 2);
 --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
-The open-alarm counts come from a complete oldest-first walk of the App's alarm
-events. If that walk stops early (the 100-page bound, or the server reports more
-events without advancing its cursor) the counts are lower bounds and say so:
+The open-alarm counts are each task's alarms IN EFFECT (cor:agt:050:20), the
+server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+never worked out here — read by a complete oldest-first walk. An alarm whose
+escalation ended is not counted, even while no one has acknowledged it; the
+end can lag by up to one evaluator pass, and the alarm reads as in effect
+until it is recorded. If that walk
+stops early (the 100-page bound, or the server reports more events without
+advancing its cursor) the counts are lower bounds and say so:
 text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
 task in the table; --json marks every task openAlarmsIncomplete:true (a missing
 openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
@@ -907,9 +924,13 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a task's parent/child chain",
 		Long: `Render the task and every task below it — children, their children and so
 on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The alarms come from the App's unacknowledged alarm events, joined
-onto the tree client-side — the join is presentation, the alarm facts are the
-server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
+per node. The count is the task's alarms IN EFFECT (cor:agt:050:20): the
+server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+joined onto the tree client-side — the join is presentation, the alarm facts
+are the server's, and nothing is worked out here. An alarm whose escalation
+ended is not counted though it may still be unacknowledged; the server can
+take up to one evaluator pass to record the end, and the alarm reads as in
+effect until then. To see an alarm in full use ` + "`team events --alarms`" + `; to
 acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
 or missing root exits 4. Text cells neutralise terminal controls and are bounded;
 --json carries complete, original values.
@@ -1047,8 +1068,13 @@ func (s *alarmWalkStop) explain() string {
 		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
 }
 
-// openAlarmsByTask counts the App's alarm events not yet acknowledged, keyed
-// by task — `task tree`'s alarm join, shared with `task list --team`. It walks
+// openAlarmsByTask counts the App's alarms IN EFFECT, keyed by task — `task
+// tree`'s alarm join, shared with `task list --team` (cli#2053 F4). "In
+// effect" is the server's answer (the alarmsInEffect filter, the same one
+// `team events --alarms-in-effect` passes through; cor:agt:050:20, V77): every
+// row the server returns is counted and nothing is re-derived here, not even
+// from acknowledgedAt, so the count and the events filter cannot disagree on
+// one alarm. It walks
 // OLDEST-FIRST to the server's page end (hasMore:false): an open alarm can be
 // arbitrarily old, so a newest-end window can never prove "no open alarms",
 // and a full last page is the last page, never "more". A walk that cannot
@@ -1072,7 +1098,7 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
 	}
 	for pages := 1; ; pages++ {
-		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
+		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
 		if err != nil {
 			return nil, nil, mapTaskError(err)
 		}
@@ -1087,7 +1113,9 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 				continue
 			}
 			seen[e.Id] = true
-			if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
+			// Severity says the row is an alarm at all (a type check, not an
+			// in-effect rule); acknowledgedAt is deliberately not read.
+			if e.Severity != nil && e.TaskId != nil {
 				alarmsByTask[*e.TaskId]++
 			}
 		}
@@ -1169,4 +1197,12 @@ func safeTaskRequirementList(values []string) string {
 		return "—"
 	}
 	return safeTaskValues(values, ",")
+}
+
+// settingCell renders one run setting: its value, or - when the task names none.
+func settingCell(v *string) string {
+	if v == nil {
+		return "-"
+	}
+	return output.SafeCell(*v)
 }

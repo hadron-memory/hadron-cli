@@ -117,7 +117,7 @@ func TestInputs1337StartWire(t *testing.T) {
 }
 
 func TestInputs1337HostCapabilityWire(t *testing.T) {
-	cfg := writeHostConfig(t, "capabilities: [worker.reset-context]\n")
+	cfg := writeHostConfig(t, "capabilities: [worker.future-test]\n")
 	srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": `{"data":{"collectHostOperations":[]}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -133,7 +133,7 @@ func TestInputs1337HostCapabilityWire(t *testing.T) {
 	if err := json.Unmarshal(calls()[0].vars, &v); err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Input.Capabilities) != 1 || v.Input.Capabilities[0] != "worker.reset-context" {
+	if len(v.Input.Capabilities) != 1 || v.Input.Capabilities[0] != "worker.future-test" {
 		t.Fatal(v)
 	}
 }
@@ -424,7 +424,7 @@ func TestInputs1337CountersDoNotRequireResumeClaim(t *testing.T) {
 }
 
 func TestInputs1337CapabilityDeclarationWarnsWithoutAHandler(t *testing.T) {
-	cfg := writeHostConfig(t, "capabilities: [worker.reset-context]\n")
+	cfg := writeHostConfig(t, "capabilities: [worker.future-test]\n")
 	srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": `{"data":{"collectHostOperations":[]}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -433,7 +433,7 @@ func TestInputs1337CapabilityDeclarationWarnsWithoutAHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	warning := f.IOStreams.ErrOut.(*strings.Builder).String()
-	if !strings.Contains(warning, "worker.reset-context") || !strings.Contains(warning, "no handler") || !strings.Contains(warning, "FAILED") {
+	if !strings.Contains(warning, "worker.future-test") || !strings.Contains(warning, "no handler") || !strings.Contains(warning, "FAILED") {
 		t.Fatalf("unsupported declaration was silent: %s", warning)
 	}
 	if len(calls()) != 2 {

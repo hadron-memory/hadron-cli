@@ -1,9 +1,9 @@
-//go:build !windows
-
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,21 +18,25 @@ import (
 // cache then lives in the directory's own .hadron-team/, under the same lock,
 // and the directory binds one worker.
 
-const plainCache1391 = ".hadron-team"
+const plainCache1391 = team.PlainDirCacheName
+
+// fakeGitAnswer1969 makes git answer with the given stderr (exit 128) through
+// the injected seam, on every platform (cli#1969 F6, F10).
+func fakeGitAnswer1969(t *testing.T, stderr string) {
+	t.Helper()
+	t.Cleanup(team.SetGitDirRunner(func(context.Context) ([]byte, []byte, error) {
+		return nil, []byte(stderr + "\n"), errors.New("exit status 128")
+	}))
+	t.Setenv(team.GitDirEnv, "")
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+}
 
 // plainDir1391 is a directory with no .git and no HADRON_TEAM_GIT_DIR, and a
-// `git` that answers as it does there — so the test does not depend on where
+// git that answers as it does there — so the test does not depend on where
 // the temp dir happens to sit.
 func plainDir1391(t *testing.T) string {
 	t.Helper()
-	bin := t.TempDir()
-	script := "#!/bin/sh\necho 'fatal: not a git repository (or any of the parent directories): .git' >&2\nexit 128\n"
-	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o700); err != nil { // #nosec G306 — a test shim must be executable
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
-	t.Setenv(team.GitDirEnv, "")
-	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	fakeGitAnswer1969(t, "fatal: not a git repository (or any of the parent directories): .git")
 	dir := t.TempDir()
 	t.Chdir(dir)
 	return dir
@@ -53,7 +57,7 @@ func startStubs1391() map[string]string {
 
 func readPlainBinding1391(t *testing.T, dir string) map[string]any {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(dir, plainCache1391, "hadron-team-session.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, plainCache1391, team.BindingFileName))
 	if err != nil {
 		t.Fatalf("the plain directory must hold the binding cache: %v", err)
 	}
@@ -81,7 +85,7 @@ func TestPlainDir1391StartBindsAndWhoamiReportsTheWorker(t *testing.T) {
 	if b := readPlainBinding1391(t, dir); b["sessionId"] != "s-new" || b["workerName"] != "Iris" {
 		t.Fatalf("cached binding: %v", b)
 	}
-	if !strings.Contains(out.String(), filepath.Join(plainCache1391, "hadron-team-session.json")) {
+	if !strings.Contains(out.String(), filepath.Join(plainCache1391, team.BindingFileName)) {
 		t.Errorf("start must report where it cached the binding: %s", out.String())
 	}
 	f2, out2 := testFactory(t)
@@ -124,7 +128,7 @@ func TestPlainDir1391ShedWritesCheckpointAndClaim(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, plainCache1391, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, plainCache1391, team.BindingFileName), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	url, rig := shedServer(t, nil)
@@ -184,7 +188,7 @@ func TestPlainDir1391SecondWorkerStartIsRefusedBeforeAnyWrite(t *testing.T) {
 			if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+			cache := filepath.Join(dir, plainCache1391, team.BindingFileName)
 			if err := os.WriteFile(cache, []byte(bindingWithTeamFixture), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -243,7 +247,7 @@ func TestPlainDir1391SameNameWorkerOfAnotherAppIsRefusedBeforeAnyMutation(t *tes
 				if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
 					t.Fatal(err)
 				}
-				cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+				cache := filepath.Join(dir, plainCache1391, team.BindingFileName)
 				if err := os.WriteFile(cache, []byte(bindingWithTeamFixture), 0o600); err != nil {
 					t.Fatal(err)
 				}
@@ -290,7 +294,7 @@ func TestPlainDir1391SameWorkerForceRebindStillReplaces(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+	cache := filepath.Join(dir, plainCache1391, team.BindingFileName)
 	if err := os.WriteFile(cache, []byte(strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-old"`, 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +327,7 @@ func TestPlainDir1391ResumeOverABindingWithoutWorkerIDRefusesBeforeTheClaim(t *t
 	if err := os.MkdirAll(filepath.Join(dir, plainCache1391), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cache := filepath.Join(dir, plainCache1391, "hadron-team-session.json")
+	cache := filepath.Join(dir, plainCache1391, team.BindingFileName)
 	legacy := `{"sessionId":"s-old","workerName":"Iris","agentId":"agt1"}`
 	if err := os.WriteFile(cache, []byte(legacy), 0o600); err != nil {
 		t.Fatal(err)

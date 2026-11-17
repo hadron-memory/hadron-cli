@@ -8,9 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -42,7 +44,10 @@ no repository): start, resume and shed there keep the binding in a hidden
 .hadron-team/ directory inside that directory, under the same lock. Such a
 directory binds ONE worker: another worker's start there is refused, never
 shared — give each worker its own directory. Only the directory a command
-runs in is looked at, never a parent.
+runs in is looked at, never a parent. Running git init in such a directory
+makes it a worktree: the binding then lives in the git dir and the cache in
+.hadron-team/ is no longer read, so whoami there shows no binding until you
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -84,10 +89,12 @@ holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
+	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
+	cmd.AddCommand(newCmdSessionResetContext(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))
@@ -208,6 +215,10 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 
 const sessionPageSize = 200
 
+// sessionScanRestarts bounds how often a scan that fell short of the total
+// starts over from offset 0 (cli#2030).
+const sessionScanRestarts = 3
+
 // scanSessions pages sessionsPage (cli#1339; ordered startedAt desc; the server
 // has no active filter) and calls visit per session until visit returns false
 // or the list is exhausted. workerRef narrows server-side to one worker's
@@ -216,12 +227,37 @@ const sessionPageSize = 200
 // exist means the list is not advancing (a server ignoring the offset), which
 // fails the read rather than looping or returning a partial list; a row shifted
 // onto the next page by a concurrent insert is skipped as the duplicate it is.
+//
+// An insert between page reads shifts the offsets (cor:api:120:05: offset paging
+// skips or repeats rows on a changing list), so the newest row can land before
+// the offset and the scan ends one short of the total (cli#2030). That is not a
+// server fault: the scan restarts from offset 0, keeping what it has seen so no
+// session is visited twice, up to sessionScanRestarts times. Rows are collected
+// and visited only once the list is complete: a restart finds the concurrent
+// insert after the older rows, so the recovered list is put back in the
+// documented newest-first order (startedAt desc, id desc) before any caller
+// sees it — callers slice and pick "the newest" from that order. It stays
+// fail-closed (cor:api:120:04) — when the restarts run out the read fails and
+// never reports a partial list as complete, or as "unbound".
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	return scanSessionsFiltered(ctx, client, repo, workerRef, nil, nil, visit)
 }
 func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
+	var rows []gen.TeamSessionFields
+	restarts, readAtRestart := 0, -1
+	finish := func() error {
+		if restarts > 0 {
+			sortNewestFirst(rows)
+		}
+		for _, r := range rows {
+			if !visit(r) {
+				return nil
+			}
+		}
+		return nil
+	}
 	for offset := 0; ; {
 		off := offset
 		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
@@ -236,20 +272,63 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			}
 			seen[s.Id] = true
 			fresh++
-			if !visit(s.TeamSessionFields) {
-				return nil
-			}
+			rows = append(rows, s.TeamSessionFields)
 		}
 		offset += len(page.Items)
 		if !page.HasMore && len(seen) >= page.Total {
-			return nil
+			return finish()
+		}
+		if fresh == 0 && len(seen) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages it has already read: every row the
+			// server counts is in hand, so keep paging to the end. Bounded by the
+			// offset reaching the total, and an empty page still fails below, so a
+			// server that ignores the offset or claims more forever cannot loop.
+			continue
 		}
 		if fresh == 0 {
 			// Nothing new while the total is still unmet is a partial list, whatever
-			// hasMore says: fail rather than return it.
-			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			// hasMore says. A concurrent insert is the usual cause: start over
+			// (bounded) rather than return it; out of restarts, fail.
+			//
+			// Churn and a stuck server look alike on one page, but not across
+			// passes: churn leaves each restarted pass with a row it had not read,
+			// a stuck server (offset ignored, or a total that never matches) leaves
+			// it exactly where the last pass stopped. Retrying cannot help the
+			// second, so it keeps the "not advancing" diagnosis.
+			if len(seen) == readAtRestart {
+				return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			}
+			if restarts < sessionScanRestarts {
+				restarts++
+				readAtRestart = len(seen)
+				offset = 0
+				continue
+			}
+			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts); retry the command", len(seen), page.Total, restarts)
 		}
 	}
+}
+
+// sortNewestFirst restores the server's session order (startedAt desc, id desc)
+// after a restarted scan appended a concurrent insert last (cli#2030). The
+// timestamps are the server's RFC 3339 strings; an unparsable one sorts by its
+// text, which is the same order for the server's fixed-width UTC form.
+func sortNewestFirst(rows []gen.TeamSessionFields) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if a.StartedAt != b.StartedAt {
+			ta, ea := time.Parse(time.RFC3339Nano, a.StartedAt)
+			tb, eb := time.Parse(time.RFC3339Nano, b.StartedAt)
+			if ea == nil && eb == nil {
+				if !ta.Equal(tb) {
+					return ta.After(tb)
+				}
+			} else {
+				return a.StartedAt > b.StartedAt
+			}
+		}
+		return a.Id > b.Id
+	})
 }
 
 // workerActivity reads the worker's most recent session and its most recent
@@ -851,7 +930,11 @@ there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
-way of an ordinary bind later. Redeem
+way of an ordinary bind later. When the host could not apply the run
+settings its start named (an exec-path worker runs its own fixed command), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+tells the server (startSettingsApplied: false) so the bind records none of
+those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -928,7 +1011,7 @@ ends the recovered session: run start again to pick it up.`,
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family), effort: extra.effortLevel(cmd),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -948,7 +1031,7 @@ ends the recovered session: run start again to pick it up.`,
 			// known after the bind; writeBinding's check under the lock
 			// refuses that one, and the bind is rolled back below.
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
-				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				return errDirectoryHeld(heldCachePath(), existing)
 			}
 			// The client opens early only for the plain-directory read below;
 			// everywhere else it opens after the existing-binding check, as
@@ -996,7 +1079,7 @@ ends the recovered session: run start again to pick it up.`,
 				}
 				resolved = true
 				if existing.WorkerID == "" || w.Id != existing.WorkerID {
-					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+					return errDirectoryHeld(heldCachePath(), existing)
 				}
 			}
 			var lapsedBinding bool
@@ -1217,17 +1300,19 @@ ends the recovered session: run start again to pick it up.`,
 				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
-				Id:             newSessionID(),
-				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      optStr(w.Id),
-				AppRef:         appRefArg,
-				LaunchGrant:    optStr(grant),
-				Repo:           optStr(repo),
-				Branch:         optStr(branch),
-				Host:           optStr(host),
-				Tool:           optStr(tool),
-				TranscriptPath: optStr(transcript),
-				LlmModel:       optStr(model),
+				Id:          newSessionID(),
+				ReportsTo:   optStr(reportsTo),
+				WorkerRef:   optStr(w.Id),
+				AppRef:      appRefArg,
+				LaunchGrant: optStr(grant),
+				// #2209: the host's "settings not applied", only with a grant.
+				StartSettingsApplied: startSettingsNotApplied(grant, os.Getenv(hostpoller.StartSettingsAppliedEnvVar)),
+				Repo:                 optStr(repo),
+				Branch:               optStr(branch),
+				Host:                 optStr(host),
+				Tool:                 optStr(tool),
+				TranscriptPath:       optStr(transcript),
+				LlmModel:             optStr(model),
 			}
 			// #940/#432: the server refuses a taken worker atomically
 			// (WORKER_TAKEN) unless force rides along — the activity check
@@ -2395,7 +2480,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// move the pointer: a refusal now leaves nothing half-applied, and
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil, nil); err != nil {
 					mapped := api.MapError(err)
 					if rowWritten {
 						// Claim "NOT updated" only for a definitive refusal. A

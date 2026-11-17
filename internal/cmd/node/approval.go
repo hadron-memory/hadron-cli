@@ -1,7 +1,6 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -132,7 +131,8 @@ you saw it. Without that flag, the server approves the revision current when
 it acquires the node lock. Repeating approval of the same revision leaves the
 existing approval unchanged.
 
-Acts as you by default and sends no worker-session header. With --as-worker it
+Acts as you by default and sends no worker-session header; from a worktree
+bound to a worker session it says so once on stderr. With --as-worker it
 sends this worktree's bound worker session: the server then admits the approval
 only for a compiled boot prompt that a signed bootprompt.compile.approve grant
 names, and records the approver as the worker under the batch grant. The CLI
@@ -150,7 +150,7 @@ compiled prompt.`,
 				return exitcode.Newf(exitcode.Usage, "--revision must be a positive node revision")
 			}
 			// --as-worker resolves its session before any request (cli#1872).
-			var mutCtx func(context.Context) (context.Context, error)
+			var mutCtx cmdutil.WorkerWriteContext
 			if asWorker {
 				m, err := f.ResolveWorkerWrite(cmd.Context())
 				if err != nil {
@@ -173,6 +173,9 @@ compiled prompt.`,
 			// Only the approval mutation carries the session; the resolution
 			// and the lint read keep the person's context.
 			sendCtx := cmd.Context()
+			if mutCtx == nil {
+				f.NoteApproval(cmd.Context(), true)
+			}
 			if mutCtx != nil {
 				c, err := mutCtx(cmd.Context())
 				if err != nil {

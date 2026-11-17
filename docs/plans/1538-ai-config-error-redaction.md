@@ -60,3 +60,24 @@ Delta follow-up: red a4ab1999 proves a metadata-only collision (submitted
 key INTERNAL_SERVER_ERROR, clean internal-fault message, serverCode carries
 key). Always detaching mapped errors for a known nonempty override key closes
 the conditional gate. No broader API/transport behavior changes.
+
+
+## Completed-result follow-up (#1967)
+
+The scope descriptions above record #1538. The #1967 follow-up applies the same
+submitted-key scrubber to every completed-result string value before text or
+JSON rendering: effective provider/model/endpoint/style, reply, error code and
+message, all six value sources, knob param/state/detail, and chat status. Keys,
+nulls, numbers, booleans and the request documents retain their shapes/values.
+A key echo can be masked even in an otherwise closed status or value source;
+ordinary non-echoing statuses remain verbatim. Saved keys remain the server's
+responsibility. The existing bounded-spelling limitation on unstructured,
+doubly-escaped request-error bodies remains unchanged.
+
+Both typed result adapters share the scalar/nested field copy; a generated
+field addition still requires an explicit DTO mapping. Nil knobs are filtered
+before the command dereferences them. One synthetic echoed-field fixture at a
+time covers both request branches and both output modes (chat only on the
+opt-in branch), with distinct literal and JSON-escaped spellings. Fifteen
+field-specific compiling redaction mutants fail only their intended tests;
+an equivalent parentheses rewrite survives. No real key or provider was used.

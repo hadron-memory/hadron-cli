@@ -3,6 +3,8 @@ package hostpoller
 import (
 	"context"
 	"strings"
+
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 )
 
 // Host is everything the poller does to the machine: git worktrees and agent
@@ -25,6 +27,30 @@ type Host interface {
 	Occupied(ctx context.Context, path string) (string, error)
 	// Alive reports whether a process id is still running.
 	Alive(pid int) bool
+	// ResetWorkspace brings an existing worktree back to a clean base at task
+	// start (hadron-cli#2057 C2b): refused when dirty or when HEAD is on no
+	// remote branch, rescue refs kept, nothing created or removed. A directory
+	// with no Git is left alone (Reset false, no refusal).
+	ResetWorkspace(ctx context.Context, path string) (ResetOutcome, error)
+	// StopAgents stops every agent process working inside path that this
+	// host did not launch itself (hadron-cli#2057 C2a: an agent started from
+	// a terminal is not the poller's child), each with its process group:
+	// SIGTERM, a grace, then SIGKILL. One entry per agent found; none when
+	// no agent works there. An error means the host cannot tell (no /proc,
+	// no pidfd) and nothing was signalled. authorize is asked before EVERY signal (after the agent is pinned and its group pinned): it answers whether the stop is still authorized (the worktree's session binding has not moved on to another session) and, when it is, returns a release that the caller calls right after that one signal — the binding is held unchanged from the check through the signal (hadron-cli#2068), before any Unix grace wait; Windows instead holds authority until synchronous taskkill returns, including cancellation/drain. A refusal
+	// signals nothing and says so; a nil authorize always allows.
+	StopAgents(ctx context.Context, path string, authorize Authorize) ([]AgentStop, error)
+}
+
+// AgentStop is one agent process StopAgents handled.
+type AgentStop struct {
+	PID int
+	// Stopped is true only when everything that was signalled is observed
+	// gone.
+	Stopped bool
+	// Detail names the process (pid and a short redacted argv) and what
+	// happened to it.
+	Detail string
 }
 
 // WorktreeState is what worktree.create and worktree.remove decide on.
@@ -76,7 +102,11 @@ type Agent interface {
 // own channel, and the CLI token channel the host process might carry. The
 // agent binds on its holder's own stored token (#1883, option A), and the
 // grant is the only launch credential it gets.
-var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT"}
+// delivery.AgentPIDEnv is the poller's OWN agent pid when it runs inside an
+// Orca agent's tree (Rook's §10 P2 on #2167): that pid is an ancestor of
+// every agent it launches, so passing it on would let reset-context in an
+// exec worker end the poller's host agent. An Orca launch sets its own.
+var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT", StartSettingsAppliedEnvVar, delivery.AgentPIDEnv}
 
 // agentEnv builds a launched agent's environment from the poller's: every
 // variable but the scrubbed ones and any whose value carries the host key,
@@ -106,3 +136,13 @@ func isScrubbed(name string) bool {
 	}
 	return false
 }
+
+// Authorize is the host's check before one signal: ok means the stop is still
+// authorized, and release must then be called after the action: a Unix signal
+// syscall or the synchronous Windows taskkill runner. Not ok
+// means nothing is signalled. The poller's implementation holds the worktree's
+// session-binding lock between the check and the release.
+type Authorize func() (release func(), ok bool)
+
+// allow is the Authorize that always permits and holds nothing.
+func allow() (func(), bool) { return func() {}, true }

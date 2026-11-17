@@ -85,6 +85,9 @@ func TestTickerListNonAdvancingServerFailsNotPartial(t *testing.T) {
 	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
 		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
 	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a stuck server must keep the not-advancing diagnosis, got %v", err)
+	}
 }
 
 // BLIND P2 (#1460): an empty or repeated terminal page while the reported total is
@@ -164,5 +167,124 @@ func TestTickerListTotalLoweredMidReadSucceeds(t *testing.T) {
 	var rows []map[string]any
 	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil || len(rows) != 200 {
 		t.Fatalf("want 200 rows, got %d (%v)", len(rows), err)
+	}
+}
+
+// cli#2030: the twin of the session-scan race. A ticker inserted at the top
+// between page reads shifts the offsets, so the first pass ends one short of
+// the total; the list restarts and prints the whole, current census.
+func TestTickerListSurvivesAnInsertBetweenPages(t *testing.T) {
+	mk := func(i int) string {
+		return strings.Replace(tickerFixture, "cticker000000000000000000", fmt.Sprintf("ctk%023d", i), 1)
+	}
+	rows := []string{}
+	for i := 0; i < 250; i++ {
+		rows = append(rows, mk(i+1))
+	}
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "TickerSubscribers" {
+			_, _ = w.Write([]byte(`{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`))
+			return
+		}
+		if body.OperationName != "ListTickersPage" {
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`))
+			return
+		}
+		off := 0
+		if body.Variables.Offset != nil {
+			off = *body.Variables.Offset
+		}
+		end := min(off+200, len(rows))
+		page := []string{}
+		if off < len(rows) {
+			page = rows[off:end]
+		}
+		_, _ = fmt.Fprintf(w, `{"data":{"tickersPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, len(rows), end < len(rows), strings.Join(page, ","))
+		if calls++; calls == 1 {
+			rows = append([]string{mk(0)}, rows...)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ticker", "list", "--app", "acme.com:ops", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an insert between pages must not fail the list: %v", err)
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil || len(got) != 251 {
+		t.Fatalf("want all 251 tickers, got %d (%v)", len(got), err)
+	}
+	ids := map[any]bool{}
+	for _, g := range got {
+		ids[g["id"]] = true
+	}
+	if len(ids) != 251 || !ids[fmt.Sprintf("ctk%023d", 0)] {
+		t.Fatalf("want 251 unique tickers including the inserted one, got %d unique", len(ids))
+	}
+}
+
+// cli#2030 (BLIND P3): the ticker twin of the session fail-closed pins. A list
+// that keeps growing past every restart still fails, saying the list changed;
+// a server that ignores the offset keeps the "not advancing" diagnosis.
+func TestTickerListFailsClosedWhenRestartsRunOut(t *testing.T) {
+	mk := func(i int) string {
+		return strings.Replace(tickerFixture, "cticker000000000000000000", fmt.Sprintf("ctk%023d", i), 1)
+	}
+	rows := []string{}
+	for i := 0; i < 250; i++ {
+		rows = append(rows, mk(i+1))
+	}
+	next := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "TickerSubscribers" {
+			_, _ = w.Write([]byte(`{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`))
+			return
+		}
+		if body.OperationName != "ListTickersPage" {
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`))
+			return
+		}
+		off := 0
+		if body.Variables.Offset != nil {
+			off = *body.Variables.Offset
+		}
+		end := min(off+200, len(rows))
+		page := []string{}
+		if off < len(rows) {
+			page = rows[off:end]
+		}
+		_, _ = fmt.Fprintf(w, `{"data":{"tickersPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, len(rows), end < len(rows), strings.Join(page, ","))
+		// Every page read is followed by a fresh insert at the top.
+		next++
+		rows = append([]string{mk(1000 + next)}, rows...)
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ticker", "list", "--app", "acme.com:ops", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
+	}
+	if !strings.Contains(err.Error(), "changed while it was being read") || strings.Contains(err.Error(), "not advancing") {
+		t.Errorf("churn must read as a changing list to retry, got %v", err)
 	}
 }

@@ -35,10 +35,27 @@ func hostServerFake(t *testing.T, responses map[string]string) (*httptest.Server
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		// cli#2091: a registration asks for refusedWorkers first, under its own
+		// operation name, which the call log keeps. A test that stubs only the
+		// plain RegisterHost gets an EXPLICIT extended answer derived from it
+		// (the same registration with "refusedWorkers":[]): such a server has the
+		// field and reports none. A test that stubs RegisterHostWithRefused itself
+		// (an old server's skew refusal, a refusal list) is answered as stubbed.
+		recorded := body.OperationName
+		answerAs := body.OperationName
+		derive := false
+		if recorded == "RegisterHostWithRefused" {
+			if _, own := responses[recorded]; !own {
+				answerAs, derive = "RegisterHost", true
+			}
+		}
 		mu.Lock()
-		calls = append(calls, hostCall{body.OperationName, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
+		calls = append(calls, hostCall{recorded, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
 		mu.Unlock()
-		resp, ok := responses[body.OperationName]
+		resp, ok := responses[answerAs]
+		if derive {
+			resp = withEmptyRefused(resp)
+		}
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected"}]}`
@@ -48,6 +65,23 @@ func hostServerFake(t *testing.T, responses map[string]string) (*httptest.Server
 	}))
 	t.Cleanup(srv.Close)
 	return srv, func() []hostCall { mu.Lock(); defer mu.Unlock(); return append([]hostCall{}, calls...) }
+}
+
+// withEmptyRefused adds "refusedWorkers":[] to a registerHost answer; any other
+// answer (an error document) is returned unchanged.
+func withEmptyRefused(resp string) string {
+	var doc map[string]any
+	if json.Unmarshal([]byte(resp), &doc) != nil {
+		return resp
+	}
+	data, _ := doc["data"].(map[string]any)
+	reg, _ := data["registerHost"].(map[string]any)
+	if reg == nil {
+		return resp
+	}
+	reg["refusedWorkers"] = []any{}
+	out, _ := json.Marshal(doc)
+	return string(out)
 }
 
 func writeHostConfig(t *testing.T, extra string) string {

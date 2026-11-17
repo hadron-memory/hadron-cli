@@ -55,6 +55,9 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 
 const health1181Registrations = `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`
 
+// health1181WorkerExtra is extra YAML lines for the fixture worker (tests set and reset it).
+var health1181WorkerExtra string
+
 func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bool, registrations, status, state string) (string, int, map[string]any, error) {
 	if registrations == "" {
 		registrations = health1181Registrations
@@ -84,6 +87,20 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 			writes++
 			sent = q.Variables
 			mu.Unlock()
+			if wire == "OLDSERVER" || wire == "OLDSERVER_ALWAYS" {
+				// A pre-#4238 server validates the variables against a schema without the pair.
+				raw, _ := json.Marshal(q.Variables)
+				if wire == "OLDSERVER_ALWAYS" || strings.Contains(string(raw), "contextTokens") || strings.Contains(string(raw), "contextMeasuredAt") {
+					_, _ = io.WriteString(w, `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"contextMeasuredAt\" is not defined by type \"WorkerTerminalReportInput\"."}]}`)
+					return
+				}
+				_, _ = io.WriteString(w, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"u"}],"refused":[]}}}`)
+				return
+			}
+			if strings.HasPrefix(wire, "RAW:") {
+				_, _ = io.WriteString(w, strings.TrimPrefix(wire, "RAW:"))
+				return
+			}
 			if wire == "DROP" {
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				_ = conn.Close()
@@ -100,7 +117,7 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 			t.Fatal(e)
 		}
 	}
-	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n", srv.URL, dir)
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n%s", srv.URL, dir, health1181WorkerExtra)
 	path := filepath.Join(dir, "host.yaml")
 	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
 		t.Fatal(e)
@@ -142,7 +159,8 @@ func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 			t.Fatalf("legacy verdict changes output %q != %q", out, first)
 		}
 		var got map[string]any
-		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 4 || got["reports"] == nil || got["refused"] == nil || got["renames"] == nil || got["dryRun"] != true {
+		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 7 || got["reports"] == nil || got["refused"] == nil ||
+			got["renames"] == nil || got["dryRun"] != true || got["fixes"] == nil || got["alerts"] == nil || got["skips"] == nil {
 			t.Fatalf("bad DTO %s", out)
 		}
 	}
@@ -204,7 +222,10 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
   ],
   "refused": [],
   "renames": [],
-  "dryRun": true
+  "dryRun": true,
+  "fixes": [],
+  "alerts": [],
+  "skips": []
 }
 `
 	if out != golden {

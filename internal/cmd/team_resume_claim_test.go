@@ -355,13 +355,7 @@ func TestTeamSessionStartResumeRefusesOverALiveBinding(t *testing.T) {
 // than strand it. A PLAIN directory resumes and caches there instead
 // (cli#1391, TestPlainDir1391ResumeRedeemsAndCaches).
 func TestTeamSessionStartResumeOutsideAWorktreeRefusesFirst(t *testing.T) {
-	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "git"), []byte("#!/bin/sh\necho 'fatal: detected dubious ownership in repository' >&2\nexit 128\n"), 0o700); err != nil { // #nosec G306 — a test shim must be executable
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
-	t.Setenv("HADRON_TEAM_GIT_DIR", "")
-	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	fakeGitAnswer1969(t, "fatal: detected dubious ownership in repository")
 	t.Chdir(t.TempDir())
 	gql, captured := captureGraphQL(t, resumeStubs("RESUMED"))
 	f, _ := testFactory(t)
