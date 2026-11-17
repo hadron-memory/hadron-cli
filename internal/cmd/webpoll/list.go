@@ -1,6 +1,7 @@
 package webpoll
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -8,52 +9,104 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-func newCmdList(f *cmdutil.Factory) *cobra.Command {
-	var org string
-	cmd := &cobra.Command{
-		Use:     "list --org <ref>",
-		Aliases: []string{"ls"},
-		Short:   "List an organization's page-monitor watches (org ADMIN)",
-		Long: `List the page-monitor watches the server returns for an organization (org
-ADMIN/OWNER).
+// webPollPageDTO is the --json shape of `web-poll list`: one page of watches
+// with the continuation facts the server returned (cli#2032). It replaces the
+// bare array this command used to print; the items are the unchanged webPollDTO.
+type webPollPageDTO struct {
+	Items      []webPollDTO `json:"items"`
+	HasMore    bool         `json:"hasMore"`
+	NextCursor *string      `json:"nextCursor"`
+}
 
-The server returns this list unpaged, so the output is exactly the rows it sent:
-the command states no total and does not claim to show every watch.`,
+func newCmdList(f *cmdutil.Factory) *cobra.Command {
+	var org, after string
+	var limit int
+	cmd := &cobra.Command{
+		Use:     "list --org <ref> [--limit <n>] [--after <cursor>]",
+		Aliases: []string{"ls"},
+		Short:   "List one page of an organization's page-monitor watches (org ADMIN)",
+		Long: `List one page of the page-monitor watches the server returns for an
+organization (org ADMIN/OWNER). One call shows one page: 20 watches by default,
+at most 100 (--limit above that is clamped by the server, not refused here).
+
+When there are more, the output ends with "has more: true" and a "next cursor"
+line; pass that cursor to --after to read the next page. Pass it back exactly
+as printed: it is opaque and the CLI never builds or edits one. Each page
+reflects the list at the time of that call; the command states no total and
+does not claim to show every watch, and an empty page means no rows on that
+page, not that no watches exist.
+
+--json prints {items, hasMore, nextCursor}: the watches under items, and
+nextCursor null when there is no further page. (Before cli#2032 this printed a
+bare array.)`,
 		Example: `  hadron web-poll list --org acme.com
-  hadron web-poll list --org acme.com --json`,
+  hadron web-poll list --org acme.com --limit 50 --json
+  hadron web-poll list --org acme.com --after <next cursor from the previous page>`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			first, err := cmdutil.PageLimit(cmd, limit)
+			if err != nil {
+				return err
+			}
+			afterPtr, err := cmdutil.PageAfter(cmd, after)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.WebPolls(cmd.Context(), client, org)
+			resp, err := gen.WebPollsPage(cmd.Context(), client, org, first, afterPtr)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
-			polls := []webPollDTO{}
-			if resp != nil {
-				for _, p := range resp.WebPolls {
-					if p != nil {
-						polls = append(polls, dtoFromWebPoll(p))
-					}
+			if resp == nil || resp.WebPollsPage == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no web-poll page")
+			}
+			page := resp.WebPollsPage
+			if err := cmdutil.CheckPage(page.HasMore, page.NextCursor, afterPtr); err != nil {
+				return err
+			}
+			dto := webPollPageDTO{Items: []webPollDTO{}, HasMore: page.HasMore, NextCursor: page.NextCursor}
+			for _, p := range page.Items {
+				if p != nil {
+					dto.Items = append(dto.Items, dtoFromWebPoll(&p.WebPollFields))
 				}
 			}
-			return output.Write(f.IOStreams, f.JSON, polls, func(w io.Writer) error {
-				table := output.NewTable(w, "JOB", "STATUS", "URL", "LAST CHECKED", "NEXT RUN", "TRIGGERS", "FAILURES", "EXPIRES")
-				for _, p := range polls {
-					table.Row(output.SafeCell(p.JobID), output.SafeCell(p.Status), output.SafeCell(p.URL),
-						output.SafeCell(orDash(p.LastCheckedAt)), output.SafeCell(orDash(p.NextRunAt)),
-						output.SafeCell(itoa(p.TriggerCount)), output.SafeCell(itoa(p.ConsecutiveFailures)), output.SafeCell(p.ExpiresAt))
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if len(dto.Items) == 0 {
+					if _, err := fmt.Fprintln(w, "no watches on this page"); err != nil {
+						return err
+					}
+				} else {
+					table := output.NewTable(w, "JOB", "STATUS", "URL", "LAST CHECKED", "NEXT RUN", "TRIGGERS", "FAILURES", "EXPIRES")
+					for _, p := range dto.Items {
+						table.Row(output.SafeCell(p.JobID), output.SafeCell(p.Status), output.SafeCell(p.URL),
+							output.SafeCell(orDash(p.LastCheckedAt)), output.SafeCell(orDash(p.NextRunAt)),
+							output.SafeCell(itoa(p.TriggerCount)), output.SafeCell(itoa(p.ConsecutiveFailures)), output.SafeCell(p.ExpiresAt))
+					}
+					if err := table.Flush(); err != nil {
+						return err
+					}
 				}
-				return table.Flush()
+				if _, err := fmt.Fprintf(w, "has more: %t\n", dto.HasMore); err != nil {
+					return err
+				}
+				if dto.NextCursor != nil {
+					_, err := fmt.Fprintf(w, "next cursor: %s\n", output.SafeCell(*dto.NextCursor))
+					return err
+				}
+				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization whose watches to list (ID or URN; required)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "watches per page (default 20; the server clamps to 100)")
+	cmd.Flags().StringVar(&after, "after", "", "continue after this cursor, exactly as a previous page printed it")
 	_ = cmd.MarkFlagRequired("org")
 	return cmd
 }

@@ -2,23 +2,38 @@
 # server-side by the org role and the tool.web_poll policy: the CLI adds no
 # check of its own (cor:web:030:00).
 
-# webPolls is UNPAGED server-side (a cor:api:120:04 gap, bounded only by the
-# per-org active-job cap), so a caller must not present its result as the whole
-# set.
-query WebPolls($orgRef: ID!) {
-  webPolls(orgRef: $orgRef) {
-    jobId
-    appId
-    sourceRunId
-    url
-    status
-    consecutiveFailures
-    triggerCount
-    createdAt
-    expiresAt
-    lastCheckedAt
-    lastTriggeredAt
-    nextRunAt
+# One page of an org's watches (server#4123 / #4193): default 20, clamp 1-100,
+# `after` an opaque cursor the CLI passes back verbatim and never builds. The
+# page's `total` is deliberately not selected (cli#2032): the command claims
+# only the rows it was sent.
+fragment WebPollFields on WebPoll {
+  jobId
+  appId
+  sourceRunId
+  url
+  status
+  consecutiveFailures
+  triggerCount
+  createdAt
+  expiresAt
+  lastCheckedAt
+  lastTriggeredAt
+  nextRunAt
+}
+
+query WebPollsPage(
+  $orgRef: ID!
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  webPollsPage(orgRef: $orgRef, first: $first, after: $after) {
+    items {
+      ...WebPollFields
+    }
+    hasMore
+    nextCursor
   }
 }
 

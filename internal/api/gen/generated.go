@@ -73220,8 +73220,8 @@ type NodeSigningRequestsNode struct {
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn string `json:"urn"`
 	Loc string `json:"loc"`
-	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — the node's signing requests, newest first, including ended ones (#10019). state filters on the effective state (an open request past its deadline is EXPIRED). first: 1–100, default 20.
-	SigningRequests []*NodeSigningRequestsNodeSigningRequestsSigningRequest `json:"signingRequests"`
+	// The node's signing requests with the same reader gate; effective-state filtering precedes paging. Newest first (createdAt, id descending). Default 20, clamp 1–100; after is an authenticated filter-scoped keyset (createdAt, id), valid after deletion of the boundary row. offset is an alternative, never combined with after. total counts the full current filtered set. hrn:node:hadronmemory.com:specs:cor:api:120:04; hrn:node:hadronmemory.com:specs:cor:api:120:05.
+	SigningRequestsPage *NodeSigningRequestsNodeSigningRequestsPage `json:"signingRequestsPage"`
 }
 
 // GetId returns NodeSigningRequestsNode.Id, and is useful for accessing the field via an interface.
@@ -73233,95 +73233,116 @@ func (v *NodeSigningRequestsNode) GetUrn() string { return v.Urn }
 // GetLoc returns NodeSigningRequestsNode.Loc, and is useful for accessing the field via an interface.
 func (v *NodeSigningRequestsNode) GetLoc() string { return v.Loc }
 
-// GetSigningRequests returns NodeSigningRequestsNode.SigningRequests, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNode) GetSigningRequests() []*NodeSigningRequestsNodeSigningRequestsSigningRequest {
-	return v.SigningRequests
+// GetSigningRequestsPage returns NodeSigningRequestsNode.SigningRequestsPage, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNode) GetSigningRequestsPage() *NodeSigningRequestsNodeSigningRequestsPage {
+	return v.SigningRequestsPage
 }
 
-// NodeSigningRequestsNodeSigningRequestsSigningRequest includes the requested fields of the GraphQL type SigningRequest.
+// NodeSigningRequestsNodeSigningRequestsPage includes the requested fields of the GraphQL type SigningRequestsPage.
+// The GraphQL type's documentation follows.
+//
+// One page of a node's signing requests, including ended requests. hrn:node:hadronmemory.com:specs:cor:api:120:04.
+type NodeSigningRequestsNodeSigningRequestsPage struct {
+	Items      []*NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest `json:"items"`
+	HasMore    bool                                                             `json:"hasMore"`
+	NextCursor *string                                                          `json:"nextCursor"`
+}
+
+// GetItems returns NodeSigningRequestsNodeSigningRequestsPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPage) GetItems() []*NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest {
+	return v.Items
+}
+
+// GetHasMore returns NodeSigningRequestsNodeSigningRequestsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPage) GetHasMore() bool { return v.HasMore }
+
+// GetNextCursor returns NodeSigningRequestsNodeSigningRequestsPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPage) GetNextCursor() *string { return v.NextCursor }
+
+// NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest includes the requested fields of the GraphQL type SigningRequest.
 // The GraphQL type's documentation follows.
 //
 // #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
-type NodeSigningRequestsNodeSigningRequestsSigningRequest struct {
+type NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest struct {
 	SigningRequestFields `json:"-"`
 }
 
-// GetId returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Id, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetId() string {
+// GetId returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetId() string {
 	return v.SigningRequestFields.Id
 }
 
-// GetNodeId returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NodeId, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNodeId() string {
+// GetNodeId returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetNodeId() string {
 	return v.SigningRequestFields.NodeId
 }
 
-// GetNodeUrn returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNodeUrn() *string {
+// GetNodeUrn returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetNodeUrn() *string {
 	return v.SigningRequestFields.NodeUrn
 }
 
-// GetRevision returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Revision, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetRevision() int {
+// GetRevision returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.Revision, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetRevision() int {
 	return v.SigningRequestFields.Revision
 }
 
-// GetApprovalHash returns NodeSigningRequestsNodeSigningRequestsSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetApprovalHash() string {
+// GetApprovalHash returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetApprovalHash() string {
 	return v.SigningRequestFields.ApprovalHash
 }
 
-// GetPayloadVersion returns NodeSigningRequestsNodeSigningRequestsSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetPayloadVersion() string {
+// GetPayloadVersion returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetPayloadVersion() string {
 	return v.SigningRequestFields.PayloadVersion
 }
 
-// GetState returns NodeSigningRequestsNodeSigningRequestsSigningRequest.State, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetState() SigningRequestState {
+// GetState returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetState() SigningRequestState {
 	return v.SigningRequestFields.State
 }
 
-// GetCreatedAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetCreatedAt() string {
+// GetCreatedAt returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetCreatedAt() string {
 	return v.SigningRequestFields.CreatedAt
 }
 
-// GetExpiresAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetExpiresAt() string {
+// GetExpiresAt returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetExpiresAt() string {
 	return v.SigningRequestFields.ExpiresAt
 }
 
-// GetEndedAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.EndedAt, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetEndedAt() *string {
+// GetEndedAt returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetEndedAt() *string {
 	return v.SigningRequestFields.EndedAt
 }
 
-// GetNamedSigner returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+// GetNamedSigner returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
 	return v.SigningRequestFields.NamedSigner
 }
 
-// GetRequestedBy returns NodeSigningRequestsNodeSigningRequestsSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+// GetRequestedBy returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
 	return v.SigningRequestFields.RequestedBy
 }
 
-// GetSignature returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Signature, and is useful for accessing the field via an interface.
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+// GetSignature returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.Signature, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
 	return v.SigningRequestFields.Signature
 }
 
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) UnmarshalJSON(b []byte) error {
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*NodeSigningRequestsNodeSigningRequestsSigningRequest
+		*NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.NodeSigningRequestsNodeSigningRequestsSigningRequest = v
+	firstPass.NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -73336,7 +73357,7 @@ func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) UnmarshalJSON(b [
 	return nil
 }
 
-type __premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest struct {
+type __premarshalNodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest struct {
 	Id string `json:"id"`
 
 	NodeId string `json:"nodeId"`
@@ -73364,7 +73385,7 @@ type __premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest struct {
 	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
 }
 
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) MarshalJSON() ([]byte, error) {
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -73372,8 +73393,8 @@ func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) MarshalJSON() ([]
 	return json.Marshal(premarshaled)
 }
 
-func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) __premarshalJSON() (*__premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest, error) {
-	var retval __premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) __premarshalJSON() (*__premarshalNodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest, error) {
+	var retval __premarshalNodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest
 
 	retval.Id = v.SigningRequestFields.Id
 	retval.NodeId = v.SigningRequestFields.NodeId
@@ -115381,26 +115402,11 @@ var AllWakeKind = []WakeKind{
 	WakeKindTick,
 }
 
-// WebPollsResponse is returned by WebPolls on success.
-type WebPollsResponse struct {
-	// The organization's active page-monitor watches (#1562): what web_poll_list
-	// returns inside a run, for org ADMIN/OWNER outside one. Refused with
-	// POLICY_DENIED when the org, caller user or App-in-context policy omits tool.web_poll (no App layer when the context has no App). Jobs
-	// with no routing binding in this org are not listed. One page only: default 20, clamp 1–100, use webPollsPage for hasMore and nextCursor.
-	WebPolls []*WebPollsWebPollsWebPoll `json:"webPolls"`
-}
-
-// GetWebPolls returns WebPollsResponse.WebPolls, and is useful for accessing the field via an interface.
-func (v *WebPollsResponse) GetWebPolls() []*WebPollsWebPollsWebPoll { return v.WebPolls }
-
-// WebPollsWebPollsWebPoll includes the requested fields of the GraphQL type WebPoll.
-// The GraphQL type's documentation follows.
-//
-// A page-monitor watch (#1562): the hadrontool-webfetch job behind a run's
-// web_poll_start, as the org's admins see it outside a run. `url` is the
-// query- and fragment-free ledger URL, never the one the sidecar fetches, and no
-// credential material is returned.
-type WebPollsWebPollsWebPoll struct {
+// One page of an org's watches (server#4123 / #4193): default 20, clamp 1-100,
+// `after` an opaque cursor the CLI passes back verbatim and never builds. The
+// page's `total` is deliberately not selected (cli#2032): the command claims
+// only the rows it was sent.
+type WebPollFields struct {
 	JobId string `json:"jobId"`
 	AppId string `json:"appId"`
 	// The run that started the watch.
@@ -115417,41 +115423,209 @@ type WebPollsWebPollsWebPoll struct {
 	NextRunAt           *string `json:"nextRunAt"`
 }
 
-// GetJobId returns WebPollsWebPollsWebPoll.JobId, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetJobId() string { return v.JobId }
+// GetJobId returns WebPollFields.JobId, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetJobId() string { return v.JobId }
 
-// GetAppId returns WebPollsWebPollsWebPoll.AppId, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetAppId() string { return v.AppId }
+// GetAppId returns WebPollFields.AppId, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetAppId() string { return v.AppId }
 
-// GetSourceRunId returns WebPollsWebPollsWebPoll.SourceRunId, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetSourceRunId() string { return v.SourceRunId }
+// GetSourceRunId returns WebPollFields.SourceRunId, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetSourceRunId() string { return v.SourceRunId }
 
-// GetUrl returns WebPollsWebPollsWebPoll.Url, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetUrl() string { return v.Url }
+// GetUrl returns WebPollFields.Url, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetUrl() string { return v.Url }
 
-// GetStatus returns WebPollsWebPollsWebPoll.Status, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetStatus() string { return v.Status }
+// GetStatus returns WebPollFields.Status, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetStatus() string { return v.Status }
 
-// GetConsecutiveFailures returns WebPollsWebPollsWebPoll.ConsecutiveFailures, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetConsecutiveFailures() int { return v.ConsecutiveFailures }
+// GetConsecutiveFailures returns WebPollFields.ConsecutiveFailures, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetConsecutiveFailures() int { return v.ConsecutiveFailures }
 
-// GetTriggerCount returns WebPollsWebPollsWebPoll.TriggerCount, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetTriggerCount() int { return v.TriggerCount }
+// GetTriggerCount returns WebPollFields.TriggerCount, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetTriggerCount() int { return v.TriggerCount }
 
-// GetCreatedAt returns WebPollsWebPollsWebPoll.CreatedAt, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns WebPollFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetCreatedAt() string { return v.CreatedAt }
 
-// GetExpiresAt returns WebPollsWebPollsWebPoll.ExpiresAt, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetExpiresAt() string { return v.ExpiresAt }
+// GetExpiresAt returns WebPollFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetExpiresAt() string { return v.ExpiresAt }
 
-// GetLastCheckedAt returns WebPollsWebPollsWebPoll.LastCheckedAt, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetLastCheckedAt() *string { return v.LastCheckedAt }
+// GetLastCheckedAt returns WebPollFields.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetLastCheckedAt() *string { return v.LastCheckedAt }
 
-// GetLastTriggeredAt returns WebPollsWebPollsWebPoll.LastTriggeredAt, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetLastTriggeredAt() *string { return v.LastTriggeredAt }
+// GetLastTriggeredAt returns WebPollFields.LastTriggeredAt, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetLastTriggeredAt() *string { return v.LastTriggeredAt }
 
-// GetNextRunAt returns WebPollsWebPollsWebPoll.NextRunAt, and is useful for accessing the field via an interface.
-func (v *WebPollsWebPollsWebPoll) GetNextRunAt() *string { return v.NextRunAt }
+// GetNextRunAt returns WebPollFields.NextRunAt, and is useful for accessing the field via an interface.
+func (v *WebPollFields) GetNextRunAt() *string { return v.NextRunAt }
+
+// WebPollsPageResponse is returned by WebPollsPage on success.
+type WebPollsPageResponse struct {
+	// The same org ADMIN/OWNER and tool.web_poll policy gates as webPolls, before fetching jobs; App policy is read only for the App in the caller context. Jobs without a routing binding in this org are omitted. Default 20, clamp 1–100; authenticated jobId keyset cursor scoped to org. offset is an alternative, never combined with after. total counts all currently admitted watches. hrn:node:hadronmemory.com:specs:cor:api:120:04; hrn:node:hadronmemory.com:specs:cor:api:120:05.
+	WebPollsPage *WebPollsPageWebPollsPage `json:"webPollsPage"`
+}
+
+// GetWebPollsPage returns WebPollsPageResponse.WebPollsPage, and is useful for accessing the field via an interface.
+func (v *WebPollsPageResponse) GetWebPollsPage() *WebPollsPageWebPollsPage { return v.WebPollsPage }
+
+// WebPollsPageWebPollsPage includes the requested fields of the GraphQL type WebPollsPage.
+// The GraphQL type's documentation follows.
+//
+// One page of org-bound watches in jobId order. Default 20, clamp 1–100. Authenticated jobId keyset cursors survive deletion of the boundary row. Offset is a separate option. total counts current org-bound watches. hrn:node:hadronmemory.com:specs:cor:api:120:04.
+type WebPollsPageWebPollsPage struct {
+	Items      []*WebPollsPageWebPollsPageItemsWebPoll `json:"items"`
+	HasMore    bool                                    `json:"hasMore"`
+	NextCursor *string                                 `json:"nextCursor"`
+}
+
+// GetItems returns WebPollsPageWebPollsPage.Items, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPage) GetItems() []*WebPollsPageWebPollsPageItemsWebPoll { return v.Items }
+
+// GetHasMore returns WebPollsPageWebPollsPage.HasMore, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPage) GetHasMore() bool { return v.HasMore }
+
+// GetNextCursor returns WebPollsPageWebPollsPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPage) GetNextCursor() *string { return v.NextCursor }
+
+// WebPollsPageWebPollsPageItemsWebPoll includes the requested fields of the GraphQL type WebPoll.
+// The GraphQL type's documentation follows.
+//
+// A page-monitor watch (#1562): the hadrontool-webfetch job behind a run's
+// web_poll_start, as the org's admins see it outside a run. `url` is the
+// query- and fragment-free ledger URL, never the one the sidecar fetches, and no
+// credential material is returned.
+type WebPollsPageWebPollsPageItemsWebPoll struct {
+	WebPollFields `json:"-"`
+}
+
+// GetJobId returns WebPollsPageWebPollsPageItemsWebPoll.JobId, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetJobId() string { return v.WebPollFields.JobId }
+
+// GetAppId returns WebPollsPageWebPollsPageItemsWebPoll.AppId, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetAppId() string { return v.WebPollFields.AppId }
+
+// GetSourceRunId returns WebPollsPageWebPollsPageItemsWebPoll.SourceRunId, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetSourceRunId() string {
+	return v.WebPollFields.SourceRunId
+}
+
+// GetUrl returns WebPollsPageWebPollsPageItemsWebPoll.Url, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetUrl() string { return v.WebPollFields.Url }
+
+// GetStatus returns WebPollsPageWebPollsPageItemsWebPoll.Status, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetStatus() string { return v.WebPollFields.Status }
+
+// GetConsecutiveFailures returns WebPollsPageWebPollsPageItemsWebPoll.ConsecutiveFailures, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetConsecutiveFailures() int {
+	return v.WebPollFields.ConsecutiveFailures
+}
+
+// GetTriggerCount returns WebPollsPageWebPollsPageItemsWebPoll.TriggerCount, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetTriggerCount() int {
+	return v.WebPollFields.TriggerCount
+}
+
+// GetCreatedAt returns WebPollsPageWebPollsPageItemsWebPoll.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetCreatedAt() string {
+	return v.WebPollFields.CreatedAt
+}
+
+// GetExpiresAt returns WebPollsPageWebPollsPageItemsWebPoll.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetExpiresAt() string {
+	return v.WebPollFields.ExpiresAt
+}
+
+// GetLastCheckedAt returns WebPollsPageWebPollsPageItemsWebPoll.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetLastCheckedAt() *string {
+	return v.WebPollFields.LastCheckedAt
+}
+
+// GetLastTriggeredAt returns WebPollsPageWebPollsPageItemsWebPoll.LastTriggeredAt, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetLastTriggeredAt() *string {
+	return v.WebPollFields.LastTriggeredAt
+}
+
+// GetNextRunAt returns WebPollsPageWebPollsPageItemsWebPoll.NextRunAt, and is useful for accessing the field via an interface.
+func (v *WebPollsPageWebPollsPageItemsWebPoll) GetNextRunAt() *string {
+	return v.WebPollFields.NextRunAt
+}
+
+func (v *WebPollsPageWebPollsPageItemsWebPoll) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WebPollsPageWebPollsPageItemsWebPoll
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WebPollsPageWebPollsPageItemsWebPoll = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WebPollFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWebPollsPageWebPollsPageItemsWebPoll struct {
+	JobId string `json:"jobId"`
+
+	AppId string `json:"appId"`
+
+	SourceRunId string `json:"sourceRunId"`
+
+	Url string `json:"url"`
+
+	Status string `json:"status"`
+
+	ConsecutiveFailures int `json:"consecutiveFailures"`
+
+	TriggerCount int `json:"triggerCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	LastCheckedAt *string `json:"lastCheckedAt"`
+
+	LastTriggeredAt *string `json:"lastTriggeredAt"`
+
+	NextRunAt *string `json:"nextRunAt"`
+}
+
+func (v *WebPollsPageWebPollsPageItemsWebPoll) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WebPollsPageWebPollsPageItemsWebPoll) __premarshalJSON() (*__premarshalWebPollsPageWebPollsPageItemsWebPoll, error) {
+	var retval __premarshalWebPollsPageWebPollsPageItemsWebPoll
+
+	retval.JobId = v.WebPollFields.JobId
+	retval.AppId = v.WebPollFields.AppId
+	retval.SourceRunId = v.WebPollFields.SourceRunId
+	retval.Url = v.WebPollFields.Url
+	retval.Status = v.WebPollFields.Status
+	retval.ConsecutiveFailures = v.WebPollFields.ConsecutiveFailures
+	retval.TriggerCount = v.WebPollFields.TriggerCount
+	retval.CreatedAt = v.WebPollFields.CreatedAt
+	retval.ExpiresAt = v.WebPollFields.ExpiresAt
+	retval.LastCheckedAt = v.WebPollFields.LastCheckedAt
+	retval.LastTriggeredAt = v.WebPollFields.LastTriggeredAt
+	retval.NextRunAt = v.WebPollFields.NextRunAt
+	return &retval, nil
+}
 
 // WithdrawDecisionResponse is returned by WithdrawDecision on success.
 type WithdrawDecisionResponse struct {
@@ -125359,6 +125533,7 @@ type __NodeSigningRequestsInput struct {
 	Ref   string               `json:"ref"`
 	State *SigningRequestState `json:"state,omitempty"`
 	First *int                 `json:"first,omitempty"`
+	After *string              `json:"after,omitempty"`
 }
 
 // GetRef returns __NodeSigningRequestsInput.Ref, and is useful for accessing the field via an interface.
@@ -125369,6 +125544,9 @@ func (v *__NodeSigningRequestsInput) GetState() *SigningRequestState { return v.
 
 // GetFirst returns __NodeSigningRequestsInput.First, and is useful for accessing the field via an interface.
 func (v *__NodeSigningRequestsInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __NodeSigningRequestsInput.After, and is useful for accessing the field via an interface.
+func (v *__NodeSigningRequestsInput) GetAfter() *string { return v.After }
 
 // __OrgAgentGrantsInput is used internally by genqlient
 type __OrgAgentGrantsInput struct {
@@ -130990,13 +131168,21 @@ type __VerifyNodeInput struct {
 // GetNodeRef returns __VerifyNodeInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__VerifyNodeInput) GetNodeRef() string { return v.NodeRef }
 
-// __WebPollsInput is used internally by genqlient
-type __WebPollsInput struct {
-	OrgRef string `json:"orgRef"`
+// __WebPollsPageInput is used internally by genqlient
+type __WebPollsPageInput struct {
+	OrgRef string  `json:"orgRef"`
+	First  *int    `json:"first,omitempty"`
+	After  *string `json:"after,omitempty"`
 }
 
-// GetOrgRef returns __WebPollsInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *__WebPollsInput) GetOrgRef() string { return v.OrgRef }
+// GetOrgRef returns __WebPollsPageInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__WebPollsPageInput) GetOrgRef() string { return v.OrgRef }
+
+// GetFirst returns __WebPollsPageInput.First, and is useful for accessing the field via an interface.
+func (v *__WebPollsPageInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __WebPollsPageInput.After, and is useful for accessing the field via an interface.
+func (v *__WebPollsPageInput) GetAfter() *string { return v.After }
 
 // __WithdrawDecisionInput is used internally by genqlient
 type __WithdrawDecisionInput struct {
@@ -157808,13 +157994,17 @@ func NodeSignatureStatus(
 
 // The query executed by NodeSigningRequests.
 const NodeSigningRequests_Operation = `
-query NodeSigningRequests ($ref: ID!, $state: SigningRequestState, $first: Int) {
+query NodeSigningRequests ($ref: ID!, $state: SigningRequestState, $first: Int, $after: String) {
 	node(ref: $ref) {
 		id
 		urn
 		loc
-		signingRequests(state: $state, first: $first) {
-			... SigningRequestFields
+		signingRequestsPage(state: $state, first: $first, after: $after) {
+			items {
+				... SigningRequestFields
+			}
+			hasMore
+			nextCursor
 		}
 	}
 }
@@ -157865,6 +158055,7 @@ func NodeSigningRequests(
 	ref string,
 	state *SigningRequestState,
 	first *int,
+	after *string,
 ) (data_ *NodeSigningRequestsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeSigningRequests",
@@ -157873,6 +158064,7 @@ func NodeSigningRequests(
 			Ref:   ref,
 			State: state,
 			First: first,
+			After: after,
 		},
 	}
 
@@ -174720,43 +174912,51 @@ func VerifyNode(
 	return data_, err_
 }
 
-// The query executed by WebPolls.
-const WebPolls_Operation = `
-query WebPolls ($orgRef: ID!) {
-	webPolls(orgRef: $orgRef) {
-		jobId
-		appId
-		sourceRunId
-		url
-		status
-		consecutiveFailures
-		triggerCount
-		createdAt
-		expiresAt
-		lastCheckedAt
-		lastTriggeredAt
-		nextRunAt
+// The query executed by WebPollsPage.
+const WebPollsPage_Operation = `
+query WebPollsPage ($orgRef: ID!, $first: Int, $after: String) {
+	webPollsPage(orgRef: $orgRef, first: $first, after: $after) {
+		items {
+			... WebPollFields
+		}
+		hasMore
+		nextCursor
 	}
+}
+fragment WebPollFields on WebPoll {
+	jobId
+	appId
+	sourceRunId
+	url
+	status
+	consecutiveFailures
+	triggerCount
+	createdAt
+	expiresAt
+	lastCheckedAt
+	lastTriggeredAt
+	nextRunAt
 }
 `
 
-// webPolls is UNPAGED server-side (a cor:api:120:04 gap, bounded only by the
-// per-org active-job cap), so a caller must not present its result as the whole
-// set.
-func WebPolls(
+func WebPollsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	orgRef string,
-) (data_ *WebPollsResponse, err_ error) {
+	first *int,
+	after *string,
+) (data_ *WebPollsPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "WebPolls",
-		Query:  WebPolls_Operation,
-		Variables: &__WebPollsInput{
+		OpName: "WebPollsPage",
+		Query:  WebPollsPage_Operation,
+		Variables: &__WebPollsPageInput{
 			OrgRef: orgRef,
+			First:  first,
+			After:  after,
 		},
 	}
 
-	data_ = &WebPollsResponse{}
+	data_ = &WebPollsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

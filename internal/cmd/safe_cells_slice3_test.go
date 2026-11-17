@@ -35,7 +35,7 @@ func TestSlice3SafeTableCommands(t *testing.T) {
 			{"node recovery list", []string{"node", "recovery", "list", "-m", "acme.com::kb"}, map[string]string{"RecoveryNodes": `{"data":{"recoveryNodes":{"total":1,"items":[` + strings.TrimSuffix(node, "}") + `,"deletedAt":` + v + `}]}}}`}},
 			{"node recovery graph", []string{"node", "recovery", "graph", "-m", "acme.com::kb"}, map[string]string{"RecoveryEdges": `{"data":{"recoveryEdges":{"total":1,"items":[` + edge + `]}}}`}},
 			{"node revision list", []string{"node", "revision", "list", "n1"}, map[string]string{"NodeRevisionsStampedPage": `{"data":{"nodeRevisionsPage":{"total":1,"hasMore":false,"items":[{"id":"r1","name":` + v + `,"createdAt":"2026-01-01T00:00:00Z","editedByInfo":` + v + `,"contentValidation":{"state":` + v + `}}]}}}`}},
-			{"node signing-request list", []string{"node", "signing-request", "list", "n1"}, map[string]string{"NodeSigningRequests": `{"data":{"node":{"id":"n1","signingRequests":[{"id":` + v + `,"state":` + v + `,"namedSigner":{"handle":` + v + `,"urn":"hrn:user:acme.com:signer"},"revision":1,"createdAt":"2026-01-01T00:00:00Z","expiresAt":"2026-01-02T00:00:00Z"}]}}}`}},
+			{"node signing-request list", []string{"node", "signing-request", "list", "n1"}, map[string]string{"NodeSigningRequests": `{"data":{"node":{"id":"n1","signingRequestsPage":{"hasMore":false,"nextCursor":null,"items":[{"id":` + v + `,"state":` + v + `,"namedSigner":{"handle":` + v + `,"urn":"hrn:user:acme.com:signer"},"revision":1,"createdAt":"2026-01-01T00:00:00Z","expiresAt":"2026-01-02T00:00:00Z"}]}}}}`}},
 			{"edge add", []string{"edge", "add", "--from", "n1", "--to", "n2", "--name", "rel"}, map[string]string{"CreateEdge": `{"data":{"createEdge":` + edge + `}}`}},
 			{"edge update", []string{"edge", "update", "e1", "--name", "rel"}, map[string]string{"UpdateEdge": `{"data":{"updateEdge":` + edge + `}}`}},
 			{"edge list", []string{"edge", "list", "n1"}, map[string]string{"NodeEdgesAttributed": `{"data":{"node":{"id":"n1","outgoingEdges":[` + edge + `],"incomingEdges":[]}}}`}},
@@ -176,7 +176,7 @@ var slice3ExpectedLines = map[string]int{
 	"node recovery graph":       2,
 	"node recovery list":        2,
 	"node revision list":        2,
-	"node signing-request list": 2,
+	"node signing-request list": 3, // header + row + the page line (cli#2032)
 	"node update":               1,
 	"replace text":              3,
 	"search":                    2,

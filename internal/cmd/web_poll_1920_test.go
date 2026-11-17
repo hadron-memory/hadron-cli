@@ -26,7 +26,7 @@ func runWebPoll(t *testing.T, responses map[string]string, args ...string) (map[
 // cli#1920: list sends the org ref and renders the server's rows as returned.
 func TestWebPollListForwardsOrgAndRendersRows(t *testing.T) {
 	captured, out, err := runWebPoll(t, map[string]string{
-		"WebPolls": `{"data":{"webPolls":[` + webPollJSON + `]}}`,
+		"WebPollsPage": `{"data":{"webPollsPage":{"items":[` + webPollJSON + `],"hasMore":false,"nextCursor":null}}}`,
 	}, "list", "--org", "acme.com", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -34,14 +34,17 @@ func TestWebPollListForwardsOrgAndRendersRows(t *testing.T) {
 	var vars struct {
 		OrgRef string `json:"orgRef"`
 	}
-	_ = json.Unmarshal(captured["WebPolls"], &vars)
+	_ = json.Unmarshal(captured["WebPollsPage"], &vars)
 	if vars.OrgRef != "acme.com" {
 		t.Errorf("--org should forward as orgRef, got %q", vars.OrgRef)
 	}
-	var got []map[string]any
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
+	var env struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
 		t.Fatalf("--json invalid: %v\n%s", err, out)
 	}
+	got := env.Items
 	if len(got) != 1 || got[0]["jobId"] != "job_1" || got[0]["status"] != "active" || got[0]["url"] != "https://example.com/status" {
 		t.Errorf("unexpected rows: %s", out)
 	}
@@ -50,16 +53,16 @@ func TestWebPollListForwardsOrgAndRendersRows(t *testing.T) {
 	}
 }
 
-// cli#1920 condition 2 (cor:api:120:04 gap): the list is unpaged server-side, so
-// the output is the rows and nothing else: no total, no "all" claim, in JSON or text.
+// cli#1920 condition 2 / cli#2032: the output is one page of rows plus its
+// continuation facts and nothing else: no total, no "all" claim, in JSON or text.
 func TestWebPollListClaimsNoCompleteness(t *testing.T) {
-	resp := map[string]string{"WebPolls": `{"data":{"webPolls":[` + webPollJSON + `]}}`}
+	resp := map[string]string{"WebPollsPage": `{"data":{"webPollsPage":{"items":[` + webPollJSON + `],"hasMore":false,"nextCursor":null}}}`}
 	_, jout, err := runWebPoll(t, resp, "list", "--org", "acme.com", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if strings.HasPrefix(strings.TrimSpace(jout), "{") {
-		t.Errorf("--json must be the bare array of rows, not an envelope with a total: %s", jout)
+	if strings.Contains(strings.ToLower(jout), "total") {
+		t.Errorf("--json must not carry a total: %s", jout)
 	}
 	_, tout, err := runWebPoll(t, resp, "list", "--org", "acme.com")
 	if err != nil {
@@ -76,13 +79,16 @@ func TestWebPollListClaimsNoCompleteness(t *testing.T) {
 	}
 }
 
-func TestWebPollListEmptyIsAnEmptyArray(t *testing.T) {
-	_, out, err := runWebPoll(t, map[string]string{"WebPolls": `{"data":{"webPolls":[]}}`}, "list", "--org", "acme.com", "--json")
+func TestWebPollListEmptyPageHasEmptyItems(t *testing.T) {
+	_, out, err := runWebPoll(t, map[string]string{"WebPollsPage": `{"data":{"webPollsPage":{"items":[],"hasMore":false,"nextCursor":null}}}`}, "list", "--org", "acme.com", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if strings.TrimSpace(out) != "[]" {
-		t.Errorf("empty list must render [], got %q", out)
+	var env struct {
+		Items []any `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil || env.Items == nil || len(env.Items) != 0 {
+		t.Errorf("an empty page must render items [], got %q (%v)", out, err)
 	}
 }
 
@@ -204,7 +210,7 @@ func TestWebPollCancelNotCancelledIsAnError(t *testing.T) {
 func TestWebPollListKeepsServerCodeOnRefusal(t *testing.T) {
 	for code, want := range map[string]int{"NOT_FOUND": exitcode.NotFound, "FORBIDDEN": exitcode.Forbidden, "POLICY_DENIED": exitcode.Error} {
 		t.Run(code, func(t *testing.T) {
-			_, _, err := runWebPoll(t, map[string]string{"WebPolls": batchGQLErr(code)}, "list", "--org", "acme.com")
+			_, _, err := runWebPoll(t, map[string]string{"WebPollsPage": batchGQLErr(code)}, "list", "--org", "acme.com")
 			if got := exitCodeFor(err); got != want {
 				t.Fatalf("%s: want exit %d, got %d (%v)", code, want, got, err)
 			}

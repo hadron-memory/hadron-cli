@@ -12,7 +12,7 @@ The CLI covers #1864's whole client surface:
 | `node sign <ref> [--revision N] [--signer <user-id>]` | `requestNodeSignature` |
 | `node signatures <ref> [--check]` | `Node.signatureStatus` |
 | `node signing-request get <id>` | `signingRequest` |
-| `node signing-request list <ref> [--state s] [--limit N]` | `Node.signingRequests` |
+| `node signing-request list <ref> [--state s] [--limit N] [--after <cursor>]` | `Node.signingRequestsPage` (one page; cli#2032) |
 | `node signing-request withdraw <id>` | `withdrawSigningRequest` |
 
 ## Decisions

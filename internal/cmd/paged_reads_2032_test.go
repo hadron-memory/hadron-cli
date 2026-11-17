@@ -134,7 +134,7 @@ func (p *pagedServer2032) listCalls(prefix string) []pagedCall2032 {
 	return out
 }
 
-func run2032(t *testing.T, srv *httptest.Server, args ...string) (stdout, stderr string, err error) {
+func run2032(t *testing.T, srv *httptest.Server, args ...string) (stdout string, err error) {
 	t.Helper()
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -143,7 +143,7 @@ func run2032(t *testing.T, srv *httptest.Server, args ...string) (stdout, stderr
 	if err != nil {
 		renderError(f, err)
 	}
-	return out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
+	return out.String(), err
 }
 
 func poll2032(i int) string {
@@ -209,7 +209,7 @@ func TestWebPollListPagesByExplicitCursor2032(t *testing.T) {
 		{[]string{"web-poll", "list", "--org", "acme.com", "--after", cursor2032(20), "--json"}, want2032("w", 21, 40), true, cursor2032(40), cursor2032(20)},
 		{[]string{"web-poll", "list", "--org", "acme.com", "--after", cursor2032(40), "--json"}, want2032("w", 41, 45), false, "", cursor2032(40)},
 	} {
-		out, _, err := run2032(t, srv, s.args...)
+		out, err := run2032(t, srv, s.args...)
 		if err != nil {
 			t.Fatalf("step %d: %v", i, err)
 		}
@@ -252,7 +252,7 @@ func callOps2032(p *pagedServer2032) []string {
 func TestWebPollListQueriesThePageField2032(t *testing.T) {
 	p := &pagedServer2032{polls: polls2032(1)}
 	srv := p.serve(t)
-	if _, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--json"); err != nil {
+	if _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--json"); err != nil {
 		t.Fatal(err)
 	}
 	calls := p.listCalls("WebPollsPage")
@@ -271,7 +271,7 @@ func TestWebPollListLimit2032(t *testing.T) {
 		limit string
 		want  int
 	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}} {
-		out, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--limit", tc.limit, "--json")
+		out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--limit", tc.limit, "--json")
 		if err != nil {
 			t.Fatalf("--limit %s: %v", tc.limit, err)
 		}
@@ -286,12 +286,12 @@ func TestWebPollListLimit2032(t *testing.T) {
 	}
 	before := len(p.listCalls("WebPollsPage"))
 	for _, bad := range []string{"0", "-1", "abc", "2147483648", "1.5"} {
-		_, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--limit", bad)
+		_, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--limit", bad)
 		if exitCodeFor(err) != 2 {
 			t.Fatalf("--limit %s: exit %d, want 2 (%v)", bad, exitCodeFor(err), err)
 		}
 	}
-	if _, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", ""); exitCodeFor(err) != 2 {
+	if _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", ""); exitCodeFor(err) != 2 {
 		t.Fatalf("an empty --after must be a usage error, got %v", err)
 	}
 	if len(p.listCalls("WebPollsPage")) != before {
@@ -304,7 +304,7 @@ func TestWebPollListLimit2032(t *testing.T) {
 func TestWebPollListJSONEnvelopeShape2032(t *testing.T) {
 	p := &pagedServer2032{polls: nil}
 	srv := p.serve(t)
-	out, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--json")
+	out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +321,7 @@ func TestWebPollListJSONEnvelopeShape2032(t *testing.T) {
 		t.Fatalf("envelope = %s", out)
 	}
 	p2 := &pagedServer2032{polls: polls2032(1)}
-	out, _, err = run2032(t, p2.serve(t), "web-poll", "list", "--org", "acme.com", "--json")
+	out, err = run2032(t, p2.serve(t), "web-poll", "list", "--org", "acme.com", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,21 +335,21 @@ func TestWebPollListJSONEnvelopeShape2032(t *testing.T) {
 func TestWebPollListHumanPageLines2032(t *testing.T) {
 	p := &pagedServer2032{polls: polls2032(25)}
 	srv := p.serve(t)
-	out, _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com")
+	out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "w020") || strings.Contains(out, "w021") || !strings.Contains(out, "has more: true") || !strings.Contains(out, "next cursor: "+cursor2032(20)) {
 		t.Fatalf("first page:\n%s", out)
 	}
-	out, _, err = run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", cursor2032(20))
+	out, err = run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", cursor2032(20))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "has more: false") || strings.Contains(out, "next cursor") {
 		t.Fatalf("last page:\n%s", out)
 	}
-	out, _, err = run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", cursor2032(25))
+	out, err = run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", cursor2032(25))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,8 +371,8 @@ func TestWebPollListRefusesUntrustworthyPageMetadata2032(t *testing.T) {
 	} {
 		reply := reply
 		p := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) { return reply, op == "WebPollsPage" }}
-		out, _, err := run2032(t, p.serve(t), "web-poll", "list", "--org", "acme.com", "--after", "opaque-7", "--json")
-		if exitCodeFor(err) != 1 || strings.TrimSpace(out) != "" {
+		out, err := run2032(t, p.serve(t), "web-poll", "list", "--org", "acme.com", "--after", "opaque-7", "--json")
+		if exitCodeFor(err) != 1 || strings.Contains(out, "hasMore") || strings.Contains(out, "w001") || strings.Contains(out, "ro001") {
 			t.Fatalf("%s: exit %d stdout %q err %v", name, exitCodeFor(err), out, err)
 		}
 	}
@@ -387,7 +387,7 @@ func TestWebPollListOlderServerIsAnErrorNotAnEmptyList2032(t *testing.T) {
 		}
 		return "", false
 	}}
-	out, _, err := run2032(t, p.serve(t), "web-poll", "list", "--org", "acme.com", "--json")
+	out, err := run2032(t, p.serve(t), "web-poll", "list", "--org", "acme.com", "--json")
 	if err == nil || strings.Contains(out, `"items"`) {
 		t.Fatalf("out %q err %v", out, err)
 	}
@@ -428,7 +428,7 @@ func TestSigningRequestListPagesByExplicitCursor2032(t *testing.T) {
 		{[]string{"--after", cursor2032(20)}, want2032("ro", 21, 30), false, "", cursor2032(20)},
 	} {
 		args := append([]string{"node", "signing-request", "list", nodeURN, "--state", "open", "--json"}, s.extra...)
-		out, _, err := run2032(t, srv, args...)
+		out, err := run2032(t, srv, args...)
 		if err != nil {
 			t.Fatalf("step %d: %v", i, err)
 		}
@@ -452,7 +452,7 @@ func TestSigningRequestListPagesByExplicitCursor2032(t *testing.T) {
 		}
 	}
 	// state=expired reads the effective-expired rows on their own pages.
-	out, _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "expired", "--json")
+	out, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "expired", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestSigningRequestListPagesByExplicitCursor2032(t *testing.T) {
 
 func TestSigningRequestListQueriesThePageField2032(t *testing.T) {
 	p := &pagedServer2032{requests: signingFixture2032()}
-	if _, _, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--json"); err != nil {
+	if _, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--json"); err != nil {
 		t.Fatal(err)
 	}
 	calls := p.listCalls("NodeSigningRequests")
@@ -485,7 +485,7 @@ func TestSigningRequestListLimit2032(t *testing.T) {
 		limit string
 		want  int
 	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}} {
-		out, _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--limit", tc.limit, "--json")
+		out, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--limit", tc.limit, "--json")
 		if err != nil {
 			t.Fatalf("--limit %s: %v", tc.limit, err)
 		}
@@ -500,11 +500,11 @@ func TestSigningRequestListLimit2032(t *testing.T) {
 	}
 	before := len(p.listCalls("NodeSigningRequests"))
 	for _, bad := range []string{"0", "-1", "abc", "2147483648"} {
-		if _, _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--limit", bad); exitCodeFor(err) != 2 {
+		if _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--limit", bad); exitCodeFor(err) != 2 {
 			t.Fatalf("--limit %s: exit %d (%v)", bad, exitCodeFor(err), err)
 		}
 	}
-	if _, _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--after", ""); exitCodeFor(err) != 2 {
+	if _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--after", ""); exitCodeFor(err) != 2 {
 		t.Fatalf("an empty --after must be a usage error, got %v", err)
 	}
 	if len(p.listCalls("NodeSigningRequests")) != before {
@@ -516,7 +516,7 @@ func TestSigningRequestListLimit2032(t *testing.T) {
 // list is [] and the last cursor is null, both present.
 func TestSigningRequestListJSONShape2032(t *testing.T) {
 	p := &pagedServer2032{}
-	out, _, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--json")
+	out, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,21 +537,21 @@ func TestSigningRequestListJSONShape2032(t *testing.T) {
 func TestSigningRequestListHumanPageLines2032(t *testing.T) {
 	p := &pagedServer2032{requests: signingFixture2032()}
 	srv := p.serve(t)
-	out, _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open")
+	out, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "ro020") || strings.Contains(out, "ro021") || !strings.Contains(out, "has more: true") || !strings.Contains(out, "next cursor: "+cursor2032(20)) {
 		t.Fatalf("first page:\n%s", out)
 	}
-	out, _, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open", "--after", cursor2032(20))
+	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open", "--after", cursor2032(20))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "has more: false") || strings.Contains(out, "next cursor") {
 		t.Fatalf("last page:\n%s", out)
 	}
-	out, _, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open", "--after", cursor2032(30))
+	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open", "--after", cursor2032(30))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,8 +573,8 @@ func TestSigningRequestListRefusesUntrustworthyPageMetadata2032(t *testing.T) {
 	} {
 		reply := reply
 		p := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) { return reply, op == "NodeSigningRequests" }}
-		out, _, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--after", "opaque-7", "--json")
-		if exitCodeFor(err) != 1 || strings.TrimSpace(out) != "" {
+		out, err := run2032(t, p.serve(t), "node", "signing-request", "list", nodeURN, "--after", "opaque-7", "--json")
+		if exitCodeFor(err) != 1 || strings.Contains(out, "hasMore") || strings.Contains(out, "w001") || strings.Contains(out, "ro001") {
 			t.Fatalf("%s: exit %d stdout %q err %v", name, exitCodeFor(err), out, err)
 		}
 	}

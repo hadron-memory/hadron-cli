@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 236: 198 command, 13 gap, 25 excluded
+[Query] 236: 198 command, 12 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -259,8 +259,8 @@ validateMemory  command memory validate
 verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
-webPolls  command web-poll list
-webPollsPage  gap #2032: paged web-poll read not adopted yet
+webPolls  excluded not-a-capability: legacy unpaged spelling; webPollsPage carries the same capability (cli#2032)
+webPollsPage  command web-poll list
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
@@ -624,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 77: 42 gap, 35 excluded
+[Arguments] 77: 41 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -701,7 +701,7 @@ Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.webPolls(first)  gap #2032: the deprecated unpaged read takes no page size; webPollsPage supersedes it
+Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); proposed class unruled under #1334
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
