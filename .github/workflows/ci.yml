@@ -99,7 +99,8 @@ jobs:
               git diff -- internal/delivery/bindinglock_windows.go
               go test -c ./internal/delivery/ -o $binary
               if ($LASTEXITCODE -ne 0) { throw "Mutant did not compile: $($mutant.Name)" }
-              $output = & $binary -test.run $mutant.Test -test.v 2>&1
+              $testArgs = @("-test.run=$($mutant.Test)", "-test.v")
+              $output = & $binary @testArgs 2>&1
               $result = $LASTEXITCODE
               $output | Out-Host
               $text = $output -join "`n"
