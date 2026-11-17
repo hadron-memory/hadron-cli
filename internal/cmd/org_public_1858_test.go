@@ -142,3 +142,34 @@ func TestOrgPublic1858NotFoundUnchanged(t *testing.T) {
 		t.Fatalf("notfound contract: %v", err)
 	}
 }
+
+// A schema-violating success response must be refused, not panic or invent
+// an empty list. Each page is independently guarded.
+func TestOrgPublic1858NullPageRefuses(t *testing.T) {
+	for _, missing := range []string{"publicMemoriesPage", "publicAgentsPage"} {
+		t.Run(missing, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("null page must return a refusal, not panic: %v", p)
+				}
+			}()
+			org := map[string]any{"id": "o", "urn": "acme.com", "name": "Acme", "listedOnMarketplace": true, "publicMemoriesPage": map[string]any{"items": []any{}, "total": 0, "hasMore": false}, "publicAgentsPage": map[string]any{"items": []any{}, "total": 0, "hasMore": false}}
+			org[missing] = nil
+			body, err := json.Marshal(map[string]any{"data": map[string]any{"publicOrganization": org}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			gql, _ := captureGraphQL(t, map[string]string{"PublicOrganization": string(body)})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"org", "public", "acme.com", "--json", "--server", gql.URL})
+			err = root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "incomplete public organization page") {
+				t.Fatalf("want normal incomplete-page refusal, got %v", err)
+			}
+			if out.String() != "" {
+				t.Errorf("must not emit success data on malformed page: %s", out.String())
+			}
+		})
+	}
+}
