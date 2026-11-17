@@ -45,7 +45,7 @@ type movePlanDTO struct {
 	Status               string                `json:"status"` // COMPLETE or TRUNCATED
 	Complete             bool                  `json:"complete"`
 	TotalCount           int                   `json:"totalCount"`
-	Truncated            bool                  `json:"truncated"`
+	Truncated            bool                  `json:"truncated"` // the CLI's verdict, always !Complete (cli#2320)
 	PointInTime          bool                  `json:"pointInTime"`
 	Nodes                []movePlanNode        `json:"nodes"`
 	LinkWarnings         []movePlanLinkWarning `json:"linkWarnings"`
@@ -92,7 +92,6 @@ func truncatedPlanError(listed, total int, limit *int) error {
 func movePlanFrom(p *gen.PlanNodeMovePlanNodeMoveNodeMovePlan) movePlanDTO {
 	dto := movePlanDTO{
 		TotalCount:           p.TotalCount,
-		Truncated:            p.Truncated,
 		PointInTime:          p.PointInTime,
 		Nodes:                []movePlanNode{},
 		LinkWarningsWithheld: p.LinkWarningsWithheld,
@@ -111,6 +110,11 @@ func movePlanFrom(p *gen.PlanNodeMovePlanNodeMoveNodeMovePlan) movePlanDTO {
 		}
 	}
 	dto.Complete = !p.Truncated && len(dto.Nodes) == p.TotalCount && len(dto.Nodes) == len(p.Nodes)
+	// truncated is the CLI's verdict, not a copy of the server's flag: the
+	// server flagged the plan OR it lists fewer nodes than it counts. So the
+	// JSON never reads complete beside status TRUNCATED (cli#2320,
+	// cor:api:190:03).
+	dto.Truncated = !dto.Complete
 	dto.Status = "TRUNCATED"
 	if dto.Complete {
 		dto.Status = "COMPLETE"

@@ -2,6 +2,7 @@ package node
 
 import (
 	"io"
+	"math"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -55,10 +56,13 @@ says they are withheld when you can't read the destination memory). If the move
 would be refused, --dry-run fails with the move's own error and exit code. The
 plan is true when answered and reserves nothing, so a change before the move can
 still end it with a conflict (exit 5). The server lists at most --limit nodes
-(at least 1; its default 100; the server bounds the value). A plan that does
-not list every node is labelled TRUNCATED and exits 1; when the server lists
-fewer than --limit asked for, that is its bound, and a larger --limit cannot
-list the subtree in full.`,
+(1 to 2147483647, the GraphQL Int range; its default 100; the server bounds the
+value). A plan that does not list every node is labelled TRUNCATED and exits 1;
+when the server lists fewer than --limit asked for, that is its bound, and a
+larger --limit cannot list the subtree in full. In --json, status, complete and
+truncated always agree: truncated is the CLI's verdict (the server flagged the
+plan or it lists fewer nodes than it counts) and is always the opposite of
+complete.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
   hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive
   hadron node move findings -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive --dry-run`,
@@ -73,6 +77,13 @@ list the subtree in full.`,
 			}
 			if limitSet && limit < 1 {
 				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1")
+			}
+			// The request carries --limit as a GraphQL Int, a signed 32-bit
+			// value; a larger number cannot be encoded, so it is refused
+			// here. Every value in range is sent for the server to bound
+			// (cli#2320, cor:api:240:01).
+			if limitSet && limit > math.MaxInt32 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be at most 2147483647, the largest GraphQL Int")
 			}
 			// Validate the destination flags before touching the network, so a
 			// bad flag combo is a usage error even when unauthenticated.
