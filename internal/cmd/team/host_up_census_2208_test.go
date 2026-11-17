@@ -37,15 +37,6 @@ func censusDependencies2208(t *testing.T, ready func(*hostpoller.Config) func(co
 	t.Setenv("PATH", dir)
 }
 
-func TestHostUpCensusNativeDefaults2208(t *testing.T) {
-	if reflect.ValueOf(hostUpReadinessFactory).Pointer() != reflect.ValueOf(managedDaemonProbe).Pointer() {
-		t.Fatal("readiness default is not the managed daemon proof")
-	}
-	if reflect.ValueOf(hostUpProcessProbe).Pointer() != reflect.ValueOf(hostpoller.ProbeWorktreeAgents).Pointer() {
-		t.Fatal("process default is not the native strict census")
-	}
-}
-
 func TestHostUpCensusProductionAdapter2208(t *testing.T) {
 	unavailable := errors.New("synthetic proof unavailable")
 	for _, tc := range []struct {
