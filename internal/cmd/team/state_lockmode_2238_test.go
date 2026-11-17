@@ -4,10 +4,13 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 )
@@ -29,6 +32,20 @@ func TestBindingLockFileModeIgnoresTheUmask2238(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		// A second opener arriving while the lock is being created must never
+		// see it in a mode it cannot open: it either does not exist yet or it
+		// is already exact (the create-then-chmod window, Julius's P2).
+		lockCreatedHook = func(path string) {
+			f, err := os.OpenFile(path, os.O_RDWR, 0)
+			if err == nil {
+				_ = f.Close()
+				return
+			}
+			if !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("a concurrent open of the lock being created failed: %v", err)
+			}
+		}
+		defer func() { lockCreatedHook = nil }()
 		// Two binds in the same directory: the second opens the lock the
 		// first created.
 		for i := range 2 {
@@ -82,6 +99,16 @@ func assertLockMode2238(t *testing.T, path string) {
 	}
 	if st.Mode().Perm() != 0o600 {
 		t.Fatalf("lock file mode = %v, want 0600 whatever the umask", st.Mode().Perm())
+	}
+	// The private temporary the lock is published from never lingers.
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".new-") {
+			t.Fatalf("a temporary lock file was left behind: %s", e.Name())
+		}
 	}
 }
 

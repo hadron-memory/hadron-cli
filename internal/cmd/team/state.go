@@ -520,31 +520,65 @@ type cacheHandle struct {
 
 func (h cacheHandle) path(name string) string { return filepath.Join(h.loc.dir, name) }
 
+// lockCreatedHook runs right after a new lock file exists and before its
+// creator has finished with it; a test opens the file there (cli#2238).
+var lockCreatedHook func(path string)
+
 func (h cacheHandle) openLock() (*os.File, error) {
-	open := func(flag int) (*os.File, error) {
+	open := func(name string, flag int) (*os.File, error) {
 		if h.root != nil {
-			return h.root.OpenFile(bindingLockFileName, flag, 0o600)
+			return h.root.OpenFile(name, flag, 0o600)
 		}
-		return os.OpenFile(h.path(bindingLockFileName), flag, 0o600) // #nosec G304 — derived from the worktree's git dir
+		return os.OpenFile(h.path(name), flag, 0o600) // #nosec G304 — derived from the worktree's git dir
 	}
-	// An existing lock is opened as it is. A missing one is created
-	// exclusively and then set to exactly 0600 through the descriptor: the
-	// create mode is 0600 &^ umask, so under umask 0277 (or 0777) the file
-	// came out r-------- (or 000) and the NEXT bind's read-write open failed
-	// "permission denied" (cli#2238). The creator owns the file, so the chmod
-	// never touches one a different uid made.
-	f, err := open(os.O_RDWR)
+	// An existing lock is opened as it is, never chmodded.
+	f, err := open(bindingLockFileName, os.O_RDWR)
 	if !errors.Is(err, fs.ErrNotExist) {
 		return f, err
 	}
-	f, err = open(os.O_RDWR | os.O_CREATE | os.O_EXCL)
-	if errors.Is(err, fs.ErrExist) {
-		return open(os.O_RDWR) // another bind created it first
+	// A missing one is created WITH ITS FINAL MODE: the create mode is
+	// 0600 &^ umask (r-------- under 0277, 000 under 0777), so a file made at
+	// its own name and chmodded afterwards is visible, for a moment, in a mode
+	// a concurrent opener cannot open (cli#2238, Julius's P2). Instead a
+	// private temporary is created exclusively, set to exactly 0600 through
+	// its descriptor, and linked to the lock's name in one step: the name never
+	// exists in any other mode, and a lost race (the link finds the name taken)
+	// reopens the winner's file.
+	suffix := make([]byte, 6)
+	if _, err := rand.Read(suffix); err != nil {
+		return nil, err
 	}
+	tmp := bindingLockFileName + ".new-" + hex.EncodeToString(suffix)
+	f, err = open(tmp, os.O_RDWR|os.O_CREATE|os.O_EXCL)
 	if err != nil {
 		return nil, err
 	}
+	removeTmp := func() {
+		if h.root != nil {
+			_ = h.root.Remove(tmp)
+		} else {
+			_ = os.Remove(h.path(tmp))
+		}
+	}
+	if lockCreatedHook != nil {
+		lockCreatedHook(h.path(bindingLockFileName))
+	}
 	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		removeTmp()
+		return nil, err
+	}
+	if h.root != nil {
+		err = h.root.Link(tmp, bindingLockFileName)
+	} else {
+		err = os.Link(h.path(tmp), h.path(bindingLockFileName))
+	}
+	removeTmp()
+	if errors.Is(err, fs.ErrExist) {
+		_ = f.Close()
+		return open(bindingLockFileName, os.O_RDWR) // another bind published it first
+	}
+	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
