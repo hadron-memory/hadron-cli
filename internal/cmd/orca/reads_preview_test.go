@@ -241,6 +241,7 @@ func TestDueTicksPreviewHintOnlyForKnownRefusal(t *testing.T) {
 		{"mixed-errors", []any{refusal(known, "GRAPHQL_VALIDATION_FAILED"), refusal("Forbidden", "FORBIDDEN")}, false},
 		{"wrong-code", []any{refusal(known, "INTERNAL_SERVER_ERROR")}, false},
 		{"bare-spelling", []any{refusal(`Unknown argument "preview" on field "dueWakes".`, "GRAPHQL_VALIDATION_FAILED")}, true},
+		{"missing-code", []any{map[string]any{"message": known}}, true},
 	} {
 		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
 			t.Run(tc.name+"/"+http.StatusText(status), func(t *testing.T) {

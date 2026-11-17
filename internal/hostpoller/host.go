@@ -106,7 +106,7 @@ type Agent interface {
 // Orca agent's tree (Rook's §10 P2 on #2167): that pid is an ancestor of
 // every agent it launches, so passing it on would let reset-context in an
 // exec worker end the poller's host agent. An Orca launch sets its own.
-var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT", delivery.AgentPIDEnv}
+var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT", StartSettingsAppliedEnvVar, delivery.AgentPIDEnv}
 
 // agentEnv builds a launched agent's environment from the poller's: every
 // variable but the scrubbed ones and any whose value carries the host key,
