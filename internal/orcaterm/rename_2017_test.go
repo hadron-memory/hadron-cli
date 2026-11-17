@@ -2,6 +2,7 @@ package orcaterm
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -41,9 +42,18 @@ func TestRenameTabCall2017(t *testing.T) {
 			t.Fatalf("%q/%q: an empty handle or title must be refused before any call (an empty title would reset the tab)", tc.handle, tc.title)
 		}
 	}
-	for _, res := range []Result{{Stdout: `{"ok":false,"error":{"code":"terminal_handle_stale"}}`}, {Stdout: "not json"}, {Code: 1}} {
-		if err := RenameTab(context.Background(), func(context.Context, []string) Result { return res }, "h1", "Iris"); err != ErrOrca {
-			t.Fatalf("%+v: %v", res, err)
+	for _, tc := range []struct {
+		res  Result
+		code string
+	}{
+		{Result{Stdout: `{"ok":false,"error":{"code":"terminal_handle_stale"}}`}, "terminal_handle_stale"}, // cli#2040: Orca's code rides along
+		{Result{Stdout: `{"ok":false,"error":{"message":"quotes input"}}`}, ""},                            // no code: none invented, message never kept
+		{Result{Stdout: "not json"}, ""},
+		{Result{Code: 1}, ""},
+	} {
+		err := RenameTab(context.Background(), func(context.Context, []string) Result { return tc.res }, "h1", "Iris")
+		if !errors.Is(err, ErrOrca) || ErrorCode(err) != tc.code || err.Error() != ErrOrca.Error() {
+			t.Fatalf("%+v: %v (code %q)", tc.res, err, ErrorCode(err))
 		}
 	}
 }

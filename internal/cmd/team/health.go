@@ -371,6 +371,9 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 					switch {
 					case r.Error != nil:
 						verb = "rename failed (" + *r.Error + ")"
+						if r.OrcaCode != nil {
+							verb = "rename failed (" + *r.Error + "; orca: " + output.SafeCell(*r.OrcaCode) + ")"
+						}
 					case r.Applied:
 						verb = "renamed"
 					}

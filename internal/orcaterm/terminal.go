@@ -326,8 +326,33 @@ func RenameTab(ctx context.Context, run Runner, handle, title string) error {
 		return ErrOrca
 	}
 	env, ok := parse(run(ctx, []string{"terminal", "rename", "--terminal", handle, "--title=" + title, "--json"}))
-	if !ok || !env.OK {
+	if !ok {
+		return ErrOrca
+	}
+	if !env.OK {
+		if env.Error != nil && env.Error.Code != "" {
+			return &CodeError{Code: env.Error.Code}
+		}
 		return ErrOrca
 	}
 	return nil
+}
+
+// CodeError is a failed `orca` call that answered with an error code. It is
+// ErrOrca to errors.Is (every existing check still holds) and carries Orca's
+// code, an opaque string from another system: callers pass it through, never
+// branch on its value or list the values (cli#2040). Orca's message is never
+// kept, since it may quote input.
+type CodeError struct{ Code string }
+
+func (e *CodeError) Error() string { return ErrOrca.Error() }
+func (e *CodeError) Unwrap() error { return ErrOrca }
+
+// ErrorCode is the code Orca answered with, or "" when err carries none.
+func ErrorCode(err error) string {
+	var ce *CodeError
+	if errors.As(err, &ce) {
+		return ce.Code
+	}
+	return ""
 }

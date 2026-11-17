@@ -5567,7 +5567,10 @@ and lists "would rename" lines (`renames[].applied` false, `dryRun` true). The
 status batch is stored either way. The installed timer passes `--dry-run=false`
 (re-run `hadron team health install` once on a host installed before cli#2017 to
 pick it up). One tab failing to rename is `renames[].error: "rename_failed"` and
-does not stop the rest; a failed rename or a failed terminal list exits 1 after
+does not stop the rest; `renames[].orcaCode` (cli#2040) carries the error code Orca
+answered with, an opaque string to pass through (null when the rename succeeded or
+Orca gave no code; never branch on its values, `error` stays the constant), and the
+text line reads `rename failed (rename_failed; orca: <code>)`; a failed rename or a failed terminal list exits 1 after
 the receipt is printed. No chat post is made per rename.
 
 A missing/non-live host registration is exit 8. Unresolved or ambiguous registered

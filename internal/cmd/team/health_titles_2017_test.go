@@ -37,6 +37,7 @@ type fakeOrca2017 struct {
 	renames   [][]string
 	failList  bool
 	failOn    string
+	failBody  string // the rename failure answer; default is a stale-handle code
 }
 
 func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
@@ -61,6 +62,9 @@ func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 			}
 		}
 		if strings.Contains(","+o.failOn+",", ","+handle+",") {
+			if o.failBody != "" {
+				return orcaterm.Result{Stdout: o.failBody}
+			}
 			return orcaterm.Result{Stdout: `{"ok":false,"error":{"code":"terminal_handle_stale"}}`}
 		}
 		for _, t := range o.terminals {
@@ -98,6 +102,13 @@ func newOrca2017() *fakeOrca2017 {
 }
 
 func title2017Run(t *testing.T, o *fakeOrca2017, irisName string, args ...string) (string, int, error) {
+	t.Helper()
+	return title2017RunMode(t, o, irisName, true, args...)
+}
+
+// title2017RunMode is title2017Run with the output mode chosen: asJSON false
+// drives the human (text) branch of the receipt.
+func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON bool, args ...string) (string, int, error) {
 	t.Helper()
 	oldRunner, oldBound := orcaRunner, healthBoundWorker
 	orcaRunner = func(string) orcaterm.Runner { return o.run }
@@ -141,7 +152,7 @@ func title2017Run(t *testing.T, o *fakeOrca2017, irisName string, args ...string
 	f := cmdutil.NewFactory()
 	streams, out, _ := output.Test()
 	f.IOStreams = streams
-	f.JSON = true
+	f.JSON = asJSON
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
 		return []byte(strings.Replace(title2017Status, `"worker":"Iris"`, `"worker":"`+irisName+`"`, 1)), 0, nil
 	})
@@ -330,4 +341,84 @@ func stubNoTabs(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() { orcaRunner = old })
+}
+
+// cli#2040 item 1: the text (non-JSON) branch of the title pass. Every test
+// above runs JSON mode, so the three verbs were unpinned.
+func TestHealthTitlesTextModeVerbs2040(t *testing.T) {
+	line := func(out, name, verb string) string {
+		for _, l := range strings.Split(out, "\n") {
+			if strings.HasPrefix(l, "title  "+name+"  "+verb) {
+				return l
+			}
+		}
+		return ""
+	}
+	// dry run: would rename, no orca note
+	o := newOrca2017()
+	out, _, err := title2017RunMode(t, o, "Iris", false)
+	if err != nil || len(o.renames) != 0 {
+		t.Fatalf("err=%v renames=%v", err, o.renames)
+	}
+	if l := line(out, "Iris", "would rename"); !strings.Contains(l, `"Iris SHED recovery" -> "Iris"`) {
+		t.Fatalf("dry-run line missing in:\n%s", out)
+	}
+	// applied: renamed
+	o = newOrca2017()
+	out, _, err = title2017RunMode(t, o, "Iris", false, "--dry-run=false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line(out, "Iris", "renamed") == "" || strings.Contains(out, "would rename") || strings.Contains(out, "rename failed") {
+		t.Fatalf("applied lines wrong:\n%s", out)
+	}
+	// failed with an Orca code: the code is shown beside the constant
+	o = newOrca2017()
+	o.failOn = "h1,h1b"
+	out, _, err = title2017RunMode(t, o, "Iris", false, "--dry-run=false")
+	if exitcode.FromError(err) != exitcode.Error {
+		t.Fatalf("want exit 1, got %v", err)
+	}
+	if l := line(out, "Iris", "rename failed (rename_failed; orca: terminal_handle_stale)"); l == "" {
+		t.Fatalf("failure line wrong:\n%s", out)
+	}
+	// failed with no Orca code: the constant alone, no empty orca note
+	o = newOrca2017()
+	o.failOn = "h1,h1b"
+	o.failBody = "not json"
+	out, _, _ = title2017RunMode(t, o, "Iris", false, "--dry-run=false")
+	if line(out, "Iris", "rename failed (rename_failed)") == "" || strings.Contains(out, "orca:") {
+		t.Fatalf("code-less failure line wrong:\n%s", out)
+	}
+}
+
+// cli#2040 item 2: orcaCode rides beside the unchanged error constant.
+func TestHealthTitlesReceiptCarriesOrcaCode2040(t *testing.T) {
+	o := newOrca2017()
+	o.failOn = "h1,h1b"
+	out, _, _ := title2017Run(t, o, "Iris", "--dry-run=false")
+	r := decodeTitleReceipt(t, out)
+	failed, ok := r.Renames[0], r.Renames[2]
+	if failed.Error == nil || *failed.Error != "rename_failed" {
+		t.Fatalf("error must stay the constant: %+v", failed)
+	}
+	if failed.OrcaCode == nil || *failed.OrcaCode != "terminal_handle_stale" {
+		t.Fatalf("orcaCode: %+v", failed)
+	}
+	if ok.OrcaCode != nil {
+		t.Fatalf("a renamed tab has no orcaCode: %+v", ok)
+	}
+	// the wire key is present (null) on every row, never omitted
+	if !strings.Contains(out, `"orcaCode": null`) && !strings.Contains(out, `"orcaCode":null`) {
+		t.Fatalf("orcaCode must render null when absent:\n%s", out)
+	}
+	// no code from Orca: null, error unchanged
+	o = newOrca2017()
+	o.failOn = "h1,h1b"
+	o.failBody = "not json"
+	out, _, _ = title2017Run(t, o, "Iris", "--dry-run=false")
+	r = decodeTitleReceipt(t, out)
+	if r.Renames[0].Error == nil || r.Renames[0].OrcaCode != nil {
+		t.Fatalf("code-less failure: %+v", r.Renames[0])
+	}
 }
