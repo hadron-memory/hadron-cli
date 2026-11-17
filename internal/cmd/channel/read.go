@@ -147,7 +147,20 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 				mentionsPtr = &mentions
 			}
 			var page *channelPage
-			if tagFlags.Active() {
+			if len(tagFlags.Heads()) > 0 {
+				resp, err := gen.ChannelTagsMulti(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr, tagFlags.Heads(), nil)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
+			} else if tagFlags.Active() {
 				resp, err := gen.ChannelTags(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr, tagFlags.Head(), tagFlags.Untagged())
 				if err != nil {
 					return api.MapErrorKeepingCode(err)

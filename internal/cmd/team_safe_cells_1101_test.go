@@ -233,6 +233,19 @@ func TestTeamSafeCells1101(t *testing.T) {
 		r["TeamComposition"] = body
 		return r
 	}
+	// the events ESCALATION ENDED cell (cli#1940): no fixture event carries a
+	// recorded end, so the cell was always blank until an alarm with one rides
+	// along (cli#2053 F6).
+	eventsEnded := func(t *testing.T) map[string]string {
+		t.Helper()
+		r := make(map[string]string, len(base))
+		for op, body := range base {
+			r[op] = body
+		}
+		alarm := stamp(t, alarmEventFieldsJSON, `"acknowledgedBy":null`, `"escalationEndedAt":"2026-10-12T03:30:00Z"`)
+		r["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[` + alarm + `],"hasMore":false,"nextCursor":null}}}`
+		return r
+	}
 	fixed := func(m map[string]string) responseSet {
 		return func(*testing.T) map[string]string { return m }
 	}
@@ -283,6 +296,9 @@ func TestTeamSafeCells1101(t *testing.T) {
 			{"at", "2026-10-12T00:00:00Z"},
 			{"type", "task.created"},
 			{"task", "task1"},
+		}},
+		{"events-escalation-ended", []string{"events"}, eventsEnded, "AgentTeamEventsPage", []cellAttack{
+			{"escalation-ended", "2026-10-12T03:30:00Z"},
 		}},
 		{"role-list", []string{"role", "list"}, fixed(base), "TeamRoles", []cellAttack{
 			{"description", "Backend role"},

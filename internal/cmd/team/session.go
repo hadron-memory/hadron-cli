@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -45,7 +44,10 @@ no repository): start, resume and shed there keep the binding in a hidden
 .hadron-team/ directory inside that directory, under the same lock. Such a
 directory binds ONE worker: another worker's start there is refused, never
 shared — give each worker its own directory. Only the directory a command
-runs in is looked at, never a parent.
+runs in is looked at, never a parent. Running git init in such a directory
+makes it a worktree: the binding then lives in the git dir and the cache in
+.hadron-team/ is no longer read, so whoami there shows no binding until you
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -1029,7 +1031,7 @@ ends the recovered session: run start again to pick it up.`,
 			// known after the bind; writeBinding's check under the lock
 			// refuses that one, and the bind is rolled back below.
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
-				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				return errDirectoryHeld(heldCachePath(), existing)
 			}
 			// The client opens early only for the plain-directory read below;
 			// everywhere else it opens after the existing-binding check, as
@@ -1077,7 +1079,7 @@ ends the recovered session: run start again to pick it up.`,
 				}
 				resolved = true
 				if existing.WorkerID == "" || w.Id != existing.WorkerID {
-					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+					return errDirectoryHeld(heldCachePath(), existing)
 				}
 			}
 			var lapsedBinding bool
