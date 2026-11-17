@@ -310,24 +310,33 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 }
 
 // sortNewestFirst restores the server's session order (startedAt desc, id desc)
-// after a restarted scan appended a concurrent insert last (cli#2030). The
-// timestamps are the server's RFC 3339 strings; an unparsable one sorts by its
-// text, which is the same order for the server's fixed-width UTC form.
+// after a restarted scan appended a concurrent insert last (cli#2030).
+//
+// One total order, on one precomputed key per row (cli#2049): rows whose
+// startedAt parses as RFC 3339 come first, by instant descending then id
+// descending; rows whose startedAt does not parse come last, by id descending.
+// An unparsable row's text is never compared, and never mixed with an instant,
+// so the order cannot depend on how the rows were permuted going in.
 func sortNewestFirst(rows []gen.TeamSessionFields) {
+	type key struct {
+		parsed  bool
+		instant time.Time
+		id      string
+	}
+	keys := make(map[string]key, len(rows))
+	for _, r := range rows {
+		t, err := time.Parse(time.RFC3339Nano, r.StartedAt)
+		keys[r.Id] = key{parsed: err == nil, instant: t, id: r.Id}
+	}
 	sort.SliceStable(rows, func(i, j int) bool {
-		a, b := rows[i], rows[j]
-		if a.StartedAt != b.StartedAt {
-			ta, ea := time.Parse(time.RFC3339Nano, a.StartedAt)
-			tb, eb := time.Parse(time.RFC3339Nano, b.StartedAt)
-			if ea == nil && eb == nil {
-				if !ta.Equal(tb) {
-					return ta.After(tb)
-				}
-			} else {
-				return a.StartedAt > b.StartedAt
-			}
+		a, b := keys[rows[i].Id], keys[rows[j].Id]
+		if a.parsed != b.parsed {
+			return a.parsed
 		}
-		return a.Id > b.Id
+		if a.parsed && !a.instant.Equal(b.instant) {
+			return a.instant.After(b.instant)
+		}
+		return a.id > b.id
 	})
 }
 
