@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	urnlib "github.com/hadron-memory/urn-lib-go"
 	"io"
@@ -29,12 +30,18 @@ type updateAppDTO struct {
 	Changed               []string `json:"changed"`
 }
 
+// errNoUpdatedApp marks a reply that carries no error and no App (updateApp is
+// non-null in the schema, so this is a malformed answer, not a result).
+var errNoUpdatedApp = errors.New("the server's reply named no App")
+
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var settings settingsFlags
 	var newURN, appType string
 	var (
 		name, description     string
+		policyFile            string
 		clearDescription, yes bool
+		clearPolicy           bool
 		timeout               int
 	)
 	cmd := &cobra.Command{
@@ -43,8 +50,19 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Change an App's settings. Surfaces are descriptive strings, not authorization
 boundaries; the portal shows its chat tab when the list contains chat. Updating
 surfaces or Agent tools replaces the whole list; their clear flags send [].
-Changing type does not change surfaces. Admission policy updates and legacy AI
-keys are not exposed here (use ai-config for AI configuration).
+Changing type does not change surfaces. Legacy AI keys are not exposed here
+(use ai-config for AI configuration).
+
+--policy-file <path> sets the App's action-policy link, the App layer of the
+chain every run of the App must pass (a run may do an action only if every
+layer allows it): a JSON allow-list such as {"allow":["run.execute"]};
+{"allow":[]} allows nothing. --clear-policy removes the link (sends null). The
+flags are mutually exclusive, and an empty file, a file that is not exactly one
+JSON value, or a JSON null is refused locally (exit 2, nothing sent): a null
+would clear the link, so only --clear-policy does that. Neither flag sends no
+policy at all, so an older server keeps working. The server owns who may set
+it (the App's owner, or an org ADMIN for an org-owned App) and the shape; see
+which layer denies an action with hadron policy explain.
 
 Only the flags you pass are sent; every other field keeps its stored value.
 description can also be CLEARED, with a separate explicit
@@ -60,12 +78,17 @@ unknown: nothing is retried and no success is claimed — read the App back
 before trying again.`,
 		Example: `  hadron app update hrn:app:acme.com:support --name "Support Desk" --yes
   hadron app update acme.com:support --session-timeout-seconds 3600
-  hadron app update acme.com:support --clear-description --yes`,
+  hadron app update acme.com:support --clear-description --yes
+  hadron app update acme.com:support --policy-file app-policy.json --yes
+  hadron app update acme.com:support --clear-policy --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			if fl.Changed("description") && clearDescription {
 				return exitcode.Newf(exitcode.Usage, "--description and --clear-description are mutually exclusive")
+			}
+			if fl.Changed("policy-file") && clearPolicy {
+				return exitcode.Newf(exitcode.Usage, "--policy-file and --clear-policy are mutually exclusive")
 			}
 
 			prepared, err := settings.prepare(cmd)
@@ -111,6 +134,20 @@ before trying again.`,
 				timeoutPtr = &timeout
 				changed = append(changed, "sessionTimeoutSeconds")
 			}
+			// cli#1640: absent unless a policy flag is given, so the request
+			// and the document never mention it for an older server.
+			var policyJSON json.RawMessage
+			switch {
+			case fl.Changed("policy-file"):
+				policyJSON, err = readPolicyFile(policyFile)
+				if err != nil {
+					return err
+				}
+				changed = append(changed, "policy")
+			case clearPolicy:
+				policyJSON = json.RawMessage("null")
+				changed = append(changed, "policy (cleared)")
+			}
 			if len(changed) == 0 {
 				return exitcode.Newf(exitcode.Usage, "nothing to update: pass a setting flag or a true --clear-* flag")
 			}
@@ -150,26 +187,50 @@ before trying again.`,
 			dto.App = appRef
 			dto.Status = "updated"
 			dto.Changed = changed
-			if len(prepared.changed) > 0 {
+			if policyJSON != nil {
+				resp, callErr := gen.UpdateAppSettingsPolicy(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, policyJSON)
+				err = callErr
+				if err == nil {
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
+				}
+			} else if len(prepared.changed) > 0 {
 				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
 				err = callErr
 				if err == nil {
-					u := resp.UpdateApp
-					dto.ID = u.Id
-					dto.URN = u.Urn
-					dto.Name = u.Name
-					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
 				}
 			} else {
 				resp, callErr := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr)
 				err = callErr
 				if err == nil {
-					u := resp.UpdateApp
-					dto.ID = u.Id
-					dto.URN = u.Urn
-					dto.Name = u.Name
-					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
 				}
+			}
+			if errors.Is(err, errNoUpdatedApp) {
+				// The request was sent and answered without an error but with no
+				// App: whether it applied is unknown, so nothing is claimed.
+				return exitcode.New(exitcode.Unavailable, fmt.Errorf("app update outcome unknown (sent once, not retried; read the App back before retrying): %w", err))
 			}
 			if err != nil {
 				mapped := api.MapError(err)
@@ -191,6 +252,8 @@ before trying again.`,
 	fl.StringVar(&name, "name", "", "the App's new name")
 	fl.StringVar(&description, "description", "", "the App's new description")
 	fl.BoolVar(&clearDescription, "clear-description", false, "clear the description (sends null)")
+	fl.StringVar(&policyFile, "policy-file", "", "path to a JSON file holding the App's action-policy link, e.g. {\"allow\":[\"run.execute\"]}; null is refused (use --clear-policy)")
+	fl.BoolVar(&clearPolicy, "clear-policy", false, "remove the App's action-policy link (sends null)")
 	fl.IntVar(&timeout, "session-timeout-seconds", 0, "the session timeout in seconds (the server validates the value)")
 	fl.BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmdutil.RetireFlags(cmd, "an installed Agent's boot prompt is now a node: write the source in the App install memory (role boot-prompt, hadron node update), compile it with `hadron app agent compile`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",

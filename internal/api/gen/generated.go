@@ -107015,6 +107015,50 @@ type UpdateAppResponse struct {
 // GetUpdateApp returns UpdateAppResponse.UpdateApp, and is useful for accessing the field via an interface.
 func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.UpdateApp }
 
+// UpdateAppSettingsPolicyResponse is returned by UpdateAppSettingsPolicy on success.
+type UpdateAppSettingsPolicyResponse struct {
+	// Update an App.
+	//
+	// Accepts the entity's ID or URN. An uninstalled App is kept read-only
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:21): this refuses it with
+	// APP_UNINSTALLED, for every field, after the access gate, writing nothing.
+	UpdateApp *UpdateAppSettingsPolicyUpdateApp `json:"updateApp"`
+}
+
+// GetUpdateApp returns UpdateAppSettingsPolicyResponse.UpdateApp, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsPolicyResponse) GetUpdateApp() *UpdateAppSettingsPolicyUpdateApp {
+	return v.UpdateApp
+}
+
+// UpdateAppSettingsPolicyUpdateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type UpdateAppSettingsPolicyUpdateApp struct {
+	Id                    string `json:"id"`
+	Urn                   string `json:"urn"`
+	Name                  string `json:"name"`
+	SessionTimeoutSeconds int    `json:"sessionTimeoutSeconds"`
+}
+
+// GetId returns UpdateAppSettingsPolicyUpdateApp.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsPolicyUpdateApp) GetId() string { return v.Id }
+
+// GetUrn returns UpdateAppSettingsPolicyUpdateApp.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsPolicyUpdateApp) GetUrn() string { return v.Urn }
+
+// GetName returns UpdateAppSettingsPolicyUpdateApp.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsPolicyUpdateApp) GetName() string { return v.Name }
+
+// GetSessionTimeoutSeconds returns UpdateAppSettingsPolicyUpdateApp.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsPolicyUpdateApp) GetSessionTimeoutSeconds() int {
+	return v.SessionTimeoutSeconds
+}
+
 // UpdateAppSettingsResponse is returned by UpdateAppSettings on success.
 type UpdateAppSettingsResponse struct {
 	// Update an App.
@@ -127618,6 +127662,84 @@ func (v *__UpdateAppSettingsInput) GetAgentTools() json.RawMessage { return v.Ag
 
 // GetSurfaces returns __UpdateAppSettingsInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surfaces }
+
+// __UpdateAppSettingsPolicyInput is used internally by genqlient
+type __UpdateAppSettingsPolicyInput struct {
+	Ref                   string                `json:"ref"`
+	Name                  *string               `json:"name,omitempty"`
+	Description           json.RawMessage       `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
+	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
+	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+	Policy                json.RawMessage       `json:"policy,omitempty"`
+}
+
+// GetRef returns __UpdateAppSettingsPolicyInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateAppSettingsPolicyInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAppSettingsPolicyInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetSessionTimeoutSeconds returns __UpdateAppSettingsPolicyInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetSessionTimeoutSeconds() *int {
+	return v.SessionTimeoutSeconds
+}
+
+// GetUrn returns __UpdateAppSettingsPolicyInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __UpdateAppSettingsPolicyInput.AppType, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetAppType() *AppType { return v.AppType }
+
+// GetExpiresAt returns __UpdateAppSettingsPolicyInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetExpiresAt() json.RawMessage { return v.ExpiresAt }
+
+// GetSessionDormancyDays returns __UpdateAppSettingsPolicyInput.SessionDormancyDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetSessionDormancyDays() *int { return v.SessionDormancyDays }
+
+// GetAgentSessionsExpire returns __UpdateAppSettingsPolicyInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
+
+// GetRole returns __UpdateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __UpdateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __UpdateAppSettingsPolicyInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __UpdateAppSettingsPolicyInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __UpdateAppSettingsPolicyInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __UpdateAppSettingsPolicyInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __UpdateAppSettingsPolicyInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetSurfaces() json.RawMessage { return v.Surfaces }
+
+// GetPolicy returns __UpdateAppSettingsPolicyInput.Policy, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsPolicyInput) GetPolicy() json.RawMessage { return v.Policy }
 
 // __UpdateChannelInput is used internally by genqlient
 type __UpdateChannelInput struct {
@@ -169134,6 +169256,81 @@ func UpdateAppSettings(
 	}
 
 	data_ = &UpdateAppSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAppSettingsPolicy.
+const UpdateAppSettingsPolicy_Operation = `
+mutation UpdateAppSettingsPolicy ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $policy: JSON) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
+		id
+		urn
+		name
+		sessionTimeoutSeconds
+	}
+}
+`
+
+// cli1640 (server#3423, #3425): the App-layer action-policy link on updateApp.
+// A separate document on purpose: a server that predates `policy` rejects any
+// document that declares it, so `app update` without a policy flag keeps using
+// UpdateApp / UpdateAppSettings, which never mention it. This one is the
+// UpdateAppSettings superset plus $policy: a JSON value, explicit null clears,
+// omitted preserves (the bind keeps a null distinct from an absent argument).
+func UpdateAppSettingsPolicy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	description json.RawMessage,
+	sessionTimeoutSeconds *int,
+	urn *string,
+	appType *AppType,
+	expiresAt json.RawMessage,
+	sessionDormancyDays *int,
+	agentSessionsExpire *bool,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+	policy json.RawMessage,
+) (data_ *UpdateAppSettingsPolicyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAppSettingsPolicy",
+		Query:  UpdateAppSettingsPolicy_Operation,
+		Variables: &__UpdateAppSettingsPolicyInput{
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			Urn:                   urn,
+			AppType:               appType,
+			ExpiresAt:             expiresAt,
+			SessionDormancyDays:   sessionDormancyDays,
+			AgentSessionsExpire:   agentSessionsExpire,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+			Policy:                policy,
+		},
+	}
+
+	data_ = &UpdateAppSettingsPolicyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
