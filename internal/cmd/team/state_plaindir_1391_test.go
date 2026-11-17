@@ -210,6 +210,7 @@ func TestPlainDir1969ConcurrentBindsLeaveExactlyOneWorker(t *testing.T) {
 	const n = 8
 	var wg sync.WaitGroup
 	won := make([]bool, n)
+	errs := make([]error, n)
 	start := make(chan struct{})
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -218,7 +219,7 @@ func TestPlainDir1969ConcurrentBindsLeaveExactlyOneWorker(t *testing.T) {
 			<-start
 			id := string(rune('a' + i))
 			_, err := writeBinding(ctx, &binding{SessionID: "s-" + id, WorkerID: "wkr-" + id, WorkerName: "W" + id})
-			won[i] = err == nil
+			won[i], errs[i] = err == nil, err
 		}()
 	}
 	close(start)
@@ -227,6 +228,13 @@ func TestPlainDir1969ConcurrentBindsLeaveExactlyOneWorker(t *testing.T) {
 	for _, w := range won {
 		if w {
 			winners++
+		}
+	}
+	for i, e := range errs {
+		// Every loser was refused as another worker's directory, not by an
+		// unrelated filesystem or lock failure.
+		if e != nil && (exitcode.FromError(e) != exitcode.Conflict || !strings.Contains(e.Error(), "already holds worker")) {
+			t.Errorf("loser %d failed for the wrong reason: %v", i, e)
 		}
 	}
 	if winners != 1 {
