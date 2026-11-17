@@ -252,6 +252,13 @@ func (p *Poller) relaunchPass(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if d.EndAgentless != nil && agentlessCandidate(row) {
+			// cli#2201: a short-lived worker with no open task and an open
+			// session is not a relaunch target; its end is proven here.
+			outcome, code := p.sweepAgentlessEnd(ctx, d, initial, row)
+			report.add(row.WorkerID, outcome, code)
+			continue
+		}
 		runner, target, skip, ok := p.relaunchRunner(d, initial, row, journal, generation, nil)
 		if !ok {
 			report.add(row.WorkerID, "SKIPPED", skip)

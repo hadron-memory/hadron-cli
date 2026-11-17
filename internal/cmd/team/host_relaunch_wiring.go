@@ -19,10 +19,11 @@ func wireRelaunch(p *hostpoller.Poller, cfg *hostpoller.Config, server *hostServ
 		return nil
 	}
 	return p.EnableRelaunch(hostpoller.RelaunchDependencies{
-		Source:      server,
-		ReportSweep: server.RecordRecoverySweep,
-		Ready:       managedDaemonProbe(cfg),
-		Notice:      server.ReportRelaunch,
+		Source:       server,
+		ReportSweep:  server.RecordRecoverySweep,
+		Ready:        managedDaemonProbe(cfg),
+		Notice:       server.ReportRelaunch,
+		EndAgentless: server.EndAgentless,
 	})
 }
 

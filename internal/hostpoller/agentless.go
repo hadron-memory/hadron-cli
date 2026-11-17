@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -75,4 +76,95 @@ type AgentlessEndResult struct{ Ended bool }
 // WORKER_HAS_OPEN_TASK).
 type AgentlessRefusal struct{ Code string }
 
+// AgentlessUnsupported is the code of a server that has no endAgentlessSession
+// (it predates hadron-server#4292): a standing no, not a failure.
+const AgentlessUnsupported = "END_UNSUPPORTED"
+
 func (e *AgentlessRefusal) Error() string { return "the server refused the agentless end: " + e.Code }
+
+// agentlessCandidate is the one row shape the sweep may end a session for: a
+// worker of a SHORT_LIVED Agent with no open task (desired STOPPED, reason
+// NO_OPEN_TASK) whose session is still open. Leave-alone and every stop
+// reason carry another reason (or no desired state) and never match.
+func agentlessCandidate(row RelaunchWorker) bool {
+	return row.Desired == "STOPPED" && row.Reason == "NO_OPEN_TASK" && row.SessionID != ""
+}
+
+// The sweep's closed line codes for an agentless end, beside AgentAbsent.
+const (
+	agentlessPresent        = "AGENT_PRESENT"
+	agentlessCensusUnproven = "CENSUS_UNPROVEN"
+	agentlessStateChanged   = "STATE_CHANGED"
+	agentlessAlreadyEnded   = "SESSION_ALREADY_ENDED"
+	agentlessEndFailed      = "END_FAILED"
+)
+
+// sweepAgentlessEnd is Ask 3: the backstop that does not wait for a fresh
+// worker.end. It returns the S10 line outcome and its closed reason code. It
+// ends a session only on all of: the row is an agentless candidate; this
+// host knows no live agent of its own launch; the strict census, over the
+// worker's one worktree, is complete and empty; and a fresh desired state
+// still reads the same worker, session, reason and APPLY. The server checks
+// the rest again (a task opened meanwhile refuses WORKER_HAS_OPEN_TASK).
+func (p *Poller) sweepAgentlessEnd(ctx context.Context, d *RelaunchDependencies, initial RelaunchSnapshot, row RelaunchWorker) (string, string) {
+	finish := func(outcome, code, detail string) (string, string) {
+		if p.emit != nil {
+			p.emit(Event{Time: p.now().UTC(), Kind: "agentless-end", Type: "session.end", Outcome: outcome, Detail: detail, WorkerID: row.WorkerID, SessionID: row.SessionID, Reason: code})
+		}
+		return outcome, code
+	}
+	target, _, _, token, ok := p.relaunchTarget(initial, row)
+	if !ok {
+		return finish("SKIPPED", hostrelaunch.Unproven, "the worker's worktree could not be resolved on this host")
+	}
+	release, err := p.reserveWorktreeLaunch(token)
+	if err != nil {
+		return finish("SKIPPED", agentlessStateChanged, err.Error())
+	}
+	defer release()
+	p.mu.Lock()
+	launched := p.agents[row.WorkerID]
+	p.mu.Unlock()
+	if launched != nil {
+		select {
+		case <-launched.Done():
+		default:
+			return finish("SKIPPED", agentlessPresent, "an agent this host launched for the worker is still running")
+		}
+	}
+	proof := p.proveAgentAbsent(ctx, d.Probe, []string{target.Worktree})
+	if !proof.Absent {
+		if proof.Found {
+			return finish("SKIPPED", agentlessPresent, proof.Detail)
+		}
+		return finish("SKIPPED", agentlessCensusUnproven, proof.Detail)
+	}
+	fresh, err := d.Source.RelaunchSnapshot(ctx, initial.HostID)
+	if err != nil || fresh.AppID != initial.AppID || fresh.HostID != initial.HostID || fresh.SweepMode != "APPLY" {
+		return finish("SKIPPED", agentlessStateChanged, "the desired state could not be re-read as APPLY for this App and host")
+	}
+	same := false
+	for _, w := range fresh.Workers {
+		if w.WorkerID == row.WorkerID {
+			same = agentlessCandidate(w) && w.SessionID == row.SessionID
+		}
+	}
+	if !same {
+		return finish("SKIPPED", agentlessStateChanged, "the worker's desired state or session changed since the census")
+	}
+	res, err := d.EndAgentless(ctx, AgentlessEnd{AppID: initial.AppID, WorkerID: row.WorkerID, SessionID: row.SessionID})
+	if err != nil {
+		var refused *AgentlessRefusal
+		if errors.As(err, &refused) {
+			// The server's closed no is a state it can see, not a failure of
+			// this host, and it recurs every pass: skipped, so a standing
+			// refusal writes no S10 record.
+			return finish("SKIPPED", boundedSweepCode(refused.Code), err.Error())
+		}
+		return finish("FAILED", agentlessEndFailed, err.Error())
+	}
+	if !res.Ended {
+		return finish("SKIPPED", agentlessAlreadyEnded, "the session had already ended; nothing was written")
+	}
+	return finish("APPLIED", AgentAbsent, "asked the server to end the session on its census proof: "+proof.Detail)
+}

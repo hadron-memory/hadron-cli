@@ -120,19 +120,20 @@ func TestSweepNeverEndsWithoutAProof2201(t *testing.T) {
 
 func TestSweepNeverEndsWhatItMustNotTouch2201(t *testing.T) {
 	cases := map[string]RelaunchWorker{
-		"leave-alone":      {WorkerID: "id-iris", Family: "claude", Desired: "", Reason: "LEAVE_ALONE", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"long-lived":       {WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "LONG_LIVED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"holds a task":     {WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "HOLDS_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"paused":           {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "PAUSED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"team paused":      {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "TEAM_PAUSED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"halted":           {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "HALTED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"resetting":        {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "RESETTING", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"retired":          {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "RETIRED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
-		"no open session":  stoppedRow(""),
-		"no worktree":      {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open"},
-		"two worktrees":    {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris", "repo/other"}},
-		"an unknown name":  {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"repo/elsewhere"}},
-		"a bad name token": {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"../escape"}},
+		"leave-alone":                  {WorkerID: "id-iris", Family: "claude", Desired: "", Reason: "LEAVE_ALONE", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"long-lived":                   {WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "LONG_LIVED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"holds a task":                 {WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "HOLDS_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"paused":                       {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "PAUSED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"team paused":                  {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "TEAM_PAUSED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"halted":                       {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "HALTED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"resetting":                    {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "RESETTING", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"retired":                      {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "RETIRED", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"no task, but desired RUNNING": {WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}},
+		"no open session":              stoppedRow(""),
+		"no worktree":                  {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open"},
+		"two worktrees":                {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris", "repo/other"}},
+		"an unknown name":              {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"repo/elsewhere"}},
+		"a bad name token":             {WorkerID: "id-iris", Family: "claude", Desired: "STOPPED", Reason: "NO_OPEN_TASK", SessionID: "still-open", Worktrees: []string{"../escape"}},
 	}
 	for name, row := range cases {
 		f := newAgentlessFixture(t, row)
@@ -216,12 +217,31 @@ func TestSweepSessionAlreadyEndedIsNotApplied2201(t *testing.T) {
 	}
 }
 
-func TestSweepAServerRefusalIsAFailedLineWithItsCode2201(t *testing.T) {
+// A closed refusal is the server saying no to a state it can see (a task
+// opened, another host launched the session, a long-lived worker): nothing
+// failed, and a standing refusal must not write an S10 record on every pass.
+// It is a skipped line carrying the server's code; only an unexpected error
+// is FAILED.
+func TestSweepAServerRefusalIsASkippedLineWithItsCode2201(t *testing.T) {
+	for _, code := range []string{"WORKER_HAS_OPEN_TASK", "WORKER_NOT_SHORT_LIVED", "HOST_DOES_NOT_RUN_WORKER", "SESSION_NOT_WORKERS", AgentlessUnsupported} {
+		f := newAgentlessFixture(t, stoppedRow("still-open"))
+		f.endErr = &AgentlessRefusal{Code: code}
+		f.sweep(t)
+		if len(f.ends) != 1 {
+			t.Fatalf("%s: the end was asked for once: %+v", code, f.ends)
+		}
+		if len(f.reports) != 0 {
+			t.Errorf("%s: a standing refusal must not write an S10 record each pass: %+v", code, f.reports)
+		}
+	}
+}
+
+func TestSweepAnUnexpectedEndErrorIsFailedEndFailed2201(t *testing.T) {
 	f := newAgentlessFixture(t, stoppedRow("still-open"))
-	f.endErr = &AgentlessRefusal{Code: "WORKER_HAS_OPEN_TASK"}
+	f.endErr = errors.New("connection reset")
 	f.sweep(t)
 	lines := f.lines()
-	if len(lines) != 1 || lines[0].Outcome != "FAILED" || lines[0].Reason != "WORKER_HAS_OPEN_TASK" {
+	if len(lines) != 1 || lines[0].Outcome != "FAILED" || lines[0].Reason != "END_FAILED" {
 		t.Fatalf("%+v", lines)
 	}
 }

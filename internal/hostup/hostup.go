@@ -45,6 +45,10 @@ const (
 	// ActionWorkerRelaunch labels skipped work in reconciliation output. The
 	// CLI never plans or applies it; the periodic poller is the launch owner.
 	ActionWorkerRelaunch = "worker.relaunch"
+	// ActionSessionEnd labels, the same way, the end of a short-lived
+	// worker's agentless session (cli#2201): the host poller proves no agent
+	// runs and asks the server to end it; host up reports it, never acts.
+	ActionSessionEnd = "session.end"
 )
 
 // Reason codes. They are part of the `--json` contract: add, never repurpose.
@@ -76,6 +80,9 @@ const (
 	ReasonRelaunchPendingPoller  = "RELAUNCH_PENDING_POLLER"
 	ReasonActionUnavailable      = "ACTION_UNAVAILABLE"
 	ReasonStopPending            = "STOP_PENDING"
+	// ReasonAgentlessSession: a SHORT_LIVED worker with no open task still has
+	// an open session and no agent terminal (cli#2201).
+	ReasonAgentlessSession = "AGENTLESS_SESSION"
 
 	// Why a step failed.
 	ReasonObserveFailed = "OBSERVE_FAILED"
@@ -437,6 +444,12 @@ func (e Engine) plan(ctx context.Context, sweepMode string, w Worker) ([]Step, *
 		if obs.AgentTerminals > 0 {
 			// Stopping is the platform's worker.end (cli#2057), not this pass.
 			return skip(ReasonStopPending, "", unidentifiedNote(obs, "an agent is running; the platform's worker.end stops it"))
+		}
+		if session && w.Reason == "NO_OPEN_TASK" {
+			// A short-lived worker with nothing to do and a session still open:
+			// not in sync. The end needs the strict census and a host-key call,
+			// which only the host poller has, so this pass reports it.
+			return skip(ReasonAgentlessSession, ActionSessionEnd, "the session is open, the worker has no open task and no agent terminal runs; the host poller proves no agent runs and asks the server to end it")
 		}
 		return skip(ReasonInSync, "", "")
 	}
