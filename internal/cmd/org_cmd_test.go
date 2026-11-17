@@ -206,8 +206,8 @@ func TestOrgGetJSONKeepsIsVisibleAlias(t *testing.T) {
 }
 
 const publicOrgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
-	"publicMemories":[{"id":"m1","name":"KB","urn":"acme.com::kb","description":"the handbook"}],
-	"publicAgents":[{"id":"a1","name":"Helper","urn":"acme.com::helper","description":null}]}`
+	"publicMemoriesPage":{"items":[{"id":"m1","name":"KB","urn":"acme.com::kb","description":"the handbook"}],"total":1,"hasMore":false},
+	"publicAgentsPage":{"items":[{"id":"a1","name":"Helper","urn":"acme.com::helper","description":null}],"total":1,"hasMore":false}}`
 
 // #270: `org public <ref>` fetches the sanitized discoverable view — org fields
 // plus public memories/agents — and forwards the ref verbatim.
@@ -271,7 +271,7 @@ func TestOrgPublicNotDiscoverable(t *testing.T) {
 // Empty footprint renders [] (not null) — the DTO slices are always initialized.
 func TestOrgPublicEmptyListsRenderArray(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PublicOrganization": `{"data":{"publicOrganization":{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemories":[],"publicAgents":[]}}}`,
+		"PublicOrganization": `{"data":{"publicOrganization":{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemoriesPage":{"items":[],"total":0,"hasMore":false},"publicAgentsPage":{"items":[],"total":0,"hasMore":false}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -384,7 +384,7 @@ func TestOrgMemberAdd(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AddOrgMember"], &vars)
-	if vars["orgId"] != "org1" || vars["userId"] != "usr1" || vars["role"] != "CONTRIBUTOR" {
+	if vars["orgRef"] != "org1" || vars["userRef"] != "usr1" || vars["role"] != "CONTRIBUTOR" {
 		t.Errorf("add vars: %v", vars)
 	}
 }
@@ -411,7 +411,7 @@ func TestOrgMemberSetRole(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateOrgMember"], &vars)
-	if vars["role"] != "ADMIN" || vars["userId"] != "usr1" {
+	if vars["role"] != "ADMIN" || vars["userRef"] != "usr1" {
 		t.Errorf("set-role vars: %v", vars)
 	}
 }
@@ -428,7 +428,7 @@ func TestOrgMemberRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["RemoveOrgMember"], &vars)
-	if vars["orgId"] != "org1" || vars["userId"] != "usr1" {
+	if vars["orgRef"] != "org1" || vars["userRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }
@@ -444,8 +444,8 @@ func TestOrgMemberRmRequiresYes(t *testing.T) {
 }
 
 const orgInviteJSON = `{"id":"inv1","slug":"inv_abc","email":"alice@partner.com","name":null,
-	"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"org1","maxActivations":null,
-	"activationCount":0,"expiresAt":null,"acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}`
+	"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"org1","maxActivations":2,
+	"activationCount":0,"expiresAt":"2026-06-29T00:00:00Z","acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}`
 
 func TestOrgLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{

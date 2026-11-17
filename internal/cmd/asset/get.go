@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -40,23 +41,22 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Download an asset's bytes",
 		Long: `Download an asset to a file.
 
-<asset-ref> is an asset id or URN. The download itself needs no memory: the
-server resolves the asset and gates on its holding memory's read access.
+<asset-ref> is the asset's id or URN; no -m is needed. You need read access to
+the asset's memory.
 
-Writes to the asset's own filename in the working directory unless -o names a
-path; -o - streams the bytes to stdout (for piping). An existing file is NOT
-overwritten without --force, because the default path comes from server-side
-metadata rather than from something you typed.
+Writes to the asset's own filename in the current directory unless -o names a
+path; -o - writes the contents to standard output (for piping). An existing file
+is not overwritten without --force, because the default name comes from the
+server, not from something you typed.
 
-Downloads are gated on virus scanning, and the two refusals mean different
-things. PENDING is temporary: the upload succeeded but the verdict has not
-settled, and the server's sweep retries on a backoff — try again shortly.
-BLOCKED is permanent: the file failed the scan, its bytes were deleted, and the
-row is kept as an audit record ("asset list --include-deleted" shows it with
-the engine signature). Both exit 1.`,
-		Example: `  hadron asset get 01j2x…
-  hadron asset get hrn:asset:acme.com:kb:assets:01j2x… -o ./logo.png
-  hadron asset get 01j2x… -o - | file -`,
+A file can be downloaded only once its virus scan is CLEAN. Two refusals, both
+exit 1, mean different things. PENDING is temporary: the scan has not finished;
+try again shortly. BLOCKED is permanent: the file failed the scan and its
+contents were deleted (asset list --include-deleted still lists it). A deleted
+or unknown asset exits 4.`,
+		Example: `  hadron asset get 01a189a840f4717c98af75cf4d7aed09
+  hadron asset get hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 -o ./report.pdf
+  hadron asset get 01a189a840f4717c98af75cf4d7aed09 -o - | file -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])
@@ -114,7 +114,7 @@ the engine signature). Both exit 1.`,
 				SizeBytes: d.SizeBytes, Path: path, Written: written,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(wr io.Writer) error {
-				fmt.Fprintf(wr, "wrote %s (%s, %s)\n", dto.Path, humanSize(int(dto.Written)), dto.MimeType)
+				fmt.Fprintf(wr, "wrote %s (%s, %s)\n", output.SafeCell(dto.Path), humanSize(int(dto.Written)), output.SafeCell(dto.MimeType))
 				return nil
 			})
 		},
@@ -183,7 +183,10 @@ func streamTo(cmd *cobra.Command, w io.Writer, url string) (int64, error) {
 	if resp.StatusCode != http.StatusOK {
 		// The presigned URL is short-TTL; an expired one is the likeliest
 		// non-2xx and is worth naming, since retrying just works.
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		body, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 512)
+		if fault != nil {
+			return 0, fault
+		}
 		hint := ""
 		if resp.StatusCode == http.StatusForbidden {
 			hint = " (the presigned link may have expired — re-run to mint a new one)"

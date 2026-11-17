@@ -49,3 +49,17 @@ func launchedWorker(ctx context.Context, client graphql.Client, s gen.TeamSessio
 	}
 	return resolveWorker(ctx, client, "", *s.WorkerId)
 }
+
+// startSettingsNotApplied reports the host's statement that the run settings
+// its start named were NOT applied (hadron-cli#2204 sets it for the exec path;
+// hadron-server#4306 reads it off the bind). It is false ONLY for a launch
+// grant and the exact value "false": absent, "true" or anything else means
+// applied and sends nothing, and without a grant the variable is ignored,
+// because the server refuses false without one.
+func startSettingsNotApplied(grant, envValue string) *bool {
+	if strings.TrimSpace(grant) == "" || envValue != "false" {
+		return nil
+	}
+	notApplied := false
+	return &notApplied
+}

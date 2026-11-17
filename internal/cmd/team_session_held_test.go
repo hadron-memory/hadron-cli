@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -32,10 +33,10 @@ func heldHolderUserJSON(id, name, handle string) string {
 func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON, // I am u-holger; the hold is u-dara's
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON, // I am u-holger; the hold is u-dara's
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -80,10 +81,10 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -118,10 +119,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 		t.Fatal("fixture did not lose its urn — the test would prove nothing")
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + noURN + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + noURN + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -144,10 +145,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 		t.Fatal("fixture did not get an empty urn — the test would prove nothing")
 	}
 	gql2, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + emptyURN + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + emptyURN + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
@@ -168,10 +169,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON, // the hold is mine
-		"GetUser":      heldHolderUserJSON("u-holger", "Holger", "holger"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON, // the hold is mine
+		"GetUser":          heldHolderUserJSON("u-holger", "Holger", "holger"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -202,10 +203,10 @@ func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  `{"errors":[{"message":"nope"}]}`,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      `{"errors":[{"message":"nope"}]}`,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -231,8 +232,8 @@ func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 func TestTeamSessionStartServerHeldRefusalRenders(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`, // unheld at pre-flight
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`, // unheld at pre-flight
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara",
 			"heldByName":"dara","heldAt":"2026-08-20T09:00:00Z"}}]}`,
@@ -262,8 +263,8 @@ func TestTeamSessionStartServerHeldRefusalRenders(t *testing.T) {
 func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara"}}]}`,
 	})
@@ -289,31 +290,146 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 	}
 }
 
-// --force skips the client pre-flight by design, so this is the path an agent
-// reaching for the flag actually takes. The server refuses anyway, and what
-// comes back must be the held refusal — not a takeover narration.
-func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
+// #1859 (rows 20-21 of #1656): --force against a LIVE worker whose name is held
+// by somebody else must not narrate a takeover: a HELD name is not forceable
+// (cor:agt:020:09). The pre-flight classifies the hold under --force too and ends
+// in the same held refusal the non-force path gives, without calling the server.
+func forceStartHeld(t *testing.T, workerJSON, identity string) (stderr string, captured map[string]json.RawMessage, err error) {
+	t.Helper()
+	return forceStartWith(t, workerJSON, identity, `{"errors":[{"message":"That name is held.",
+			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`)
+}
+
+// forceStartWith is forceStartHeld with the server's StartTeamSession answer
+// chosen by the caller, so a control can see the bind SUCCEED (#1863).
+func forceStartWith(t *testing.T, workerJSON, identity, startAnswer string) (stderr string, captured map[string]json.RawMessage, err error) {
+	t.Helper()
 	teamGitDir(t)
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
-		"StartTeamSession": `{"errors":[{"message":"That name is held.",
-			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`,
+	gql, cap := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + workerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      identity,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"StartTeamSession": startAnswer,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
-	err := root.Execute()
+	err = root.Execute()
+	return f.IOStreams.ErrOut.(*strings.Builder).String(), cap, err
+}
 
-	if _, called := captured["StartTeamSession"]; !called {
-		t.Fatal("--force must still reach the server, which is the authority on a hold")
+func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
+	stderr, captured, err := forceStartHeld(t, withLiveness(heldBy("u-dara"), "true"), authContextHolgerJSON)
+	if strings.Contains(stderr, "taking over worker") {
+		t.Errorf("a held name is not forceable, yet stderr claims a takeover:\n%s", stderr)
+	}
+	if _, called := captured["StartTeamSession"]; called {
+		t.Error("the pre-flight refuses a visible hold by another; the bind must not be attempted")
 	}
 	if code := exitCodeFor(err); code != exitcode.Conflict {
-		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+		t.Fatalf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"@dara", "--force does NOT apply", "Cast your own worker", "worker release"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("held refusal lacks %q: %v", want, err)
+		}
+	}
+}
+
+// The race the pre-flight cannot see: the hold is invisible on the row, the
+// server refuses WORKER_HELD at bind, and the refusal is the same held refusal.
+func TestTeamSessionStartForceServerRefusesAnInvisibleHold(t *testing.T) {
+	stderr, captured, err := forceStartHeld(t, withLiveness(irisWorkerJSON, "true"), authContextHolgerJSON)
+	if _, called := captured["StartTeamSession"]; !called {
+		t.Fatal("with no visible hold --force must reach the server, which is the authority")
+	}
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d: %v (stderr %s)", code, exitcode.Conflict, err, stderr)
 	}
 	if err == nil || !strings.Contains(err.Error(), "Cast your own worker") {
 		t.Errorf("forcing a hold must land on the cast-your-own remedy: %v", err)
+	}
+}
+
+// Controls: held by the caller, or unheld, --force still takes over as before.
+func TestTeamSessionStartForceOwnHoldAndUnheldStillTakeOver(t *testing.T) {
+	for name, worker := range map[string]string{
+		"held by the caller": withLiveness(heldBy("u-holger"), "true"),
+		"unheld":             withLiveness(irisWorkerJSON, "true"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			stderr, captured, _ := forceStartHeld(t, worker, authContextHolgerJSON)
+			if !strings.Contains(stderr, "taking over worker") {
+				t.Errorf("--force on a live worker the caller may take over must say so:\n%s", stderr)
+			}
+			if _, called := captured["StartTeamSession"]; !called {
+				t.Error("the bind must proceed")
+			}
+		})
+	}
+}
+
+// #1863 item 1: the controls above stub StartTeamSession to ALWAYS refuse, so
+// they pin the attempt, never a bind that works. Here the server accepts: the
+// forceable TAKEN cases (the caller's own hold, or an unheld name) must end in a
+// real takeover. A name someone else holds is NOT one of them: HELD stays
+// unforceable (cor:agt:020:09), covered by TestTeamSessionStartForceDoesNotDefeatAHold.
+func TestTeamSessionStartForceTakeoverSucceedsOnlyForTakenCases(t *testing.T) {
+	ok := `{"data":{"startSession":` + startedSessionJSON + `}}`
+	for name, worker := range map[string]string{
+		"held by the caller": withLiveness(heldBy("u-holger"), "true"),
+		"unheld":             withLiveness(irisWorkerJSON, "true"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			stderr, captured, err := forceStartWith(t, worker, authContextHolgerJSON, ok)
+			if err != nil {
+				t.Fatalf("--force on a name the caller may take over must bind: %v\nstderr:\n%s", err, stderr)
+			}
+			if !strings.Contains(stderr, "taking over worker") {
+				t.Errorf("a real takeover must say so:\n%s", stderr)
+			}
+			if _, called := captured["StartTeamSession"]; !called {
+				t.Error("the bind must be attempted, and here it succeeds")
+			}
+		})
+	}
+	t.Run("held by someone else is refused even though the server would bind", func(t *testing.T) {
+		stderr, captured, err := forceStartWith(t, withLiveness(heldBy("u-dara"), "true"), authContextHolgerJSON, ok)
+		if err == nil {
+			t.Fatalf("a hold by another must not be forced, yet the command succeeded:\n%s", stderr)
+		}
+		if code := exitCodeFor(err); code != exitcode.Conflict {
+			t.Errorf("exit code = %d, want %d (Conflict): %v", code, exitcode.Conflict, err)
+		}
+		if _, called := captured["StartTeamSession"]; called {
+			t.Error("HELD is unforceable: the bind must not be attempted")
+		}
+	})
+}
+
+// Ruling R2: when the caller's identity cannot be read, the hold may be theirs.
+// Say what is known, claim no takeover, and let the server decide.
+func TestTeamSessionStartForceUnknownWhoseHedgesAndBinds(t *testing.T) {
+	stderr, captured, _ := forceStartHeld(t, withLiveness(heldBy("u-dara"), "true"), `{"errors":[{"message":"boom"}]}`)
+	if strings.Contains(stderr, "taking over worker") {
+		t.Errorf("an unreadable identity must not narrate a takeover:\n%s", stderr)
+	}
+	if !strings.Contains(stderr, "the server decides") || !strings.Contains(stderr, "held by") {
+		t.Errorf("want the hedged line naming the hold:\n%s", stderr)
+	}
+	if _, called := captured["StartTeamSession"]; !called {
+		t.Error("the server decides: the bind must be attempted")
+	}
+}
+
+// The classification is gated on liveness, not on --force alone: a name that is
+// not live pays no extra read (no AuthContext read).
+func TestTeamSessionStartForceNotLiveMakesNoHoldReads(t *testing.T) {
+	_, captured, _ := forceStartHeld(t, withLiveness(heldBy("u-dara"), "false"), authContextHolgerJSON)
+	// AuthContext is the classification's own read (GetUser is also used to
+	// label session drivers, so it cannot witness the gate).
+	if _, read := captured["AuthContext"]; read {
+		t.Error("--force on a name that is not live must not classify the hold (AuthContext read)")
 	}
 }

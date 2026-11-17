@@ -1,0 +1,12 @@
+# Delete a user account (#1344). Omitting userRef deletes the CALLER's own
+# account; naming one is for a platform ADMIN/OWNER. Both variables carry
+# omitempty: an omitted field means "the caller / no reason", an explicit null
+# is not the same request.
+mutation DeleteUser(
+  # @genqlient(omitempty: true)
+  $reason: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
+) {
+  deleteUser(reason: $reason, userRef: $userRef)
+}

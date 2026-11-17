@@ -69,10 +69,14 @@ not read, and any lower-precedence scopes of the same name that it shadowed.
 With --loc, also shows which memory would WIN for that address under this
 scope — the question "if I ask for this loc, where does it come from?".
 
+A scope NAME resolves in an App's context (App > Agent > organization), taken from
+the persistent --app flag or the active App; an ID needs no context and
+ignores --app.
+
 A name that two installed Agents both own is reported as ambiguous by the
 server; answer it by passing the scope's id instead.`,
-		Example: `  hadron scope explain research
-  hadron scope explain research --loc findings:retrieval`,
+		Example: `  hadron scope explain research --app hrn:app:acme.com:dev-team
+  hadron scope explain research --app hrn:app:acme.com:dev-team --loc findings:retrieval`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -140,11 +144,11 @@ server; answer it by passing the scope's id instead.`,
 
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				t := output.NewTable(w, "FIELD", "VALUE")
-				t.Row("scope", d.Scope.Name)
-				t.Row("id", d.Scope.ID)
-				t.Row("resolved via", d.ResolvedVia)
+				t.Row("scope", output.SafeCell(d.Scope.Name))
+				t.Row("id", output.SafeCell(d.Scope.ID))
+				t.Row("resolved via", output.SafeCell(d.ResolvedVia))
 				if d.Winner != nil {
-					t.Row("winner for "+loc, d.Winner.URN)
+					t.Row("winner for "+output.SafeCell(loc), output.SafeCell(d.Winner.URN))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -152,7 +156,7 @@ server; answer it by passing the scope's id instead.`,
 				if len(d.Memories) > 0 {
 					mt := output.NewTable(w, "#", "URN", "NAME")
 					for i, m := range d.Memories {
-						mt.Row(itoa(i), m.URN, m.Name)
+						mt.Row(itoa(i), output.SafeCell(m.URN), output.SafeCell(m.Name))
 					}
 					if err := mt.Flush(); err != nil {
 						return err
@@ -172,7 +176,7 @@ server; answer it by passing the scope's id instead.`,
 					}
 					st := output.NewTable(w, "NAME", "OWNER", "ID")
 					for _, s := range d.Shadowed {
-						st.Row(s.Name, s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID), s.ID)
+						st.Row(output.SafeCell(s.Name), output.SafeCell(s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID)), output.SafeCell(s.ID))
 					}
 					if err := st.Flush(); err != nil {
 						return err

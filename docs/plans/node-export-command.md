@@ -66,7 +66,9 @@ internal/nodedoc/
   `export_test.go`) prove the refactor is byte-for-byte non-regressing.
 - Add the inverse, `ParseMarkdown`, mirroring the server's `loadFrontmatterNode`
   (`hadron-server/src/integrations/localFs/loadNodeFromFs.ts`): the
-  `^---\n(...)\n---\n?(...)$` frontmatter split, YAML parse, body trim.
+  `^---\n(...)\n---\n?(...)$` frontmatter split and YAML parse.
+  Body parsing now removes only the writer framing; see
+  [Markdown body framing](markdown-body-framing.md) (#945 / server#2585).
 
 This extraction is a self-contained first PR (pure refactor, no behavior
 change) or the opening commit of the export PR — implementer's call.

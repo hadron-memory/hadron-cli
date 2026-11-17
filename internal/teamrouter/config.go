@@ -51,8 +51,6 @@ type RosterEntry struct {
 	Lifecycle   bool `json:"lifecycle,omitempty"`
 }
 
-func (e RosterEntry) flagged() bool { return e.Coordinator || e.Lifecycle }
-
 // DefaultOrcaCli is Orca's bundled CLI on macOS; elsewhere `orca` on PATH.
 func DefaultOrcaCli() string {
 	if runtime.GOOS == "darwin" {
@@ -215,4 +213,20 @@ func loadRoster(raw json.RawMessage) ([]RosterEntry, error) {
 // untouched.
 func routerErrorf(format string, args ...any) *RouterError {
 	return &RouterError{Reason: fmt.Sprintf(format, args...)}
+}
+
+// RouterError is a config or roster failure, reported with its reason.
+type RouterError struct {
+	Reason string
+}
+
+func (e *RouterError) Error() string { return e.Reason }
+
+// jsonInt reads a JSON number that is an exact integer (Number.isInteger).
+func jsonInt(raw json.RawMessage) (int64, bool) {
+	var f float64
+	if len(raw) == 0 || json.Unmarshal(raw, &f) != nil || f != float64(int64(f)) {
+		return 0, false
+	}
+	return int64(f), true
 }

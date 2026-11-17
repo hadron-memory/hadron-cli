@@ -3,6 +3,7 @@ package spec
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -15,6 +16,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+type lintReadFindingDTO struct {
+	lintFindingDTO
+	Governed *bool `json:"governed"`
+}
 
 const (
 	sevError   = "error"
@@ -59,18 +65,29 @@ const abstractTightHeadroom = 150
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, product, module, prefixFlag string
-	var all, strict bool
+	var all, strict, unwired, frame bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Check specs' structure and stability rules",
 		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
 corpus against the structural and stability rules. Lint is structural: it
-does not check a spec's content sections, which depend on the spec's type.
+checks content sections for the Hadron platform corpus (or with --frame),
+reading type templates from hrn:mem:hadronmemory.com:specs-engineer-system.
+Unreadable or malformed templates fail the check; no template lists are cached
+or copied into the CLI. Other corpora retain their own structural checks. It
+does not judge factual correctness or replace the independent spec review.
+Outside the platform corpus or explicit --frame, it does not check a spec's content sections, which depend on its type.
 Content checks live in each corpus's own authoring framework — its review
 checks and review tasks (for the Hadron platform corpus,
 hrn:mem:hadronmemory.com:specs-engineer-system).
 Names may be human-readable; they need not start with the citation.
+
+Governance requires a "spec" or "spec.*" role. A "spec" tag alone gets only
+warning "not-governed", with no spec-shape checks; JSON adds governed: false.
+Use hadron node update <node-urn> --role spec to enter governance.
+This changes the role; lint itself writes nothing.
+Without --strict this warning leaves the exit code unchanged.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
@@ -89,8 +106,8 @@ the cap rejects depends on the length: below it, an edit that grows the abstract
 past the remaining headroom; at exactly it, any edit that lengthens the abstract
 (an equal-length rewrite still succeeds); past it — legacy data only — any
 update that REPLACES the abstract without bringing it back within the cap, while
-an update that leaves the abstract alone, such as a body-only edit or the one
-`+"`spec supersede`"+` writes, still succeeds.
+an update that leaves the abstract alone, such as a body-only edit, still succeeds. Supersede now replaces the
+abstract too; use a shorter --summary if its retirement lead would exceed the cap.
 
 Distilling is the wrong remedy in all three: on a spec whose sentences are all
 on-subject, cutting one drops a contract. What to do instead depends on the
@@ -106,13 +123,28 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 (parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed. So is
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
-placeholder-contract exemption are no longer findings, at any loc.
+placeholder-contract exemption are no longer generic findings, at any loc.
+The platform frame adds its own abstract requirement and 1,600-character
+ceiling as errors, without restoring the old generic rubric.
+
+--unwired is the repair report for specs whose edges were never written (a
+create that failed half way, #687). It looks only at legacy-grammar citations
+and reports, as info, each edge legacy "spec new" (--product/--module/
+--feature) plans that the spec lacks: the table-of-contents edge to its parent
+and the inheritance edge to its contract, each when that target exists. Every
+finding prints the exact command that adds the edge ("spec link", or "edge
+create" when the target is not a spec); lint itself writes nothing. Info never fails --strict: a spec created at a loc on purpose, with no
+edges, is not an error.
 
 In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserved
 placeholder is reported once as "placeholder" instead of being linted, and a
 reference to a spec that doesn't exist or is only a placeholder is reported as
 "unresolved-reference" at the citing spec. Both are warnings: "spec mint" is
-the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+the gate that refuses them. Reference pages (20 rows) are fully collected
+before lint decides; a failed page fails the command without partial findings.
+Older servers may use the full legacy reference read when the page field is
+unsupported; if both reports are unsupported, only ordinary lint rules run.
+Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -242,6 +274,29 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
+			// Unknown/non-node findings have no governance fact to assert.
+			governanceByLoc := map[string]bool{}
+			for _, n := range nodes {
+				if !n.Unavailable {
+					governanceByLoc[n.Loc] = isGovernedSpec(n.Role)
+				}
+			}
+			// Report tag-only candidates, but never run spec/corpus/draft rules on them.
+			ungovernedFindings := []lintFindingDTO{}
+			frameUngoverned := []specNode{}
+			governedOrMalformed := make([]specNode, 0, len(nodes))
+			for _, n := range nodes {
+				if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
+					ungovernedFindings = append(ungovernedFindings, lintReadNode(n, memURN)...)
+					if frameH1.MatchString(derefStr(n.Content)) {
+						frameUngoverned = append(frameUngoverned, n)
+					}
+					continue
+				}
+				governedOrMalformed = append(governedOrMalformed, n)
+			}
+			nodes = governedOrMalformed
+
 			// Draft corpora (hadron-server#1447, cli#777 slice 2). One state read;
 			// only a DRAFT is scanned for placeholders and unresolved references.
 			// A placeholder is a reserved citation, not a malformed spec, so it
@@ -253,6 +308,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 			if err != nil {
 				return err
 			}
+
 			scoped := len(nodes)
 			nodes, placeholders, inScope := partitionDraftLintNodes(nodes, draft)
 
@@ -269,6 +325,14 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 			if vw := vectorIndexWarning(cmd, client, memURN); vw != nil {
 				findings = append(findings, *vw)
 			}
+			if frame || cmdutil.CanonicalMemoryRef(memURN) == "hrn:mem:hadronmemory.com:specs" {
+				extra, err := lintFrames(cmd, client, memURN, append(append([]specNode{}, nodes...), frameUngoverned...))
+				if err != nil {
+					return err
+				}
+				findings = append(findings, extra...)
+			}
+			findings = append(findings, ungovernedFindings...)
 			findings = append(findings, placeholders...)
 			if draft.Draft {
 				unresolved, err := unresolvedFindings(cmd.Context(), client, memRef, inScope)
@@ -277,6 +341,14 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 				findings = append(findings, unresolved...)
 			}
+			if unwired {
+				fs, err := unwiredFindings(nodes, memURN, specLocExists(cmd, client, memURN, inScope, nodes))
+				if err != nil {
+					return err
+				}
+				findings = append(findings, fs...)
+			}
+
 			if strict {
 				for i := range findings {
 					if findings[i].Severity == sevWarning {
@@ -293,14 +365,22 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 			}
 
-			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
+			report := make([]lintReadFindingDTO, 0, len(findings))
+			for _, finding := range findings {
+				var governed *bool
+				if known, ok := governanceByLoc[finding.Citation]; ok {
+					governed = &known
+				}
+				report = append(report, lintReadFindingDTO{lintFindingDTO: finding, Governed: governed})
+			}
+			if err := output.Write(f.IOStreams, f.JSON, report, func(w io.Writer) error {
 				if len(findings) == 0 {
 					fmt.Fprintf(w, "✓ %d spec(s) OK\n", scoped)
 					return nil
 				}
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
-					t.Row(fnd.Citation, fnd.Severity, fnd.Rule, fnd.Message)
+					t.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
 				}
 				return t.Flush()
 			}); err != nil {
@@ -312,12 +392,14 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&frame, "frame", false, "also check the platform authoring frame, reading type templates from specs-engineer-system (automatic for hadronmemory.com:specs)")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	cmd.Flags().BoolVar(&unwired, "unwired", false, "also report (as info) each legacy-citation spec missing an edge legacy spec new plans, with the command that adds it")
 	return cmd
 }
 
@@ -357,11 +439,27 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 	return nil
 }
 
+// lintReadNode distinguishes legacy candidates from law for the lint command.
+// Other consumers (get/mint compatibility checks) retain lintNode's behavior.
+func lintReadNode(n specNode, memURN string) []lintFindingDTO {
+	if !n.Unavailable && isTagOnlySpec(n.Tags, n.Role) {
+		ref := cmdutil.NodeURN(memURN, n.Loc)
+		if ref == "" {
+			ref = specNodeRef(memURN, n.Loc)
+		}
+		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; use hadron node update " + cmdutil.ShellQuote(ref) + " --role spec"}}
+	}
+	return lintNode(n, memURN)
+}
+
 // lintNode runs the per-node rules and returns findings tagged with the
 // node's citation. There is no content rubric at any depth (#708); the soft
 // abstract-length advisory is the only check still tiered by legacy depth.
 func lintNode(n specNode, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
+	if cmdutil.CanonicalMemoryRef(memURN) == "hrn:mem:hadronmemory.com:specs" {
+		fs = append(fs, frameBasics(n)...)
+	}
 	add := func(rule, sev, msg string) {
 		fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: rule, Severity: sev, Message: msg})
 	}
@@ -432,6 +530,11 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
 			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil, n.InDraft))
 		}
+	}
+
+	retirementAbstract := strings.TrimSpace(derefStr(n.Abstract))
+	if hasTag(n.Tags, supersededTag) && !supersededWord.MatchString(retirementAbstract) && !strings.HasPrefix(retirementAbstract, "RESCINDED (") && !strings.HasPrefix(retirementAbstract, "WITHDRAWN (") {
+		add("superseded-abstract", sevWarning, "spec is tagged superseded but its abstract does not mention supersession or carry a RESCINDED/WITHDRAWN lead; repair the retirement abstract")
 	}
 
 	// ABSTRACT VERIFICATION (#335), above the tier early-return: a module or
@@ -534,6 +637,36 @@ func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
+	}
+	fs = append(fs, productCodeFindings(nodes)...)
+	return fs
+}
+
+var reProductLike = regexp.MustCompile(`^[a-z]+$`)
+
+// productCodeFindings warns once per product code that the allocator cannot
+// serve (#1147). `spec new` without an explicit loc numbers from a 3-letter
+// product code, so a product-rooted corpus under any other code lints clean
+// today and fails only at allocation. A corpus counts as product-rooted only
+// when a loc reads <code>:<module>[:<feature>…] with a well-formed 3-letter
+// module tail; short freeform locs are not flagged. Advisory: explicit locs
+// still work, and the exit status is unchanged without --strict.
+func productCodeFindings(nodes []specNode) []lintFindingDTO {
+	var fs []lintFindingDTO
+	seen := map[string]bool{}
+	for _, n := range nodes {
+		head, tail, ok := strings.Cut(n.Loc, ":")
+		if !ok || !reProductLike.MatchString(head) || reModule.MatchString(head) || seen[head] {
+			continue
+		}
+		if c, err := ParseCitation(tail); err != nil || c.Product != "" {
+			continue
+		}
+		seen[head] = true
+		fs = append(fs, lintFindingDTO{
+			Citation: head, Rule: "product-code", Severity: sevWarning,
+			Message: fmt.Sprintf("product code %q is not 3 lowercase letters — automatic numbering (`spec new` without an explicit loc) cannot serve this corpus; explicit locs still work", head),
+		})
 	}
 	return fs
 }
@@ -655,20 +788,23 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 		if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
 			continue // keep the scan scoped to the requested subtree
 		}
-		if lintSelects(n) {
+		if lintSelects(n) || isTagOnlySpec(n.Tags, n.Role) {
 			nodes = append(nodes, n)
 		}
 	}
 	return fetchDetails(cmd, client, nodes)
 }
 
-// lintSelects is what a lint scan reads (#708): every spec (the tag or the
-// spec role), at ANY loc, plus an untagged citation-shaped node, so the
-// missing-spec-tag finding still reaches a legacy spec that lost its tag
+// lintSelects selects nodes for spec-shape checks: governed roles at any
+// loc, plus an untagged citation-shaped node, so the
+// missing-spec-tag finding still reaches a legacy spec that lost its markers
 // (#241). A spec outside the legacy numbering used to be dropped here, so a
 // corpus lint came back clean without ever checking it (@codex on #710).
 func lintSelects(n *api.ListNode) bool {
-	if isSpec(n.Tags, n.Role) {
+	if isTagOnlySpec(n.Tags, n.Role) {
+		return false
+	}
+	if isGovernedSpec(n.Role) {
 		return true
 	}
 	_, err := ParseCitation(n.Loc)
@@ -712,7 +848,7 @@ func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN strin
 func citationListNodes(all []*api.ListNode) []*api.ListNode {
 	nodes := make([]*api.ListNode, 0, len(all))
 	for _, n := range all {
-		if n != nil && lintSelects(n) {
+		if n != nil && (lintSelects(n) || isTagOnlySpec(n.Tags, n.Role)) {
 			nodes = append(nodes, n)
 		}
 	}
@@ -780,7 +916,7 @@ func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list
 
 func collectSpecDetails(cmd *cobra.Command, client graphql.Client, ids []string) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
 	return collectSpecDetailBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}
@@ -1172,7 +1308,7 @@ func nearCapMessage(l int, title string, c Citation, legacy, draft bool) string 
 // using the compiled body, which is what they want: they read structure and
 // headings, and a reader of `spec lint` is asking about the spec as it renders.
 func rawSpecBody(cmd *cobra.Command, client graphql.Client, id string) (*string, error) {
-	resp, err := gen.NodeBatch(cmd.Context(), client, []string{id}, nil, nil)
+	resp, err := api.ReadNodeBatchContent(cmd.Context(), client, []string{id})
 	if err != nil {
 		return nil, err
 	}

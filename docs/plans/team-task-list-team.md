@@ -7,8 +7,8 @@ with no update" took a hand-written script over `--json`. This slice adds `--tea
 
 **Gate.** Xan stamped it CHECKED for slice 1, T1, in issue comment
 https://github.com/hadron-memory/hadron-cli/issues/1044 (01:28Z). Patrick posted a correction from
-Vera's FIT at 01:37Z. Slice 2 (the creator criterion and any cross-App rows) waits on
-hadron-server#2370.
+Vera's FIT at 01:37Z. Slice 2 (the creator criterion, see "Which rows") needs no server change; cross-App rows
+are not built (hadron-server#2370).
 
 ## What the team is
 
@@ -26,13 +26,13 @@ the one App being read. The App comes from the usual `--app` → context → bin
 
 ## Which rows
 
-A task joins when a team member (a WORKER party) owns it or is assigned it (`match: party`).
+A task joins when a team member (a WORKER party) owns it, is assigned it or created it (`match: party`).
 Every descendant of a joined task joins too (`match: descendant`).
 
 - **Why descendants count.** A child task's owner is its parent's assignee
   (`TASK_CHILD_OWNER_MISMATCH`). A team member's seat task for another subtree's worker can
   therefore have children whose parties are all outside the team.
-- **Creator.** Who created a task does not count; the gate put the creator criterion in slice 2.
+- **Creator (slice 2).** `createdBy` is already on every task the view reads, so the creator joins with no new operation. Only a WORKER in the team counts: a task a person created, or a worker outside the team created, does not join through its creator. `match` stays `party` (no new value in the `--json` contract), and the owner/assignee cells still say `outside` for parties outside the team.
 
 ## One read gate
 

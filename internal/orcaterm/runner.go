@@ -50,11 +50,16 @@ const (
 // other than an ordinary non-zero exit — the bound, a missing binary, a pipe
 // error — reads as code 1 with EMPTY stdout: output a failure invalidated
 // must never reach a caller that acts on it (#1940 cycles 1 and 2).
-func Exec(bin string, timeout time.Duration) Runner {
+func Exec(bin string, timeout time.Duration) Runner { return ExecEnv(bin, timeout, nil) }
+
+// ExecEnv is Exec with an explicit child environment (name=value pairs); nil
+// inherits the process's.
+func ExecEnv(bin string, timeout time.Duration, env []string) Runner {
 	return func(ctx context.Context, argv []string) Result {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, bin, argv...)
+		cmd.Env = env
 		// A grandchild holding the pipes open must not outlive the bound.
 		cmd.WaitDelay = time.Second
 		var stdout, stderr bytes.Buffer
@@ -82,14 +87,39 @@ var allowed = map[string]bool{
 	"terminal list": true, "terminal read": true, "terminal wait": true, "terminal send": true,
 }
 
-// Guard refuses, without running it, any call outside the four delivery
-// makes. The refusal is the fail-closed shape, so every caller already
-// handles it.
-func Guard(run Runner) Runner {
+// sweepAllowed is every `orca` call the team health sweep may make (#2027):
+// the two reads its duplicate detection needs and the one close that fixes an
+// extra bare-shell tab. There is no send here: the sweep never types.
+var sweepAllowed = map[string]bool{
+	"terminal list": true, "terminal read": true, "terminal close": true,
+}
+
+// launchAllowed is every `orca` call a launch through Orca makes
+// (hadron-cli#2058 C3): create the agent's terminal, and close it, a launch
+// that could not be proven or a stop. It neither reads nor types.
+var launchAllowed = map[string]bool{
+	"terminal create": true, "terminal close": true,
+}
+
+// guardFor refuses, without running it, any call outside calls. The refusal
+// is the fail-closed shape, so every caller already handles it.
+func guardFor(calls map[string]bool, run Runner) Runner {
 	return func(ctx context.Context, argv []string) Result {
-		if len(argv) < 2 || !allowed[argv[0]+" "+argv[1]] {
+		if len(argv) < 2 || !calls[argv[0]+" "+argv[1]] {
 			return Result{Code: 1, Stderr: "refused: not a delivery call"}
 		}
 		return run(ctx, argv)
 	}
 }
+
+// Guard refuses, without running it, any call outside the four delivery
+// makes.
+func Guard(run Runner) Runner { return guardFor(allowed, run) }
+
+// SweepGuard is Guard over the health sweep's three calls (#2027). Delivery's
+// Guard stays closed over its own four: the sweep is a different caller with
+// a different need (close), not a widening of delivery's.
+func SweepGuard(run Runner) Runner { return guardFor(sweepAllowed, run) }
+
+// LaunchGuard is the launcher's own two calls (#2058), closed to the rest.
+func LaunchGuard(run Runner) Runner { return guardFor(launchAllowed, run) }

@@ -5,15 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+type listInheritedFromDTO struct {
+	AgentID  string `json:"agentId"`
+	AgentURN string `json:"agentUrn"`
+}
 
 // nodeListDTO is the `node list` row: the shared nodeDTO plus the two JSONB
 // columns, which arrive only when --with-properties / --with-data asked for
@@ -47,8 +56,11 @@ import (
 // present here, never the returned value. See fill below.
 type nodeListDTO struct {
 	nodeDTO
-	Properties json.RawMessage `json:"properties,omitempty"`
-	Data       json.RawMessage `json:"data,omitempty"`
+	InheritedFrom  *listInheritedFromDTO  `json:"inheritedFrom,omitempty"`
+	Properties     json.RawMessage        `json:"properties,omitempty"`
+	Data           json.RawMessage        `json:"data,omitempty"`
+	CommentSummary *listCommentSummaryDTO `json:"commentSummary,omitempty"`
+	oldestAge      string
 }
 
 // lsPageSize bounds one page of the exhaustive browse scan. The server caps an
@@ -56,6 +68,9 @@ type nodeListDTO struct {
 // "whole-collection" listing — here, --seq-gt / --sort-seq, which filter and
 // sort client-side — must page explicitly to exhaustion (#319).
 const lsPageSize = 500
+
+// CommentListNow is the age clock; sampled once for an opted-in listing.
+var CommentListNow = time.Now
 
 // paginateAllNodes runs a browse fetch to exhaustion, returning every node in
 // scope. The fetch is injected so the loop is unit-testable without a server.
@@ -68,58 +83,122 @@ func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, *int, erro
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory         string
-		prefix         string
-		nodeType       string
-		objectType     string
-		runnable       bool
-		tags           []string
-		search         string
-		where          string
-		sortProp       string
-		limit          int
-		offset         int
-		sortSeq        string
-		seqGt          int
-		withProperties bool
-		withData       bool
+		memory                string
+		install               string
+		prefix                string
+		childrenOf            string
+		nodeType              string
+		nodeTypes             []string
+		objectType            string
+		runnable              bool
+		hasUnresolvedComments bool
+		tags                  []string
+		search                string
+		where                 string
+		sortProp              string
+		limit                 int
+		offset                int
+		sortSeq               string
+		seqGt                 int
+		withProperties        bool
+		withData              bool
+		lf                    nodeListFilters
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List nodes",
-		Long: `List nodes you can access, optionally scoped to a memory.
+		Long: `List the nodes of a memory, one row each: loc, name, type, seq and whether it
+is runnable. Use node get to read a node's content.
 
--m/--memory takes a memory ID or fully-qualified URN (hrn:mem:<root>:<slug>) and
-scopes the listing to that memory. --prefix filters on the node loc
-(e.g. --prefix findings: lists one branch).
+Inherited system-memory nodes keep the base's canonical URN and name the base
+Agent. A mixed/inherited table adds URN and INHERITED FROM columns; projected
+--with-data/--with-properties blocks add those metadata lines. An own-only table
+keeps its existing layout. JSON carries the server's urn and, for inherited
+rows, inheritedFrom {agentId,agentUrn}. Do not build a child-memory URN from an
+inherited loc. A base address grants no extra access: reading/editing the base
+still needs its permissions; writing at that loc through the child creates a
+child-owned override, as before. No memory-id guessing or extra node reads.
 
---sort-seq [asc|desc] sorts results by seq in ascending or descending order.
---seq-gt N filters to nodes with seq > N (useful for reading new messages
-after a known seq number). Both scan the WHOLE collection in scope — not just
-the server's default first page — so the newest nodes are never hidden past a
-page boundary; with --sort-seq, --limit then means "the top N by seq".
+  hadron node list -m hrn:mem:acme.com:kb
+  hadron node list -m hrn:mem:acme.com:kb --prefix findings:
 
---where takes a JSON predicate over one of the node's two JSONB columns (a leaf
-is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
-with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
-a predicate aimed at a node's free-form data envelope must say so, or it
-searches the wrong column and returns a silent zero. --sort-property takes the
-same "field" key and the same default. --object-type filters the objectType
-collection facet.
+-m takes a memory id or URN (hrn:mem:<root>:<slug>); without it the list
+covers every memory you can read. --prefix keeps nodes whose loc starts with
+the text (findings: is one branch). --children-of <loc> lists
+direct children only: the nodes exactly one level below that loc, grandchildren
+excluded (--children-of "" lists the top-level nodes). It is judged on loc text alone,
+so a child whose parent has no node of its own is still listed, and it
+combines with --prefix and the other filters (all must match). --type, --tag, --runnable and --search
+(words in the name or description) narrow it further.
 
---with-properties / --with-data add those columns to the output, so a listing
-can show the field it just filtered on. They are opt-in because a listing is an
-index: a large result with full envelopes is a much bigger payload. In text
-output either flag switches the table for a per-node block.`,
+Without --limit or --offset you get every matching node. --limit and --offset
+fetch one page instead.
+
+Some nodes, such as chat messages, carry a seq: a number that counts up as
+they are added (ordinary notes have none, so the column is empty). --sort-seq
+asc|desc sorts by it, and --seq-gt N keeps nodes whose seq is above N (for
+example, messages newer than the last one you read). With either flag the
+whole memory is read first and filtered; only --sort-seq sorts (without it the
+server's order is kept), and --limit then means "the first N" of that list.
+
+Records: --object-type keeps one collection (for example competitor). --where
+filters on a record's fields with a JSON condition, in the same form as
+search --where: a path plus one test (eq, ne, in, lt, lte, gt, gte, between,
+exists, contains), combined with and/or/not. It reads the "properties" fields
+unless the condition says "field":"data", so a condition on the data object
+must say so or it usually finds nothing. --sort-property orders by one field,
+with the same "field" rule. --with-properties / --with-data add those fields
+to each row (the table becomes one block per node).
+
+More filters: --created-by <user id> keeps one author's nodes; --role keeps a
+role family (spec matches spec and spec.*, never special); --updated-after and
+--updated-before take RFC 3339 times (2026-10-01T00:00:00Z); --include-deleted
+adds soft-deleted nodes; --memory-class (repeatable: app, group, knowledge,
+personal, private, system) keeps those classes of memory. System memories are
+left out unless you name one with -m or pass --memory-class system.
+
+Unresolved feedback: --has-unresolved-comments keeps nodes with a live open
+thread; =false keeps nodes with none. Omit it for the existing listing. The
+filter runs on the server before each page, including search, install and seq
+modes; the CLI does not scan threads. With either boolean, OPEN THREADS and
+OLDEST follow the normal columns (or the metadata in projected blocks, before
+data/properties). OLDEST is the oldest open root's age, floored to minutes,
+hours or days; under one minute or a future timestamp is <1m, and no open
+thread is -. --json adds commentSummary {openThreads, oldestOpenThreadAt},
+keeping the server's timestamp string, not the displayed age. Without the
+flag neither the query nor the output gains that summary. A malformed summary
+fails the whole command (exit 1, no partial rows); an older provider refusing
+the field is schema skew (exit 2), with no unfiltered retry. Needs the provider
+from hadron-server#3494 / #3520.
+
+Groom boot prompts with --has-unresolved-comments --memory-class system
+--role boot-prompt; role tasks with --has-unresolved-comments --memory-class
+system --runnable; processes with --has-unresolved-comments -m <team system
+memory> --prefix processes:. System memories are excluded by default unless
+-m names one or --memory-class system is given. Resolve a thread after applying
+or rejecting the feedback, rather than deleting it, so grooming history stays.
+
+Details:
+
+` + installReadDetails() + ``,
 		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
   hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
+  hadron node list -m hrn:mem:hadronmemory.com:dev --children-of findings
+  hadron node list -m hrn:mem:hadronmemory.com:dev --children-of ""
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc
   hadron node list -m hrn:mem:acme.com:kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
   hadron node list -m hrn:mem:acme.com:team --where '{"field":"data","path":["authorName"],"exists":true}' --with-data
+  # groom unresolved feedback on system boot prompts
+  hadron node list --has-unresolved-comments --memory-class system --role boot-prompt
+
   hadron node list -m hrn:mem:acme.com:kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := installTarget(cmd, install, nil)
+			if err != nil {
+				return err
+			}
 			whereArg, err := cmdutil.ParseNodeWhere(where)
 			if err != nil {
 				return err
@@ -128,9 +207,19 @@ output either flag switches the table for a per-node block.`,
 			if err != nil {
 				return err
 			}
+			if err := lf.validate(cmd); err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
 			}
 
 			var searchArg *string
@@ -146,6 +235,11 @@ output either flag switches the table for a per-node block.`,
 				filter.IsRunnable = &runnable
 				filterSet = true
 			}
+			withCommentSummary := cmd.Flags().Changed("has-unresolved-comments")
+			if withCommentSummary {
+				filter.HasOpenThreads = &hasUnresolvedComments
+				filterSet = true
+			}
 			if memory != "" {
 				filter.MemoryIds = []string{memory}
 				filterSet = true
@@ -154,8 +248,18 @@ output either flag switches the table for a per-node block.`,
 				filter.LocPrefix = &prefix
 				filterSet = true
 			}
+			// "" is a value (the top level), so presence comes from Changed, not
+			// from the string: a nil pointer is omitted on the wire, &"" is sent.
+			if cmd.Flags().Changed("children-of") {
+				filter.ChildrenOf = &childrenOf
+				filterSet = true
+			}
 			if nodeType != "" {
 				filter.NodeType = &nodeType
+				filterSet = true
+			}
+			if cmd.Flags().Changed("types") {
+				filter.NodeTypes = &nodeTypes
 				filterSet = true
 			}
 			if objectType != "" {
@@ -168,6 +272,9 @@ output either flag switches the table for a per-node block.`,
 			}
 			if whereArg != nil {
 				filter.Where = whereArg
+				filterSet = true
+			}
+			if lf.apply(&filter) {
 				filterSet = true
 			}
 			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
@@ -211,11 +318,15 @@ output either flag switches the table for a per-node block.`,
 			// explicit --limit/--offset stays one deliberate page.
 			drain := seqMode || (!cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset"))
 
+			fetchPage := api.FindNodesProjected
+			if withCommentSummary {
+				fetchPage = api.FindNodesCommentSummaryProjected
+			}
 			var rawNodes []*api.ListNode
 			if drain {
 				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, *int, error) {
 					l, o := lim, off
-					page, err := api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
+					page, err := fetchPage(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -223,7 +334,7 @@ output either flag switches the table for a per-node block.`,
 				})
 			} else {
 				var page *api.FindNodesPage
-				page, err = api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg, withProperties, withData)
+				page, err = fetchPage(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg, withProperties, withData)
 				if err == nil {
 					rawNodes = page.Nodes
 				}
@@ -258,10 +369,15 @@ output either flag switches the table for a per-node block.`,
 				matched = &n
 			}
 
+			var now time.Time
+			if withCommentSummary {
+				now = CommentListNow()
+			}
 			nodes := make([]nodeListDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
 				row := nodeListDTO{nodeDTO: nodeDTO{
 					ID:         n.Id,
+					URN:        n.Urn,
 					MemoryID:   n.MemoryId,
 					Loc:        n.Loc,
 					Name:       n.Name,
@@ -272,6 +388,12 @@ output either flag switches the table for a per-node block.`,
 					Role:       n.Role,
 					UpdatedAt:  n.UpdatedAt,
 				}}
+				if n.InheritedFrom != nil {
+					if n.Urn == "" || n.InheritedFrom.AgentId == "" || n.InheritedFrom.AgentUrn == "" {
+						return exitcode.Newf(exitcode.Error, "server returned incomplete inherited-node provenance")
+					}
+					row.InheritedFrom = &listInheritedFromDTO{AgentID: n.InheritedFrom.AgentId, AgentURN: n.InheritedFrom.AgentUrn}
+				}
 				// Keyed off the FLAG, not off whether the server sent a value:
 				// an unselected column and a selected-but-null one both arrive
 				// as a nil pointer, so the response cannot tell them apart and
@@ -281,6 +403,14 @@ output either flag switches the table for a per-node block.`,
 				}
 				if withData {
 					row.Data = cmdutil.ProjectedColumn(n.Data)
+				}
+				if withCommentSummary {
+					summary, age, err := listCommentSummary(n, now)
+					if err != nil {
+						return err
+					}
+					row.CommentSummary = summary
+					row.oldestAge = age
 				}
 				nodes = append(nodes, row)
 			}
@@ -365,7 +495,21 @@ output either flag switches the table for a per-node block.`,
 				if withProperties || withData {
 					return writeProjected(w, nodes)
 				}
-				t := output.NewTable(w, "LOC", "NAME", "TYPE", "SEQ", "RUN")
+				showInheritance := false
+				for _, n := range nodes {
+					if n.InheritedFrom != nil {
+						showInheritance = true
+						break
+					}
+				}
+				headers := []string{"LOC", "NAME", "TYPE", "SEQ", "RUN"}
+				if showInheritance {
+					headers = append(headers, "URN", "INHERITED FROM")
+				}
+				if withCommentSummary && len(nodes) > 0 {
+					headers = append(headers, "OPEN THREADS", "OLDEST")
+				}
+				t := output.NewTable(w, headers...)
 				for _, n := range nodes {
 					seqStr := ""
 					if n.Seq != nil {
@@ -375,18 +519,33 @@ output either flag switches the table for a per-node block.`,
 					if n.IsRunnable {
 						runStr = "✓"
 					}
-					t.Row(n.Loc, n.Name, n.NodeType, seqStr, runStr)
+					cells := []string{output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), seqStr, runStr}
+					if showInheritance {
+						base := ""
+						if n.InheritedFrom != nil {
+							base = n.InheritedFrom.AgentURN
+						}
+						cells = append(cells, output.SafeCell(n.URN), output.SafeCell(base))
+					}
+					if n.CommentSummary != nil {
+						cells = append(cells, fmt.Sprint(n.CommentSummary.OpenThreads), n.oldestAge)
+					}
+					t.Row(cells...)
 				}
 				return t.Flush()
 			})
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
+	cmd.Flags().StringVar(&childrenOf, "children-of", "", "list only the direct children of this loc (grandchildren excluded); \"\" is the top level")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
+	cmd.Flags().StringSliceVar(&nodeTypes, "types", nil, "filter by a union of node types (repeatable or comma-separated; exact values; server validates empty lists, --type conflicts, comment and the 20-entry cap)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
 	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
+	cmd.Flags().BoolVar(&hasUnresolvedComments, "has-unresolved-comments", false, "filter nodes with live unresolved threads (false: none); omit for unchanged listing")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&search, "search", "", "keyword filter on name/description")
 	cmd.Flags().StringVar(&where, "where", "", cmdutil.WhereFlagUsage)
@@ -397,6 +556,7 @@ output either flag switches the table for a per-node block.`,
 	cmd.Flags().IntVar(&seqGt, "seq-gt", 0, "filter to nodes with seq > N")
 	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each node's properties JSONB in the output")
 	cmd.Flags().BoolVar(&withData, "with-data", false, "include each node's data JSONB in the output")
+	lf.register(cmd)
 	return cmd
 }
 
@@ -424,6 +584,16 @@ func writeProjected(w io.Writer, nodes []nodeListDTO) error {
 		if _, err := fmt.Fprintf(w, "%s  %s  (%s)%s\n", n.Loc, n.Name, n.NodeType, seqStr); err != nil {
 			return err
 		}
+		if n.InheritedFrom != nil {
+			if _, err := fmt.Fprintf(w, "  URN: %s\n  INHERITED FROM: %s\n", output.SafeCell(n.URN), output.SafeCell(n.InheritedFrom.AgentURN)); err != nil {
+				return err
+			}
+		}
+		if n.CommentSummary != nil {
+			if _, err := fmt.Fprintf(w, "  OPEN THREADS: %d  OLDEST: %s\n", n.CommentSummary.OpenThreads, n.oldestAge); err != nil {
+				return err
+			}
+		}
 		for _, col := range []struct {
 			label string
 			raw   json.RawMessage
@@ -449,4 +619,79 @@ func compactJSON(raw json.RawMessage) string {
 		return string(raw)
 	}
 	return buf.String()
+}
+
+// nodeListFilters are the findNodes filter fields node list used to drop
+// (cli#1341). Each is sent only when its flag was passed; an explicit empty
+// value is refused, not read as "no filter".
+type nodeListFilters struct {
+	createdBy, role             string
+	updatedAfter, updatedBefore string
+	includeDeleted              bool
+	memoryClasses               []string
+	classes                     []gen.MemoryClass
+	set                         map[string]bool
+}
+
+func (l *nodeListFilters) register(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&l.createdBy, "created-by", "", "only nodes created by this user id")
+	cmd.Flags().StringVar(&l.role, "role", "", "only nodes of this role family (spec matches spec and spec.*)")
+	cmd.Flags().StringVar(&l.updatedAfter, "updated-after", "", "only nodes updated after this RFC 3339 time")
+	cmd.Flags().StringVar(&l.updatedBefore, "updated-before", "", "only nodes updated before this RFC 3339 time")
+	cmd.Flags().BoolVar(&l.includeDeleted, "include-deleted", false, "include soft-deleted nodes")
+	cmd.Flags().StringArrayVar(&l.memoryClasses, "memory-class", nil, "only nodes in memories of this class (repeatable; naming system includes system memories)")
+}
+
+func (l *nodeListFilters) validate(cmd *cobra.Command) error {
+	l.set = map[string]bool{}
+	for _, name := range []string{"created-by", "role", "updated-after", "updated-before", "include-deleted", "memory-class"} {
+		l.set[name] = cmd.Flags().Changed(name)
+	}
+	for name, v := range map[string]string{"created-by": l.createdBy, "role": l.role, "updated-after": l.updatedAfter, "updated-before": l.updatedBefore} {
+		if l.set[name] && strings.TrimSpace(v) == "" {
+			return exitcode.Newf(exitcode.Usage, "--%s is empty: give a value, or drop the flag. Nothing was sent", name)
+		}
+	}
+	for name, v := range map[string]string{"updated-after": l.updatedAfter, "updated-before": l.updatedBefore} {
+		if l.set[name] {
+			if _, err := time.Parse(time.RFC3339, strings.TrimSpace(v)); err != nil {
+				return exitcode.Newf(exitcode.Usage, "--%s %q is not an RFC 3339 time (e.g. 2026-10-01T00:00:00Z). Nothing was sent", name, v)
+			}
+		}
+	}
+	l.classes = nil
+	for _, c := range l.memoryClasses {
+		mc := gen.MemoryClass(strings.ToLower(strings.TrimSpace(c)))
+		if !slices.Contains(gen.AllMemoryClass, mc) {
+			return exitcode.Newf(exitcode.Usage, "invalid --memory-class %q (want app, group, knowledge, personal, private or system). Nothing was sent", c)
+		}
+		l.classes = append(l.classes, mc)
+	}
+	return nil
+}
+
+// apply writes the passed filters into f and reports whether it set any.
+func (l *nodeListFilters) apply(f *gen.NodeFilter) bool {
+	setAny := false
+	str := func(name, v string, dst **string) {
+		if l.set[name] {
+			x := strings.TrimSpace(v)
+			*dst = &x
+			setAny = true
+		}
+	}
+	str("created-by", l.createdBy, &f.CreatedBy)
+	str("role", l.role, &f.Role)
+	str("updated-after", l.updatedAfter, &f.UpdatedAfter)
+	str("updated-before", l.updatedBefore, &f.UpdatedBefore)
+	if l.set["include-deleted"] {
+		v := l.includeDeleted
+		f.IncludeDeleted = &v
+		setAny = true
+	}
+	if len(l.classes) > 0 {
+		f.MemoryClasses = l.classes
+		setAny = true
+	}
+	return setAny
 }

@@ -19,7 +19,12 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <name|id>",
 		Short: "Rename a scope, replace its memories, or change its description",
-		Long: `Update a scope.
+		Long: `Update a scope: rename it, replace its memories, or change its description.
+
+A NAME resolves in an App's context (App > Agent > organization), taken from
+the persistent --app flag or the active App, so the same name can be a
+different scope in another App; an ID needs no context and ignores --app.
+Check the target first with ` + "`hadron scope get <name|id>`" + ` (same --app).
 
 --memory REPLACES the scope's memory list; it does not append to it. Pass every
 memory the scope should end up with, in the order you want them. Omitting the
@@ -30,9 +35,9 @@ An omitted flag preserves the current value — nothing is cleared by accident.
 There is currently no way to CLEAR a description: the server clears on an
 explicit null, which this operation cannot send, so --description "" stores an
 empty string rather than removing the value.`,
-		Example: `  hadron scope update research --description "papers we actually cite"
-  hadron scope update research -m hrn:mem:acme.com:papers -m hrn:mem:acme.com:notes
-  hadron scope update research --name citations`,
+		Example: `  hadron scope update research --app hrn:app:acme.com:dev-team --description "papers we actually cite"
+  hadron scope update research --app hrn:app:acme.com:dev-team -m hrn:mem:acme.com:papers -m hrn:mem:acme.com:notes
+  hadron scope update research --app hrn:app:acme.com:dev-team --name citations`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// The input is built and validated BEFORE the client and before

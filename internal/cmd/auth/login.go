@@ -2,18 +2,26 @@ package auth
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// browserLogin is the browser OAuth flow, a variable only so a command-level
+// test can answer it without a real browser (#1860).
+var browserLogin = auth.BrowserStrategy{}.Login
 
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
@@ -24,21 +32,51 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		Long: `Sign in to a Hadron server.
 
 By default this opens your browser and runs an OAuth flow against the
-server's consent screen, using GitHub for identity. Pass --provider google
-to sign in with Google instead. The resulting token is stored in the OS
-keychain (or ~/.config/hadron/auth.json when no keychain is available).
+server's sign-in page, which offers the methods that server supports, such
+as GitHub, Google or email. Pass --provider google to go straight to Google.
+The resulting token is stored in the OS keychain (or
+~/.config/hadron/auth.json when no keychain is available).
+
+If the server requires a passkey for email sign-in, its page asks for one
+before the CLI receives anything. Where the server offers passkey
+registration, it emails a second link: open it in the same browser.
+Otherwise choose GitHub or Google on that page, or pass --provider google
+to go straight to Google (--provider github opens the same sign-in page as
+the default). An agent cannot complete a browser passkey step; agents use
+HADRON_TOKEN or --with-token.
+
+The browser step must finish within 15 minutes, a limit the CLI sets for
+itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.
+First-time passkey setup: where the server has you add a first passkey
+(with its second link), that can take longer than 15 minutes; if it
+does, the CLI stops and stores nothing: finish adding the passkey in the
+browser, then rerun
+` + "`hadron auth login`" + `.
 
 The browser flow requests the "account" OAuth scope, because the CLI uses
 the server's data API and a key limited to "mcp" is refused there. If the
 server refuses "account" or grants a narrower scope, login fails with exit 1
 rather than storing a key the CLI cannot use; sign in with --with-token instead.
 
-For CI and scripting, pipe a personal access token to
-` + "`hadron auth login --with-token`" + ` or set the HADRON_TOKEN
-environment variable (which skips storage entirely).`,
+For CI and scripting, mint a personal token once (hadron auth token create),
+then either pipe it to ` + "`hadron auth login --with-token`" + ` (stored like a
+browser login) or set the HADRON_TOKEN environment variable, which is used
+first and never stored. Read it from a file or a secret store rather than
+typing it on the command line.
+
+Login applies to the current server; add --server to sign in to another one.
+On success it prints "✓ Signed in to <server>" and where the token is stored,
+then a line naming the account the token belongs to (--json adds "account", or
+null when it could not be read; login still succeeds, with a note on stderr).
+That line is read with the token just stored, not HADRON_TOKEN. The browser
+flow reuses the Hadron session already open in your browser, so if it names
+the wrong account, sign out of Hadron there (or use a private window) and run
+login again. hadron auth whoami shows the account any time; auth status checks
+only whether the credential authenticates.`,
 		Example: `  hadron auth login
   hadron auth login --provider google
-  echo $TOKEN | hadron auth login --with-token`,
+  hadron --server https://hadron.example.com auth login
+  hadron auth login --with-token < ~/.config/hadron/ci-token`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server, err := f.Server()
@@ -56,7 +94,7 @@ environment variable (which skips storage entirely).`,
 					return err
 				}
 			} else {
-				result, err := auth.BrowserStrategy{}.Login(cmd.Context(), auth.LoginOptions{
+				result, err := browserLogin(cmd.Context(), auth.LoginOptions{
 					ServerURL:     server,
 					LoginProvider: provider,
 					IO:            f.IOStreams,
@@ -84,14 +122,29 @@ environment variable (which skips storage entirely).`,
 			}
 
 			dto := loginResult{Server: server, TokenStorage: st.Name()}
+			// Name the account the token just stored belongs to, read with
+			// THAT token: f.GraphQLClient() would send HADRON_TOKEN or an
+			// impersonation token instead and name the wrong principal.
+			var accountLine string
+			if acct, line, err := readLoginAccount(cmd.Context(), f, server, token); err != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: signed in, but the account could not be read (%s); run `hadron auth whoami`\n", err)
+			} else {
+				dto.Account, accountLine = acct, line
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name())
-				return err
+				if _, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name()); err != nil {
+					return err
+				}
+				if accountLine != "" {
+					_, err := fmt.Fprintf(w, "  account: %s\n", accountLine)
+					return err
+				}
+				return nil
 			})
 		},
 	}
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
-	cmd.Flags().StringVar(&provider, "provider", "github", "browser identity provider: github or google")
+	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google (google skips the sign-in page)")
 	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
 	return cmd
 }
@@ -99,6 +152,96 @@ environment variable (which skips storage entirely).`,
 type loginResult struct {
 	Server       string `json:"server"`
 	TokenStorage string `json:"tokenStorage"`
+	// Account is who the stored token belongs to; null when it could not be
+	// read (the login itself still succeeded).
+	Account *loginAccount `json:"account"`
+}
+
+// loginAccount is the whoami subset login reports.
+type loginAccount struct {
+	ID            string `json:"id,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Email         string `json:"email,omitempty"`
+	Handle        string `json:"handle,omitempty"`
+	PrincipalType string `json:"principalType"`
+	AppID         string `json:"appId,omitempty"`
+	AgentID       string `json:"agentId,omitempty"`
+}
+
+// readLoginAccount asks the server who `token` is. The error text is safe to
+// print: it never carries the token or a raw response body.
+func readLoginAccount(ctx context.Context, f *cmdutil.Factory, server, token string) (*loginAccount, string, error) {
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialExplicit))
+	if err != nil {
+		return nil, "", errors.New("could not build a client")
+	}
+	resp, err := gen.AuthContext(ctx, client)
+	if err != nil {
+		if exitcode.FromError(api.MapError(err)) == exitcode.AuthRequired {
+			return nil, "", errors.New("the server did not accept this token")
+		}
+		return nil, "", errors.New("the server could not be reached or returned an error")
+	}
+	ac := resp.AuthContext
+	if ac == nil {
+		return nil, "", errors.New("the server did not accept this token")
+	}
+	acct := &loginAccount{PrincipalType: string(ac.PrincipalType)}
+	if ac.AppId != nil {
+		acct.AppID = *ac.AppId
+	}
+	if ac.AgentId != nil {
+		acct.AgentID = *ac.AgentId
+	}
+	if ac.User == nil {
+		return acct, nonUserLabel(acct.AppID, acct.AgentID, acct.PrincipalType), nil
+	}
+	u := ac.User
+	acct.ID = u.Id
+	if u.Name != nil {
+		acct.Name = *u.Name
+	}
+	if u.Email != nil {
+		acct.Email = *u.Email
+	}
+	if u.Handle != nil {
+		acct.Handle = *u.Handle
+	}
+	var line string
+	switch {
+	case acct.Name != "" && acct.Handle != "":
+		line = fmt.Sprintf("%s (@%s)", acct.Name, acct.Handle)
+	case acct.Handle != "":
+		line = "@" + acct.Handle
+	default:
+		line = userLine(acct.Name, "", acct.ID, "")
+	}
+	line += emailSuffix(acct.Email)
+	return acct, line, nil
+}
+
+// emailSuffix renders " <email>" for the login line, or nothing.
+func emailSuffix(email string) string {
+	if email == "" {
+		return ""
+	}
+	return " <" + email + ">"
+}
+
+// userLine is whoami's human label: name, else handle, else id, plus the email
+// in parentheses.
+func userLine(name, handle, id, email string) string {
+	label := name
+	if label == "" {
+		label = handle
+	}
+	if label == "" {
+		label = id
+	}
+	if email != "" {
+		return fmt.Sprintf("%s (%s)", label, email)
+	}
+	return label
 }
 
 // warnIfPlaintext surfaces a downgrade to the plaintext file store: landing

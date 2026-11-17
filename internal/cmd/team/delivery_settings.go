@@ -16,13 +16,12 @@ import (
 
 // Explicit DTO: schema regeneration must not change this JSON contract.
 type deliverySettingsDTO struct {
-	BatchWindowSeconds    int  `json:"batchWindowSeconds"`
-	BusyDelaySeconds      int  `json:"busyDelaySeconds"`
-	StuckWindowSeconds    int  `json:"stuckWindowSeconds"`
-	StandbyEnabled        bool `json:"standbyEnabled"`
-	StandbyEffective      bool `json:"standbyEffective"`
-	CheckPeriodSeconds    int  `json:"checkPeriodSeconds"`
-	FailedChecksToOverdue int  `json:"failedChecksToOverdue"`
+	DarkAlarmWindowSeconds int `json:"darkAlarmWindowSeconds"`
+	BatchWindowSeconds     int `json:"batchWindowSeconds"`
+	BusyDelaySeconds       int `json:"busyDelaySeconds"`
+	StuckWindowSeconds     int `json:"stuckWindowSeconds"`
+	CheckPeriodSeconds     int `json:"checkPeriodSeconds"`
+	FailedChecksToOverdue  int `json:"failedChecksToOverdue"`
 }
 
 const deliverySettingsHelp = `Workers expected to check the team channel use check period (default 600
@@ -30,6 +29,10 @@ seconds) and failed checks to overdue (default 2, minimum 1). The server adds
 5 minutes of slack. The server derives worker check status; these commands
 do not calculate it. When changing the period, the App manager must also set
 the team ticker cadence to the same value. This command does not edit tickers.
+
+Dark alarms use dark alarm window (default 1800 seconds, server bounds
+300–86400). A task-less alarm names the worker and whether it is overdue
+or has an unacknowledged wake. Acknowledging it does not end the episode.
 
 The batch window, busy delay and stuck window are deprecated push-delivery
 settings, retained for compatibility. They have no new checking consumer.
@@ -45,8 +48,6 @@ seconds, stuck window 1–604800 seconds, and stuck must exceed busy plus the
 batch window. It also checks the self-subscription cadence. These busy/stuck
 limits and write rights describe current server behavior.
 
-The two standby fields are server values, not a claim that standby delivery
-is running. Enabling standby is currently refused until standby delivery ships.
 A successful settings write does not mean anything was delivered.`
 
 func newCmdTeamDeliverySettings(f *cmdutil.Factory) *cobra.Command {
@@ -60,21 +61,22 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 	help := "Any App participant may read these settings.\n\n" + deliverySettingsHelp
 	if set {
 		use, short = "set", "Change the App's delivery settings"
-		help = "Change only the fields you pass; omitted fields keep their values.\nExplicit --standby=false sends false. No null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server currently permits only App managers to write settings. These\ncommands use your ordinary authenticated caller, never a bound worker's\nsession or a fallback credential.\n\n" + deliverySettingsHelp
+		help = "Change only the fields you pass; omitted fields keep their values.\nNo null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server currently permits only App managers to write settings. These\ncommands use your ordinary authenticated caller, never a bound worker's\nsession or a fallback credential.\n\n" + deliverySettingsHelp
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: help, Args: cobra.NoArgs}
-	var batch, busy, stuck, checkPeriod, failedChecks string
-	var standby bool
+	var batch, busy, stuck, checkPeriod, failedChecks, darkWindow string
 	if set {
 		c.Flags().StringVar(&batch, "batch-window-seconds", "", "Shared ticker cadence floor and batch window, whole seconds (minimum 60); existing tickers keep their cadence; raising above a live ticker is refused")
 		c.Flags().StringVar(&busy, "busy-delay-seconds", "", "Busy delay in whole seconds; the server checks its current limits")
 		c.Flags().StringVar(&stuck, "stuck-window-seconds", "", "Stuck window in whole seconds; the server checks its current limits and joint relation")
 		c.Flags().StringVar(&checkPeriod, "check-period-seconds", "", "Expected team-channel check period in whole seconds; coordinate it with the team ticker cadence")
 		c.Flags().StringVar(&failedChecks, "failed-checks-to-overdue", "", "Missed check periods before OVERDUE (server minimum 1), plus 5 minutes slack")
-		c.Flags().BoolVar(&standby, "standby", false, "Stored standby setting (true currently refused by the server); explicit false is sent")
+		c.Flags().StringVar(&darkWindow, "dark-alarm-window-seconds", "", "Dark-worker alarm window in whole seconds (server bounds 300–86400)")
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
-		input := gen.AppDeliverySettingsInput{}
+		input := struct {
+			BatchWindowSeconds, BusyDelaySeconds, StuckWindowSeconds, CheckPeriodSeconds, FailedChecksToOverdue, DarkAlarmWindowSeconds *int
+		}{}
 		if set {
 			for _, v := range []struct {
 				name, raw string
@@ -85,6 +87,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 				{"stuck-window-seconds", stuck, &input.StuckWindowSeconds},
 				{"check-period-seconds", checkPeriod, &input.CheckPeriodSeconds},
 				{"failed-checks-to-overdue", failedChecks, &input.FailedChecksToOverdue},
+				{"dark-alarm-window-seconds", darkWindow, &input.DarkAlarmWindowSeconds},
 			} {
 				if !cmd.Flags().Changed(v.name) {
 					continue
@@ -96,9 +99,6 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 				}
 				value := int(n)
 				*v.dst = &value
-			}
-			if cmd.Flags().Changed("standby") {
-				input.StandbyEnabled = &standby
 			}
 		}
 		ctx := cmd.Context()
@@ -116,7 +116,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		}
 		var fields *gen.AppDeliverySettingsFields
 		if set {
-			r, e := gen.TeamDeliverySettingsSet(ctx, client, scope.Ref, &input)
+			r, e := gen.TeamDeliverySettingsSet(ctx, client, scope.Ref, input.BatchWindowSeconds, input.BusyDelaySeconds, input.StuckWindowSeconds, input.CheckPeriodSeconds, input.DarkAlarmWindowSeconds, input.FailedChecksToOverdue)
 			if e != nil {
 				return api.MapError(e)
 			}
@@ -137,32 +137,32 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		}
 		dto := deliverySettingsDTO{
 			BatchWindowSeconds: fields.BatchWindowSeconds, BusyDelaySeconds: fields.BusyDelaySeconds,
-			StuckWindowSeconds: fields.StuckWindowSeconds, StandbyEnabled: fields.StandbyEnabled, StandbyEffective: fields.StandbyEffective,
-			CheckPeriodSeconds: fields.CheckPeriodSeconds, FailedChecksToOverdue: fields.FailedChecksToOverdue,
+			StuckWindowSeconds:     fields.StuckWindowSeconds,
+			DarkAlarmWindowSeconds: fields.DarkAlarmWindowSeconds,
+			CheckPeriodSeconds:     fields.CheckPeriodSeconds, FailedChecksToOverdue: fields.FailedChecksToOverdue,
 		}
 		label := lazyAppLabel(ctx, f, scope)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 			if _, err := fmt.Fprintf(w, "app: %s\n", label()); err != nil {
 				return err
 			}
-			if set && !cmd.Flags().Changed("batch-window-seconds") && !cmd.Flags().Changed("busy-delay-seconds") && !cmd.Flags().Changed("stuck-window-seconds") && !cmd.Flags().Changed("standby") && !cmd.Flags().Changed("check-period-seconds") && !cmd.Flags().Changed("failed-checks-to-overdue") {
+			if set && !cmd.Flags().Changed("batch-window-seconds") && !cmd.Flags().Changed("busy-delay-seconds") && !cmd.Flags().Changed("stuck-window-seconds") && !cmd.Flags().Changed("check-period-seconds") && !cmd.Flags().Changed("failed-checks-to-overdue") && !cmd.Flags().Changed("dark-alarm-window-seconds") {
 				if _, err := fmt.Fprintln(w, "No setting fields supplied. Current setting values (manager-only set):"); err != nil {
 					return err
 				}
 			}
-			if set && (cmd.Flags().Changed("batch-window-seconds") || cmd.Flags().Changed("busy-delay-seconds") || cmd.Flags().Changed("stuck-window-seconds") || cmd.Flags().Changed("standby") || cmd.Flags().Changed("check-period-seconds") || cmd.Flags().Changed("failed-checks-to-overdue")) {
+			if set && (cmd.Flags().Changed("batch-window-seconds") || cmd.Flags().Changed("busy-delay-seconds") || cmd.Flags().Changed("stuck-window-seconds") || cmd.Flags().Changed("check-period-seconds") || cmd.Flags().Changed("failed-checks-to-overdue") || cmd.Flags().Changed("dark-alarm-window-seconds")) {
 				if _, err := fmt.Fprintln(w, "Delivery settings updated."); err != nil {
 					return err
 				}
 			}
 			t := output.NewTable(w, "SETTING", "SERVER VALUE")
+			t.Row("dark alarm window", fmt.Sprintf("%d s", dto.DarkAlarmWindowSeconds))
 			t.Row("check period", fmt.Sprintf("%d s", dto.CheckPeriodSeconds))
 			t.Row("failed checks to overdue", strconv.Itoa(dto.FailedChecksToOverdue))
 			t.Row("batch window / ticker cadence floor (deprecated)", fmt.Sprintf("%d s", dto.BatchWindowSeconds))
 			t.Row("busy delay (deprecated)", fmt.Sprintf("%d s", dto.BusyDelaySeconds))
 			t.Row("stuck window (deprecated)", fmt.Sprintf("%d s", dto.StuckWindowSeconds))
-			t.Row("standby (stored)", strconv.FormatBool(dto.StandbyEnabled))
-			t.Row("standby (effective)", strconv.FormatBool(dto.StandbyEffective))
 			return t.Flush()
 		})
 	}

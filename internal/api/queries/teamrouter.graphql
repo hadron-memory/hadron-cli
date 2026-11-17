@@ -1,38 +1,11 @@
-# `hadron team router` (cli#829) — the Orca attention router's reads, and
-# nothing else: the router changes no server state. Its own operations rather
-# than shared ones, so the §10 review reads in one place exactly what the
-# router asks the server (token custody, cli#829 §10), and so a field another
-# command needs never widens what the router fetches.
+# `hadron team router` (cli#829) — the Orca attention router's reads. The
+# router is retired (cli#935, hadron-server#2027) and its attention read,
+# RouterAttentionPage, is gone with it. These reads change no server state.
+# RouterRegister is still called by `team worker onboard`; RouterReadCursor
+# and RouterChannelHead are kept as the gate named them (cli#935), on the
+# GraphQLServer methods of the same name, and have no command caller now.
 #
-# These run on the operator's OWN login, as the TS router's `hadron api` calls
-# did: teamAttentionPage serves only an ordinary user, and covers that user's
-# live workers (findings:router-port-two-delivery-principals).
-
-# One page of the paged v2 attention scan (#1384). Paged v2 because only it
-# carries lastRelevantSeq, the mention frontier the delivery ledger needs.
-query RouterAttentionPage(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $since: String
-  # @genqlient(omitempty: true)
-  $page: String
-) {
-  teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
-    scanComplete
-    nextPage
-    adoptableSince
-    items {
-      worker
-      workerName
-      channel
-      unread
-      unreadMentions
-      firstUnreadSeq
-      lastRelevantSeq
-      lastSeq
-    }
-  }
-}
+# They run on the operator's OWN login.
 
 # The WINNING register row per Channel for one worker, exactly as the
 # attention API resolves it (App over organization; Worker over Agent over

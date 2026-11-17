@@ -238,8 +238,9 @@ func TestAssetPublicLink897Selections(t *testing.T) {
 	}
 }
 
-// The new command's permission contract must not change legacy asset exits.
-func TestAssetPublicLink897LegacyPermissionUnchanged(t *testing.T) {
+// cli#1530 deliberately maps the shared typed permission code for legacy
+// asset writes too; preserve their message while using Forbidden.
+func TestAssetPublicLink897SharedPermission1530(t *testing.T) {
 	for _, tc := range []struct {
 		op   string
 		args []string
@@ -254,8 +255,8 @@ func TestAssetPublicLink897LegacyPermissionUnchanged(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs(append(tc.args, "--server", gql.URL))
 			err := root.Execute()
-			if got := exitCodeFor(err); got != exitcode.Error {
-				t.Fatalf("legacy exit=%d want1: %v", got, err)
+			if got := exitCodeFor(err); got != exitcode.Forbidden {
+				t.Fatalf("legacy exit=%d want8: %v", got, err)
 			}
 			if err == nil || !strings.Contains(err.Error(), "legacy permission sentinel") {
 				t.Fatalf("legacy refusal lost: %v", err)

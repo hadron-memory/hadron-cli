@@ -202,7 +202,7 @@ func TestTeamSessionStartReceiptCarriesThePortalURL(t *testing.T) {
 	const url = "https://hadronmemory.com/app/u/hrn:worker:acme.com:eng-team:iris"
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withPortalURL(url) + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -226,7 +226,8 @@ func TestWorkerQueriesSelectPortalURL(t *testing.T) {
 	for name, op := range map[string]string{
 		"GetWorker":     gen.GetWorker_Operation,
 		"WorkersRoster": gen.WorkersRoster_Operation,
-		"Workers":       gen.Workers_Operation,
+		// Not Workers: since cli#1459 it is the id/urn/name/retiredAt lookup
+		// projection, and a worker read through it is re-read with GetWorker.
 	} {
 		var found bool
 		for _, line := range strings.Split(op, "\n") {

@@ -3,11 +3,11 @@ package team
 // `team task list --team [--tree] [--stale-over <d>]` — #1044 slice 1: a
 // coordinator's work in flight. The team is the coordinator plus every worker
 // whose roster reportsTo chain reaches them, within the one App read. The
-// rows are that App's tasks a team member owns or is assigned, plus every
+// rows are that App's tasks a team member owns, is assigned or created, plus every
 // descendant of those (a child's owner is its parent's assignee, so a seat
 // task's own children can sit wholly outside the team). One read gate: the
 // existing agentTasks read, paged to the end, joined to the roster
-// client-side. The creator criterion and cross-App rows are slice 2
+// client-side. The creator counts (slice 2); cross-App rows are not read
 // (hadron-server#2370).
 
 import (
@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -37,13 +36,15 @@ const teamTaskPageLimit = 500
 // team view reads the whole App and selects by the roster join, so each of
 // these would either narrow the read below the recursion or page a view that
 // is not a page; refused rather than half-honoured.
-var teamListFlagConflicts = []string{"assignee", "owner", "parent", "tag", "queued", "roots-only", "limit", "offset"}
+var teamListFlagConflicts = []string{"assignee", "owner", "creator", "parent", "tag", "queued", "roots-only", "limit", "offset",
+	"tag-any", "tag-all", "source", "external-id", "ref", "ref-kind", "overdue", "match-failed", "unresolved",
+	"created-after", "created-before", "started-after", "started-before", "finished-after", "finished-before"}
 
 // teamTaskDTO is one row of the team view: the plain task plus how it joined.
 // OwnerTeam / AssigneeTeam: "team" (a worker in the requested team), "outside"
 // (a worker on this App's roster outside it), "unknown" (a worker the roster
 // does not list — retired), "user" (a person), null for no party. Match:
-// "party" (a team member owns or is assigned it) or "descendant" (under such
+// "party" (a team member owns, is assigned or created it) or "descendant" (under such
 // a task). AgeSeconds counts from AgeFrom: updatedAt, else startedAt, else
 // createdAt.
 type teamTaskDTO struct {
@@ -62,10 +63,21 @@ type teamTaskListDTO struct {
 	Members           []taskPartyDTO `json:"members"`
 	StaleOverSeconds  *int64         `json:"staleOverSeconds"`
 	Tasks             []teamTaskDTO  `json:"tasks"`
+	// AlarmCounts is present only when the open-alarm walk stopped early
+	// (cli#1919); each task then also carries openAlarmsIncomplete.
+	AlarmCounts *alarmCountsDTO `json:"alarmCounts,omitempty"`
+}
+
+type alarmCountsDTO struct {
+	Complete    bool   `json:"complete"`
+	Reason      string `json:"reason"`
+	LastEventID string `json:"lastEventId"`
+	Pages       int    `json:"pages"`
 }
 
 type teamTaskQuery struct {
 	team      string
+	text      *string
 	status    map[string]bool
 	staleOver time.Duration
 	tree      bool
@@ -86,7 +98,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 	}
 	for _, name := range teamListFlagConflicts {
 		if cmd.Flags().Changed(name) {
-			return 0, exitcode.Newf(exitcode.Usage, "--%s does not combine with --team: the team view reads the whole App and selects by the roster (combine --status, --tree, --stale-over)", name)
+			return 0, exitcode.Newf(exitcode.Usage, "--%s does not combine with --team: the team view reads the whole App and selects by the roster (combine --status, --text, --tree, --stale-over)", name)
 		}
 	}
 	if team != teamFlagBound {
@@ -147,7 +159,7 @@ func resolveTeam(workers []rosterWorker, coordinatorRef string) (taskPartyDTO, [
 
 // readAllTasks pages the App's task read to the end. A page that adds no new
 // task is a server ignoring the offset: refused, never silently repeated.
-func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]taskDTO, error) {
+func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *string) ([]taskDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return nil, err
@@ -160,20 +172,20 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]tas
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not end after %d pages of %d; nothing shown", page, limit)
 		}
 		offset := page * limit
-		resp, err := gen.AgentTaskList(ctx, client, appRef, nil, &limit, &offset, nil, nil, nil, nil, nil, nil)
+		rows, count, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, err
 		}
 		added := 0
-		for _, t := range resp.AgentTasks {
-			if t == nil || seen[t.Id] {
+		for _, t := range rows {
+			if seen[t.ID] {
 				continue
 			}
-			seen[t.Id] = true
+			seen[t.ID] = true
 			added++
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			tasks = append(tasks, t)
 		}
-		if len(resp.AgentTasks) < limit {
+		if count < limit {
 			return tasks, nil
 		}
 		if added == 0 {
@@ -215,7 +227,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	}
 	roster, err := gen.TeamReportingLines(ctx, client, scope.Ref)
 	if err != nil {
-		return api.MapError(err)
+		return mapTaskError(err)
 	}
 	workers := []rosterWorker{}
 	for _, w := range roster.TeamRoster.Workers {
@@ -232,11 +244,25 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	if !ok {
 		return exitcode.Newf(exitcode.NotFound, "worker %s is not on the roster of %s (the roster lists active workers; a retired worker leads no team here)", coordinatorRef, appLabel())
 	}
-	all, err := readAllTasks(ctx, f, scope.Ref)
+	// Keep the ancestry read unfiltered. Ask the server for matching IDs in a
+	// separate paged read before scanning ancestry, so invalid text fails fast.
+	// Intersect only after the full descendant join.
+	var textMatches map[string]bool
+	if q.text != nil {
+		filtered, err := readAllTasks(ctx, f, scope.Ref, q.text)
+		if err != nil {
+			return err
+		}
+		textMatches = map[string]bool{}
+		for _, task := range filtered {
+			textMatches[task.ID] = true
+		}
+	}
+	all, err := readAllTasks(ctx, f, scope.Ref, nil)
 	if err != nil {
 		return err
 	}
-	alarms, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
+	alarms, alarmStop, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
 	if err != nil {
 		return err
 	}
@@ -267,15 +293,20 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		return &l
 	}
 
-	// Select: a team party, then every descendant of a selected task.
+	// Select: a team worker who owns, is assigned or created a task, then
+	// every descendant of a selected task (#1044 slice 2: the creator counts;
+	// createdBy is a person for a task they made themselves, never a team
+	// worker, so the worker kind is part of the test).
 	match := map[string]string{}
 	children := map[string][]string{}
 	for _, t := range all {
 		if t.ParentTaskID != nil {
 			children[*t.ParentTaskID] = append(children[*t.ParentTaskID], t.ID)
 		}
-		if (t.Owner != nil && inTeam[t.Owner.ID] && t.Owner.Kind == string(gen.AgentTaskPartyKindWorker)) ||
-			(t.Assignee != nil && inTeam[t.Assignee.ID] && t.Assignee.Kind == string(gen.AgentTaskPartyKindWorker)) {
+		isTeamWorker := func(p *taskPartyDTO) bool {
+			return p != nil && p.Kind == string(gen.AgentTaskPartyKindWorker) && inTeam[p.ID]
+		}
+		if isTeamWorker(t.Owner) || isTeamWorker(t.Assignee) || isTeamWorker(t.CreatedBy) {
 			match[t.ID] = "party"
 		}
 	}
@@ -304,9 +335,12 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		s := int64(q.staleOver / time.Second)
 		dto.StaleOverSeconds = &s
 	}
+	if alarmStop != nil {
+		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, Pages: alarmStop.Pages}
+	}
 	for _, t := range all {
 		how, ok := match[t.ID]
-		if !ok {
+		if !ok || (textMatches != nil && !textMatches[t.ID]) {
 			continue
 		}
 		if len(q.status) > 0 && !q.status[t.Status] {
@@ -323,6 +357,10 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		if n, ok := alarms[t.ID]; ok {
 			open := n
 			t.OpenAlarms = &open
+		}
+		if alarmStop != nil {
+			incomplete := true
+			t.OpenAlarmsIncomplete = &incomplete
 		}
 		dto.Tasks = append(dto.Tasks, teamTaskDTO{
 			taskDTO:      t,
@@ -351,13 +389,22 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 			_, err := fmt.Fprintln(w, "no tasks")
 			return err
 		}
+		if alarmStop != nil {
+			if _, err := fmt.Fprintln(w, alarmStop.explain()); err != nil {
+				return err
+			}
+		}
 		if q.tree {
 			return renderTeamTree(w, dto.Tasks)
 		}
-		t := output.NewTable(w, "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
+		withHandle := false
 		for _, task := range dto.Tasks {
-			t.Row(task.ID, task.Status, idleCell(task.AgeSeconds), task.Title,
-				teamPartyCell(task.Owner, task.OwnerTeam), teamAssigneeCell(task), alarmCell(task.OpenAlarms))
+			withHandle = withHandle || task.Handle != ""
+		}
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
+		for _, task := range dto.Tasks {
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete)))...)
 		}
 		return t.Flush()
 	})
@@ -379,11 +426,17 @@ func teamAssigneeCell(task teamTaskDTO) string {
 	return teamPartyCell(task.Assignee, task.AssigneeTeam)
 }
 
-func alarmCell(n *int) string {
+// alarmCell: a count, a lower bound (≥N) when the walk stopped early, and for
+// a task with no count "—" (none) on a complete walk but "?" (unknown) on an
+// incomplete one — the dash must never say "none" about a partial read.
+func alarmCell(n *int, incomplete bool) string {
 	if n == nil || *n == 0 {
+		if incomplete {
+			return "?"
+		}
 		return "—"
 	}
-	return fmt.Sprint(*n)
+	return alarmCount(*n, incomplete)
 }
 
 // idleCell renders an age in whole minutes, hours and days.
@@ -430,9 +483,9 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 		t := tasks[i]
 		alarm := ""
 		if t.OpenAlarms != nil && *t.OpenAlarms > 0 {
-			alarm = fmt.Sprintf("  ⏰ %d open alarm%s", *t.OpenAlarms, plural(*t.OpenAlarms))
+			alarm = fmt.Sprintf("  ⏰ %s open alarm%s", alarmCount(*t.OpenAlarms, t.OpenAlarmsIncomplete != nil && *t.OpenAlarmsIncomplete), plural(*t.OpenAlarms))
 		}
-		if _, err := fmt.Fprintf(w, "%s• %s [%s] idle %s  %s → %s  %s%s\n", strings.Repeat("  ", depth), t.ID, t.Status,
+		if _, err := fmt.Fprintf(w, "%s• %s [%s] idle %s  %s → %s  %s%s\n", strings.Repeat("  ", depth), taskRef(t.Handle, t.ID), t.Status,
 			idleCell(t.AgeSeconds), teamPartyCell(t.Owner, t.OwnerTeam), teamAssigneeCell(t), t.Title, alarm); err != nil {
 			return err
 		}

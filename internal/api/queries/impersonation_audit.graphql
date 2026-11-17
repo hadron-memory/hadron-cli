@@ -1,0 +1,51 @@
+# Admin-impersonation audit reads (#1344). Denied and missing are the same null.
+fragment ImpersonationSessionFields on ImpersonationSession {
+  id
+  createdAt
+  expiresAt
+  endedAt
+  endedBy
+  isActive
+  reason
+  adminUser {
+    id
+    handle
+    name
+  }
+  targetUser {
+    id
+    handle
+    name
+  }
+  organization {
+    id
+    urn
+    name
+  }
+}
+
+query ImpersonationSession($ref: ID!) {
+  impersonationSession(ref: $ref) {
+    ...ImpersonationSessionFields
+  }
+}
+
+# orgId and filter are optional (a platform admin may omit orgId); omitempty so
+# an unset flag is absent from the request, never a null.
+query ImpersonationSessions(
+  # @genqlient(omitempty: true)
+  $orgId: String
+  # @genqlient(omitempty: true)
+  $filter: ImpersonationSessionFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  impersonationSessions(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...ImpersonationSessionFields
+    }
+  }
+}

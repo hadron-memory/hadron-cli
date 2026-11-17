@@ -69,6 +69,32 @@ query HostOperations(
   }
 }
 
+# #4231 (hadron-server#4257): the same list, selecting issuedReason too. Only `team host ops`
+# uses it, and falls back to HostOperations when the server rejects that one field: the
+# poller's own operations (collect, report) must keep working on an older server.
+query HostOperationsWithReason(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+  # @genqlient(omitempty: true)
+  $status: HostOperationStatus
+  # @genqlient(omitempty: true)
+  $worker: String
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  hostOperations(appRef: $appRef, hostId: $hostId, status: $status, worker: $worker, first: $first, after: $after) {
+    items {
+      ...HostOperationFields
+      issuedReason
+    }
+    hasNextPage
+    endCursor
+  }
+}
+
 mutation IssueHostOperation($input: IssueHostOperationInput!) {
   issueHostOperation(input: $input) {
     ...HostOperationFields
@@ -101,6 +127,7 @@ mutation GrantAppKeyScope(
 }
 
 mutation RevokeAppKeyScope($id: ID!, $scope: String!) {
+ # @genqlient(typename: "RevokeAppKeyScopeRow1595")
   revokeAppKeyScope(id: $id, scope: $scope) {
     ...AppKeyScopesFields
   }
@@ -143,6 +170,27 @@ mutation RegisterHost(
   }
 }
 
+# #4222 / cli#2091: the same registration, also asking for refusedWorkers: under
+# a SERVER setup source, the listed workers the platform did not assign to this
+# host. A SEPARATE document, because a server without hadron-server#4241 refuses
+# any query naming the field, which would take every host poller down. The
+# poller tries this one first and, on a schema-skew refusal, falls back to
+# RegisterHost once and remembers it (hostServer.Register). Never widen
+# RegisterHost or HostRegistrationFields with the field.
+# @genqlient(for: "RegisterHostInput.workers", omitempty: false)
+# @genqlient(for: "RegisterHostInput.capabilities", omitempty: true)
+mutation RegisterHostWithRefused(
+  $input: RegisterHostInput!
+) {
+  registerHost(input: $input) {
+    ...HostRegistrationFields
+    refusedWorkers {
+      worker
+      code
+    }
+  }
+}
+
 # Issued operations become collected; collected-but-unreported ones come back
 # too (a restarted host resumes them). launchGrant is set only on worker.start,
 # and only in this answer: a re-collection revokes the unconsumed grant and
@@ -168,5 +216,101 @@ mutation ReportHostOperation(
 ) {
   reportHostOperation(input: $input) {
     ...HostOperationFields
+  }
+}
+
+# #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
+# Every step answers ContextResetStep; refused/replayed are read by the
+# handler, and a refusal ends the reset server-side. endedAt (#2027) is null
+# while the reset is in flight: the health sweep skips a worker whose reset
+# has not ended, so it never stops a relaunch mid-window.
+fragment ContextResetFields on ContextReset {
+  id
+  epoch
+  phase
+  reason
+  workerId
+  sessionId
+  # #4258: null for a context-cap reset (it belongs to no task).
+  taskId
+  # #4258: what asked for it, task-end or context-cap.
+  cause
+  stopGrantedAt
+  stopLeaseMs
+  endedAt
+  # #3300: the registered checkpoint's v2 URN, null until registered.
+  checkpointNode
+}
+
+fragment ContextResetStepFields on ContextResetStep {
+  refused
+  replayed
+  reset {
+    ...ContextResetFields
+  }
+}
+
+# #3273: a host-key read of one reset this host collected (ended ones too),
+# for restart recovery. Changes nothing server-side.
+query ContextReset($appRef: String!, $resetId: ID!) {
+  contextReset(appRef: $appRef, resetId: $resetId) {
+    ...ContextResetFields
+  }
+}
+
+mutation ClaimContextReset($input: ClaimContextResetInput!) {
+  claimContextReset(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+# #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
+# never names one (checkpointNode). Exactly one is allowed: checkpointNode is
+# omitted, not sent as null, when unset (checkpoint already is).
+# @genqlient(for: "RegisterContextResetRecoveryInput.checkpointNode", omitempty: true)
+# #4258: a context-cap reset has no task; taskId is OMITTED then (an omitted
+# field is "none", never an explicit null).
+# @genqlient(for: "RegisterContextResetRecoveryInput.taskId", omitempty: true)
+mutation RegisterContextResetRecovery(
+  $input: RegisterContextResetRecoveryInput!
+) {
+  registerContextResetRecovery(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation AuthorizeContextResetStop($input: AuthorizeContextResetStopInput!) {
+  authorizeContextResetStop(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+# lateStopMs (#3255) is omitted, not sent as null, when the stop was on time.
+# @genqlient(for: "ContextResetStepInput.lateStopMs", omitempty: true)
+mutation ReportContextResetAgentStopped(
+  $input: ContextResetStepInput!
+) {
+  reportContextResetAgentStopped(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunched($input: ReportContextResetRelaunchedInput!) {
+  reportContextResetRelaunched(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunchFailed($input: ReportContextResetRelaunchFailedInput!) {
+  reportContextResetRelaunchFailed(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+mutation RevokeAppKeyScopeInstructed($id: ID!, $scope: String!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "RevokeAppKeyScopeRow1595")
+  revokeAppKeyScope(id: $id, scope: $scope, instruction: $instruction) {
+    ...AppKeyScopesFields
   }
 }

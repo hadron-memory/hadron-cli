@@ -1,0 +1,4 @@
+# cor:aut:010:05: only this request's authentication answer, no cause/identity.
+query CheckAuthenticationStatus {
+  authenticationStatus
+}

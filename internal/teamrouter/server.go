@@ -9,58 +9,19 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
-// GraphQLServer is the production Server: the router's own typed reads
-// (internal/api/queries/teamrouter.graphql) on the operator's login. Every
-// method is a read; none takes or returns the adopted token except
-// AttentionPage, which passes it to the server and never logs it.
+// GraphQLServer is the router's typed reads (internal/api/queries/
+// teamrouter.graphql) on the operator's login. Every method is a read. The
+// router that polled attention through it is retired (cli#935); RegisterRow
+// still serves `team worker onboard`.
 type GraphQLServer struct {
 	client  graphql.Client
 	app     string
 	channel string
 }
 
-// NewGraphQLServer reads app's attention for the team Channel channel (an id).
+// NewGraphQLServer reads app's state for the team Channel channel (an id).
 func NewGraphQLServer(client graphql.Client, app, channel string) *GraphQLServer {
 	return &GraphQLServer{client: client, app: app, channel: channel}
-}
-
-func optional(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-// AttentionPage reads one page of the paged attention scan.
-func (s *GraphQLServer) AttentionPage(ctx context.Context, req AttentionRequest) (AttentionPage, error) {
-	resp, err := gen.RouterAttentionPage(ctx, s.client, s.app, optional(req.Since), optional(req.Page))
-	if err != nil {
-		return AttentionPage{}, err
-	}
-	p := resp.GetTeamAttentionPage()
-	if p == nil {
-		return AttentionPage{}, errors.New("malformed result")
-	}
-	out := AttentionPage{ScanComplete: p.GetScanComplete(), Items: []AttentionItem{}}
-	if v := p.GetNextPage(); v != nil {
-		out.NextPage = *v
-	}
-	if v := p.GetAdoptableSince(); v != nil {
-		out.AdoptableSince = *v
-	}
-	for _, it := range p.GetItems() {
-		if it == nil {
-			continue
-		}
-		item := AttentionItem{Worker: it.GetWorker(), WorkerName: it.GetWorkerName(), Channel: it.GetChannel(),
-			Unread: it.GetUnread(), UnreadMentions: it.GetUnreadMentions(), FirstUnreadSeq: it.GetFirstUnreadSeq(),
-			LastSeq: it.GetLastSeq()}
-		if v := it.GetLastRelevantSeq(); v != nil {
-			item.LastRelevantSeq = *v
-		}
-		out.Items = append(out.Items, item)
-	}
-	return out, nil
 }
 
 // RegisterRow is the worker's winning register row on the team Channel, or
@@ -109,4 +70,21 @@ func (s *GraphQLServer) ChannelHead(ctx context.Context, channelRef string) (int
 		return 0, errors.New("channel not found")
 	}
 	return resp.GetChannel().GetLastSeq(), nil
+}
+
+// RegisterRow is the WINNING attendeeRegister row for the team Channel
+// (App over organization; Worker over Agent over everyone).
+type RegisterRow struct {
+	NamedBy     string `json:"namedBy"`
+	ChannelID   string `json:"channel"`
+	MentionOnly bool   `json:"mentionOnly"`
+	OwnerType   string `json:"ownerType,omitempty"`
+}
+
+// CursorResult is a worker's channelReadState (#1826). FieldErrs carries
+// GraphQL errors that arrived WITH data: an integer alongside errors is not a
+// verdict (#1829 P1-1).
+type CursorResult struct {
+	LastSeen  *int
+	FieldErrs []string
 }

@@ -1,0 +1,10 @@
+# Explicit opt-in only: keep server-new lint fields out of ordinary documents.
+query GetNodeLintWarnings($ref: ID!, $after: String) {
+  node(ref: $ref) {
+    lintWarnings(first: 100, after: $after) {
+      items { kind position text targetUrn pinnedRevision newerRevision overriddenNodeLoc workerField }
+      total
+      nextCursor
+    }
+  }
+}

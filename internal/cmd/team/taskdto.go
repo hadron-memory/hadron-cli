@@ -7,8 +7,14 @@ package team
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskPartyDTO is the sanitized party projection: a worker's name and URN, or
@@ -21,10 +27,33 @@ type taskPartyDTO struct {
 }
 
 type taskRequirementsDTO struct {
+	Roles            []string `json:"roles,omitempty"`
+	TeamWorkerID     *string  `json:"teamWorkerId,omitempty"`
+	MinTier          *string  `json:"minTier"`
 	Role             *string  `json:"role"`
 	FamilyIn         []string `json:"familyIn"`
 	FamilyNotIn      []string `json:"familyNotIn"`
+	ModelGroupIn     []string `json:"modelGroupIn"`
+	ModelGroupNotIn  []string `json:"modelGroupNotIn"`
 	ExcludeWorkerIds []string `json:"excludeWorkerIds"`
+}
+
+// taskRunSettingsDTO is what a task asks for (cor:agt:050:01), set at creation;
+// every field is omitted when null.
+type taskRunSettingsDTO struct {
+	Family *string `json:"family,omitempty"`
+	Model  *string `json:"model,omitempty"`
+	Tier   *string `json:"tier,omitempty"`
+	Effort *string `json:"effort,omitempty"`
+}
+
+// taskAppliedRunSettingsDTO is what the run applied, beside what was asked: a
+// worker that was already running keeps its session's settings, so the two can
+// differ.
+type taskAppliedRunSettingsDTO struct {
+	Family *string `json:"family,omitempty"`
+	Model  *string `json:"model,omitempty"`
+	Effort *string `json:"effort,omitempty"`
 }
 
 type taskResultDTO struct {
@@ -33,25 +62,56 @@ type taskResultDTO struct {
 	Evidence *string `json:"evidence"`
 }
 
-// taskDTO is one task. OpenAlarms is set only by `task tree`, which joins the
-// unacknowledged alarms onto the nodes it renders; omitempty keeps the other
+// taskDTO is one task. OpenAlarms is set only by `task tree` (and `task list
+// --team`), which join the server's alarms in effect onto the tasks they render; omitempty keeps the other
 // commands' shapes identical to the plain task read.
+type taskMatchFailureDTO struct {
+	Reason   string `json:"reason"`
+	FailedAt string `json:"failedAt"`
+}
+
+// taskSkippedCandidateDTO is one candidate a failed match skipped (cli#1848,
+// hadron-server#3816 V21): Reasons keep the server's order and carry any
+// value verbatim, including one this build's enum does not know (V21 is
+// closed-additive).
+type taskSkippedCandidateDTO struct {
+	WorkerID string   `json:"workerId"`
+	Name     string   `json:"name"`
+	Reasons  []string `json:"reasons"`
+}
+
 type taskDTO struct {
-	ID                   string               `json:"id"`
-	AppID                string               `json:"appId"`
-	Title                string               `json:"title"`
-	Description          *string              `json:"description"`
-	Status               string               `json:"status"`
-	Queued               bool                 `json:"queued"`
-	WaitingOnChildren    bool                 `json:"waitingOnChildren"`
-	Owner                *taskPartyDTO        `json:"owner"`
-	Assignee             *taskPartyDTO        `json:"assignee"`
-	AssignedBy           *taskPartyDTO        `json:"assignedBy"`
-	CreatedBy            *taskPartyDTO        `json:"createdBy"`
-	ParentTaskID         *string              `json:"parentTaskId"`
-	Tags                 []string             `json:"tags"`
-	Source               *string              `json:"source"`
+	MatchFailure      *taskMatchFailureDTO   `json:"matchFailure,omitempty"`
+	Priority          int                    `json:"priority"`
+	Blocked           bool                   `json:"blocked"`
+	BlockedBy         *taskDependencyPageDTO `json:"blockedBy"`
+	Blocks            *taskDependencyPageDTO `json:"blocks"`
+	ID                string                 `json:"id"`
+	Handle            string                 `json:"handle"`
+	TaskNumber        string                 `json:"taskNumber"`
+	AppID             string                 `json:"appId"`
+	Title             string                 `json:"title"`
+	Description       *string                `json:"description"`
+	Status            string                 `json:"status"`
+	Queued            bool                   `json:"queued"`
+	WaitingOnChildren bool                   `json:"waitingOnChildren"`
+	Owner             *taskPartyDTO          `json:"owner"`
+	Assignee          *taskPartyDTO          `json:"assignee"`
+	AssignedBy        *taskPartyDTO          `json:"assignedBy"`
+	CreatedBy         *taskPartyDTO          `json:"createdBy"`
+	ParentTaskID      *string                `json:"parentTaskId"`
+	Tags              []string               `json:"tags"`
+	Source            *string                `json:"source"`
+	// ExternalID is the outside item the task claims (cli#1524, cor:agt:120:02):
+	// set once at create, never edited; null when the task claims none.
+	ExternalID *string `json:"externalId"`
+	// ReleasedExternalID is set only by `task release` (cli#1962): the outside
+	// item the release gave back, since the task no longer holds it.
+	ReleasedExternalID   string               `json:"releasedExternalId,omitempty"`
+	References           []taskReferenceDTO   `json:"references"`
+	HandBack             *taskHandBackDTO     `json:"handBack"`
 	StartBy              *string              `json:"startBy"`
+	FinishBy             *string              `json:"finishBy"`
 	CreatedAt            string               `json:"createdAt"`
 	UpdatedAt            *string              `json:"updatedAt"`
 	StartedAt            *string              `json:"startedAt"`
@@ -59,8 +119,41 @@ type taskDTO struct {
 	CancelledAt          *string              `json:"cancelledAt"`
 	CloseSessionWhenDone bool                 `json:"closeSessionWhenDone"`
 	Requirements         *taskRequirementsDTO `json:"requirements"`
-	Result               *taskResultDTO       `json:"result"`
-	OpenAlarms           *int                 `json:"openAlarms,omitempty"`
+	// RunSettings and AppliedRunSettings (cli#2206) are shown together or not
+	// at all: absent when the server returns none.
+	RunSettings        *taskRunSettingsDTO        `json:"runSettings,omitempty"`
+	AppliedRunSettings *taskAppliedRunSettingsDTO `json:"appliedRunSettings,omitempty"`
+	Result             *taskResultDTO             `json:"result"`
+	// Properties is the task's OWN optional JSON object (#2420): never
+	// inherited, so a child shows its own value, and null when unset.
+	Properties json.RawMessage `json:"properties"`
+	OpenAlarms *int            `json:"openAlarms,omitempty"`
+	// OpenAlarmsIncomplete is true, on every task a command emits, only when
+	// the alarm walk stopped before the server's page end (cli#1919): then
+	// openAlarms is a lower bound and a missing openAlarms means UNKNOWN, not
+	// none. Absent on a complete walk, so complete output is unchanged.
+	OpenAlarmsIncomplete *bool `json:"openAlarmsIncomplete,omitempty"`
+
+	// MatchSkipped is set only on the `task create --match` answer, where it
+	// is always an array ([] for a server null). It is returned, never stored
+	// (V22), so every other command leaves it nil and the key is absent.
+	MatchSkipped *[]taskSkippedCandidateDTO `json:"matchSkipped,omitempty"`
+}
+
+// taskRef is how a human-readable line names a task: the server's short handle
+// (AT3.405) first, then the canonical id, which stays the identity. A server
+// that returns no handle keeps the id alone. The handle is server text and
+// goes through the same sanitiser as every other rendered value.
+func taskRef(handle, id string) string {
+	if handle == "" {
+		return id
+	}
+	return output.SafeCell(handle) + " " + id
+}
+
+// taskHandleCell is the HANDLE column of a task table.
+func taskHandleCell(handle string) string {
+	return output.SafeCell(handle)
 }
 
 // taskPartyGetter is the one shape every generated party projection shares;
@@ -92,8 +185,13 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 	}
 	dto := &taskRequirementsDTO{
 		Role:             r.Role,
+		Roles:            r.Roles,
+		TeamWorkerID:     r.TeamWorkerId,
+		MinTier:          r.MinTier,
 		FamilyIn:         []string{},
 		FamilyNotIn:      []string{},
+		ModelGroupIn:     strListOrEmpty(r.ModelGroupIn),
+		ModelGroupNotIn:  strListOrEmpty(r.ModelGroupNotIn),
 		ExcludeWorkerIds: []string{},
 	}
 	if r.FamilyIn != nil {
@@ -108,6 +206,35 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 	return dto
 }
 
+// taskHandBackDTO is the task's hand-back (cor:agt:050:29): null when the task
+// was never handed back. text is another worker's free text, stored and
+// returned verbatim; only the human view sanitises it.
+type taskHandBackDTO struct {
+	Code         string  `json:"code"`
+	Text         *string `json:"text"`
+	HandedBackAt string  `json:"handedBackAt"`
+}
+
+func taskHandBackDTOFrom(h *gen.AgentTaskFieldsHandBackAgentTaskHandBack) *taskHandBackDTO {
+	if h == nil {
+		return nil
+	}
+	return &taskHandBackDTO{Code: string(h.Code), Text: h.Text, HandedBackAt: h.HandedBackAt}
+}
+
+// handBackLine is the one-line human view: "Handed back: <code> at <time>[: <text>]".
+// The text goes through the same sanitiser as the other server values, and the
+// trailing ": <text>" is dropped when nothing printable is left.
+func handBackLine(h *taskHandBackDTO) string {
+	line := "Handed back: " + output.SafeCell(h.Code) + " at " + output.SafeCell(h.HandedBackAt)
+	if h.Text != nil {
+		if text := strings.TrimSpace(output.SafeLine(*h.Text, 2048)); text != "" {
+			line += ": " + text
+		}
+	}
+	return line
+}
+
 func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultDTO {
 	if r == nil {
 		return nil
@@ -116,8 +243,10 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 }
 
 func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
-	dto := taskDTO{
+	dto := taskDTO{Priority: fields.Priority, Blocked: fields.Blocked,
 		ID:                   fields.Id,
+		Handle:               fields.Handle,
+		TaskNumber:           fields.TaskNumber,
 		AppID:                fields.AppId,
 		Title:                fields.Title,
 		Description:          fields.Description,
@@ -131,7 +260,11 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		ParentTaskID:         fields.ParentTaskId,
 		Tags:                 []string{},
 		Source:               fields.Source,
+		ExternalID:           fields.ExternalId,
+		References:           taskReferencesDTOFrom(fields.References),
+		HandBack:             taskHandBackDTOFrom(fields.HandBack),
 		StartBy:              fields.StartBy,
+		FinishBy:             fields.FinishBy,
 		CreatedAt:            fields.CreatedAt,
 		UpdatedAt:            fields.UpdatedAt,
 		StartedAt:            fields.StartedAt,
@@ -141,8 +274,35 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		Requirements:         taskRequirementsDTOFrom(fields.Requirements),
 		Result:               taskResultDTOFrom(fields.Result),
 	}
+	if r := fields.RunSettings; r != nil {
+		dto.RunSettings = &taskRunSettingsDTO{Family: r.Family, Model: r.Model, Tier: r.Tier, Effort: effortPtr(r.Effort)}
+	}
+	if r := fields.AppliedRunSettings; r != nil {
+		dto.AppliedRunSettings = &taskAppliedRunSettingsDTO{Family: r.Family, Model: r.Model, Effort: effortPtr(r.Effort)}
+	}
+	// Shown together (cor:agt:050:01): when the server returns one, the other
+	// is an empty object, never a missing key, so a reader never sees what was
+	// asked without what ran, nor the reverse.
+	if dto.RunSettings != nil && dto.AppliedRunSettings == nil {
+		dto.AppliedRunSettings = &taskAppliedRunSettingsDTO{}
+	}
+	if dto.AppliedRunSettings != nil && dto.RunSettings == nil {
+		dto.RunSettings = &taskRunSettingsDTO{}
+	}
+	if fields.MatchFailure != nil {
+		dto.MatchFailure = &taskMatchFailureDTO{Reason: fields.MatchFailure.Reason, FailedAt: fields.MatchFailure.FailedAt}
+	}
+	if p := fields.BlockedBy; p != nil {
+		dto.BlockedBy = dependencyPage(p.Total, p.HasMore, p.Items)
+	}
+	if p := fields.Blocks; p != nil {
+		dto.Blocks = dependencyPage(p.Total, p.HasMore, p.Items)
+	}
 	if fields.Tags != nil {
 		dto.Tags = fields.Tags
+	}
+	if fields.Properties != nil {
+		dto.Properties = *fields.Properties
 	}
 	return dto
 }
@@ -157,9 +317,12 @@ type alarmWakeDTO struct {
 }
 
 type teamEventDTO struct {
-	ID             string          `json:"id"`
-	AppID          string          `json:"appId"`
-	TaskID         *string         `json:"taskId"`
+	ID     string  `json:"id"`
+	AppID  string  `json:"appId"`
+	TaskID *string `json:"taskId"`
+	// TaskHandle is the task's stored handle exactly as the server sent it
+	// (cli#2005); null when the event has no task or the task is gone.
+	TaskHandle     *string         `json:"taskHandle"`
 	Type           string          `json:"type"`
 	Severity       *string         `json:"severity"`
 	CreatedAt      string          `json:"createdAt"`
@@ -170,26 +333,32 @@ type teamEventDTO struct {
 	AcknowledgedAt *string         `json:"acknowledgedAt"`
 	AcknowledgedBy *taskPartyDTO   `json:"acknowledgedBy"`
 	EpisodeStart   *string         `json:"episodeStart"`
-	Chain          json.RawMessage `json:"chain"`
-	Wakes          []alarmWakeDTO  `json:"wakes"`
+	// EscalationEndedAt is when the SERVER recorded the end of an alarm's
+	// escalation (#3934, cor:agt:050:20): null while the alarm is in effect and
+	// on every ordinary event. Never derived or filled in here.
+	EscalationEndedAt *string         `json:"escalationEndedAt"`
+	Chain             json.RawMessage `json:"chain"`
+	Wakes             []alarmWakeDTO  `json:"wakes"`
 }
 
 func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 	dto := teamEventDTO{
-		ID:             e.Id,
-		AppID:          e.AppId,
-		TaskID:         e.TaskId,
-		Type:           e.Type,
-		CreatedAt:      e.CreatedAt,
-		Actor:          partyDTO(e.Actor),
-		ActorRunID:     e.ActorRunId,
-		SubjectWorker:  partyDTO(e.SubjectWorker),
-		Payload:        json.RawMessage("null"),
-		AcknowledgedAt: e.AcknowledgedAt,
-		AcknowledgedBy: partyDTO(e.AcknowledgedBy),
-		EpisodeStart:   e.EpisodeStart,
-		Chain:          json.RawMessage("null"),
-		Wakes:          []alarmWakeDTO{},
+		ID:                e.Id,
+		AppID:             e.AppId,
+		TaskID:            e.TaskId,
+		TaskHandle:        e.TaskHandle,
+		Type:              e.Type,
+		CreatedAt:         e.CreatedAt,
+		Actor:             partyDTO(e.Actor),
+		ActorRunID:        e.ActorRunId,
+		SubjectWorker:     partyDTO(e.SubjectWorker),
+		Payload:           json.RawMessage("null"),
+		AcknowledgedAt:    e.AcknowledgedAt,
+		AcknowledgedBy:    partyDTO(e.AcknowledgedBy),
+		EpisodeStart:      e.EpisodeStart,
+		EscalationEndedAt: e.EscalationEndedAt,
+		Chain:             json.RawMessage("null"),
+		Wakes:             []alarmWakeDTO{},
 	}
 	if e.Severity != nil {
 		s := string(*e.Severity)
@@ -219,34 +388,41 @@ func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 // ---- roster ---------------------------------------------------------------
 
 type rosterEntryDTO struct {
-	Worker              taskPartyDTO     `json:"worker"`
-	State               string           `json:"state"`
-	Role                *string          `json:"role"`
-	Bound               bool             `json:"bound"`
-	LiveSession         bool             `json:"liveSession"`
-	Family              *string          `json:"family"`
-	Model               *string          `json:"model"`
-	ModelReportedAt     *string          `json:"modelReportedAt"`
-	Tier                *string          `json:"tier"`
-	FreeForWork         bool             `json:"freeForWork"`
-	FreeFamilies        []string         `json:"freeFamilies"`
-	LaunchableFamilies  []string         `json:"launchableFamilies"`
-	UnavailableFamilies []string         `json:"unavailableFamilies"`
-	UnavailableReason   *string          `json:"unavailableReason"`
-	UnavailableUntil    *string          `json:"unavailableUntil"`
-	LastActiveAt        *string          `json:"lastActiveAt"`
-	CheckStatus         *channelCheckDTO `json:"checkStatus"`
-	LastAssignedAt      *string          `json:"lastAssignedAt"`
-	PendingTasks        []string         `json:"pendingTasks"`
-	StartedTasks        []string         `json:"startedTasks"`
-	WaitingOn           []string         `json:"waitingOn"`
-	WaitingSince        *string          `json:"waitingSince"`
-	UnreactedChildTask  *string          `json:"unreactedChildTask"`
-	Alarms              []string         `json:"alarms"`
-	ReportsTo           *taskPartyDTO    `json:"reportsTo"`
-	ReportsToRetired    bool             `json:"reportsToRetired"`
-	HeldBy              *rosterHolderDTO `json:"heldBy"`
-	HeldAt              *string          `json:"heldAt"`
+	Worker          taskPartyDTO `json:"worker"`
+	State           string       `json:"state"`
+	Role            *string      `json:"role"`
+	Bound           bool         `json:"bound"`
+	LiveSession     bool         `json:"liveSession"`
+	Family          *string      `json:"family"`
+	Model           *string      `json:"model"`
+	ModelReportedAt *string      `json:"modelReportedAt"`
+	Tier            *string      `json:"tier"`
+	// ModelGroups are the server's live matching model-group names (cli#1485
+	// S3; advisory, never authorization). [] is a real answer (no model or no
+	// group matches); null means the lookup failed for this row, with
+	// ModelGroupsError the server's error code (never its message).
+	ModelGroups         []string           `json:"modelGroups"`
+	ModelGroupsError    *string            `json:"modelGroupsError"`
+	FreeForWork         bool               `json:"freeForWork"`
+	FreeFamilies        []string           `json:"freeFamilies"`
+	LaunchableFamilies  []string           `json:"launchableFamilies"`
+	UnavailableFamilies []string           `json:"unavailableFamilies"`
+	UnavailableReason   *string            `json:"unavailableReason"`
+	UnavailableUntil    *string            `json:"unavailableUntil"`
+	LastActiveAt        *string            `json:"lastActiveAt"`
+	CheckStatus         *channelCheckDTO   `json:"checkStatus"`
+	Terminal            *workerTerminalDTO `json:"terminal"`
+	LastAssignedAt      *string            `json:"lastAssignedAt"`
+	PendingTasks        []string           `json:"pendingTasks"`
+	StartedTasks        []string           `json:"startedTasks"`
+	WaitingOn           []string           `json:"waitingOn"`
+	WaitingSince        *string            `json:"waitingSince"`
+	UnreactedChildTask  *string            `json:"unreactedChildTask"`
+	Alarms              []string           `json:"alarms"`
+	ReportsTo           *taskPartyDTO      `json:"reportsTo"`
+	ReportsToRetired    bool               `json:"reportsToRetired"`
+	HeldBy              *rosterHolderDTO   `json:"heldBy"`
+	HeldAt              *string            `json:"heldAt"`
 }
 
 // rosterHolderDTO is the sanitized person holding a worker's name (server#2223).
@@ -307,4 +483,96 @@ type familyAvailabilityDTO struct {
 type teamAvailabilityDTO struct {
 	Workers  []workerAvailabilityDTO `json:"workers"`
 	Families []familyAvailabilityDTO `json:"families"`
+}
+
+// safeTaskError keeps the mapped error's chain and exit code but renders its
+// text through SafeCell: a task refusal quotes server-supplied handles (the
+// bare-handle qualification refusal names the handle), and the root renderer
+// prints err.Error() raw, so ESC, bidi and newlines would otherwise reach the
+// terminal. Unwrap keeps errors.As/Is (details, codes) working; the --json envelope
+// uses Error() and still carries the original text (cli#1131).
+// taskErrorMaxRunes bounds a rendered refusal; room for the schema-skew hint.
+const taskErrorMaxRunes = 1024
+
+type safeTaskError struct{ err error }
+
+// Error stays raw (the --json envelope's message); HumanMessage is what the
+// terminal branch of the root renderer prints.
+func (e safeTaskError) Error() string { return e.err.Error() }
+func (e safeTaskError) HumanMessage() string {
+	return output.SafeLine(e.err.Error(), taskErrorMaxRunes)
+}
+func (e safeTaskError) Unwrap() error { return e.err }
+
+// taskErrorCodes are the public refusal codes shown as the message prefix: every
+// TASK_ code the schema documents on the task mutations, plus BAD_USER_INPUT
+// (#1285). Add a new TASK_ code here when the server documents one.
+// Both task-family wrappers read this list: mapTaskError directly, and
+// mapFindingError (taskfindings.go) through it (hadron-cli#2296).
+var taskErrorCodes = []string{
+	"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER",
+	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
+	"TASK_FINDING_NOT_FOUND", "TASK_NOT_FINISHED",
+	"TASK_ENDED", "TASK_EXTERNAL_ID_NONE", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH",
+	"TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_OWNER_REQUIRED", "TASK_ASSIGNEE_REQUIRED", "APP_KEY_SESSION_BOUND", "TASK_STOPPED", "TASK_BATCH_TOO_LARGE", "TASK_MATCH_FAILED",
+	"PROPERTIES_NOT_AN_OBJECT", "PROPERTIES_TOO_LARGE",
+	"PROPERTIES_SCHEMA_VIOLATION", "PROPERTIES_SCHEMA_UNUSABLE",
+	"DEFECT_LINK_FORBIDDEN", "PR_REFERENCE_MISSING", "DEFECT_HEAD_NOT_FROZEN",
+}
+
+// mapTaskError is api.MapError for the task commands: the server owns range,
+// state, authority and cycle decisions, so its public code is preserved beside
+// the mapped message, and the human message is made terminal-safe.
+func mapTaskError(err error) error {
+	mapped := api.MapError(err)
+	if mapped == nil {
+		return nil
+	}
+	// The prefix goes INSIDE the terminal-safe wrapper: the root renderer
+	// prints the innermost HumanMessage, so a prefix added outside it would
+	// show in --json and vanish on the terminal. The codes are constants, never
+	// server text.
+	prefix := ""
+	for _, code := range taskErrorCodes {
+		if api.HasErrorCode(err, code) {
+			prefix = code
+			break
+		}
+	}
+	var coded *exitcode.CodedError
+	if errors.As(mapped, &coded) {
+		inner := coded.Err
+		if prefix != "" {
+			inner = fmt.Errorf("%s: %w", prefix, inner)
+		}
+		return &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{inner}}
+	}
+	if prefix != "" {
+		mapped = fmt.Errorf("%s: %w", prefix, mapped)
+	}
+	return safeTaskError{mapped}
+}
+
+// handleHeaders and handleCells add the HANDLE column only when at least one
+// task carries a handle, so a server that returns none keeps the table it had.
+func handleHeaders(any bool, headers ...string) []string {
+	if any {
+		return append([]string{"HANDLE"}, headers...)
+	}
+	return headers
+}
+
+func handleCells(any bool, handle string, cells ...string) []string {
+	if any {
+		return append([]string{taskHandleCell(handle)}, cells...)
+	}
+	return cells
+}
+
+func effortPtr(e *gen.EffortLevel) *string {
+	if e == nil {
+		return nil
+	}
+	s := string(*e)
+	return &s
 }

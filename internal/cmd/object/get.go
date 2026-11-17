@@ -13,10 +13,10 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <ref>",
 		Short: "Read one object by id or node URN",
-		Long: `Read an object by its id (the value printed on create) or its node URN, and
-print the flat record { id, type, ...fields }. Exits 4 (not found) when the ref
-names nothing readable or a node that isn't an object.`,
-		Example: `  hadron object get 019f7d…            # by object id
+		Long: `Print one record by its id (shown by object create and object find) or its node
+URN. Exits 4 (not found) when nothing readable has that id, or when it names a
+node that is not a record.`,
+		Example: `  hadron object get 01a189a8175c7145b6c3680628ef0101
   hadron object get hrn:node:acme.com:market:competitor:letta --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

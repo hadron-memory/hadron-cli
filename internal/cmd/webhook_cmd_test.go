@@ -154,3 +154,49 @@ func TestWebhookRmWithYes(t *testing.T) {
 		t.Errorf("delete must forward the id, got %v", vars["id"])
 	}
 }
+
+// cli#1695: describe the server-owned person-only rotate door on both help
+// surfaces; this does not add a local authorization check.
+func TestWebhookRotate1695PersonOnlyHelp(t *testing.T) {
+	const sentence = "Rotation is person-only: worker sessions are refused (FORBIDDEN, exit 8), with or without an instruction; no flag authorizes it."
+	for _, args := range [][]string{{"webhook", "rotate", "--help"}, {"agentic-usage"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), sentence) {
+			t.Fatalf("%v missing person-only rotate statement", args)
+		}
+	}
+}
+
+func TestWebhookRotate1695ForbiddenPrintsNoCredentials(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		t.Run(map[bool]string{false: "text", true: "json"}[jsonMode], func(t *testing.T) {
+			srv, calls := captureGraphQL(t, map[string]string{"RotateAgentWebhook": `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}],"data":{"rotateAgentWebhook":` + webhookCredsJSON + `}}`})
+			f, out := testFactory(t)
+			var stderr strings.Builder
+			f.IOStreams.ErrOut = &stderr
+			root := NewRootCmd(f)
+			args := []string{"webhook", "rotate", "wh1", "--yes", "--server", srv.URL}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil || renderError(f, err) != 8 {
+				t.Fatalf("wanted Forbidden exit8, got %v", err)
+			}
+			if _, ok := calls["RotateAgentWebhook"]; !ok {
+				t.Fatal("refusal must reach server")
+			}
+			for _, leak := range []string{"hpt-abc123", "/hooks/s3cr3t/deploy-notify", `"token"`, `"path"`} {
+				if strings.Contains(out.String()+stderr.String(), leak) {
+					t.Fatalf("credential leak %q: stdout=%q stderr=%q", leak, out.String(), stderr.String())
+				}
+			}
+		})
+	}
+}

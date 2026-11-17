@@ -147,15 +147,15 @@ only your own live session.`,
 // read has been delivered, advance the bound worker's own cursor on the App's
 // team chat through `through`. Best-effort — it never fails a read that
 // succeeded. An older server may refuse FEATURE_NOT_AVAILABLE; that is silent
-// for compatibility. Any other failure is a stderr note, because it means a
-// team-chat router may nudge about these messages again.
+// for compatibility. Any other failure is a stderr note, because the server
+// still counts these messages as unread.
 func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, through int) {
 	if b == nil || b.SessionID == "" || b.Server == "" || !bindingServerMatches(f, b) {
 		return // no verified deployment for this session: never advance a cursor
 	}
 	note := func(err error) {
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: this read was not recorded on the server (%v) — a team-chat router may nudge about these messages again; `hadron team chat mark-read --through %d` retries it\n",
+			"note: this read was not recorded on the server (%v) — the server still counts these messages as unread; `hadron team chat mark-read --through %d` retries it\n",
 			api.MapError(err), through)
 	}
 	resp, err := gen.TeamDefaultChannel(ctx, client, appRef)

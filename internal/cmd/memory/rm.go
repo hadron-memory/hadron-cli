@@ -18,8 +18,22 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef>",
 		Aliases: []string{"delete"},
 		Short:   "Delete a memory and all its nodes",
-		Example: `  hadron memory rm acme.com:scratch --yes`,
-		Args:    cobra.ExactArgs(1),
+		Long: `Delete a memory, with every node in it and their history. No command brings
+a deleted memory back, so save what you may need first: memory export writes
+its nodes to Markdown files, and memory clone copies it into a new memory.
+
+It asks "Delete memory <memoryRef> and all its nodes? This cannot be undone.
+(y/N)" on a terminal. --yes skips the question, and is required when input is
+not a terminal (otherwise exit 2). On success it prints "✓ Deleted memory
+<memoryRef>".
+
+Who may delete it: the owner of a personal, private or user-owned memory; for
+an organization's memory, an organization admin. An Agent's own system memory
+is deleted only by deleting the Agent, and a memory that holds a chat Channel
+is refused until the Channel is deleted.`,
+		Example: `  hadron memory export acme.com:scratch --out ./scratch-backup
+  hadron memory rm acme.com:scratch --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -38,6 +52,6 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required when input is not a terminal)")
 	return cmd
 }

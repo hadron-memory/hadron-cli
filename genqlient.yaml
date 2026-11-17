@@ -41,3 +41,14 @@ bindings:
   # gqltypes.AgentTaskStallScheduleInput (#864).
   AgentTaskStallScheduleInput:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AgentTaskStallScheduleInput
+  # updateAgent(registerDefaults) is three-state (omit preserves, object sets,
+  # explicit null clears) — see gqltypes.RegisterDefaultsInput (cli#58 slice 2).
+  RegisterDefaultsInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.RegisterDefaultsInput
+  # createAgentTasks items keep each task's keys exactly as the batch file spelled
+  # them (an omitted optional key must stay omitted, not become null) — see
+  # gqltypes.CreateAgentTasksItemInput (cli#1565).
+  CreateAgentTasksItemInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.CreateAgentTasksItemInput
+  AiServiceConfigTestOverride:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AiServiceConfigTestOverride

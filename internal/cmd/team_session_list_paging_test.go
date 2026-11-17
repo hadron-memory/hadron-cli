@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // sessionRows builds n sessions, newest first; every third one has ended.
@@ -20,15 +22,16 @@ func sessionRows(n int) []string {
 	return rows
 }
 
-// sessionsNoTotal: the sessions list returns a bare array and no total.
-func sessionsNoTotal(page []string, _ int) string {
-	return `{"data":{"sessions":[` + strings.Join(page, ",") + `]}}`
+// sessionsPageAt renders sessionsPage: the real total and hasMore for the
+// window (cli#1339).
+func sessionsPageAt(page []string, total, offset int) string {
+	return fmt.Sprintf(`{"data":{"sessionsPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, total, offset+len(page) < total, strings.Join(page, ","))
 }
 
 func runSessionList(t *testing.T, src *pagedSource, args ...string) (ids []string, calls []map[string]any, err error) {
 	t.Helper()
 	teamGitDir(t)
-	gql, rec := pagedGraphQL(t, map[string]*pagedSource{"TeamSessions": src}, sessionRenderStubs(map[string]string{}))
+	gql, rec := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": src}, sessionRenderStubs(map[string]string{}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "session", "list", "--json", "--server", gql.URL}, args...))
@@ -44,12 +47,13 @@ func runSessionList(t *testing.T, src *pagedSource, args ...string) (ids []strin
 			ids = append(ids, r.ID)
 		}
 	}
-	return ids, rec["TeamSessions"].Calls, err
+	return ids, rec["TeamSessionsPage"].Calls, err
 }
 
-// cli#967: no --limit/--offset lists every session, however the server clamps.
+// cli#967/#1339: no --limit/--offset lists every session, however the server
+// clamps, and the page's total proves the end (no trailing empty request).
 func TestSessionListDrainsPastAClampedPage(t *testing.T) {
-	ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal})
+	ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,13 +65,13 @@ func TestSessionListDrainsPastAClampedPage(t *testing.T) {
 			t.Fatalf("row %d is %s: order lost or duplicated", i, id)
 		}
 	}
-	if len(calls) != 4 {
-		t.Errorf("want 4 requests (20+20+5+empty), got %d", len(calls))
+	if len(calls) != 3 {
+		t.Errorf("want 3 requests (20+20+5; the total proves the end), got %d", len(calls))
 	}
 }
 
 func TestSessionListActiveDrainsPastAClampedPage(t *testing.T) {
-	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal}, "--active")
+	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}, "--active")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +82,7 @@ func TestSessionListActiveDrainsPastAClampedPage(t *testing.T) {
 
 func TestSessionListExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
 	for _, args := range [][]string{{"--limit", "5"}, {"--offset", "3"}} {
-		ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal}, args...)
+		ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}, args...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +96,7 @@ func TestSessionListExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
 }
 
 func TestSessionListLaterPageErrorFailsTheListing(t *testing.T) {
-	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal, failAtCall: 2})
+	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt, failAtCall: 2})
 	if err == nil {
 		t.Fatalf("a failed page 2 must not read as a complete list (got %d sessions)", len(ids))
 	}
@@ -130,5 +134,192 @@ func TestSessionListProvenanceDrainsPastAClampedPage(t *testing.T) {
 	}
 	if len(got) != 45 {
 		t.Errorf("want 45 provenance sessions, got %d", len(got))
+	}
+}
+
+// cli#1339: a bounded page reports the real total and the next offset on stderr,
+// while --json stays the bare array.
+func TestSessionListPageShowsRealTotalAndNextOffset(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--limit", "20", "--offset", "20", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	for _, want := range []string{"showing 21-40 of 45", "more: --offset 40"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("stderr missing %q: %q", want, errOut)
+		}
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil || len(rows) != 20 {
+		t.Fatalf("stdout must stay a bare 20-element array: %v", err)
+	}
+}
+
+// A server that ignores the offset repeats the first page forever; the drain
+// fails as a whole instead of returning a partial list.
+func TestSessionListNonAdvancingServerFails(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: func(_ []string, total, _ int) string {
+		return sessionsPageAt(sessionRows(45)[:20], total, 0)
+	}}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
+	}
+}
+
+// BLIND P2 (#1460): an empty terminal page with the total still unmet is a
+// partial list even when hasMore is false.
+func TestSessionListUnmetTotalOnTerminalPageFails(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: func(page []string, _, offset int) string {
+		return sessionsPageAt(page, 45, 0) // total 45, hasMore from offset 0 until the page is empty
+	}}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %.80q", err, out.String())
+	}
+}
+
+// datedSessionRows gives sessionRows strictly descending startedAt values (one
+// minute apart, newest first), so a test can tell the order from the contents.
+func datedSessionRows(n int) []string {
+	rows := sessionRows(n)
+	for i := range rows {
+		rows[i] = strings.Replace(rows[i], `"startedAt":"2026-08-11T09:00:00Z"`, fmt.Sprintf(`"startedAt":"2026-08-11T08:%02d:00Z"`, 59-i), 1)
+	}
+	return rows
+}
+
+// insertingSource serves 45 dated sessions and, right after the first response,
+// inserts an ACTIVE session newer than all of them: the cli#2030 interleaving.
+func insertingSource() *pagedSource {
+	src := &pagedSource{rows: datedSessionRows(45), serve: 20}
+	inserted := false
+	src.wrapAt = func(page []string, total, offset int) string {
+		body := sessionsPageAt(page, total, offset)
+		if !inserted {
+			inserted = true
+			newest := strings.Replace(sessionRows(1)[0], `"s000"`, `"snew"`, 1)
+			newest = strings.Replace(newest, `"startedAt":"2026-08-11T09:00:00Z"`, `"startedAt":"2026-08-11T09:30:00Z"`, 1)
+			newest = strings.Replace(newest, `"endedAt":"2026-08-11T10:00:00Z"`, `"endedAt":null`, 1)
+			src.rows = append([]string{newest}, src.rows...)
+		}
+		return body
+	}
+	return src
+}
+
+// cli#2030: a row inserted at the top between page reads shifts the offsets
+// (cor:api:120:05), so the newest row lands before the offset and the first
+// pass ends one short of the total. The scan restarts and returns the whole,
+// current list rather than exit 7 — and in the documented newest-first order,
+// not with the late insert appended last.
+func TestSessionListSurvivesAnInsertBetweenPages(t *testing.T) {
+	ids, _, err := runSessionList(t, insertingSource())
+	if err != nil {
+		t.Fatalf("an insert between pages must not fail the read: %v", err)
+	}
+	seen := map[string]int{}
+	for _, id := range ids {
+		seen[id]++
+	}
+	if len(ids) != 46 || len(seen) != 46 || seen["snew"] != 1 {
+		t.Fatalf("want all 46 sessions once including the inserted one, got %d rows (%d unique)", len(ids), len(seen))
+	}
+	if ids[0] != "snew" || ids[1] != "s000" || ids[45] != "s044" {
+		t.Fatalf("want newest first (snew, s000 … s044), got first %q, second %q, last %q", ids[0], ids[1], ids[45])
+	}
+}
+
+// The recovered order feeds the --active slice, so the
+// newest active session must be the one `--limit 1` returns.
+func TestSessionListActiveLimitPicksTheNewestAfterAnInsert(t *testing.T) {
+	ids, _, err := runSessionList(t, insertingSource(), "--active", "--limit", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "snew" {
+		t.Fatalf("want the inserted newest active session, got %v", ids)
+	}
+}
+
+// cli#2030, fail-closed (cor:api:120:04): a list that never completes still
+// fails once the restarts run out — a partial list is never returned as
+// complete — and the message says the list changed, not that anything is
+// unbound or a server fault.
+func TestSessionListFailsClosedWhenRestartsRunOut(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(45), serve: 20}
+	src.wrapAt = func(page []string, total, offset int) string {
+		// Every pass loses its newest row to a fresh insert: the total keeps
+		// outrunning what the scan has read.
+		src.rows = append([]string{strings.Replace(sessionRows(1)[0], `"s000"`, fmt.Sprintf(`"n%d"`, len(src.rows)), 1)}, src.rows...)
+		return sessionsPageAt(page, total+1, offset)
+	}
+	_, _, err := runSessionList(t, src)
+	if err == nil {
+		t.Fatal("a list that never completes must fail, not return a partial list")
+	}
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Errorf("exit code = %d, want %d (Unavailable, distinct from an unbound answer)", exitCodeFor(err), exitcode.Unavailable)
+	}
+	for _, want := range []string{"changed while it was being read", "retry"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should contain %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "unbound") {
+		t.Errorf("error %q must not read as a server fault or as unbound", err)
+	}
+}
+
+// Churn and a stuck server must not share a diagnosis. A
+// server that ignores the offset reads nothing new on a restarted pass, so the
+// "not advancing" signal survives and the message does not tell anyone to retry.
+func TestSessionListStuckServerKeepsTheNotAdvancingDiagnosis(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(45), serve: 20}
+	src.wrapAt = func(page []string, total, _ int) string {
+		return sessionsPageAt(sessionRows(20), total, 0) // always the first page
+	}
+	_, calls, err := runSessionList(t, src)
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("want exit 7, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a stuck server must read as not advancing, not as churn to retry: %v", err)
+	}
+	if len(calls) > 8 {
+		t.Errorf("a stuck server must stop after one restarted pass, made %d requests", len(calls))
+	}
+}
+
+// A server that reports a total it never serves, with honest pages (the last
+// one ends the list), is not churn: a restarted pass reads nothing new, so the
+// scan fails with "not advancing", never a retry hint and never a partial list.
+func TestSessionListLyingTotalFailsAsNotAdvancing(t *testing.T) {
+	src := &pagedSource{rows: sessionRows(44), serve: 20}
+	src.wrapAt = func(page []string, _ int, offset int) string {
+		return fmt.Sprintf(`{"data":{"sessionsPage":{"total":45,"hasMore":%v,"items":[%s]}}}`, offset+len(page) < len(src.rows), strings.Join(page, ","))
+	}
+	ids, calls, err := runSessionList(t, src)
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable || len(ids) != 0 {
+		t.Fatalf("want exit 7 and no list, got %v (%d rows)", err, len(ids))
+	}
+	if !strings.Contains(err.Error(), "not advancing") || strings.Contains(err.Error(), "retry") {
+		t.Errorf("a lying total must read as not advancing, not as churn to retry: %v", err)
+	}
+	if len(calls) > 12 {
+		t.Errorf("a lying total must stop after one restarted pass, made %d requests", len(calls))
 	}
 }

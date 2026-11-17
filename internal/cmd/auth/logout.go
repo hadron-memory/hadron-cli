@@ -16,7 +16,24 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Remove the stored credential for the current server",
-		Args:  cobra.NoArgs,
+		Long: `Sign out of the current server on this machine: delete the login stored for it
+(from the keychain and from ~/.config/hadron/auth.json) and end any
+impersonation session filed for it. Other servers' logins are kept.
+
+Logout is local. It does not revoke the token on the server: a personal token
+you also copied elsewhere keeps working until you run hadron auth token revoke.
+It cannot remove HADRON_TOKEN either: while that variable is set, commands
+keep using it, so unset it as well (unset HADRON_TOKEN).
+
+The browser's Hadron session is not signed out: the next hadron auth login
+reuses it and lands on the same account. To log in as another account, sign
+out of Hadron in the browser first, or use a private window.
+
+Prints "✓ Logged out of <server>", or "no stored credential for <server>" when
+there was nothing to remove (both exit 0). Check with hadron auth status.`,
+		Example: `  hadron auth logout
+  unset HADRON_TOKEN; hadron auth logout; hadron auth status`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server, err := f.Server()
 			if err != nil {

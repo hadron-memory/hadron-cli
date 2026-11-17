@@ -15,10 +15,13 @@
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true, bind: "github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeTypeList")
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
 # @genqlient(for: "NodeFilter.createdBy", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
@@ -71,6 +74,8 @@ query FindNodes(
       node {
         id
         memoryId
+        urn
+        inheritedFrom { agentId agentUrn }
         loc
         name
         nodeType
@@ -79,6 +84,71 @@ query FindNodes(
         isRunnable
         role
         updatedAt
+        properties @include(if: $withProperties)
+        data @include(if: $withData)
+      }
+    }
+  }
+}
+
+# Opt-in document: omitted listings never name this provider-new field.
+# @genqlient(for: "NodeFilter.hasOpenThreads", omitempty: true)
+query FindNodesWithCommentSummary(
+  # @genqlient(omitempty: true)
+  $query: String
+  # @genqlient(omitempty: true)
+  $mode: FindNodesMode
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  # @genqlient(omitempty: true)
+  $sort: NodeSort
+  # @genqlient(omitempty: true)
+  $sortProperty: NodePropertySort
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # The two JSONB columns are opt-in and INDEPENDENT (#602): a listing is a thin
+  # index, and a 500-row chat listing with full envelopes is a large payload to
+  # send by default. They are separate variables rather than one flag so
+  # --with-data fetches data ALONE. Both are `Boolean!` because @include(if:)
+  # takes a non-null argument; genqlient renders the selected fields as
+  # *json.RawMessage, nil when not selected.
+  $withProperties: Boolean!
+  $withData: Boolean!
+) {
+  findNodes(
+    query: $query
+    mode: $mode
+    filter: $filter
+    sort: $sort
+    sortProperty: $sortProperty
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    degraded
+    reason
+    hits {
+      score
+      node {
+        id
+        memoryId
+        urn
+        inheritedFrom { agentId agentUrn }
+        loc
+        name
+        nodeType
+        tags
+        seq
+        isRunnable
+        role
+        updatedAt
+        commentSummary {
+          # @genqlient(pointer: true)
+          openThreads
+          oldestOpenThreadAt
+        }
         properties @include(if: $withProperties)
         data @include(if: $withData)
       }
@@ -130,6 +200,8 @@ query NodeBatch(
       # shared between them, so selecting these in one query and not the other
       # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
       urn
+      # Register entry's second address (hadron-server#2610): null on every other node (#1138). Selected here too, so a batched read prints what a single read prints.
+      actionUrn
       portalUrl
       memoryId
       loc
@@ -149,6 +221,10 @@ query NodeBatch(
       # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
       content(raw: true)
       createdAt
+      createdByUser {
+        handle
+        urn
+      }
       updatedAt
       outgoingEdges {
         id
@@ -208,6 +284,8 @@ query GetNode($ref: ID!) {
     # worker's reason on a node is how a reader inherits a nullability that
     # cannot occur; it had leaked into three places before PR #526 swept it.
     urn
+    # Register entry's second address (hadron-server#2610): null on every other node (#1138).
+    actionUrn
     portalUrl
     memoryId
     # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
@@ -229,6 +307,11 @@ query GetNode($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -238,6 +321,7 @@ query GetNode($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }
@@ -277,6 +361,7 @@ query GetNodeRaw($ref: ID!) {
   node(ref: $ref, raw: true) {
     id
     urn
+    actionUrn
     portalUrl
     memoryId
     # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
@@ -299,6 +384,11 @@ query GetNodeRaw($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -308,6 +398,7 @@ query GetNodeRaw($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }
@@ -339,9 +430,9 @@ query GetNodeRaw($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.data", omitempty: true)
 # @genqlient(for: "CreateNodeInput.description", omitempty: true)
 # #994 schema refresh picks up the provider's optional install target (#2044).
-# Existing CLI node writers still always supply memoryId: retain their string
-# binding and omit the unused install alternative, with no caller/wire change.
-# @genqlient(for: "CreateNodeInput.memoryId", pointer: false)
+# C7 install writes omit memoryId and supply install; retain the string binding
+# so ordinary memory-target callers keep their nonempty selector unchanged.
+# @genqlient(for: "CreateNodeInput.memoryId", pointer: false, omitempty: true)
 # @genqlient(for: "CreateNodeInput.install", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
 # @genqlient(for: "CreateNodeInput.id", omitempty: true)
@@ -711,8 +802,13 @@ mutation DeleteNode(
   $hard: Boolean
   # @genqlient(omitempty: true)
   $recursive: Boolean
+  # cli#1341: read by the server only on a hard delete — a hard delete that
+  # touches an edge bridging to another memory refuses CROSS_MEMORY_EDGES
+  # unless this is true. Omitted when false, like the two above.
+  # @genqlient(omitempty: true)
+  $cascadeCrossMemoryEdges: Boolean
 ) {
-  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive)
+  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive, cascadeCrossMemoryEdges: $cascadeCrossMemoryEdges)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).
@@ -734,6 +830,7 @@ mutation DeleteNode(
 # @genqlient(for: "ImportNodeInput.taskRef", omitempty: true)
 # @genqlient(for: "ImportNodeInput.taskArgs", omitempty: true)
 # @genqlient(for: "ImportNodeInput.appRef", omitempty: true)
+# @genqlient(for: "ImportNodeInput.agentRef", omitempty: true)
 mutation ImportNode(
   $input: ImportNodeInput!
 ) {
@@ -842,6 +939,29 @@ mutation UpdateNodeData(
   $reason: String
 ) {
   updateNodeData(nodeRef: $nodeRef, data: $data, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodeDataAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $data: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodeDataUpdateNodeDataNode")
+  updateNodeData(authoredWith: $authoredWith, nodeRef: $nodeRef, data: $data, reason: $reason) {
     id
     memoryId
     loc
@@ -987,6 +1107,19 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
   }
 }
 
+# cli#1341 — the PRESENTATION render: full: false with the chosen sections.
+# Not round-trippable through node import (the server says so), which is why
+# it is a separate document rather than a variable on the canonical one.
+query NodeExportSections($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+  nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+    format
+    mimeType
+    filename
+    data
+    bytes
+  }
+}
+
 # Minimal metadata for the `node export -o` summary (loc/name/memory): the
 # server's nodeExport render returns the bytes but no identifying fields, and
 # memory { urn } here avoids a second memory-list round-trip (#106 review).
@@ -1090,5 +1223,178 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
     reportedAt
     validationTaskRef
     validationTaskRevision
+  }
+}
+
+# #1160 — the hard-delete edge audit trail (hadron-server#2517, built in #2562;
+# cor:dmo:010:04): one entry per edge a hard delete removed from this node,
+# newest first. targetLoc and edgeLoc are null when the caller cannot read the
+# memory the deleted target lived in (the edge loc is derived from the target's
+# address); removedBy is null when the delete is unattributed.
+query NodeEdgeRemovals($nodeRef: ID!, $limit: Int) {
+  nodeEdgeRemovals(nodeRef: $nodeRef, limit: $limit) {
+    id
+    createdAt
+    edgeLoc
+    edgeName
+    reason
+    removedBy
+    targetId
+    targetLoc
+  }
+}
+
+# cli#1341 — shallow-merge a JSON patch into a node's structured properties
+# (updateNodeProperties, #742). The server owns the merge rule, including the
+# JSON Merge Patch exception under `exports` (#1227), and validates the merged
+# result against the memory's schema. reason is recorded on revision history.
+mutation UpdateNodeProperties(
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
+# Explicit attestation variant; the ordinary document stays compatible with older servers.
+mutation UpdateNodePropertiesAuthored(
+  # @genqlient(omitempty: true)
+  $authoredWith: AuthoredWithInput
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  # @genqlient(typename: "UpdateNodePropertiesUpdateNodePropertiesNode")
+  updateNodeProperties(authoredWith: $authoredWith, nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
+# Edge-free stored-content projection for callers that never inspect edges (#1210).
+query NodeBatchContent(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      # Same two as GetNode (#515): a batched read must not print a different
+      # shape from a single-ref read of the same node. renderNodeDetail is
+      # shared between them, so selecting these in one query and not the other
+      # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
+      urn
+      # Register entry's second address (hadron-server#2610): null on every other node (#1138). Selected here too, so a batched read prints what a single read prints.
+      actionUrn
+      portalUrl
+      memoryId
+      loc
+      name
+      alias
+      nodeType
+      role
+      objectType
+      isRunnable
+      description
+      abstract
+      abstractOriginHash
+      tags
+      seq
+      data
+      properties
+      # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
+      content(raw: true)
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+# hadron-cli#1513: `edge list <node>` (node-scoped) rows with the edge's own
+# attribution. A query of its own, NOT GetNode's edge selections: GetNode has 13
+# consumers and would resolve four more fields per edge for every one of them.
+# Same edges, same order as GetNode's outgoingEdges/incomingEdges, so the
+# client-side filters, order and counts are unchanged.
+query NodeEdgesAttributed($ref: ID!) {
+  node(ref: $ref) {
+    id
+    outgoingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      source {
+        id
+        loc
+        memoryId
+      }
+    }
+  }
+}
+
+# cli#879: the node's current revision beside its raw stored text, read in ONE
+# call so `node signatures --check` can tell whether the text is the revision a
+# signature names (a node edited between two reads must not be hashed against
+# an older signature). Only what the approval hash covers.
+query NodeRawText($ref: ID!) {
+  node(ref: $ref, raw: true) {
+    id
+    revision
+    name
+    abstract
+    content(raw: true)
   }
 }

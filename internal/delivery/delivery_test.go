@@ -143,7 +143,9 @@ func newHarness(t *testing.T) *harness {
 	t.Helper()
 	state := t.TempDir()
 	tree := filepath.Join(t.TempDir(), "joshua")
-	if err := os.MkdirAll(tree, 0o755); err != nil {
+	// A worktree row: it has a .git (a plain directory takes the terminal
+	// record path instead, cli#1989).
+	if err := os.MkdirAll(filepath.Join(tree, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	h := &harness{t: t, state: state, tree: tree, now: time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC),

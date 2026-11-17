@@ -18,6 +18,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // Own prefixes of a typed wake line. With Prefix they are what a deliverer
@@ -25,11 +27,24 @@ import (
 const (
 	TickPrefix = "[hadron tick]"
 	TaskPrefix = "[hadron task]"
+	// StopPrefix opens a stop notice's line (hadron-cli#1629,
+	// cor:agt:090:04).
+	StopPrefix = "[hadron stop]"
 )
+
+// StopDropped is the event reason logged, once per notice, when a halt's
+// notice cannot be typed (hadron-cli#1629; Holger's option A on
+// hadron-server#2169: logged and flagged to the coordinator, never typed over
+// a draft, never acknowledged).
+const StopDropped = "stop-dropped"
+
+// StopDropUnrecorded is StopDropped when the outbox record could not be
+// written: logged on every poll until it can be.
+const StopDropUnrecorded = "stop-drop-unrecorded"
 
 // OwnPrefixes are every prefix C1 types: a leftover opening with any of them
 // is ours (submitted or cleared), never a foreign draft.
-var OwnPrefixes = []string{Prefix, TickPrefix, TaskPrefix}
+var OwnPrefixes = []string{Prefix, TickPrefix, TaskPrefix, StopPrefix}
 
 // MaxWakeRunes bounds a wake line. A longer one is cut at a reason
 // boundary and says how many reasons it left out.
@@ -42,7 +57,21 @@ const (
 	WakeMention WakeKind = "MENTION"
 	WakeTick    WakeKind = "TICK"
 	WakeTask    WakeKind = "TASK"
+	// WakeStop is a stop-signal notice (cor:agt:090:04), offered only to a
+	// dueWakes call that lists STOP in accepts (hadron-server#2169).
+	WakeStop WakeKind = "STOP"
 )
+
+// StopReason is the notice a STOP reason carries (DueStopReason), as the
+// server gave it. Interrupt is carried and never acted on: under Holger's
+// option A no notice sends an interrupt key (hadron-cli#1629).
+type StopReason struct {
+	EventID   string
+	SignalID  string
+	Level     string
+	Notice    string
+	Interrupt bool
+}
 
 // TaskReason is the task a TASK reason is for (DueTaskReason).
 type TaskReason struct {
@@ -55,6 +84,10 @@ type TaskReason struct {
 	// comment-6259060238: taskId null) has neither, and none is invented.
 	ID    string
 	Title string
+	// Handle is the task's AT handle (DueTaskReason.handle, cor:agt:050:01),
+	// printed first on the TASK line ahead of the short id. Empty falls back
+	// to the full id and is never invented.
+	Handle string
 	// AlarmType is a task-less alarm's closed type code from the server
 	// (e.g. delivery.stuck), shown as given.
 	AlarmType string
@@ -69,16 +102,33 @@ type WakeReason struct {
 	// tick, so with the ticker it is the reason's stable identity.
 	LastTickAt time.Time
 	Task       *TaskReason
+	// Action is what the register says this tick asks of the woken worker
+	// (TICK only). Carried for the dueWakes adapter and status; never
+	// rendered, never part of Key().
+	Action *TickAction
+	// Stop is set for a STOP reason (hadron-cli#1629).
+	Stop *StopReason
 }
 
-// Key is the reason's stable submitted identity: tick:<tickerId>:<lastTickAt>
-// or task:<eventId>:<chainIndex>. "" for a MENTION, which C1 never records.
+// TickAction is WakeReason.action: the server's answer, shown never composed.
+type TickAction struct {
+	Code    string
+	State   string
+	TaskLoc string
+	TaskURN string
+}
+
+// Key is the reason's stable submitted identity: tick:<tickerId>:<lastTickAt>,
+// task:<eventId>:<chainIndex> or stop:<eventId> (the notice's event,
+// hadron-cli#1629). "" for a MENTION, which C1 never records.
 func (r WakeReason) Key() string {
 	switch {
 	case r.Kind == WakeTick:
 		return "tick:" + r.TickerID + ":" + r.LastTickAt.UTC().Format(time.RFC3339Nano)
 	case r.Kind == WakeTask && r.Task != nil:
 		return fmt.Sprintf("task:%s:%d", r.Task.EventID, r.Task.ChainIndex)
+	case r.Kind == WakeStop && r.Stop != nil:
+		return "stop:" + r.Stop.EventID
 	}
 	return ""
 }
@@ -101,6 +151,9 @@ type Wake struct {
 	// agent, and no BusyDeadline holds it so for a busy or unproven one.
 	DeliverAfter time.Time
 	BusyDeadline time.Time
+	// TickText is DueWake.tickText: the one line the server wrote for the
+	// wake's ticks (cor:agt:080:26). Typed unchanged, never recorded.
+	TickText string
 }
 
 // Span is the wake for logs: reason counts only, never keys, names or
@@ -110,14 +163,18 @@ func (w Wake) Span() string {
 	for _, r := range w.Reasons {
 		n[r.Kind]++
 	}
-	return fmt.Sprintf("wake:tick=%d,task=%d,mention=%d", n[WakeTick], n[WakeTask], n[WakeMention])
+	span := fmt.Sprintf("wake:tick=%d,task=%d,mention=%d", n[WakeTick], n[WakeTask], n[WakeMention])
+	if n[WakeStop] > 0 {
+		span += fmt.Sprintf(",stop=%d", n[WakeStop])
+	}
+	return span
 }
 
-// components are w's TICK and TASK reasons: what C1 types.
+// components are w's TICK, TASK and STOP reasons: what C1 types.
 func (w Wake) components() []WakeReason {
 	out := []WakeReason{}
 	for _, r := range w.Reasons {
-		if r.Kind == WakeTick || r.Kind == WakeTask {
+		if r.Kind == WakeTick || r.Kind == WakeTask || r.Kind == WakeStop {
 			out = append(out, r)
 		}
 	}
@@ -157,6 +214,10 @@ func CheckWake(w Wake) error {
 			if r.Task.ID == "" && r.Task.Event != "alarm" {
 				return fmt.Errorf("%w: only an alarm may come without its task", ErrMalformedWake)
 			}
+		case WakeStop:
+			if r.Stop == nil || r.Stop.EventID == "" || r.Stop.SignalID == "" || r.Stop.Level == "" || r.Stop.Notice == "" {
+				return fmt.Errorf("%w: a stop without its notice", ErrMalformedWake)
+			}
 		default:
 			return fmt.Errorf("%w: an unknown reason kind", ErrMalformedWake)
 		}
@@ -169,7 +230,7 @@ func CheckWake(w Wake) error {
 // for every-tick: reasons joined by "; ", cut at a reason boundary to
 // MaxWakeRunes with the count of reasons left out.
 func RenderWake(reasons []WakeReason) string {
-	parts := make([]string, 0, len(reasons))
+	parts := stopParts(reasons)
 	for _, r := range reasons {
 		switch r.Kind {
 		case WakeTick:
@@ -188,11 +249,91 @@ func RenderWake(reasons []WakeReason) string {
 	return text
 }
 
+// RenderWakeWith is RenderWake for a wake that carries the server's tick
+// text (DueWake.tickText). When reasons hold a TICK and the text is not
+// empty, the text is typed once, whole and first, after TickPrefix, and the
+// TICK reasons' own generic line is dropped; TASK parts follow. The tick text
+// is never reworded, joined, repaired or cut (cor:agt:080:26): MaxWakeRunes
+// bounds the TASK parts only, so a long tick text leaves fewer of them, or
+// none, and a text longer than the bound is typed whole. A text the host
+// cannot type as one line (a control character, a line break or an escape) is
+// dropped whole, never repaired (R4): the wake then types what it would
+// without tick text, so a tick-only wake still names its ticker. With no tick
+// text, or no TICK reason, this is RenderWake.
+func RenderWakeWith(reasons []WakeReason, tickText string) string {
+	hasTick := false
+	var tasks []string
+	for _, r := range reasons {
+		switch r.Kind {
+		case WakeTick:
+			hasTick = true
+		case WakeTask:
+			tasks = append(tasks, renderTask(r.Task))
+		}
+	}
+	if tickText == "" || !hasTick || strings.ContainsFunc(tickText, unicode.IsControl) {
+		return RenderWake(reasons)
+	}
+	head := strings.Join(append(stopParts(reasons), TickPrefix+" "+tickText), "; ")
+	text := strings.Join(append([]string{head}, tasks...), "; ")
+	for kept := len(tasks) - 1; utf8.RuneCountInString(text) > MaxWakeRunes && kept >= 0; kept-- {
+		text = strings.Join(append([]string{head}, tasks[:kept]...), "; ") + fmt.Sprintf("; (+%d more reasons)", len(tasks)-kept)
+	}
+	return text
+}
+
+// stopLineWhat is what each level's notice asks of the worker, in the
+// server's wording (hadron-server src/mcp/tickerTools.ts stopLine, Uma's
+// P3-5 on #2166). The wording is not part of cor:agt:090:04.
+var stopLineWhat = map[string]string{
+	"PAUSE_DISPATCH": "no new work is assigned to the workers it covers",
+	"PAUSE":          "finish or stop at your next sub-task",
+	"HALT":           "save your work and write a hand-off now",
+}
+
+// renderStop is one STOP reason's line (hadron-cli#1629): the server's
+// stopLine after StopPrefix. Level and notice are closed enums; anything
+// else is folded to one line, never trusted as text.
+func renderStop(st *StopReason) string {
+	level := oneLine(st.Level)
+	if st.Notice == "RESUME" {
+		return fmt.Sprintf("%s resume: %s lifted", StopPrefix, level)
+	}
+	what, ok := stopLineWhat[st.Level]
+	if !ok {
+		what = "see the stop signal"
+	}
+	return fmt.Sprintf("%s stop: %s (%s)", StopPrefix, level, what)
+}
+
+// stopParts are reasons' STOP lines, in order: typed first, ahead of every
+// tick and task (cor:agt:090:04, "ahead of anything else"), and never cut.
+func stopParts(reasons []WakeReason) []string {
+	out := []string{}
+	for _, r := range reasons {
+		if r.Kind == WakeStop && r.Stop != nil {
+			out = append(out, renderStop(r.Stop))
+		}
+	}
+	return out
+}
+
+// shortIDRunes is how much of the hex id follows the handle on a TASK line.
+const shortIDRunes = 12
+
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
 // just that it has no task: a title without a task is never shown as one.
 func renderTask(t *TaskReason) string {
 	if t.ID != "" {
-		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), oneLine(t.ID))
+		ref := oneLine(t.ID)
+		if h := oneLine(t.Handle); h != "" {
+			short := []rune(ref)
+			if len(short) > shortIDRunes {
+				short = short[:shortIDRunes]
+			}
+			ref = h + ", " + string(short)
+		}
+		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), ref)
 	}
 	if at := oneLine(t.AlarmType); at != "" {
 		return fmt.Sprintf("%s %s: %s (no task)", TaskPrefix, oneLine(t.Event), at)
@@ -200,10 +341,11 @@ func renderTask(t *TaskReason) string {
 	return fmt.Sprintf("%s %s (no task)", TaskPrefix, oneLine(t.Event))
 }
 
-// oneLine folds control characters (a newline would submit early) and runs
-// of space into one space.
+// oneLine folds control characters (a newline would submit early), the format
+// characters a terminal would render as reordered or hidden text (output.Neutralised,
+// the same rule `team wakes due` applies, #2154) and runs of space into one space.
 func oneLine(s string) string {
-	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) }), " ")
+	return strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || output.Neutralised(c) }), " ")
 }
 
 // WakeServer is acknowledgeWakes, for one proof C1 itself read. An error
@@ -263,10 +405,18 @@ func (d *Deliverer) ackable(w Wake, recs map[string]WakeRecord) bool {
 
 func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, stillOwner func() bool) Outcome {
 	if w.WorkerID != r.WorkerID {
+		// Deliberately not flagged (flagDroppedHalts), unlike malformed-wake
+		// and records-unreadable below: Poller.recipient resolves the
+		// recipient from the wake's own worker id (internal/hostpoller/
+		// delivery.go), so in production wiring this branch is unreachable.
 		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "foreign-worker"})
 	}
 	if err := CheckWake(w); err != nil {
-		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "malformed-wake"})
+		// Permanent for this wake: a well-formed HALT riding in it is never
+		// typed, so it is flagged (second review P2 at b38108c9).
+		o := d.emitWake(w, r, Outcome{Kind: Failed, Reason: "malformed-wake"})
+		d.flagDroppedHalts(r, w.Reasons, o)
+		return o
 	}
 	comps := w.components()
 	if len(comps) == 0 {
@@ -275,7 +425,11 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 	}
 	recs, err := d.WakeRecords.List(r.WorkerID)
 	if err != nil {
-		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "records-unreadable"})
+		// Nothing can be proven typed, so nothing is typed; a HALT in it is
+		// flagged rather than left silent on a bad disk.
+		o := d.emitWake(w, r, Outcome{Kind: Failed, Reason: "records-unreadable"})
+		d.flagDroppedHalts(r, comps, o)
+		return o
 	}
 	untyped := []WakeReason{}
 	for _, c := range comps {
@@ -306,7 +460,7 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 	}
 
 	l := line{
-		text: RenderWake(untyped), busyDeadline: w.BusyDeadline, deadlineRequired: true,
+		text: RenderWakeWith(untyped, w.TickText), busyDeadline: w.BusyDeadline, deadlineRequired: true,
 		emit: func(o Outcome) Outcome { return d.emitWake(w, r, o) },
 		// A wake hold is local: S5's hold is a batch event.
 		hold: func(reason, terminal string) Outcome {
@@ -315,6 +469,7 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 	}
 	handle, o, ok := d.typeLine(ctx, l, &r, stillOwner)
 	if !ok {
+		d.flagDroppedHalts(r, untyped, o)
 		return o
 	}
 	fin := context.WithoutCancel(ctx)
@@ -368,5 +523,59 @@ func (d *Deliverer) ackWake(ctx context.Context, w Wake) bool {
 	// A failed archive write leaves the reasons typed: the next read acks
 	// them again, harmlessly (unchanged).
 	_ = d.WakeRecords.Acked(w.WorkerID, keys, d.Now())
+	d.stampTypedStops(w.components())
 	return true
+}
+
+// flagDroppedHalts records a halt notice that could not be typed
+// (hadron-cli#1629; Holger's option A on hadron-server#2169): held on a draft,
+// a question, an unsubmitted line or an unknown screen, failed, or skipped
+// because the worker has no terminal. Nothing is typed over the composer and nothing is
+// acknowledged, so the notice stays due and is retried every poll. The drop
+// goes once per notice into the StopDrops outbox, which survives restarts and
+// which the host's reporter turns into the coordinator's flag; the first
+// record also logs one StopDropped event (span stop:HALT:<eventId>, ids
+// only). A record that cannot be written is logged every time, as
+// stop-drop-unrecorded, so a failing disk never reads as a quiet drop.
+// A deferral (not yet due, waiting on a busy agent) is not a drop.
+func (d *Deliverer) flagDroppedHalts(r Recipient, untyped []WakeReason, o Outcome) {
+	if o.Kind != Held && o.Kind != Failed && (o.Kind != Skipped || o.Reason != "no-terminal") {
+		return
+	}
+	for _, c := range untyped {
+		if c.Kind != WakeStop || c.Stop == nil || c.Stop.EventID == "" || c.Stop.Level != "HALT" || c.Stop.Notice == "RESUME" {
+			continue
+		}
+		reason := StopDropped
+		if d.StopDrops == nil {
+			reason = StopDropUnrecorded
+		} else {
+			created, err := d.StopDrops.Drop(StopDrop{EventID: c.Stop.EventID, SignalID: c.Stop.SignalID, WorkerID: r.WorkerID,
+				Worker: r.Name, Level: c.Stop.Level, HoldReason: o.Reason, HeldAt: d.Now().UTC()})
+			switch {
+			case err != nil:
+				reason = StopDropUnrecorded
+			case !created:
+				continue
+			}
+		}
+		if d.Emit != nil {
+			d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: "stop:HALT:" + c.Stop.EventID,
+				Kind: Held, Reason: reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Wake: true})
+		}
+	}
+}
+
+// stampTypedStops marks recorded drops of the given reasons as since typed
+// and acknowledged (hadron-cli#1629). Best effort: the notice is delivered
+// either way, and a missed stamp only leaves a report saying it was not.
+func (d *Deliverer) stampTypedStops(reasons []WakeReason) {
+	if d.StopDrops == nil {
+		return
+	}
+	for _, c := range reasons {
+		if c.Kind == WakeStop && c.Stop != nil {
+			_ = d.StopDrops.Typed(c.Stop.EventID, d.Now())
+		}
+	}
 }

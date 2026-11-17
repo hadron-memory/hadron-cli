@@ -2,6 +2,7 @@ package spec
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -44,26 +45,28 @@ type referenceDTO struct {
 }
 
 type specReference interface {
-	GetKind() gen.SpecReferenceKind
-	GetField() string
-	GetSourceLoc() string
-	GetSourceNodeId() string
-	GetTargetLoc() string
+	GetKind() *gen.SpecReferenceKind
+	GetField() *string
+	GetSourceLoc() *string
+	GetSourceNodeId() *string
+	GetTargetLoc() *string
 	GetText() *string
 }
 
-func referenceFrom(r specReference, reason *gen.SpecReferenceProblem) referenceDTO {
-	d := referenceDTO{
-		Kind: string(r.GetKind()), Field: r.GetField(),
-		SourceLoc: r.GetSourceLoc(), SourceNodeID: r.GetSourceNodeId(), TargetLoc: r.GetTargetLoc(),
+// Required-field presence is checked before converting to the stable DTO.
+// Empty strings and nullable text/reason retain their existing semantics.
+func referenceFrom(r specReference, reason *gen.SpecReferenceProblem, invalidItem func(string) error) (referenceDTO, error) {
+	if r.GetKind() == nil || r.GetField() == nil || r.GetSourceLoc() == nil || r.GetSourceNodeId() == nil || r.GetTargetLoc() == nil {
+		return referenceDTO{}, invalidItem("missing required item field")
 	}
+	d := referenceDTO{Kind: string(*r.GetKind()), Field: *r.GetField(), SourceLoc: *r.GetSourceLoc(), SourceNodeID: *r.GetSourceNodeId(), TargetLoc: *r.GetTargetLoc()}
 	if t := r.GetText(); t != nil {
 		d.Text = *t
 	}
 	if reason != nil {
 		d.Reason = string(*reason)
 	}
-	return d
+	return d, nil
 }
 
 func renderReferences(w io.Writer, refs []referenceDTO, withReason bool) error {
@@ -74,9 +77,9 @@ func renderReferences(w io.Writer, refs []referenceDTO, withReason bool) error {
 	t := output.NewTable(w, cols...)
 	for _, r := range refs {
 		if withReason {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Reason, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Reason), output.SafeCell(r.Text))
 		} else {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Text))
 		}
 	}
 	return t.Flush()
@@ -178,6 +181,10 @@ The citation is matched exactly; references to its descendants are not
 included. A citation written only as bare text (a link label like
 "[pas:010:01]") is not a reference and is not listed.
 
+Results are read to completion in pages of 20 before output; a failed page
+fails the command. Older servers may use the full legacy read only when the
+page field itself is unsupported. Pages are not a cross-request snapshot.
+
 Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec backlinks pas:010:01 -m hrn:mem:micromentor.org:specs-draft
   hadron spec backlinks pas:010:01 --json`,
@@ -195,16 +202,11 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SpecBacklinks(cmd.Context(), client, memID, loc)
+			refs, err := readReferences(cmd.Context(), client, memID, referenceBacklinks, loc)
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := backlinksDTO{Memory: memURN, Loc: loc, References: []referenceDTO{}}
-			for _, r := range resp.SpecBacklinks {
-				if r != nil {
-					dto.References = append(dto.References, referenceFrom(r, nil))
-				}
-			}
+			dto := backlinksDTO{Memory: memURN, Loc: loc, References: refs}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.References) == 0 {
 					_, err := fmt.Fprintf(w, "nothing in the corpus refers to %s\n", loc)
@@ -239,6 +241,10 @@ These are the corpus's open references. ` + "`spec mint`" + ` refuses while any 
 this lists them on their own. It exits 0 either way — listing them is not a
 failure; ` + "`spec mint --dry-run`" + ` is the gate.
 
+Results are read to completion in pages of 20 before output; a failed page
+fails the command. Older servers may use the full legacy read only when the
+page field itself is unsupported. Pages are not a cross-request snapshot.
+
 Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec unresolved -m hrn:mem:micromentor.org:specs-draft
   hadron spec unresolved --json`,
@@ -252,16 +258,11 @@ Any memory answers, minted or not (hadron-server#1591).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SpecUnresolvedReferences(cmd.Context(), client, memID)
+			refs, err := readReferences(cmd.Context(), client, memID, referenceUnresolved, "")
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := unresolvedDTO{Memory: memURN, References: []referenceDTO{}}
-			for _, r := range resp.SpecUnresolvedReferences {
-				if r != nil {
-					dto.References = append(dto.References, referenceFrom(r, r.Reason))
-				}
-			}
+			dto := unresolvedDTO{Memory: memURN, References: refs}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.References) == 0 {
 					_, err := fmt.Fprintln(w, "✓ every reference reaches a written spec")
@@ -337,6 +338,12 @@ The move is atomic. Each rewrite is a separate guarded edit: one that is
 refused, or keeps conflicting with a concurrent edit, is reported FAILED
 without undoing the move, and the command exits 1 so a script doesn't read a
 clean success. --dry-run shows the plan and writes nothing.
+
+After exit 1 the spec is already at its new citation; running the command
+again does not undo it. Recover by hand: the report names each FAILED node, so
+open it (` + "`hadron spec get <citation>`" + `), fix the old citation in its text with
+` + "`hadron spec edit`" + `, and use ` + "`hadron spec unresolved`" + ` and ` + "`hadron spec backlinks <new-citation>`" + `
+to confirm nothing still points at the old one.
 
 If any node in the moved subtree is minted, the renumber refuses with
 NODE_MINTED (exit 5). Supersede that spec instead.`,
@@ -435,7 +442,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "reference rewrites:")
 		t := output.NewTable(w, "NODE", "STATUS", "COUNT", "FIELDS", "ERROR")
 		for _, rw := range d.Rewrites {
-			t.Row(rw.Loc, rw.Status, fmt.Sprint(rw.Count), strings.Join(rw.Fields, ","), rw.Error)
+			t.Row(output.SafeCell(rw.Loc), output.SafeCell(rw.Status), fmt.Sprint(rw.Count), output.SafeCell(strings.Join(rw.Fields, ",")), output.SafeCell(rw.Error))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -445,7 +452,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "text citations (reported, NOT rewritten — review these):")
 		t := output.NewTable(w, "NODE", "FIELD", "CITATION", "EXCERPT")
 		for _, tc := range d.TextCitations {
-			t.Row(tc.SourceLoc, tc.Field, tc.Citation, tc.Excerpt)
+			t.Row(output.SafeCell(tc.SourceLoc), output.SafeCell(tc.Field), output.SafeCell(tc.Citation), output.SafeCell(tc.Excerpt))
 		}
 		return t.Flush()
 	}
@@ -583,10 +590,20 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "mint",
-		Short: "Mint approved, unminted nodes in a spec corpus",
-		Long: `Mint the approved, unminted nodes in a spec corpus. The report lists
-the nodes this call would mint and any blockers. Minting records a per-node
-state; it does not currently enforce citation permanence.
+		Short: "Mint every approved, unminted node of a memory (not only specs)",
+		Long: `Mint the approved, unminted nodes of the whole memory. One call covers
+every eligible node of the memory, not only specs (cor:dmo:120:06): a fact
+node, an object node or a spec alike; only comments are outside it. The
+report's "eligible nodes" line lists what this call would mint, with any
+blockers. Minting records a per-node
+state; most citation-permanence checks are currently off, but a minted spec
+can no longer be renumbered by "spec renumber", so treat a mint as not
+freely reversible.
+
+Approval comes first: a node's CURRENT text must be approved (any later edit
+to its title, abstract or body needs a fresh approval). Approve with
+` + "`hadron node approve <node-urn>`" + `; check one with ` + "`hadron node verify <node-urn>`" + `
+and see what is unapproved with ` + "`hadron spec list --unapproved`" + `.
 
 The command always checks first and prints the mint report:
   blockers         a placeholder, unresolved reference, structural lint
@@ -602,7 +619,7 @@ With blockers, nothing is minted and the command exits 5. Without them it
 asks for confirmation on a terminal (non-interactively --yes is required),
 then mints. --dry-run prints the report and stops, exiting 5 if blocked.
 
-A write in flight to the corpus makes the server refuse the mint for the
+A write in flight to the memory makes the server refuse the mint for the
 moment (exit 5); retry. A writer of the memory can mint. Encrypted memories
 are refused until the server supports their mint scan.`,
 		Example: `  hadron spec mint -m hrn:mem:micromentor.org:specs-draft --dry-run
@@ -729,18 +746,22 @@ func renderMint(w io.Writer, d mintDTO) error {
 	} else {
 		fmt.Fprintf(w, "  blockers: %d\n", len(d.Blockers))
 		t := output.NewTable(w, "LOC", "KIND", "RULE", "TARGET", "MESSAGE")
+		kinds := make([]string, 0, len(d.Blockers))
 		for _, b := range d.Blockers {
-			t.Row(b.Loc, b.Kind, b.Rule, b.TargetLoc, b.Message)
+			t.Row(output.SafeCell(b.Loc), output.SafeCell(b.Kind), output.SafeCell(b.Rule), output.SafeCell(b.TargetLoc), output.SafeCell(b.Message))
+			kinds = append(kinds, b.Kind)
 		}
 		if err := t.Flush(); err != nil {
 			return err
 		}
+		cmdutil.WriteMintApproveHint(w, d.Memory, kinds...)
+		writeNotApprovedTargets(w, d)
 	}
 	block := "reported only"
 	if d.StaleAbstractsBlock {
 		block = "these block"
 	}
-	fmt.Fprintf(w, "  stale abstracts: %d (%s)\n", len(d.StaleAbstracts), block)
+	fmt.Fprintf(w, "  stale abstracts: %d (%s) — this mint's scope only; whole-memory audit: hadron spec validate --all -m %s\n", len(d.StaleAbstracts), block, cmdutil.ShellQuote(d.Memory))
 	for _, s := range d.StaleAbstracts {
 		fmt.Fprintf(w, "    %s  %s\n", s.Loc, s.Message)
 	}
@@ -772,6 +793,26 @@ func renderMint(w io.Writer, d mintDTO) error {
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
+}
+
+// writeNotApprovedTargets names, per NOT_APPROVED blocker, the node to approve
+// (cli#1307). The table's LOC cell is empty for a memory's root node — which
+// `spec list` hides — so the blocker alone gives the user nothing to act on.
+// Human output only; the --json report keeps its shape.
+func writeNotApprovedTargets(w io.Writer, d mintDTO) {
+	for _, b := range d.Blockers {
+		if b.Kind != cmdutil.MintBlockerNotApproved {
+			continue
+		}
+		if strings.TrimSpace(b.Loc) == "" {
+			fmt.Fprintf(w, "  not approved: the memory's root node (no loc; %s) — approve it with: hadron memory approve-all -m %s\n",
+				output.SafeCell(b.Message), cmdutil.ShellQuote(d.Memory))
+			continue
+		}
+		if urn := cmdutil.NodeURN(d.Memory, b.Loc); urn != "" {
+			fmt.Fprintf(w, "  not approved: %s — hadron node approve %s --revision <n>\n", output.SafeCell(b.Loc), cmdutil.ShellQuote(urn))
+		}
+	}
 }
 
 func mintLocCount(d mintDTO) int {
@@ -877,22 +918,23 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 // in a draft an open reference is work in progress, and `spec mint` is the
 // gate that refuses it (`--strict` escalates them like any warning).
 func unresolvedFindings(ctx context.Context, client graphql.Client, memRef string, inScope map[string]bool) ([]lintFindingDTO, error) {
-	resp, err := gen.SpecUnresolvedReferences(ctx, client, memRef)
+	refs, err := readReferences(ctx, client, memRef, referenceUnresolved, "")
 	if err != nil {
 		// #1453 added this query after draft state and placeholders. Lint
 		// still runs its ordinary rules when this report is unavailable.
-		if api.IsGraphQLValidationFor(err, "specUnresolvedReferences") {
+		var unsupported *legacyUnresolvedUnsupported
+		if errors.As(err, &unsupported) {
 			return nil, nil
 		}
 		return nil, api.MapError(err)
 	}
 	var out []lintFindingDTO
-	for _, r := range resp.SpecUnresolvedReferences {
-		if r == nil || !inScope[r.SourceLoc] {
+	for _, r := range refs {
+		if !inScope[r.SourceLoc] {
 			continue
 		}
 		what := "which has no spec"
-		if r.Reason != nil && *r.Reason == gen.SpecReferenceProblemPlaceholder {
+		if r.Reason == string(gen.SpecReferenceProblemPlaceholder) {
 			what = "which is only a placeholder"
 		}
 		how := "a URN in its " + r.Field

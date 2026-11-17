@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
+	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -46,10 +49,21 @@ type Operation struct {
 	FailureReason string
 	// LaunchGrant is set only on a collected worker.start.
 	LaunchGrant string
+	// IssuedBy is who issued it, as the server names it: PLATFORM, USER or
+	// WORKER ("" when the server did not say).
+	IssuedBy string
 }
+
+// The issuers the server names (HostOperationIssuer).
+const (
+	IssuedByPlatform = "PLATFORM"
+	IssuedByUser     = "USER"
+	IssuedByWorker   = "WORKER"
+)
 
 // Registration is one registerHost call: the whole worker list.
 type Registration struct {
+	Capabilities        []string
 	Label               string
 	PollIntervalSeconds int
 	Workers             []RegisteredWorker
@@ -67,6 +81,22 @@ type RegisteredWorker struct {
 type RegisteredHost struct {
 	HostID  string
 	Workers []RegisteredHostWorker
+	// Refused are the listed workers a checked registration left out (the
+	// App's setup source is SERVER and the platform did not assign them to
+	// this host), reported per row; the registration itself succeeded
+	// (hadron-cli#2091, hadron-server#4241).
+	Refused []RefusedWorker
+	// RefusedKnown is false when the server cannot report refusals (it
+	// predates hadron-server#4241): Refused is then unknown, not empty.
+	RefusedKnown bool
+}
+
+// RefusedWorker is one worker a registration left out, with the server's code
+// (HOST_WORKER_NOT_ASSIGNED). Both strings are made safe to print by the
+// adapter that reads them.
+type RefusedWorker struct {
+	Worker string
+	Code   string
 }
 
 // RegisteredHostWorker pairs a resolved worker id with its name.
@@ -93,27 +123,92 @@ var ErrNotDone = errors.New("no session bound with this start's grant yet")
 // it.
 var ErrFinal = errors.New("the operation is already finished")
 
+// FinalError is ErrFinal carrying, when the refusal said it, the outcome the
+// server already recorded.
+type FinalError struct {
+	// Recorded is "SUCCEEDED" or "FAILED" (upper case), or "" when the
+	// refusal did not name one.
+	Recorded string
+	// Msg is the refusal as it reached the client.
+	Msg string
+}
+
+func (e *FinalError) Error() string {
+	if e.Msg == "" {
+		return ErrFinal.Error()
+	}
+	return ErrFinal.Error() + ": " + e.Msg
+}
+
+func (e *FinalError) Unwrap() error { return ErrFinal }
+
+// ErrFinalWithRecorded wraps an ALREADY_REPORTED refusal as a FinalError.
+// The recorded outcome comes from the refusal's extensions.status — the
+// server spells it there as the host sends its own reports
+// (SUCCEEDED / FAILED) so a client reads the code's extension instead of
+// parsing the message. The read tolerates case and padding, and only the
+// two outcomes are kept: anything else a server might place there reads as
+// unnamed, so no caller ever acts on an inferred outcome (#1474).
+func ErrFinalWithRecorded(msg, recorded string) *FinalError {
+	switch strings.ToUpper(strings.TrimSpace(recorded)) {
+	case "SUCCEEDED":
+		return &FinalError{Msg: msg, Recorded: Succeeded}
+	case "FAILED":
+		return &FinalError{Msg: msg, Recorded: Failed}
+	default:
+		return &FinalError{Msg: msg}
+	}
+}
+
 // Event is one line of what the poller did, for the operator. The --json
 // shape is the command package's DTO, not this.
 type Event struct {
-	Time      time.Time
-	Kind      string
-	Operation string
-	Type      string
-	Outcome   string
-	Detail    string
+	ForeignUIDSkipped                           int
+	LocalCause, NoticeCause                     string
+	FailureReason                               string
+	CheckedAt                                   time.Time
+	NoticeFailed                                bool
+	Time                                        time.Time
+	Kind                                        string
+	Operation                                   string
+	Type                                        string
+	Outcome                                     string
+	Detail                                      string
+	WorkerID, SessionID, TerminalHandle, Reason string
+	Attempt                                     int
 }
 
 // Poller is one host's loop.
 type Poller struct {
-	cfg    *Config
-	server Server
-	host   Host
-	state  *State
-	key    string
-	emit   func(Event)
-	now    func() time.Time
-	sleep  func(context.Context, time.Duration) error
+	relaunchEpoch string
+	// outageBackoff paces S10_UNAVAILABLE retries of a pending outage report
+	// (cli#2156 F9). In memory only: a restart may retry at once.
+	outageRetryAfter time.Time
+	outageDelay      time.Duration
+	relaunch         *RelaunchDependencies
+	relaunchMu       sync.Mutex
+	// relaunchCancel is guarded by mu. A fatal check-in cancels the owned
+	// recovery job before joining it, without cancelling unrelated operations.
+	relaunchCancel     context.CancelFunc
+	launchingWorktrees map[string]bool
+	cfg                *Config
+	server             Server
+	host               Host
+	state              *State
+	key                string
+	emit               func(Event)
+	now                func() time.Time
+	sleep              func(context.Context, time.Duration) error
+	// bound reads the session binding of a worktree path (worker.end's stop
+	// identifies a process by its worktree and that binding, #2057).
+	bound func(path string) delivery.Binding
+	// lockBinding takes a worktree's session-binding lock, waiting at most the
+	// given time (hadron-cli#2068).
+	lockBinding func(path string, wait time.Duration) (func(), error)
+	// agentCensus is the strict process census of one worktree (the one C5
+	// proves absence with, cli#2060); the agentless end (cli#2201) asks it
+	// before it says no agent runs. A seam so a test can answer it.
+	agentCensus func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error)
 	// BindPoll is how often a pending start asks whether its session bound.
 	BindPoll time.Duration
 	// Fatal, when set, decides that a failed check-in ends Run: a refused or
@@ -133,6 +228,10 @@ type Poller struct {
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
+	// lastRefused is the refusal set last reported, so a steady one is said once.
+	lastRefused string
+	// refusalsUnknownSaid: the "server cannot report refusals" event was emitted.
+	refusalsUnknownSaid bool
 
 	// DeliveryStep, when set, is told how each delivery step's batch read
 	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
@@ -144,6 +243,20 @@ type Poller struct {
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.
 	agentTrees map[string]string
+	// agentIDs is each launched agent's process identity, observed when it
+	// was tracked: a later pin must match it, so a reused pid is never
+	// taken for the agent (#1043). Absent when resets were not enabled at
+	// launch, or the observation failed; a reset then refuses.
+	agentIDs map[string]ProcessIdentity
+	// agentSessions is the session each launched agent's start bound, as the
+	// server reported it (in memory only): worker.end stops a launched agent
+	// only for that session (#2057).
+	agentSessions map[string]string
+	// orcaLaunch and profiles start a launch_via: orca worker through Orca
+	// (hadron-cli#2058 C3); nil until EnableOrcaLaunch, and such a worker's
+	// start then refuses rather than falling back to the exec path.
+	orcaLaunch OrcaLaunchFunc
+	profiles   ProfileSource
 	wg         sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
@@ -156,6 +269,23 @@ type Poller struct {
 	wakeDeliverer WakeDeliverer
 	// budgetLogged is the UTC day an exhausted wake budget was last logged.
 	budgetLogged string
+
+	// worker.reset-context (#1043): off unless EnableResets.
+	resets    ResetServer
+	resetDeps ResetDeps
+	// resetStopWait bounds how long the old agent has to exit after the
+	// one stop; zero means defaultResetStopWait.
+	resetStopWait time.Duration
+
+	// Exit relaunch (cli#2161): exitWake is made by EnableRelaunch and wakes
+	// the run loop when a tracked agent exits; exited holds those agents by
+	// worker id until an exit pass takes them.
+	exitWake chan struct{}
+	exited   map[string]Agent
+	// Test hooks, nil in production: told when an exit pass for a worker has
+	// finished, and when a relaunch job has released its lock.
+	afterExitPass    func(workerID string)
+	afterRelaunchJob func()
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -163,14 +293,20 @@ type Poller struct {
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
 		cfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
-		now:        time.Now,
-		sleep:      sleepCtx,
-		BindPoll:   5 * time.Second,
-		inFlight:   map[string]bool{},
-		tails:      map[string]chan struct{}{},
-		workerRefs: map[string]string{},
-		agents:     map[string]Agent{},
-		agentTrees: map[string]string{},
+		now:         time.Now,
+		sleep:       sleepCtx,
+		bound:       delivery.WorktreeBinding,
+		lockBinding: delivery.LockBinding,
+		agentCensus: probeRelaunchWorktree,
+		BindPoll:    5 * time.Second,
+		inFlight:    map[string]bool{},
+		tails:       map[string]chan struct{}{},
+		workerRefs:  map[string]string{},
+		agents:      map[string]Agent{},
+		agentTrees:  map[string]string{},
+		agentIDs:    map[string]ProcessIdentity{},
+
+		agentSessions: map[string]string{},
 	}
 }
 
@@ -198,14 +334,53 @@ func (p *Poller) Run(ctx context.Context) error {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
 			if p.Fatal != nil && p.Fatal(err) {
+				p.cancelRelaunch()
 				p.wg.Wait()
 				return err
 			}
 		}
-		if err := p.sleep(ctx, interval); err != nil {
+		if err := p.pause(ctx, interval); err != nil {
 			p.wg.Wait()
 			return nil
 		}
+	}
+}
+
+// pause sleeps out the interval. An exit wake (cli#2161) runs the exit passes
+// at once and sleeps on to the same deadline: it never brings the next
+// check-in forward.
+func (p *Poller) pause(ctx context.Context, interval time.Duration) error {
+	if p.exitWake == nil {
+		return p.sleep(ctx, interval)
+	}
+	deadline := time.Now().Add(interval)
+	for {
+		left := time.Until(deadline)
+		if left <= 0 {
+			return ctx.Err()
+		}
+		sctx, cancel := context.WithCancel(ctx)
+		stop, woke := make(chan struct{}), make(chan bool, 1)
+		go func() {
+			select {
+			case <-p.exitWake:
+				cancel()
+				woke <- true
+			case <-stop:
+				woke <- false
+			}
+		}()
+		err := p.sleep(sctx, left)
+		close(stop)
+		woken := <-woke // the watcher has finished: a wake is never lost
+		cancel()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !woken {
+			return err
+		}
+		p.relaunchExitStep(ctx)
 	}
 }
 
@@ -240,11 +415,12 @@ func (p *Poller) Step(ctx context.Context) error {
 		p.dispatch(ctx, op)
 	}
 	p.deliverStep(ctx)
+	p.relaunchStep(ctx)
 	return nil
 }
 
 func (p *Poller) register(ctx context.Context) error {
-	r := Registration{Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
+	r := Registration{Capabilities: append([]string{}, p.cfg.Capabilities...), Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
 	for _, ref := range p.cfg.WorkerRefs() {
 		w := p.cfg.Workers[ref]
 		r.Workers = append(r.Workers, RegisteredWorker{
@@ -267,7 +443,53 @@ func (p *Poller) register(ctx context.Context) error {
 	p.mu.Lock()
 	p.workerRefs = refs
 	p.mu.Unlock()
+	if ans.RefusedKnown {
+		p.reportRefused(ans.Refused)
+	} else {
+		p.reportRefusalsUnknown()
+	}
 	return nil
+}
+
+// reportRefusalsUnknown says once that this server cannot tell which workers a
+// registration left out, so their absence is not evidence they were accepted.
+func (p *Poller) reportRefusalsUnknown() {
+	p.mu.Lock()
+	said := p.refusalsUnknownSaid
+	p.refusalsUnknownSaid = true
+	p.mu.Unlock()
+	if !said {
+		p.log("refusals-unknown", "", "", "", "this server does not report which workers a registration left out (it predates hadron-server#4241); the registration itself succeeded")
+	}
+}
+
+// reportRefused makes the per-worker refusals visible without failing the
+// registration or repeating itself every poll: one event per refused worker
+// when the set changes (hadron-cli#2091).
+func (p *Poller) reportRefused(refused []RefusedWorker) {
+	// Each pair is quoted, so no two different sets share a key (a worker
+	// containing a space cannot pose as a different code and worker).
+	keys := make([]string, 0, len(refused))
+	for _, r := range refused {
+		keys = append(keys, strconv.Quote(r.Code)+":"+strconv.Quote(r.Worker))
+	}
+	sort.Strings(keys)
+	key := strings.Join(keys, ",")
+	p.mu.Lock()
+	previous := p.lastRefused
+	changed := key != previous
+	p.lastRefused = key
+	p.mu.Unlock()
+	if !changed {
+		return
+	}
+	if len(refused) == 0 && previous != "" {
+		p.log("worker-refusals-cleared", "", "", "", "no worker is left out of this host's registration now")
+		return
+	}
+	for _, r := range refused {
+		p.log("worker-refused", "", "", "", r.Worker+": "+r.Code+" (left out of the registration; the platform's assignments decide which workers this host runs, see `hadron team host setup`)")
+	}
 }
 
 // refFor matches a registered worker back to the configured reference it
@@ -353,6 +575,8 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 		p.workerStart(ctx, op)
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
+	case OpWorkerResetContext:
+		p.workerResetContext(ctx, op)
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
 		// delivery reads S1's batches instead (cli#907), so this host has

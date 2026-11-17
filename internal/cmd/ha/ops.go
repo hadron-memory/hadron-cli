@@ -16,13 +16,18 @@ func newCmdOps(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ops <id>",
 		Short: "List the ops a registered Home Assistant instance exposes",
-		Long: `List the ops one instance exposes: the server's static op catalog filtered by
-the row's allowlist. The runToolName (ha__<slug>__<op>) is what you declare in
-a node's data.tools; it is the server's string, never composed here. No request
-reaches the Home Assistant host. A disabled instance is refused by the server
-(HA_INSTANCE_DISABLED) and that message is shown unchanged.`,
-		Example: `  hadron ha ops 01h... --json`,
-		Args:    cobra.ExactArgs(1),
+		Long: `List what an AI agent may do on one instance: each "op" is one action, with
+its description. Use the RUN-TOOL-NAME value, of the form ha__<slug>__<op>, to
+name that action in a node's data.tools.
+
+<id> is the instance ID from "hadron ha list". The list is every op the server
+knows, narrowed to the instance's allowlist. Listing an op does not by itself
+let a run use it: the policy chain must also allow tool.<run-tool-name>. No
+request is sent to the Home Assistant host. A disabled instance is refused by
+the server (HA_INSTANCE_DISABLED) and that message is shown as it came.`,
+		Example: `  hadron ha ops <instance-id>
+  hadron ha ops <instance-id> --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -46,7 +51,7 @@ reaches the Home Assistant host. A disabled instance is refused by the server
 			return output.Write(f.IOStreams, f.JSON, ops, func(w io.Writer) error {
 				table := output.NewTable(w, "OP", "RUN-TOOL-NAME", "DESCRIPTION")
 				for _, o := range ops {
-					table.Row(o.Op, o.RunToolName, o.Description)
+					table.Row(output.SafeCell(o.Op), output.SafeCell(o.RunToolName), output.SafeCell(o.Description))
 				}
 				return table.Flush()
 			})

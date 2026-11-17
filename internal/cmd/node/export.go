@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -31,6 +32,7 @@ type exportNodeSummaryDTO struct {
 
 func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	var outFile, format, memory string
+	var sections []string
 	cmd := &cobra.Command{
 		Use:   "export <node-urn> | <loc> -m <memory>",
 		Short: "Export a single node to a portable file (markdown, JSON, or PDF)",
@@ -45,12 +47,16 @@ JSON object.
 
 The file is rendered by the server (one renderer shared with the portal and
 every other API client), so the bytes are identical everywhere; it round-trips
-back through ` + "`hadron node import`" + `. Requires a server that supports
-server-side export (hadron-server #386).
+back through ` + "`hadron node import`" + `. An older server without export
+support is refused with a message saying so.
 
 --format pdf renders a PDF server-side (the same renderer the portal's
 "Download → PDF" uses). It's binary, so it must go to a file: pass -o <file>
 (writing PDF to stdout is refused). full/sections don't apply to a PDF render.
+
+--section (repeatable: abstract, content, data, edges, metadata, properties)
+renders only those parts, as a presentation copy for reading: it is NOT the
+canonical file and does not round-trip through node import. md or json only.
 
 Writes to stdout by default (so it composes in a pipe with node import);
 -o <file> writes a file instead. When --out ends in .md, .json, or .pdf and
@@ -59,12 +65,27 @@ Writes to stdout by default (so it composes in a pipe with node import);
   hadron node export hrn:node:acme.com:kb:findings:flaky-ci -o flaky.md
   hadron node export hrn:node:acme.com:kb:findings:flaky-ci --format json -o flaky.json
   hadron node export hrn:node:acme.com:kb:findings:flaky-ci --format pdf -o flaky.pdf
+  hadron node export hrn:node:acme.com:kb:findings:flaky-ci --section metadata --section content
   hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Export-only: resolveDocFormat is shared with `node import`, where
+			// "HTML export is reserved" would be the wrong message.
+			if strings.EqualFold(format, "html") {
+				// Reserved, not rejected (cor:int:020:02): the server has no HTML
+				// member yet and the CLI must not render one client-side.
+				return exitcode.Newf(exitcode.Usage, "HTML export is reserved (cor:int:020:02) and not yet available; --format takes md, json, or pdf")
+			}
 			fmtName, err := resolveDocFormat(format, outFile, cmd.Flags().Changed("format"))
 			if err != nil {
 				return err
+			}
+			sectionArg, err := exportSections(sections)
+			if err != nil {
+				return err
+			}
+			if sectionArg != nil && fmtName == "pdf" {
+				return exitcode.Newf(exitcode.Usage, "--section renders a presentation copy in md or json; it does not apply to --format pdf. Nothing was sent")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -85,7 +106,21 @@ Writes to stdout by default (so it composes in a pipe with node import);
 			case "pdf":
 				exportFmt = gen.NodeExportFormatPdf
 			}
-			resp, err := gen.NodeExport(cmd.Context(), client, id, exportFmt)
+			var resp *gen.NodeExportResponse
+			if sectionArg != nil {
+				// cli#1341: the presentation render (full: false), not the
+				// canonical file. Mapped onto the canonical response shape: the
+				// two documents select the same fields.
+				r, serr := gen.NodeExportSections(cmd.Context(), client, id, exportFmt, sectionArg)
+				err = serr
+				if r != nil && r.NodeExport != nil {
+					resp = &gen.NodeExportResponse{NodeExport: (*gen.NodeExportNodeExportNodeExportResult)(r.NodeExport)}
+				} else if serr == nil {
+					resp = &gen.NodeExportResponse{}
+				}
+			} else {
+				resp, err = gen.NodeExport(cmd.Context(), client, id, exportFmt)
+			}
 			if err != nil {
 				if isUnknownFieldErr(err, "nodeExport") {
 					return exitcode.Newf(exitcode.Usage,
@@ -170,6 +205,7 @@ Writes to stdout by default (so it composes in a pipe with node import);
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVarP(&outFile, "out", "o", "", `output file ("-" or unset writes to stdout)`)
 	cmd.Flags().StringVar(&format, "format", "md", "output format: md, json, or pdf (pdf requires -o)")
+	cmd.Flags().StringArrayVar(&sections, "section", nil, "render only these parts, not round-trippable (repeatable): abstract, content, data, edges, metadata, properties")
 	return cmd
 }
 
@@ -250,4 +286,21 @@ func isUnknownFieldErr(err error, field string) bool {
 	return strings.Contains(msg, "Cannot query field") ||
 		strings.Contains(msg, "Unknown field") ||
 		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
+}
+
+// exportSections maps --section values onto NodeExportSection; nil when none
+// was passed (the canonical render).
+func exportSections(names []string) ([]gen.NodeExportSection, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	out := []gen.NodeExportSection{}
+	for _, n := range names {
+		v := gen.NodeExportSection(strings.ToUpper(strings.TrimSpace(n)))
+		if !slices.Contains(gen.AllNodeExportSection, v) {
+			return nil, exitcode.Newf(exitcode.Usage, "invalid --section %q (want abstract, content, data, edges, metadata or properties). Nothing was sent", n)
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }

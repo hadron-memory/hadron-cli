@@ -56,6 +56,11 @@ type tickerDTO struct {
 	LastTickAt       *string          `json:"lastTickAt"`
 	CreatedAt        string           `json:"createdAt"`
 	UpdatedAt        *string          `json:"updatedAt"`
+	// TickCode is the server's stored tick code. RegisterTaskLoc is the
+	// register entry's loc as returned, unresolved; null means no entry or
+	// one the caller can't read (cor:agt:080:01), never "unmapped".
+	TickCode        string  `json:"tickCode"`
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 type readDTO struct {
 	tickerDTO
@@ -63,7 +68,7 @@ type readDTO struct {
 }
 
 func tickerFrom(x gen.TickerFields) tickerDTO {
-	d := tickerDTO{ID: x.Id, URN: x.Urn, Name: x.Name, Slug: x.Slug, CadenceSeconds: x.CadenceSeconds, AnchorAt: x.AnchorAt, QuietHours: x.QuietHours, ReadableChannels: []channelDTO{}, Relevance: strings.ToLower(string(x.Relevance)), Reasons: []string{}, Enabled: x.Enabled, NextTickAt: x.NextTickAt, LastTickAt: x.LastTickAt, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt}
+	d := tickerDTO{ID: x.Id, URN: x.Urn, Name: x.Name, Slug: x.Slug, CadenceSeconds: x.CadenceSeconds, AnchorAt: x.AnchorAt, QuietHours: x.QuietHours, ReadableChannels: []channelDTO{}, Relevance: strings.ToLower(string(x.Relevance)), Reasons: []string{}, Enabled: x.Enabled, NextTickAt: x.NextTickAt, LastTickAt: x.LastTickAt, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt, TickCode: x.TickCode, RegisterTaskLoc: x.RegisterTaskLoc}
 	if x.App != nil {
 		d.AppID = x.App.Id
 	}
@@ -118,6 +123,13 @@ func writeTicker(w io.Writer, d tickerDTO) error {
 	if err != nil {
 		return err
 	}
+	loc := "no register entry you can read"
+	if d.RegisterTaskLoc != nil {
+		loc = "register task loc " + output.SafeCell(*d.RegisterTaskLoc)
+	}
+	if _, err = fmt.Fprintf(w, "  code %s · %s\n", output.SafeCell(d.TickCode), loc); err != nil {
+		return err
+	}
 	for _, channel := range d.ReadableChannels {
 		if _, e := fmt.Fprintf(w, "    %s · %s\n", channel.ID, channel.Name); e != nil {
 			return e
@@ -156,6 +168,27 @@ func writeOne(ctx context.Context, client graphql.Client, f *cmdutil.Factory, x 
 	})
 }
 
+// writeCreated is writeOne for create: the receipt (or the JSON object) as
+// before, plus the call's warnings, which never change stdout's receipt or the
+// exit code (cor:agt:110:02).
+func writeCreated(ctx context.Context, client graphql.Client, f *cmdutil.Factory, x gen.TickerFields, scope string, warnings []warningDTO) error {
+	d := tickerFrom(x)
+	if err := output.Write(f.IOStreams, f.JSON, createdDTO{tickerDTO: d, Warnings: warnings}, func(w io.Writer) error {
+		if scope != "" {
+			if err := writeScope(ctx, client, f, w, scope); err != nil {
+				return err
+			}
+		}
+		return writeTicker(w, d)
+	}); err != nil {
+		return err
+	}
+	if f.JSON {
+		return nil
+	}
+	return writeWarnings(f.IOStreams.ErrOut, warnings)
+}
+
 // NewCmdTicker builds ticker CRUD and subscription commands only.
 func NewCmdTicker(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "ticker <command>", Short: "Manage named ticker schedules and worker subscriptions", Long: `Manage named ticker schedules through the server. The server determines
@@ -165,7 +198,7 @@ never computes due wakes. Wake delivery is a separate host operation.
 Current server behavior may change. Create defaults reasons to
 read-team-channel, relevance to all, anchor to now and enabled to true.
 The server determines edit/delete authority and reader access.`}
-	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true))
+	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true), newApplyTemplates(f))
 	return c
 }
 
@@ -225,8 +258,10 @@ func newRead(f *cmdutil.Factory, list bool) *cobra.Command {
 		short = "List the tickers returned by the server"
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: short + `. Channels are the reader's view, not the full configured set.
-Subscribers are paged to the end. The server ticker list is currently unpaged;
-this command reports its response and does not promise an exhaustive census.`, Args: cobra.ExactArgs(1)}
+Subscribers are paged to the end. The ticker list is read page by page until the
+server's own total is reached, so it is the whole set the caller may read (a
+page that stops early or repeats rows fails the command rather than printing a
+partial list).`, Args: cobra.ExactArgs(1)}
 	if list {
 		c.Args = cobra.NoArgs
 		c.Aliases = []string{"ls"}
@@ -248,14 +283,10 @@ this command reports its response and does not promise an exhaustive census.`, A
 		}
 		rows := []gen.TickerFields{}
 		if list {
-			r, e := gen.ListTickers(cmd.Context(), client, app)
+			var e error
+			rows, e = listAllTickers(cmd.Context(), client, app)
 			if e != nil {
-				return api.MapError(e)
-			}
-			for _, x := range r.Tickers {
-				if x != nil {
-					rows = append(rows, x.TickerFields)
-				}
+				return e
 			}
 		} else {
 			r, e := gen.GetTicker(cmd.Context(), client, ref)
@@ -423,14 +454,15 @@ Watched channels are those in the subscriber's WATCH or BOTH channel register.`
 			return writeOne(cmd.Context(), client, f, r.UpdateTicker.TickerFields, "")
 		}
 		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelIds: p.ChannelIds, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
-		r, e := gen.CreateTicker(cmd.Context(), client, app, in)
+		mctx, sink := api.WithWarningSinkForFields(cmd.Context(), "createTicker")
+		r, e := gen.CreateTicker(mctx, client, app, in)
 		if e != nil {
 			return api.MapError(e)
 		}
 		if r.CreateTicker == nil {
 			return exitcode.Newf(exitcode.Error, "server returned no ticker")
 		}
-		return writeOne(cmd.Context(), client, f, r.CreateTicker.TickerFields, app)
+		return writeCreated(cmd.Context(), client, f, r.CreateTicker.TickerFields, app, warningsFor(sink, "createTicker"))
 	}
 	return c
 }
@@ -453,12 +485,11 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 		p.AnchorAt = &v.anchor
 	}
 	if changed("quiet-hours") {
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(v.quiet), &obj); err != nil || obj == nil {
-			return nil, exitcode.Newf(exitcode.Usage, "--quiet-hours takes a JSON object")
+		var err error
+		p.QuietHours, err = ParseQuietHours(v.quiet)
+		if err != nil {
+			return nil, err
 		}
-		raw := json.RawMessage(v.quiet)
-		p.QuietHours = &raw
 	}
 	if changed("channel-ids") {
 		if len(v.channels) == 0 {
@@ -481,28 +512,17 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 		p.ClearChannels = &v.clearChannels
 	}
 	if changed("relevance") {
-		r := gen.TickerRelevance(strings.ToUpper(v.relevance))
-		if r != gen.TickerRelevanceAll && r != gen.TickerRelevanceMentions {
-			return nil, exitcode.Newf(exitcode.Usage, "--relevance takes all or mentions")
+		r, err := ParseRelevance(v.relevance)
+		if err != nil {
+			return nil, err
 		}
 		p.Relevance = &r
 	}
 	if changed("reasons") {
-		seen := map[string]bool{}
-		for _, r := range strings.Split(v.reasons, ",") {
-			r = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(r)), "_", "-")
-			if r == "" {
-				return nil, exitcode.Newf(exitcode.Usage, "reasons must name at least one reason: a ticker with none would never fire.")
-			}
-			if r != "read-team-channel" && r != "every-tick" && r != "live-check" {
-				return nil, exitcode.Newf(exitcode.Usage, "reasons are from: read-team-channel, every-tick, live-check.")
-			}
-			seen[r] = true
-		}
-		for _, r := range []string{"read-team-channel", "every-tick", "live-check"} {
-			if seen[r] {
-				p.Reasons = append(p.Reasons, gen.TickerReason(strings.ReplaceAll(strings.ToUpper(r), "-", "_")))
-			}
+		var err error
+		p.Reasons, err = ParseReasons(v.reasons)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return p, nil
@@ -555,6 +575,8 @@ A grant announcement is best-effort:
 FAILED leaves the subscription change standing; this command never retries it.`}
 	if unsubscribe {
 		c.Short = "Unsubscribe a worker from a ticker"
+	} else {
+		c.Long += "\nA short-lived worker is woken by its tasks, not by tickers. Subscribing it\nrefuses with TICKER_ON_SHORT_LIVED (exit 5); unsubscribing remains allowed."
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
@@ -655,4 +677,69 @@ func cadenceCell(seconds int) string {
 		return fmt.Sprintf("%dm", seconds/60)
 	}
 	return (time.Duration(seconds) * time.Second).String()
+}
+
+const tickerPageSize = 200
+
+// tickerScanRestarts bounds how often a list that fell short of the total
+// starts over from offset 0 (cli#2030, the twin of the session scan).
+const tickerScanRestarts = 3
+
+// listAllTickers pages tickersPage to exhaustion (cli#1339): the contract of
+// `ticker list` is the whole set. The page's total is the proof of the end; a
+// page that is empty before the total is reached, or that repeats an id, means
+// the list is not advancing and fails the command instead of returning a
+// partial census.
+func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]gen.TickerFields, error) {
+	rows := []gen.TickerFields{}
+	seen := map[string]bool{}
+	limit := tickerPageSize
+	restarts, readAtRestart := 0, -1
+	for offset := 0; ; {
+		off := offset
+		r, err := gen.ListTickersPage(ctx, client, app, &limit, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		page := r.TickersPage
+		fresh := 0
+		for _, x := range page.Items {
+			if x == nil || seen[x.Id] {
+				continue
+			}
+			seen[x.Id] = true
+			fresh++
+			rows = append(rows, x.TickerFields)
+		}
+		offset += len(page.Items)
+		// The end is proven by UNIQUE rows reaching the server's total, never by
+		// the offset: a server that ignores the offset repeats rows, which would
+		// otherwise count toward the total and end the read on a partial list.
+		if !page.HasMore && len(rows) >= page.Total {
+			return rows, nil
+		}
+		if fresh == 0 && len(rows) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages already read; see scanSessions.
+			continue
+		}
+		if fresh == 0 {
+			// Nothing new while the total is still unmet is a partial list, whatever
+			// hasMore says. A concurrent insert shifts offset pages (cor:api:120:05):
+			// start over, bounded, rather than print a partial census; out of
+			// restarts, fail (cor:api:120:04).
+			//
+			// A restarted pass that reads nothing new means a stuck server, not
+			// churn (see scanSessionsFiltered): retrying cannot help it.
+			if len(rows) == readAtRestart {
+				return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
+			}
+			if restarts < tickerScanRestarts {
+				restarts++
+				readAtRestart = len(rows)
+				offset = 0
+				continue
+			}
+			return nil, exitcode.Newf(exitcode.Unavailable, "the ticker list changed while it was being read (%d of %d tickers read after %d restarts); retry the command", len(rows), page.Total, restarts)
+		}
+	}
 }

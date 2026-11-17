@@ -15,6 +15,10 @@ mutation BeginAssetUpload(
   $intent: UploadIntent!
   # @genqlient(omitempty: true)
   $description: String
+  # cli#1341: required by the server with intent AGENT_REQUEST (an upload an
+  # agent asked for) and kept with the upload ticket; omitted for USER.
+  # @genqlient(omitempty: true)
+  $uploadRequestId: String
 ) {
   beginAssetUploadV2(
     input: {
@@ -24,6 +28,7 @@ mutation BeginAssetUpload(
       sizeBytes: $sizeBytes
       uploadIntent: $intent
       description: $description
+      uploadRequestId: $uploadRequestId
     }
   ) {
     uploadId

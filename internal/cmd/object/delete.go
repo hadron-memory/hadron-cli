@@ -19,10 +19,14 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 		Use:     "delete <ref>",
 		Aliases: []string{"rm"},
 		Short:   "Delete an object",
-		Long: `Delete an object by its id or node URN. Soft by default (the object disappears
-from reads but the row is retained); --hard removes the row permanently. Object
-deletion is non-recursive — an object is a single record.`,
-		Example: `  hadron object delete 019f7d… --yes
+		Long: `Delete one record by its id or node URN. Asks for confirmation on a terminal;
+pass --yes in scripts.
+
+By default the record is hidden from every read but kept: bring it back with
+hadron node restore <id or URN>. --hard removes it permanently, and it cannot
+be restored.`,
+		Example: `  hadron object delete 01a189a8175c7145b6c3680628ef0101 --yes
+  hadron node restore 01a189a8175c7145b6c3680628ef0101
   hadron object rm hrn:node:acme.com:market:competitor:letta --hard --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,7 +68,7 @@ deletion is non-recursive — an object is a single record.`,
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	cmd.Flags().BoolVar(&hard, "hard", false, "permanently remove the row (irreversible)")
+	cmd.Flags().BoolVar(&hard, "hard", false, "delete permanently (cannot be restored)")
 	return cmd
 }
 

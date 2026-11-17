@@ -36,7 +36,9 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec is a node with the spec tag or spec role family, and its loc is its citation. Any valid node
+A governed spec has a spec / spec.* role, and its loc is its citation.
+List, describe and lint mark legacy tag-only candidates as not governed.
+Other spec commands retain their existing legacy-marker support. Any valid node
 loc works, at any depth and in any shape: create one with
 "spec new <loc> --title <title>".
 
@@ -52,14 +54,18 @@ Draft rights are per node (hadron-server#1591): every new node starts
 unminted, in any memory, until its first mint. "spec reserve" holds a citation
 as a placeholder, "spec renumber" moves an unminted spec and
 rewrites references to it, and "spec backlinks" and "spec unresolved" read
-the references. "spec mint" stamps approved, unminted nodes. "spec describe"
-shows the derived corpus state and counts per-node approval and mint status.
+the references. "spec mint" stamps approved, unminted nodes. Approve one first
+with "hadron node approve <node-urn> --revision <n>", which approves only the
+revision you reviewed; "hadron memory approve-all" approves every unapproved
+node's current content at once, with no revision check. "spec describe" shows
+the derived corpus state and counts per-node approval and mint status.
 
 Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdLabelReport(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdDocument(f))
 	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))
 	cmd.AddCommand(newCmdFind(f))
@@ -72,7 +78,9 @@ Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdCheckTools(f))
 	cmd.AddCommand(newCmdCitations(f))
+	cmd.AddCommand(newCmdLedger(f))
 	cmd.AddCommand(newCmdSupersede(f))
+	cmd.AddCommand(newCmdRescind(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdUse(f))
 	// hadron-server#1447 — draft corpora and minting (cli#777).
@@ -183,6 +191,10 @@ type ledgerDTO struct {
 	// (#708) but has no number to report. Named rather than counted so the
 	// report says which, and never dropped silently.
 	OutsideNumbering []string `json:"outsideNumbering"`
+	// ProductGeneral lists the live <product>:gen nodes: a product's
+	// general-provisions contract, which is not a module so the ledger skips it
+	// (cli#1146). Additive; [] when there is none.
+	ProductGeneral []string `json:"productGeneral"`
 }
 
 type ledgerModuleDTO struct {
@@ -195,6 +207,19 @@ type ledgerFeatureDTO struct {
 	Feature  string   `json:"feature"`
 	Rules    []string `json:"rules"`
 	NextRule string   `json:"nextRule"`
+	// ReplacedRules is additive (cli#1145): the rules `spec supersede` retired,
+	// each with its replacement loc or null. [] when none; Rules is unchanged.
+	ReplacedRules []ledgerReplacedRuleDTO `json:"replacedRules"`
+	// GeneralProvisions is true for the module's reserved :000 feature (its
+	// general-provisions contract), which is not an allocatable feature
+	// (cli#1146). Additive: nextRule and every other key are unchanged.
+	GeneralProvisions bool `json:"generalProvisions"`
+}
+
+type ledgerReplacedRuleDTO struct {
+	Rule       string  `json:"rule"`
+	Replaced   bool    `json:"replaced"`
+	ReplacedBy *string `json:"replacedBy"`
 }
 
 // specRole returns the governed `Node.role` every spec node carries (#1201).
@@ -732,7 +757,7 @@ func readMemoryByRef(cmd *cobra.Command, client graphql.Client, ref string) (id,
 func memoryURNsByID(cmd *cobra.Command, client graphql.Client) (map[string]string, error) {
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
@@ -763,13 +788,13 @@ func writeSpecTable(w io.Writer, specs []specDTO) error {
 	if !spansMemories(specs) {
 		t := output.NewTable(w, "CITATION", "NAME")
 		for _, s := range specs {
-			t.Row(s.Citation, placeholderLabel(s))
+			t.Row(output.SafeCell(s.Citation), output.SafeCell(placeholderLabel(s)))
 		}
 		return t.Flush()
 	}
 	t := output.NewTable(w, "CITATION", "MEMORY", "NAME")
 	for _, s := range specs {
-		t.Row(s.Citation, memoryLabel(s), placeholderLabel(s))
+		t.Row(output.SafeCell(s.Citation), output.SafeCell(memoryLabel(s)), output.SafeCell(placeholderLabel(s)))
 	}
 	return t.Flush()
 }
@@ -818,7 +843,7 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	// both need the caller's whole memory list (hadron-server#473).
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
@@ -1062,6 +1087,16 @@ func isSpec(tags []string, role *string) bool {
 	return hasTag(tags, "spec") || api.RoleInFamily(role, api.SpecNodeRole)
 }
 
+// isGovernedSpec matches the server's role base-kind signal (cor:acl:130:01).
+// Keep isSpec's legacy candidate discovery/write-door behavior unchanged.
+func isGovernedSpec(role *string) bool {
+	return api.RoleInFamily(role, api.SpecNodeRole)
+}
+
+func isTagOnlySpec(tags []string, role *string) bool {
+	return hasTag(tags, "spec") && !isGovernedSpec(role)
+}
+
 // fetchSpecTaggedNode validates an address, reads the node, and requires it to
 // be part of the spec corpus (isSpec). Lint and register intentionally use the
 // generic fetchSpecNode path because they validate malformed or advisory nodes.
@@ -1301,6 +1336,9 @@ func paginateNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*a
 type specEdge struct {
 	Name string
 	Loc  string // the target's loc
+	// TargetMemoryID is the target's memory, so a same-loc target in another
+	// corpus is not mistaken for a local one (#687 unwired).
+	TargetMemoryID string
 }
 
 // specNode is a lint/render-friendly projection of a node, decoupled from
@@ -1331,6 +1369,7 @@ type specNode struct {
 	// means the list was rewritten and still left it out. Both node queries
 	// already select it, so this costs nothing on the wire.
 	UpdatedAt string
+	MemoryID  string // the node's own memory, which local targets share
 	OutEdges  []specEdge
 	// InDraft says the node's corpus is a DRAFT (hadron-server#1447), where a
 	// citation is not yet permanent — only lint's advice reads it.
@@ -1348,6 +1387,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
 		UpdatedAt:          n.UpdatedAt,
+		MemoryID:           n.MemoryId,
 	}
 	if n.Data != nil {
 		var d struct {
@@ -1361,7 +1401,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		if e == nil || e.Target == nil {
 			continue
 		}
-		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc, TargetMemoryID: e.Target.MemoryId})
 	}
 	return sn
 }
@@ -1380,6 +1420,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		Content:            n.Content,
 		ContentIsRaw:       true, // the batch read does not compile templates
 		UpdatedAt:          n.UpdatedAt,
+		MemoryID:           n.MemoryId,
 	}
 	if n.Data != nil {
 		var d struct {
@@ -1393,7 +1434,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		if e == nil || e.Target == nil {
 			continue
 		}
-		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc, TargetMemoryID: e.Target.MemoryId})
 	}
 	return sn
 }

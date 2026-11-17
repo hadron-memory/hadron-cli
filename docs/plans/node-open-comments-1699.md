@@ -1,0 +1,31 @@
+# Node-list unresolved-comment filter (cli#1699, S3 of server#3493)
+
+Consumes the Proposed provider additions in cor:api:090:02, cor:dmo:110:05/:08 and cor:api:240:02. FIT Vera6660804346: COMPLIANT, RELIES ON PROPOSED. No client law/access decision or `app nodes` extension. Gate Xylon6660830072; projected-block clarification6671419611. Both optional P3s taken: SYSTEM-default guidance and zero-count/non-null-time malformed mirror.
+
+Schema exported by the server script from own detached server checkout at merged provider SHA0365a60dde548f0a011cc239882a0c2dc5c0fa10 (#3520). No shared sibling source, hand-written SDL or generated-code edit. Export-only tsx/graphql install in that checkout; full npm install failed, minimal exporter manifest used temporarily then original restored. Snapshot also refreshes existing #3491 warning-register and processChatResponse SDL descriptions from that source; these are description-only, not CLI behavior changes.
+
+## Wire and compatibility
+
+Changed(flag), not bool value, decides opt-in: true and false both set one NodeFilter on every fetch. A separate FindNodesWithCommentSummary document selects openThreads/oldestOpenThreadAt; the ordinary FindNodes document never names the provider-new summary. Both forward existing independent JSONB projection flags. NodeFilter.hasOpenThreads has an explicit omitempty annotation on every operation annotation group: the refresh without it would send null to old providers even for unrelated callers.
+
+Internal ListNode aliases the superset generated projection. Legacy projection is copied field-for-field through ListNodeFromProjection; the spec label-report direct caller uses that same adapter (one mechanical type adaptation, no spec command behavior change). Default commands still call the original query. No second read, thread scan or fallback. The shared NodeFilter annotations are repeated in apps/chat/search/spec-corpus operations too: otherwise genqlient can choose a definition without the new tag and flip it between runs. appNodesPage still refuses this selector at the provider; its coverage row is an exclusion, not a new flag.
+
+## Output and failure
+
+Command DTO adds commentSummary only when requested; explicit timestamp null survives and strings are copied verbatim. Selected summary is validated for every raw row before seq filtering/output. Missing/null summary or count, negative count, malformed timestamp and count/time inconsistency fail generic malformed-answer exit1, with no partial rows. Provider GraphQL validation fails mapped exit2 and is not retried. Missing whole listing/hit also fails.
+
+Sample one clock value per opted-in listing. Age floors elapsed seconds/minutes/hours/days, handles fractional boundaries and future timestamps, and avoids duration overflow for old timestamps. Zero/null prints dash. Table columns append after RUN; projected blocks retain the existing layout and show OPEN THREADS/OLDEST before JSON columns. Empty results and every omitted-flag text/JSON mode stay byte-identical.
+
+## Evidence and scope
+
+Red53175a34 contains tests, SDL refresh and a behavior-neutral fixed-clock seam. New flag paths fail absent flag; omission test catches refreshed input without omitempty. A test expected uppercase SYSTEM and was corrected to the existing lowercase wire enum; this was a fixture expectation, not a product change. Golden omitted output was captured from unchanged list code at base1d08cb87 with the refreshed SDK; independent compiled QA must compare true base/head binaries too.
+
+Stateful fake clamps three rows to one/page and captures query+variables per call. Covers true/false per mode, AND composition, omission, exact raw output, projected placement, malformed late pages and old-provider no-retry. Tests are wire/format evidence, not provider-predicate proof.
+
+Independent provider proof available: Celine server#3520 QA6667088037 at044130e395a8884192d176550e0e624ce1576674 (second parent of merged0365a60d): lifecycle seven states, sparse pages, inherited zero summary, GraphQL true/false/omitted and access. Its explicit untested install projections mean ordinary install-memory and CLI-vs-GraphQL parity remain uncovered. Assigned CLI QA must record a source/head applicability map, reuse only served rows and run the bounded real-provider uncovered legs; fake coverage alone is insufficient. No production test authorized.
+
+Request expectation: one GraphQL listing request per explicit page; exhaustive/seq modes use the existing 500-row scan until exhaustion (plus the terminal empty request if total is null). Ordinary install selection adds its existing metadata request. No per-node/thread calls. Each selected row adds one small summary object (count + timestamp/null), roughly 80 bytes for a typical timestamp; 1,000 hits add roughly 80 KB, excluding existing projections. This is a size estimate, not a measured latency claim. Independent compiled QA records request count, summed response-body bytes and process wall time on a seeded realistic corpus.
+
+Mutation evidence: exact-match edits and saved diffs/logs under scratch/1699-mutants; presence(false), filter, later-page filter, zero/non-null time, malformed time, fractional floor and empty-header guards killed. Initial negative-count and minute-boundary mutants survived weak assertions: added a valid timestamp beside negative count and compared the exact final age cell; both then killed. Missing summary/count and positive/null-time mutants killed. Equivalent arithmetic +0 survived. The omit-tag control and adding the summary selection to the legacy document both killed their targeted assertions. Removing a selected response field was inspected structurally only, not counted as a behavioral kill. Strict timestamp parsing reused cmdutil.ParseStrictDateTime after a new +24:00 fixture failed red; comma fractions are also refused, while an offset/nanosecond timestamp remains byte-for-byte in JSON. No compiler failure counted as a kill.
+
+Public command surfaces: node list help, embedded agentic-usage, generated help inventory, and hadron-docs docs/reference/hadron-cli.md companion docs#658. Docs author/gate/released-version choice routed separately; no released/shipped claim from this PR. No portal, appNodes, thread-age sort or provider-selection change.

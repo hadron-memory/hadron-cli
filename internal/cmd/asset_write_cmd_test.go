@@ -17,6 +17,7 @@ import (
 // pair, and records what the PUT actually received.
 type uploadFixture struct {
 	gqlURL   string
+	storeURL string
 	putBody  string
 	putCT    string
 	putAuth  string
@@ -37,6 +38,7 @@ func newUploadFixture(t *testing.T, putStatus int) *uploadFixture {
 		w.WriteHeader(putStatus)
 	}))
 	t.Cleanup(store.Close)
+	fx.storeURL = store.URL
 
 	begin := `{"data":{"beginAssetUploadV2":{"uploadId":"up1","putUrl":"` + store.URL +
 		`","putHeaders":[{"name":"Content-Type","value":"image/png"}],"storageKey":"k","maxSizeBytes":10485760,` +

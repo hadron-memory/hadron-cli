@@ -41,13 +41,6 @@ func TestPutRosterEntryPreservesConfigAndToken(t *testing.T) {
 	if got["futureKey"] != "keep" || got["roster"].([]any)[0].(map[string]any)["futureRowKey"] != "keep" {
 		t.Fatalf("unknown fields lost %s", after)
 	}
-	if err := RecordReload(c); err != nil {
-		t.Fatal(err)
-	}
-	r, err := ReadReload(c)
-	if err != nil || r.Fingerprint != hash || r.At.IsZero() {
-		t.Fatalf("bad reload receipt %+v %v", r, err)
-	}
 	kept, _ := os.ReadFile(token)
 	if string(kept) != "unchanged-token" {
 		t.Fatal("adopted token touched")

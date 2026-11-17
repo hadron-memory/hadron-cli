@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
@@ -20,6 +21,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// WorkerWriteContext checks the captured binding immediately before a write.
+// A target App learned by a preceding read can be checked against that SAME
+// snapshot; it never resolves a new session after a rebind. The variadic
+// arguments are those late-resolved target Apps (for example the App of a
+// worker the command only finds after the initial check); none means the
+// binding alone is re-verified.
+type WorkerWriteContext func(context.Context, ...string) (context.Context, error)
+
 type Factory struct {
 	IOStreams  *output.IOStreams
 	HTTPClient *http.Client
@@ -27,6 +36,39 @@ type Factory struct {
 	// GraphQLRequestContext decorates individual authenticated generated calls.
 	// The root installs the worktree attribution policy; queries stay unchanged.
 	GraphQLRequestContext func(context.Context, *graphql.Request) context.Context
+
+	// InstructedContext is installed by the root. Explicit instruction commands
+	// ask it to verify the worktree binding; ordinary calls never use it.
+	InstructedContext func(context.Context) (context.Context, error)
+
+	// BeginInstructedWrite is installed by the root (cli#1594). A command that
+	// today writes as the person calls it before its first lookup, then calls
+	// the returned function at send time for an instructed write's context:
+	// the worker session when the binding is verified for the target App,
+	// else the person's, with a note on stderr.
+	BeginInstructedWrite func(context.Context) func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error)
+
+	// BeginServerTargetInstructedWrite snapshots a person-write binding before
+	// confirmation. The server resolves the target App and owns its admission.
+	BeginServerTargetInstructedWrite func(context.Context) func(context.Context) (context.Context, bool, error)
+
+	// WorkerWriteSession is installed by the root (cli#1872). A command with an
+	// opt-in --as-worker flag calls it BEFORE its first request. It resolves
+	// this worktree's bound worker session strictly: no worktree, no binding,
+	// an incomplete one, a binding for another server or another --app is an
+	// error (exit 2) and nothing is sent; it never falls back to the person.
+	// The returned function runs immediately before each compile or approve
+	// mutation, re-verifies the binding and returns the context carrying the
+	// session. A resolved target App can be checked through that function against
+	// the original snapshot too. Reads keep the plain context.
+	WorkerWriteSession func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
+
+	// NoteApprovingAsPerson is installed by the root (cli#1843). An approval on
+	// the default path calls it just before its mutation: from a worktree bound
+	// to a worker session it prints one stderr note (once per run) that the
+	// approval is the person's. withAsWorker says the command has --as-worker
+	// to name. It changes nothing that is sent.
+	NoteApprovingAsPerson func(ctx context.Context, withAsWorker bool)
 
 	// Persistent flag values, bound by the root command.
 	JSON       bool
@@ -36,6 +78,16 @@ type Factory struct {
 	// Overridable for tests.
 	ConfigFn     func() (*config.Config, error)
 	TokenStoreFn func() store.Store
+
+	// DeliveryPending collects the optional messages-waiting metadata of every
+	// successful typed response (cli#1084); the entry point renders it once.
+	DeliveryPending *api.DeliveryPendingRecorder
+
+	// credentials records which kinds of credential this invocation actually
+	// sent (cli#1624), so a refusal's remedy follows the request, not a second
+	// token lookup at render time. Read it through Credentials().
+	credentials     *api.CredentialLedger
+	credentialsOnce sync.Once
 
 	cfg        *config.Config
 	tokenStore store.Store
@@ -47,6 +99,8 @@ func NewFactory() *Factory {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 		ConfigFn:     config.Load,
 		TokenStoreFn: store.Resolve,
+
+		DeliveryPending: &api.DeliveryPendingRecorder{},
 	}
 }
 
@@ -148,6 +202,32 @@ func (f *Factory) Token() (string, auth.TokenSource, error) {
 	return auth.ResolveToken(f.TokenStore(), server)
 }
 
+// Credentials returns this invocation's sent-credential record (cli#1624),
+// creating it on first use. Every client that sends a credential records its
+// kind here at send time; it never chooses which credential is sent.
+func (f *Factory) Credentials() *api.CredentialLedger {
+	f.credentialsOnce.Do(func() {
+		if f.credentials == nil {
+			f.credentials = &api.CredentialLedger{}
+		}
+	})
+	return f.credentials
+}
+
+// CredentialKindFor maps where Token() found the token to the kind recorded
+// when it is sent. SourceNone sends no credential and maps to "".
+func CredentialKindFor(source auth.TokenSource) api.CredentialKind {
+	switch source {
+	case auth.SourceStore:
+		return api.CredentialStoredUser
+	case auth.SourceEnv:
+		return api.CredentialEnv
+	case auth.SourceImpersonation:
+		return api.CredentialImpersonation
+	}
+	return ""
+}
+
 // GraphQLClient returns an authenticated genqlient client, failing
 // with the AuthRequired exit code when no credentials are present.
 func (f *Factory) GraphQLClient() (graphql.Client, error) {
@@ -162,7 +242,8 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	if source == auth.SourceNone {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "not signed in to %s — run `hadron auth login` or set %s", server, store.EnvToken)
 	}
-	client, err := api.NewClient(server, token, f.HTTPClient)
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending),
+		api.WithCredentialSent(f.Credentials(), CredentialKindFor(source)))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +275,8 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 		// permits plain http when there are no credentials to leak.
 		token = ""
 	}
-	c, err := api.NewClient(server, token, f.HTTPClient)
+	c, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending),
+		api.WithCredentialSent(f.Credentials(), CredentialKindFor(source)))
 	if err != nil {
 		return nil, false, err
 	}
@@ -210,4 +292,28 @@ type requestContextClient struct {
 
 func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
 	return c.inner.MakeRequest(c.context(ctx, req), req, resp)
+}
+
+// AsWorkerFlagUsage is the one description of --as-worker on every command
+// that has it (cli#1872).
+const AsWorkerFlagUsage = "send this worktree's bound worker session with the compile/approve mutations, so the server judges a signed bootprompt.compile.approve grant (default: act as you, no session header)"
+
+// NoteApproval prints the cli#1843 note on the default (person) approval path;
+// a Factory without the hook prints nothing.
+func (f *Factory) NoteApproval(ctx context.Context, withAsWorker bool) {
+	if f.NoteApprovingAsPerson != nil {
+		f.NoteApprovingAsPerson(ctx, withAsWorker)
+	}
+}
+
+// ResolveWorkerWrite resolves the --as-worker session before any request. The
+// returned function wraps one mutation's context. targetApps are App refs the
+// command names beyond --app/context (a positional <app>, cli#1887): each must
+// be the binding's App or the resolve refuses. The returned guard also accepts
+// target App refs learned later, checking them against the original snapshot.
+func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
+	if f.WorkerWriteSession == nil {
+		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")
+	}
+	return f.WorkerWriteSession(ctx, targetApps...)
 }

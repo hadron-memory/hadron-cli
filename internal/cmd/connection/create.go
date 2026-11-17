@@ -83,7 +83,7 @@ for a perpetual grant (until revoked).`,
 			dto := dtoFromFields(resp.CreateConnectionGrant.ConnectionGrantFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ granted %s on %s to %s (grant %s, %s)\n",
-					dto.scopeList(), dto.ConnectionID, dto.grantee(), dto.ID, dto.expiry())
+					output.SafeCell(dto.scopeList()), output.SafeCell(dto.ConnectionID), output.SafeCell(dto.grantee()), output.SafeCell(dto.ID), output.SafeCell(dto.expiry()))
 				return err
 			})
 		},

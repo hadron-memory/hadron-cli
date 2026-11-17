@@ -402,6 +402,168 @@ func TestMemorySubscriptionSetRole(t *testing.T) {
 	}
 }
 
+// hiddenOrgSubscription is the shape the server returns when the caller may
+// manage the subscription but not read the subscribing organization
+// (MemorySubscription.organization is null by design): the owning org's admin
+// changing a foreign org's role is the common case (#1246).
+type hiddenOrgSubscription struct {
+	Role               string `json:"role"`
+	Activated          bool   `json:"activated"`
+	OrganizationHidden bool   `json:"organizationHidden"`
+	OrgRef             string `json:"orgRef"`
+	Organization       struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		URN  string `json:"urn"`
+	} `json:"organization"`
+}
+
+// assertHiddenOrgKeys checks the raw receipt, which a struct decode cannot:
+// `organization` is present as an object with empty id/name/urn (not omitted,
+// not null), and organizationHidden is true (#1248).
+func assertHiddenOrgKeys(t *testing.T, raw map[string]json.RawMessage) {
+	t.Helper()
+	org, ok := raw["organization"]
+	if !ok {
+		t.Fatalf("organization key omitted for a hidden org: %v", raw)
+	}
+	var fields map[string]string
+	if err := json.Unmarshal(org, &fields); err != nil || fields == nil {
+		t.Fatalf("organization = %s, want an object with empty id/name/urn", org)
+	}
+	for _, k := range []string{"id", "name", "urn"} {
+		if v, ok := fields[k]; !ok || v != "" {
+			t.Errorf("organization.%s = %q (present %v), want present and empty", k, v, ok)
+		}
+	}
+	if string(raw["organizationHidden"]) != "true" {
+		t.Errorf("organizationHidden = %s, want true", raw["organizationHidden"])
+	}
+}
+
+// A committed update must not report failure because the organization is
+// hidden; the receipt falls back to the caller's own --org, never inventing
+// the hidden org's id, name or URN (#1246).
+func TestMemorySubscriptionMutationsSucceedWithHiddenOrg(t *testing.T) {
+	for _, tc := range []struct{ verb, op, field, text string }{
+		{"set-role", "UpdateMemorySubscription", "updateMemorySubscription", "✓ set partnerco.com as CONTRIBUTOR\n"},
+		{"create", "CreateMemorySubscription", "createMemorySubscription", "✓ subscribed partnerco.com as CONTRIBUTOR\n"},
+	} {
+		t.Run(tc.verb, func(t *testing.T) {
+			resp := `{"data":{"` + tc.field + `":{"role":"CONTRIBUTOR","activated":true,"organization":null}}}`
+			args := []string{"memory", "subscription", tc.verb, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "partnerco.com", "--role", "contributor"}
+
+			gql, _ := captureGraphQL(t, map[string]string{tc.op: resp})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(args, "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("a committed %s must succeed, got %v", tc.verb, err)
+			}
+			if out.String() != tc.text {
+				t.Errorf("text = %q, want %q", out.String(), tc.text)
+			}
+
+			f, out = testFactory(t)
+			root = NewRootCmd(f)
+			root.SetArgs(append(args, "--json", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("--json: %v", err)
+			}
+			var got hiddenOrgSubscription
+			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+				t.Fatalf("not JSON: %v\n%s", err, out.String())
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+				t.Fatalf("not a JSON object: %v\n%s", err, out.String())
+			}
+			assertHiddenOrgKeys(t, raw)
+			if got.Role != "CONTRIBUTOR" || !got.Activated || !got.OrganizationHidden || got.OrgRef != "partnerco.com" {
+				t.Errorf("receipt: %+v", got)
+			}
+			if got.Organization.ID != "" || got.Organization.Name != "" || got.Organization.URN != "" {
+				t.Errorf("hidden organization must not be filled in: %+v", got.Organization)
+			}
+		})
+	}
+}
+
+// A visible organization keeps the receipt it always had: no orgRef and no
+// organizationHidden key (#1246 adds them only when the org is withheld).
+func TestMemorySubscriptionVisibleOrgReceiptUnchanged(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateMemorySubscription": `{"data":{"updateMemorySubscription":{"role":"ADMIN","activated":true,"organization":` + memOrgJSON + `}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "set-role", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--role", "admin", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if _, ok := raw["orgRef"]; ok {
+		t.Errorf("orgRef present for a visible org: %s", out.String())
+	}
+	if _, ok := raw["organizationHidden"]; ok {
+		t.Errorf("organizationHidden present for a visible org: %s", out.String())
+	}
+	if org, ok := raw["organization"].(map[string]any); !ok || org["urn"] != "partnerco.com" {
+		t.Errorf("organization = %v, want the visible org", raw["organization"])
+	}
+}
+
+// list must surface a subscription whose organization is hidden rather than
+// drop it: the caller would otherwise believe there is none (#1246).
+func TestMemorySubscriptionListSurfacesHiddenOrg(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MemorySubscriptions": `{"data":{"memory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","subscriptions":[
+			{"role":"CONTRIBUTOR","activated":true,"organization":` + memOrgJSON + `},
+			{"role":"READER","activated":false,"organization":null}
+		]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "list", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var subs []hiddenOrgSubscription
+	if err := json.Unmarshal([]byte(out.String()), &subs); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	var rawRows []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &rawRows); err != nil || len(rawRows) != 2 {
+		t.Fatalf("raw rows: %v\n%s", err, out.String())
+	}
+	assertHiddenOrgKeys(t, rawRows[1])
+	if _, ok := rawRows[0]["organizationHidden"]; ok {
+		t.Errorf("organizationHidden present on the visible row: %s", out.String())
+	}
+	if len(subs) != 2 {
+		t.Fatalf("want both rows, got %d: %s", len(subs), out.String())
+	}
+	if subs[0].OrganizationHidden || subs[0].Organization.URN != "partnerco.com" {
+		t.Errorf("visible row: %+v", subs[0])
+	}
+	if !subs[1].OrganizationHidden || subs[1].Role != "READER" || subs[1].Organization.ID != "" || subs[1].OrgRef != "" {
+		t.Errorf("hidden row: %+v", subs[1])
+	}
+
+	f, out = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "list", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "(hidden)") || !strings.Contains(out.String(), "READER") {
+		t.Errorf("table should show the hidden row:\n%s", out.String())
+	}
+}
+
 func TestMemorySubscriptionRmRequiresYes(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

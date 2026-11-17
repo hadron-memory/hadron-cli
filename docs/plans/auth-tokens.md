@@ -1,5 +1,11 @@
 # Implementation Plan: `hadron auth token` — mint & manage personal API tokens
 
+> Key-list transport update (cli#1547): the existing token/App-key list consumers
+> now read `myUserApiKeysPage` / `appKeysPage` through `hasMore=false`, in pages
+> of 20. Output DTOs and instruction attribution are unchanged; the unpaged
+> operation names below describe the original implementation. See
+> [paged-key-inventories-1547.md](paged-key-inventories-1547.md).
+
 > **Status: implemented and verified**, merged in
 > [#68](https://github.com/hadron-memory/hadron-cli/pull/68); this reflects the
 > design as built. GH issue

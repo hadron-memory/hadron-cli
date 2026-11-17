@@ -108,6 +108,11 @@ func EdgeDisplay(name *string, loc string) string {
 // joined and resolved. The memory form is the additive convenience; without it
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
+	// An action URN names its own agent and register entry, so -m has nothing
+	// to compose onto it (#1138); it goes to the server as typed.
+	if IsActionRef(ref) {
+		return ResolveNodeURN(cmd, client, ref)
+	}
 	// An id is unambiguous by shape, so it wins before -m is considered:
 	// otherwise `node get <id> -m <memory>` would compose the id into a loc and
 	// look up a node that doesn't exist. -m is simply redundant here.
@@ -139,6 +144,16 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 		ref = memory + "::" + loc
 	}
 	return ResolveNodeURN(cmd, client, ref)
+}
+
+// IsActionRef reports whether ref is spelled as an action URN —
+// hrn:action:<root>:<agent-slug>:<code>, the register entry's second address
+// (hadron-server#2610). Only the spelling is tested: whether it names anything
+// is the server's answer, so a malformed leaf and a missing entry stay
+// indistinguishable to the caller (#1138 acceptance 2).
+func IsActionRef(ref string) bool {
+	ref = strings.ToLower(strings.TrimSpace(ref))
+	return strings.HasPrefix(ref, "hrn:action:") || strings.HasPrefix(ref, "urn:action:")
 }
 
 // BatchNodeRef canonicalizes a node reference for a server op that resolves a
@@ -262,10 +277,17 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// resolveUrn returns null for a well-formed URN that names nothing —
 		// point at the canonical grammar so a spelling slip isn't read as a
 		// genuinely-absent node (#138).
+		if IsActionRef(ref) {
+			// One answer for foreign, missing and malformed alike: the server
+			// returns null for all three and the CLI adds no parse error of its own.
+			return "", exitcode.Newf(exitcode.NotFound,
+				"node %q not found — verify it exists; the URN forms are hrn:node:<root>:<slug>:<loc> and hrn:action:<root>:<agent-slug>:<code>", ref)
+		}
 		return "", exitcode.Newf(exitcode.NotFound,
 			"node %q not found — verify it exists; the URN form is hrn:node:<root>:<slug>:<loc>", ref)
 	}
-	if resp.ResolveUrn.Kind != "node" {
+	// An action URN resolves to the register entry's own node id (#1138).
+	if resp.ResolveUrn.Kind != "node" && resp.ResolveUrn.Kind != "action" {
 		return "", exitcode.Newf(exitcode.Usage, "%q resolves to a %s, not a node", ref, resp.ResolveUrn.Kind)
 	}
 	return resp.ResolveUrn.Id, nil

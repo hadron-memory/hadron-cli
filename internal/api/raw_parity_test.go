@@ -126,7 +126,7 @@ func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	_, err := RawGraphQL(context.Background(), origin.URL, "", "mutation X { x }", map[string]any{"sessionRef": "s-1"}, origin.Client())
+	_, err := RawGraphQL(context.Background(), origin.URL, "", "query X { x }", map[string]any{"sessionRef": "s-1"}, origin.Client())
 	if !errors.Is(err, ErrRedirectPolicy) || landed != 0 {
 		t.Errorf("raw body-only sessionRef must not cross hosts: err=%v landed=%d", err, landed)
 	}
@@ -134,15 +134,15 @@ func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
 	if err != nil || landed != 1 {
 		t.Errorf("session-free raw POST must follow secure redirect: err=%v landed=%d", err, landed)
 	}
-	_, err = RawGraphQL(context.Background(), origin.URL, "", "mutation X($fields: JSON!) { x(fields: $fields) }", map[string]any{"fields": map[string]any{"sessionRef": "external-id"}}, origin.Client())
+	_, err = RawGraphQL(context.Background(), origin.URL, "", "query X($fields: JSON!) { x(fields: $fields) }", map[string]any{"fields": map[string]any{"sessionRef": "external-id"}}, origin.Client())
 	if err != nil || landed != 2 {
 		t.Errorf("nested sessionRef JSON must follow secure redirect: err=%v landed=%d", err, landed)
 	}
-	_, err = RawGraphQL(context.Background(), origin.URL, "", `mutation X { x(sessionRef: "s-1") }`, nil, origin.Client())
+	_, err = RawGraphQL(context.Background(), origin.URL, "", `query X { x(sessionRef: "s-1") }`, nil, origin.Client())
 	if !errors.Is(err, ErrRedirectPolicy) || landed != 2 {
 		t.Errorf("inline sessionRef must not cross hosts: err=%v landed=%d", err, landed)
 	}
-	_, err = RawGraphQL(context.Background(), origin.URL, "", "mutation X($s: ID!) { x(sessionRef: $s) }", map[string]any{"s": "s-1"}, origin.Client())
+	_, err = RawGraphQL(context.Background(), origin.URL, "", "query X($s: ID!) { x(sessionRef: $s) }", map[string]any{"s": "s-1"}, origin.Client())
 	if !errors.Is(err, ErrRedirectPolicy) || landed != 2 {
 		t.Errorf("renamed session variable must not cross hosts: err=%v landed=%d", err, landed)
 	}

@@ -26,7 +26,15 @@ func newCmdWorkerSetBootPrompt(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set-boot-prompt <worker> (<node-ref> | --clear)",
 		Short: "Point a worker at a compiled boot prompt, or clear the pointer",
 		Long: `Set a worker's own boot-prompt pointer (for a customised worker), or remove it
-with --clear. The node must be a compiled boot prompt in the worker's App's
+with --clear.
+
+USUALLY YOU DO NOT NEED THIS: ` + "`team worker compile <worker>`" + ` sets the pointer
+itself (see its help for the source → compile → approve recipe). Use this to
+point at a compile made with --no-set-pointer, or to undo a customisation.
+--clear removes only the worker's own pointer: the worker is then served the
+App install's prompt for its Agent, else the Agent's own.
+
+The node must be a compiled boot prompt in the worker's App's
 install memory for the worker's Agent; the server checks that, and the CLI
 looks nothing up first. Setting the pointer does not approve the prompt:
 approval is checked when it is served.
@@ -39,8 +47,9 @@ worktree's worker session, and the server refuses one (exit 8).
 Exit codes: 2 for a node that is not a compiled prompt, has the wrong role or
 is in the wrong memory; 4 when the node is missing or not readable (one answer
 for both); 8 when you may not manage the App.`,
-		Example: `  hadron team worker set-boot-prompt Iris hrn:node:acme.com:eng-team-iris:boot:workers:wkr1:compiled
-  hadron team worker set-boot-prompt Iris --clear`,
+		Example: `  # point at what ` + "`team worker compile Iris --no-set-pointer`" + ` printed
+  hadron team worker set-boot-prompt Iris hrn:node:acme.com:eng-team-install:boot:workers:<worker-id>:compiled --app acme.com:eng-team
+  hadron team worker set-boot-prompt Iris --clear --app acme.com:eng-team`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			nodeRef, err := cmdutil.BootPromptNodeRef(memory, args[1:], clear)

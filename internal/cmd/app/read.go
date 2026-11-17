@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -20,6 +21,12 @@ type appGetDTO struct {
 	Name        string  `json:"name"`
 	AppType     string  `json:"appType"`
 	Description *string `json:"description"`
+	// cli#1913: the App's chatbot AI config pin (an id, never a key), the
+	// server-returned name when the App's enabled choices carry it, and whether
+	// they did. A pin they do not carry is shown by id and is not called in use.
+	ChatbotAiConfigID     *string `json:"chatbotAiConfigId"`
+	ChatbotAiConfigName   *string `json:"chatbotAiConfigName"`
+	ChatbotAiConfigListed *bool   `json:"chatbotAiConfigListed"`
 }
 
 type appKeyMetadataDTO struct {
@@ -49,8 +56,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read one App's ID, URN, name, type and nullable description.
 
 Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.
-This read does not request settings, nested keys or AI configuration. A null
-description stays null in JSON and displays as - in text; it does not say
+This read does not request settings or nested keys. It shows the App's chatbot
+AI config (id, and the name when the App's enabled choices carry it; see
+app chatbot-ai-config) and never a key. A null description stays null in JSON and displays as - in text; it does not say
 whether the value is unset or withheld. The server decides access.`,
 		Example: `  hadron app get hrn:app:acme.com:support
   hadron app get acme.com:support --json`,
@@ -72,18 +80,43 @@ whether the value is unset or withheld. The server decides access.`,
 			if a == nil {
 				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
 			}
-			dto := appGetDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), Description: a.Description}
+			pinID, err := readChatbotPin(cmd.Context(), client, ref, args[0], true)
+			if err != nil {
+				return err
+			}
+			pin := resolveChatbotPin(cmd.Context(), f, client, ref, pinID)
+			dto := appGetDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), Description: a.Description,
+				ChatbotAiConfigID: pin.ID, ChatbotAiConfigName: pin.Name, ChatbotAiConfigListed: pin.Listed}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\n", dto.ID, dto.URN, dto.Name, dto.AppType, optionalReadText(dto.Description))
+				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\nchatbot AI config: %s\n", output.SafeCell(dto.ID), output.SafeCell(dto.URN), output.SafeCell(dto.Name), output.SafeCell(dto.AppType), output.SafeCell(optionalReadText(dto.Description)), chatbotPinText(pin))
 				return err
 			})
 		},
 	}
 }
 
+type appKeyUseDTO struct {
+	HostID      string  `json:"hostId"`
+	Action      string  `json:"action"`
+	Count       *int    `json:"count"`
+	OperationID *string `json:"operationId"`
+	RefusedCode *string `json:"refusedCode"`
+	UsedAt      string  `json:"usedAt"`
+}
+
+// appKeyDetailDTO is the --scopes row: the metadata fields plus what the key
+// holds. HostUses is a pointer so it is absent unless --host-uses asked for it.
+type appKeyDetailDTO struct {
+	appKeyMetadataDTO
+	Scopes   []appKeyScopeDTO `json:"scopes"`
+	HostUses *[]appKeyUseDTO  `json:"hostUses,omitempty"`
+}
+
 func newCmdKeyList(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:     "list <app-ref>",
+	var scopes bool
+	var hostUses int
+	cmd := &cobra.Command{
+		Use:     "list <app-ref> [--scopes [--host-uses <n>]]",
 		Aliases: []string{"ls"},
 		Short:   "List an App's active key metadata",
 		Long: `List active App keys through the server's manager-authorized metadata read.
@@ -93,25 +126,63 @@ Prints only id, keyPreview, label, createdAt, lastUsedAt and revokedAt.
 No raw key, nested App.keys, host usage or AI configuration is requested.
 This is active-key inventory, not a history of revoked keys. Nullable values
 stay null in JSON and display as - in text, without guessing why they are null.
-An empty JSON result is []. Access refusals come from the server.`,
+An empty JSON result is []. Access refusals come from the server.
+
+Automatically reads every page, including with --scopes, --host-uses and
+--instruction. A later-page error
+fails the command without a partial inventory. Requires server 27671b4b
+(hadron-server#3189) or later; there is no unpaged fallback.
+
+This is not a snapshot: concurrent key changes can shift pages. A changed
+count or repeated ID fails without a partial inventory; equal-count changes
+can still escape detection. List again after changes settle.
+
+--scopes adds what each key holds now (scope, hostId for host:operate,
+grantedAt, grantedBy) on each page; a key with none shows [].
+--host-uses <n> (with --scopes) also adds each key's newest n host uses
+(host, action, count, refusedCode, usedAt), a refused use included. Neither
+ever returns the raw key.
+
+The text table replaces control and invisible characters (including newlines,
+escapes and bidi/zero-width marks) with a space and cuts a cell at 256
+characters, ending it with "…". --json keeps every original value.`,
 		Example: `  hadron app key list hrn:app:acme.com:support
-  hadron app key list acme.com:support --json`,
+  hadron app key list acme.com:support --json
+  hadron app key list acme.com:ops --scopes --host-uses 10`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			instr, err := credentialInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
+			if cmd.Flags().Changed("host-uses") {
+				if !scopes {
+					return exitcode.Newf(exitcode.Usage, "--host-uses needs --scopes")
+				}
+				if hostUses < 1 {
+					return exitcode.Newf(exitcode.Usage, "--host-uses must be at least 1")
+				}
+			}
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AppKeysMetadata(cmd.Context(), client, ref)
+			if scopes {
+				return listKeysDetail(cmd, f, client, ref, instr, cmd.Flags().Changed("host-uses"), hostUses)
+			}
+			rows, err := keysMetadata(cmd.Context(), client, ref, instr)
 			if err != nil {
-				return api.MapError(err)
+				if instr == nil {
+					return api.MapError(err)
+				}
+				return api.MapErrorKeepingCode(err)
 			}
 			dto := []appKeyMetadataDTO{}
-			for _, k := range resp.AppKeys {
+			for _, k := range rows {
 				if k == nil {
 					return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key metadata row")
 				}
@@ -124,12 +195,122 @@ An empty JSON result is []. Access refusals come from the server.`,
 				}
 				table := output.NewTable(w, "ID", "PREVIEW", "LABEL", "CREATED", "LAST USED", "REVOKED")
 				for _, k := range dto {
-					table.Row(k.ID, k.KeyPreview, optionalReadText(k.Label), k.CreatedAt, optionalReadText(k.LastUsedAt), optionalReadText(k.RevokedAt))
+					table.Row(output.SafeCell(k.ID), output.SafeCell(k.KeyPreview), output.SafeCell(optionalReadText(k.Label)),
+						output.SafeCell(k.CreatedAt), output.SafeCell(optionalReadText(k.LastUsedAt)), output.SafeCell(optionalReadText(k.RevokedAt)))
 				}
 				return table.Flush()
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&scopes, "scopes", false, "also show the scopes each key holds")
+	cmd.Flags().IntVar(&hostUses, "host-uses", 0, "with --scopes: also show each key's newest <n> host uses")
+	addCredentialInstruction(cmd)
+	return cmd
+}
+
+// listKeysDetail is `list --scopes [--host-uses n]`: paged App-key reads whose
+// selection carries scopes, and host uses only when asked for.
+func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, instr *gen.ActInstructionInput, withUses bool, first int) error {
+	dto := []appKeyDetailDTO{}
+	add := func(m appKeyMetadataDTO, sc []*scopeRow, uses *[]appKeyUseDTO) {
+		row := appKeyDetailDTO{appKeyMetadataDTO: m, Scopes: []appKeyScopeDTO{}, HostUses: uses}
+		for _, s := range sc {
+			if s != nil {
+				row.Scopes = append(row.Scopes, appKeyScopeDTO{Scope: s.Scope, HostID: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
+			}
+		}
+		dto = append(dto, row)
+	}
+	if withUses {
+		rows, err := keysHostUses(cmd.Context(), client, ref, first, instr)
+		if err != nil {
+			return api.WithServerCode(api.MapError(err), err)
+		}
+		for _, k := range rows {
+			if k == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key row")
+			}
+			uses := []appKeyUseDTO{}
+			for _, u := range k.HostUses {
+				if u != nil {
+					uses = append(uses, appKeyUseDTO{HostID: u.HostId, Action: u.Action, Count: u.Count, OperationID: u.OperationId, RefusedCode: u.RefusedCode, UsedAt: u.UsedAt})
+				}
+			}
+			sc := make([]*scopeRow, 0, len(k.Scopes))
+			for _, s := range k.Scopes {
+				if s != nil {
+					sc = append(sc, &scopeRow{Scope: s.Scope, HostId: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
+				}
+			}
+			add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc, &uses)
+		}
+	} else {
+		rows, err := keysScopes(cmd.Context(), client, ref, instr)
+		if err != nil {
+			return api.WithServerCode(api.MapError(err), err)
+		}
+		for _, k := range rows {
+			if k == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned an invalid App-key row")
+			}
+			sc := make([]*scopeRow, 0, len(k.Scopes))
+			for _, s := range k.Scopes {
+				if s != nil {
+					sc = append(sc, &scopeRow{Scope: s.Scope, HostId: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
+				}
+			}
+			add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc, nil)
+		}
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if len(dto) == 0 {
+			_, err := fmt.Fprintln(w, "no active App keys returned")
+			return err
+		}
+		for i, k := range dto {
+			if i > 0 {
+				if _, err := fmt.Fprintln(w); err != nil {
+					return err
+				}
+			}
+			if _, err := fmt.Fprintf(w, "%s  %s  label %s  created %s  last used %s\n", output.SafeCell(k.ID), output.SafeCell(k.KeyPreview),
+				output.SafeCell(optionalReadText(k.Label)), output.SafeCell(k.CreatedAt), output.SafeCell(optionalReadText(k.LastUsedAt))); err != nil {
+				return err
+			}
+			if err := renderKeyScopes(w, appKeyScopesDTO{Scopes: k.Scopes}); err != nil {
+				return err
+			}
+			if k.HostUses != nil {
+				if len(*k.HostUses) == 0 {
+					if _, err := fmt.Fprintln(w, "host uses: none"); err != nil {
+						return err
+					}
+					continue
+				}
+				t := output.NewTable(w, "HOST", "ACTION", "COUNT", "REFUSED", "USED")
+				for _, u := range *k.HostUses {
+					count := "-"
+					if u.Count != nil {
+						count = fmt.Sprint(*u.Count)
+					}
+					t.Row(output.SafeCell(u.HostID), output.SafeCell(u.Action), count, output.SafeCell(optionalReadText(u.RefusedCode)), output.SafeCell(u.UsedAt))
+				}
+				if err := t.Flush(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// scopeRow is one scope of a key, copied out of whichever generated type the
+// selection produced so the two --scopes operations share one rendering.
+type scopeRow struct {
+	Scope     string
+	HostId    *string
+	GrantedAt string
+	GrantedBy string
 }
 
 func optionalReadText(value *string) string {

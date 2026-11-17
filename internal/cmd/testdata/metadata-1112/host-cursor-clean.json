@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": "hop1",
+      "appId": "capp100000000000000000000",
+      "hostId": "orca1",
+      "type": "worktree.create",
+      "args": {
+        "baseBranch": "main",
+        "branchName": "jonas/871",
+        "label": "jonas-3",
+        "repo": "hadron-cli",
+        "workerId": "wkr1"
+      },
+      "workerId": "wkr1",
+      "workerName": "Jonas",
+      "status": "SUCCEEDED",
+      "issuedBy": "WORKER",
+      "issuedByUserId": "u1",
+      "issuedByWorkerId": "wkr2",
+      "issuedAt": "2026-10-14T01:00:00Z",
+      "collectedAt": "2026-10-14T01:00:30Z",
+      "finishedAt": "2026-10-14T01:01:00Z",
+      "result": {
+        "worktree": "jonas-3"
+      },
+      "failureReason": null
+    }
+  ],
+  "hasNextPage": true,
+  "endCursor": "fixture"
+}

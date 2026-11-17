@@ -69,6 +69,11 @@ A loc that already holds a node is refused, never overwritten.
 given, the title is used as the node name without a citation prefix, and only
 tags explicitly supplied with --tag are written. Without --role, the default
 is the base spec role, a citation-prefixed name, and the legacy spec tag.
+When the name is prefixed automatically, --title must be the human text after
+"<loc> — ". A title already starting with that exact prefix is refused (exit 2)
+before any write, including --dry-run; remove the prefix and run again (the
+refusal ends with the corrected --title). An explicit --role keeps its
+literal-title behavior.
 Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
 role rules.
@@ -160,8 +165,14 @@ is one call instead of four.`, abstractSoftMax),
 			// the memory is resolved, so an invalid one never costs a request
 			// (@copilot on #710). --new-path's legacy parse happens below.
 			if len(args) == 1 && !newPath {
-				if _, verr := validateSpecLoc(args[0]); verr != nil {
+				at, verr := validateSpecLoc(args[0])
+				if verr != nil {
 					return verr
+				}
+				if !cmd.Flags().Changed("role") {
+					if err := refuseNewTitlePrefix(title, at); err != nil {
+						return err
+					}
 				}
 				// A positional <loc> with the legacy tier flags is refused here
 				// too, before the memory is resolved (@codex on #710).
@@ -205,6 +216,9 @@ is one call instead of four.`, abstractSoftMax),
 					// created as-is without it (#708).
 					return exitcode.Newf(exitcode.Usage,
 						"--new-path scaffolds a legacy citation chain, and %q is not one (%v) — to create a spec at this loc, drop --new-path", args[0], perr)
+				}
+				if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
+					return err
 				}
 				body, berr := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 				if berr != nil {
@@ -279,6 +293,9 @@ is one call instead of four.`, abstractSoftMax),
 				return err
 			}
 
+			if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
+				return err
+			}
 			body, err := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 			if err != nil {
 				return err
@@ -349,6 +366,9 @@ is one call instead of four.`, abstractSoftMax),
 			}
 
 			if dryRun {
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				result.Content = body
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					return renderNewResult(w, result)
@@ -369,17 +389,18 @@ is one call instead of four.`, abstractSoftMax),
 			}
 			nodeType := "info"
 			input := gen.CreateNodeInput{
-				MemoryId: memURN,
-				Loc:      target.Format(),
-				Name:     name,
-				Tags:     tagSet,
-				NodeType: &nodeType,
-				Abstract: &abs,
-				Content:  &body,
-				Data:     specDataRaw(),
-				Seq:      specSeq(target),
-				Role:     specRole(),
-				Edges:    edges,
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				MemoryId:     memURN,
+				Loc:          target.Format(),
+				Name:         name,
+				Tags:         tagSet,
+				NodeType:     &nodeType,
+				Abstract:     &abs,
+				Content:      &body,
+				Data:         specDataRaw(),
+				Seq:          specSeq(target),
+				Role:         specRole(),
+				Edges:        edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -393,16 +414,17 @@ is one call instead of four.`, abstractSoftMax),
 			// contract is never written without it.
 			if coContract != nil {
 				cInput := gen.CreateNodeInput{
-					MemoryId: memURN,
-					Loc:      coContract.cit.Format(),
-					Name:     coContract.name,
-					Tags:     tagSet,
-					NodeType: &nodeType,
-					Abstract: &coContract.abstract,
-					Content:  &coContract.body,
-					Data:     specDataRaw(),
-					Seq:      specSeq(coContract.cit),
-					Role:     specRole(),
+					AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+					MemoryId:     memURN,
+					Loc:          coContract.cit.Format(),
+					Name:         coContract.name,
+					Tags:         tagSet,
+					NodeType:     &nodeType,
+					Abstract:     &coContract.abstract,
+					Content:      &coContract.body,
+					Data:         specDataRaw(),
+					Seq:          specSeq(coContract.cit),
+					Role:         specRole(),
 				}
 				if !noEdges {
 					cInput.Edges = []*gen.NodeEdgeInput{inlineSpecEdge(newID, coContract.title)}
@@ -420,7 +442,7 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&product, "product", "", "3-letter product code (product-rooted corpora)")
 	cmd.Flags().StringVar(&module, "module", "", "3-letter module code")
-	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
+	cmd.Flags().StringVar(&title, "title", "", "human title without the automatic loc prefix (required; explicit --role keeps it literal)")
 	cmd.Flags().StringVar(&role, "role", api.SpecNodeRole, "spec-family node role for spec new <loc> (default: spec)")
 	cmd.Flags().StringVar(&feature, "feature", "", "existing feature to create a rule under (3 digits)")
 	cmd.Flags().BoolVar(&newFeature, "new-feature", false, "allocate a new feature under the module")
@@ -439,7 +461,7 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (legacy numbering default: the tier's contract; with a positional <loc>, only when given)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "when creating a root, do not also scaffold its general-provisions contract")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything (exit 8 if you cannot write to the memory, as the real run)")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd
 }
@@ -537,6 +559,9 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 		result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
 	}
 	if in.dryRun {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+			return err
+		}
 		result.Content = body
 		return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 			return renderNewResult(w, result)
@@ -548,17 +573,18 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 	}
 	nodeType := "info"
 	input := gen.CreateNodeInput{
-		MemoryId: memURN,
-		Loc:      loc,
-		Name:     name,
-		Tags:     in.tags,
-		NodeType: &nodeType,
-		Abstract: &abs,
-		Content:  &body,
-		Data:     specDataRaw(),
-		Seq:      seqFromLoc(loc),
-		Role:     &in.role,
-		Edges:    edges,
+		AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+		MemoryId:     memURN,
+		Loc:          loc,
+		Name:         name,
+		Tags:         in.tags,
+		NodeType:     &nodeType,
+		Abstract:     &abs,
+		Content:      &body,
+		Data:         specDataRaw(),
+		Seq:          seqFromLoc(loc),
+		Role:         &in.role,
+		Edges:        edges,
 	}
 	if _, err := api.CreateSpecNode(cmd.Context(), client, &input); err != nil {
 		return api.MapError(err)
@@ -964,6 +990,9 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		})
 	}
 	if dryRun {
+		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+			return err
+		}
 		return render()
 	}
 
@@ -998,7 +1027,8 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
-			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
+			AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+			MemoryId:     memURN, Loc: pn.cit.Format(), Name: pn.name,
 			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 			Seq: specSeq(pn.cit), Role: specRole(),
@@ -1021,4 +1051,10 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		written = append(written, pn.cit.Format())
 	}
 	return render()
+}
+
+// refuseNewTitlePrefix prevents a copied full name being prefixed a second
+// time; the separator and refusal are shared with spec edit.
+func refuseNewTitlePrefix(title, loc string) error {
+	return refuseCopiedNamePrefix(title, loc)
 }

@@ -3,6 +3,7 @@ package channel
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,18 +19,24 @@ import (
 // AuthorAppID is projected and never omitted: spec 049 item J MARKS a post that
 // crossed Apps, and a transcript that drops the mark misrepresents who was
 // speaking where.
+type teamTagDTO struct {
+	HeadID string `json:"headId"`
+	Label  string `json:"label"`
+}
+
 type messageDTO struct {
-	Seq            int      `json:"seq"`
-	At             string   `json:"at"`
-	Body           string   `json:"body"`
-	AuthorName     *string  `json:"authorName"`
-	AuthorWorkerID *string  `json:"authorWorkerId"`
-	AuthorUserID   *string  `json:"authorUserId"`
-	AuthorAppID    *string  `json:"authorAppId"`
-	SessionID      *string  `json:"sessionId"`
-	ReplyToSeq     *int     `json:"replyToSeq"`
-	Mentions       []string `json:"mentions"`
-	NodeID         string   `json:"nodeId"`
+	TeamTags       []teamTagDTO `json:"teamTags"`
+	Seq            int          `json:"seq"`
+	At             string       `json:"at"`
+	Body           string       `json:"body"`
+	AuthorName     *string      `json:"authorName"`
+	AuthorWorkerID *string      `json:"authorWorkerId"`
+	AuthorUserID   *string      `json:"authorUserId"`
+	AuthorAppID    *string      `json:"authorAppId"`
+	SessionID      *string      `json:"sessionId"`
+	ReplyToSeq     *int         `json:"replyToSeq"`
+	Mentions       []string     `json:"mentions"`
+	NodeID         string       `json:"nodeId"`
 }
 
 // readResultDTO carries the watermark alongside the messages.
@@ -44,13 +51,21 @@ type readResultDTO struct {
 	NextSince *int         `json:"nextSince"`
 }
 
+// channelPage is the part of a Channel read both operations share.
+type channelPage struct {
+	Total int
+	Items []gen.ChannelMessageFields
+}
+
 func newCmdRead(f *cmdutil.Factory) *cobra.Command {
+	var tagFlags cmdutil.ChatTagFlags
 	var (
 		since    int
 		before   int
 		limit    int
 		offset   int
 		mentions string
+		thread   int
 	)
 	cmd := &cobra.Command{
 		Use:   "read <id|address>",
@@ -64,17 +79,51 @@ compute it.
 --before pages BACKWARD and is the stable way to walk history. --offset is a
 position in a list other people are appending to, so under concurrent posting
 it skips or repeats; the server IGNORES --offset when --before is given, and so
-does this command's help.`,
+does this command's help.
+
+CATCHING UP. A first read returns the oldest page. For the
+NEWEST messages when you do not know the latest seq, pass a bound larger than
+any seq: --before 999999999 --limit 20 returns the last 20, and --before with
+the oldest seq shown walks further back. To see what is new since you last
+looked, pass --since with the last seq you recorded (see "channel read-state").
+This command takes no attendee, so it records no
+progress: do that with "channel mark-read". --mentions narrows the page to
+messages that mention one worker or user (name, handle or id).
+
+FINDING ONE MESSAGE. --since <N-1> --limit 1 returns the first message with
+seq >= N: if N does not exist you get the next one (or "no messages"), so check
+the printed "#<seq>" is the one you asked for. The text output
+begins each message with "#<seq>", and a reply carries "↩<seq>" naming the
+message it answers (replyToSeq in --json).
+READING A THREAD. --thread <seq> returns the DIRECT replies to that message
+(never the message itself, and never replies to those replies: read a reply's
+own thread with --thread <its seq>). The server does the filtering, so --since,
+--before and --limit page through the replies, not through the whole channel. A
+seq that names no message in this Channel is exit 4 (not found), never an empty
+page; a message that exists but has no replies is a valid empty page ("no
+messages", exit 0). Waiting for new messages: there is no blocking wait; poll
+with --since at a sensible interval.
+
+For your own team chat use "hadron team chat read --mentions-me".`,
 		Example: `  hadron channel read hrn:node:acme.com:team-shared:chats:team --limit 20
+  hadron channel read <id> --since 41 --limit 1   # message #42 (check the printed seq)
   hadron channel read <id> --since 631
-  hadron channel read <id> --before 100   # the page before seq 100`,
+  hadron channel read <id> --before 999999999 --limit 20   # the newest 20
+  hadron channel read <id> --before 100   # the page before seq 100
+  hadron channel read <id> --thread 42    # the direct replies to message #42`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := tagFlags.Validate(cmd); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("before") && cmd.Flags().Changed("offset") {
 				// Refuse rather than let the server silently drop one: a
 				// caller who passed both believes both applied.
 				return exitcode.Newf(exitcode.Usage,
 					"--before and --offset cannot be combined — the server ignores --offset when --before is given; use --before alone to page backward")
+			}
+			if cmd.Flags().Changed("thread") && thread < 1 {
+				return exitcode.Newf(exitcode.Usage, "--thread takes the seq of the message whose replies you want (seqs start at 1)")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -97,20 +146,70 @@ does this command's help.`,
 			if mentions != "" {
 				mentionsPtr = &mentions
 			}
-			resp, err := gen.ChannelMessages(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr)
-			if err != nil {
-				return api.MapError(err)
+			var page *channelPage
+			if len(tagFlags.Heads()) > 0 {
+				resp, err := gen.ChannelTagsMulti(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr, tagFlags.Heads(), nil)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
+			} else if tagFlags.Active() {
+				resp, err := gen.ChannelTags(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr, tagFlags.Head(), tagFlags.Untagged())
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
+			} else if cmd.Flags().Changed("thread") {
+				// A separate operation (cli#1262): an ordinary read must never
+				// carry the replyToSeq argument to a server that predates it.
+				resp, err := gen.ChannelThread(cmd.Context(), client, args[0], thread, sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
+			} else {
+				resp, err := gen.ChannelMessages(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
 			}
-			if resp == nil || resp.ChannelMessages == nil {
+			if page == nil {
 				return exitcode.Newf(exitcode.NotFound, "no Channel %q is readable here", args[0])
 			}
-			result := readResultDTO{Messages: []messageDTO{}, Total: resp.ChannelMessages.Total}
-			for _, m := range resp.ChannelMessages.Items {
-				if m == nil {
-					continue
-				}
+			result := readResultDTO{Messages: []messageDTO{}, Total: page.Total}
+			for _, m := range page.Items {
 				d := messageDTO{
-					Seq: m.Seq, At: m.At, Body: m.Body,
+					TeamTags: teamTagsFromFields(m),
+					Seq:      m.Seq, At: m.At, Body: m.Body,
 					AuthorName: m.AuthorName, AuthorWorkerID: m.AuthorWorkerId, AuthorUserID: m.AuthorUserId,
 					AuthorAppID: m.AuthorAppId, SessionID: m.SessionId,
 					ReplyToSeq: m.ReplyToSeq, Mentions: m.Mentions, NodeID: m.NodeId,
@@ -142,7 +241,7 @@ does this command's help.`,
 					if m.ReplyToSeq != nil {
 						reply = fmt.Sprintf(" ↩%d", *m.ReplyToSeq)
 					}
-					if _, err := fmt.Fprintf(w, "#%d [%s]%s %s%s\n%s\n\n", m.Seq, author, crossApp, m.At, reply, m.Body); err != nil {
+					if _, err := fmt.Fprintf(w, "#%d [%s]%s %s%s\n%s\n\n", m.Seq, author, crossApp, m.At, reply+teamTagText(m.TeamTags), m.Body); err != nil {
 						return err
 					}
 				}
@@ -160,5 +259,28 @@ does this command's help.`,
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum messages (0 = server default)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (ignored by the server when --before is given)")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this worker or user (name, handle or id)")
+	cmd.Flags().IntVar(&thread, "thread", 0, "only the direct replies to this seq (the message itself is not included); an unknown seq is exit 4, a message with no replies is an empty page")
+	tagFlags.Bind(cmd)
 	return cmd
+}
+
+func teamTagsFromFields(m gen.ChannelMessageFields) []teamTagDTO {
+	if m.TeamTags == nil {
+		return nil
+	}
+	tags := make([]teamTagDTO, 0, len(m.TeamTags))
+	for _, tag := range m.TeamTags {
+		tags = append(tags, teamTagDTO{HeadID: tag.HeadId, Label: tag.Label})
+	}
+	return tags
+}
+func teamTagText(tags []teamTagDTO) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		labels = append(labels, output.SafeCell(tag.Label))
+	}
+	return " (teams: " + strings.Join(labels, ", ") + ")"
 }

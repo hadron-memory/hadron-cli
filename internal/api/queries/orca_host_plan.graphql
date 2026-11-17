@@ -1,0 +1,16 @@
+# cli#1635: existing worker identity only. Do not fetch the briefing, prompts,
+# signature, credentials or transcript while inspecting a local host roster.
+query HostPlanWorker($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id
+    appId
+    family
+    retiredAt
+  }
+}
+
+query HostPlanApp($ref: ID!) {
+  app(ref: $ref) {
+    id
+  }
+}

@@ -256,7 +256,7 @@ func TestBrowserLoginStateMismatch(t *testing.T) {
 
 // loginCtx bounds a test login well under loginTimeout, so a regression that
 // leaves the flow waiting on a callback that never comes fails in seconds
-// rather than after five minutes.
+// rather than after the real 15-minute bound.
 func loginCtx(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -1,0 +1,4 @@
+app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)
+ID    ISSUED                TYPE             HOST   WORKER  STATUS     BY      OUTCOME
+hop1  2026-10-14T01:00:00Z  worktree.create  orca1  Jonas   SUCCEEDED  WORKER  {"worktree":"jonas-3"}
+more follow — continue with --after fixture

@@ -33,6 +33,13 @@ type AuthContext {
 **identically for revoked / never-existed / malformed** (no token oracle), so the
 "invalid" branch stays deliberately non-committal.
 
+## Later status contract (#1726)
+
+The status details below describe this historical change. Ruling 0224
+(cor:aut:010:05) replaces `auth status` with `authenticationStatus` and the
+answer-only `{status}` JSON; it removes that command's identity, source and key
+report. `auth whoami` and `auth token validate` keep their existing contracts.
+
 ## What changed (as built)
 
 A single new query (`internal/api/queries/me.graphql`), reusing the existing

@@ -39,7 +39,7 @@ TTY; a non-interactive caller must pass --yes.`,
 			}
 			dto := dtoFromFields(resp.CancelAppRun.AppRunFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ cancelled run %s (%s)\n", dto.ID, dto.Status)
+				_, err := fmt.Fprintf(w, "✓ cancelled run %s (%s)\n", output.SafeCell(dto.ID), output.SafeCell(dto.Status))
 				return err
 			})
 		},

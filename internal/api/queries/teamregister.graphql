@@ -1,0 +1,20 @@
+# Read only; omitted variables keep the server's principal/default semantics.
+query TeamActionRegisterIndex(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $taskLoc: String
+  # @genqlient(omitempty: true)
+  $code: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  actionRegisterIndex(appRef: $appRef, agentRef: $agentRef, taskLoc: $taskLoc, code: $code, limit: $limit, offset: $offset) {
+    entries { code state actionUrn entryUrn definedBy taskLoc taskUrn }
+    total
+    hasMore
+  }
+}

@@ -68,27 +68,34 @@ func NewCmdServerInfo(f *cmdutil.Factory) *cobra.Command {
 		Use:     "server-info",
 		Aliases: []string{"serverinfo"},
 		Short:   "Show the hadron-server this CLI is talking to",
-		Long: `Report the identity of the server this CLI is configured to reach.
+		Long: `Check that this CLI reaches a Hadron server, and which one. It works signed
+out, so a failure here means the server or the network, not your sign-in. To
+check you are signed in, use 'hadron auth status'.
 
-Works SIGNED OUT: the server answers this query publicly, so it doubles as a
-reachability probe — a failure reaching the server is the server or the
-network, not a missing login. Credentials are still sent when present, and a
-credential STORE that cannot be read is still reported (it fails loud rather
-than silently querying anonymously).
+The server is chosen by --server, then the HADRON_SERVER environment variable,
+then 'hadron config get server', then the hosted default
+(https://srv.hadronmemory.com).
 
-'version' is the server's API-surface CONTRACT version, bumped when the
-tool/query surface changes in a caller-visible way. It is NOT the server's
-release version, so don't compare it against a release tag; use it to decide
-whether a surface you depend on exists.
+Output, one line per field:
+  hadron-server <version>   the server's API version (see below)
+  url:      <url>           where this command sent its request
+  base url: <url>           the address the server says it is reached at
+  (queried anonymously ...) shown when no sign-in was sent
 
-'url' is where this invocation sent the query; 'baseUrl' is what the server
-reports as its own public base URL. They should agree — a mismatch means the
-server is behind a proxy without its public base URL configured, which makes
-every absolute URL it emits (OAuth discovery, webhooks) point somewhere wrong.
+The version is the API version, raised when the server's commands or fields
+change. It is not the release number, so don't compare it with a release tag;
+use it to check that a feature you need exists.
 
-` + "`hadron version`" + ` reports the CLI build instead, and needs no network.`,
+url and base url should name the same server. If they differ, a warning line
+follows: the server sits behind a proxy whose public address it was not told,
+so the links it hands out (for sign-in and webhooks) point to the wrong place.
+Tell whoever runs that server.
+
+If you are signed in but your stored credential cannot be read, this fails
+instead of quietly checking signed out. 'hadron version' shows this CLI's own
+version, with no network.`,
 		Example: `  hadron server-info
-  hadron server-info --json
+  hadron server-info --json      # {url, version, baseUrl, authenticated}
   hadron server-info --server https://hadron.internal.example --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

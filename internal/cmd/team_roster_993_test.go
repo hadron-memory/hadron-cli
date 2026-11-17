@@ -20,7 +20,7 @@ func rosterRow993(name, state string, free bool, model, tier string) string {
 		"freeForWork":%t,"freeFamilies":[],"launchableFamilies":[],"unavailableFamilies":[],
 		"unavailableReason":null,"unavailableUntil":null,"lastActiveAt":null,"checkStatus":null,"lastAssignedAt":null,
 		"pendingTasks":[],"startedTasks":[],"waitingOn":[],"waitingSince":null,"unreactedChildTask":null,
-		"alarms":[],"reportsTo":null,"reportsToRetired":false}`,
+		"modelGroups":[],"alarms":[],"reportsTo":null,"reportsToRetired":false}`,
 		name, name, state, model, map[bool]string{true: `"2026-10-24T00:00:00Z"`, false: "null"}[model != "null"], tier, free)
 }
 
@@ -179,8 +179,8 @@ func TestTeamWorkerListModelTier(t *testing.T) {
 		return out.String()
 	}
 	table := run()
-	if !strings.Contains(table, "MODEL") || !strings.Contains(table, "TIER") || strings.Contains(table, "FAMILY") {
-		t.Errorf("worker list wants MODEL and TIER but not FAMILY:\n%s", table)
+	if !strings.Contains(table, "MODEL") || !strings.Contains(table, "TIER") {
+		t.Errorf("worker list wants MODEL and TIER:\n%s", table)
 	}
 	if !strings.Contains(table, "claude-opus-5-5") || !strings.Contains(table, "high") {
 		t.Errorf("values missing:\n%s", table)

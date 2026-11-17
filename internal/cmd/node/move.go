@@ -18,6 +18,8 @@ func newCmdMove(f *cmdutil.Factory) *cobra.Command {
 		memory   string
 		toURN    string
 		toMemory string
+		dryRun   bool
+		limit    int
 	)
 	cmd := &cobra.Command{
 		Use:     "move <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
@@ -44,11 +46,34 @@ A same-memory move is not subject to these refusals.
 
 Any move — same-memory or cross-memory — is a conflict (exit 5) if a live node
 already occupies the destination, or if the source changes concurrently while
-the move is in flight.`,
+the move is in flight.
+
+--dry-run asks the server to plan the move without writing. The server runs the
+move's own checks, so the plan lists each node that would move with its current
+and new URN, and the content-link warnings a cross-memory move would report (or
+says they are withheld when you can't read the destination memory). If the move
+would be refused, --dry-run fails with the move's own error and exit code. The
+plan is true when answered and reserves nothing, so a change before the move can
+still end it with a conflict (exit 5). The server lists at most --limit nodes
+(at least 1; its default 100; the server bounds the value). A plan that does
+not list every node is labelled TRUNCATED and exits 1; when the server lists
+fewer than --limit asked for, that is its bound, and a larger --limit cannot
+list the subtree in full.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
-  hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive`,
+  hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive
+  hadron node move findings -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --dry-run")
+			}
+			limitSet := cmd.Flags().Changed("limit")
+			if limitSet && !dryRun {
+				return exitcode.Newf(exitcode.Usage, "--limit applies only to --dry-run")
+			}
+			if limitSet && limit < 1 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1")
+			}
 			// Validate the destination flags before touching the network, so a
 			// bad flag combo is a usage error even when unauthenticated.
 			targetUrn, targetMemoryRef, err := relocationDestination(toURN, toMemory)
@@ -59,6 +84,13 @@ the move is in flight.`,
 			if err != nil {
 				return err
 			}
+			if dryRun {
+				var planLimit *int
+				if limitSet {
+					planLimit = &limit
+				}
+				return planMove(cmd, f, client, memory, args[0], targetUrn, targetMemoryRef, planLimit)
+			}
 			sourceRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
 				return err
@@ -68,9 +100,10 @@ the move is in flight.`,
 				return api.MapError(err)
 			}
 			dto := moveDTO(resp.MoveNode)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ moved", "to: "+dto.URN)
+				t.Row("✓ moved", output.SafeCell("to: "+dto.URN))
 				return t.Flush()
 			})
 		},
@@ -78,6 +111,9 @@ the move is in flight.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
 	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
 	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the current loc")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the server's plan for the move without writing; a truncated plan exits 1")
+	cmd.Flags().IntVar(&limit, "limit", 0, "with --dry-run: most nodes the plan lists (server default 100)")
+	enableLintWarnings(cmd, "--dry-run")
 	return cmd
 }
 

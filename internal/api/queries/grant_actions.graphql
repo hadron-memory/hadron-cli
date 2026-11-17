@@ -1,0 +1,23 @@
+# cli#1996: the registered grant actions an App's anyone-in-the-App reader may
+# see (cor:acl:140:02). The App ref goes to the server exactly as given: every
+# refused caller gets an empty page / null, and the CLI must add no signal.
+fragment GrantActionFields on GrantAction {
+  name
+  parameters { name type refusesWildcard }
+  tool
+  enforcement
+  issuerRule
+  source
+}
+
+# limit 0 returns the count only.
+query GrantActions($appRef: String!, $limit: Int!, $offset: Int!) {
+  grantActions(appRef: $appRef, limit: $limit, offset: $offset) {
+    total
+    items { ...GrantActionFields }
+  }
+}
+
+query GrantAction($appRef: String!, $ref: ID!) {
+  action(appRef: $appRef, ref: $ref) { ...GrantActionFields }
+}

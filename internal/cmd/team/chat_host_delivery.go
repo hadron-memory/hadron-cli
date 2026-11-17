@@ -4,7 +4,96 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 )
+
+// Push states, one per recipient (cli#954). "not-pushed" is the ONE state for
+// "nothing was typed and no batch was held"; its reason names the cause the
+// CLI can establish (cli#1900, pushReason*). The server omits an unknown
+// worker and a worker with nothing due in the same way (cor:agt:080:22), so
+// WHY no batch was due is never claimed.
+const (
+	pushStatePushed    = "pushed"
+	pushStateHeld      = "held"
+	pushStateNotPushed = "not-pushed"
+	// pushStateTyped: the text reached the terminal but the acknowledgement
+	// did not land (cor:agt:080:12, :16, Vera 2026-10-31). No mark moved and
+	// the message is still due; it is never typed again by the CLI. Its own
+	// state, never pushed, which means acknowledged.
+	pushStateTyped = "typed"
+	// pushStateUnconfirmed: the pass ended in an error before this recipient
+	// had an outcome, so whether anything was typed is not established.
+	// Never "not-pushed", which asserts no batch came back.
+	pushStateUnconfirmed = "unconfirmed"
+)
+
+// Push reasons with no batch behind them (cli#1900). A closed set: the
+// held/failed reasons of an offered batch (draft, …) and ack-pending/pending
+// come from the delivery transaction unchanged.
+const (
+	// pushReasonNotOnHost: the mention matches no worker registered on this
+	// host with a configured worktree, so this host can push nothing to it.
+	pushReasonNotOnHost = "not-on-host"
+	// pushReasonNoDueBatch: the mention matches a worker on this host, and the
+	// server offered no due batch for it.
+	pushReasonNoDueBatch = "no-due-batch"
+	// pushReasonPushFailed: the pass failed before an outcome (unconfirmed).
+	pushReasonPushFailed = "push-failed"
+	// pushBatchNone: no batch decided the state.
+	pushBatchNone = "none"
+)
+
+// postPushResult is one recipient's report; Reason is a code, never text.
+type postPushResult struct {
+	Recipient string `json:"recipient"`
+	State     string `json:"state"`
+	Reason    string `json:"reason,omitempty"`
+	// Batch names the batch that decided State by its span
+	// (<channel>#<incarnation>:<from>-<through>, comma-joined), the handle the
+	// host log uses; "none" when no batch did. Never the batch's id, which is
+	// a signed proof (delivery.Batch.ID).
+	Batch string `json:"batch"`
+	// Acked is how many of the recipient's batches the server accepted an
+	// acknowledgement for (marks advanced). pushed+ack-pending with 0 means
+	// typed, marks unmoved, still due (gate refinement, #954).
+	Acked int `json:"acked"`
+}
+
+// postHostPushPass is the opt-in --push surface of a pass: deliver the whole
+// due batch of exactly the named recipients (the message's stored mentions),
+// through the same transaction as Run. Never typed over a draft; held marks
+// do not move (cor:agt:080:16).
+type postHostPushPass interface {
+	Push(ctx context.Context, recipients []string) ([]postPushResult, error)
+}
+
+// pushRecipients is the message's STORED mention set, in order and
+// de-duplicated, minus broadcast tokens (cor:agt:080:14, cor:agt:020:04). The
+// CLI never parses the body, and adds no quote or code exclusion of its own:
+// the server's extraction is the one definition.
+func pushRecipients(mentions []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, m := range mentions {
+		t := strings.ToLower(strings.TrimSpace(m))
+		if t == "" || t == "all" || t == "team" || strings.HasPrefix(t, "team.") || seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// reportPostHostPush runs the push pass. A pass-level failure keeps the
+// outcomes already confirmed and marks the rest not-pushed with a code; it never changes the post or its exit.
+func reportPostHostPush(ctx context.Context, pass postHostPushPass, stderr io.Writer, seq int, recipients []string) []postPushResult {
+	res, err := pass.Push(ctx, recipients)
+	if err != nil {
+		fmt.Fprintf(stderr, "note: posted seq %d; push failed or is unconfirmed; do not repost; run hadron team host run --config <host.yaml> to recover\n", seq)
+	}
+	return res
+}
 
 // postHostTarget is the posting scope, not a grant to deliver to that App.
 // The C1 adapter must resolve canonical identity and authorize its own host

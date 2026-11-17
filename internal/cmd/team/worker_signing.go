@@ -12,6 +12,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/lintwarn"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -22,7 +23,7 @@ import (
 // nil is omitted on the wire (the server keeps the stored value) and a pointer
 // to "" is an explicit empty string. Null is never sent.
 type signingEdit struct {
-	override, signature, trailer *string
+	signature, trailer *string
 }
 
 func optionalFlag(set bool, v string) *string {
@@ -30,19 +31,6 @@ func optionalFlag(set bool, v string) *string {
 		return nil
 	}
 	return &v
-}
-
-// overrideEdit: on this operation a clear is an explicit "" (the server's
-// blank-clears rule), since omitempty cannot carry a null.
-func overrideEdit(set, clear bool, v string) *string {
-	switch {
-	case set:
-		return &v
-	case clear:
-		empty := ""
-		return &empty
-	}
-	return nil
 }
 
 const boundSigningHint = "note: this edit was sent from your bound worker session; if you manage this App, an edit made through a worker session may be what was refused — try from an unbound shell"
@@ -109,7 +97,7 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if session != "" {
 		ctx = api.WithSession(ctx, session)
 	}
-	resp, err := gen.UpdateWorkerSigning(ctx, client, workerID, e.override, e.signature, e.trailer)
+	resp, err := gen.UpdateWorkerSigning(ctx, client, workerID, e.signature, e.trailer)
 	if err != nil {
 		mapped := api.MapError(err)
 		// FORBIDDEN covers a non-manager AND a session-bound edit, and the CLI
@@ -123,7 +111,66 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if resp.UpdateWorker == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no worker")
 	}
-	dto := workerDTOFromFields(resp.UpdateWorker.WorkerFields)
+	return writeSigningReceipt(cmd, ctx, f, client, e, resp.UpdateWorker.WorkerFields)
+}
+
+// updateWorkerSigningInstructed is the same edit carrying the holder's
+// instruction claim (cli#1592). It goes out through the binding only when
+// that binding is verified for the TARGET worker's App; anything else refuses,
+// as the plain edit does, and never becomes the person's write. With no
+// binding at all it is the signed-in person's call (the server validates the
+// claim but does not record it). One mutation, never retried.
+func updateWorkerSigningInstructed(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, snap instructionSnapshot, w gen.WorkerFields, e signingEdit, instr *gen.ActInstructionInput) error {
+	ctx := cmd.Context()
+	session, why, err := instructedSession(ctx, f, snap, w.AppId)
+	if err != nil {
+		return err
+	}
+	if why != "" {
+		return instructionRefusal(snap, why)
+	}
+	if session != "" {
+		noteEndedBinding(ctx, snap.b)
+		ctx = api.WithSession(ctx, session)
+	}
+	resp, err := gen.UpdateWorkerSigningInstructed(ctx, client, w.Id, e.signature, e.trailer, instr)
+	if err != nil {
+		return api.MapErrorKeepingCode(err)
+	}
+	if resp.UpdateWorker == nil {
+		return exitcode.Newf(exitcode.Error, "server returned no worker; outcome unknown, inspect the worker before retrying")
+	}
+	return writeSigningReceipt(cmd, ctx, f, client, e, resp.UpdateWorker.WorkerFields)
+}
+
+// workerUpdateReceiptDTO is the stable --json shape of the signature/trailer
+// update receipt: workerDTO plus signatureLint (cli#2007). Update-only, so the
+// cast, list and roster shapes (workerDTO) do not move. signatureLint is the
+// CURRENT check read after the save, not a snapshot taken at write time; null
+// means unavailable (or a masked template), never "no warnings".
+type workerUpdateReceiptDTO struct {
+	workerDTO
+	SignatureLint *lintwarn.Page `json:"signatureLint"`
+}
+
+// writeSigningReceipt prints the receipt of a successful edit and then reads
+// signatureLint with the write's own context (its session header, if any). The
+// read is advisory: it starts its own budget after the write, never fails the
+// command and never changes its exit code.
+func writeSigningReceipt(cmd *cobra.Command, ctx context.Context, f *cmdutil.Factory, client graphql.Client, e signingEdit, fields gen.WorkerFields) error {
+	dto := workerUpdateReceiptDTO{workerDTO: workerDTOFromFields(fields)}
+	// signature is NOT NULL in the store, so null means the caller may not see
+	// the worker's internals (maySeeWorkerInternals), never "unset" (contract,
+	// cli#2007); revisit if the server ever nulls an unset template.
+	masked := dto.Signature == nil
+	if !masked {
+		budget := lintwarn.NewBudget(ctx)
+		defer budget.Close()
+		dto.SignatureLint = lintwarn.ReadSignatureLint(budget, client, dto.ID)
+		if dto.SignatureLint == nil {
+			lintwarn.ReportUnavailable(cmd, "signature lint")
+		}
+	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 		if _, err := fmt.Fprintf(out, "✓ updated the %s for worker %s (%s)\n", changedFields(e), dto.Name, dto.ID); err != nil {
 			return err
@@ -138,6 +185,11 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 			trl = dto.Trailer
 		}
 		writeSigningTemplates(out, sig, trl)
+		if !masked {
+			if err := lintwarn.WriteSection(out, "signature lint", "the signature and trailer; current check after save", dto.SignatureLint, false); err != nil {
+				return err
+			}
+		}
 		if dto.Prompt != nil && *dto.Prompt != "" {
 			if _, err := fmt.Fprintf(out, "\nBoot briefing at the next bind:\n\n%s\n", *dto.Prompt); err != nil {
 				return err
@@ -154,12 +206,6 @@ func changedFields(e signingEdit) string {
 	}
 	if e.trailer != nil {
 		parts = append(parts, "trailer template")
-	}
-	switch {
-	case e.override != nil && *e.override == "":
-		parts = append(parts, "prompt override (cleared)")
-	case e.override != nil:
-		parts = append(parts, "prompt override")
 	}
 	return strings.Join(parts, ", ")
 }

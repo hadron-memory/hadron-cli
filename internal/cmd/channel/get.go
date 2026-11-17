@@ -26,7 +26,12 @@ portal URL verbatim. Missing, concealed or failed pointer reads yield null in
 JSON and no URL line in text. This is not a verified Team chat tab destination.
 The authorized root read records a node read and may decrypt internally even
 though this selection requests only identity and URL. No transcript is fetched,
-and channel list is unchanged.`,
+and channel list is unchanged.
+
+The Channel can be readable while its host memory metadata is not. In that
+case the memory cell says "not readable"; --json keeps memoryUrn and memoryName
+present as null, and memoryId remains the Channel's own scalar. This is a
+successful Channel result, with no extra memory lookup.`,
 		Example: `  hadron channel get hrn:node:acme.com:team-shared:chats:team
   hadron channel get 01a0a702033c7099b23cbd358cd0c269`,
 		Args: cobra.ExactArgs(1),
@@ -40,10 +45,8 @@ and channel list is unchanged.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.Channel == nil {
-				// The server answers "does not exist", "names nothing" and
-				// "you may not read its host memory" with the SAME null, on
-				// purpose — it is never an existence oracle. Assert only what
-				// is known.
+				// A null parent discloses neither existence nor readability.
+				// Null nested memory, by contrast, preserves this Channel.
 				return exitcode.Newf(exitcode.NotFound, "no Channel %q is readable here", args[0])
 			}
 			d := channelGetDTO{channelDTO: dtoFrom(resp.Channel.ChannelFields, resp.Channel.ChannelMemory)}

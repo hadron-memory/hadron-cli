@@ -41,7 +41,7 @@ Before #842, `start` with neither `--as` nor a launch grant was a usage error. N
 | `STARTED` (the claimed session had ended, so the worker's next session was started) | the same, with `resumeOutcome: "STARTED"` and `tookOver: false` (a new session, admitted only with none live) |
 | `CHOOSE` | binds nothing. It lists the candidates (worker name, description, source, and for a claim its expiry) with the `--session <id>` to pick each one, and exits 2. `--json` prints `{"resumeOutcome":"CHOOSE","candidates":[…]}` |
 | `NOTHING_TO_RESUME` | exit 4, with the server's message. No fallback, and nothing is posted |
-| `RESUME_REFUSED` | exit 5. The claim is spent, and the message says so |
+| `RESUME_REFUSED` | exit 5. The claim is spent, and the message says so; except reason `WORKER_MISMATCH` (cli#1839), which spends nothing and names both workers |
 | `RESUME_AMBIGUOUS` | exit 2 (the existing `_AMBIGUOUS` rule): name the worker with `--as` |
 
 `--session <id>` picks a listed candidate. It applies only to a resume, so it is refused alongside `--as`

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // createNodeInput is the decoded CreateNode input the recursive importer sends.
@@ -385,5 +387,106 @@ func TestNodeImportTreeRejectsFile(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Fatalf("expected a not-a-directory usage error, got %v", err)
+	}
+}
+
+// conflictAfterServer lets the first `ok` CreateNode calls succeed and answers
+// every later one with a loc conflict (ok=0: the root itself collides).
+func conflictAfterServer(t *testing.T, ok int) *httptest.Server {
+	t.Helper()
+	var mu sync.Mutex
+	n := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		mu.Lock()
+		n++
+		call := n
+		mu.Unlock()
+		if call > ok {
+			_, _ = w.Write([]byte(`{"errors":[{"message":"exists","extensions":{"code":"NodeLocConflictError"}}]}`))
+			return
+		}
+		var v struct {
+			Input createNodeInput `json:"input"`
+		}
+		_ = json.Unmarshal(body.Variables, &v)
+		fmt.Fprintf(w, `{"data":{"createNode":{"id":"nid:%s","memoryId":"mem1","loc":%q,"name":%q,"nodeType":null,"tags":[],"seq":null,"isRunnable":null,"updatedAt":"2026-01-01T00:00:00Z"}}}`,
+			v.Input.Loc, v.Input.Loc, v.Input.Name)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// cli#1231 (a): when --on-conflict error refuses and NOTHING landed, stdout is
+// empty in human and --json modes; the refusal is the error + exit 5 only.
+func TestNodeImportTreeCollidedRootEmitsNothing(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		name := "human"
+		if jsonMode {
+			name = "json"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "docs")
+			writeTree(t, dir)
+			srv := conflictAfterServer(t, 0)
+
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"node", "import", "-r", dir, "-m", "acme.com::kb", "--server", srv.URL}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Conflict {
+				t.Fatalf("want exit %d, got %d (%v)", exitcode.Conflict, got, err)
+			}
+			if out.String() != "" {
+				t.Errorf("stdout must be empty when nothing landed, got %q", out.String())
+			}
+		})
+	}
+}
+
+// cli#1231 (b): a failure AFTER a node landed still prints the summary of what
+// landed, then the error (exit unchanged).
+func TestNodeImportTreeMidTreeFailureKeepsSummary(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		name := "human"
+		if jsonMode {
+			name = "json"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "docs")
+			writeTree(t, dir)
+			srv := conflictAfterServer(t, 1)
+
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"node", "import", "-r", dir, "-m", "acme.com::kb", "--server", srv.URL}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Conflict {
+				t.Fatalf("want exit %d, got %d (%v)", exitcode.Conflict, got, err)
+			}
+			if jsonMode {
+				var dto struct {
+					NodesCreated int `json:"nodesCreated"`
+				}
+				if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil || dto.NodesCreated < 1 {
+					t.Fatalf("want a summary with nodesCreated >= 1, got %q (%v)", out.String(), jerr)
+				}
+			} else if !strings.Contains(out.String(), "imported") {
+				t.Errorf("want the summary line for what landed, got %q", out.String())
+			}
+		})
 	}
 }

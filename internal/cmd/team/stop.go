@@ -15,9 +15,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// #911 slice B1: stop signals over server #2022/#2166 (cor:agt:090). The CLI
-// stores and reads signals; it computes no coverage, expands no team, sends no
-// notice and interrupts nothing. The server owns all of it.
+// #911 slice B1: stop signals over server #2022/#2166 (cor:agt:090). These
+// commands store and read signals: they compute no coverage, expand no team and
+// type no notice into any worker. The server owns coverage and the notices; the
+// host poller (a separate consumer, host_wakes.go) delivers them.
 
 // Explicit DTO: schema regeneration must not change this JSON contract. Ids and
 // times only, nulls preserved, no nested principal.
@@ -58,18 +59,22 @@ func stopSignalDTOFrom(s gen.StopSignalFields) stopSignalDTO {
 }
 
 const stopHelp = `A stop signal stops covered workers at one level: pause-dispatch (no new
-assignment), pause (also no ticks or stall time) or halt (also an interrupt to
-save work and hand off). Its scope is one worker, a team (a head worker and the
-whole reporting tree under it) or a host. Signals are independent: setting one
-never replaces another, and lifting one never ends another.
+assignment), pause (also no ticks or stall time), or halt (also asks the
+worker to stop, save work and hand off). Its scope is one worker, a team
+(a head worker and its reporting tree), or a host. Signals are independent:
+setting one never replaces another, and lifting one never ends another.
 
-Stop notices are recorded but not delivered: the notice lane is dark, so this
-command tells no worker anything and interrupts nothing. Results show the
-server's stored signal, not proof that any worker stopped or resumed.
+The host poller consumes stop notices and types them into a verified-empty
+worker input without an interrupt key. A busy input or an unsent draft can
+delay delivery. A notice asks the worker to act; it does not prove obedience.
+Under pause-dispatch, notices go to coordinators, not the covered workers.
+A manager-only notice with no worker delivery lane is recorded without a
+delivery path.
 
-Team rule: nobody sets or lifts a live stop signal before the stop-notice host
-consumer (hadron-server#2169) is live. The server currently refuses every set
-with STOP_SIGNAL_UNAVAILABLE; lifting and listing are unaffected.`
+Results show the server's stored signal, not proof that any worker stopped
+or resumed. The server can refuse a set with STOP_SIGNAL_UNAVAILABLE when
+a required worker lane is not freshly served; this is not an unconditional
+refusal of every set. Listing and lifting do not themselves deliver notices.`
 
 func newCmdTeamStop(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "stop <command>", Short: "List, set or lift the App's stop signals", Long: stopHelp}
@@ -163,7 +168,7 @@ never attached. The server decides who may set what and refuses the rest.
 			d := stopSignalDTOFrom(resp.SetTeamStopSignal.StopSignalFields)
 			label := lazyAppLabel(ctx, f, appScope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-				if _, err := fmt.Fprintf(w, "app: %s\nStop signal stored. Its notice is recorded but not delivered.\n", label()); err != nil {
+				if _, err := fmt.Fprintf(w, "app: %s\nStop signal stored. This is not a delivery or stop acknowledgement.\n", label()); err != nil {
 					return err
 				}
 				return writeStopSignal(w, d)
@@ -185,6 +190,8 @@ func newCmdTeamStopLift(f *cmdutil.Factory) *cobra.Command {
 		Long: `Lift exactly one stop signal. Other stop signals may still cover the same
 workers: lifting one never ends another, and nothing restarts by itself. A
 signal that had already ended is reported as unchanged, not as lifted.
+The receipt displays the signal id without controls, capped at 256 runes;
+--json preserves the original id.
 
 Whoever manages the App may lift any signal; a host key, a HALT on its own host.
 This is the person's write: a bound worktree's worker session is never attached.
@@ -219,9 +226,9 @@ This is the person's write: a bound worktree's worker session is never attached.
 			d := stopLiftDTO{Changed: resp.LiftTeamStopSignal.Changed, Signal: stopSignalDTOFrom(resp.LiftTeamStopSignal.Signal.StopSignalFields)}
 			label := lazyAppLabel(ctx, f, appScope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-				headline := "Lifted stop signal " + d.Signal.ID + "."
+				headline := "Lifted stop signal " + output.SafeCell(d.Signal.ID) + "."
 				if !d.Changed {
-					headline = "Stop signal " + d.Signal.ID + " had already ended; nothing changed."
+					headline = "Stop signal " + output.SafeCell(d.Signal.ID) + " had already ended; nothing changed."
 				}
 				if _, err := fmt.Fprintf(w, "app: %s\n%s Other stop signals may still cover the same workers.\n", label(), headline); err != nil {
 					return err
@@ -327,7 +334,7 @@ attaches no worker session.
 				}
 				t := output.NewTable(w, "ID", "LEVEL", "SCOPE", "TARGET", "SET AT", "UNTIL", "STATE")
 				for _, s := range signals {
-					t.Row(s.ID, s.Level, s.Scope, stopTarget(s), s.SetAt, stopUntil(s), stopState(s))
+					t.Row(output.SafeCell(s.ID), output.SafeCell(s.Level), output.SafeCell(s.Scope), output.SafeCell(stopTarget(s)), output.SafeCell(s.SetAt), output.SafeCell(stopUntil(s)), output.SafeCell(stopState(s)))
 				}
 				return t.Flush()
 			})
@@ -340,25 +347,25 @@ attaches no worker session.
 
 func writeStopSignal(w io.Writer, s stopSignalDTO) error {
 	t := output.NewTable(w, "FIELD", "VALUE")
-	t.Row("id", s.ID)
-	t.Row("level", s.Level)
-	t.Row("scope", s.Scope)
-	t.Row("target", stopTarget(s))
-	t.Row("set at", s.SetAt)
+	t.Row("id", output.SafeCell(s.ID))
+	t.Row("level", output.SafeCell(s.Level))
+	t.Row("scope", output.SafeCell(s.Scope))
+	t.Row("target", output.SafeCell(stopTarget(s)))
+	t.Row("set at", output.SafeCell(s.SetAt))
 	setBy := stopValue(s.SetByUserID)
 	if s.SetByHostKey {
 		setBy = "host key"
 	}
-	t.Row("set by", setBy)
-	t.Row("until", stopUntil(s))
-	t.Row("state", stopState(s))
+	t.Row("set by", output.SafeCell(setBy))
+	t.Row("until", output.SafeCell(stopUntil(s)))
+	t.Row("state", output.SafeCell(stopState(s)))
 	if s.EndedAt != nil {
-		t.Row("ended at", *s.EndedAt)
+		t.Row("ended at", output.SafeCell(*s.EndedAt))
 		endedBy := stopValue(s.EndedByUserID)
 		if s.EndedByHostKey {
 			endedBy = "host key"
 		}
-		t.Row("ended by", endedBy)
+		t.Row("ended by", output.SafeCell(endedBy))
 	}
 	return t.Flush()
 }
@@ -403,7 +410,7 @@ func stopValue(s *string) string {
 // never printed (the gate's safe-sentence rule), and an unknown code prints a
 // generic line. The exit class is MapError's, so it matches every other path.
 var stopRefusals = map[string]string{
-	"STOP_SIGNAL_UNAVAILABLE":     "setting a stop signal is refused until the stop-notice lane is on (a worker would be stopped without being told); nothing was set",
+	"STOP_SIGNAL_UNAVAILABLE":     "setting a stop signal is refused while a required worker stop-notice lane is not freshly served; nothing was set",
 	"APP_MANAGER_REQUIRED":        "only whoever manages the App may set or lift a stop signal (a host key: a HALT on its own host); nothing changed",
 	"HOST_SCOPE_REQUIRED":         "a host key may set or lift only a HALT on its own host; nothing changed",
 	"STOP_SIGNAL_SCOPE_FORBIDDEN": "this credential may not act on that scope or target; nothing changed",

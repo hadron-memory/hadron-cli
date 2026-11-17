@@ -2,9 +2,11 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	urnlib "github.com/hadron-memory/urn-lib-go"
 	"io"
-	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,8 +19,7 @@ import (
 )
 
 // updateAppDTO is the stable --json shape of `app update` (cli#1058). It names
-// WHICH fields changed, never their values: systemPrompt is deliberately not
-// echoed anywhere (receipt, confirmation, error).
+// WHICH fields changed, never their values.
 type updateAppDTO struct {
 	App                   string   `json:"app"`
 	ID                    string   `json:"id"`
@@ -29,53 +30,93 @@ type updateAppDTO struct {
 	Changed               []string `json:"changed"`
 }
 
+// errNoUpdatedApp marks a reply that carries no error and no App (updateApp is
+// non-null in the schema, so this is a malformed answer, not a result).
+var errNoUpdatedApp = errors.New("the server's reply named no App")
+
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
+	var settings settingsFlags
+	var newURN, appType string
 	var (
-		name, description, systemPrompt, systemPromptFile string
-		clearDescription, clearSystemPrompt, yes          bool
-		timeout                                           int
+		name, description     string
+		policyFile            string
+		clearDescription, yes bool
+		clearPolicy           bool
+		timeout               int
 	)
 	cmd := &cobra.Command{
 		Use:   "update <app-ref>",
-		Short: "Update an App's name, description, system prompt or session timeout",
-		Long: `Change an App's basic settings: name, description, systemPrompt and
-sessionTimeoutSeconds — nothing else (URN, type, surfaces, roles, identity and
-admission policy and AI keys stay in the portal).
+		Short: "Update an App's settings",
+		Long: `Change an App's settings. Surfaces are descriptive strings, not authorization
+boundaries; the portal shows its chat tab when the list contains chat. Updating
+surfaces or Agent tools replaces the whole list; their clear flags send [].
+Changing type does not change surfaces. Legacy AI keys are not exposed here
+(use ai-config for AI configuration).
+
+--policy-file <path> sets the App's action-policy link, the App layer of the
+chain every run of the App must pass (a run may do an action only if every
+layer allows it): a JSON allow-list such as {"allow":["run.execute"]};
+{"allow":[]} allows nothing. --clear-policy removes the link (sends null). The
+flags are mutually exclusive, and an empty file, a file that is not exactly one
+JSON value, or a JSON null is refused locally (exit 2, nothing sent): a null
+would clear the link, so only --clear-policy does that. Neither flag sends no
+policy at all, so an older server keeps working. The server owns who may set
+it (the App's owner, or an org ADMIN for an org-owned App) and the shape; see
+which layer denies an action with hadron policy explain.
 
 Only the flags you pass are sent; every other field keeps its stored value.
-description and systemPrompt can also be CLEARED, with a separate explicit
-flag (--clear-description, --clear-system-prompt); name and the timeout have
+description can also be CLEARED, with a separate explicit
+flag (--clear-description); name and the timeout have
 no clear. Passing no flag changes nothing and is refused. The server stays
 the only authority: its validation and authorization refusals are shown as
 returned, and the CLI invents no timeout default and clamps nothing.
 
 The target App (as resolved) and the NAMES of the fields to change are shown
-for confirmation — never the system prompt text. Without a terminal, pass
+for confirmation; a rename also shows the old and new full URNs. Without a terminal, pass
 --yes. If the connection drops after the request is sent, the outcome is
 unknown: nothing is retried and no success is claimed — read the App back
 before trying again.`,
 		Example: `  hadron app update hrn:app:acme.com:support --name "Support Desk" --yes
-  hadron app update acme.com:support --system-prompt-file prompt.md --session-timeout-seconds 3600
-  hadron app update acme.com:support --clear-description --yes`,
+  hadron app update acme.com:support --session-timeout-seconds 3600
+  hadron app update acme.com:support --clear-description --yes
+  hadron app update acme.com:support --policy-file app-policy.json --yes
+  hadron app update acme.com:support --clear-policy --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
-			if fl.Changed("system-prompt") && fl.Changed("system-prompt-file") {
-				return exitcode.Newf(exitcode.Usage, "--system-prompt and --system-prompt-file are mutually exclusive")
-			}
 			if fl.Changed("description") && clearDescription {
 				return exitcode.Newf(exitcode.Usage, "--description and --clear-description are mutually exclusive")
 			}
-			if (fl.Changed("system-prompt") || fl.Changed("system-prompt-file")) && clearSystemPrompt {
-				return exitcode.Newf(exitcode.Usage, "--system-prompt/--system-prompt-file and --clear-system-prompt are mutually exclusive")
+			if fl.Changed("policy-file") && clearPolicy {
+				return exitcode.Newf(exitcode.Usage, "--policy-file and --clear-policy are mutually exclusive")
 			}
 
+			prepared, err := settings.prepare(cmd)
+			if err != nil {
+				return err
+			}
+			var urnPtr *string
+			var typePtr *gen.AppType
+			if fl.Changed("urn") {
+				if err := cmdutil.ValidateURNSlug("--urn", newURN); err != nil {
+					return err
+				}
+				urnPtr = &newURN
+				prepared.changed = append(prepared.changed, "urn")
+			}
+			if fl.Changed("type") {
+				v := gen.AppType(appType)
+				if !slices.Contains(gen.AllAppType, v) {
+					return exitcode.Newf(exitcode.Usage, "invalid --type")
+				}
+				typePtr = &v
+				prepared.changed = append(prepared.changed, "appType")
+			}
 			var (
 				namePtr    *string
 				descJSON   json.RawMessage
-				promptJSON json.RawMessage
 				timeoutPtr *int
-				changed    = []string{}
+				changed    = prepared.changed
 			)
 			if fl.Changed("name") {
 				namePtr = &name
@@ -89,27 +130,26 @@ before trying again.`,
 				descJSON = json.RawMessage("null")
 				changed = append(changed, "description (cleared)")
 			}
-			switch {
-			case fl.Changed("system-prompt"):
-				promptJSON = mustJSONString(systemPrompt)
-				changed = append(changed, "systemPrompt")
-			case fl.Changed("system-prompt-file"):
-				b, err := os.ReadFile(systemPromptFile)
-				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "reading --system-prompt-file: %v", err)
-				}
-				promptJSON = mustJSONString(string(b))
-				changed = append(changed, "systemPrompt")
-			case clearSystemPrompt:
-				promptJSON = json.RawMessage("null")
-				changed = append(changed, "systemPrompt (cleared)")
-			}
 			if fl.Changed("session-timeout-seconds") {
 				timeoutPtr = &timeout
 				changed = append(changed, "sessionTimeoutSeconds")
 			}
+			// cli#1640: absent unless a policy flag is given, so the request
+			// and the document never mention it for an older server.
+			var policyJSON json.RawMessage
+			switch {
+			case fl.Changed("policy-file"):
+				policyJSON, err = readPolicyFile(policyFile)
+				if err != nil {
+					return err
+				}
+				changed = append(changed, "policy")
+			case clearPolicy:
+				policyJSON = json.RawMessage("null")
+				changed = append(changed, "policy (cleared)")
+			}
 			if len(changed) == 0 {
-				return exitcode.Newf(exitcode.Usage, "nothing to update: pass at least one of --name, --description/--clear-description, --system-prompt/--system-prompt-file/--clear-system-prompt, --session-timeout-seconds")
+				return exitcode.Newf(exitcode.Usage, "nothing to update: pass a setting flag or a true --clear-* flag")
 			}
 
 			appRef, err := cmdutil.CanonicalAppRef("<app-ref>", args[0])
@@ -120,10 +160,78 @@ before trying again.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Update App %s: %s?", appRef, strings.Join(changed, ", "))); err != nil {
+			prompt := fmt.Sprintf("Update App %s: %s?", appRef, strings.Join(changed, ", "))
+			if urnPtr != nil && !yes && f.IOStreams.IsInputTerminal() {
+				metadata, err := gen.GetAppRenameURN(cmd.Context(), client, appRef)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if metadata.App == nil {
+					return exitcode.Newf(exitcode.NotFound, "App not found")
+				}
+				oldURN := metadata.App.Urn
+				parsed, err := urnlib.ParseUrn(oldURN)
+				if err != nil || len(parsed.PathSegments) < 2 {
+					return exitcode.Newf(exitcode.Error, "server returned an invalid App URN")
+				}
+				renamed, err := urnlib.ComposeUrnV2("app", parsed.PathSegments[0], newURN)
+				if err != nil {
+					return exitcode.Newf(exitcode.Usage, "invalid App rename")
+				}
+				prompt = fmt.Sprintf("Update App %s -> %s: %s?", oldURN, renamed, strings.Join(changed, ", "))
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
-			resp, err := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, promptJSON, timeoutPtr)
+			var dto updateAppDTO
+			dto.App = appRef
+			dto.Status = "updated"
+			dto.Changed = changed
+			if policyJSON != nil {
+				resp, callErr := gen.UpdateAppSettingsPolicy(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, policyJSON)
+				err = callErr
+				if err == nil {
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
+				}
+			} else if len(prepared.changed) > 0 {
+				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
+				err = callErr
+				if err == nil {
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
+				}
+			} else {
+				resp, callErr := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr)
+				err = callErr
+				if err == nil {
+					if u := resp.UpdateApp; u == nil {
+						err = errNoUpdatedApp
+					} else {
+						dto.ID = u.Id
+						dto.URN = u.Urn
+						dto.Name = u.Name
+						dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+					}
+				}
+			}
+			if errors.Is(err, errNoUpdatedApp) {
+				// The request was sent and answered without an error but with no
+				// App: whether it applied is unknown, so nothing is claimed.
+				return exitcode.New(exitcode.Unavailable, fmt.Errorf("app update outcome unknown (sent once, not retried; read the App back before retrying): %w", err))
+			}
 			if err != nil {
 				mapped := api.MapError(err)
 				if exitcode.FromError(mapped) == exitcode.Unavailable {
@@ -131,31 +239,25 @@ before trying again.`,
 				}
 				return mapped
 			}
-			u := resp.UpdateApp
-			dto := updateAppDTO{
-				App:                   appRef,
-				ID:                    u.Id,
-				URN:                   u.Urn,
-				Name:                  u.Name,
-				SessionTimeoutSeconds: u.SessionTimeoutSeconds,
-				Status:                "updated",
-				Changed:               changed,
-			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ Updated App %s (%s)\n", appRef, strings.Join(changed, ", "))
 				return err
 			})
 		},
 	}
+	settings.flags(cmd, false)
 	fl := cmd.Flags()
+	fl.StringVar(&newURN, "urn", "", "new App slug; confirmation names the old and new full URNs")
+	fl.StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION; leaves surfaces unchanged")
 	fl.StringVar(&name, "name", "", "the App's new name")
 	fl.StringVar(&description, "description", "", "the App's new description")
 	fl.BoolVar(&clearDescription, "clear-description", false, "clear the description (sends null)")
-	fl.StringVar(&systemPrompt, "system-prompt", "", "the App's new system prompt")
-	fl.StringVar(&systemPromptFile, "system-prompt-file", "", "read the new system prompt from this file")
-	fl.BoolVar(&clearSystemPrompt, "clear-system-prompt", false, "clear the system prompt (sends null)")
+	fl.StringVar(&policyFile, "policy-file", "", "path to a JSON file holding the App's action-policy link, e.g. {\"allow\":[\"run.execute\"]}; null is refused (use --clear-policy)")
+	fl.BoolVar(&clearPolicy, "clear-policy", false, "remove the App's action-policy link (sends null)")
 	fl.IntVar(&timeout, "session-timeout-seconds", 0, "the session timeout in seconds (the server validates the value)")
 	fl.BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmdutil.RetireFlags(cmd, "an installed Agent's boot prompt is now a node: write the source in the App install memory (role boot-prompt, hadron node update), compile it with `hadron app agent compile`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 

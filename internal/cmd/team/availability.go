@@ -137,14 +137,14 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 func renderAvailabilityTable(w io.Writer, dto teamAvailabilityDTO) error {
 	workers := output.NewTable(w, "WORKER", "STATE", "REASON", "UNTIL", "IN EFFECT")
 	for _, e := range dto.Workers {
-		workers.Row(partyCell(&e.Worker), workerStateCell(e), strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
+		workers.Row(output.SafeCell(partyCell(&e.Worker)), output.SafeCell(workerStateCell(e)), output.SafeCell(strOr(e.Reason)), output.SafeCell(strOr(e.Until)), output.SafeCell(yesNo(e.InEffect)))
 	}
 	if err := workers.Flush(); err != nil {
 		return err
 	}
 	families := output.NewTable(w, "FAMILY", "STATE", "REASON", "UNTIL", "IN EFFECT")
 	for _, e := range dto.Families {
-		families.Row(e.Family, e.State, strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
+		families.Row(output.SafeCell(e.Family), output.SafeCell(e.State), output.SafeCell(strOr(e.Reason)), output.SafeCell(strOr(e.Until)), output.SafeCell(yesNo(e.InEffect)))
 	}
 	return families.Flush()
 }

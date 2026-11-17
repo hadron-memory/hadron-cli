@@ -1,0 +1,11 @@
+# Where a connect flow is (hadron-server#2913, cor:dmo:080:04). Read-only; only
+# the user who started the flow may read it, for one hour; an unknown, expired
+# or foreign flowId is one FORBIDDEN. Scalars only: the connection it made is
+# read separately by id.
+query ConnectionFlow($flowId: ID!) {
+  connectionFlow(flowId: $flowId) {
+    status
+    connectionId
+    failureCode
+  }
+}

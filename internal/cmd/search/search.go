@@ -55,11 +55,66 @@ type hitDTO struct {
 // droppedCount says how much of the lens was invisible. An agent that cannot
 // see which scope ran cannot interpret the count.
 type resultDTO struct {
-	Hits     []hitDTO  `json:"hits"`
-	Total    *int      `json:"total"`
-	Degraded *string   `json:"degraded,omitempty"`
-	Reason   *string   `json:"reason,omitempty"`
-	Scope    *scopeDTO `json:"scope,omitempty"`
+	Hits []hitDTO `json:"hits"`
+	// Passages are the chunk results of --granularity chunk (cli#1341). The
+	// key is present only on such a search — as [] when nothing matched —
+	// so every other search's envelope is unchanged. A pointer, because
+	// omitempty drops an empty slice but keeps a pointer to one.
+	Passages *[]passageDTO `json:"passages,omitempty"`
+	Total    *int          `json:"total"`
+	Degraded *string       `json:"degraded,omitempty"`
+	Reason   *string       `json:"reason,omitempty"`
+	Scope    *scopeDTO     `json:"scope,omitempty"`
+}
+
+// passageDTO is one chunk result: where in which node the match sits.
+type passageDTO struct {
+	ParentNodeID  string `json:"parentNodeId"`
+	ParentNodeURN string `json:"parentNodeUrn"`
+	ChunkIndex    int    `json:"chunkIndex"`
+	CharStart     int    `json:"charStart"`
+	CharEnd       int    `json:"charEnd"`
+}
+
+// searchFields are the NodeField values --field takes.
+var searchFields = map[string]gen.NodeField{}
+
+func init() {
+	for _, v := range gen.AllNodeField {
+		searchFields[strings.ToLower(string(v))] = v
+	}
+}
+
+// rankingArgs turns the ranking flags into findNodes' arguments, each only
+// when passed (cli#1341). An explicit value outside the server's enums is
+// refused here rather than sent.
+func rankingArgs(cmd *cobra.Command, expand int, fields []string, granularity string, minScore float64) (api.SearchRanking, error) {
+	var r api.SearchRanking
+	changed := cmd.Flags().Changed
+	if changed("expand") {
+		if expand < 0 || expand > 3 {
+			return r, exitcode.Newf(exitcode.Usage, "--expand must be 0 to 3 (graph hops). Nothing was sent")
+		}
+		r.Expand = &expand
+	}
+	for _, name := range fields {
+		v, ok := searchFields[strings.ToLower(strings.TrimSpace(name))]
+		if !ok {
+			return r, exitcode.Newf(exitcode.Usage, "invalid --field %q (want one of abstract, alias, content, data, description, loc, name, properties, tags). Nothing was sent", name)
+		}
+		r.Fields = append(r.Fields, v)
+	}
+	if changed("granularity") {
+		g := gen.SearchGranularity(strings.ToLower(strings.TrimSpace(granularity)))
+		if g != gen.SearchGranularityNode && g != gen.SearchGranularityChunk {
+			return r, exitcode.Newf(exitcode.Usage, "invalid --granularity %q (want node or chunk). Nothing was sent", granularity)
+		}
+		r.Granularity = &g
+	}
+	if changed("min-score") {
+		r.MinScore = &minScore
+	}
+	return r, nil
 }
 
 // scopeDTO reports the scope a search RAN UNDER, exactly as the server
@@ -101,42 +156,78 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 		withProperties bool
 		withData       bool
 		commentsOnly   bool
+
+		expand      int
+		fields      []string
+		granularity string
+		minScore    float64
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search nodes, ranked by relevance",
-		Long: `Search nodes you can access, ranked by relevance.
+		Long: `Find notes (nodes) about a topic in the memories you can read, best match
+first:
 
-The default mode is hybrid (semantic + keyword, fused); on a memory without
-a vector index it degrades to keyword with a note on stderr. --mode selects
-keyword (stemmed full-text with boolean operators — UPPERCASE AND/OR/NOT,
-quoted phrases, -term), vector (semantic only), or regex (POSIX, literal
-fragments).
+  hadron search "how do users report a bad actor"
 
--m/--memory scopes to a memory (ID or fully-qualified URN); repeat it to
-search several. Omit for everything you can access.
+Without -m or --scope it searches every memory you can read, unless you have
+saved a default scope (hadron scope use <scope>): then it searches that scope,
+and the first line of the result says so ("scope: ... [your default scope
+...]"). --scope on the command line wins over the default, and
+hadron scope use "" clears it. -m/--memory (an id or hrn:mem: URN,
+repeatable) narrows the search to those memories, inside the scope if one
+applies.
 
---comments-only searches feedback comments instead of content nodes. The server
-filters before ranking and pagination in every mode. Other filters still narrow
-the results; --type must be comment if supplied. Comment hits are feedback,
-not verified facts about their targets.
+The result is a table of SCORE, LOC (where the note sits in its memory) and
+NAME. A higher score is a better match; scores only compare hits within one
+search, not across searches or modes. Read a hit with
+hadron node get <loc> -m <memory>, or add --long to see each hit's
+description and abstract here (--json always carries them). No rows means
+no hits in what was searched (with --offset, none past that point).
 
-Each hit carries a score plus the node's description and abstract (--json),
-so results are assessable without a follow-up 'node get' per hit. --long
-prints abstracts in the text output too.
+How it matches (--mode):
+  hybrid   (default) meaning and keywords together; on a memory without a
+           vector index it falls back to keyword and says so on stderr
+  keyword  words, with stemming; supports UPPERCASE AND/OR/NOT, "quoted
+           phrases" and -term to exclude
+  vector   meaning only; needs a memory with a vector index
+  regex    a POSIX regular expression over the note text
 
---with-properties / --with-data add those columns to each hit, so a search can
-show the field it just filtered on. They are opt-in because a large result with
-full envelopes is a much bigger payload. In text output either flag switches
-the table for a per-hit block; combine with --long to get abstracts as well.
+Filtering on a note's fields (--where, --sort-property): besides its text, a
+note can hold two sets of fields, both JSON. "properties" are the fields of a
+structured record (for example a competitor's funding stage); "data" is a
+free-form envelope a tool or import attached (for example authorName). To see
+which a note has, run hadron node get <loc> -m <memory> --json. --where is a
+JSON condition: a path plus one test (eq, ne, in, lt, lte, gt, gte, between,
+exists, contains), combined with and/or/not. It reads "properties" unless the
+condition says "field":"data". Aimed at the wrong one it usually finds
+nothing (a test such as "exists":false can instead match notes that lack the
+field), and only one case warns: a condition that names no field and returns
+an empty first page gets a note on stderr suggesting "field":"data". So when
+a --where search is empty, check which of the two the note keeps the value in.
+--with-properties / --with-data show those fields for each hit, and
+--sort-property orders by one instead of by score.
+--object-type keeps only records of one collection (for example competitor).
 
---where takes a JSON predicate over one of the node's two JSONB columns (a leaf
-is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
-with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
-a predicate aimed at a node's free-form data envelope must say so, or it
-searches the wrong column and returns a silent zero. --sort-property takes the
-same "field" key and the same default, and overrides relevance.
---object-type filters the objectType collection facet.`,
+Ranking: --field (repeatable) weights the match toward those fields in
+keyword and regex modes; --min-score drops hits scoring below a floor (the
+scale differs per mode: keyword roughly 0 to a few, vector 0 to 1, hybrid a
+small fraction); --expand N (0-3) appends the hits' graph neighbours, unscored,
+after the hits; --granularity chunk (vector mode) returns the matching
+passages of each node: its id and URN, the chunk number and the character
+range.
+
+--comments-only searches feedback comments instead of notes. Comment hits are
+feedback, not verified facts about the notes they are on.
+
+--scope searches a saved scope instead: a scope name or id, "app" (the
+memories of the App in use: --app, else the one set with hadron app
+set-active), or "global" (your organization's view). A scope name also needs
+that App.
+
+An encrypted memory's hits print ciphertext unless you add --unlock
+<memory-ref> (a global flag; see hadron memory encrypt), which asks for its
+passphrase for this one invocation. Words inside its content are not found.`,
 		Example: `  hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata
   hadron search "needs clarification" --comments-only --mode keyword --json
   hadron search "rate limiting" -m hrn:mem:acme.com:kb -m hrn:mem:acme.com:ops --mode keyword --json
@@ -163,6 +254,10 @@ same "field" key and the same default, and overrides relevance.
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
+			ranking, err := rankingArgs(cmd, expand, fields, granularity, minScore)
+			if err != nil {
+				return err
 			}
 			whereArg, err := cmdutil.ParseNodeWhere(where)
 			if err != nil {
@@ -264,7 +359,7 @@ same "field" key and the same default, and overrides relevance.
 				}
 			}
 
-			page, err := api.SearchNodesProjected(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg, withProperties, withData)
+			page, err := api.SearchNodesProjected(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg, withProperties, withData, ranking)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -335,6 +430,33 @@ same "field" key and the same default, and overrides relevance.
 				}
 				result.Hits = append(result.Hits, hit)
 			}
+			chunks := ranking.Granularity != nil && *ranking.Granularity == gen.SearchGranularityChunk
+			passages := []passageDTO{}
+			if chunks {
+				for _, p := range page.Passages {
+					passages = append(passages, passageDTO{
+						ParentNodeID: p.ParentNodeId, ParentNodeURN: p.ParentNodeUrn,
+						ChunkIndex: p.ChunkIndex, CharStart: p.CharStart, CharEnd: p.CharEnd,
+					})
+				}
+				result.Passages = &passages
+			}
+			// writePassages renders the chunk results after the hits, in the
+			// table and the block layout alike.
+			writePassages := func(w io.Writer) error {
+				if !chunks {
+					return nil
+				}
+				if len(passages) == 0 {
+					_, err := fmt.Fprintln(w, "no passages")
+					return err
+				}
+				pt := output.NewTable(w, "NODE", "CHUNK", "CHARS")
+				for _, p := range passages {
+					pt.Row(output.SafeCell(p.ParentNodeURN), fmt.Sprint(p.ChunkIndex), fmt.Sprintf("%d-%d", p.CharStart, p.CharEnd))
+				}
+				return pt.Flush()
+			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if commentsOnly {
@@ -355,13 +477,19 @@ same "field" key and the same default, and overrides relevance.
 				// truncate an arbitrarily long JSON value, which is the same
 				// defect as not showing it, wearing the look of an answer.
 				if long || withProperties || withData {
-					return writeBlocks(w, result.Hits, long)
+					if err := writeBlocks(w, result.Hits, long); err != nil {
+						return err
+					}
+					return writePassages(w)
 				}
 				t := output.NewTable(w, "SCORE", "LOC", "NAME")
 				for _, h := range result.Hits {
-					t.Row(formatScore(h.Score), h.Loc, h.Name)
+					t.Row(formatScore(h.Score), output.SafeCell(h.Loc), output.SafeCell(h.Name))
 				}
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				return writePassages(w)
 			})
 		},
 	}
@@ -369,7 +497,7 @@ same "field" key and the same default, and overrides relevance.
 	// --scope names a stored lens and is resolved server-side. Two different
 	// ideas, so the -m help no longer says "scope" (#578).
 	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "restrict to a memory (ID or URN; repeatable; narrows within --scope)")
-	cmd.Flags().StringVar(&scope, "scope", "", "search under a named scope: a scope name (needs an App context), a scope id, `app` (the App's attached memories), or `global` (your active organization's view — set it with `hadron org use`)")
+	cmd.Flags().StringVar(&scope, "scope", "", `search a saved scope: a scope name or id (a name needs the App in use), "app" (that App's memories) or "global" (your organization's view, set with hadron org use)`)
 	cmd.Flags().StringVar(&mode, "mode", "hybrid", "ranking mode: hybrid|keyword|vector|regex")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
@@ -377,12 +505,16 @@ same "field" key and the same default, and overrides relevance.
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&where, "where", "", cmdutil.WhereFlagUsage)
 	cmd.Flags().StringVar(&sortProp, "sort-property", "", cmdutil.SortPropertyFlagUsage)
-	cmd.Flags().IntVar(&limit, "limit", 15, "maximum number of hits (0 = server default)")
+	cmd.Flags().IntVar(&limit, "limit", 15, "maximum number of hits; 0 lets the server choose")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "per-hit block output including description/abstract")
 	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each hit's properties JSONB in the output")
 	cmd.Flags().BoolVar(&commentsOnly, "comments-only", false, "search feedback comments instead of content nodes (all ranking modes)")
 	cmd.Flags().BoolVar(&withData, "with-data", false, "include each hit's data JSONB in the output")
+	cmd.Flags().IntVar(&expand, "expand", 0, "append the hits' graph neighbours up to N hops (0-3), unscored")
+	cmd.Flags().StringArrayVar(&fields, "field", nil, "weight keyword/regex matching toward this field (repeatable): abstract, alias, content, data, description, loc, name, properties, tags")
+	cmd.Flags().StringVar(&granularity, "granularity", "", "node (default) or chunk: matching passages, vector mode only")
+	cmd.Flags().Float64Var(&minScore, "min-score", 0, "drop hits scoring below this (the scale differs per mode)")
 	return cmd
 }
 

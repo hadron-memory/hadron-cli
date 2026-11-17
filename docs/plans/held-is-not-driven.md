@@ -1,3 +1,8 @@
+> **Partly superseded by #1173:** literal Agent/App systemPrompt and Worker
+> promptOverride reads, writes and flags described below are retired. Use the
+> source → compile → node approval workflow; the other behavior below is historical
+> context or remains applicable as stated. See [1173-retired-prompts.md](1173-retired-prompts.md).
+
 > Current-label note (2026-10-19, #949): `worker list` now labels this column
 > `LAST RECORDED ACTIVITY`. It shows `live`, the age of server-recorded activity,
 > `never`, or `?`; a recent age does not imply a live session or an exact session-end

@@ -1,0 +1,85 @@
+# The four owner-only calendar mutations (#230). Optional variables carry
+# omitempty so an unset flag is omitted (the server preserves it), never null.
+# update's attendees is a pointer so an explicit empty list (--clear-attendees)
+# is sent as [] while an unset flag is omitted.
+
+# @genqlient(for: "CalendarEventTimeInput.date", omitempty: true)
+# @genqlient(for: "CalendarEventTimeInput.dateTime", omitempty: true)
+# @genqlient(for: "CalendarEventTimeInput.timeZone", omitempty: true)
+mutation CalendarCreateEvent(
+ $connectionRef: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+ $title: String!
+ $start: CalendarEventTimeInput!
+ $end: CalendarEventTimeInput!
+ # @genqlient(omitempty: true)
+ $description: String
+ # @genqlient(omitempty: true)
+ $location: String
+ # @genqlient(omitempty: true)
+ $attendees: [String!]
+ # @genqlient(omitempty: true)
+ $notifyAttendees: Boolean
+ # @genqlient(omitempty: true)
+ $idempotencyKey: String
+) {
+  calendarCreateEvent(connectionRef: $connectionRef, calendarId: $calendarId, title: $title, start: $start, end: $end, description: $description, location: $location, attendees: $attendees, notifyAttendees: $notifyAttendees, idempotencyKey: $idempotencyKey) {
+    ...CalendarReadEvent
+  }
+}
+
+# @genqlient(for: "CalendarEventTimeInput.date", omitempty: true)
+# @genqlient(for: "CalendarEventTimeInput.dateTime", omitempty: true)
+# @genqlient(for: "CalendarEventTimeInput.timeZone", omitempty: true)
+mutation CalendarUpdateEvent(
+ $connectionRef: ID!
+ $eventId: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+ # @genqlient(omitempty: true)
+ $title: String
+ # @genqlient(omitempty: true)
+ $start: CalendarEventTimeInput
+ # @genqlient(omitempty: true)
+ $end: CalendarEventTimeInput
+ # @genqlient(omitempty: true)
+ $description: String
+ # @genqlient(omitempty: true)
+ $location: String
+ # @genqlient(omitempty: true, bind: "*[]string")
+ $attendees: [String!]
+ # @genqlient(omitempty: true)
+ $notifyAttendees: Boolean
+ # @genqlient(omitempty: true)
+ $idempotencyKey: String
+) {
+  calendarUpdateEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId, title: $title, start: $start, end: $end, description: $description, location: $location, attendees: $attendees, notifyAttendees: $notifyAttendees, idempotencyKey: $idempotencyKey) {
+    ...CalendarReadEvent
+  }
+}
+
+mutation CalendarDeleteEvent(
+ $connectionRef: ID!
+ $eventId: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+ # @genqlient(omitempty: true)
+ $notifyAttendees: Boolean
+ # @genqlient(omitempty: true)
+ $idempotencyKey: String
+) {
+  calendarDeleteEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId, notifyAttendees: $notifyAttendees, idempotencyKey: $idempotencyKey)
+}
+
+mutation CalendarRespondToEvent(
+ $connectionRef: ID!
+ $eventId: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+ $response: CalendarEventResponse!
+) {
+  calendarRespondToEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId, response: $response) {
+    ...CalendarReadEvent
+  }
+}

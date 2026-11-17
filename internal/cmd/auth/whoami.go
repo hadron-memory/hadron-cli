@@ -26,7 +26,7 @@ type whoamiResult struct {
 	Impersonation  *impersonationInfo `json:"impersonation,omitempty"`
 }
 
-// impersonationInfo mirrors AuthContext.impersonation for whoami/status — the
+// impersonationInfo mirrors AuthContext.impersonation for whoami — the
 // acting-as facts when the request authenticated with an impersonation token.
 type impersonationInfo struct {
 	SessionID      string `json:"sessionId"`
@@ -41,7 +41,16 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
 		Short: "Show the signed-in user",
-		Args:  cobra.NoArgs,
+		Long: `Show who the current credential belongs to, as the server sees it: name,
+email, handle and platform roles (--json adds the user id, principal type and,
+during impersonation, the session).
+
+It asks the server, so it fails with exit 3 when you are not signed in or the
+credential is rejected; run hadron auth login. Use hadron auth status to ask
+whether this request's credential authenticates without returning a profile.`,
+		Example: `  hadron auth whoami
+  hadron auth whoami --json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -107,17 +116,7 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 					_, err := fmt.Fprintln(w, nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
 					return err
 				}
-				label := dto.Name
-				if label == "" {
-					label = dto.Handle
-				}
-				if label == "" {
-					label = dto.ID
-				}
-				line := label
-				if dto.Email != "" {
-					line = fmt.Sprintf("%s (%s)", label, dto.Email)
-				}
+				line := userLine(dto.Name, dto.Handle, dto.ID, dto.Email)
 				// Admin impersonation: make the acting-as state loud so a
 				// scripted or forgetful operator can't mistake it for their own.
 				if dto.Impersonation != nil {

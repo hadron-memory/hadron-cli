@@ -1,0 +1,153 @@
+package cmd
+
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// cli#1853: `agent boot-prompt` is one agentServedBootPrompt call; the text is
+// printed byte for byte and each typed refusal has an explicit exit code.
+
+const servedJSON = `{"data":{"agentServedBootPrompt":{"decision":{"compiledContentHash":"h1","compiledNodeId":"n1","pointerLevel":"AGENT","provenanceRevSeq":2,"servedRevSeq":3},"text":"  You are Bot.\n\ttrailing  \n"}}}`
+
+func TestAgentBootPromptSendsOnlyWhatWasAsked(t *testing.T) {
+	calls, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": servedJSON}, "boot-prompt", "hrn:agent:acme.com:bot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calls.ops) != 1 || calls.ops[0] != "AgentServedBootPrompt" {
+		t.Fatalf("ops=%v", calls.ops)
+	}
+	v := calls.vars["AgentServedBootPrompt"]
+	if v["agentRef"] != "hrn:agent:acme.com:bot" {
+		t.Fatalf("vars=%v", v)
+	}
+	// genqlient sends an unset optional as null, which the server reads as absent.
+	if v["appRef"] != nil {
+		t.Fatalf("appRef must be unset without --app (the ambient App is never used): %v", v)
+	}
+	if v["llmModel"] != nil {
+		t.Fatalf("llmModel must be unset without --model: %v", v)
+	}
+	if out != "served boot prompt: AGENT n1 revision 3\n  You are Bot.\n\ttrailing  \n" {
+		t.Fatalf("header line then text raw: %q", out)
+	}
+}
+
+func TestAgentBootPromptForwardsAppAndModel(t *testing.T) {
+	calls, _, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": servedJSON},
+		"boot-prompt", "agt1", "--app", "hrn:app:acme.com:team", "--model", "claude-opus-5-5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := calls.vars["AgentServedBootPrompt"]
+	if v["appRef"] != "hrn:app:acme.com:team" || v["llmModel"] != "claude-opus-5-5" {
+		t.Fatalf("vars=%v", v)
+	}
+}
+
+func TestAgentBootPromptBlankFlagsRefuseBeforeAnyCall(t *testing.T) {
+	for _, args := range [][]string{{"boot-prompt", "agt1", "--model", " "}, {"boot-prompt", "agt1", "--app", " "}, {"boot-prompt", " "}} {
+		calls, _, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": servedJSON}, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(calls.ops) != 0 {
+			t.Fatalf("%v: err=%v ops=%v", args, err, calls.ops)
+		}
+	}
+}
+
+func TestAgentBootPromptJSONShapeIsPinned(t *testing.T) {
+	_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": servedJSON}, "boot-prompt", "agt1", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if len(got) != 2 || got["text"] != "  You are Bot.\n\ttrailing  \n" {
+		t.Fatalf("top level must be exactly {decision,text}: %v", got)
+	}
+	d, _ := got["decision"].(map[string]any)
+	want := map[string]any{"pointerLevel": "AGENT", "compiledNodeId": "n1", "compiledContentHash": "h1", "provenanceRevSeq": float64(2), "servedRevSeq": float64(3)}
+	if len(d) != len(want) {
+		t.Fatalf("decision keys: %v", d)
+	}
+	for k, w := range want {
+		if d[k] != w {
+			t.Fatalf("decision.%s=%v want %v", k, d[k], w)
+		}
+	}
+}
+
+func TestAgentBootPromptRefusalsMapAndPrintNoPrompt(t *testing.T) {
+	for code, want := range map[string]int{
+		"AGENT_NOT_FOUND":            exitcode.NotFound,
+		"BOOT_PROMPT_NOT_SET":        exitcode.Error,
+		"BOOT_PROMPT_TARGET_DELETED": exitcode.Error,
+		"BOOT_PROMPT_NOT_APPROVED":   exitcode.Error,
+		"BOOT_PROMPT_NOT_SIGNED":     exitcode.Error,
+	} {
+		t.Run(code, func(t *testing.T) {
+			calls, out, err := runAgentSub(t, map[string]string{
+				"AgentServedBootPrompt": `{"errors":[{"message":"` + code + `: nope","extensions":{"code":"` + code + `"}}]}`,
+			}, "boot-prompt", "agt1")
+			if err == nil || exitCodeFor(err) != want {
+				t.Fatalf("err=%v want exit %d", err, want)
+			}
+			if out != "" || len(calls.ops) != 1 {
+				t.Fatalf("nothing printed, no follow-up: out=%q ops=%v", out, calls.ops)
+			}
+			if !strings.Contains(err.Error(), code) {
+				t.Fatalf("message must carry the code: %v", err)
+			}
+		})
+	}
+}
+
+func TestAgentBootPromptEmptyTextWithValidDecisionIsSuccess(t *testing.T) {
+	empty := strings.Replace(servedJSON, `"text":"  You are Bot.\n\ttrailing  \n"`, `"text":""`, 1)
+	_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": empty}, "boot-prompt", "agt1")
+	if err != nil || out != "served boot prompt: AGENT n1 revision 3\n" {
+		t.Fatalf("err=%v out=%q", err, out)
+	}
+}
+
+func TestAgentBootPromptMalformedDecisionRefusesExit1(t *testing.T) {
+	bads := []string{
+		strings.Replace(servedJSON, `"compiledNodeId":"n1"`, `"compiledNodeId":""`, 1),
+		strings.Replace(servedJSON, `"servedRevSeq":3`, `"servedRevSeq":0`, 1),
+		strings.Replace(servedJSON, `"pointerLevel":"AGENT"`, `"pointerLevel":"BOGUS"`, 1),
+		// R7(a): a WORKER-scope decision does not prove the agent-read serve.
+		strings.Replace(servedJSON, `"pointerLevel":"AGENT"`, `"pointerLevel":"WORKER"`, 1),
+		`{"data":{"agentServedBootPrompt":{"decision":null,"text":"x"}}}`,
+		`{"data":{"agentServedBootPrompt":null}}`,
+	}
+	for i, bad := range bads {
+		for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
+			_, out, err := runAgentSub(t, map[string]string{"AgentServedBootPrompt": bad}, args...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
+				t.Fatalf("case %d %v: err=%v out=%q", i, args, err, out)
+			}
+		}
+	}
+}
+
+// R5(a): serverCode is the branchable signal on every serve refusal, so the
+// error must carry it for the --json envelope.
+func TestAgentBootPromptRefusalKeepsServerCode(t *testing.T) {
+	for _, code := range []string{"BOOT_PROMPT_NOT_SET", "BOOT_PROMPT_TARGET_DELETED", "BOOT_PROMPT_NOT_APPROVED", "BOOT_PROMPT_NOT_SIGNED"} {
+		for _, args := range [][]string{{"boot-prompt", "agt1"}, {"boot-prompt", "agt1", "--json"}} {
+			_, _, err := runAgentSub(t, map[string]string{
+				"AgentServedBootPrompt": `{"errors":[{"message":"` + code + `: nope","extensions":{"code":"` + code + `"}}]}`,
+			}, args...)
+			var coded interface{ ServerCode() string }
+			if !errors.As(err, &coded) || coded.ServerCode() != code {
+				t.Fatalf("%s %v: err=%v must carry serverCode", code, args, err)
+			}
+		}
+	}
+}

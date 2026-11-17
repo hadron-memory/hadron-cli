@@ -1,0 +1,468 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/Khan/genqlient/graphql"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// hadron-cli#1234: the --unlock header and its guards at the transport.
+
+func keysCtx1234(t *testing.T, pass string) context.Context {
+	t.Helper()
+	ctx, err := WithMemoryKeys(context.Background(), []MemoryKey{{Memory: "hrn:mem:acme.com:diary", Passphrase: pass}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ctx
+}
+
+func TestMemoryKeysHeaderOnlyWhenTheContextCarriesOne(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Header.Get(MemoryKeysHeader))
+	}))
+	defer srv.Close()
+	d := &bearerDoer{token: "hdr_user_x", inner: srv.Client()}
+	empty, err := WithMemoryKeys(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ctx := range []context.Context{context.Background(), keysCtx1234(t, "pw"), empty} {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, nil)
+		resp, err := d.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	}
+	want := []string{"", `[{"memory":"hrn:mem:acme.com:diary","passphrase":"pw"}]`, ""}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("call %d: %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestWithMemoryKeysBounds(t *testing.T) {
+	nine := make([]MemoryKey, 9)
+	for i := range nine {
+		nine[i] = MemoryKey{Memory: "m", Passphrase: "p"}
+	}
+	if _, err := WithMemoryKeys(context.Background(), nine); exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("9 entries: %v", err)
+	}
+	big := []MemoryKey{{Memory: "m", Passphrase: strings.Repeat("x", MaxMemoryKeysBytes)}}
+	_, err := WithMemoryKeys(context.Background(), big)
+	if exitcode.FromError(err) != exitcode.Usage || strings.Contains(err.Error(), "xxxx") {
+		t.Fatalf("oversized: %v", err)
+	}
+}
+
+// net/http forwards a custom header across a cross-host redirect; a request
+// carrying the passphrase must be refused before the replay, under both
+// redirect policies. A same-host redirect keeps it.
+func TestMemoryKeysDoNotFollowACrossHostRedirect(t *testing.T) {
+	for _, token := range []string{"hdr_user_x", ""} {
+		for _, crossHost := range []bool{true, false} {
+			var got []string
+			other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = append(got, r.Header.Get(MemoryKeysHeader))
+				_, _ = w.Write([]byte(`{"data":{}}`))
+			}))
+			var origin *httptest.Server
+			origin = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/landed" {
+					got = append(got, r.Header.Get(MemoryKeysHeader))
+					_, _ = w.Write([]byte(`{"data":{}}`))
+					return
+				}
+				target := origin.URL + "/landed"
+				if crossHost {
+					target = other.URL + "/landed"
+				}
+				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			}))
+			c, err := NewClient(origin.URL, token, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var data map[string]any
+			err = c.MakeRequest(keysCtx1234(t, "pw"), &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+			if crossHost {
+				if err == nil || len(got) != 0 {
+					t.Errorf("token=%q cross-host: err=%v headers=%q", token, err, got)
+				}
+			} else if err != nil || len(got) != 1 || !strings.Contains(got[0], `"passphrase":"pw"`) {
+				t.Errorf("token=%q same-host: err=%v headers=%q", token, err, got)
+			}
+			other.Close()
+			origin.Close()
+		}
+	}
+}
+
+func TestMemoryKeysNotSentOverCleartextHTTP(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	sent := 0
+	d := &bearerDoer{inner: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		sent++
+		return &http.Response{StatusCode: 200, Body: http.NoBody, Header: http.Header{}, Request: r}, nil
+	})}}
+	req, _ := http.NewRequestWithContext(keysCtx1234(t, "pw"), http.MethodPost, "http://srv.example/graphql", nil)
+	if _, err := d.Do(req); err == nil || sent != 0 {
+		t.Fatalf("cleartext: err=%v sent=%d", err, sent)
+	}
+}
+
+// Error-bearing answers are scrubbed of every spelling; a successful answer's
+// data — the plaintext asked for — is never rewritten, even when a short
+// passphrase also occurs in it.
+func TestMemoryKeysRedactionScope(t *testing.T) {
+	const pass = `pa"ss`
+	esc := `pa\"ss`
+	cases := []struct {
+		name, body string
+		status     int
+		mustKeep   string
+		mustLose   []string
+	}{
+		{"200 data kept", `{"data":{"node":{"content":"my pa\"ss note"}}}`, 200, `my pa\"ss note`, nil},
+		{"200 errors scrubbed, data kept", `{"data":{"x":"pa\"ss"},"errors":[{"message":"echo pa\"ss","extensions":{"code":"X"}}]}`, 200, `"x":"pa\"ss"`, []string{`echo pa\"ss`}},
+		{"500 envelope scrubbed", `{"errors":[{"message":"bad pa\"ss","extensions":{"code":"WRONG_KEY"}}]}`, 500, `"WRONG_KEY"`, []string{esc}},
+		{"502 page scrubbed", `<html>pa"ss [{"memory":"hrn:mem:acme.com:diary","passphrase":"pa\"ss"}]</html>`, 502, "<html>", []string{pass, esc}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var seen []byte
+			d := &bearerDoer{token: "hdr_user_x", inner: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: c.status, Body: io.NopCloser(strings.NewReader(c.body)), Header: http.Header{}, Request: r}, nil
+			})}}
+			req, _ := http.NewRequestWithContext(keysCtx1234(t, pass), http.MethodPost, "https://srv.example/graphql", nil)
+			resp, err := d.Do(req)
+			if err != nil {
+				var gw *gatewayError
+				if !errors.As(err, &gw) {
+					t.Fatal(err)
+				}
+				seen = gw.body
+			} else {
+				seen, _ = io.ReadAll(resp.Body)
+			}
+			if !strings.Contains(string(seen), c.mustKeep) {
+				t.Fatalf("lost %q: %s", c.mustKeep, seen)
+			}
+			for _, s := range c.mustLose {
+				if strings.Contains(string(seen), s) {
+					t.Fatalf("kept %q: %s", s, seen)
+				}
+			}
+		})
+	}
+}
+
+// A path-less unlock code (the server's context-time refusal) is typed; the
+// same code from a resolver (with a path), or without --unlock, keeps the
+// ordinary mapping.
+func TestUnlockRefusalOnlyForContextErrorsOnKeyedRequests(t *testing.T) {
+	body := func(path string) string {
+		return `{"data":null,"errors":[{"message":"Memory not found.",` + path + `"extensions":{"code":"NOT_FOUND"}}]}`
+	}
+	for _, c := range []struct {
+		name  string
+		keyed bool
+		path  string
+		typed bool
+	}{
+		{"keyed, no path", true, "", true},
+		{"keyed, resolver path", true, `"path":["node"],`, false},
+		{"no keys", false, "", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(body(c.path)))
+			}))
+			defer srv.Close()
+			cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := context.Background()
+			if c.keyed {
+				ctx = keysCtx1234(t, "pw")
+			}
+			var data map[string]any
+			err = cl.MakeRequest(ctx, &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+			typed := strings.Contains(err.Error(), "--unlock refused (NOT_FOUND)")
+			if typed != c.typed || exitcode.FromError(MapError(err)) != exitcode.NotFound {
+				t.Fatalf("typed=%v err=%v", typed, err)
+			}
+		})
+	}
+}
+
+// The raw `hadron api` path and resolver-path errors map NOT_ENCRYPTED through
+// the shared code table.
+func TestNotEncryptedIsUsage(t *testing.T) {
+	if got := codeForExtension("NOT_ENCRYPTED"); got != exitcode.Usage {
+		t.Fatalf("NOT_ENCRYPTED → %d", got)
+	}
+}
+
+// PR #1616 BLIND P2-1: a passphrase can be a short, common word — even one of
+// the envelope's own keys or a substring of the refusal code. Redaction must
+// scrub what is RENDERED without rewriting the structure the refusal is
+// classified by, at HTTP 200 and at Apollo's context-failure 500.
+func TestUnlockRefusalSurvivesProtocolWordPassphrases(t *testing.T) {
+	for code, exit := range unlockCodeExit {
+		for _, pass := range []string{"errors", "message", "extensions", "code", "KEY", "WRONG", "path", "data", "a", "e", "N", "_"} {
+			for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+				t.Run(code+"/"+pass+"/"+http.StatusText(status), func(t *testing.T) {
+					body := `{"data":null,"errors":[{"message":"echo ` + pass + ` back","extensions":{"code":"` + code + `"}}]}`
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(status)
+						_, _ = w.Write([]byte(body))
+					}))
+					defer srv.Close()
+					cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var data map[string]any
+					err = cl.MakeRequest(keysCtx1234(t, pass), &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+					if err == nil {
+						t.Fatal("no error")
+					}
+					var sc interface{ ServerCode() string }
+					if !errors.As(err, &sc) || sc.ServerCode() != code {
+						t.Fatalf("serverCode lost: %v", err)
+					}
+					if got := exitcode.FromError(MapError(err)); got != exit {
+						t.Fatalf("exit %d, want %d: %v", got, exit, err)
+					}
+					if strings.Contains(err.Error(), "echo "+pass+" back") {
+						t.Fatalf("secret-bearing text rendered: %v", err)
+					}
+				})
+			}
+		}
+	}
+}
+
+// The raw `hadron api` path classifies the body after redactUnlockSecrets, so
+// the same words must leave the envelope and its code recognizable there.
+func TestRedactUnlockSecretsKeepsEnvelopeStructure(t *testing.T) {
+	for code, exit := range unlockCodeExit {
+		for _, pass := range []string{"errors", "message", "code", "KEY", "extensions", "a", "N", "_"} {
+			for _, status := range []int{http.StatusOK, http.StatusInternalServerError, http.StatusBadRequest} {
+				body := []byte(`{"errors":[{"message":"echo ` + pass + ` back","extensions":{"code":"` + code + `"}}]}`)
+				out := redactUnlockSecrets(status, body, []string{pass})
+				if !hasGraphQLErrorsEnvelope(out) {
+					t.Fatalf("%s/%s/%d: envelope lost: %s", code, pass, status, out)
+				}
+				if got, ok := codeFromEnvelope(out); !ok || got != exit {
+					t.Fatalf("%s/%s/%d: code lost (%d,%v): %s", code, pass, status, got, ok, out)
+				}
+				if strings.Contains(string(out), "echo "+pass+" back") {
+					t.Fatalf("%s/%d: message kept: %s", pass, status, out)
+				}
+			}
+		}
+	}
+}
+
+// PR #1616 BLIND delta P2 (Diego): only an error's own --unlock refusal code
+// is kept, and never one a secret spells exactly. An identifier-shaped
+// passphrase echoed as an unknown code — or as a code nested anywhere else —
+// is redacted like any other server text.
+func TestRedactUnlockSecretsNeverKeepsAnEchoedCode(t *testing.T) {
+	const pass = "S3NT1NEL"
+	bodies := map[string]string{
+		"unknown code":       `{"errors":[{"message":"failed","extensions":{"code":"S3NT1NEL"}}]}`,
+		"code inside a code": `{"errors":[{"message":"failed","extensions":{"code":"X_S3NT1NEL_Y"}}]}`,
+		"nested extensions":  `{"errors":[{"message":"failed","extensions":{"code":"WRONG_KEY","detail":{"extensions":{"code":"S3NT1NEL"}}}}]}`,
+	}
+	for name, body := range bodies {
+		for _, status := range []int{http.StatusOK, http.StatusInternalServerError, http.StatusBadRequest} {
+			out := string(redactUnlockSecrets(status, []byte(body), []string{pass}))
+			if strings.Contains(out, pass) {
+				t.Fatalf("%s/%d: secret kept: %s", name, status, out)
+			}
+			if !hasGraphQLErrorsEnvelope([]byte(out)) {
+				t.Fatalf("%s/%d: envelope lost: %s", name, status, out)
+			}
+		}
+	}
+	// A non-200 is scrubbed whole, data included (a 200's data never is).
+	if out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"x"}],"data":{"extensions":{"code":"S3NT1NEL"}}}`), []string{pass})); strings.Contains(out, pass) {
+		t.Fatalf("non-200 data kept the secret: %s", out)
+	}
+	// The nested case still classifies by the error's own refusal code.
+	if code, ok := codeFromEnvelope(redactUnlockSecrets(500, []byte(bodies["nested extensions"]), []string{pass})); !ok || code != exitcode.Usage {
+		t.Fatalf("refusal code lost: %d %v", code, ok)
+	}
+	// A passphrase that IS a refusal code: the secret wins over the code.
+	out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"x","extensions":{"code":"WRONG_KEY"}}]}`), []string{"WRONG_KEY"}))
+	if strings.Contains(out, "WRONG_KEY") {
+		t.Fatalf("a code equal to the passphrase was kept: %s", out)
+	}
+}
+
+// The same echo through the curated client: neither the rendered error nor
+// its serverCode carries the passphrase.
+func TestUnlockEchoedCodeNeverRendered(t *testing.T) {
+	const pass = "S3NT1NEL"
+	for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"failed","extensions":{"code":"` + pass + `"}}]}`))
+		}))
+		cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var data map[string]any
+		err = cl.MakeRequest(keysCtx1234(t, pass), &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+		srv.Close()
+		if err == nil {
+			t.Fatalf("%d: no error", status)
+		}
+		mapped := MapError(err)
+		if strings.Contains(err.Error(), pass) || strings.Contains(mapped.Error(), pass) || strings.Contains(ServerCodeOf(err), pass) {
+			t.Fatalf("%d: secret rendered: %v / %v / %q", status, err, mapped, ServerCodeOf(err))
+		}
+	}
+}
+
+// PR #1616 §10 P2 (Rook): a server that writes "bad header: " +
+// JSON.stringify(header) into an error message escapes every passphrase
+// twice. Neither path may print it, whichever stringify (JavaScript's plain
+// form or Go's HTML-escaping one) wrapped it.
+func TestUnlockStringifiedHeaderEchoNeverRendered(t *testing.T) {
+	stringify := map[string]func(string) string{
+		"js": func(s string) string { return `"` + jsonEscape(s, false) + `"` },
+		"go": func(s string) string { return `"` + jsonEscape(s, true) + `"` },
+		// A truncated echo: the whole-header spelling no longer matches, so
+		// only the twice-escaped passphrase spelling can catch it.
+		"js-partial": func(s string) string { return `"` + jsonEscape(s[1:], false) + `"` },
+		"go-partial": func(s string) string { return `"` + jsonEscape(s[1:], true) + `"` },
+		// A JavaScript server that parses the header and stringifies the
+		// parsed value: no HTML escaping, so & < > appear raw beside an
+		// escaped quote — a spelling only the plain escape produces.
+		"js-reparsed": func(s string) string {
+			var parsed any
+			_ = json.Unmarshal([]byte(s), &parsed)
+			var b strings.Builder
+			enc := json.NewEncoder(&b)
+			enc.SetEscapeHTML(false)
+			_ = enc.Encode(parsed)
+			return strings.TrimSuffix(b.String(), "\n")
+		},
+	}
+	for _, pass := range []string{`Zq9"ss`, `Zq9\ss`, "Zq9\tss", "Zq9<ss", "Zq9&s>s", `Zq9&"s`, "Zq9hunter2"} {
+		for name, wrap := range stringify {
+			for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+				t.Run(name+"/"+http.StatusText(status)+"/"+pass, func(t *testing.T) {
+					reply := func(header string) []byte {
+						msg := "bad header: " + wrap(header)
+						b, _ := json.Marshal(map[string]any{"data": nil, "errors": []any{map[string]any{"message": msg, "path": []string{"node"}}}})
+						return b
+					}
+					var body []byte
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						body = reply(r.Header.Get(MemoryKeysHeader))
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(status)
+						_, _ = w.Write(body)
+					}))
+					defer srv.Close()
+					cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					ctx := keysCtx1234(t, pass)
+					var data map[string]any
+					err = cl.MakeRequest(ctx, &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+					if err == nil {
+						t.Fatal("no error")
+					}
+					keys, _ := memoryKeysFrom(ctx)
+					raw := string(redactUnlockSecrets(status, body, keys.secrets))
+					for _, rendered := range []string{err.Error(), MapError(err).Error(), raw} {
+						if strings.Contains(rendered, "Zq9") {
+							t.Fatalf("passphrase rendered: %s", rendered)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+// Spellings are replaced longest first: when one passphrase is a prefix of
+// another, scrubbing the shorter first would leave the longer one's tail.
+func TestRedactUnlockSecretsLongestFirst(t *testing.T) {
+	ctx, err := WithMemoryKeys(context.Background(), []MemoryKey{
+		{Memory: "hrn:mem:acme.com:a", Passphrase: "Zq9abc"},
+		{Memory: "hrn:mem:acme.com:b", Passphrase: "Zq9abcTAIL7"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, _ := memoryKeysFrom(ctx)
+	out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"echo Zq9abcTAIL7"}]}`), keys.secrets))
+	if strings.Contains(out, "TAIL7") || strings.Contains(out, "Zq9") {
+		t.Fatalf("a longer passphrase was split: %s", out)
+	}
+}
+
+// PR #1616 §10 P3 (Rook): the `hadron api` path scrubs on its own (raw.go);
+// pin it so dropping that scrub fails here, not only in the shared helper.
+func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
+	const pass = "Zq9raw-echo"
+	for _, c := range []struct {
+		status int
+		body   string
+	}{
+		{200, `{"data":null,"errors":[{"message":"echo Zq9raw-echo","path":["x"]}]}`},
+		{400, `{"errors":[{"message":"echo Zq9raw-echo"}]}`},
+		{500, `{"errors":[{"message":"echo Zq9raw-echo"}]}`},
+		{502, `<html>upstream saw Zq9raw-echo</html>`},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(c.status)
+			_, _ = w.Write([]byte(c.body))
+		}))
+		result, err := RawGraphQL(keysCtx1234(t, pass), srv.URL, "", "query Q { x }", nil, srv.Client())
+		srv.Close()
+		rendered := ""
+		if err != nil {
+			rendered += err.Error()
+		}
+		if result != nil {
+			b, _ := json.Marshal(result)
+			rendered += string(b)
+			if rerr := result.Err(); rerr != nil {
+				rendered += rerr.Error()
+			}
+		}
+		if rendered == "" {
+			t.Fatalf("%d: nothing rendered", c.status)
+		}
+		if strings.Contains(rendered, "Zq9") {
+			t.Fatalf("%d: passphrase rendered: %s", c.status, rendered)
+		}
+	}
+}

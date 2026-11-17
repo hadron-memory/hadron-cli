@@ -1,0 +1,58 @@
+# #1706: a distinct node-get projection; older servers keep the original
+# mint/approval/stamp reads unchanged when authorCheck is unsupported.
+query NodeLiveRevisionsContentChecked(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated omitted unavailable
+    nodes {
+      id revision
+      authorship { ...NodeAuthorshipFields }
+      contentValidation { ...NodeContentValidationCheckedFields }
+      approvalStatus { ...NodeApprovalStatusFields }
+      mintStatus { ...NodeMintStatusFields }
+    }
+  }
+}
+fragment NodeContentValidationCheckedFields on NodeContentValidationStatus {
+  state
+  latestReport {
+    outcome nodeRevision reportedAt validationTaskRef validationTaskRevision authorCheck
+  }
+}
+
+# #1706 step 3: server-owned writer-readable task selection; no config/history fallback.
+query ContentValidationNode($ref: ID!) {
+  node(ref: $ref) {
+    id revision
+    validationTasks {
+      state
+      tasks {
+        # @genqlient(pointer: true)
+        broken
+        taskId taskRef revision
+      }
+    }
+  }
+}
+mutation RecordContentValidation(
+  $nodeRef: ID!
+  $nodeRevision: Int!
+  $validationTaskRef: ID!
+  $validationTaskRevision: Int!
+  $outcome: NodeContentValidationOutcome!
+  # @genqlient(omitempty: true)
+  $runId: String
+) {
+  recordNodeContentValidationReport(nodeRef: $nodeRef, nodeRevision: $nodeRevision,
+    validationTaskRef: $validationTaskRef, validationTaskRevision: $validationTaskRevision,
+    outcome: $outcome, runId: $runId) {
+    nodeId replayed state
+    report { nodeRevision validationTaskRef validationTaskRevision outcome reportedAt authorCheck }
+  }
+}

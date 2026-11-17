@@ -1,0 +1,44 @@
+# Chat-history search (hadron-cli#1327 over hadron-server#2882, cor:agt:020:04).
+# Results are references only (seq + message URN): no body, no snippet. The
+# server owns the query bound, the default and maximum page, and the scan bound,
+# so the CLI passes limit/cursor through and never clamps them. Optional
+# variables are omitted, not null, when unset.
+fragment ChatSearchPageFields on TeamChatSearchPage {
+  channelId
+  channelIncarnation
+  complete
+  cursor
+  items {
+    channelId
+    channelIncarnation
+    nodeId
+    seq
+    urn
+  }
+}
+
+query TeamChatSearch(
+  $appRef: ID!
+  $query: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $cursor: String
+) {
+  teamChatSearch(appRef: $appRef, query: $query, limit: $limit, cursor: $cursor) {
+    ...ChatSearchPageFields
+  }
+}
+
+query ChannelMessageSearch(
+  $channelRef: ID!
+  $query: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $cursor: String
+) {
+  channelMessageSearch(channelRef: $channelRef, query: $query, limit: $limit, cursor: $cursor) {
+    ...ChatSearchPageFields
+  }
+}

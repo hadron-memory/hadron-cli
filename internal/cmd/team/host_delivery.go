@@ -109,6 +109,9 @@ func deliveryCodeOf(err error) string {
 func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 	out := []delivery.Batch{}
 	var after *string
+	// Every cursor seen: a repeat at any distance is a cycle (#1186, as the
+	// wake read since #1183), and refuses the read rather than paging forever.
+	seen := map[string]bool{}
 	for {
 		read := s.clock()
 		resp, err := gen.DeliveryBatches(ctx, s.client, s.app, deliveryBatchesPage, after)
@@ -133,9 +136,10 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 			return out, nil
 		}
 		next := page.PageInfo.EndCursor
-		if next == nil || *next == "" || (after != nil && *after == *next) {
+		if next == nil || *next == "" || seen[*next] {
 			return nil, callError("read", "no-cursor")
 		}
+		seen[*next] = true
 		after = next
 	}
 }
@@ -198,14 +202,30 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 	return delivery.ErrHoldUnavailable
 }
 
-// wireDelivery turns chat delivery on for this run: S1's batches, typed
-// through Orca, with the status snapshot written after each step. Tick and
-// task wakes stay unwired (#906 row 1 waits on hadron-server#2069/#2072),
-// and holds are unreported until S5 (#940).
-func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) {
+// orcaRunner is the runner delivery types through: the bounded `orca` exec.
+// It is a variable only so a test can drive a whole poller step through a
+// fake Orca (#1192); nothing else replaces it.
+var orcaRunner = func(bin string) orcaterm.Runner { return orcaterm.Exec(bin, orcaterm.CallTimeout) }
+
+// sharedListWindow is how long one `orca terminal list` answers every
+// delivery: a cycle's worth, far under the poll interval (#2181).
+var sharedListWindow = 5 * time.Second
+
+// sharedListNow is the shared list's clock: nil is the wall clock. A test
+// replaces it so a cycle is a step of the clock, not a race with it.
+var sharedListNow func() time.Time
+
+// wireDelivery turns delivery on for this run: S1's chat batches and the
+// host's due tick and task wakes (hadron-cli#1178), typed through Orca on
+// the same per-worker chain, with the status snapshot written after each
+// step. AckMixed follows the operator's A′ (#2072) assertion in host.yaml;
+// its default is off. Holds remain unreported until S5 (#940).
+// It returns the deliverer it wired.
+func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
-	d := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), stateDir)
+	// One `orca terminal list` serves every delivery of a cycle (#2181).
+	d := delivery.New(srv, delivery.NewSharedList(orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), sharedListWindow, sharedListNow), stateDir)
 	d.Emit = func(e delivery.Event) {
 		book.Observe(e)
 		emit(deliveryEvent(e))
@@ -215,7 +235,13 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 			emit(hostpoller.Event{Time: at.UTC(), Kind: "delivery-failed", Detail: "writing the delivery status: " + err.Error()})
 		}
 	}
+	d.AckMixed = cfg.Delivery.AckMixed
+	d.Registered = p.Registered
+	d.Wakes = srv
+	p.WakeStep = book.ObserveWakes
 	p.EnableDelivery(srv, d)
+	p.EnableWakes(srv, d)
+	return d
 }
 
 // Upstream machine fields an event prints: Orca's terminal handle and the

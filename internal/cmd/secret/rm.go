@@ -16,13 +16,25 @@ import (
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <id>",
+		Use:     "rm <id|urn>",
 		Aliases: []string{"delete"},
 		Short:   "Delete a secret",
-		Long: `Hard-delete a secret by id. Secret URNs will become accepted after the
-server ships resolveSecretRef; until then pass the cuid id.`,
-		Example: `  hadron secret rm sec_123 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Long: `Delete a secret permanently; the value cannot be recovered. Name it by the
+id from hadron secret list, or by URN: hrn:secret:<org or user handle>:<name> (an App secret by its id).
+You can delete your own user secrets, and an org's if you are its ADMIN or
+OWNER. An App secret is deleted with every version it keeps, by whoever the
+server allows (a protected one refuses with SECRET_PROTECTED). An unknown or
+already-deleted secret exits 4.
+
+Nothing checks whether a secret is still in use. Runs that need it fail from
+then on, or pick up a secret of the same name from the org instead of the user.
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2.`,
+		Example: `  hadron secret list --scope user
+  hadron secret rm hrn:secret:alice:github-token
+  hadron secret rm 01a18cf643247d0fa261f320ec74d878 --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := args[0]
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "secret "+ref); err != nil {
@@ -34,7 +46,7 @@ server ships resolveSecretRef; until then pass the cuid id.`,
 			}
 			resp, err := gen.DeleteSecret(cmd.Context(), client, ref)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || !resp.DeleteSecret {
 				return exitcode.Newf(exitcode.NotFound, "secret %q not found", ref)

@@ -87,7 +87,7 @@ func TestOperationKeyHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 			}
 			ctx := WithOperationKey(context.Background(), testOperationKey)
 			var data map[string]any
-			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+			err = c.MakeRequest(ctx, &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
 			if crossHost {
 				if err == nil || len(got) != 0 {
 					t.Errorf("token=%q cross-host redirect must refuse before replaying the key: err=%v headers=%q", token, err, got)
@@ -234,7 +234,7 @@ func TestOperationKeyEchoRedactedAtEveryStatus(t *testing.T) {
 			}
 			ctx := WithOperationKey(context.Background(), key)
 			var data map[string]any
-			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+			err = c.MakeRequest(ctx, &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
 			if err == nil {
 				t.Fatalf("the %d response must surface as an error", tc.status)
 			}

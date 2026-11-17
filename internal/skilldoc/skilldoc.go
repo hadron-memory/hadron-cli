@@ -189,10 +189,14 @@ var (
 	// carry — the host matches descriptions against what the user says, so
 	// a description that never says when to use the skill rarely fires.
 	triggerRE = regexp.MustCompile(`(?i)\buse (it |this )?when\b`)
-	// templateRE finds Mustache placeholders in a body. Export is verbatim, so
-	// a placeholder ships as literal text; that may be intended (a briefing
-	// template) or a leak, which is why it is a warning and not an error.
-	templateRE = regexp.MustCompile(`\{\{[^}]*\}\}`)
+	// templateRE finds Mustache placeholders in a body. Export does not
+	// substitute a variable, so `{{var}}` ships as literal text; that may be
+	// intended (a briefing template) or a leak, which is why it is a warning
+	// and not an error. An include tag `{{> part}}` is the exception: the
+	// export resolver (hadron-server#2048) resolves it, so the pattern skips a
+	// match whose opener is `{{>` (`{{ > x}}` is NOT an include and still warns).
+	// cli#1166, paired with server#2943: the identical pattern on both sides.
+	templateRE = regexp.MustCompile(`\{\{(?:[^>}][^}]*)?\}\}`)
 )
 
 // Declaration is a node's opt-in to export for ONE host: an object at `properties.
@@ -372,6 +376,14 @@ func DeclaredFor(props map[string]any, h Host) (*Declaration, bool) {
 func MalformedFor(props map[string]any, h Host) []string {
 	_, bad := classifyFor(props, h)
 	return bad
+}
+
+// HasDeclarationFor reports whether a node carries a valid or malformed
+// declaration for h. It is the shared subject predicate for lint summaries,
+// completeness expectations, and test doubles; keep those consumers aligned.
+func HasDeclarationFor(props map[string]any, h Host) bool {
+	decl, malformed := classifyFor(props, h)
+	return decl != nil || len(malformed) > 0
 }
 
 // ValidName reports whether name satisfies the host's grammar and length.

@@ -1,0 +1,8 @@
+cor:dmo:050:01:12: Single ID, registered: D-2026-10-01-001. Letter ID: D-2026-10-01-A.
+cor:dmo:050:01:13: Ellipsis range, all registered: D-2026-10-02-002…004. Also three dots: D-2026-10-02-002...003.
+cor:dmo:050:01:14: En dash range with a gap (cat 3 positive: D-2026-10-02-005 unregistered): D-2026-10-02-003–005.
+cor:dmo:050:01:15: Slash list with and without hyphens (cat 3 positive: D-2026-10-01-007): D-2026-10-01-001/002/-003 and D-2026-10-01-002/-007.
+cor:dmo:050:01:16: Two full IDs joined by a slash are two singles, never a letter suffix "D": D-2026-10-01-001 / D-2026-10-01-B.
+cor:dmo:050:01:17: Letter slash list: D-2026-10-01-A/B/-C.
+cor:dmo:050:01:18: Unregistered single (cat 3 positive): D-2026-11-30-001.
+cor:dmo:050:01:19: Never registry IDs (cat 3 negative): DA, DU-1, decision DU-12, rulings:0061, R218, V51, session D1, D3 and D14, and a lowercase anchor #d-2026-10-01-001-in-scope.

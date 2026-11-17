@@ -2,8 +2,10 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -78,13 +80,12 @@ type roleDTO struct {
 	RoleAgentID        *string `json:"roleAgentId"`
 	RoleAgentURN       *string `json:"roleAgentUrn"`
 	RoleAgentName      *string `json:"roleAgentName"`
-	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 }
 
 func roleDTOFromFields(r gen.TeamRoleFields) roleDTO {
 	dto := roleDTO{
 		Role: r.Role, Loc: r.Loc, NodeID: r.NodeId, Description: r.Description,
-		HasNamePlaceholder: r.HasNamePlaceholder,
 	}
 	if r.RoleAgent != nil {
 		dto.RoleAgentID, dto.RoleAgentURN, dto.RoleAgentName = &r.RoleAgent.Id, &r.RoleAgent.Urn, &r.RoleAgent.Name
@@ -128,8 +129,20 @@ func scanTeamRoles(ctx context.Context, client graphql.Client, appRef string, te
 func roleAppScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
 	ctx := cmd.Context()
 	b, err := readBindingOrNilWithApp(ctx, f)
-	if err != nil {
+	if err != nil && !errors.Is(err, errNoWorktree) {
 		return appScope{}, err
+	}
+	// A role belongs to an App, not a worktree. With no App in a binding,
+	// ask for that scope instead of suggesting a worker session. Other binding
+	// errors (including corruption) still surface above.
+	if b == nil || (b.AppID == "" && b.TeamMemory == "") {
+		appRef, err := f.App()
+		if err != nil {
+			return appScope{}, err
+		}
+		if appRef == "" {
+			return appScope{}, exitcode.Newf(exitcode.Usage, "no team App — pass --app <ref> (or set a default App context)")
+		}
 	}
 	return resolveTeamAppScope(ctx, f, b)
 }
@@ -142,6 +155,12 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "The App's role definitions and their role agents",
 		Long: `List the App's role definitions. --team-agent disambiguates when more than
 one installed agent carries a roles: branch.
+Roster-based divergence warnings are suppressed when the install or Agent list
+is withheld, or any install has a withheld Agent; absence cannot be inferred.
+
+Role warning names use bounded, control-free display text. A role-create
+suggestion is omitted if display changes its argument; use app agent list
+<app> --json for the original installed persona role.
 
 This used to answer "which names are still free", the question to ask
 immediately before casting. There is no register to answer it from
@@ -178,15 +197,10 @@ names) is what says whether one is already taken.`,
 				}
 				t := output.NewTable(w, "ROLE", "DESCRIPTION", "AGENT")
 				for _, r := range roles {
-					t.Row(r.Role, dash(r.Description), dash(r.RoleAgentName))
+					t.Row(output.SafeCell(r.Role), output.SafeCell(dash(r.Description)), output.SafeCell(dash(r.RoleAgentName)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
-				}
-				for _, r := range roles {
-					if r.HasNamePlaceholder != nil && !*r.HasNamePlaceholder {
-						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", r.Role)
-					}
 				}
 				// The silent-divergence warnings (#542). A role name is coupled
 				// to an agent's personaRole by string equality alone, and
@@ -202,7 +216,7 @@ names) is what says whether one is already taken.`,
 				// definitions), so it is gated on that.
 				var members []approster.MemberDTO
 				haveRoster := false
-				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
+				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil && r.Complete() {
 					members, haveRoster = r.Members, true
 				}
 				emitRoleConsistencyWarnings(w, roles, members, haveRoster, teamAgent == "")
@@ -241,7 +255,7 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 	}
 	for _, r := range roles {
 		if count[strings.ToLower(r.Role)] == 0 {
-			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
+			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", output.SafeCell(r.Role))
 		}
 	}
 	if !reverseOK {
@@ -256,8 +270,8 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 			continue
 		}
 		if !defined[strings.ToLower(*m.PersonaRole)] {
-			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — create one with `hadron team role create %s`\n",
-				m.AgentName, *m.PersonaRole, *m.PersonaRole)
+			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — %s\n",
+				output.SafeCell(m.AgentName), output.SafeCell(*m.PersonaRole), roleDefinitionHint(*m.PersonaRole, runtime.GOOS))
 		}
 	}
 }
@@ -301,9 +315,6 @@ func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
 						fmt.Fprintf(w, "  role agent: %s (%s) — the prompt template lives there (`agent get`)\n", *dto.RoleAgentName, *dto.RoleAgentURN)
 					} else {
 						fmt.Fprintf(w, "  role agent: — (no single installed agent carries this persona role)\n")
-					}
-					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
-						fmt.Fprintf(w, "  ! the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n")
 					}
 					return nil
 				})
@@ -356,8 +367,8 @@ existing role refuses (TEAM_ROLE_EXISTS); ` + "`role update`" + ` is the edit pa
 --names, --name-range, --name-convention and --allow-out-of-range are gone
 (hadron-server#1050): there is no name register for them to describe.
 
-The prompt TEMPLATE is not here either: it is the role AGENT's systemPrompt
-(` + "`agent create/update --system-prompt`" + `). Authorization is the
+The boot prompt is compiled from boot:source in the Agent system memory
+(use hadron agent compile and hadron node approve). Authorization is the
 Team Agent's definition-edit gate — whoever may write its system memory.`,
 		Example: `  hadron team role create backend-engineer --description "Go services" --app acme.com:eng-team`,
 		Args:    cobra.ExactArgs(1),
@@ -388,11 +399,14 @@ Team Agent's definition-edit gate — whoever may write its system memory.`,
 
 func newCmdRoleUpdate(f *cmdutil.Factory) *cobra.Command {
 	var description, teamAgent string
+	var repos []string
+	var clearRepos bool
 	cmd := &cobra.Command{
-		Use:   "update <role> --description <d>",
-		Short: "Edit a role's description",
-		Long: `Edit a role definition's description — the only field a client sets now
-that the name register is gone (hadron-server#1050).
+		Use:   "update <role> [--description <d>] [--repo <owner/repo> | --clear-repos]",
+		Short: "Edit a role's description or repository affinity",
+		Long: `Edit a role description or repository affinity. Repeat --repo for each repository;
+--clear-repos sends an empty list (--clear-repos=false is the same as leaving it out). Omitted fields preserve their values.
+Repository affinity is advisory only, never an authorization or launch gate.
 
 Omitted is "preserve" on this server, so an update that names nothing is
 refused rather than sent: a no-op write that reports success is worse than
@@ -400,8 +414,16 @@ a usage error. Sibling data keys always survive (hadron-server#960).`,
 		Example: `  hadron team role update backend-engineer --description "Go services and the GraphQL API"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("description") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --description")
+			if cmd.Flags().Changed("repo") && clearRepos {
+				return exitcode.Newf(exitcode.Usage, "use --repo or --clear-repos, not both")
+			}
+			for _, r := range repos {
+				if strings.TrimSpace(r) == "" {
+					return exitcode.Newf(exitcode.Usage, "--repo must not be empty; use --clear-repos")
+				}
+			}
+			if !cmd.Flags().Changed("description") && !cmd.Flags().Changed("repo") && !clearRepos {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --description, --repo or --clear-repos")
 			}
 			scope, err := roleAppScope(cmd, f)
 			if err != nil {
@@ -419,16 +441,53 @@ a usage error. Sibling data keys always survive (hadron-server#960).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateTeamRoleMeta(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, &description)
+			var desc *string
+			if cmd.Flags().Changed("description") {
+				desc = &description
+			}
+			var fields *gen.TeamRoleFields
+			var resultRepos []string
+			if cmd.Flags().Changed("repo") || clearRepos {
+				if clearRepos {
+					repos = []string{}
+				}
+				resp, e := gen.UpdateTeamRoleRepos(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, desc, repos)
+				err = e
+				if resp != nil && resp.UpdateTeamRole != nil {
+					fields = &resp.UpdateTeamRole.TeamRoleFields
+					resultRepos = append([]string{}, resp.UpdateTeamRole.Repos...)
+				}
+			} else {
+				resp, e := gen.UpdateTeamRoleMeta(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, desc)
+				err = e
+				if resp != nil && resp.UpdateTeamRole != nil {
+					fields = &resp.UpdateTeamRole.TeamRoleFields
+				}
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.UpdateTeamRole == nil {
+			if fields == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no role")
 			}
-			return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated", appLabel)
+			if cmd.Flags().Changed("repo") || clearRepos {
+				d := struct {
+					roleDTO
+					Repos []string `json:"repos"`
+				}{roleDTOFromFields(*fields), resultRepos}
+				return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+					if _, e := fmt.Fprintf(w, "app: %s\n", appLabel()); e != nil {
+						return e
+					}
+					_, e := fmt.Fprintf(w, "updated role %s; repos: %s\n", output.SafeCell(d.Role), output.SafeCell(strings.Join(d.Repos, ", ")))
+					return e
+				})
+			}
+			return emitRoleReceipt(f, *fields, "updated", appLabel)
 		},
 	}
+	cmd.Flags().StringArrayVar(&repos, "repo", nil, "repository affinity, repeatable; omitted preserves")
+	cmd.Flags().BoolVar(&clearRepos, "clear-repos", false, "clear all repository affinity")
 	cmd.Flags().StringVar(&description, "description", "", "role description")
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd

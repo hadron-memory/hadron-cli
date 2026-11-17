@@ -6,6 +6,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -57,6 +58,7 @@ mentions unfired — so that signal comes early rather than in the receipt.`,
 	cmd.AddCommand(newCmdTeamChatMarkRead(f))
 	cmd.AddCommand(newCmdTeamChatCheck(f))
 	cmd.AddCommand(newCmdTeamChatInbox(f))
+	cmd.AddCommand(newCmdTeamChatSearch(f))
 	return cmd
 }
 
@@ -154,11 +156,17 @@ func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (a
 // envelope, plus ONE CLI-only field — `author`, an alias of the server's
 // `authorName` (see below). It is no longer verbatim, so do not treat every
 // field here as a server field when touching codegen or the schema.
+type teamTagDTO struct {
+	HeadID string `json:"headId"`
+	Label  string `json:"label"`
+}
+
 type teamChatMessageDTO struct {
-	NodeID string `json:"nodeId"`
-	Seq    int    `json:"seq"`
-	Body   string `json:"body"`
-	At     string `json:"at"`
+	TeamTags []teamTagDTO `json:"teamTags"`
+	NodeID   string       `json:"nodeId"`
+	Seq      int          `json:"seq"`
+	Body     string       `json:"body"`
+	At       string       `json:"at"`
 	// Author is an ALIAS of AuthorName, carried for the retired academy
 	// dialect (#406). `hadron chat read` names this field `author`, and reads
 	// "accept the retired dialect forever" per the #369 decision record — so a
@@ -195,8 +203,16 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 	if mentions == nil {
 		mentions = []string{}
 	}
+	var tags []teamTagDTO
+	if m.TeamTags != nil {
+		tags = make([]teamTagDTO, 0, len(m.TeamTags))
+		for _, tag := range m.TeamTags {
+			tags = append(tags, teamTagDTO{HeadID: tag.HeadId, Label: tag.Label})
+		}
+	}
 	return teamChatMessageDTO{
-		NodeID: m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
+		TeamTags: tags,
+		NodeID:   m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
 		Author: m.AuthorName, AuthorName: m.AuthorName,
 		AuthorUserID: m.AuthorUserId, AuthorWorkerID: m.AuthorWorkerId,
 		SessionID: m.SessionId, ReplyToSeq: m.ReplyToSeq, Mentions: mentions,
@@ -210,6 +226,7 @@ func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 // Host delivery is injected only after the landed C1/S1 adapter is available.
 func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeliveryPreparer) *cobra.Command {
 	var hostConfig string
+	var push bool
 	var body, bodyFile, replyTo string
 	var asMe bool
 	cmd := &cobra.Command{
@@ -237,6 +254,11 @@ refused when stdin is an interactive terminal (use --body-file there).
 --reply-to takes the seq of the message being answered, as shown by
 ` + "`team chat read`" + `.
 
+TEAM_CHAT_DUPLICATE and TEAM_CHAT_POST_RATE_LIMITED are deliberate post
+refusals (exit 5): read the server's message for the earlier seq or the reset
+time before trying again. The CLI sends the post once and never retries these
+refusals. --json keeps their names in error.serverCode (error.code is numeric).
+
 With --orca-host-config PATH, validate this host before posting, then attempt
 already-due batches for it after confirmed post output (including older unrelated
 batches). Without the flag no host config, key or Orca is touched. The host uses
@@ -244,14 +266,38 @@ a separate session-free key and must already be registered for the same App and
 server; this command never registers it. A held/failed pass preserves post
 stdout/JSON and exit 0: do not repost; recover with
 hadron team host run --config <host.yaml>. Held deliveries are reported in
-local counts but are not reported to the server yet (no alarm/escalation).`,
+local counts but are not reported to the server yet (no alarm/escalation).
+
+With --push (which REQUIRES --orca-host-config, exit 2 before posting
+otherwise) the post also goes to the terminals of the workers it MENTIONS, and
+only to them: the recipients are the mentions the server stored on the message
+(@all / @team push to no one), and the CLI parses nothing. Each recipient gets
+its whole due batch through the poller's delivery transaction, so nothing is
+typed over a draft and a held recipient's marks do not move. The report says
+per recipient pushed (acknowledged), typed (the text reached the terminal but the
+acknowledgement did not land: no mark moved, still due, never typed again; reason
+ack-pending), held (the delivery's reason, e.g. draft), not-pushed, or
+unconfirmed (the delivery pass failed before this recipient had an outcome, so
+whether it was typed is not established; reason push-failed), in the text and
+in --json under "push", each with "acked" (batches whose acknowledgement was
+accepted) and "batch" (the span of the batch that decided the state, or none).
+not-pushed names its cause: not-on-host (the mention matches no worker
+registered on this host with a configured worktree; push from that worker's
+host) or no-due-batch (the worker is on this host but the server offered no
+due batch for it; why none was due is not known to the CLI). Every state exits
+0: the post stands either way, so test the state, not the exit. A failed push never undoes the post or
+changes its exit code.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
-  hadron team chat post --reply-to 42 "done"`,
+  hadron team chat post --reply-to 42 "done"
+  hadron team chat post --push --orca-host-config host.yaml "@rufus your turn"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if cmd.Flags().Changed("orca-host-config") && strings.TrimSpace(hostConfig) == "" {
 				return exitcode.Newf(exitcode.Usage, "--orca-host-config requires a host configuration file")
+			}
+			if push && !cmd.Flags().Changed("orca-host-config") {
+				return exitcode.Newf(exitcode.Usage, "--push requires --orca-host-config <host.yaml> (the host key that delivers); nothing posted")
 			}
 			// Exactly one body source: the positional, --body, or --body-file.
 			if len(args) == 1 {
@@ -319,6 +365,13 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 					return exitcode.Newf(exitcode.Unavailable, "host delivery preflight returned no pass; nothing was posted")
 				}
 			}
+			var pushPass postHostPushPass
+			if push {
+				var ok bool
+				if pushPass, ok = hostPass.(postHostPushPass); !ok {
+					return exitcode.Newf(exitcode.Unavailable, "host delivery cannot push; nothing was posted")
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -358,7 +411,22 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				return api.MapError(err)
 			}
 			msg := teamChatMessageDTOFromFields(resp.CreateTeamChatMessage.TeamChatMessageFields)
-			err = output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
+			// With --push the report joins the ONE receipt document, so the
+			// push runs first; the post is already live, so a stderr line
+			// goes out before it and a lost receipt is never a silent post.
+			var pushed []postPushResult
+			if pushPass != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: posted seq %d; pushing to mentioned recipients\n", msg.Seq)
+				pushed = reportPostHostPush(ctx, pushPass, f.IOStreams.ErrOut, msg.Seq, pushRecipients(msg.Mentions))
+			}
+			var receipt any = msg
+			if push {
+				receipt = struct {
+					teamChatMessageDTO
+					Push []postPushResult `json:"push"`
+				}{msg, append([]postPushResult{}, pushed...)}
+			}
+			err = output.Write(f.IOStreams, f.JSON, receipt, func(w io.Writer) error {
 				who := "you"
 				if msg.AuthorName != nil {
 					who = *msg.AuthorName
@@ -375,8 +443,22 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				if _, err := fmt.Fprintf(w, "✓ posted as %s (seq %d%s)\n", who, msg.Seq, reply); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
-				return err
+				if _, err := fmt.Fprintf(w, "  app: %s\n", appLabel()); err != nil {
+					return err
+				}
+				for _, r := range pushed {
+					reason := ""
+					if r.Reason != "" {
+						reason = " (" + r.Reason + ")"
+						if r.Reason == "ack-pending" {
+							reason = fmt.Sprintf(" (ack-pending; acked %d)", r.Acked)
+						}
+					}
+					if _, err := fmt.Fprintf(w, "  push %s: %s%s batch %s\n", r.Recipient, r.State, reason, r.Batch); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 			if err != nil {
 				if hostPass != nil {
@@ -384,7 +466,7 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				}
 				return err
 			}
-			if hostPass != nil {
+			if hostPass != nil && !push {
 				if flusher, ok := f.IOStreams.Out.(interface{ Flush() error }); ok {
 					if err := flusher.Flush(); err != nil {
 						fmt.Fprintln(f.IOStreams.ErrOut, "note: post succeeded but its receipt flush failed; no delivery attempted; check chat before posting again")
@@ -404,6 +486,7 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	if prepare != nil {
+		cmd.Flags().BoolVar(&push, "push", false, "also deliver the post to the terminals of the workers it mentions (requires --orca-host-config)")
 		cmd.Flags().StringVar(&hostConfig, "orca-host-config", "", "attempt this host’s due deliveries after posting (including older unrelated batches)")
 	}
 	return cmd
@@ -425,15 +508,22 @@ const TeamChatPageSize = 200
 const teamChatDefaultLimit = 20
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
-	var since, before, limit int
+	var tagFlags cmdutil.ChatTagFlags
+	var since, before, limit, thread int
 	var all bool
 	var mentionsMe bool
 	var mentions string
+	var wait, pollInterval time.Duration
+	// returned is how many messages the latest ordinary read returned; the
+	// --wait loop (chat_wait.go) polls until it is non-zero.
+	var returned int
 	cmd := &cobra.Command{
 		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
 		Short:   "Read one page of team chat, newest page by default",
 		Long: `Read one page of team-chat messages, oldest first within the page.
+Text keeps [seq] first, then the message time in UTC at minute precision.
+A missing or invalid time is omitted; JSON at is unchanged.
 With no cursor, the server returns the newest page. Pass --before <seq> to
 walk back, or --since <seq> to walk forward from that seq. The response's
 prevBefore and nextSince are the respective cursors to pass next turn.
@@ -505,13 +595,35 @@ rules below.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
-messages read ON THE SERVER, through the same seq — which is what stops a
-team-chat router nudging you
-about messages you have seen. It happens only AFTER the messages were
+messages read ON THE SERVER, through the same seq, so your unread state on
+the server matches what you have read. It happens only AFTER the messages were
 printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 --before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `
-for those. An older server that still refuses attention skips the mark; other
+for those. An older server that cannot mark messages read skips the mark; other
 mark failures produce a note on stderr and the read still succeeds.
+
+READING A THREAD (--thread, cli#1262). --thread <seq> returns the DIRECT replies
+to that message — never the message itself, and never replies to those replies
+(a reply's own thread is --thread <its seq>; find the seq in the "↩N"/replyToSeq
+of a message). The server filters, so --since, --before, --limit and --all page
+through the replies, not the whole chat. A seq that names no message in this
+chat is exit 4 (not found), never an empty page; a message that exists with no
+replies is a valid empty page. A thread read is a filtered window: like
+--mentions it never advances your watermark or server read state (use
+` + "`team chat mark-read`" + `), and it skips the freshness comparison.
+
+WAITING (--wait, cli#1261). Team chat is never pushed to you (cor:agt:020:04),
+so there is no event to block on: --wait <duration> POLLS. With --since <seq>
+(the nextSince of your last read) it runs this same read every --poll-interval
+(default 5s, at least 2s, so it is never a busy loop) until a poll returns a
+message, then prints that read and exits 0, or until <duration> has passed. On
+timeout it prints the last (empty) read and exits 13 — distinct from 2 (usage),
+4 (not found), 7 (unavailable) and 9 (` + "`team chat check`" + ` found nothing
+tagged); nothing was wrong, so wait again from the same --since. Every poll is
+an ordinary read — the same gates, mention filter, attribution and read-state
+rules — and a poll that returns nothing changes nothing; the read-state lines of
+empty polls are not printed. A failing poll stops the wait at once with its own
+error. --wait needs --since and cannot be combined with --before or --all.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
@@ -522,7 +634,9 @@ them "(human)" / "(worker)".`,
 		Example: `  hadron team chat read
   hadron team chat read --since 42
   hadron team chat read --all --since 0
-  hadron team chat read --mentions-me --json`,
+  hadron team chat read --mentions-me --json
+  hadron team chat read --thread 42 --since 0   # the direct replies to message #42
+  hadron team chat read --since 42 --mentions-me --wait 2m   # poll for up to 2 minutes; exit 13 on timeout`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// FLAG VALIDATION FIRST — above the binding read and above
@@ -554,6 +668,8 @@ them "(human)" / "(worker)".`,
 			case cmd.Flags().Changed("limit") && limit == 0:
 				return exitcode.Newf(exitcode.Usage,
 					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
+			case cmd.Flags().Changed("thread") && thread < 1:
+				return exitcode.Newf(exitcode.Usage, "--thread takes the seq of the message whose replies you want (seqs start at 1)")
 			case limit < 0:
 				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
 			case limit > TeamChatPageSize:
@@ -569,6 +685,9 @@ them "(human)" / "(worker)".`,
 				// honest end-of-history answer rather than a mistake.
 				return exitcode.Newf(exitcode.Usage,
 					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
+			}
+			if err := tagFlags.Validate(cmd); err != nil {
+				return err
 			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -610,6 +729,7 @@ them "(human)" / "(worker)".`,
 			// newest page. An explicit --since 0 starts at the oldest page;
 			// --all without --since does the same for a full forward walk.
 			sinceGiven := cmd.Flags().Changed("since")
+			threadGiven := cmd.Flags().Changed("thread")
 			tailRead := !sinceGiven && !cmd.Flags().Changed("before") && !all
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
@@ -618,10 +738,18 @@ them "(human)" / "(worker)".`,
 				pageSize = teamChatDefaultLimit
 			}
 			attribution := newChatReadAttribution(ctx, f, appRef, b)
-			state, err := probeChatReadState(ctx, f, client, appRef, b, attribution)
+			// cli#1677: the head probe stays before the page (its claim is
+			// about messages seen BEFORE the page was asked for), but the
+			// allocator-head and read-cursor reads are diagnostics that
+			// neither decide staleness nor acknowledge anything, so they
+			// overlap the head and page reads. The deferred wait keeps their
+			// notes on every exit path; the explicit one below fills state.
+			state, err := probeChatHead(ctx, f, client, appRef, attribution)
 			if err != nil {
 				return err
 			}
+			meta := startChatReadMetadata(ctx, f, client, appRef, b)
+			defer meta.wait(f, nil)
 			msgs := []teamChatMessageDTO{}
 			lastPageCount := 0
 			cursor := since
@@ -636,8 +764,21 @@ them "(human)" / "(worker)".`,
 					b := before
 					beforeArg = &b
 				}
-				resp, err := attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
+				var resp *gen.TeamChatMessagesResponse
+				var err error
+				if len(tagFlags.Heads()) > 0 {
+					resp, err = attribution.tagsMulti(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg, tagFlags.Heads(), nil)
+				} else if tagFlags.Active() {
+					resp, err = attribution.tags(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg, tagFlags.Head(), tagFlags.Untagged())
+				} else if threadGiven {
+					resp, err = attribution.thread(ctx, client, appRef, thread, sinceArg, mentionsRef, &size, beforeArg)
+				} else {
+					resp, err = attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
+				}
 				if err != nil {
+					if tagFlags.Active() {
+						return api.MapErrorKeepingCode(err)
+					}
 					return api.MapError(err)
 				}
 				if resp.TeamChatMessages == nil {
@@ -668,11 +809,13 @@ them "(human)" / "(worker)".`,
 				}
 				cursor = msgs[len(msgs)-1].Seq
 			}
+			meta.wait(f, state)
 			// A full DEFAULT page cannot show that the chat ended: say so on
 			// stderr (cli#967); an explicit --limit is the caller's own page.
 			if !all && !cmd.Flags().Changed("limit") && lastPageCount >= pageSize {
 				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d messages; more may exist (--limit up to %d, --before/--since to walk, --all to read every page).\n", pageSize, TeamChatPageSize)
 			}
+			returned = len(msgs)
 			next := since
 			for _, m := range msgs {
 				if m.Seq > next {
@@ -691,7 +834,7 @@ them "(human)" / "(worker)".`,
 			if state.Head != nil {
 				head := *state.Head
 				newest := tailRead || (beforeGiven && before > head && head > since)
-				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil)
+				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil || threadGiven || tagFlags.Active())
 			}
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
 			// cursor: it answers "where do I resume", falls back to whatever the
@@ -747,7 +890,7 @@ them "(human)" / "(worker)".`,
 			//    holding an unrelated chat. `chat post` and the session mutations
 			//    already REFUSE on that mismatch; a read is legitimate, so only
 			//    the bookkeeping is skipped.
-			unfiltered := mentionsRef == nil
+			unfiltered := mentionsRef == nil && !threadGiven && !tagFlags.Active()
 			// recordWatermark reports whether this read COUNTS as having read
 			// through `verified` — the same evidence decides the server-side
 			// mark below (#1353), so the two claims cannot disagree.
@@ -855,7 +998,11 @@ them "(human)" / "(worker)".`,
 					// successful render claims the reader SAW these messages, and a
 					// pipe that closes partway through means they saw only some
 					// (PR #493 review).
-					if _, err := fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body); err != nil {
+					stamp := ""
+					if at, parseErr := time.Parse(time.RFC3339, m.At); parseErr == nil {
+						stamp = at.UTC().Format("2006-01-02T15:04Z") + " "
+					}
+					if _, err := fmt.Fprintf(w, "[%d] %s%s%s%s: %s\n", m.Seq, stamp, who, m.authorKind(), reply+teamTagText(m.TeamTags), m.Body); err != nil {
 						return err
 					}
 				}
@@ -873,9 +1020,19 @@ them "(human)" / "(worker)".`,
 			// shown it — a later page failing, or the render failing, would
 			// otherwise bury messages the reader never saw (PR #732, @codex
 			// P1). A failed mark errs the loss-safe way: a duplicate nudge.
-			if recordWatermark() && verified > 0 {
-				markDeliveredRead(ctx, f, client, scope.Ref, b, verified)
+			finish := func() {
+				if recordWatermark() && verified > 0 {
+					markDeliveredRead(ctx, f, client, scope.Ref, b, verified)
+				}
 			}
+			// --wait holds this read's output in a buffer, so the render above
+			// "succeeded" before anything reached the real stream: it takes the
+			// bookkeeping and runs it only once the output was delivered.
+			if d, ok := ctx.Value(chatReadDeferKey{}).(*func()); ok {
+				*d = finish
+				return nil
+			}
+			finish()
 			return nil
 		},
 	}
@@ -889,5 +1046,22 @@ them "(human)" / "(worker)".`,
 	cmd.Flags().BoolVar(&all, "all", false, "walk every page forward (from seq 0, or --since)")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
+	cmd.Flags().IntVar(&thread, "thread", 0, "only the direct replies to this seq (the message itself is not included); an unknown seq is exit 4, a message with no replies is an empty page")
+	cmd.Flags().DurationVar(&wait, "wait", 0, "poll until a new message arrives or this long has passed (needs --since); exit 13 on timeout")
+	cmd.Flags().DurationVar(&pollInterval, "poll-interval", chatWaitDefaultInterval, "with --wait: time between polls (at least 2s)")
+	tagFlags.Bind(cmd)
+	cmd.RunE = chatWaitRunE(f, cmd.RunE, &wait, &pollInterval, &returned)
 	return cmd
+}
+
+// Metadata may be null or empty: neither makes a text claim about absence.
+func teamTagText(tags []teamTagDTO) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		labels = append(labels, output.SafeCell(tag.Label))
+	}
+	return " (teams: " + strings.Join(labels, ", ") + ")"
 }

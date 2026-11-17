@@ -63,7 +63,7 @@ func writeTemp(t *testing.T, name, body string) string {
 
 // readOnlyOps is every operation a dry run may send. Anything else — above all
 // UpdateSpecNode — is a write the preview must never make.
-var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true, "GetSpecNodeForEdit": true}
+var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true, "GetSpecNodeForEdit": true, "AuthContext": true, "EffectiveAccess": true}
 
 func assertNoWrites(t *testing.T, captured map[string]json.RawMessage) {
 	t.Helper()
@@ -300,7 +300,7 @@ func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 		args  []string
 	}{
 		"dry run, no abstract":    {noAbstract(), edited, []string{"--dry-run"}},
-		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run"}},
+		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run", "--allow-empty"}},
 		"saved edit, no abstract": {noAbstract(), edited, nil},
 		// #740 round 3 (Codex, Copilot): the fingerprint decides, not the text.
 		"never fingerprinted: stays unverified": {withNode(hash, `"abstractOriginHash":null`), edited, []string{"--dry-run"}},

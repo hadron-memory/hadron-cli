@@ -34,7 +34,8 @@ type editResultDTO struct {
 	AbstractChanged    bool   `json:"abstractChanged"`
 	DescriptionChanged bool   `json:"descriptionChanged"`
 	// TitleChanged reports a --title edit (cli#810): Node.name is rewritten as
-	// "<citation> — <title>". Additive; counted into Changed.
+	// a literal name for spec.<type>, or "<citation> — <title>" for legacy specs.
+	// Additive; counted into Changed.
 	TitleChanged bool `json:"titleChanged"`
 	// ApprovalStatus is the server's approval state for the spec AFTER a title
 	// write, read back from the provider (the title is an approval-hash field,
@@ -56,6 +57,7 @@ type editResultDTO struct {
 	// check. null: no re-affirmation was written (none requested, or a dry run).
 	AbstractVerification *string `json:"abstractVerification"`
 	DryRun               bool    `json:"dryRun"`
+	AuthoringCheck       string  `json:"authoringCheck,omitempty"`
 	// Changes is the proposal itself, one entry per field it writes (cli#737):
 	// the flags above say THAT a field changes, and a reviewer approving an
 	// edit needs to see WHAT. Always a list, `[]` on a no-op. Built from the
@@ -246,6 +248,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		memory          string
 		content         string
 		contentFile     string
+		allowEmpty      bool
 		abstract        string
 		abstractFile    string
 		description     string
@@ -283,7 +286,9 @@ The description shown by spec list and search is edited with --description or
 default editor buffer; supply its flag to edit it alone or together with the
 body and abstract. The description is preserved when its flag is omitted.
 
-The title (the part of the spec's name after "<citation> — ") is edited with
+For a typed spec (role spec.<type>), --title is the complete literal name,
+as for spec new --role; no legacy citation prefix is added. For a legacy spec,
+the title (the part of its name after "<citation> — ") is edited with
 --title, through the same guarded write; the citation prefix is composed from
 the spec itself and kept, so pass the title text only. --title alone is a
 complete non-interactive edit (no editor opens), and a title equal to the stored
@@ -331,6 +336,10 @@ same abstract writes nothing. --abstract-still-accurate is the way out: it
 asserts you re-read the abstract and it still describes the spec, and re-sends it
 unchanged so the server re-fingerprints it against the new body. Use it with a
 body edit, or on its own to settle a marker a previous edit left behind.
+An explicit unchanged --abstract/--abstract-file with a body edit that would
+arm abstract-stale is refused (exit 2, no mutation), even with --dry-run.
+Passing the same text is not that assertion: drop the abstract flag and use
+--abstract-still-accurate only after re-reading it against the new body.
 
 What is reported is what the server STORED, not what was asked for: the
 command compares the fingerprint the write returns with the body it stored.
@@ -427,6 +436,26 @@ replacement over the cap is rejected.`,
 			// the user into the body editor.
 			nonInteractive := contentProvided || abstractProvided || descriptionProvided || titleProvided || stillAccurate
 
+			// The body is read HERE, before any request, so a zero-byte file or
+			// empty pipe is refused without a round trip (#1092); stdin is
+			// single-use, so the write below reuses this value.
+			var providedBody string
+			if nonInteractive && contentProvided {
+				b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
+				if rerr != nil {
+					return rerr
+				}
+				if contentFile != "" {
+					rerr = cmdutil.RefuseEmptyFileInput(b, "file "+contentFile, "--content-file", "--allow-empty", allowEmpty)
+				} else if content == "-" {
+					rerr = cmdutil.RefuseEmptyFileInput(b, "stdin", "--content -", "--allow-empty", allowEmpty)
+				}
+				if rerr != nil {
+					return rerr
+				}
+				providedBody = b
+			}
+
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -473,11 +502,7 @@ replacement over the cap is rejected.`,
 			newBody, newAbstract, newDescription := curBody, curAbstract, curDescription
 			if nonInteractive {
 				if contentProvided {
-					b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
-					if rerr != nil {
-						return rerr
-					}
-					newBody = strings.ReplaceAll(b, "\r\n", "\n")
+					newBody = strings.ReplaceAll(providedBody, "\r\n", "\n")
 				}
 				if abstractProvided {
 					a, rerr := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
@@ -510,7 +535,11 @@ replacement over the cap is rejected.`,
 			// the write targets by immutable id; omitted --title preserves it.
 			newName := node.Name
 			if titleProvided {
-				newName = specNameAt(node.Loc, strings.TrimSpace(title))
+				if node.Role != nil && strings.HasPrefix(*node.Role, "spec.") {
+					newName = strings.TrimSpace(title)
+				} else {
+					newName = specNameAt(node.Loc, strings.TrimSpace(title))
+				}
 			}
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
@@ -522,6 +551,13 @@ replacement over the cap is rejected.`,
 				originHash:   node.AbstractOriginHash,
 				baseNodeID:   node.Id,
 				baseRevision: base,
+			}
+			// An explicitly re-sent unchanged abstract is not the deliberate
+			// attestation carried by --abstract-still-accurate (#804). Refuse
+			// exactly when preserving it would arm stale, including dry runs.
+			if abstractProvided && !proposal.abstractChanged() && proposal.armsAbstractStale() {
+				return exitcode.Newf(exitcode.Usage,
+					"the abstract you passed is identical to the stored one; this body edit would arm abstract-stale. Nothing was written. Re-read the abstract, then pass --abstract-still-accurate (and drop --abstract/--abstract-file) if it still describes the new body, or change the abstract")
 			}
 			// cli#873: a body that starts with the header a text-mode get
 			// prints is refused, a dry run included, unless --force.
@@ -564,6 +600,9 @@ replacement over the cap is rejected.`,
 				Revision:           base,
 				ProposalHash:       proposalHash,
 				Warnings:           warnings,
+			}
+			if dryRun {
+				result.AuthoringCheck = "write-only: authoring check runs only at write time (hadron-server#4168)"
 			}
 			for _, w := range warnings {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
@@ -612,10 +651,15 @@ replacement over the cap is rejected.`,
 			}
 			if dryRun {
 				// Zero writes: the preview returns before any mutation is built.
+				// A caller who cannot write gets the real run's refusal (cli#1912).
+				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
+					return err
+				}
 				return render()
 			}
 
 			input := proposal.input()
+			input.AuthoredWith = cmdutil.AuthoredWith(cmd.Context())
 			resp, err := gen.UpdateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
 				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {
@@ -682,6 +726,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
+	cmd.Flags().BoolVar(&allowEmpty, "allow-empty", false, "accept a zero-byte --content-file (or empty piped --content -) as a deliberately empty body; without it that is refused, since a failed upstream command leaves exactly that file")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract (max 2000 UTF-16 code units incl whitespace/newlines); "-" reads piped stdin, refused from a terminal`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents (max 2000 UTF-16 code units incl whitespace/newlines)")
 	cmd.Flags().StringVar(&description, "description", "", `replace the description with this value ("-" reads piped stdin, refused from a terminal) through the guarded spec write`)
@@ -693,7 +738,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&force, "force", false, "save a body even though it starts with the metadata header a text-mode spec get / node get prints")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval; exit 8 if you cannot write to the memory, as the real run)")
 	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id and --expected-proposal-hash")
 	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision and --expected-proposal-hash")
 	cmd.Flags().StringVar(&expectedHash, "expected-proposal-hash", "", "the proposalHash from the same dry run as --expected-node-id and --expected-revision; refused if the proposed write changed")
@@ -954,7 +999,7 @@ func unsupportedGuard(err error) bool {
 		(strings.Contains(msg, "is not defined") || strings.Contains(msg, "Unknown field") || strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED"))
 }
 
-const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
+const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment. The authoring check runs only at write time: this preview has not validated the role-required task or its revision (hadron-server#4168)."
 
 func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool, checkMemory string) error {
 	verb := "✓ updated"
@@ -1041,10 +1086,8 @@ func validateEditTitle(title, citation string) error {
 		return exitcode.Newf(exitcode.Usage, "--title must not be empty; omit the flag to keep the title")
 	case strings.ContainsAny(t, "\r\n"):
 		return exitcode.Newf(exitcode.Usage, "--title must be a single line")
-	case strings.HasPrefix(t, strings.TrimSpace(citation)+" — "):
-		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", strings.TrimSpace(citation)+" — ")
 	}
-	return nil
+	return refuseCopiedNamePrefix(t, strings.TrimSpace(citation))
 }
 
 // approvalAfterRetitle reads the spec's approval state back from the server

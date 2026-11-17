@@ -71,7 +71,7 @@ or clean up user memories. No implicit --mine or --agent scope is supported.`,
 				}
 				t := output.NewTable(w, "AGENT ID", "ORG ID", "ACTIVE", "CREATED", "ACTIVATED", "EXPIRES", "REVOKED")
 				for _, g := range rows {
-					t.Row(g.AgentID, g.OrgID, fmt.Sprint(g.IsActive), g.CreatedAt, dash(g.ActivatedAt), dash(g.ExpiresAt), dash(g.RevokedAt))
+					t.Row(output.SafeCell(g.AgentID), output.SafeCell(g.OrgID), fmt.Sprint(g.IsActive), output.SafeCell(g.CreatedAt), output.SafeCell(dash(g.ActivatedAt)), output.SafeCell(dash(g.ExpiresAt)), output.SafeCell(dash(g.RevokedAt)))
 				}
 				return t.Flush()
 			})

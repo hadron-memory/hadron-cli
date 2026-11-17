@@ -1,13 +1,12 @@
 package teamrouter
 
-// Onboarding changes only config and a reload receipt. It never opens the
-// attention token, ledger or liveness files.
+// Onboarding changes only the roster in the config. It never opens the
+// retired router's attention token, ledger or liveness files.
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 // CheckRosterEntry performs the same identity checks used under the writer lock.
@@ -129,31 +128,4 @@ func atomicRosterFile(path string, data []byte) error {
 		return err
 	}
 	return os.Rename(f.Name(), path)
-}
-
-// ReloadReceipt confirms a loop loaded these exact config bytes between polls.
-type ReloadReceipt struct {
-	Fingerprint string    `json:"fingerprint"`
-	At          time.Time `json:"at"`
-}
-
-func RecordReload(c *Config) error {
-	if err := os.MkdirAll(c.StateDir, 0o700); err != nil {
-		return err
-	}
-	b, err := json.Marshal(ReloadReceipt{Fingerprint: c.Fingerprint, At: time.Now().UTC()})
-	if err != nil {
-		return err
-	}
-	return atomicRosterFile(filepath.Join(c.StateDir, "config-loaded.json"), b)
-}
-
-func ReadReload(c *Config) (ReloadReceipt, error) {
-	var receipt ReloadReceipt
-	b, err := os.ReadFile(filepath.Join(c.StateDir, "config-loaded.json"))
-	if err != nil {
-		return receipt, err
-	}
-	err = json.Unmarshal(b, &receipt)
-	return receipt, err
 }

@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -39,7 +40,7 @@ func fetchNodeBatch(
 	cmd *cobra.Command, client graphql.Client, memory, locPrefix string, refs []string, prefixMode bool,
 ) ([]*batchNode, []string, error) {
 	fetch := func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, err := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -48,7 +49,7 @@ func fetchNodeBatch(
 
 	if prefixMode {
 		memRef := cmdutil.CanonicalMemoryRef(memory)
-		resp, err := gen.NodeBatch(cmd.Context(), client, nil, &memRef, &locPrefix)
+		resp, err := api.ReadNodeBatch(cmd.Context(), client, nil, &memRef, &locPrefix)
 		if err != nil {
 			return nil, nil, api.MapError(err)
 		}
@@ -92,6 +93,32 @@ func fetchNodeBatch(
 	// canonical hrn:node: prefix). Every entry here is a real absence or
 	// denial; a malformed ref never got this far.
 	return nodes, unavailable, nil
+}
+
+// resolveActionRefs swaps each action URN in refs for the id of the register
+// node it names, leaving every other ref untouched and in place. A ref the
+// server resolves to nothing (foreign, missing or malformed alike — it answers
+// null for all three) is returned in absent under the caller's own spelling.
+// A malformed action URN is deliberately not rejected here: parsing it locally
+// would hand back a different answer from the one a missing entry gets.
+func resolveActionRefs(cmd *cobra.Command, client graphql.Client, refs []string) (resolved, absent []string, err error) {
+	resolved = make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if !cmdutil.IsActionRef(ref) {
+			resolved = append(resolved, ref)
+			continue
+		}
+		resp, err := gen.ResolveUrn(cmd.Context(), client, strings.TrimSpace(ref))
+		if err != nil {
+			return nil, nil, api.MapError(err)
+		}
+		if resp.ResolveUrn == nil {
+			absent = append(absent, ref)
+			continue
+		}
+		resolved = append(resolved, resp.ResolveUrn.Id)
+	}
+	return resolved, absent, nil
 }
 
 // batchRefs canonicalizes explicit refs for nodeBatch, dropping repeats.
@@ -143,6 +170,7 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 		nodeDTO: nodeDTO{
 			ID:         n.Id,
 			URN:        n.Urn,
+			ActionURN:  strVal(n.ActionUrn),
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
@@ -186,6 +214,10 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+	}
+	// Same rule as detailDTO (hadron-cli#1513): the provider's object or null.
+	if u := n.CreatedByUser; u != nil {
+		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
 	return dto
 }

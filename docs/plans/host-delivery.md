@@ -45,10 +45,10 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
     only in their plain shape, else `withheld`. Worker names are printed as
     the host's other events already print them.
 - **Hold:** `ErrHoldUnavailable`, with no call (#940).
-- **Wiring:** `team host run` with `delivery.enabled` wires batches only. It
-  writes the status snapshot after each step and prints each outcome as a
-  `delivery-<kind>` event (codes, ids and spans). Wakes stay unwired until
-  hadron-server#2069/#2072 (#906 row 1).
+- **Wiring:** `team host run` with `delivery.enabled` wires batches and,
+  since hadron-cli#1178, the due tick and task wakes. It writes the status
+  snapshot after each step and prints each outcome as a `delivery-<kind>`
+  event (codes, ids and spans).
 
 ## The split
 
@@ -136,6 +136,7 @@ poller.
      not decided here.
 3. **Find the terminal**, fresh: in a registered worktree (cleaned,
    symlinks resolved), an agent and never a shell.
+   - **A plain directory (no `.git`)** is found by the handle in its `.hadron-team/terminal.json` instead of by path, after checks (a) listed, connected, writable, agent; (b) no other worker's record names it while its `wrapperPid` may be alive (ESRCH alone ends a claim; unknown, EPERM and errors count as alive); (c) its worktree is not another worker's and its binding does not name another worker. Without a view of the other workers (`Registered` unset) it holds. Holds: `no-terminal-record`, `terminal-stale`, `terminal-claimed`, `terminal-bound-elsewhere` (cli#1989). The binding is read from the same directory's cache, only when `.git` is absent.
    - **Two agent terminals:** hold `two-agents`.
    - **None:** skipped, and no hold is invented.
    - **Disconnected, or the interface doesn't match:** hold `screen-unknown`.
@@ -245,9 +246,34 @@ split on #907, 2026-10-19 05:11Z). The adapter answers `Hold` with
 ## Tick and task wakes (#906 row 1)
 
 Gated at #906 issuecomment-6257655782, under R53 (A′) and R63. Built behind
-typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). The `dueWakes`
-adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
-(c), so nothing here is wired into `team host run` yet.
+typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). hadron-cli#1178
+adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
+`wireDelivery`:
+
+- `dueWakes` is read paged to exhaustion with the host key. It sends no
+  `accepts`, so no STOP notice is offered, and no `workerRefs`.
+- A broken page (bad `deliverAfter`/`busyDeadline`, no page, a looping
+  cursor) refuses the whole read.
+- `WAKE_BUDGET_EXHAUSTED` returns no wakes.
+- **tickText and action (cli#1534).** The read selects `DueWake.tickText` and
+  `WakeReason.action { code state taskLoc taskUrn }` and maps them verbatim onto
+  `Wake.TickText` and `WakeReason.Action`: no trim, repair, cut or client task
+  resolution, and `WITHHELD` stays `WITHHELD`, distinct from `UNMAPPED`
+  (cor:agt:080:23, :26). A null or omitted VALUE keeps the composed fallback.
+  The minimum server is hadron-server#2733 (`7db74494`), the same floor as
+  #1281. A server without those fields refuses the whole query at GraphQL
+  validation; the poller fails closed on that like any wake-read error: no
+  retry without the selection, nothing typed, the wake left due.
+- `acknowledgeWakes` sends one proof per call.
+- `AckMixed` follows `delivery.ack_mixed` (cli#1229), default false. An
+  operator sets true only after verifying A′ (#2072, ad7f1c2) is deployed.
+  Mixed wake acknowledgment records tick/task receipts without moving chat
+  delivered-through or read position; mention text still uses its own batch.
+  The setting is shown as text `ack-mixed on|off` and JSON `delivery.ackMixed`.
+  Previously typed records reconcile without retyping using the current pass's
+  newly issued proof, within the 15-minute proof window. Non-boolean values
+  (including strings/null) are refused. The existing deliverer/record algorithm
+  is unchanged; this slice exposes its already-supported A′ behavior.
 
 - **The read:** in the same step, after the batches, while chat delivery is
   on. Each wake goes on its worker's chain behind that worker's batches.
@@ -258,7 +284,17 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
   no record yet, joined by `; ` and capped at 1,000 characters. When cut, the
   line says how many reasons it left out.
   - TICK: `[hadron tick] <ticker>: scheduled check-in. Read your team chat and tasks.`
-  - TASK: `[hadron task] <event>: <title> (<task id>)`.
+    When the wake carries the server's tick text (`DueWake.tickText`, cli#1177;
+    the `dueWakes` adapter selects it), that one line is typed instead, whole
+    and first, after `[hadron tick] `: `[hadron tick] <tickText>; [hadron task] …`.
+    It is never reworded, joined, repaired or cut. A text with a control character, line break or escape can't be typed as one line and is dropped whole (cor:agt:080:26 R4, as ticker-wake does): the wake then types today's line, so a tick-only wake still names its ticker.
+    `MaxWakeRunes` bounds the TASK parts only. When any TICK reason is unrecorded
+    the whole text is typed once and every unrecorded key is recorded. The CLI
+    never composes a tick line from `WakeReason.action`. No text reaches a record
+    or event, and `Key()` ignores both. The `dueWakes` adapter selects `tickText`
+    and `action` since cli#1534 (see "tickText and action" below), so the server's
+    line is the live one whenever the value is present.
+  - TASK: `[hadron task] <event>: <title> (<handle>, <first 12 hex of the task id>)`, e.g. `(AT0.6984.1, 01a1d1ed541b)` (cli#2004, cor:agt:050:01: the handle first). With no handle from the server it is `(<task id>)`, never an invented handle. A child-finished reason names the child (the reason's id and handle are the child's).
   - A task-less alarm (S5, hadron-server#2021 comment-6259060238: `taskId`
     null) renders as `[hadron task] alarm: <alarm type> (no task)`, or as
     `[hadron task] alarm (no task)` with no type. A title is never shown
@@ -271,10 +307,14 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
 - **The terminal path** is the batch's (`typeLine`): the same lock, recipient,
   R2 composer, liveness, send and confirmation. There are two differences.
   - A wake's hold is logged and shown in status, never reported to S5.
-  - Timing is the server's alone (Xylon, team chat #21827). With no
+  - Timing is the server's alone (Xylon, team chat #21827). With a zero
     `deliverAfter`, the wake holds as `timing-unavailable`, even for an idle
-    agent. With no `busyDeadline`, a busy or unproven agent holds the same
-    way. A proven-idle, empty composer past `deliverAfter` needs no deadline.
+    agent. With a zero `busyDeadline`, a busy or unproven agent holds the
+    same way. A proven-idle, empty composer past `deliverAfter` needs no
+    deadline. Both fields are `DateTime!`: a missing or unparseable one
+    never reaches the deliverer. The adapter refuses the host's whole wake
+    read (`bad-deliver-after` or `bad-busy-deadline`), like any other
+    broken page (cli#1197).
 - **Records** (`delivery/wakes/<worker>/`, 0600) hold one file per reason
   key: `tick:<tickerId>:<lastTickAt>` or `task:<eventId>:<chainIndex>`. Each
   file is in one of two states.
@@ -295,6 +335,15 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
   `budgetExhaustedAt` (shown only while the budget is spent), and per worker
   `lastFor` (batch or wake) and `ticksUnacked`. No reason key reaches
   status, events or logs: an event's span is reason counts only.
+- **Hold runs (cli#1178):** the snapshot keeps `heldSince` per worker, the
+  start of its current run of holds. Later holds, deferrals, skips and errors
+  keep it; only a delivered or reconciled event clears it. `team host status`
+  adds `lastAgeSeconds` and `heldOver30m`, and the text row reads `HELD OVER
+  30m: no delivery since <time>`. The #2746 class (one ambiguous receipt
+  holding every later wake) is pinned in
+  `internal/delivery/wake_hold_class_1178_test.go`: a refused send leaves no
+  record, and an accepted but unsubmitted line is submitted with Enter alone
+  or cleared, never retyped.
 
 ## Config
 

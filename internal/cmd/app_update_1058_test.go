@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -14,7 +12,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#1058: `app update` — name, description, systemPrompt, sessionTimeoutSeconds
+// cli#1058: `app update` — name, description, sessionTimeoutSeconds
 // only. The load-bearing property is the WIRE: omitted fields must be absent
 // from the variables, a clear must be an explicit null, and "" must stay "".
 
@@ -58,9 +56,8 @@ func TestAppUpdateSendsOnlyThePassedFields(t *testing.T) {
 	}{
 		{"name only", []string{"--name", "Desk", "--yes"}, "name,ref"},
 		{"description only", []string{"--description", "d", "--yes"}, "description,ref"},
-		{"system prompt only", []string{"--system-prompt", "p", "--yes"}, "ref,systemPrompt"},
 		{"timeout only", []string{"--session-timeout-seconds", "900", "--yes"}, "ref,sessionTimeoutSeconds"},
-		{"all four", []string{"--name", "n", "--description", "d", "--system-prompt", "p", "--session-timeout-seconds", "60", "--yes"}, "description,name,ref,sessionTimeoutSeconds,systemPrompt"},
+		{"all three", []string{"--name", "n", "--description", "d", "--session-timeout-seconds", "60", "--yes"}, "description,name,ref,sessionTimeoutSeconds"},
 		{"two", []string{"--name", "n", "--session-timeout-seconds", "60", "--yes"}, "name,ref,sessionTimeoutSeconds"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -79,20 +76,20 @@ func TestAppUpdateSendsOnlyThePassedFields(t *testing.T) {
 }
 
 func TestAppUpdateSeparatesEmptyStringFromClear(t *testing.T) {
-	vars, _, err := runAppUpdate1058(t, "--description", "", "--system-prompt", "", "--yes")
+	vars, _, err := runAppUpdate1058(t, "--description", "", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(vars["description"]) != `""` || string(vars["systemPrompt"]) != `""` {
-		t.Errorf("empty string must be sent as \"\": description=%s systemPrompt=%s", vars["description"], vars["systemPrompt"])
+	if string(vars["description"]) != `""` {
+		t.Errorf("empty string must be sent as \"\": description=%s", vars["description"])
 	}
 
-	vars, _, err = runAppUpdate1058(t, "--clear-description", "--clear-system-prompt", "--yes")
+	vars, _, err = runAppUpdate1058(t, "--clear-description", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(vars["description"]) != "null" || string(vars["systemPrompt"]) != "null" {
-		t.Errorf("clear must be an explicit null: description=%s systemPrompt=%s", vars["description"], vars["systemPrompt"])
+	if string(vars["description"]) != "null" {
+		t.Errorf("clear must be an explicit null: description=%s", vars["description"])
 	}
 	if _, ok := vars["name"]; ok {
 		t.Errorf("name must stay absent on a clear: %v", keys1058(vars))
@@ -116,28 +113,7 @@ func TestAppUpdateTimeoutIsPassedThroughUnclamped(t *testing.T) {
 	}
 }
 
-func TestAppUpdateSystemPromptFile(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "prompt.md")
-	body := "line one\n\"quoted\" line two\n"
-	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	vars, _, err := runAppUpdate1058(t, "--system-prompt-file", p, "--yes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var got string
-	if err := json.Unmarshal(vars["systemPrompt"], &got); err != nil || got != body {
-		t.Errorf("systemPrompt = %q (%v), want %q", got, err, body)
-	}
-	if _, _, err := runAppUpdate1058(t, "--system-prompt-file", filepath.Join(t.TempDir(), "missing"), "--yes"); exitCodeFor(err) != exitcode.Usage {
-		t.Errorf("a missing file is a usage error, got %v", err)
-	}
-}
-
 func TestAppUpdateRefusesWithoutFlagsAndOnConflicts(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "p.md")
-	_ = os.WriteFile(p, []byte("x"), 0o600)
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -145,9 +121,8 @@ func TestAppUpdateRefusesWithoutFlagsAndOnConflicts(t *testing.T) {
 		{"no flags", []string{"--yes"}},
 		{"only --yes and --json", []string{"--yes", "--json"}},
 		{"description + clear", []string{"--description", "d", "--clear-description", "--yes"}},
-		{"prompt + clear", []string{"--system-prompt", "p", "--clear-system-prompt", "--yes"}},
-		{"prompt file + clear", []string{"--system-prompt-file", p, "--clear-system-prompt", "--yes"}},
-		{"prompt + prompt file", []string{"--system-prompt", "p", "--system-prompt-file", p, "--yes"}},
+		// The retired --system-prompt family is covered in
+		// retired_prompt_flags_test.go (cli#1175); it is no conflict case.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			vars, _, err := runAppUpdate1058(t, tc.args...)
@@ -162,22 +137,22 @@ func TestAppUpdateRefusesWithoutFlagsAndOnConflicts(t *testing.T) {
 }
 
 func TestAppUpdateConfirmation(t *testing.T) {
-	const secret = "TOP-SECRET-PROMPT-TEXT"
+	const secret = "TOP-SECRET-DESCRIPTION-TEXT"
 	// Non-interactive without --yes: refused, nothing sent.
-	vars, _, err := runAppUpdate1058(t, "--system-prompt", secret)
+	vars, _, err := runAppUpdate1058(t, "--description", secret)
 	if exitCodeFor(err) != exitcode.Usage || vars != nil {
 		t.Fatalf("non-interactive without --yes must refuse unsent: err=%v vars=%v", err, vars)
 	}
 	if strings.Contains(err.Error(), secret) {
-		t.Errorf("refusal echoes the system prompt: %v", err)
+		t.Errorf("refusal echoes the field value: %v", err)
 	}
 
-	// TTY: "n" cancels with nothing sent; the prompt names the target and field NAMES only.
+	// TTY: "n" cancels with nothing sent; the confirmation prompt names the target and field NAMES only.
 	for answer, wantSent := range map[string]bool{"n\n": false, "y\n": true} {
 		gql, captured := captureGraphQL(t, map[string]string{"UpdateApp": appUpdateOK1058})
 		f, _, errOut := testFactoryTTY(t, answer)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"app", "update", appRef1058, "--name", "Desk", "--system-prompt", secret, "--server", gql.URL})
+		root.SetArgs([]string{"app", "update", appRef1058, "--name", "Desk", "--description", secret, "--server", gql.URL})
 		err := root.Execute()
 		_, sent := captured["UpdateApp"]
 		if sent != wantSent {
@@ -187,7 +162,7 @@ func TestAppUpdateConfirmation(t *testing.T) {
 			t.Errorf("a declined confirmation exits Cancelled, got %v", err)
 		}
 		prompt := errOut.String()
-		for _, want := range []string{appRef1058, "name", "systemPrompt"} {
+		for _, want := range []string{appRef1058, "name", "description"} {
 			if !strings.Contains(prompt, want) {
 				t.Errorf("confirmation lacks %q: %q", want, prompt)
 			}
@@ -199,19 +174,19 @@ func TestAppUpdateConfirmation(t *testing.T) {
 }
 
 func TestAppUpdateReceipts(t *testing.T) {
-	const secret = "TOP-SECRET-PROMPT-TEXT"
-	_, text, err := runAppUpdate1058(t, "--system-prompt", secret, "--clear-description", "--yes")
+	const secret = "TOP-SECRET-DESCRIPTION-TEXT"
+	_, text, err := runAppUpdate1058(t, "--name", secret, "--clear-description", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, appRef1058) || !strings.Contains(text, "systemPrompt") || !strings.Contains(text, "description (cleared)") {
+	if !strings.Contains(text, appRef1058) || !strings.Contains(text, "name") || !strings.Contains(text, "description (cleared)") {
 		t.Errorf("text receipt: %q", text)
 	}
 	if strings.Contains(text, secret) {
-		t.Errorf("text receipt echoes the system prompt: %q", text)
+		t.Errorf("text receipt echoes the field value: %q", text)
 	}
 
-	_, js, err := runAppUpdate1058(t, "--system-prompt", secret, "--name", "Support", "--yes", "--json")
+	_, js, err := runAppUpdate1058(t, "--description", secret, "--name", "Support", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,11 +199,11 @@ func TestAppUpdateReceipts(t *testing.T) {
 	if err := json.Unmarshal([]byte(js), &dto); err != nil {
 		t.Fatalf("%v in %s", err, js)
 	}
-	if dto.App != appRef1058 || dto.ID != "capp1" || dto.Status != "updated" || strings.Join(dto.Changed, ",") != "name,systemPrompt" {
+	if dto.App != appRef1058 || dto.ID != "capp1" || dto.Status != "updated" || strings.Join(dto.Changed, ",") != "name,description" {
 		t.Errorf("json receipt: %+v", dto)
 	}
 	if strings.Contains(js, secret) {
-		t.Errorf("json receipt echoes the system prompt: %s", js)
+		t.Errorf("json receipt echoes the field value: %s", js)
 	}
 }
 

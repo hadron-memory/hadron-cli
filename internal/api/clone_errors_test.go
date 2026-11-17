@@ -58,3 +58,40 @@ func TestCloneScopeDoesNotChangeUnrelatedPermissionMappings(t *testing.T) {
 		}
 	}
 }
+
+// cli#998: only typed scalars are forwarded; a nested sentinel or a wrong-typed
+// reason/code/retryable never reaches the output, and the typed controls do.
+func TestCloneDetailsRejectWrongTypedFields(t *testing.T) {
+	for _, ext := range []string{
+		`{"code":"CLONE_BASE_UNUSABLE","reason":{"nested":"SENTINEL"},"retryable":"true"}`,
+		`{"code":"CLONE_BASE_UNUSABLE","reason":["SENTINEL"],"retryable":1}`,
+		`{"code":{"nested":"SENTINEL"},"reason":7,"retryable":null}`,
+	} {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(ext), &m); err != nil {
+			t.Fatal(err)
+		}
+		raw := gqlerror.List{{Message: "x", Extensions: m}}
+		text := CloneAgentDetailText(MapCloneAgentError(raw))
+		if strings.Contains(text, "SENTINEL") || strings.Contains(text, "reason") || strings.Contains(text, "retryable") {
+			t.Fatalf("%s -> %s", ext, text)
+		}
+	}
+	var ok map[string]any
+	_ = json.Unmarshal([]byte(`{"code":"CLONE_BASE_UNUSABLE","reason":"R","retryable":false}`), &ok)
+	d := CloneAgentDetails(MapCloneAgentError(gqlerror.List{{Message: "x", Extensions: ok}}))
+	if d["code"] != "CLONE_BASE_UNUSABLE" || d["reason"] != "R" || d["retryable"] != false {
+		t.Fatal(d)
+	}
+}
+
+// cli#998: an empty-details first error keeps its place; a later error's code is not borrowed.
+func TestCloneDetailsDoNotBorrowFromLaterError(t *testing.T) {
+	raw := gqlerror.List{
+		{Message: "first"},
+		{Message: "second", Extensions: map[string]any{"code": "CLONE_BASE_UNUSABLE", "reason": "LATER"}},
+	}
+	if d := CloneAgentDetails(MapCloneAgentError(raw)); d != nil {
+		t.Fatal(d)
+	}
+}

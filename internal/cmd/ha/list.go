@@ -29,12 +29,15 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [--org <ref>] [--limit N] [--offset N]",
 		Aliases: []string{"ls"},
 		Short:   "List registered Home Assistant instances",
-		Long: fmt.Sprintf(`List registered Home Assistant instances, optionally scoped to one org.
+		Long: fmt.Sprintf(`List the registered Home Assistant instances, sorted by slug, optionally only
+those of one organization (--org, an organization ID or hrn:org:<slug> URN).
+Each row has the instance ID to use with "ha get" and "ha ops".
 
-Returns ONE page, slug-ascending: --limit 1..%d (default %d, sent explicitly;
-the server's own default is 50) and --offset N. When more rows exist, stderr
-says how to fetch the next page; the --json output stays a bare array.`, maxLimit, defaultLimit),
-		Example: `  hadron ha list --org acme.com --json
+You get ONE page of --limit rows (1 to %d, default %d); when more exist,
+stderr says which --offset to use for the next page. --json prints a plain
+array.`, maxLimit, defaultLimit),
+		Example: `  hadron ha list --org hrn:org:acme.com
+  hadron ha list --org hrn:org:acme.com --json
   hadron ha list --limit 50 --offset 50`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -84,7 +87,7 @@ says how to fetch the next page; the --json output stays a bare array.`, maxLimi
 			return output.Write(f.IOStreams, f.JSON, instances, func(w io.Writer) error {
 				table := output.NewTable(w, "ID", "SLUG", "NAME", "URL", "OPS", "STATUS")
 				for _, s := range instances {
-					table.Row(s.ID, s.Slug, s.Name, s.URL, s.allowlistLabel(), s.statusLabel())
+					table.Row(output.SafeCell(s.ID), output.SafeCell(s.Slug), output.SafeCell(s.Name), output.SafeCell(s.URL), output.SafeCell(s.allowlistLabel()), output.SafeCell(s.statusLabel()))
 				}
 				return table.Flush()
 			})

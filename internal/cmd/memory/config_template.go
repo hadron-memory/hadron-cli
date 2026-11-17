@@ -57,6 +57,7 @@ type templateDTO struct {
 	OwnerType   string            `json:"ownerType"`
 	OwnerID     *string           `json:"ownerId"`
 	Required    bool              `json:"required"`
+	OrgDefault  bool              `json:"orgDefault"`
 	Revision    int               `json:"revision"`
 	Rules       []templateRuleDTO `json:"rules"`
 	CreatedAt   string            `json:"createdAt"`
@@ -85,7 +86,7 @@ type templateDeleteDTO struct {
 func dtoFromTemplate(t *gen.MemoryConfigTemplateFields) templateDTO {
 	dto := templateDTO{
 		ID: t.Id, Name: t.Name, Description: t.Description, OwnerType: string(t.OwnerType), OwnerID: t.OwnerId,
-		Required: t.Required, Revision: t.Revision, Rules: []templateRuleDTO{},
+		Required: t.Required, OrgDefault: t.OrgDefault, Revision: t.Revision, Rules: []templateRuleDTO{},
 		CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy, UpdatedAt: t.UpdatedAt, UpdatedBy: t.UpdatedBy,
 	}
 	for _, r := range t.Rules {
@@ -130,11 +131,27 @@ func newCmdConfigTemplate(f *cmdutil.Factory) *cobra.Command {
 organization, a user or an App. Applying one COPIES its rules into a memory's
 config; it is never a live link.
 
+A template is either optional or required. An optional template only fills in
+roles the memory has no rule for. A required one also replaces the memory's
+own rules and locks the rules it writes, so nobody can change or remove them
+until a rule unlock. Use required for rules an organization must enforce.
+
+An organization-owned template can also be an org default ("orgDefault": true in
+its file): it is applied once, as the organization, to every new org knowledge or
+group memory when that memory is created. Never to an existing memory, and not on
+clone, extract or App, install, agent or chat creation. It is a starting
+configuration, not a boundary. A broken required default is planted locked and
+refuses that role's writes until an admin repoints it. "orgDefault": false
+clears it.
+
 Only the owner's managers can see or change a template: a platform admin (server),
 an org ADMIN/OWNER (organization), the user themselves (user), the App's owner or
 an org ADMIN/OWNER (App). For anyone else it does not exist (exit 4).
 
 Templates are addressed by id; "template list" shows them.`,
+		Example: `  hadron memory config template list
+  hadron memory config template create --owner-org acme.com --file spec-template.json
+  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --dry-run`,
 	}
 	cmd.AddCommand(newCmdTemplateList(f))
 	cmd.AddCommand(newCmdTemplateGet(f))
@@ -247,9 +264,9 @@ Narrow by owner with at most one of --owner-server, --owner-org, --owner-me or
 					_, err := fmt.Fprintln(w, "no templates you manage")
 					return err
 				}
-				t := output.NewTable(w, "ID", "NAME", "OWNER", "REQUIRED", "RULES", "REVISION")
+				t := output.NewTable(w, "ID", "NAME", "OWNER", "REQUIRED", "ORG DEFAULT", "RULES", "REVISION")
 				for _, it := range dto.Items {
-					t.Row(it.ID, it.Name, ownerCell(it), yesNo(it.Required), fmt.Sprint(len(it.Rules)), fmt.Sprint(it.Revision))
+					t.Row(output.SafeCell(it.ID), output.SafeCell(it.Name), output.SafeCell(ownerCell(it)), yesNo(it.Required), yesNo(it.OrgDefault), fmt.Sprint(len(it.Rules)), fmt.Sprint(it.Revision))
 				}
 				return t.Flush()
 			})
@@ -350,6 +367,7 @@ func renderTemplate(w io.Writer, t templateDTO) error {
 	for _, row := range [][2]string{
 		{"owner", ownerCell(t)},
 		{"required", yesNo(t.Required)},
+		{"org default", yesNo(t.OrgDefault)},
 		{"description", description},
 		{"rules", fmt.Sprint(len(t.Rules))},
 	} {
@@ -394,6 +412,7 @@ type templateFile struct {
 	Name        *string             `json:"name"`
 	Description json.RawMessage     `json:"description"`
 	Required    *bool               `json:"required"`
+	OrgDefault  *bool               `json:"orgDefault"`
 	Rules       *[]templateFileRule `json:"rules"`
 	Revision    *int                `json:"revision"`
 
@@ -488,7 +507,7 @@ func readTemplateFile(f *cmdutil.Factory, path string) (*templateFile, error) {
 // Nullable keys (description, validateBy, reference URNs and ids, the
 // server-owned keys) are not listed: null is a value they really print.
 var (
-	nonNullTemplateKeys = []string{"name", "required", "rules", "revision"}
+	nonNullTemplateKeys = []string{"name", "required", "orgDefault", "rules", "revision"}
 	nonNullRuleKeys     = []string{"role", "enabled", "strictSubRoles", "writers",
 		"authorTaskState", "validationTaskState", "descriptionNodeState"}
 )
@@ -635,10 +654,33 @@ func newCmdTemplateCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>)",
 		Short: "Create a template from a file",
-		Long: `Create a template owned by exactly one owner. Its name, description, required
-flag and rules come from --file (JSON; "-" reads stdin): the shape "template get
---json" prints, so an existing template's output can be fed back to copy it.
-The server-owned keys it carries (id, revision, ownerType, …) are ignored.
+		Long: `Create a template owned by exactly one owner (the server, an organization,
+you, or an App). Its name, description, required flag and rules come from
+--file, a JSON file ("-" reads stdin). A first template looks like this:
+
+  {
+    "name": "product-specs",
+    "description": "How spec nodes are written and checked",
+    "required": false,
+    "rules": [
+      { "role": "spec", "writers": "admin",
+        "authorTask": "hrn:node:acme.com:kb:tasks:write-spec",
+        "validationTask": "hrn:node:acme.com:kb:tasks:check-spec",
+        "validateBy": "agent" },
+      { "role": "spec.rule", "writers": "admin", "strictSubRoles": true }
+    ]
+  }
+
+The name is 1-64 lower-case letters, digits, "-" or "_". Each rule takes the
+keys of config rule add: role, writers (all, admin or owner), authorTask,
+validationTask, validateBy (agent or platform), strictSubRoles and enabled. Tasks are runnable task nodes, by id or URN.
+"required": true makes config template apply overwrite a memory's own rule
+for the role and lock it. "orgDefault": true (organization-owned only) applies
+the template to every new org knowledge or group memory at creation.
+
+It is the same shape template get --json prints, so an existing template can
+be copied by piping one into the other; the keys the server sets (id,
+revision, ownerType and so on) are ignored.
 
 A name is unique per owner (exit 5 when taken). Rules are validated as a whole
 before anything is written; a role listed twice is exit 5.`,
@@ -665,7 +707,7 @@ before anything is written; a role listed twice is exit 5.`,
 			if err != nil {
 				return err
 			}
-			input := &gen.CreateMemoryConfigTemplateInput{Name: *tf.Name, Required: tf.Required, Rules: rules}
+			input := &gen.CreateMemoryConfigTemplateInput{Name: *tf.Name, Required: tf.Required, OrgDefault: tf.OrgDefault, Rules: rules}
 			if state == descriptionSet {
 				input.Description = description
 			}
@@ -705,7 +747,12 @@ of the template's rules.
 The change is guarded by the revision the FILE was derived from — its "revision"
 key, or --expected-revision — never by a fresh read: a template someone changed
 since you read it is refused (exit 5) instead of overwritten by your stale copy.
-Read it again, re-apply your edit, and retry.`,
+Read it again, re-apply your edit, and retry.
+
+"orgDefault": true makes an organization-owned template an org default;
+"orgDefault": false clears it. Another owner's template is refused (exit 2).
+An organization has at most 10 org defaults, and designating one checks every
+reference is readable to the organization as well as to you.`,
 		Example: `  hadron memory config template get tmpl_123 --json > t.json   # edit t.json
   hadron memory config template update tmpl_123 --file t.json`,
 		Args: cobra.ExactArgs(1),
@@ -735,8 +782,8 @@ Read it again, re-apply your edit, and retry.`,
 			if err != nil {
 				return err
 			}
-			if tf.Name == nil && state == descriptionAbsent && tf.Required == nil && tf.Rules == nil {
-				return exitcode.Newf(exitcode.Usage, "--file changes nothing: give at least one of name, description, required, rules")
+			if tf.Name == nil && state == descriptionAbsent && tf.Required == nil && tf.OrgDefault == nil && tf.Rules == nil {
+				return exitcode.Newf(exitcode.Usage, "--file changes nothing: give at least one of name, description, required, orgDefault, rules")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -779,7 +826,7 @@ func expectedRevision(cmd *cobra.Command, tf *templateFile, flag int) (int, erro
 func updateTemplate(cmd *cobra.Command, client graphql.Client, id string, revision int, tf *templateFile,
 	state descriptionState, description *string, rules []*gen.CreateNodeRoleRuleInput) (templateWriteDTO, error) {
 	if state == descriptionClear {
-		resp, err := gen.UpdateMemoryConfigTemplateClearingDescription(cmd.Context(), client, id, revision, tf.Name, tf.Required, rules)
+		resp, err := gen.UpdateMemoryConfigTemplateClearingDescription(cmd.Context(), client, id, revision, tf.Name, tf.Required, tf.OrgDefault, rules)
 		if err != nil {
 			return templateWriteDTO{}, api.MapError(err)
 		}
@@ -789,7 +836,7 @@ func updateTemplate(cmd *cobra.Command, client graphql.Client, id string, revisi
 		}
 		return templateWriteDTO{Template: dtoFromTemplate(&p.Template.MemoryConfigTemplateFields), Warnings: warningsFrom(p.Warnings)}, nil
 	}
-	input := &gen.UpdateMemoryConfigTemplateInput{Name: tf.Name, Required: tf.Required, Rules: rules}
+	input := &gen.UpdateMemoryConfigTemplateInput{Name: tf.Name, Required: tf.Required, OrgDefault: tf.OrgDefault, Rules: rules}
 	if state == descriptionSet {
 		input.Description = description
 	}

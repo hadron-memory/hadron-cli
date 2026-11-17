@@ -11,9 +11,9 @@ configuration onto the other.
 `ticker-wake`, enabling `delivery`, and changing a host are the cutover's, and
 the cutover has its own owner and sign-off. With `delivery.enabled`,
 `team host run` reads and types this host's chat batches, so turning it on
-for a live host is that cutover step. Tick and task wakes are not delivered
-by the poller yet (hadron-cli#906). `team host status` reads such a config,
-so you can check it beforehand.
+for a live host is that cutover step. Since hadron-cli#1178 it also reads and
+types the host's due tick and task wakes, so it replaces `ticker-wake` too.
+`team host status` reads such a config, so you can check it beforehand.
 
 ## Order, per worker
 
@@ -26,6 +26,31 @@ so you can check it beforehand.
    own read does.
 2. Only then is that worker's delivery enabled on the host poller.
 
+## Acknowledge mixed tick/task wakes
+
+`delivery.ack_mixed` defaults to `false`. Set it to `true` only after verifying
+that the server carries A′ (hadron-server#2072, `ad7f1c2`). This is the
+operator's assertion of that deployed server behavior, not capability detection:
+
+```yaml
+delivery:
+  enabled: true
+  orca_bin: /usr/local/bin/orca
+  ack_mixed: true
+```
+
+With it on, a tick/task wake that also names a mention or channel is acknowledged
+after its tick/task text is confirmed, in the same pass. This records tick/task
+receipts but moves neither channel delivered-through nor the worker's read
+position (R53). The mention text still arrives and is acknowledged in its own
+chat batch. A mention-only wake is never typed or acknowledged by this path.
+With it absent or `false`, mixed wakes keep the existing `ack-held` behavior.
+A previously typed wake reconciles without retyping using the new pass's freshly
+issued proof, not an older proof beyond its 15-minute window. Non-boolean values
+are refused at config load. `team host status` reports `ack-mixed on|off` and
+JSON `delivery.ackMixed`; it describes the configuration, not server capability.
+Changing a live host remains the host operator's separately authorized step.
+
 ## Field mapping
 
 | Router `config.json` | Host config (`host.yaml`) | Notes |
@@ -33,7 +58,7 @@ so you can check it beforehand.
 | `app` | `app` | Same App: an `hrn:app:` URN or an id. |
 | `channel` | none | The server picks the channels a batch carries. |
 | `hadronCli` | none | The poller is the CLI. |
-| none | `key_file` | **New.** The App key with `host:operate`, plus `attention:deliver` for delivery, at mode 0600 or tighter. Point at the file; never paste the key into the config, a ticket or chat. The router authenticated through `hadronCli`'s own login, so there is nothing to carry over. |
+| none | `key_file` | **New.** The App key with `host:operate`, plus `attention:deliver` for delivery, at mode 0600 or tighter. Point at the file; never paste the key into the config, a ticket or chat. Mint it with `hadron app key create` (see [Mint the host key](#mint-the-host-key)). The router authenticated through `hadronCli`'s own login, so there is nothing to carry over. |
 | `orcaCli` | `delivery.orca_bin` | Absolute path. |
 | `stateDir` | `state_file` (its directory) | Records, locks and the delivery status snapshot live beside the state file, under `delivery/`. Don't reuse the router's `stateDir`: the two must stay separate. |
 | `busyWaitMs` | none | Not ported. The server times deliveries (`deliverAfter`, `busyDeadline`), and C1 proves liveness from the screen. |
@@ -41,10 +66,32 @@ so you can check it beforehand.
 | `coordinatorWatchMinutes`, `coordinator`, `lifecycle` | none | Retired. A coordinator's standing wake is a ticker with the `every-tick` reason (hadron-server#2068). |
 | `roster[].worker` / `.name` | a key of `workers` | A worker's name in the App, its URN or its id. The poller matches the registration by id, URN or name (names are unique per App, case-insensitively). |
 | `roster[].worktree` (absolute) | `workers.<ref>.worktrees: [<token>]` | A token is relative to `worktrees_root`. For example, `/home/orca/orca/workspaces/hadron-cli/jonas-2` with `worktrees_root: /home/orca/orca/workspaces` becomes `hadron-cli/jonas-2`. |
-| `roster[].terminal` | none | Not ported. The poller finds the one agent terminal in the worker's worktrees, fresh, each time. |
+| `roster[].terminal` | none | Not ported. The poller finds the one agent terminal in the worker's worktrees, fresh, each time. A worker in a plain directory (no checkout) is found by the handle its own terminal records instead: see "Plain-directory workers" below. |
 | none | `workers.<ref>.family` | **Required.** The model family it runs as (`claude`, `codex`, `glm`, …). |
 | none | `workers.<ref>.tui` | Optional: `claude` or `codex`, when the family doesn't name its interface (a `glm` worker runs in Claude Code). |
 | none | `workers.<ref>.launch` | **Required** by the host poller (`worker.start`), even when delivery is all you need. |
+
+## Mint the host key
+
+A person who manages the App mints the host key, as themselves: `app key create`
+sends no worker session, and the server refuses an App key, an impersonated
+session and a bound worker's session. The raw key is shown once and never
+recoverable, so it is written to a new 0600 file and never printed:
+
+```sh
+hadron app key create <app> --out /etc/hadron/host.key --label "orca1 host poller"
+hadron app key scope grant <key-id> host:operate --host-id <host>
+hadron app key scope grant <key-id> attention:deliver
+```
+
+Then point `key_file` at that file. A new key holds no scope until granted, so
+the two `scope grant` lines are required. `--out` must not exist (add `--force`
+to replace it); if the answer to the mint is lost, nothing is retried: run
+`hadron app key list <app>` and revoke any unexpected key with that label.
+
+`attention:deliver` does **not** limit the key to its own host's workers: today
+it reads every worker of its App (cor:agt:080:22 is not built;
+hadron-server#2017). Don't rely on per-host scoping of delivery.
 
 ## What the host config checks at load
 
@@ -85,3 +132,105 @@ and there is no server hold, alarm or escalation behind it. A ghost draft, a
 question prompt or a mismatched binding reaches a human only if someone reads
 this status or the poller's events. The batch stays unacknowledged, so the
 server hands it again and it is delivered once the hold clears.
+
+## Read a worker's hold (hadron-cli#1178)
+
+Each worker's row in `team host status` shows its newest delivery event:
+outcome, reason code, time, and age. Codes only, never text, a draft or a
+proof. `--json` puts these in `delivery.workers[]` as `lastKind`,
+`lastReason`, `lastAt` and `lastAgeSeconds`.
+
+A worker's **run of holds** starts at its first `held` event. Later holds,
+deferrals, skips and errors don't end it; only a `delivered` or `reconciled`
+event does. The run survives a restart of `team host run`: the poller starts from
+the workers its last snapshot saved. So a worker removed from the config
+keeps its last row, with its age, until the state is cleared. The row shows `held since <time>` (JSON `heldSince`). Once the run
+is older than 30 minutes, the row reads `HELD OVER 30m: no delivery since
+<time>` (JSON `heldOver30m: true`). Check the poller for that worker first.
+
+| Reason | What it means | What clears it |
+|---|---|---|
+| `draft` | Someone else's text is in the composer. | The human sends or clears it. Delivery never types over it. |
+| `question` | The agent is asking a question (a menu or prompt). | The human answers it. |
+| `not-submitted` | Orca refused the send, or accepted it with no proof the agent submitted it. | Nothing to clear. No record is kept, so the next pass sends a fresh request. If the line is still in the composer, the next pass submits it with Enter alone and never retypes it. If a newer line arrives, the old one is cleared first. A worker that stays here is a terminal problem: check the screen. |
+| `screen-unknown` | The screen proves neither an empty composer nor the expected agent (a dialog, another interface, a disconnected or read-only terminal). | Fix the terminal. |
+| `two-agents` | More than one agent terminal is in the worker's worktrees. | Close the extra one. |
+| `binding-mismatch` | The worktree's (or plain directory's) session binding names another worker, or none. | Rebind the right worker there. |
+| `no-terminal-record` | A plain-directory worker's `.hadron-team/terminal.json` is missing, unreadable or has no handle. | Relaunch the worker through `worker-supervise`, which writes it. |
+| `terminal-stale` | The recorded terminal is not listed, not connected, not writable or not an agent. | Relaunch the worker; the launch rewrites the record. |
+| `terminal-claimed` | Another registered worker's `terminal.json` names the same terminal while that file's `wrapperPid` may still be running, or the poller has no view of the other workers' directories. | Fix the record that is wrong (a copied file); a record whose wrapper is gone stops counting by itself. |
+| `terminal-bound-elsewhere` | The recorded terminal sits in a directory registered to a different worker, or in a checkout whose session binding names one. | Relaunch the worker in its own terminal, not one started from another worker's checkout. |
+| `timing-unavailable` | A wake's timing parsed as zero (`deliverAfter`, or `busyDeadline` for a busy agent). | Server-side. The wake stays due. |
+
+A wake whose timing is missing or unparseable is not a worker hold. Both
+fields are required, so the poller refuses the host's whole wake read and
+types no wake that pass, for any worker. `team host status` shows
+`wakes: read-failed` (JSON `wakeRead: "read-failed"`), not a worker row.
+The run log's `delivery-failed` line names the code: `reading wakes
+failed: bad-deliver-after` (or `bad-busy-deadline`). Report it to the
+server owner.
+
+A refused or unconfirmed send leaves no record that holds the worker's later
+wakes or chat. Each pass judges the terminal afresh. So a run that keeps
+growing points at the terminal (a composer that won't clear or submit), not
+at a stuck record. That is the opposite of hadron-server#2746, where
+`ticker-wake` held every later wake behind one ambiguous receipt.
+
+## Cut over and roll back (hadron-cli#1178)
+
+**Precondition: the installed `hadron` includes hadron-cli#1178.** Earlier
+releases deliver chat batches only and never read `dueWakes`. Check that
+`hadron team host run --help` says it reads due tick and task wakes. If it
+doesn't, `ticker-wake` must stay on.
+
+The cutover is cold: no soak (Holger, 2026-10-29,
+`hrn:node:hadronmemory.com:hadron-business:decisions:wake-delivery-cli-cold-cutover`).
+Hugo runs it on the host
+(`hrn:node:hadronmemory.com:dev:ops:baragaun-orca:router-retirement-runbook`).
+This section is the CLI's side.
+
+`delivery.enabled` is per host. A worker receives delivery when it is listed
+under `workers` in that host's config. That list is also the host's
+registration for operations, so narrowing it for a smoke check narrows
+operations too.
+
+1. **Before.** Run `hadron --version` and record it. Then run
+   `hadron team host status --config host.yaml` and check that the config
+   loads, the registration shows, and the key has `host:operate` and
+   `attention:deliver`. Without `attention:deliver` the first step reads
+   `off-by-scope`.
+2. **One deliverer.** Stop `ticker-wake` (and the router, if it is running)
+   for this host's workers, following the host runbook. Never run both: two
+   deliverers can type the same line twice.
+3. **Switch on.** Set `delivery.enabled: true` and `delivery.orca_bin`, then
+   restart `hadron team host run --config host.yaml`.
+4. **Verify within a few polls.**
+   - `team host status` shows `delivery: enabled`, not `STALE`, and
+     `wakes: read`.
+   - Each worker's row turns `delivered` as its wakes come due.
+   - No row shows `HELD OVER 30m`.
+   - `--json` gives the same view for a script.
+
+**Roll back:**
+
+1. Stop `team host run` (SIGTERM or Ctrl-C) and **wait for the process to
+   exit**. It reads its config only at start, so editing `delivery.enabled`
+   under a running poller changes nothing. On a stop signal it finishes
+   in-flight deliveries, each bounded, before it exits.
+2. Set `delivery.enabled: false`. If the host still needs its operations,
+   restart `team host run` with delivery off.
+3. Only then restart `ticker-wake` per the host runbook. Never run both
+   deliverers at once.
+
+The poller's records under `delivery/` stay. When delivery is switched on
+again, it reconciles from them and never retypes a line it confirmed.
+
+## Plain-directory workers
+
+A worker with no checkout (a plain directory, `hadron team session start` there) is never reported by Orca as a terminal's `worktreePath`, so the poller cannot find its terminal by path. Instead:
+
+- List the directory under the worker's `worktrees` in `host.yaml` (relative to `worktrees_root`). Only a registered directory is a recipient.
+- The worker's terminal records its own handle at every launch in `<dir>/.hadron-team/terminal.json` (`{"handle": ...}`, written by the host's `worker-supervise`). Nobody keeps it by hand. The poller only reads it.
+- The poller types only when the binding in `<dir>/.hadron-team/hadron-team-session.json` names the worker and the handle passes three checks: (a) `orca terminal list` shows it connected and writable with an agent identity; (b) no other registered worker's `terminal.json` names it while that file's `wrapperPid` may be alive (only proof the process does not exist, ESRCH, ends a claim; a missing pid, EPERM or any other error counts as alive, a reused pid keeps holding until the next launch rewrites the file). The pid is judged in the poller's own PID namespace, so recording it is a requirement on whatever writes `terminal.json`: write the pid as the HOST sees it. A pid from another namespace (a container's own numbering) breaks (b) in both directions: it can read as live forever (a stale claim never lapses), or read as gone while the wrapper still runs (a live claim is ignored, so two workers can name one terminal); (c) the terminal's own worktree is not a directory registered to another worker, and its session binding, if it has one, does not name another worker. A binding file that does not exist is no binding; one that exists but cannot be used (unreadable, not valid JSON, or naming no worker) holds like a foreign one. A terminal that reports no worktree, or an unregistered and unbound one, is admitted on the record alone: the residual risk is a wrong record, not a forged one (every worker runs as the same OS user), and a positive tie between the terminal and the worker belongs to the writer. Otherwise it holds with a code from the table above; it never falls back to matching a screen or a title.
+- Every plain directory a worker registers must resolve: one with no record holds the worker's other directories too, so do not mix an unlaunched plain directory with a working worktree.
+- A directory with a `.git` is a worktree: its `.git` binding is read and its `terminal.json` is ignored.

@@ -58,7 +58,7 @@ Requires the platform ADMIN role; every other caller is refused by the server.
 hrn:user:<handle> URN. It is resolved to an id before the update, because
 updateUserRoles takes a raw id and does no ref resolution of its own.`,
 		Example: `  hadron user set-roles @jane --role admin --yes
-  hadron user set-roles usr_789 --role contributor --role reader --json --yes
+  hadron user set-roles @bob --role contributor --role reader --json --yes
   hadron user set-roles jane@acme.com --role reader --yes   # demote: drops every other role`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

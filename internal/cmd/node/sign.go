@@ -29,6 +29,9 @@ type signatureDTO struct {
 	PasskeyRevokedAt *string            `json:"passkeyRevokedAt"`
 	PayloadVersion   string             `json:"payloadVersion"`
 	SigningRequestID string             `json:"signingRequestId"`
+	// LocalCheck is the result of the local v3 payload rebuild (cli#879).
+	// Present only with --check; it never claims verification.
+	LocalCheck *string `json:"localCheck,omitempty"`
 }
 
 type signatureStatusDTO struct {
@@ -256,8 +259,13 @@ window), CANCELLED (that passkey was revoked inside its window),
 NOT_APPLICABLE (an encrypted memory). The roll-up state is empty when the node
 has no signatures.
 
-With --check the command exits 5 after printing unless the roll-up state is
-CURRENT and there are no integrity problems.`,
+With --check the command first rebuilds each signature's v3 payload and
+challenge locally and checks that its inputs agree (localCheck:
+PAYLOAD_CONSISTENT, HASH_MISMATCH, UNSUPPORTED_VERSION for any record that is
+not v3, UNAVAILABLE when its inputs cannot be read). The server's state is
+shown unchanged. It then exits 5 after printing unless the roll-up state is
+CURRENT and there are no integrity problems, or if any record is HASH_MISMATCH
+or UNSUPPORTED_VERSION.`,
 		Example: `  hadron node signatures hrn:node:hadronmemory.com:dev:decisions:dk-001
   hadron node signatures decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --check --json`,
 		Args: cobra.ExactArgs(1),
@@ -292,6 +300,18 @@ CURRENT and there are no integrity problems.`,
 					}
 				}
 			}
+			localFailed := false
+			if check && len(dto.Signatures) > 0 {
+				lc := newLocalChecker(cmd.Context(), client, id, n.Id)
+				for i := range dto.Signatures {
+					res, err := lc.check(dto.Signatures[i])
+					if err != nil {
+						return err
+					}
+					dto.Signatures[i].LocalCheck = &res
+					localFailed = localFailed || localFails(res)
+				}
+			}
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				state := "none"
 				if dto.State != nil {
@@ -300,6 +320,13 @@ CURRENT and there are no integrity problems.`,
 				fmt.Fprintf(w, "%s (revision %d)\n  signatures: %s\n", dto.URN, dto.Revision, state)
 				for _, s := range dto.Signatures {
 					renderSignature(w, "    ", s)
+					if s.LocalCheck != nil {
+						fmt.Fprintf(w, "      local check: %s", *s.LocalCheck)
+						if *s.LocalCheck == localPayloadConsistent {
+							fmt.Fprintf(w, "; %s", localCheckHumanLine)
+						}
+						fmt.Fprintln(w)
+					}
 				}
 				if dto.IntegrityProblems > 0 {
 					fmt.Fprintf(w, "  integrity problems: %d (signature records that failed verification)\n", dto.IntegrityProblems)
@@ -308,14 +335,14 @@ CURRENT and there are no integrity problems.`,
 			}); err != nil {
 				return err
 			}
-			if check && (dto.State == nil || *dto.State != string(gen.SignatureStateCurrent) || dto.IntegrityProblems > 0) {
+			if check && (localFailed || dto.State == nil || *dto.State != string(gen.SignatureStateCurrent) || dto.IntegrityProblems > 0) {
 				return exitcode.Silent(exitcode.Conflict)
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare node loc against")
-	cmd.Flags().BoolVar(&check, "check", false, "exit 5 unless a current signature exists and no record fails verification")
+	cmd.Flags().BoolVar(&check, "check", false, checkFlagUsage+" Exits 5 unless a current signature exists and no record fails verification, or if a record is HASH_MISMATCH or UNSUPPORTED_VERSION.")
 	return cmd
 }
 
@@ -338,7 +365,12 @@ func newCmdSigningRequestGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <request-id>",
 		Short: "Show one signing request and, once completed, its signature",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show one signing request, named by its id (from node signing-request list or
+the output of node sign): its node and revision, its state (OPEN, COMPLETED,
+DECLINED, WITHDRAWN, EXPIRED or STALE) and, once a person has completed it,
+the signature.`,
+		Example: `  hadron node signing-request get 01a18a0b2c3d7e8f9a0b1c2d3e4f5a6b --json`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -441,7 +473,7 @@ reads EXPIRED. --limit is 1-100 (server default 20).`,
 					if r.NamedSigner != nil {
 						signer = signerLabel(r.NamedSigner)
 					}
-					t.Row(r.ID, r.State, fmt.Sprint(r.Revision), signer, r.CreatedAt, r.ExpiresAt)
+					t.Row(output.SafeCell(r.ID), output.SafeCell(r.State), fmt.Sprint(r.Revision), output.SafeCell(signer), output.SafeCell(r.CreatedAt), output.SafeCell(r.ExpiresAt))
 				}
 				return t.Flush()
 			})

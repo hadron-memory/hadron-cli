@@ -1,0 +1,8 @@
+[
+  {
+    "citation": "msg:010:02",
+    "rule": "unresolved-reference",
+    "severity": "warning",
+    "message": "refers to msg:020:02, which is only a placeholder (an edge) — `spec mint` refuses while it remains"
+  }
+]

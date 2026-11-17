@@ -66,7 +66,7 @@ func TestAuthTokenCreateShowsKeyOnce(t *testing.T) {
 func TestAuthTokenLs(t *testing.T) {
 	const revoked = `{"id":"uak_2","label":null,"keyPreview":"hdrk_ab2","issuedVia":"oauth","createdAt":"2026-06-18T00:00:00Z","lastUsedAt":null,"revokedAt":"2026-06-19T00:00:00Z"}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"MyUserApiKeys": `{"data":{"myUserApiKeys":[` + apiKeyJSON + `,` + revoked + `]}}`,
+		"MyUserApiKeys": `{"data":{"myUserApiKeysPage":{"items":[` + apiKeyJSON + `,` + revoked + `],"total":0,"hasMore":false}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -88,7 +88,7 @@ func TestAuthTokenLs(t *testing.T) {
 
 func TestAuthTokenLsHuman(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"MyUserApiKeys": `{"data":{"myUserApiKeys":[` + apiKeyJSON + `]}}`,
+		"MyUserApiKeys": `{"data":{"myUserApiKeysPage":{"items":[` + apiKeyJSON + `],"total":0,"hasMore":false}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

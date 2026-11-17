@@ -538,3 +538,30 @@ func TestSkillPluginNamesTheEmptyHostArtifact(t *testing.T) {
 		}
 	}
 }
+
+// The empty-artifact line is client-composed — paths under --out plus fixed
+// words — so a long --out must not cost it its reason: wrapping it in
+// output.SafeCell cuts it at 256 runes and the "no skill is declared" half
+// disappears (#1110 head 3).
+func TestSkillPluginKeepsTheEmptyHostReasonUnderALongOutPath(t *testing.T) {
+	h := pluginHome(t)
+	plans := map[string]string{
+		"claudeSkill": planJSON(planEntryJSON("alpha", "WRITE", "# a")),
+		"codexSkill":  planJSON(),
+	}
+	out := filepath.Join(h, strings.Repeat("d", 240))
+	srv, _ := pluginServer(t, plans, "")
+	f, buf := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"skill", "plugin", "--server", srv.URL, "--out", out, "--name", "team-kit"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	report := buf.String()
+	if want := filepath.Join(out, "team-kit-codex") + " holds no skills"; !strings.Contains(report, want) {
+		t.Errorf("report lacks %q:\n%s", want, report)
+	}
+	if !strings.Contains(report, "no skill is declared for this host") {
+		t.Errorf("a long --out path cut the reason off:\n%s", report)
+	}
+}

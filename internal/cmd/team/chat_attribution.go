@@ -70,7 +70,7 @@ func (a *chatReadAttribution) head(ctx context.Context, client graphql.Client, a
 }
 func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, appRef string, since *int, mentions *string, size *int, before *int) (*gen.TeamChatMessagesResponse, error) {
 	if a.enabled(ctx) {
-		r, err := gen.TeamChatMessagesAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, nil, before)
+		r, err := gen.TeamChatReadPageAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, nil, before)
 		if err != nil {
 			if !a.fallback(err) {
 				return nil, err
@@ -78,7 +78,7 @@ func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, a
 		} else {
 			out := &gen.TeamChatMessagesResponse{}
 			if r.TeamChatMessages != nil {
-				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
 				for _, m := range r.TeamChatMessages.Items {
 					if m == nil {
 						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
@@ -90,5 +90,137 @@ func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, a
 			return out, nil
 		}
 	}
-	return gen.TeamChatMessages(ctx, client, appRef, since, mentions, size, nil, before)
+	r, err := gen.TeamChatReadPage(ctx, client, appRef, since, mentions, size, nil, before)
+	if err != nil {
+		return nil, err
+	}
+	out := &gen.TeamChatMessagesResponse{}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m == nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+			} else {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
+}
+
+// thread is the --thread read (cli#1262): the direct replies to one seq,
+// filtered by the server. Separate operations from page, so an ordinary read
+// never carries the new replyToSeq argument to a server that predates it. The
+// result is shaped like page's so the caller's loop is shared.
+func (a *chatReadAttribution) thread(ctx context.Context, client graphql.Client, appRef string, replyTo int, since *int, mentions *string, size *int, before *int) (*gen.TeamChatMessagesResponse, error) {
+	if a.enabled(ctx) {
+		r, err := gen.TeamChatThreadAttributed(api.WithSession(ctx, a.session), client, appRef, replyTo, since, mentions, size, before)
+		if err != nil {
+			if !a.fallback(err) {
+				return nil, err
+			}
+		} else {
+			out := &gen.TeamChatMessagesResponse{}
+			if r.TeamChatMessages != nil {
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+				for _, m := range r.TeamChatMessages.Items {
+					if m == nil {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+					} else {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	r, err := gen.TeamChatThread(ctx, client, appRef, replyTo, since, mentions, size, before)
+	if err != nil {
+		return nil, err
+	}
+	out := &gen.TeamChatMessagesResponse{}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m == nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+			} else {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
+}
+
+// tags retains every filter through the only compatibility retry. A failure
+// of the tag document itself is returned, never widened to an ordinary read.
+func (a *chatReadAttribution) tags(ctx context.Context, client graphql.Client, appRef string, since *int, mentions *string, size *int, before *int, head *string, untagged *bool) (*gen.TeamChatMessagesResponse, error) {
+	out := &gen.TeamChatMessagesResponse{}
+	if a.enabled(ctx) {
+		r, err := gen.TeamChatTagsAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, before, head, untagged)
+		if err != nil {
+			if !a.fallback(err) {
+				return nil, err
+			}
+		} else {
+			if r.TeamChatMessages != nil {
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+				for _, m := range r.TeamChatMessages.Items {
+					if m != nil {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	r, err := gen.TeamChatTags(ctx, client, appRef, since, mentions, size, before, head, untagged)
+	if err != nil {
+		return nil, err
+	}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m != nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
+}
+
+// Plural reads use their own document so old servers still accept one head.
+func (a *chatReadAttribution) tagsMulti(ctx context.Context, client graphql.Client, appRef string, since *int, mentions *string, size *int, before *int, heads []string, untagged *bool) (*gen.TeamChatMessagesResponse, error) {
+	out := &gen.TeamChatMessagesResponse{}
+	if a.enabled(ctx) {
+		r, err := gen.TeamChatTagsMultiAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, before, heads, untagged)
+		if err != nil {
+			if !a.fallback(err) {
+				return nil, err
+			}
+		} else {
+			if r.TeamChatMessages != nil {
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+				for _, m := range r.TeamChatMessages.Items {
+					if m != nil {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	r, err := gen.TeamChatTagsMulti(ctx, client, appRef, since, mentions, size, before, heads, untagged)
+	if err != nil {
+		return nil, err
+	}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m != nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
 }

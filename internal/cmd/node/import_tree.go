@@ -183,6 +183,12 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 		Created: ex.created, Existing: ex.existing, Unresolved: ex.unresolved, Skipped: res.skipped,
 		Collisions: res.collisions, EdgesWired: ex.edgesWired, NodesCreated: len(ex.created),
 	}
+	// A refusal with nothing created (e.g. the root already exists) leaves stdout
+	// empty: a success-shaped summary would read as a no-op success to a parser
+	// (#1231). The error alone carries the refusal.
+	if createErr != nil && len(ex.created) == 0 {
+		return createErr
+	}
 	// A mid-tree create failure is partial — emit what landed, then surface the
 	// error (non-zero exit) so a caller doesn't read partial as complete.
 	if emitErr := emitTreeSummary(f, dto, root); emitErr != nil && createErr == nil {

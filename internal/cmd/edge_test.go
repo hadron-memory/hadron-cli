@@ -142,7 +142,7 @@ func TestEdgeLs(t *testing.T) {
 	gql := resolveByURN(t,
 		map[string]string{"hrn:node:acme.com::kb::findings:flaky-ci": "n1"},
 		map[string]string{
-			"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+			"NodeEdgesAttributed": `{"data":{"node":` + nodeDetailJSON + `}}`,
 		})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -193,8 +193,8 @@ func TestEdgeListFilters(t *testing.T) {
 	run := func(t *testing.T, extra ...string) []map[string]any {
 		t.Helper()
 		gql := fakeGraphQL(t, map[string]string{
-			"ResolveUrn": resolveNodeJSON,
-			"GetNode":    `{"data":{"node":` + detail + `}}`,
+			"ResolveUrn":          resolveNodeJSON,
+			"NodeEdgesAttributed": `{"data":{"node":` + detail + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)

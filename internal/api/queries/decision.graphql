@@ -1,0 +1,300 @@
+# Decision logs and decisions (hadron-server #1641; hadron-cli#1335).
+#
+# Every operation is passed through: refs go to the server exactly as typed
+# and who may do what is the server's rule (cor:api:240:01). Optional fields
+# of the ask/amend input objects carry omitempty (except the presence-sensitive
+# lists noted at each operation), so a field the caller left out stays
+# omitted: amend reads an omitted field as "unchanged", and DecisionRefInput is
+# exactly one of ref/node/spec, so a sent null for the other two would be a
+# different request.
+
+fragment DecisionActorRefFields on CommentActorRef { id name handle urn }
+
+fragment DecisionActorFields on DecisionActor {
+  userId
+  user { ...DecisionActorRefFields }
+  workerId
+  worker { ...DecisionActorRefFields }
+  appId
+  app { ...DecisionActorRefFields }
+}
+
+fragment DecisionRefFields on DecisionRef { ref node spec }
+
+fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+  fromUserId
+  from { ...DecisionActorRefFields }
+  toUserId
+  to { ...DecisionActorRefFields }
+  mergedAt
+}
+
+fragment DecisionAnswerFields on DecisionAnswer {
+  at
+  byUserId
+  recordedByUserId
+  claimedBy
+  freeform
+  key
+  text
+  reason
+  via
+  source { ...DecisionRefFields }
+}
+
+fragment DecisionFields on Decision {
+  id
+  urn
+  code
+  n
+  logId
+  title
+  context
+  state
+  tier
+  urgency
+  authorizes
+  archival
+  revSeq
+  portalUrl
+  viewerIsDecider
+  askedAt
+  answeredAt
+  askedBy { ...DecisionActorFields }
+  deciderIds
+  deciders { ...DecisionActorRefFields }
+  identityMerges { ...DecisionIdentityMergeFields }
+  parts {
+    n
+    citation
+    question
+    options { key label meaning cost }
+    recommendation { key reason attributedTo by { ...DecisionActorFields } }
+    noRecommendationReason
+    answer { ...DecisionAnswerFields }
+    answerHistory { ...DecisionAnswerFields }
+  }
+  blocks { ...DecisionRefFields }
+  followUps { ...DecisionRefFields }
+  sources { ...DecisionRefFields }
+  withdrawn { at reason by { ...DecisionActorFields } }
+  evidence {
+    approval {
+      approvedAt
+      revision
+      integrity
+      byDecider
+      byUserId
+      by { ...DecisionActorRefFields }
+    }
+  }
+}
+
+fragment DecisionLogFields on DecisionLog {
+  id
+  urn
+  loc
+  name
+  prefix
+  lastCode
+  revSeq
+  portalUrl
+  defaultDeciderIds
+  defaultDeciders { ...DecisionActorRefFields }
+  eligibleDeciderIds
+  eligibleDeciders { ...DecisionActorRefFields }
+  identityMerges { ...DecisionIdentityMergeFields }
+  purges {
+    code
+    at
+    reason
+    contentHash
+    byUserId
+    by { ...DecisionActorRefFields }
+  }
+}
+
+query DecisionLog($ref: ID!) {
+  decisionLog(ref: $ref) { ...DecisionLogFields }
+}
+
+# By ref, or by code within logRef. Each argument is omitted when unset so the
+# server sees exactly the selector the caller gave.
+query Decision(
+  # @genqlient(omitempty: true)
+  $ref: ID,
+  # @genqlient(omitempty: true)
+  $code: String,
+  # @genqlient(omitempty: true)
+  $logRef: ID
+) {
+  decision(ref: $ref, code: $code, logRef: $logRef) { ...DecisionFields }
+}
+
+# The server pages (limit/offset, DecisionPage.total); omitted filters keep the
+# server defaults (limit 20, offset 0, sort PORTAL_DEFAULT).
+query Decisions(
+  # @genqlient(omitempty: true)
+  $logRef: ID,
+  # @genqlient(omitempty: true)
+  $awaitingMe: Boolean,
+  # @genqlient(omitempty: true)
+  $authorizes: Boolean,
+  # @genqlient(omitempty: true)
+  $state: [DecisionState!],
+  # @genqlient(omitempty: true)
+  $tier: DecisionTier,
+  # @genqlient(omitempty: true)
+  $urgency: [DecisionUrgency!],
+  # @genqlient(omitempty: true)
+  $sort: DecisionSort,
+  # @genqlient(omitempty: true)
+  $limit: Int,
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  decisions(
+    logRef: $logRef
+    awaitingMe: $awaitingMe
+    authorizes: $authorizes
+    state: $state
+    tier: $tier
+    urgency: $urgency
+    sort: $sort
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items { ...DecisionFields }
+  }
+}
+
+query VerifyDecision($ref: ID!) {
+  verifyDecision(ref: $ref) {
+    state
+    revision
+    approvedRevision
+    approvalIntegrity
+    approvalByDecider
+    codec
+    renderer
+    findings
+  }
+}
+
+mutation CreateDecisionLog(
+  $memoryRef: ID!,
+  $loc: String!,
+  # @genqlient(omitempty: true)
+  $name: String,
+  # @genqlient(omitempty: true)
+  $prefix: String,
+  $defaultDeciders: [ID!]!,
+  # @genqlient(omitempty: true)
+  $eligibleDeciders: [ID!]
+) {
+  createDecisionLog(
+    memoryRef: $memoryRef
+    loc: $loc
+    name: $name
+    prefix: $prefix
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+  ) { ...DecisionLogFields }
+}
+
+mutation SetDecisionLogDeciders(
+  $logRef: ID!,
+  $defaultDeciders: [ID!]!,
+  # NO omitempty on purpose: nil is sent as null, which keeps the log's
+  # eligible set, and [] clears it (resolvers.decisions.ts:
+  # eligibleDeciders == null ? prior : given).
+  $eligibleDeciders: [ID!],
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  setDecisionLogDeciders(
+    logRef: $logRef
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+    expectedRevision: $expectedRevision
+    reason: $reason
+  ) { ...DecisionLogFields }
+}
+
+# @genqlient(for: "AskDecisionInput.authorizes", omitempty: true)
+# @genqlient(for: "AskDecisionInput.blocks", omitempty: true)
+# deciders carries NO omitempty: null means the log's defaults, while an explicit
+# [] is the caller's own (refused) request, so it must reach the server as sent.
+# @genqlient(for: "AskDecisionInput.context", omitempty: true)
+# @genqlient(for: "AskDecisionInput.followUps", omitempty: true)
+# @genqlient(for: "AskDecisionInput.grant", omitempty: true)
+# @genqlient(for: "AskDecisionInput.sources", omitempty: true)
+# @genqlient(for: "AskDecisionInput.tier", omitempty: true)
+# @genqlient(for: "AskDecisionInput.urgency", omitempty: true)
+# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "DecisionRefInput.node", omitempty: true)
+# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
+# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
+mutation AskDecision(
+  $logRef: ID!,
+  $input: AskDecisionInput!
+) {
+  askDecision(logRef: $logRef, input: $input) { ...DecisionFields }
+}
+
+# blocks, followUps and sources carry NO omitempty on purpose: the server reads
+# null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
+# an absent key decodes to nil and is sent as null, and an explicit [] clears.
+# (omitempty: false is explicit because use_struct_references adds it by default.)
+# @genqlient(for: "AmendDecisionInput.blocks", omitempty: false)
+# @genqlient(for: "AmendDecisionInput.followUps", omitempty: false)
+# @genqlient(for: "AmendDecisionInput.sources", omitempty: false)
+# @genqlient(for: "AmendDecisionInput.addParts", omitempty: true)
+# context is tri-state on the server (patch.context !== undefined: absent keeps,
+# null clears, a string sets), which *string cannot carry: RawMessage keeps the
+# file's literal null (non-nil "null") apart from an absent key (nil, omitted).
+# @genqlient(for: "AmendDecisionInput.context", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendDecisionInput.parts", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.tier", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.title", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.urgency", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.question", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "DecisionRefInput.node", omitempty: true)
+# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
+# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
+mutation AmendDecision(
+  $ref: ID!,
+  $input: AmendDecisionInput!,
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  amendDecision(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) { ...DecisionFields }
+}
+
+mutation WithdrawDecision($ref: ID!, $reason: String!, $expectedRevision: Int!) {
+  withdrawDecision(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) { ...DecisionFields }
+}
+
+mutation PurgeUnansweredDecision($ref: ID!, $reason: String!) {
+  purgeUnansweredDecision(ref: $ref, reason: $reason)
+}

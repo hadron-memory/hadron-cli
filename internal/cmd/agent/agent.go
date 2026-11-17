@@ -3,8 +3,10 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -12,13 +14,17 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/api/gqltypes"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/bootcompile"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// agentDTO is the stable --json shape for an agent.
-type agentDTO struct {
+// agentBaseDTO is every field of the stable --json agent shape except
+// lifecycle, which write receipts and `agent get` represent DIFFERENTLY (omitted
+// when not sent vs an explicit null) and so each declares exactly once, below.
+type agentBaseDTO struct {
 	ID             string   `json:"id"`
 	URN            string   `json:"urn"`
 	Name           string   `json:"name"`
@@ -36,13 +42,39 @@ type agentDTO struct {
 	// withheld, and the key must stay to say it.
 	BootPromptRef           *string `json:"bootPromptRef"`
 	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
-	SystemPrompt            *string `json:"systemPrompt"`
 	AiProvider              *string `json:"aiProvider"`
 	AiModel                 *string `json:"aiModel"`
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
-	CreatedAt               string  `json:"createdAt"`
+	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
+	// host with a worker.reset-context handler acts on it (#1043).
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+	// ListedOnMarketplace is the catalogue-discovery flag (cor:acl:080:04),
+	// distinct from visibility: it governs discovery, never access (cli#58).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// RegisterDefaults is the Agent's register defaults as returned; null only
+	// if the server returned none (cli#58).
+	RegisterDefaults *registerDefaultsDTO `json:"registerDefaults"`
+	// MemberRoles is the Agent's installationPolicy.memberRoles (#1226, R211):
+	// the roles an App it is installed in may offer. [] when none came back.
+	MemberRoles []string `json:"memberRoles"`
+	CreatedAt   string   `json:"createdAt"`
+}
+
+// agentDTO is the --json shape of write receipts, lists and clones: lifecycle
+// is present only when the server returned it (a write that sent --lifecycle),
+// and omitted otherwise.
+type agentDTO struct {
+	agentBaseDTO
+	Lifecycle *string `json:"lifecycle,omitempty"`
+	// ContextCap (#2162) is present only when the server reported it: a write
+	// that sent a cap flag. A number, or null when the Agent has no cap.
+	ContextCap json.RawMessage `json:"contextCap,omitempty"`
+}
+
+type registerDefaultsDTO struct {
+	MentionOnly bool `json:"mentionOnly"`
 }
 
 func agentDTOFromFields(a gen.AgentFields) agentDTO {
@@ -50,15 +82,51 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 	if surfaces == nil {
 		surfaces = []string{}
 	}
-	return agentDTO{
+	// installationPolicy is non-null on the server, but a withheld or older
+	// answer must render [] rather than crash.
+	roles := []string{}
+	if a.InstallationPolicy != nil {
+		roles = append(roles, a.InstallationPolicy.MemberRoles...)
+	}
+	var reg *registerDefaultsDTO
+	if a.RegisterDefaults != nil {
+		reg = &registerDefaultsDTO{MentionOnly: a.RegisterDefaults.MentionOnly}
+	}
+	return agentDTO{agentBaseDTO: agentBaseDTO{
+		MemberRoles: roles, ListedOnMarketplace: a.ListedOnMarketplace, RegisterDefaults: reg,
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
-		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
+		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
+	}}
+}
+
+// memberRolesArg turns --member-roles into the wire value: nil when the flag
+// was not passed (the field is then omitted: create takes the server default,
+// update preserves), the list verbatim when it was. An empty value is refused
+// here because the server refuses [] and an empty list must never be sent.
+// Role validity (format, duplicates, case, count) is the server's alone.
+func memberRolesArg(cmd *cobra.Command, roles []string) ([]string, error) {
+	if !cmd.Flags().Changed("member-roles") {
+		return nil, nil
 	}
+	for _, r := range roles {
+		if strings.TrimSpace(r) != "" {
+			return roles, nil
+		}
+	}
+	return nil, exitcode.Newf(exitcode.Usage,
+		"--member-roles needs at least one role (comma-separated, e.g. owner,member); it was passed empty — drop the flag to keep the default (create) or the current roles (update)")
+}
+
+func dashList(items []string) string {
+	if len(items) == 0 {
+		return "—"
+	}
+	return strings.Join(items, ", ")
 }
 
 func dash(s *string) string {
@@ -121,9 +189,15 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
+	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
+	cmd.AddCommand(newCmdAgentRevision(f), newCmdAgentLock(f))
+	cmd.AddCommand(newCmdAgentMemory(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
+	cmd.AddCommand(newCmdAgentBootPrompt(f))
+	cmd.AddCommand(newCmdAgentModelGroup(f))
+	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
 
@@ -154,8 +228,8 @@ narrow it.
 
 --app does NOT narrow this listing: it is the persistent App-context flag,
 not a filter, so the same rows come back for any App. For the agents
-installed in one App, use ` + "`hadron team roster --app <ref>`" + `, which reads
-the AppAgent join.`,
+installed in one App, use ` + "`hadron app agent list <app-ref>`" + `, which reads
+the AppAgent join; for its workers, use ` + "`hadron team worker list --app <ref>`" + `.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f.NoteAppIsContextOnly("agents you can read")
@@ -268,7 +342,7 @@ the AppAgent join.`,
 			return output.Write(f.IOStreams, f.JSON, agents, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "URN", "NAME", "TYPE", "VISIBILITY")
 				for _, a := range agents {
-					t.Row(a.ID, a.URN, a.Name, a.Type, a.Visibility)
+					t.Row(output.SafeCell(a.ID), output.SafeCell(a.URN), output.SafeCell(a.Name), output.SafeCell(a.Type), output.SafeCell(a.Visibility))
 				}
 				return t.Flush()
 			})
@@ -284,10 +358,96 @@ the AppAgent join.`,
 	return cmd
 }
 
+// OfferSubjectDTO is one blocking subject the server named (AgentOfferSubject); only the name is reachable.
+type OfferSubjectDTO struct {
+	Name string `json:"name"`
+}
+
+// OfferReasonDTO is one reason an Agent is not ready to be offered (AgentOfferReason, cor:dmo:050:19). Count is every
+// blocked subject; Subjects are the ones the server named; OmittedByCap and HiddenByAccess are counts, never names.
+type OfferReasonDTO struct {
+	Code           string            `json:"code"`
+	Count          int               `json:"count"`
+	Subjects       []OfferSubjectDTO `json:"subjects"`
+	OmittedByCap   int               `json:"omittedByCap"`
+	HiddenByAccess int               `json:"hiddenByAccess"`
+}
+
+// OfferReadinessDTO is the server's AgentOfferReadiness. Reasons is empty exactly when Ready, and never null.
+type OfferReadinessDTO struct {
+	Ready   bool             `json:"ready"`
+	Reasons []OfferReasonDTO `json:"reasons"`
+}
+
+// offerReadinessDTOFrom copies the server's answer, keeping null as null and every list non-null (a hostile or older
+// server's null list becomes [] so --json never carries one).
+func offerReadinessDTOFrom(r *gen.GetAgentAgentOfferReadiness) *OfferReadinessDTO {
+	if r == nil {
+		return nil
+	}
+	out := &OfferReadinessDTO{Ready: r.Ready, Reasons: []OfferReasonDTO{}}
+	for _, reason := range r.Reasons {
+		d := OfferReasonDTO{Code: string(reason.Code), Count: reason.Count, Subjects: []OfferSubjectDTO{}, OmittedByCap: reason.OmittedByCap, HiddenByAccess: reason.HiddenByAccess}
+		for _, s := range reason.Subjects {
+			d.Subjects = append(d.Subjects, OfferSubjectDTO{Name: s.Name})
+		}
+		out.Reasons = append(out.Reasons, d)
+	}
+	return out
+}
+
+// writeOfferReadiness prints the readiness block. A null answer says only that readiness is not available to the caller:
+// it never says "ready" and names no error code (cor:dmo:050:19). Names appear only where the server named them;
+// omittedByCap and hiddenByAccess are counts.
+func writeOfferReadiness(w io.Writer, r *OfferReadinessDTO) {
+	switch {
+	case r == nil:
+		fmt.Fprintf(w, "  offer readiness: not available to you\n")
+	case r.Ready:
+		fmt.Fprintf(w, "  offer readiness: ready\n")
+	default:
+		fmt.Fprintf(w, "  offer readiness: not ready\n")
+	}
+	if r == nil {
+		return
+	}
+	for _, reason := range r.Reasons {
+		fmt.Fprintf(w, "    %s: %d blocked", output.SafeCell(reason.Code), reason.Count)
+		var parts []string
+		if len(reason.Subjects) > 0 {
+			names := make([]string, 0, len(reason.Subjects))
+			for _, s := range reason.Subjects {
+				names = append(names, output.SafeCell(s.Name))
+			}
+			parts = append(parts, strings.Join(names, ", "))
+		}
+		if reason.OmittedByCap > 0 {
+			parts = append(parts, fmt.Sprintf("%d more not listed", reason.OmittedByCap))
+		}
+		if reason.HiddenByAccess > 0 {
+			parts = append(parts, fmt.Sprintf("%d hidden", reason.HiddenByAccess))
+		}
+		if len(parts) > 0 {
+			fmt.Fprintf(w, " (%s)", strings.Join(parts, "; "))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // Origin is get-only; null deliberately does not identify a concealment reason.
 type agentGetDTO struct {
-	agentDTO
+	// Lifecycle is `get`'s ONLY lifecycle field: an explicit null when the
+	// server cannot report it (it predates #4242), never omitted.
+	Lifecycle *string `json:"lifecycle"`
+	// ContextCap (#2162) is a number or null when the server reports it, and
+	// ABSENT when it cannot (it predates hadron-server#4258).
+	ContextCap json.RawMessage `json:"contextCap,omitempty"`
+	agentBaseDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
+	OfferReadiness *OfferReadinessDTO `json:"offerReadiness"`
+	// Get-only best-effort enrichment; omit on every unavailable answer.
+	SystemMemoryURN *string `json:"systemMemoryUrn,omitempty"`
 }
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
@@ -297,7 +457,18 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
 source's current URN returned by the server. A null origin prints no line:
 non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
+JSON includes the nullable clonedFromAgentRef key. No clone-source lookup is made.
+For a system memory ID, one optional memory read adds its server-returned URN
+to text and the JSON systemMemoryUrn key. If unavailable (including older
+servers), output keeps the ID alone and omits that key without a warning.
+The "reset context after task" line (JSON resetContextAfterTask) shows the
+setting recorded by agent update --reset-context-after-task.
+The lifecycle line (JSON lifecycle) shows LONG_LIVED or SHORT_LIVED as
+recorded by agent update --lifecycle; it does not report a running process.
+This is a separate read. A server before #4242 shows unknown (server before
+#4242), JSON lifecycle null, while the original Agent fields still work. Other
+read failures are errors. --lifecycle writes require server #4242; omitting the
+flag keeps the legacy create/update documents unchanged.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -312,24 +483,72 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 			if resp.Agent == nil {
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
-			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
-				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
-					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
-				fmt.Fprintf(w, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
-				if dto.ClonedFromAgentRef != nil {
-					fmt.Fprintf(w, "  Cloned from: %s\n", *dto.ClonedFromAgentRef)
+			dto := agentGetDTO{agentBaseDTO: agentDTOFromFields(resp.Agent.AgentFields).agentBaseDTO, ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
+			life, lifeErr := gen.GetAgentLifecycle(cmd.Context(), client, resp.Agent.Id)
+			if lifeErr != nil && !api.IsFrameworkValidationOnlyFor(lifeErr, "lifecycle") {
+				return api.MapError(lifeErr)
+			}
+			if lifeErr == nil {
+				if life == nil || life.Agent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent lifecycle")
 				}
+				v := string(life.Agent.Lifecycle)
+				dto.Lifecycle = &v
+			}
+
+			capResp, capErr := gen.GetAgentContextCap(cmd.Context(), client, resp.Agent.Id)
+			if capErr != nil && !api.IsFrameworkValidationOnlyFor(capErr, "contextCap") {
+				return api.MapError(capErr)
+			}
+			if capErr == nil && capResp != nil && capResp.Agent != nil {
+				dto.ContextCap = contextCapRaw(capResp.Agent.ContextCap)
+			}
+
+			// Read through the normal memory gate using the same client/credential.
+			// Never compose a URN from Agent metadata: unreadable and nonexistent
+			// must have the same id-only output. Even partial data with an error
+			// is unavailable, and there is no retry or alternate read surface.
+			if dto.SystemMemoryID != nil && *dto.SystemMemoryID != "" {
+				memory, lookupErr := gen.AgentSystemMemory(cmd.Context(), client, *dto.SystemMemoryID)
+				if lookupErr == nil && memory != nil && memory.Memory != nil && memory.Memory.Id == *dto.SystemMemoryID && memory.Memory.Urn != "" {
+					dto.SystemMemoryURN = &memory.Memory.Urn
+				}
+			}
+			memoryLabel := dash(dto.SystemMemoryID)
+			if dto.SystemMemoryURN != nil {
+				memoryLabel = fmt.Sprintf("%s (%s)", *dto.SystemMemoryURN, *dto.SystemMemoryID)
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), output.SafeCell(dto.Type), output.SafeCell(dto.Visibility))
+				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
+					output.SafeCell(dash(dto.Description)), output.SafeCell(memoryLabel), output.SafeCell(dash(dto.TasksIndexRef)), output.SafeCell(dash(dto.ProcessesIndex)), output.SafeCell(dash(dto.ExtendsAgentID)), output.SafeCell(dash(dto.AiProvider)), output.SafeCell(dash(dto.AiModel)), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  boot prompt: %s\n", output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)))
+				if dto.ClonedFromAgentRef != nil {
+					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
+				}
+				writeOfferReadiness(w, dto.OfferReadiness)
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
+				lifeLabel := "unknown (server before #4242)"
+				if dto.Lifecycle != nil {
+					lifeLabel = *dto.Lifecycle
+				}
+				fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(lifeLabel))
+				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
+				capLabel := "unknown (server before #4258)"
+				if len(dto.ContextCap) > 0 {
+					capLabel = contextCapLabel(dto.ContextCap)
+				}
+				fmt.Fprintf(w, "  context cap: %s\n", capLabel)
+				fmt.Fprintf(w, "  listed on marketplace: %t\n", dto.ListedOnMarketplace)
+				if dto.RegisterDefaults != nil {
+					fmt.Fprintf(w, "  register mention only: %t\n", dto.RegisterDefaults.MentionOnly)
+				}
+				fmt.Fprintf(w, "  member roles: %s\n", output.SafeCell(dashList(dto.MemberRoles)))
 				if len(dto.Surfaces) > 0 {
-					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
+					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
 				}
 				if dto.PersonaRole != nil {
-					fmt.Fprintf(w, "  persona role: %s\n", dash(dto.PersonaRole))
-				}
-				if dto.SystemPrompt != nil && *dto.SystemPrompt != "" {
-					fmt.Fprintf(w, "  system prompt: %s\n", *dto.SystemPrompt)
+					fmt.Fprintf(w, "  persona role: %s\n", output.SafeCell(dash(dto.PersonaRole)))
 				}
 				return nil
 			})
@@ -339,65 +558,28 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 
 // The old flags remain parseable only to give scripts a local, actionable
 // refusal before credentials or a request are touched. They no longer map to
-// a server field, and silently forwarding them to systemPrompt would risk
-// overwriting a different template.
+// a server field and do not write a prompt.
 func refuseRetiredPersonaPromptFlags(cmd *cobra.Command) error {
 	if cmd.Flags().Changed("persona-prompt") || cmd.Flags().Changed("persona-prompt-file") {
 		return exitcode.Newf(exitcode.Usage,
-			"--persona-prompt and --persona-prompt-file were retired; use --system-prompt or --system-prompt-file for the shared {{name}}/{{role}} template")
+			"--persona-prompt and --persona-prompt-file were retired; write boot:source, then use hadron agent compile and hadron node approve")
 	}
 	return nil
 }
 
 func registerRetiredPersonaPromptFlags(cmd *cobra.Command) {
-	cmd.Flags().String("persona-prompt", "", "retired; use --system-prompt")
-	cmd.Flags().String("persona-prompt-file", "", "retired; use --system-prompt-file")
+	cmd.Flags().String("persona-prompt", "", "retired; write boot:source and compile")
+	cmd.Flags().String("persona-prompt-file", "", "retired; write boot:source and compile")
 	_ = cmd.Flags().MarkHidden("persona-prompt")
 	_ = cmd.Flags().MarkHidden("persona-prompt-file")
 }
 
-// refuseBlankPromptFile rejects a --<flag>-file passed with an empty path — an
-// unset shell variable is the usual cause. ResolveTextInput reads an empty
-// path as an empty VALUE, so without this an `agent update --system-prompt-file
-// "$UNSET"` is Changed-but-empty and silently CLEARS the prompt instead of
-// reporting that no file was supplied (#541 codex P1; the
-// an-empty-flag-is-not-an-absent-flag class). The inline --<flag> "" is left
-// alone on purpose: an explicit empty there is a deliberate clear. flag is the
-// base name; the file flag is derived as <flag>-file, and its value is read
-// from the registry so the vars need not be threaded here.
-func refuseBlankPromptFile(cmd *cobra.Command, flags ...string) error {
-	for _, flag := range flags {
-		name := flag + "-file"
-		if cmd.Flags().Changed(name) && strings.TrimSpace(cmd.Flags().Lookup(name).Value.String()) == "" {
-			return exitcode.Newf(exitcode.Usage,
-				"--%s was given an empty path — pass a file, or drop the flag (an unset variable is the usual cause)", name)
-		}
-	}
-	return nil
-}
-
-// resolvePromptFlag resolves an UPDATE-side long-text field to the pointer
-// UpdateAgent wants: nil (preserve) when neither --<flag> nor --<flag>-file was
-// passed, otherwise a pointer to the resolved value — so an explicit empty
-// clears, matching changedStr. The value may come inline, from --<flag>-file,
-// or from stdin ("-"), via the shared cmdutil resolver.
-func resolvePromptFlag(cmd *cobra.Command, flag, value, file string, stdin io.Reader) (*string, error) {
-	if !cmd.Flags().Changed(flag) && !cmd.Flags().Changed(flag+"-file") {
-		return nil, nil
-	}
-	resolved, err := cmdutil.ResolveTextInput(flag, value, file, stdin)
-	if err != nil {
-		return nil, err
-	}
-	return &resolved, nil
-}
-
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
-	var org, name, description, typ, vis, systemPrompt, systemMemory string
-	var personaRole, installInto string
-	var systemPromptFile string
-	var surfaces []string
-	var ownerMe bool
+	var org, name, description, typ, vis, systemMemory string
+	var personaRole, installInto, lifecycle string
+	var surfaces, memberRoles []string
+	var ownerMe, createUsesTasks, createReset bool
+	var createContextCap int
 	cmd := &cobra.Command{
 		Use:   "create --name <n> [--org <id> | --owner-me] [--install-into <app>]",
 		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
@@ -408,12 +590,24 @@ agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
 and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
 exclusive.
 
+--lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while
+they hold a runnable task. Omitted takes the server default LONG_LIVED.
+This records desired behaviour; an enabled host sweep acts on it. The flag
+requires server #4242 (schema skew exits 2); omitting it keeps the legacy
+create document unchanged.
+
+--context-cap <tokens> sets the Agent's context cap: a whole number from 1; a
+long-lived worker whose context grows past it, and whose host reports it idle
+at an empty prompt, is reset (at most once an hour per worker). Omitted means no
+cap. Needs a server with hadron-server#4258 (schema skew exits 2); omitting the
+flag keeps the legacy create document unchanged.
+
 A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
 (#535). --install-into <app> does that second step in the same run — the
 common case when the agent is a role agent for a team you already have:
 
   hadron agent create --org acme.com --name "DevOps Engineer" \
-      --persona-role devops-engineer --system-prompt 'You are {{name}}…' \
+      --persona-role devops-engineer \
       --install-into hrn:app:acme.com:eng-team
 
 It is deliberately NOT spelled --app: that is the persistent App-CONTEXT flag,
@@ -431,7 +625,27 @@ to check ` + "`app agent list`" + ` rather than to retry blind into a duplicate.
 
 Authorization for the install is CONTRIBUTOR+ on the App's owning org (or
 ownership of a user-owned App) — a stricter gate than creating the agent, so
-it can refuse after the create succeeds.`,
+it can refuse after the create succeeds.
+
+New Agents start without a prompt. Write boot:source (role boot-prompt) in
+the Agent system memory, then use hadron agent compile and hadron node approve.
+
+--uses-tasks and --reset-context-after-task set the two task settings at
+creation. Pass them only to choose a value: left out, the server default stands
+(uses tasks true, reset context after task false); an explicit =false is sent as
+false. --reset-context-after-task records a setting only. The program that
+runs your workers (their host) does the reset, and only a host that supports it
+acts on the setting. team host run wires the protocol on Linux when its config
+explicitly declares worker.reset-context and supplies reset_context.orca_bin,
+but currently refuses new resets: it cannot prove a terminal/process binding.
+The terminal-aware success path belongs to C3 (hadron-cli#2058).
+
+Server compatibility: every agent create now sends a document that takes
+usesTasks and resetContextAfterTask, even when neither flag is named, so it
+needs a server whose createAgent has them (in the schema snapshot from
+hadron-server 53e12896e, 2026-10-26). An older server rejects the create as
+schema skew, exit 2: upgrade that provider first, including self-hosted or
+staging servers.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
   hadron agent create --org acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
@@ -472,6 +686,10 @@ it can refuse after the create succeeds.`,
 			if installInto, err = cmdutil.CanonicalAppRef("--install-into", installInto); err != nil {
 				return err
 			}
+			rolesArg, err := memberRolesArg(cmd, memberRoles)
+			if err != nil {
+				return err
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err
@@ -480,13 +698,11 @@ it can refuse after the create succeeds.`,
 			if err != nil {
 				return err
 			}
-			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt); err != nil {
+			lifecycleArg, err := agentLifecycleArg(cmd, lifecycle)
+			if err != nil {
 				return err
 			}
-			if err := refuseBlankPromptFile(cmd, "system-prompt"); err != nil {
-				return err
-			}
-			systemPrompt, err = cmdutil.ResolveTextInput("system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
+			capArg, err := contextCapArg(cmd, createContextCap, false)
 			if err != nil {
 				return err
 			}
@@ -494,16 +710,62 @@ it can refuse after the create succeeds.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
-				optStr(description), at, av, optStr(systemPrompt), optStr(systemMemory), surfaces,
-				optStr(personaRole))
-			if err != nil {
-				return api.MapError(err)
+			var usesTasksArg, resetArg *bool
+			if cmd.Flags().Changed("uses-tasks") {
+				usesTasksArg = &createUsesTasks
 			}
-			if resp.CreateAgent == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no agent")
+			if cmd.Flags().Changed("reset-context-after-task") {
+				resetArg = &createReset
 			}
-			created := agentCreateDTO{agentDTO: agentDTOFromFields(resp.CreateAgent.AgentFields)}
+			var createdFields *gen.AgentFields
+			var lifecycleValue *string
+			var capValue json.RawMessage
+			if capArg != nil {
+				// The cap rides in its own document (#2162): the legacy ones stay
+				// valid on a server older than hadron-server#4258.
+				resp, err := gen.CreateAgentWithContextCap(cmd.Context(), client, name, lifecycleArg, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg, capArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+				if lifecycleArg != nil {
+					value := string(resp.CreateAgent.Lifecycle)
+					lifecycleValue = &value
+				}
+				capValue = contextCapRaw(resp.CreateAgent.ContextCap)
+			} else if lifecycleArg == nil {
+				resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+			} else {
+				resp, err := gen.CreateAgentWithLifecycle(cmd.Context(), client, name, lifecycleArg, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+				value := string(resp.CreateAgent.Lifecycle)
+				lifecycleValue = &value
+			}
+			created := agentCreateDTO{agentDTO: agentDTOFromFields(*createdFields)}
+			created.Lifecycle = lifecycleValue
+			created.ContextCap = capValue
 
 			// Reaching here with an empty installInto now means ONE thing — the
 			// flag was not passed. "Asked for nothing" was refused above, so do
@@ -533,48 +795,116 @@ it can refuse after the create succeeds.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "shared agent and Worker prompt template; {{name}}/{{role}} bind for Workers (a lone - reads piped stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
+	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted uses server default LONG_LIVED; requires S3 server)")
+	cmd.Flags().BoolVar(&createUsesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks (server default true when left out; =false is sent as false)")
+	cmd.Flags().IntVar(&createContextCap, "context-cap", 0, contextCapFlagUsage)
+	cmd.Flags().BoolVar(&createReset, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (server default false when left out). Recorded only: it takes effect where the workers' host supports it")
 	registerRetiredPersonaPromptFlags(cmd)
-	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	_ = cmd.MarkFlagRequired("name")
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 
+// agentLifecycleArg keeps omission distinct from an explicitly empty flag.
+// The same enum and omission contract applies to create and update.
+func agentLifecycleArg(cmd *cobra.Command, raw string) (*gen.AgentLifecycle, error) {
+	if !cmd.Flags().Changed("lifecycle") {
+		return nil, nil
+	}
+	if raw != "LONG_LIVED" && raw != "SHORT_LIVED" {
+		return nil, exitcode.Newf(exitcode.Usage, "--lifecycle must be LONG_LIVED or SHORT_LIVED (omit the flag to keep the default/current value)")
+	}
+	value := gen.AgentLifecycle(raw)
+	return &value, nil
+}
+
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
-	var name, description, typ, vis, systemPrompt, systemMemory, urn string
-	var personaRole string
-	var usesTasks bool
-	var systemPromptFile string
+	var name, description, typ, vis, systemMemory, urn string
+	var personaRole, lifecycle string
+	var usesTasks, resetContextAfterTask, listedOnMarketplace, registerMentionOnly, clearRegisterDefaults bool
 	var tasksIndex, processesIndex string
-	var surfaces []string
+	var updateContextCap int
+	var noContextCap bool
+	var surfaces, memberRoles []string
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
 		Long: `Update an agent. Only the fields you pass change.
 
---persona-role is metadata. --system-prompt sets the shared prompt TEMPLATE:
-{{name}} and {{role}} bind when the agent is cast into an App as a named
-Worker (` + "`hadron team worker cast`" + `). Existing workers also resolve
-their prompt from this field.`,
+--lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while they
+hold a runnable task. Omitted preserves the server value (default LONG_LIVED).
+The server checks the same permission as --uses-tasks. This records desired
+behaviour; a host sweep must support it and be enabled to act on it. The flag
+requires server #4242 (schema skew exits 2). Without it the legacy update
+document stays unchanged.
+
+--context-cap <tokens> sets the Agent's context cap: a whole number from 1; a
+long-lived worker whose context grows past it, and whose host reports it idle
+at an empty prompt, is reset (at most once an hour per worker; a busy worker is
+never reset for it). --no-context-cap removes the cap. Omitted keeps the current
+cap. Not both. Needs a server with hadron-server#4258; against an older one the
+write is refused as schema skew, and every other agent command is unaffected.
+
+--persona-role is metadata. Write the Agent source at boot:source in its system
+memory, then use hadron agent compile and hadron node approve. New Agents
+start without a prompt.
+
+--reset-context-after-task records a setting on the Agent (default false);
+hadron agent get shows it. It does not reset anything by itself. The program
+that runs your workers (their host) does the reset, and only a host that
+supports it acts on the setting. team host run wires the protocol on Linux
+when its config explicitly declares worker.reset-context and supplies
+reset_context.orca_bin, but currently refuses new resets without a verifiable
+terminal/process binding. C3 (hadron-cli#2058) owns the success path.
+Turn it off with --reset-context-after-task=false. agent create takes the same
+flag, to set it at creation.
+
+--listed-on-marketplace lists the Agent in the marketplace catalogue (=false
+unlists it). It governs discovery only: it does not change the Agent's
+visibility or who can reach it.
+
+--register-mention-only[=false] sets the Agent's register default mentionOnly;
+--clear-register-defaults returns the register defaults to the platform
+defaults. Pass at most one of them; left out, the register defaults are
+unchanged. Both together, or --clear-register-defaults=false, are refused
+before anything is sent.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
-  hadron agent update agt_123 --description "…"`,
+  hadron agent update agt_123 --description "…"
+  hadron agent update agt_123 --reset-context-after-task
+  hadron agent update agt_123 --listed-on-marketplace
+  hadron agent update agt_123 --register-mention-only
+  hadron agent update agt_123 --clear-register-defaults`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseRetiredPersonaPromptFlags(cmd); err != nil {
 				return err
 			}
 			changed := cmd.Flags().Changed
+			lifecycleArg, err := agentLifecycleArg(cmd, lifecycle)
+			if err != nil {
+				return err
+			}
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
-				!changed("system-prompt") && !changed("system-prompt-file") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") && !changed("uses-tasks") &&
-				!changed("tasks-index") && !changed("processes-index") {
+				!changed("lifecycle") && !changed("persona-role") && !changed("uses-tasks") && !changed("reset-context-after-task") &&
+				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") &&
+				!changed("listed-on-marketplace") && !changed("register-mention-only") && !changed("clear-register-defaults") &&
+				!changed("context-cap") && !changed("no-context-cap") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+			registerArg, err := registerDefaultsArg(cmd, registerMentionOnly, clearRegisterDefaults)
+			if err != nil {
+				return err
+			}
+			capArg, err := contextCapArg(cmd, updateContextCap, true)
+			if err != nil {
+				return err
 			}
 			// The server prepends the owner namespace, so --urn is the agent
 			// slug — which may carry an author org or @handle atom, hence an
@@ -583,6 +913,10 @@ their prompt from this field.`,
 				if err := cmdutil.ValidateAgentURNPath("--urn", urn); err != nil {
 					return err
 				}
+			}
+			rolesArg, err := memberRolesArg(cmd, memberRoles)
+			if err != nil {
+				return err
 			}
 			at, err := parseAgentType(typ)
 			if err != nil {
@@ -596,45 +930,74 @@ their prompt from this field.`,
 			if changed("surface") {
 				surfacesArg = surfaces
 			}
-			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt); err != nil {
-				return err
-			}
-			if err := refuseBlankPromptFile(cmd, "system-prompt"); err != nil {
-				return err
-			}
-			systemPromptArg, err := resolvePromptFlag(cmd, "system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
-			// The client is built only after every argument-only check and the
-			// prompt reads: building it resolves the server and credentials, and
-			// a local refusal (#648's terminal guard above all) must not be
-			// masked by an auth error, nor touch the credential store.
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			var updated *gen.AgentFields
+			var lifecycleValue *string
+			var capValue json.RawMessage
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
-				changed("system-prompt") || changed("system-prompt-file") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") || changed("uses-tasks") {
-				var usesTasksArg *bool
+				changed("lifecycle") || changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") ||
+				changed("listed-on-marketplace") || registerArg != nil || capArg != nil {
+				var usesTasksArg, resetArg, listedArg *bool
 				if changed("uses-tasks") {
 					usesTasksArg = &usesTasks
 				}
-				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
-					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
-					at, av, systemPromptArg,
-					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole), usesTasksArg)
-				if err != nil {
-					return api.MapError(err)
+				if changed("reset-context-after-task") {
+					resetArg = &resetContextAfterTask
 				}
-				if resp.UpdateAgent == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				if changed("listed-on-marketplace") {
+					listedArg = &listedOnMarketplace
 				}
-				updated = &resp.UpdateAgent.AgentFields
+				if capArg != nil {
+					resp, err := gen.UpdateAgentWithContextCap(cmd.Context(), client, args[0], lifecycleArg,
+						changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+						at, av,
+						changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+						changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg, capArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp.UpdateAgent == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no agent")
+					}
+					updated = &resp.UpdateAgent.AgentFields
+					if lifecycleArg != nil {
+						value := string(resp.UpdateAgent.Lifecycle)
+						lifecycleValue = &value
+					}
+					capValue = contextCapRaw(resp.UpdateAgent.ContextCap)
+				} else if lifecycleArg == nil {
+					resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
+						changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+						at, av,
+						changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+						changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp.UpdateAgent == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no agent")
+					}
+					updated = &resp.UpdateAgent.AgentFields
+				} else {
+					resp, err := gen.UpdateAgentWithLifecycle(cmd.Context(), client, args[0], lifecycleArg,
+						changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+						at, av,
+						changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+						changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp.UpdateAgent == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no agent")
+					}
+					updated = &resp.UpdateAgent.AgentFields
+					value := string(resp.UpdateAgent.Lifecycle)
+					lifecycleValue = &value
+				}
 			}
 			// The two index refs are their own mutation (setAgentIndexRefs):
 			// a value sets, an explicit empty clears, absent preserves.
@@ -649,25 +1012,61 @@ their prompt from this field.`,
 			if fields == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no agent")
 			}
-			return emitAgent(f, agentDTOFromFields(*fields), "✓ updated")
+			dto := agentDTOFromFields(*fields)
+			dto.Lifecycle = lifecycleValue
+			dto.ContextCap = capValue
+			return emitAgent(f, dto, "✓ updated")
 		},
 	}
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted preserves; requires S3 server)")
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "shared agent and Worker prompt template; {{name}}/{{role}} bind for Workers (a lone - reads piped stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "replace the roles the agent offers an App's members, comma-separated (existing members keep theirs; the server validates)")
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
-	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
+	cmd.Flags().BoolVar(&resetContextAfterTask, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (default false; =false clears it; omitted keeps the current value). Recorded only: it takes effect where the workers' host supports it")
+	cmd.Flags().IntVar(&updateContextCap, "context-cap", 0, contextCapFlagUsage+" (omitted keeps the current cap)")
+	cmd.Flags().BoolVar(&noContextCap, "no-context-cap", false, "remove the Agent's context cap (no cap; omitted keeps the current cap). Not with --context-cap")
+	cmd.Flags().BoolVar(&listedOnMarketplace, "listed-on-marketplace", false, "list the Agent in the marketplace catalogue (=false unlists it; omitted keeps the current value). Catalogue discovery only: it does not change visibility or who can reach the Agent")
+	cmd.Flags().BoolVar(&registerMentionOnly, "register-mention-only", false, "set the Agent's register default mentionOnly to this value (=false sets false; omitted keeps the current defaults). Not with --clear-register-defaults")
+	cmd.Flags().BoolVar(&clearRegisterDefaults, "clear-register-defaults", false, "return the Agent's register defaults to the platform defaults (omitted keeps the current defaults). Not with --register-mention-only")
 	registerRetiredPersonaPromptFlags(cmd)
-	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
+}
+
+// registerDefaultsArg turns --register-mention-only / --clear-register-defaults
+// into the three-state wire value (cli#58 slice 2): nil when neither flag was
+// passed (the variable is omitted and the server PRESERVES the defaults), an
+// object for --register-mention-only[=bool], an explicit null for
+// --clear-register-defaults. Omission is never turned into a clear. Both
+// together, and --clear-register-defaults=false, are usage errors here, before
+// any request: "false" on a clear is not a choice, and a clear next to a value
+// is ambiguous.
+func registerDefaultsArg(cmd *cobra.Command, mentionOnly, clear bool) (*gqltypes.RegisterDefaultsInput, error) {
+	moSet, clSet := cmd.Flags().Changed("register-mention-only"), cmd.Flags().Changed("clear-register-defaults")
+	if moSet && clSet {
+		return nil, exitcode.Newf(exitcode.Usage, "--register-mention-only and --clear-register-defaults cannot be combined: set a value or clear the defaults, never both")
+	}
+	if clSet {
+		if !clear {
+			return nil, exitcode.Newf(exitcode.Usage, "--clear-register-defaults=false is not a choice: pass --clear-register-defaults to clear the register defaults, or leave the flag out to keep them")
+		}
+		return &gqltypes.RegisterDefaultsInput{Clear: true}, nil
+	}
+	if moSet {
+		v := mentionOnly
+		return &gqltypes.RegisterDefaultsInput{MentionOnly: &v}, nil
+	}
+	return nil, nil
 }
 
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
@@ -706,9 +1105,81 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 
 func emitAgent(f *cmdutil.Factory, dto agentDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "%s agent %s (%s)\n", verb, dto.Name, dto.URN)
-		return err
+		if _, err := fmt.Fprintf(w, "%s agent %s (%s)\n", verb, dto.Name, dto.URN); err != nil {
+			return err
+		}
+		if err := writeLifecycleLine(w, dto.Lifecycle); err != nil {
+			return err
+		}
+		return writeContextCapLine(w, dto.ContextCap)
 	})
+}
+
+// writeLifecycleLine confirms the lifecycle the SERVER returned for a write that
+// sent --lifecycle, in the same words `agent get` uses. A write that did not
+// send it (the legacy document, nothing returned) prints nothing: the receipt
+// never claims a lifecycle the server did not say (cli#2114).
+func writeLifecycleLine(w io.Writer, lifecycle *string) error {
+	if lifecycle == nil {
+		return nil
+	}
+	_, err := fmt.Fprintf(w, "  lifecycle: %s\n", output.SafeCell(*lifecycle))
+	return err
+}
+
+const contextCapFlagUsage = "context size in tokens, a whole number from 1, above which a long-lived worker of this Agent that its host reports idle at an empty prompt is reset (at most once an hour per worker)"
+
+// contextCapArg turns --context-cap / --no-context-cap into the three-state wire
+// value (#2162): nil when neither was passed (the variable is omitted: preserved
+// on update, no cap on create), the number for --context-cap, an explicit null
+// for --no-context-cap (update only). Both together, a cap below 1, and
+// --no-context-cap=false are usage errors here, before any request.
+func contextCapArg(cmd *cobra.Command, tokens int, allowClear bool) (*gqltypes.ContextCapInput, error) {
+	setFlag := cmd.Flags().Changed("context-cap")
+	clearFlag := allowClear && cmd.Flags().Changed("no-context-cap")
+	if setFlag && clearFlag {
+		return nil, exitcode.Newf(exitcode.Usage, "--context-cap and --no-context-cap cannot be combined: set a cap or remove it, never both")
+	}
+	if clearFlag {
+		if v, _ := cmd.Flags().GetBool("no-context-cap"); !v {
+			return nil, exitcode.Newf(exitcode.Usage, "--no-context-cap=false is not a choice: pass --no-context-cap to remove the cap, or leave the flag out to keep it")
+		}
+		return &gqltypes.ContextCapInput{Clear: true}, nil
+	}
+	if setFlag {
+		if tokens < 1 {
+			return nil, exitcode.Newf(exitcode.Usage, "--context-cap takes a whole number of tokens from 1, not %d", tokens)
+		}
+		return &gqltypes.ContextCapInput{Tokens: tokens}, nil
+	}
+	return nil, nil
+}
+
+// contextCapRaw is the cap the server returned, as the --json value: a number,
+// or null when the Agent has none.
+func contextCapRaw(c *int) json.RawMessage {
+	if c == nil {
+		return json.RawMessage("null")
+	}
+	return json.RawMessage(strconv.Itoa(*c))
+}
+
+// contextCapLabel is the cap in words, as `agent get` and the write receipts say it.
+func contextCapLabel(raw json.RawMessage) string {
+	if string(raw) == "null" {
+		return "none"
+	}
+	return string(raw) + " tokens"
+}
+
+// writeContextCapLine confirms the cap the SERVER returned for a write that sent
+// a cap flag; a write that sent none prints nothing about it.
+func writeContextCapLine(w io.Writer, raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	_, err := fmt.Fprintf(w, "  context cap: %s\n", contextCapLabel(raw))
+	return err
 }
 
 // agentInstallDTO reports the --install-into outcome.
@@ -817,6 +1288,12 @@ func emitCreatedAgent(f *cmdutil.Factory, dto agentCreateDTO) error {
 		if _, err := fmt.Fprintf(w, "✓ created agent %s (%s)\n", dto.Name, dto.URN); err != nil {
 			return err
 		}
+		if err := writeLifecycleLine(w, dto.Lifecycle); err != nil {
+			return err
+		}
+		if err := writeContextCapLine(w, dto.ContextCap); err != nil {
+			return err
+		}
 		if dto.Install == nil || dto.Install.Status != "installed" {
 			// A failed or unknown install is reported by the returned error, which
 			// carries the remedy; repeating it here would say it twice.
@@ -861,9 +1338,12 @@ type listedNodeDTO struct {
 }
 
 // listedTaskDTO is one `agent tasks list` row: the server shape unchanged.
+// matchedBy appears only on a --symptom search (the unfiltered list's JSON is
+// unchanged) and carries the server's VECTOR/KEYWORD/BOTH as given.
 type listedTaskDTO struct {
-	Node    listedNodeDTO `json:"node"`
-	Trigger *string       `json:"trigger"`
+	Node      listedNodeDTO `json:"node"`
+	Trigger   *string       `json:"trigger"`
+	MatchedBy string        `json:"matchedBy,omitempty"`
 }
 
 // listedProcessDTO is one `agent processes list` row; kind keeps the server's
@@ -901,6 +1381,10 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
+	var (
+		symptomFlag string
+		limitFlag   int
+	)
 	cmd := &cobra.Command{
 		Use:     "list <agentRef>",
 		Aliases: []string{"ls"},
@@ -909,7 +1393,14 @@ func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 edge lists plus everything inherited from the base it extends, deduped by
 the server (cor:dmo:050:15). TRIGGER is the index edge that lists the task
 (blank when none does); INHERITED FROM names the base Agent for a task that
-comes through inheritance (blank for the Agent's own).`,
+comes through inheritance (blank for the Agent's own).
+
+--symptom is experimental (hadron-server#2421): it returns up to 3 tasks from
+the Agent's effective system memory, matched on the abstract, and adds a
+MATCHED BY column (VECTOR, KEYWORD or BOTH). --limit applies only with
+--symptom (without it the flag is ignored and the request is unchanged); the
+server owns its rules (default 3, larger values clamp to 3, below 1 is
+refused) and the CLI sends the value as given.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
@@ -920,31 +1411,70 @@ comes through inheritance (blank for the Agent's own).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
-			if err != nil {
-				return api.MapError(err)
-			}
-			rows := make([]listedTaskDTO, 0, len(resp.AgentTaskList))
-			for _, row := range resp.AgentTaskList {
-				rows = append(rows, listedTaskDTO{
-					Node: listedNodeDTO{
-						ID:            row.Node.Id,
-						URN:           row.Node.Urn,
-						Name:          row.Node.Name,
-						InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
-					},
-					Trigger: row.Trigger,
-				})
+			// --symptom is a separate document on the same server field, so a
+			// plain list never sends the new arguments to an older server. The
+			// limit is sent as given (cor:api:240:01): the server validates it.
+			searching := cmd.Flags().Changed("symptom")
+			rows := []listedTaskDTO{}
+			if searching {
+				var limit *int
+				if cmd.Flags().Changed("limit") {
+					limit = &limitFlag
+				}
+				resp, err := gen.AgentTaskSymptomSearch(cmd.Context(), client, ref, symptomFlag, limit)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, row := range resp.AgentTaskList {
+					dto := listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: symptomInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					}
+					if row.MatchedBy != nil {
+						dto.MatchedBy = string(*row.MatchedBy)
+					}
+					rows = append(rows, dto)
+				}
+			} else {
+				resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, row := range resp.AgentTaskList {
+					rows = append(rows, listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					})
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
-				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+				if !searching {
+					t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+					for _, row := range rows {
+						t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
+					}
+					return t.Flush()
+				}
+				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM", "MATCHED BY")
 				for _, row := range rows {
-					t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)), output.SafeCell(row.MatchedBy))
 				}
 				return t.Flush()
 			})
 		},
 	}
+	cmd.Flags().StringVar(&symptomFlag, "symptom", "", "experimental: find tasks matching this symptom (up to 3, matched on the abstract)")
+	cmd.Flags().IntVar(&limitFlag, "limit", 0, "with --symptom only: how many results to ask for (server default and maximum 3); ignored without --symptom")
 	return cmd
 }
 
@@ -998,7 +1528,7 @@ and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "TRIGGER", "KIND", "NAME", "URN", "INHERITED FROM")
 				for _, row := range rows {
-					t.Row(triggerCell(row.Trigger), strings.ToLower(row.Kind), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(strings.ToLower(row.Kind)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
 				}
 				return t.Flush()
 			})
@@ -1009,9 +1539,17 @@ and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
 
 // The generated row types are deeply nested; alias the ones reused here.
 type taskListedInherited = gen.AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom
+type symptomListedInherited = gen.AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom
 type processListedInherited = gen.AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom
 
 func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
+	if inherited == nil {
+		return nil
+	}
+	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
+}
+
+func symptomInheritedFromDTO(inherited *symptomListedInherited) *inheritedFromDTO {
 	if inherited == nil {
 		return nil
 	}

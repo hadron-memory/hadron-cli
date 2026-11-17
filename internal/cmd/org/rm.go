@@ -15,11 +15,24 @@ import (
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <id>",
+		Use:     "rm <org>",
 		Aliases: []string{"delete"},
-		Short:   "Delete an organization",
-		Example: `  hadron org rm org_123 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Short:   "Delete an organization (platform admin only)",
+		Long: `Delete an organization. Only a platform admin can do this; the org's own
+OWNER is refused (exit 8). There is no undo.
+
+What happens: the org stops resolving (another rm of it exits 4), its pending
+invitations are revoked, and its org secrets are deleted for good. Its
+memberships, memories, Apps, agents and grants are left as they are, and its
+root stays reserved. <org> is its id, URN or root; check it with hadron org get
+first.
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2.`,
+		Example: `  hadron org get acme.com
+  hadron org rm acme.com
+  hadron org rm hrn:org:acme.com --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

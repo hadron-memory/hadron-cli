@@ -57,6 +57,12 @@ func RequireSecureURL(serverURL, token string) error {
 		serverURL, scheme, EnvAllowHTTP)
 }
 
+// URLIsSecure is schemeIsSecure for a caller outside this package: the same
+// transport rule judges a URL the server hands back for a browser (cli#878
+// revoke-page), so a page the CLI opens is never held to a weaker bar than
+// the one its own credentials ride on.
+func URLIsSecure(u *url.URL) bool { return schemeIsSecure(u) }
+
 // schemeIsSecure reports whether the bearer token may ride on u: https, an http
 // loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext http.
 // The scheme is allow-listed explicitly: a loopback host must NOT green-light a
@@ -81,6 +87,9 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if requiresOneSend(req, via) {
+			return refuseReplayedRedirect(req)
+		}
 		if err := checkSessionRedirect(req, via); err != nil {
 			return err
 		}
@@ -104,6 +113,9 @@ func withSecureRedirects(client *http.Client) *http.Client {
 func withSessionRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if requiresOneSend(req, via) {
+			return refuseReplayedRedirect(req)
+		}
 		if err := checkSessionRedirect(req, via); err != nil {
 			return err
 		}
@@ -131,7 +143,9 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	hasCredential := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
 		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != "" ||
 		operationKeyFrom(req.Context()) != "" || operationKeyFrom(via[0].Context()) != "" ||
-		via[0].Header.Get(OperationKeyHeader) != "" || req.Header.Get(OperationKeyHeader) != ""
+		via[0].Header.Get(OperationKeyHeader) != "" || req.Header.Get(OperationKeyHeader) != "" ||
+		HasMemoryKeys(req.Context()) || HasMemoryKeys(via[0].Context()) ||
+		via[0].Header.Get(MemoryKeysHeader) != "" || req.Header.Get(MemoryKeysHeader) != ""
 	if via[0].Method == http.MethodPost {
 		bodySession, err := postBodyCarriesSessionRef(via[0])
 		if err != nil {
@@ -148,6 +162,79 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
+// requiresOneSend is the ONE place that decides a redirect must not be followed
+// because following it would replay a mutation (hadron-cli#1571): the call
+// opted in with WithNoRedirect, or the request that started the chain is a
+// GraphQL mutation. It is decided by operation type, never per command.
+func requiresOneSend(req *http.Request, via []*http.Request) bool {
+	if noRedirectFrom(req.Context()) {
+		return true
+	}
+	if len(via) == 0 || via[0] == nil {
+		return false
+	}
+	return postBodyIsMutation(via[0])
+}
+
+// postBodyIsMutation reports whether a GraphQL POST carries a mutation. Fail
+// closed: a body that cannot be re-read or decoded counts as one, since
+// refusing a redirect is safe and replaying is not.
+func postBodyIsMutation(req *http.Request) bool {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return false
+	}
+	if req.GetBody == nil {
+		return true
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return true
+	}
+	defer body.Close()
+	encoded, err := io.ReadAll(body)
+	if err != nil {
+		return true
+	}
+	var envelope struct {
+		Query string `json:"query"`
+	}
+	if err := json.Unmarshal(encoded, &envelope); err != nil {
+		return true
+	}
+	return documentIsMutation(envelope.Query)
+}
+
+// documentIsMutation decides by OPERATION TYPE, not by the word: a query that
+// names or aliases something `mutation` must keep following redirects (#1572
+// review). A document that does not parse cannot be proved a query, so it
+// fails closed; any mutation operation in it counts, whichever one the server
+// would execute. A document with no operation at all (an empty query, the
+// persisted-query shape) cannot be proved a query either, so it fails closed
+// too (#1573).
+func documentIsMutation(query string) bool {
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil || len(doc.Operations) == 0 {
+		return true
+	}
+	for _, op := range doc.Operations {
+		if op.Operation == ast.Mutation {
+			return true
+		}
+	}
+	return false
+}
+
+// refuseReplayedRedirect is the refusal for a call that must be sent once: the
+// endpoint answered with a redirect. Every redirect status is refused, though
+// only 307/308 would actually re-send the body (301/302/303 drop it and follow
+// as a GET); refusing them all keeps one rule, and a mutation that reached a
+// redirect was not applied where it was aimed. The message names the
+// target so the operator can fix the --server URL.
+func refuseReplayedRedirect(req *http.Request) error {
+	return fmt.Errorf("%w: the server redirected this request to %s; it is sent once and never replayed, so nothing was sent there — check the --server URL",
+		ErrRedirectPolicy, req.URL.Redacted())
+}
+
 // ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a
 // network failure. net/http wraps a CheckRedirect error in *url.Error, which
 // satisfies net.Error — so without this sentinel the transport classifier
@@ -158,8 +245,9 @@ var ErrRedirectPolicy = errors.New("redirect refused by policy")
 // bearerDoer injects the Authorization header on every request, and the
 // worker-session header on the requests that asked for it (WithSession).
 type bearerDoer struct {
-	token string
-	inner *http.Client
+	token  string
+	inner  *http.Client
+	onSent func() // cli#1624: records the credential kind actually sent; nil = no record
 }
 
 func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
@@ -179,12 +267,29 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if key := operationKeyFrom(req.Context()); key != "" {
 		req.Header.Set(OperationKeyHeader, key)
 	}
+	// hadron-cli#1234: the invocation's --unlock passphrases, on every GraphQL
+	// request it makes (cor:sec:040:04 per-request caller), never a client
+	// default and never logged.
+	if keys, ok := memoryKeysFrom(req.Context()); ok {
+		req.Header.Set(MemoryKeysHeader, keys.header)
+	}
+	// Recorded after every local refusal, immediately before http.Client.Do
+	// (cli#1624): a locally refused request is never counted. What is counted is
+	// the attempt, not transmission: a transport error or a cancelled context
+	// after this point still leaves the record (cli#1759).
+	if d.token != "" && d.onSent != nil {
+		d.onSent()
+	}
 	resp, err := d.inner.Do(req)
 	if err != nil {
 		return resp, err
 	}
+	if hc, ok := req.Context().Value(headerCaptureKey{}).(*headerCapture); ok {
+		hc.h = resp.Header.Clone()
+	}
 	secrets := requestSecrets(req)
-	if len(secrets) == 0 {
+	unlockSecrets := memoryKeySecrets(req)
+	if len(secrets) == 0 && len(unlockSecrets) == 0 {
 		if resp.StatusCode < 500 {
 			return resp, nil
 		}
@@ -207,6 +312,7 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 		return nil, &gatewayError{status: resp.StatusCode, body: nil}
 	}
 	body = redactSecrets(body, secrets)
+	body = redactUnlockSecrets(resp.StatusCode, body, unlockSecrets)
 	if resp.StatusCode >= 500 && !hasGraphQLErrorsEnvelope(body) {
 		return nil, &gatewayError{status: resp.StatusCode, body: body}
 	}
@@ -247,7 +353,8 @@ func checkInitialSessionRequest(req *http.Request) error {
 		return nil
 	}
 	if sessionFrom(req.Context()) != "" || req.Header.Get(SessionHeader) != "" ||
-		operationKeyFrom(req.Context()) != "" || req.Header.Get(OperationKeyHeader) != "" {
+		operationKeyFrom(req.Context()) != "" || req.Header.Get(OperationKeyHeader) != "" ||
+		HasMemoryKeys(req.Context()) || req.Header.Get(MemoryKeysHeader) != "" {
 		return fmt.Errorf("%w: refusing to send a session- or key-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
 	}
 	carriesSession, err := postBodyCarriesSessionRef(req)
@@ -458,7 +565,7 @@ func Endpoint(serverURL string) string {
 
 // NewClient returns a genqlient client for the given server,
 // authenticating with token (may be empty for anonymous calls).
-func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client, error) {
+func NewClient(serverURL, token string, httpClient *http.Client, opts ...ClientOption) (graphql.Client, error) {
 	if _, err := url.ParseRequestURI(serverURL); err != nil {
 		return nil, err
 	}
@@ -473,31 +580,48 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	} else {
 		httpClient = withSessionRedirects(httpClient)
 	}
-	inner := graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient})
-	return &nullSafeGraphQLClient{inner: inner}, nil
+	doer := &bearerDoer{token: token, inner: httpClient}
+	inner := graphql.NewClient(Endpoint(serverURL), doer)
+	c := &nullSafeGraphQLClient{inner: inner, doer: doer}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
 // gqlparser's List.As/Is traverse every entry and dereference nil entries
 // decoded from a malformed `errors: [null]` response. Sanitize at the client
 // boundary so no caller can receive a panic-prone GraphQL error list.
-type nullSafeGraphQLClient struct{ inner graphql.Client }
+type nullSafeGraphQLClient struct {
+	inner    graphql.Client
+	delivery *DeliveryPendingRecorder // cli#1084; nil when nobody listens
+	doer     *bearerDoer              // cli#1624: WithCredentialSent hooks its send
+}
 
 func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
-	err := c.inner.MakeRequest(ctx, req, resp)
+	hc := &headerCapture{}
+	err := c.inner.MakeRequest(context.WithValue(ctx, headerCaptureKey{}, hc), req, resp)
 	if err == nil {
 		// Only a successful response's warnings are kept (cli#962): a failed
 		// invocation reports its error, never a success warning.
-		collectWarnings(ctx, resp.Extensions)
+		collectWarnings(ctx, req, resp.Extensions)
+		// cli#1084: the same success-only gate, the same one place.
+		c.delivery.record(resp.Extensions)
 	}
 	switch e := err.(type) {
 	case gqlerror.List: // HTTP 200
+		recordGraphQLErrorShape(ctx, e)
 		clean := nonNullGraphQLErrors(e)
 		resp.Errors = clean
 		if len(clean) == 0 {
 			return errors.New("malformed GraphQL response: errors contains only null entries")
 		}
-		return clean
+		if refused := unlockRefusal(ctx, clean); refused != nil {
+			return refused
+		}
+		return withHeaderRequestID(clean, hc.h)
 	case *graphql.HTTPError: // non-200 with a parsed GraphQL body
+		recordGraphQLErrorShape(ctx, e.Response.Errors)
 		if len(e.Response.Errors) == 0 {
 			return err
 		}
@@ -507,7 +631,11 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		if len(clean) == 0 {
 			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries: %w", e.StatusCode, &copy)
 		}
-		return &copy
+		// hadron-cli#1234: Apollo answers a context-time unlock failure 500.
+		if refused := unlockRefusal(ctx, clean); refused != nil {
+			return refused
+		}
+		return withHeaderRequestID(&copy, hc.h)
 	default:
 		return err
 	}

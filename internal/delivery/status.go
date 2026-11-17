@@ -59,6 +59,11 @@ type WorkerStatus struct {
 	Wake bool `json:"wake,omitempty"`
 	// Unreported: the newest event was a hold the server was not told about.
 	Unreported bool `json:"unreported,omitempty"`
+	// HeldSince is when the worker's current run of holds began: set by its
+	// first hold, kept through later holds, deferrals, skips and errors, and
+	// cleared only by a delivered or reconciled event (cli#1178). Nil when
+	// no hold is outstanding.
+	HeldSince *time.Time `json:"heldSince,omitempty"`
 }
 
 // Status is the poller's local delivery snapshot. It is observational: what
@@ -99,9 +104,15 @@ type StatusBook struct {
 }
 
 // NewStatusBook keeps the snapshot under stateDir, beside the records and
-// locks.
+// locks. It starts from the workers the last snapshot saved, so a worker's
+// run of holds and its newest event survive a poller restart (Jane's LOCAL
+// P2 on #1183). A missing or unreadable snapshot starts empty.
 func NewStatusBook(stateDir string) *StatusBook {
-	return &StatusBook{dir: stateDir, st: Status{Version: 1, Workers: map[string]WorkerStatus{}}}
+	b := &StatusBook{dir: stateDir, st: Status{Version: 1, Workers: map[string]WorkerStatus{}}}
+	if prev, err := ReadStatus(stateDir); err == nil {
+		b.st.Workers = prev.Workers
+	}
+	return b
 }
 
 // Observe records e as its worker's newest event, unless an event already
@@ -112,10 +123,21 @@ func (b *StatusBook) Observe(e Event) {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if old, ok := b.st.Workers[e.WorkerID]; ok && e.Time.Before(old.At) {
+	old, ok := b.st.Workers[e.WorkerID]
+	if ok && e.Time.Before(old.At) {
 		return
 	}
-	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported}
+	held := old.HeldSince
+	switch e.Kind {
+	case Delivered, Reconciled:
+		held = nil
+	case Held:
+		if held == nil {
+			at := e.Time.UTC()
+			held = &at
+		}
+	}
+	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported, HeldSince: held}
 }
 
 // Step records a finished poller step and writes the snapshot: 0600, by

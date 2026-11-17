@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -179,8 +180,12 @@ func TestWhoamiCheckShowsTheServersSessionState(t *testing.T) {
 			bindState815(t)
 			fk := newStateFake(t, c.session, nil, func(string) string { return c.state })
 			out, err := runState815(t, fk, "team", "session", "whoami", "--check")
-			if err != nil {
-				t.Fatal(err)
+			wantCode := 0
+			if c.wantAct == "false" { // #1835: a server-ended session exits SessionEnded
+				wantCode = exitcode.SessionEnded
+			}
+			if exitCodeFor(err) != wantCode {
+				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), wantCode, err)
 			}
 			if !strings.Contains(out, "server: "+c.wantLine) {
 				t.Errorf("want server line %q in:\n%s", c.wantLine, out)
@@ -191,8 +196,8 @@ func TestWhoamiCheckShowsTheServersSessionState(t *testing.T) {
 				}
 			}
 			jout, err := runState815(t, fk, "team", "session", "whoami", "--check", "--json")
-			if err != nil {
-				t.Fatal(err)
+			if exitCodeFor(err) != wantCode {
+				t.Fatalf("--json exit = %d, want %d: %v", exitCodeFor(err), wantCode, err)
 			}
 			raw := rawJSON815(t, jout)
 			for _, f := range []struct{ key, want string }{
@@ -283,8 +288,8 @@ func TestWhoamiPlainMakesNoCallAndStateIsNull(t *testing.T) {
 func TestWhoamiCheckServerFallbackStatesPerCandidate(t *testing.T) {
 	list := func(rows ...string) map[string]string {
 		return map[string]string{
-			"AuthContext":  whoamiAuthJSON,
-			"TeamSessions": `{"data":{"sessions":[` + strings.Join(rows, ",") + `]}}`,
+			"AuthContext":      whoamiAuthJSON,
+			"TeamSessionsPage": `{"data":{"sessionsPage":{"total":` + fmt.Sprint(len(rows)) + `,"hasMore":false,"items":[` + strings.Join(rows, ",") + `]}}}`,
 		}
 	}
 	t.Run("one candidate", func(t *testing.T) {

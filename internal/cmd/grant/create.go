@@ -22,13 +22,26 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --org <ref> --user <ref> --action <action>[,...]",
 		Short: "Grant a member extra management actions (org ADMIN)",
-		Long: `Grant one org member extra management actions on top of their role bundle
-(org ADMIN, interactive-only). The grantee must be a live member of the org —
-a grant is an exception on top of membership, and it dies with the membership.
+		Long: `Grant one org member extra management actions on top of their role. Needs
+ADMIN or OWNER in the org (else exit 8). The grantee must be a current member;
+the grant stops applying if they leave.
 
-Action entries use the access-control matcher grammar: exact (memory.clone),
-prefix (memory.*), or *. The server validates entry shape; an unknown exact
-verb simply never matches a gate.`,
+Interactive-only means the server accepts this only from a person acting as
+themselves: a personal login or personal API token, including a worker
+session. An App key, an agent run acting for someone, or an impersonation
+session is refused (exit 8). It is not a terminal check, so it works in
+scripts, and it asks no confirmation.
+
+--org is the org's id, URN or root. --user is the grantee's id, handle or
+hrn:user:<handle>. --action takes one or more actions (repeat it or separate
+with commas), each exact (memory.clone), a prefix (memory.*) or *. The
+actions checked today are memory.clone, memory.create and memory.delete; any
+other well-formed name is accepted but grants nothing. --expires is an
+ISO-8601 time with a timezone, in the future; without it the grant does not
+expire.
+
+Prints "✓ granted <actions> to <user> in <org> (grant <id>, <expiry>)"; the
+grant id is what hadron grant revoke takes.`,
 		Example: `  hadron grant create --org acme.com --user hrn:user:jane --action memory.clone
   hadron grant create --org acme.com --user jane --action memory.clone,memory.create \
     --expires 2027-01-01T00:00:00Z`,

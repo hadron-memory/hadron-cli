@@ -1,5 +1,7 @@
 package api
 
+import "fmt"
+
 // PageLimit is the server's hard cap on a single page of the uniform
 // paginated list queries (hadron-server#473: cap 200; the server's own default is not relied on, cli#967).
 const PageLimit = 200
@@ -56,5 +58,50 @@ func CollectPages[T any](pageSize int, fetch func(limit, offset int) ([]T, *int,
 		if len(page) == 0 || (total != nil && len(items) >= *total) {
 			return items, nil
 		}
+	}
+}
+
+// InventoryPageSize follows the platform's default list limit; inventory
+// commands have no user-requested larger page size.
+const InventoryPageSize = 20
+
+// CollectHasMore reads a complete offset inventory. Only hasMore ends traversal;
+// neither total nor a short page proves that the inventory is complete. Total
+// changes and repeated identities detect some concurrent drift, not a snapshot:
+// equal-count changes without a repeated identity remain undetectable. A nil
+// identity lets the caller retain its existing nullable-row handling.
+// Do not return partial rows on failure: callers must not print a partial list.
+func CollectHasMore[T any](fetch func(offset int) ([]T, int, bool, error), identity func(T) *string) ([]T, error) {
+	rows := []T{}
+	seen := map[string]struct{}{}
+	initialTotal := 0
+	for offset := 0; ; {
+		items, total, more, err := fetch(offset)
+		if err != nil {
+			return nil, err
+		}
+		if offset == 0 {
+			initialTotal = total
+		} else if total != initialTotal {
+			return nil, fmt.Errorf("the inventory changed while paging; retry after changes settle (no partial inventory)")
+		}
+		for _, item := range items {
+			id := identity(item)
+			if id == nil {
+				continue
+			}
+			if _, exists := seen[*id]; exists {
+				return nil, fmt.Errorf("the inventory changed while paging (repeated ID); retry after changes settle (no partial inventory)")
+			}
+			seen[*id] = struct{}{}
+		}
+		rows = append(rows, items...)
+		if !more {
+			return rows, nil
+		}
+		if len(items) == 0 {
+			return nil, fmt.Errorf("the server returned an empty inventory page with hasMore=true")
+		}
+		offset += len(items)
 	}
 }

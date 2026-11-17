@@ -19,6 +19,10 @@ func NewCmdAccess(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "access <command>",
 		Short: "Inspect access permissions",
+		Long: `See what a user can do with a resource and why. The one command,
+hadron access check, asks the server for the user's effective access (read,
+write, manage, delete) and lists the grants that confer it.`,
+		Example: `  hadron access check alice@acme.com hrn:mem:acme.com:kb`,
 	}
 	cmd.AddCommand(newCmdCheck(f))
 	return cmd

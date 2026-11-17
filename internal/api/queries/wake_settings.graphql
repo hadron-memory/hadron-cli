@@ -1,0 +1,25 @@
+# A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
+# the continuing read and pause/mention writes. Retired isolation fields and
+# documents are deliberately absent (cli#1743, server#3606 Phase 1).
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+ worker { id name urn }
+ mentions
+ pausedUntil
+ subscriptions { id ticker { id urn name cadenceSeconds enabled } viaGrant createdAt }
+ effectiveCadenceSeconds
+ dormant
+}
+query WorkerWakeSettings($workerRef: String!) {
+ workerWakeSettings(workerRef: $workerRef) { ...WorkerWakeSettingsFields }
+}
+# Omitted keeps, null clears: only the flags given are sent (cor:agt:080:21).
+
+# @genqlient(for: "WorkerWakeSettingsInput.mentions", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.pausedUntil", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.clearPause", omitempty: true)
+mutation SetWorkerWakeSettings(
+ $workerRef: String!
+ $input: WorkerWakeSettingsInput!
+) {
+ setWorkerWakeSettings(workerRef: $workerRef, input: $input) { ...WorkerWakeSettingsFields }
+}

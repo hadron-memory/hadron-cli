@@ -1,7 +1,7 @@
 # Home Assistant instance registry (hadrontool-home-assistant; hadron-server#640).
 # Org-owned HomeAssistantInstance rows. The long-lived access token is
-# encrypted and WRITE-ONLY: no field here ever returns it, and this cut only
-# reads the registry — it never contacts a Home Assistant host.
+# encrypted and WRITE-ONLY: no field here ever returns it. Nothing here contacts
+# a Home Assistant host; the writes change only the registry row.
 
 fragment HomeAssistantInstanceFields on HomeAssistantInstance {
   id
@@ -50,4 +50,67 @@ query HomeAssistantInstanceOps($ref: ID!) {
     description
     inputSchema
   }
+}
+
+# Register an instance (org ADMIN/OWNER). accessToken is write-only: it goes in
+# and is never selected back. opAllowlist and enabled are omitted when unset so
+# the server's defaults (every catalog op; enabled) apply.
+mutation CreateHomeAssistantInstance(
+  $orgRef: ID!
+  $slug: String!
+  $name: String!
+  $url: String!
+  $accessToken: String!
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $opAllowlist: [String!]
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  createHomeAssistantInstance(
+    orgRef: $orgRef
+    slug: $slug
+    name: $name
+    url: $url
+    accessToken: $accessToken
+    opAllowlist: $opAllowlist
+    enabled: $enabled
+  ) {
+    ...HomeAssistantInstanceFields
+  }
+}
+
+# WIRE SEMANTICS: an omitted argument preserves the stored value, so every
+# optional one carries omitempty and a nil pointer is omitted, never sent as
+# null. An explicit [] opAllowlist is a real value: it restores EVERY catalog
+# op (not deny-all), so the allowlist binds to *[]string: a plain []string with
+# omitempty would drop an explicit [] on the floor. The slug is immutable and has no argument here.
+mutation UpdateHomeAssistantInstance(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $url: String
+  # @genqlient(omitempty: true)
+  $accessToken: String
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $opAllowlist: [String!]
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  updateHomeAssistantInstance(
+    ref: $ref
+    name: $name
+    url: $url
+    accessToken: $accessToken
+    opAllowlist: $opAllowlist
+    enabled: $enabled
+  ) {
+    ...HomeAssistantInstanceFields
+  }
+}
+
+# Hard delete. Returns a BOOLEAN: false is not a delete, and is never reported
+# as one.
+mutation DeleteHomeAssistantInstance($ref: ID!) {
+  deleteHomeAssistantInstance(ref: $ref)
 }

@@ -39,6 +39,12 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			resp, ok = responses["NodeBatch"]
+		}
+		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+		}
 		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
@@ -55,6 +61,54 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// workerFromStaff answers an UNSTUBBED single-worker read from the test's own
+// Workers fixture, the way a real server serves one worker the list shows:
+// GetWorker by id; GetWorkerInApp / GetWorkerIdInApp (worker(appRef:, ref:),
+// cli#1459) by id or by NAME, case-insensitively, refusing WORKER_NOT_FOUND
+// for a name the fixture does not list, as the server's name form does.
+//
+// Name resolution reads ONE worker this way instead of paging the staff. A
+// test that stubs only the staff list describes that worker already; without
+// this every such fixture would need a hand-kept copy of it. An explicit stub
+// of the read still wins, and GetWorker for an id the fixture does not list
+// stays unanswered (the caller's not-found path).
+func workerFromStaff(responses map[string]string, op string, vars json.RawMessage) (string, bool) {
+	staff, ok := responses["Workers"]
+	byName := op == "GetWorkerInApp" || op == "GetWorkerIdInApp"
+	if !ok || (op != "GetWorker" && !byName) {
+		return "", false
+	}
+	var v struct {
+		Ref string `json:"ref"`
+	}
+	var list struct {
+		Data struct {
+			Workers struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"workers"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(vars, &v) != nil || json.Unmarshal([]byte(staff), &list) != nil {
+		return "", false
+	}
+	for _, item := range list.Data.Workers.Items {
+		var w struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(item, &w) != nil {
+			continue
+		}
+		if w.ID == v.Ref || (byName && strings.EqualFold(w.Name, strings.TrimSpace(v.Ref))) {
+			return `{"data":{"worker":` + string(item) + `}}`, true
+		}
+	}
+	if byName {
+		return `{"errors":[{"message":"Worker not found.","extensions":{"code":"WORKER_NOT_FOUND"}}]}`, true
+	}
+	return "", false
 }
 
 // pageBeyondFirst models a real server for a STATIC list fixture: the fixture is
@@ -84,13 +138,39 @@ func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// C9 optional side read: an unstubbed legacy server has no S3 lifecycle.
+	// Modern lifecycle tests supply their explicit response.
+	case "GetAgentLifecycle":
+		return missingFieldJSON("lifecycle"), true
+	// #2162: an unstubbed legacy server has no Agent.contextCap (#4258).
+	case "GetAgentContextCap":
+		return missingFieldJSON("contextCap"), true
+	// cli#1655 defaults model ONLY the synthetic exact missing-capability
+	// policy. They are not a stock pre-2708 provider (its missing
+	// installMethod/importer produce mixed errors). Modern preview/provenance
+	// tests must explicitly stub the modern operations.
+	case "AppAgentEffectiveRoster":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"AppAgent\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerBootPromptServe":
+		return `{"errors":[{"message":"Cannot query field \"bootPromptServe\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	// #914's ended-binding notice: every call through a session binding
 	// asks once whether the session ended. Answered as OPEN, so existing
 	// tests see no notice; the notice's own tests stub an ended session.
+	// cli#1912: a spec dry run asks who the caller is before it consults
+	// effectiveAccess. Answered as a credential that resolves to no user, for
+	// which the check is skipped, so existing dry-run tests are unchanged; the
+	// write-access tests stub both operations.
+	case "AuthContext":
+		return `{"data":{"authContext":null}}`, true
 	case "GetBoundSessionEnd":
 		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
 		return missingFieldJSON("commentSummary"), true
+	// cli#1720: `session end --handoff` reads the saved handoff's URN back.
+	// Answered as a server without Worker.continuity, which is today's output,
+	// so existing end tests are unchanged; the read-back's own tests stub it.
+	case "GetWorkerHandoffReadBack":
+		return missingFieldJSON("continuity"), true
 	// `team chat read`'s best-effort server-side mark after delivery (#1353):
 	// answered as a server OUTSIDE the team-attention pilot, where the mark
 	// is refused and silently skipped. Tests of the mark stub both.
@@ -108,6 +188,41 @@ func unstubbedDefault(op string) (string, bool) {
 		// answered as a server that predates draft corpora — describe then
 		// omits the state. Tests of the state stub it.
 		return `{"errors":[{"message":"Cannot query field \"corpusState\" on type \"Memory\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerRetireAdvisory":
+		// `team worker retire`'s advisory read (cli#494), answered as a server
+		// that predates Worker.continuity: the advisory degrades to
+		// "unavailable" and the retirement proceeds, so every existing retire
+		// test keeps its meaning. The advisory's own tests stub the modern answer.
+		return `{"errors":[{"message":"Cannot query field \"continuity\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerProfile":
+		// `team worker get`'s separate PROFILE-names read (#1355). An older
+		// server does not know Worker.appName; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"appName\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerTerminal":
+		// `team worker get`'s separate terminal-report read (#1375). An older
+		// server does not know Worker.terminal; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerAvailability":
+		// `team worker get`'s separate availability-provenance read (cli#1911).
+		// An older server does not know Worker.availability; the ordinary lookup
+		// must work and shows no availability line.
+		return `{"errors":[{"message":"Cannot query field \"availability\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerRendered":
+		// `team worker get`'s separate rendered signature/trailer read
+		// (cli#1525). An older server does not know Worker.renderedSignature;
+		// the ordinary lookup must work and shows no rendered lines.
+		return `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerSignatureLint", "GetWorkerPromptLint", "WorkerServedPromptLint", "RunServedPromptLint", "SessionServedPromptsLint", "SessionServedPromptLintAt", "ChatServedPromptsLint", "ChatServedPromptLintAt":
+		// `team worker get`'s advisory lint reads (cli#2007), answered as a server
+		// that predates Worker.signatureLint / promptLintWarnings: the lint is
+		// unavailable and the ordinary read is unaffected. Their own tests stub
+		// the modern answers.
+		return `{"errors":[{"message":"Cannot query field \"signatureLint\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerModelGroups":
+		// `team worker get`'s separate model-group read (cli#1485 S3): answered
+		// as a real [] so existing worker-get tests see no group line. It has no
+		// old-server fallback, so a default error here would fail every one.
+		return `{"data":{"worker":{"modelGroups":[]}}}`, true
 	case "GetWorkerContinuity":
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.
@@ -115,7 +230,7 @@ func unstubbedDefault(op string) (string, bool) {
 	case "GetBoundSessionLiveness":
 		// The optional #791 read against a server predating Session.isLive.
 		return `{"errors":[{"message":"Cannot query field \"isLive\" on type \"Session\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
-	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionStamped":
+	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionsStampedPage", "NodeRevisionStamped":
 		// cli#752's stamped reads, answered as a server that predates the
 		// stamps (hadron-server#1326): each falls back to its plain read, so
 		// every test that doesn't stub them exercises the fallback.
@@ -124,6 +239,8 @@ func unstubbedDefault(op string) (string, bool) {
 		// cli#802's optional status probe against a server that predates
 		// hadron-server#1591. The revision and stamp fallbacks still run.
 		return `{"errors":[{"message":"Cannot query field \"approvalStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "NodeLiveRevisionsContentChecked":
+		return `{"errors":[{"message":"Cannot query field \"authorCheck\" on type \"NodeContentValidationReport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "NodeLiveRevisionsMinted":
 		return `{"errors":[{"message":"Cannot query field \"mintStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "MintMemoryNodes":
@@ -217,7 +334,7 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	io.ErrOut = errOut
 	f := &cmdutil.Factory{
 		IOStreams:    io,
-		HTTPClient:   http.DefaultClient,
+		HTTPClient:   loopbackOnlyClient(func(d string) { t.Errorf("a command test tried to reach %s: pass --server <fake> (cli#2144)", d) }, nil),
 		ConfigFn:     config.Load,
 		TokenStoreFn: func() store.Store { return memStore{} },
 	}
@@ -317,32 +434,21 @@ func TestWhoami(t *testing.T) {
 	}
 }
 
-// status resolves the active token via authContext and surfaces the principal
-// type plus the authenticating key.
+// #1726 replaces the detailed status report with the ruled answer-only DTO.
 func TestAuthStatus(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
-			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
-			"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":null,"revokedAt":null}}}}`,
-	})
+	gql := fakeGraphQL(t, map[string]string{"CheckAuthenticationStatus": `{"data":{"authenticationStatus":"AUTHENTICATED"}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+		t.Fatal(err)
 	}
-	var dto struct {
-		Authenticated bool   `json:"authenticated"`
-		PrincipalType string `json:"principalType"`
-		Key           *struct {
-			KeyPreview string `json:"keyPreview"`
-		} `json:"key"`
-	}
+	var dto map[string]any
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("not JSON: %v\n%s", err, out.String())
+		t.Fatal(err)
 	}
-	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
-		t.Errorf("unexpected status: %s", out.String())
+	if len(dto) != 1 || dto["status"] != "AUTHENTICATED" {
+		t.Fatalf("answer-only DTO: %s", out)
 	}
 }
 
@@ -371,11 +477,11 @@ func TestIsUsageErrorClassifiesRequiredFlag(t *testing.T) {
 	}
 }
 
-// Against an older/self-hosted server without authContext, status must surface
+// Against an older/self-hosted server without authenticationStatus, status must surface
 // the schema-skew error (exit 2), not masquerade it as a rejected token (Codex).
 func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"AuthContext": `{"errors":[{"message":"Cannot query field \"authContext\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"CheckAuthenticationStatus": `{"errors":[{"message":"Cannot query field \"authenticationStatus\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

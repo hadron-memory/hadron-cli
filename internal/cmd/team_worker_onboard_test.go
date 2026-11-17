@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/teamrouter"
@@ -12,7 +13,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestTeamWorkerOnboardHelp837(t *testing.T) {
@@ -20,12 +20,46 @@ func TestTeamWorkerOnboardHelp837(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run"} {
+	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run", "Routing is not verified", "mention the worker in team chat", "team chat Channel"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("onboard help missing %q:\n%s", want, out)
 		}
 	}
+	// cli#935: team router is retired, so onboard neither waits for nor
+	// claims a router reload, and its help does not send you to the loop.
+	for _, gone := range []string{"team router loop", "reload", "team router --help"} {
+		if strings.Contains(out, gone) {
+			t.Fatalf("onboard help still mentions %q:\n%s", gone, out)
+		}
+	}
 }
+
+// cli#935 (Vera's FIT P3): the agentic contract states routing is unverified
+// in the same words as the output, and no longer describes a reload receipt.
+func TestTeamWorkerOnboardAgenticUsageRoutingUnverified935(t *testing.T) {
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(data)
+	start := strings.Index(doc, "## Orca worker onboarding")
+	end := strings.Index(doc, "## Worker reporting relationships")
+	if start < 0 || end < start {
+		t.Fatal("agentic-usage has no Orca worker onboarding section")
+	}
+	section := strings.Join(strings.Fields(doc[start:end]), " ")
+	if want := "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router"; !strings.Contains(section, want) {
+		t.Errorf("onboarding section lacks %q:\n%s", want, section)
+	}
+	for _, gone := range []string{"reload", "config-loaded.json", "team router loop"} {
+		if strings.Contains(section, gone) {
+			t.Errorf("onboarding section still mentions %q", gone)
+		}
+	}
+}
+
+// cli#935: the line every onboard result ends its humanRemainder with.
+const onboardRoutingUnverified935 = "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router."
 
 // A real fake queue at the HTTP boundary, with real executable Orca fixtures.
 // The fixture refuses every Orca verb except reads and the one display update.
@@ -58,7 +92,7 @@ func TestTeamWorkerOnboardApplyQueueOnlyAndRetry837(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		switch q.Op {
-		case "HostOperations":
+		case "HostOperations", "HostOperationsWithReason":
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"hostOperations": map[string]any{"items": stored, "hasNextPage": false}}})
 		case "IssueHostOperation":
 			var in map[string]any
@@ -86,40 +120,36 @@ func TestTeamWorkerOnboardApplyQueueOnlyAndRetry837(t *testing.T) {
 	defer srv.Close()
 	writeTeamBinding(t)
 	setTeamBindingServer(t, srv.URL)
-	done := make(chan struct{})
-	stopped := make(chan struct{})
-	go func() {
-		defer close(stopped)
-		for {
-			select {
-			case <-done:
-				return
-			case <-time.After(10 * time.Millisecond):
-				cfg, err := teamrouter.LoadConfig(configPath)
-				if err == nil {
-					_ = teamrouter.RecordReload(cfg)
-				}
-			}
-		}
-	}()
-	defer func() { close(done); <-stopped }()
+	// cli#935 P1: nothing writes a router reload receipt (the loop that did is
+	// retired), and --apply still succeeds well inside a 1s --timeout.
 	for attempt := 0; attempt < 2; attempt++ {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs(append(append([]string{"--server", srv.URL}, args...), "--apply", "--timeout", "5s"))
+		root.SetArgs(append(append([]string{"--server", srv.URL}, args...), "--apply", "--timeout", "1s"))
 		if err := root.Execute(); err != nil {
 			t.Fatalf("attempt%d: %v\n%s", attempt, err, out.String())
 		}
 		var dto struct {
-			DryRun   bool     `json:"dryRun"`
-			Verified []string `json:"verified"`
+			DryRun         bool     `json:"dryRun"`
+			Verified       []string `json:"verified"`
+			HumanRemainder []string `json:"humanRemainder"`
 		}
 		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 			t.Fatal(err)
 		}
-		if dto.DryRun || len(dto.Verified) != 8 {
-			t.Fatalf("incomplete verification %s", out.String())
+		// cli#935 P2: exactly the provisioned checks; nothing claims routing.
+		want := []string{"Orca reachable", "host registration", "mention-only register row", "worktree.create succeeded", "worker.start succeeded", "roster entry", "Orca display name"}
+		if dto.DryRun || !reflect.DeepEqual(dto.Verified, want) {
+			t.Fatalf("verified = %q, want %q\n%s", dto.Verified, want, out.String())
 		}
+		// cli#935 P3: routing is stated unverified, last.
+		if n := len(dto.HumanRemainder); n != 3 || dto.HumanRemainder[n-1] != onboardRoutingUnverified935 {
+			t.Fatalf("humanRemainder = %q", dto.HumanRemainder)
+		}
+	}
+	// cli#935 P4: no reload receipt is read or created.
+	if _, err := os.Stat(filepath.Join(dir, "state", "config-loaded.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("config-loaded.json exists or is unreadable: %v", err)
 	}
 	if len(issued) != 2 {
 		t.Fatalf("retry enqueued duplicate operations: %v", issued)
@@ -189,9 +219,13 @@ func TestTeamWorkerOnboardDryRun837(t *testing.T) {
 			Type string            `json:"type"`
 			Args map[string]string `json:"args"`
 		} `json:"operations"`
+		HumanRemainder []string `json:"humanRemainder"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatal(err)
+	}
+	if n := len(dto.HumanRemainder); n != 3 || dto.HumanRemainder[n-1] != onboardRoutingUnverified935 {
+		t.Fatalf("cli#935 P3: humanRemainder = %q", dto.HumanRemainder)
 	}
 	if !strings.Contains(out, `"queue": []`) {
 		t.Fatalf("queue must be an empty array: %s", out)
@@ -246,6 +280,7 @@ func TestTeamWorkerOnboardBroadRegisterRefused837(t *testing.T) {
 func TestTeamWorkerOnboardFailurePrintsPartialQueue837(t *testing.T) {
 	r, args, log, configPath := onboardFixture837(t, true)
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[{"id":"failed-op","hostId":"orca1","workerId":"wkr1","type":"worktree.create","args":{"workerId":"wkr1","repo":"hadron-memory/hadron-cli","baseBranch":"main","branchName":"iris/work","label":"iris"},"status":"FAILED"}],"hasNextPage":false}}}`
+	r["HostOperationsWithReason"] = r["HostOperations"]
 	before, _ := os.ReadFile(configPath)
 	calls, out, err := runTeamTask(t, r, append(args, "--apply")...)
 	if err == nil || !strings.Contains(err.Error(), "failed-op") {
@@ -335,5 +370,83 @@ func TestTeamWorkerOnboardComparesAndQueuesTheCanonicalFamily971(t *testing.T) {
 				t.Fatalf("worker.start must carry %q: %s", c.queued, out)
 			}
 		})
+	}
+}
+
+// cli#1546: the three preflight refusals in runWorkerOnboard each get a test
+// that goes red when its guard is deleted. Every case asserts exit 2, the
+// exact message, no IssueHostOperation call and an untouched config, in both
+// dry-run and --apply.
+func TestTeamWorkerOnboardPreflightRefusals1546(t *testing.T) {
+	const (
+		heldRetired = "onboard requires an existing, held, non-retired worker; nothing queued"
+		otherApp    = "router config belongs to a different App; nothing queued"
+	)
+	cases := []struct {
+		name   string
+		mutate func(t *testing.T, r map[string]string, configPath string)
+		want   string
+	}{
+		{"not held", func(t *testing.T, r map[string]string, _ string) {
+			r["GetWorker"] = strings.Replace(r["GetWorker"], `"heldByUserId":"u-holger"`, `"heldByUserId":null`, 1)
+		}, heldRetired},
+		{"retired", func(t *testing.T, r map[string]string, _ string) {
+			r["GetWorker"] = strings.Replace(r["GetWorker"], `"retiredAt":null`, `"retiredAt":"2026-01-01T00:00:00Z"`, 1)
+		}, heldRetired},
+		{"different App", func(t *testing.T, r map[string]string, _ string) {
+			r["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp200000000000000000000")
+		}, otherApp},
+		{"worker on another worktree", func(t *testing.T, _ map[string]string, configPath string) {
+			setOnboardRoster1546(t, configPath, "wkr1", filepath.Join(filepath.Dir(configPath), "elsewhere", "iris"))
+		}, "roster ownership conflict: worker already has a different roster worktree; nothing queued"},
+		{"worktree held by another worker", func(t *testing.T, _ map[string]string, configPath string) {
+			setOnboardRoster1546(t, configPath, "wkr-other", filepath.Join(filepath.Dir(configPath), "hadron-cli", "iris"))
+		}, "roster ownership conflict: worktree belongs to another roster worker; nothing queued"},
+	}
+	for _, tc := range cases {
+		for _, apply := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/apply=%v", tc.name, apply), func(t *testing.T) {
+				r, args, log, configPath := onboardFixture837(t, true)
+				tc.mutate(t, r, configPath)
+				before, _ := os.ReadFile(configPath)
+				if apply {
+					args = append(args, "--apply")
+				}
+				calls, _, err := runTeamTask(t, r, args...)
+				if err == nil || exitCodeFor(err) != exitcode.Usage || err.Error() != tc.want {
+					t.Fatalf("want exit 2 %q, got %v", tc.want, err)
+				}
+				for _, c := range *calls {
+					if c.Op == "IssueHostOperation" {
+						t.Fatal("queued despite the refusal")
+					}
+				}
+				after, _ := os.ReadFile(configPath)
+				if string(after) != string(before) {
+					t.Fatal("refusal changed the config file")
+				}
+				if got, _ := os.ReadFile(log); string(got) != "status --json\n" {
+					t.Fatalf("unexpected Orca calls %q", got)
+				}
+			})
+		}
+	}
+}
+
+// setOnboardRoster1546 writes one roster row into the router config.
+func setOnboardRoster1546(t *testing.T, path, worker, worktree string) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c map[string]any
+	if err := json.Unmarshal(raw, &c); err != nil {
+		t.Fatal(err)
+	}
+	c["roster"] = []any{map[string]any{"worker": worker, "name": "Someone", "worktree": worktree}}
+	out, _ := json.Marshal(c)
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }

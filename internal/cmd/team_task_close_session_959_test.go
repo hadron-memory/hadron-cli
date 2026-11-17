@@ -23,11 +23,11 @@ func helpText(t *testing.T, verb string) string {
 	return strings.Join(strings.Fields(out), " ")
 }
 
-func TestC959CreateHelpStatesTheGracePeriodAndNoInPlaceChange(t *testing.T) {
+func TestC959CreateHelpStatesTheGracePeriodAndPointsToUpdate(t *testing.T) {
 	out := helpText(t, "create")
 	for _, want := range []string{
 		"grace period, 10 minutes by default, set per App",
-		"cannot be changed in place",
+		"changes the choice later",
 		"pass --close-session at create",
 	} {
 		if !strings.Contains(out, want) {
@@ -46,7 +46,7 @@ func TestC959AssignHelpRulesOutSamePartyReassignment(t *testing.T) {
 	for _, verb := range []string{"assign", "reassign"} {
 		out := helpText(t, verb)
 		for _, want := range []string{
-			"no in-place setter",
+			"change the choice without assigning",
 			"reassigning a task to its current assignee is refused",
 			"--close-session at create",
 		} {

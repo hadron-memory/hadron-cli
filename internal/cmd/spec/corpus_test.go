@@ -27,6 +27,8 @@ func TestDraftReadsFallBackAcrossServerSlices(t *testing.T) {
 			return nil
 		case "SpecPlaceholderScan":
 			return gqlerror.List{{Message: `Cannot query field "isPlaceholder" on type "Node".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
+		case "SpecUnresolvedReferencesPage":
+			return gqlerror.List{{Message: `Cannot query field "specUnresolvedReferencesPage" on type "Query".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
 		case "SpecUnresolvedReferences":
 			return gqlerror.List{{Message: `Cannot query field "specUnresolvedReferences" on type "Query".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
 		default:

@@ -1,0 +1,82 @@
+# cli1628: explicit settings documents. Legacy command paths keep their old documents.
+mutation CreateAppSettings(
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  $agentRef: ID!
+  $name: String!
+  # @genqlient(omitempty: true)
+  $urn: String
+  # @genqlient(omitempty: true)
+  $appType: AppType
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+  # @genqlient(omitempty: true)
+  $expiresAt: String
+  # @genqlient(omitempty: true)
+  $role: AppMembershipRole
+  # @genqlient(omitempty: true)
+  $createUserPermission: CreateUserPermission
+  # @genqlient(omitempty: true)
+  $identifyUserMethod: IdentifyUserMethod
+  # @genqlient(omitempty: true)
+  $anonymousTtlDays: Int
+  # @genqlient(omitempty: true)
+  $trainingMode: Boolean
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $agentTools: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $surfaces: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $installOptional: [ID!]
+) {
+  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+    id urn name appType agentId
+    # @genqlient(pointer: true)
+    memberCount
+    createdAt
+  }
+}
+
+mutation UpdateAppSettings(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $description: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+  # @genqlient(omitempty: true)
+  $urn: String
+  # @genqlient(omitempty: true)
+  $appType: AppType
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $expiresAt: String
+  # @genqlient(omitempty: true)
+  $sessionDormancyDays: Int
+  # @genqlient(omitempty: true)
+  $agentSessionsExpire: Boolean
+  # @genqlient(omitempty: true)
+  $role: AppMembershipRole
+  # @genqlient(omitempty: true)
+  $createUserPermission: CreateUserPermission
+  # @genqlient(omitempty: true)
+  $identifyUserMethod: IdentifyUserMethod
+  # @genqlient(omitempty: true)
+  $anonymousTtlDays: Int
+  # @genqlient(omitempty: true)
+  $trainingMode: Boolean
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $agentTools: [String!]
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $surfaces: [String!]
+) {
+  updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+    id urn name sessionTimeoutSeconds
+  }
+}
+
+query GetAppRenameURN($ref: ID!) {
+  app(ref: $ref) { urn }
+}

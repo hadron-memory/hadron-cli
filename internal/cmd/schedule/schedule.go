@@ -20,6 +20,7 @@ Note: runAsSelf (--as-self) requires an authenticated user — an App-key caller
 cannot use it (UNAUTHENTICATED).`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdPreview(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))

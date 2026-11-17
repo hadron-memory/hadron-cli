@@ -1,20 +1,81 @@
-# cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
-query UsageEvents(
+# cli#1339: usageEventsPage is the same READER gate and filters with the windowed
+# total (since inclusive, until exclusive).
+query UsageEventsPage(
   # @genqlient(omitempty: true)
   $memoryId: ID
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
+  $nodeId: ID
+  # @genqlient(omitempty: true)
   $eventType: String
   $limit: Int!
   # @genqlient(omitempty: true)
   $offset: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
 ) {
-  usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
-    id type createdAt memoryId nodeLoc provider model keyOwnerType
-    tokensIn tokensOut costMicroCents
+  usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+    total
+    hasMore
+    items {
+      id type createdAt memoryId nodeLoc provider model keyOwnerType
+      tokensIn tokensOut costMicroCents
+    }
+  }
+}
+# cli#1203: the same page filtered by one App key (hadron-server#2944). A SEPARATE
+# operation on purpose: a new argument in UsageEventsPage's document would make
+# every plain `usage events` fail against a server that predates it (GraphQL
+# validates the static document, omitempty or not), and the flag-absent request
+# must stay byte-identical. The key id is required here and never optional.
+query UsageEventsPageByAppKey(
+  $appKey: ID!
+  # @genqlient(omitempty: true)
+  $memoryId: ID
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $nodeId: ID
+  # @genqlient(omitempty: true)
+  $eventType: String
+  $limit: Int!
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
+) {
+  usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+    total
+    hasMore
+    items {
+      id type createdAt memoryId nodeLoc provider model keyOwnerType
+      tokensIn tokensOut costMicroCents
+    }
   }
 }
 query MemoryUsageSummary($memoryRef: ID!) {
   memoryUsageSummary(memoryRef: $memoryRef) { nodeLoc type count }
+}
+
+# cor:acl:090:01 — omit memoryRefs for own activity, never fall back from a resource scope.
+query UsageActivity(
+  # @genqlient(omitempty: true)
+  $from: String
+  # @genqlient(omitempty: true)
+  $to: String
+  # @genqlient(omitempty: true)
+  $bucket: UsageActivityBucketSize
+  # @genqlient(omitempty: true)
+  $memoryRefs: [ID!]
+  # @genqlient(omitempty: true)
+  $timeZone: String
+) {
+  usageActivity(from: $from, to: $to, bucket: $bucket, memoryRefs: $memoryRefs, timeZone: $timeZone) {
+    date reads writes
+  }
 }

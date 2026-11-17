@@ -32,7 +32,7 @@ func TestTeamSessionStartRebindsInactiveLocalSessionWithoutForce(t *testing.T) {
 			responses := map[string]string{
 				"GetTeamSession":   `{"data":{"session":` + tc.session + `}}`,
 				"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-				"TeamSessions":     `{"data":{"sessions":[]}}`,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 				"StartTeamSession": `{"data":{"startSession":` + successor + `}}`,
 			}
 			if tc.liveness != "" {
@@ -93,7 +93,7 @@ func TestTeamSessionStartOlderServerCannotCallOpenBindingLive(t *testing.T) {
 		}
 		return false
 	}
-	if selectsIsLive(gen.GetTeamSession_Operation) || selectsIsLive(gen.TeamSessions_Operation) ||
+	if selectsIsLive(gen.GetTeamSession_Operation) || selectsIsLive(gen.TeamSessionsPage_Operation) ||
 		!selectsIsLive(gen.GetBoundSessionLiveness_Operation) {
 		t.Error("only the optional bound-session operation may select Session.isLive")
 	}
