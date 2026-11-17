@@ -287,3 +287,10 @@ func TestExternalIDCountsCodePointsLikeTheServer(t *testing.T) {
 		t.Fatalf("512 code points is within the server cap: %v", err)
 	}
 }
+
+func TestScrubAllHadronEnvironment1974(t *testing.T) {
+	got := scrubbedEnv([]string{"HADRON_PASSWORD=x", "hadron_endpoint=x", "HADRON_TOKEN=x", "PATH=/bin", "GITHUB_TOKEN=tracker"})
+	if strings.Join(got, ",") != "PATH=/bin,GITHUB_TOKEN=tracker" {
+		t.Fatalf("unexpected environment: %v", got)
+	}
+}

@@ -796,3 +796,33 @@ func TestAdapterStartedCreateOutputs1981(t *testing.T) {
 		}
 	}
 }
+
+func TestAdapterFollowups1974(t *testing.T) {
+	t.Run("empty integration refuses instead of selecting env", func(t *testing.T) {
+		t.Setenv(adapterEnvForTest, "must-not-run")
+		calls, _, _, err := runFind1524(t, nil, "--integration", "")
+		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+			t.Fatalf("err=%v calls=%v", err, *calls)
+		}
+	})
+	t.Run("list limit is not exhaustion", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`],"nextCursor":"next"}'`, "")
+		_, out, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--json", "--limit", "1")
+		var d struct {
+			Complete      bool
+			StoppedReason string
+		}
+		_ = json.Unmarshal([]byte(out), &d)
+		if err != nil || d.Complete || d.StoppedReason != "limit_reached" {
+			t.Fatalf("%v %s", err, out)
+		}
+	})
+	t.Run("pending create is not started locally and null name has fallback", func(t *testing.T) {
+		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+		response := strings.Replace(claimed1961("t1", itemA1961, "wkr1", "Iris", "", "PENDING"), `"name":"Iris"`, `"name":null`, 1)
+		calls, out, errOut, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": response, "IntakeStartTask": started1961}, "--track", "--json")
+		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 || !strings.Contains(out, `"assignee": "wkr1"`) || strings.Contains(errOut, "PENDING for ,") {
+			t.Fatalf("%v %s %s starts=%v", err, out, errOut, opsOf1961(calls, "IntakeStartTask"))
+		}
+	})
+}
