@@ -98,7 +98,7 @@ func TestSweepRecorderModes2153(t *testing.T) {
 	}
 }
 
-func TestSweepCommandScopeAndLockRefuseBeforeNetwork2153(t *testing.T) {
+func TestSweepCommandScopeAndLockRefusalsAndSuccess2153(t *testing.T) {
 	for _, which := range []string{"app", "server", "lock", "same"} {
 		t.Run(which, func(t *testing.T) {
 			calls, writes := 0, 0
@@ -247,12 +247,12 @@ func TestSweepHistoryLimitsAndHumanOutput2153(t *testing.T) {
 			err := c.Execute()
 			if limit == 0 || limit == 101 {
 				if exitcode.FromError(err) != exitcode.Usage || calls != 0 || requests != 0 {
-					t.Fatalf("err=%v calls=%d", err, calls)
+					t.Fatalf("err=%v calls=%d requests=%d", err, calls, requests)
 				}
 				return
 			}
 			if err != nil || calls != 1 || requests != 2 {
-				t.Fatalf("err=%v calls=%d", err, calls)
+				t.Fatalf("err=%v calls=%d requests=%d", err, calls, requests)
 			}
 			for _, want := range []string{"RUN", "STARTED", "OBSERVE", "run"} {
 				if !strings.Contains(out.String(), want) {
@@ -308,5 +308,17 @@ func TestSweepStatusUsesItsOwnJob2153(t *testing.T) {
 	after, err := os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-sweep.service"))
 	if err != nil || string(after) != string(before) {
 		t.Fatalf("status changed service: %v", err)
+	}
+}
+
+// Keep the documented command boundary explicit: adding sweep replay needs
+// its own command validation pins, not just host up's run-token cases.
+func TestSweepRunIDFlagBoundary2303(t *testing.T) {
+	f := &cmdutil.Factory{}
+	if newCmdTeamHostUp(f).Flags().Lookup("run-id") == nil {
+		t.Fatal("host up must register --run-id for S10 replay")
+	}
+	if newCmdTeamHostSweep(f).Flags().Lookup("run-id") != nil {
+		t.Fatal("host sweep generates its token internally; a new --run-id needs validation coverage")
 	}
 }
