@@ -133,6 +133,9 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
+				}
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
 			} else if len(prepared.changed) > 0 {
@@ -140,12 +143,18 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
+				}
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
 			} else {
 				resp, err := gen.CreateApp(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description))
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
 				}
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
