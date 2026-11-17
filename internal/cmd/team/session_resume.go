@@ -41,6 +41,7 @@ func noBindingRefusal(what string, asMe bool) error {
 type resumeFlags struct {
 	pick, tool, host, model, transcript string
 	description, family                 *string
+	effort                              *gen.EffortLevel // cli#2206: reported on a resume only when --effort is given
 }
 
 // resumeCandidateDTO is the stable --json shape of one CHOOSE candidate.
@@ -142,6 +143,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		Host:             optStr(host),
 		LlmModel:         optStr(rf.model),
 		TranscriptPath:   optStr(rf.transcript),
+		Effort:           rf.effort,
 	})
 	if err != nil {
 		if m, ok := api.ResumeWorkerMismatch(err); ok {

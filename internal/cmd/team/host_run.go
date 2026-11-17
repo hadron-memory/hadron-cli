@@ -288,7 +288,13 @@ reports every outcome. One poller per host or container.
                    always fresh (never --resume), the grant and first prompt
                    passed through a 0600 file beside the state, never typed;
                    the agent runs plainly in Orca's terminal scope; it never
-                   falls back to the exec path
+                   falls back to the exec path. Both launcher_profile modes
+                   (long, short) start the same interactive agent, so a
+                   stalled run shows on screen and can be taken over; short
+                   no longer runs headless or exits when its prompt ends.
+                   A short run is ended by its own agent's session end, by
+                   worker.end's stop, or by the host after its no-agent
+                   proof (cli#2201)
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
@@ -307,6 +313,9 @@ reports every outcome. One poller per host or container.
                    under), released at once after it: a bind landing
                    between the check and the signal waits, and a lock
                    not taken within 2s declines the stop (#2068).
+                   A plain directory whose binding cache or lock file is
+                   missing is declined, not created, when this host runs
+                   as a different user from the worktree's owner.
                    TRANSITIONAL: the field goes with host.yaml
                    (Agent.lifecycle replaces it, hadron-server#4224)
   worktree.remove  only the operation's own worker's registered tree;
@@ -474,6 +483,8 @@ The configuration (YAML):
     # iris:
     #   family: claude
     #   launch_via: orca
+    #   # mode: long|short. Both start the same interactive agent; short is for a
+    #   # worker that ends its own session when its task is done.
     #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
     #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
     #   worktrees: [hadron-cli/iris]
@@ -588,8 +599,8 @@ func hostStepError(err error) error {
 	return exitcode.New(exitcode.FromError(err), err)
 }
 
-// hostEventDTO is one --json event line: every key always present, "" when
-// it does not apply.
+// hostEventDTO is one --json event line. Core event keys are always present;
+// fields tagged omitempty are optional when their value is zero or empty.
 type hostEventDTO struct {
 	ForeignUIDSkipped int    `json:"foreignUidSkipped,omitempty"`
 	LocalCause        string `json:"localCause,omitempty"`

@@ -21,7 +21,7 @@ var afterDirOpenHook func(dir string)
 // stays open, without delete-sharing, until the file is open: Windows has no
 // openat, so holding the directory is what keeps it from being swapped between
 // the two opens.
-func openLockFile(dir, name string) (*os.File, error) {
+func openLockFile(dir, name string, _ func() error) (*os.File, error) {
 	// The directory handle is held open, without FILE_SHARE_DELETE, until the
 	// lock file is open and checked: while it is held the directory (and so
 	// every path through it) cannot be renamed or replaced by a link, which

@@ -1004,7 +1004,7 @@ ends the recovered session: run start again to pick it up.`,
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family), effort: extra.effortLevel(cmd),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -2471,7 +2471,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// move the pointer: a refusal now leaves nothing half-applied, and
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil, nil); err != nil {
 					mapped := api.MapError(err)
 					if rowWritten {
 						// Claim "NOT updated" only for a definitive refusal. A

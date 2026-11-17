@@ -5,11 +5,14 @@ package hostpoller
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // The reporter's raw proc entries were not retained. These synthetic entries
@@ -40,13 +43,19 @@ func TestCensusUnreadableCwdUIDBoundary2195(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got, err := strictRelaunchCensus(context.Background(), proc, work, func(context.Context) error { return nil })
+			foreignSkipped := 0
+			got, err := strictRelaunchCensusCounted(context.Background(), proc, work, func(context.Context) error { return nil }, &foreignSkipped)
 			if tc.skip {
-				if err != nil || len(got) != 1 || got[0].PID != 42 {
+				if err != nil || len(got) != 1 || got[0].PID != 42 || foreignSkipped != 1 {
 					t.Fatalf("foreign exclusion: agents=%+v err=%v", got, err)
 				}
-			} else if err == nil {
-				t.Fatal("unknown ownership proved absence")
+			} else {
+				if err == nil {
+					t.Fatal("unknown ownership proved absence")
+				}
+				if foreignSkipped != 0 {
+					t.Fatalf("partial foreign count published: %d", foreignSkipped)
+				}
 			}
 		})
 	}
@@ -63,8 +72,12 @@ func TestCensusUnreadableCwdUIDBoundary2195(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(dir, "status"), []byte("Uid:\t"+strings.Join(fields, "\t")+"\n"), 0600); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := strictRelaunchCensus(context.Background(), proc, work, func(context.Context) error { return nil }); err == nil {
+				foreignSkipped := 0
+				if _, err := strictRelaunchCensusCounted(context.Background(), proc, work, func(context.Context) error { return nil }, &foreignSkipped); err == nil {
 					t.Fatal("same-uid/root unreadable cwd accepted")
+				}
+				if foreignSkipped != 0 {
+					t.Fatalf("protected uid published count: %d", foreignSkipped)
 				}
 			})
 		}
@@ -84,8 +97,44 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 			if err := unix.Mkfifo(status, 0600); err != nil {
 				t.Fatal(err)
 			}
+			// Pin the identity before the writer changes stat/removes the fixture.
+			initial, readErr := os.ReadFile(filepath.Join(dir, "stat"))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			parent, start, valid := parseStatLine(string(initial))
+			if !valid || parent != 2 || start != 123 {
+				t.Fatalf("unexpected first-sweep fixture identity: %q", initial)
+			}
+			opened := make(chan struct{}, 1)
+			finished := make(chan struct{})
+			censusFinished := make(chan struct{})
+			resumeWriter := make(chan struct{})
 			done := make(chan error, 1)
+			t.Cleanup(func() {
+				close(resumeWriter)
+				select {
+				case <-finished:
+				default:
+					// Holding both ends open releases a writer blocked before the reader.
+					unblock, openErr := os.OpenFile(status, os.O_RDWR|unix.O_NONBLOCK, 0)
+					select {
+					case <-finished:
+					case <-time.After(2 * time.Second):
+						t.Error("FIFO cleanup writer did not exit")
+					}
+					if openErr == nil {
+						_ = unblock.Close()
+					}
+				}
+				select {
+				case <-censusFinished:
+				case <-time.After(2 * time.Second):
+					t.Error("FIFO cleanup census did not exit")
+				}
+			})
 			go func() {
+				defer close(finished)
 				// Opening the writer proves the census reached status after its first stat.
 				f, err := os.OpenFile(status, os.O_WRONLY, 0)
 				if err != nil {
@@ -93,6 +142,10 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 					return
 				}
 				defer func() { _ = f.Close() }()
+				opened <- struct{}{}
+				if os.Getenv("HADRON_TEST_FIFO_STALL_2197") == "1" {
+					<-resumeWriter
+				}
 				if mode == "reused" {
 					err = os.WriteFile(filepath.Join(dir, "stat"), []byte("41 (claude) S 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 456"), 0600)
 				}
@@ -105,16 +158,51 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 				}
 				done <- err
 			}()
-			skipped := 0
-			got, err := strictRelaunchCensusCounted(context.Background(), proc, work, func(context.Context) error { return nil }, &skipped)
-			if e := <-done; e != nil {
-				t.Fatal(e)
+			foreignSkipped := 0
+			ctx := context.Background()
+			if os.Getenv("HADRON_TEST_FIFO_EARLY_REFUSAL_2197") == "1" {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
 			}
+			type censusResult struct {
+				agents []WorktreeAgent
+				err    error
+				count  int
+			}
+			result := make(chan censusResult, 1)
+			go func() {
+				defer close(censusFinished)
+				count := 0
+				agents, err := strictRelaunchCensusCounted(ctx, proc, work, func(context.Context) error { return nil }, &count)
+				result <- censusResult{agents, err, count}
+			}()
+			select {
+			case <-opened:
+			case <-time.After(2 * time.Second):
+				t.Fatal("FIFO writer did not open before deadline")
+			}
+			select {
+			case e := <-done:
+				if e != nil {
+					t.Fatal(e)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("FIFO writer did not complete before deadline")
+			}
+			var observed censusResult
+			select {
+			case observed = <-result:
+			case <-time.After(2 * time.Second):
+				t.Fatal("FIFO census did not complete before deadline")
+			}
+			got, err := observed.agents, observed.err
+			foreignSkipped = observed.count
 			if mode == "reused" {
 				if err == nil {
 					t.Fatal("foreign skip bypassed stat-twice identity check")
 				}
-				if skipped != 0 {
+				if foreignSkipped != 0 {
 					t.Fatal("partial census count escaped")
 				}
 				return
@@ -123,9 +211,66 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 			if mode == "stable" {
 				want = 1
 			}
-			if err != nil || len(got) != 1 || got[0].PID != 42 || skipped != want {
-				t.Fatalf("agents=%+v skipped=%d err=%v", got, skipped, err)
+			if err != nil || len(got) != 1 || got[0].PID != 42 || foreignSkipped != want {
+				t.Fatalf("agents=%+v foreignSkipped=%d err=%v", got, foreignSkipped, err)
 			}
 		})
+	}
+}
+
+// A subprocess keeps a broken fixture from consuming the package timeout.
+// The child intentionally fails; its bounded refusal and successful cleanup
+// are the expected evidence, rather than a successful census.
+func TestCensusFIFORefusalIsBounded2197(t *testing.T) {
+	for _, scenario := range []struct{ name, env, want string }{
+		{"earlier refusal", "HADRON_TEST_FIFO_EARLY_REFUSAL_2197=1", "FIFO writer did not open before deadline"},
+		{"stalled completion", "HADRON_TEST_FIFO_STALL_2197=1", "FIFO writer did not complete before deadline"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCensusForeignSkipIdentityAndDisappearance2195$/^stable$", "-test.count=1")
+			cmd.Env = append(os.Environ(), scenario.env)
+			began := time.Now()
+			out, err := cmd.CombinedOutput()
+			if ctx.Err() != nil {
+				t.Fatalf("FIFO refusal exceeded subprocess watchdog: %v: %s", ctx.Err(), out)
+			}
+			if err == nil {
+				t.Fatal("early refusal child unexpectedly succeeded")
+			}
+			if elapsed := time.Since(began); elapsed > 3*time.Second {
+				t.Fatalf("early refusal took %s, want within 3s: %s", elapsed, out)
+			}
+			if !strings.Contains(string(out), scenario.want) {
+				t.Fatalf("wrong refusal: %s", out)
+			}
+			if strings.Contains(string(out), "FIFO cleanup") {
+				t.Fatalf("cleanup failed to unblock writer: %s", out)
+			}
+		})
+	}
+}
+
+func TestCensusCountWithheldAfterLaterRefusal2197(t *testing.T) {
+	proc, work := t.TempDir(), t.TempDir()
+	foreignDir := censusFixture2060(t, proc, work, 41)
+	unknownDir := censusFixture2060(t, proc, work, 42)
+	for _, dir := range []string{foreignDir, unknownDir} {
+		if err := os.Remove(filepath.Join(dir, "cwd")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	uid := os.Geteuid() + 1000000
+	if err := os.WriteFile(filepath.Join(foreignDir, "status"), []byte(fmt.Sprintf("Uid:\t%d\t%d\t%d\t%d\n", uid, uid, uid, uid)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	foreignSkipped := 0
+	_, err := strictRelaunchCensusCounted(context.Background(), proc, work, func(context.Context) error { return nil }, &foreignSkipped)
+	if err == nil {
+		t.Fatal("later unknown ownership must refuse")
+	}
+	if foreignSkipped != 0 {
+		t.Fatalf("earlier exclusion leaked out of incomplete census: %d", foreignSkipped)
 	}
 }
