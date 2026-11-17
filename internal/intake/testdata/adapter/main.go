@@ -10,6 +10,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		_, _ = io.WriteString(os.Stderr, "usage: adapter <call>   call is one of: describe, list-untracked, mark-tracked (request JSON on stdin)\n")
+		os.Exit(2)
+	}
 	var req map[string]any
 	if err := json.NewDecoder(os.Stdin).Decode(&req); err != nil {
 		os.Exit(2)
@@ -22,6 +26,11 @@ func main() {
 			}
 			time.Sleep(20 * time.Second)
 		}
+		// This describe answer omits filters and order because THIS FIXTURE has
+		// no use for them — the strict parser treats them as optional metadata
+		// here. That is a fixture choice, not a claim that the contract makes
+		// them optional: their semantics are Proposed in cor:agt:120:04 and
+		// unconsumed by the CLI (#1961 item 10).
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"name": "native", "contractVersion": 1, "calls": []string{"describe", "list-untracked", "mark-tracked"}})
 	case "list-untracked":
 		switch req["for"] {
