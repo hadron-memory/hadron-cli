@@ -785,8 +785,10 @@ Conventions:
   `createUserPermission=DENY`). Two effects to plan for: the memory's URN is
   **re-minted** (the anonymous one stops resolving — `--json` returns
   `{memory, previousUrn, encrypted}` so both are visible), and its anonymous TTL
-  is cleared so it is no longer garbage-collected. Adding `--data-key -`
-  encrypts every node in the same transaction and lands the memory `private` and
+  is cleared so it is no longer garbage-collected. Adding `--data-key-file <file|->`
+  (mode 600; `-` reads stdin; also `--data-key -`; a literal `--data-key <key>` is
+  DEPRECATED: one stderr warning that never echoes the key, refused in a later
+  release, cli#1657) encrypts every node in the same transaction and lands the memory `private` and
   owned by that user — ONE-WAY, like `memory encrypt`. The key must be canonical
   base64 for exactly 32 bytes (43 characters plus `=`) and is sent once in the
   `x-hadron-operation-key` request header, never in the request body or its
@@ -931,9 +933,15 @@ Conventions:
   unknown outcome: exit 7, NO success output, never a fabricated `restamped: 0`
   (cli#1008; only a returned integer, including 0, is success).
   Server gate (memory owner / org ADMIN) and its encrypted-memory limits apply.
-- `memory encrypt <memory> --data-key -` converts a plaintext memory to
-  encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
-  so it stays out of shell history) and the server rewrites all node content as
+- `memory encrypt <memory> --data-key-file <file|->` converts a plaintext memory to
+  encrypted-at-rest: you provide the data key in a file only you can read (a file
+  that group or others can access is refused before any request, exit 2, the
+  `readPassphraseFile` rule; `-` reads stdin, as `--data-key -` still does, with
+  the confirmation answered before stdin is read; `--data-key-file` is exclusive
+  with `--data-key` and `--passphrase-file`; a literal `--data-key <key>` still
+  works but is DEPRECATED, printing one stderr warning that never echoes the key,
+  `--json` stdout unchanged, and will be refused in a later release: cli#1657,
+  ruling 0148) so it stays out of `ps` and shell history and the server rewrites all node content as
   ciphertext in one transaction. It is ONE-WAY — there is no decrypt command —
   so keep the key. Afterwards a read prints the stored ciphertext (`enc:v1:…`)
   unless the invocation supplies the passphrase with the global `--unlock`
