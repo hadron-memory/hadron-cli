@@ -301,7 +301,11 @@ func resetSweepUnits2187(names []string, command func(...string) ([]byte, error)
 	for _, n := range names {
 		// Inactive units can still retain start-rate counters from a prior
 		// failed case. Reset every owned unit after cancelling queued restarts.
-		if out, err := command("reset-failed", n); err != nil {
+		// A pattern matching only this name makes systemctl consider loaded
+		// units; a literal name fails after inactive-unit garbage collection.
+		// Unloading already flushes its counters. Never reset unrelated units.
+		pattern := "[" + n[:1] + "]" + n[1:]
+		if out, err := command("reset-failed", pattern); err != nil {
 			return fmt.Errorf("reset %s: %w: %s", n, err, out)
 		}
 		state, err := command("show", n, "-p", "ActiveState", "--value")
@@ -354,10 +358,23 @@ func TestSweepAcceptanceResetClearsInactiveStartLimit2187(t *testing.T) {
 		case "show":
 			return []byte("inactive\n"), nil
 		case "reset-failed":
-			if _, ok := limited[args[1]]; !ok {
-				return nil, fmt.Errorf("unowned reset: %s", args[1])
+			if len(args) != 2 || !strings.Contains(args[1], "[") {
+				return nil, fmt.Errorf("expected exact-name loaded-unit pattern: %v", args)
 			}
-			limited[args[1]] = false
+			for _, n := range names {
+				matched, err := filepath.Match(args[1], n)
+				if err != nil {
+					return nil, err
+				}
+				if matched {
+					limited[n] = false
+				}
+			}
+			for _, foreign := range []string{"unrelated.service", "hadron-team-sweep-other.service", "hadron-team-sweep.timer-other"} {
+				if matched, _ := filepath.Match(args[1], foreign); matched {
+					return nil, fmt.Errorf("pattern reaches unowned unit: %s", foreign)
+				}
+			}
 			return nil, nil
 		case "start":
 			if limited[args[1]] {
@@ -440,5 +457,35 @@ func TestSweepAcceptanceRealWriterRegistersOwnedPathsBeforeBody2187(t *testing.T
 		if body, err := os.ReadFile(path); err != nil || len(body) == 0 {
 			t.Errorf("writer did not finish %s: %v", path, err)
 		}
+	}
+}
+
+func TestSweepAcceptanceResetToleratesUnloadedOwnedUnits2187(t *testing.T) {
+	names := []string{"hadron-team-sweep.timer", "hadron-team-sweep.service", "hadron-team-sweep-failed.service"}
+	// Only the service remains loaded with a counter; the others were GC'd.
+	retained := true
+	command := func(args ...string) ([]byte, error) {
+		switch args[0] {
+		case "stop":
+			return nil, nil
+		case "show":
+			return []byte("inactive"), nil
+		case "reset-failed":
+			if !strings.Contains(args[1], "[") {
+				return nil, fmt.Errorf("literal reset of an unloaded unit is refused")
+			}
+			if ok, _ := filepath.Match(args[1], names[1]); ok {
+				retained = false
+			}
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("unexpected %v", args)
+		}
+	}
+	if err := resetSweepUnits2187(names, command); err != nil {
+		t.Fatal(err)
+	}
+	if retained {
+		t.Fatal("loaded inactive unit retained its counter")
 	}
 }
