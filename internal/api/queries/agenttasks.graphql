@@ -1190,3 +1190,33 @@ query AgentTaskListCreator(
     ...AgentTaskFields
   }
 }
+
+# Advisory current utilization by family/tier/role (hadron-server#3828, cli#1836
+# slice 1) — `team utilization` renders it. Optional filters carry omitempty so
+# an unset flag is OMITTED (server default), never sent as null.
+query TeamUtilization(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $family: String
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $tier: String
+  # @genqlient(omitempty: true)
+  $windowHours: Int
+) {
+  teamUtilization(appRef: $appRef, family: $family, role: $role, tier: $tier, windowHours: $windowHours) {
+    appId
+    windowHours
+    computedAt
+    combinations {
+      family
+      tier
+      role
+      eligibleWorkers
+      busyWorkers
+      utilization
+      saturated
+    }
+  }
+}
