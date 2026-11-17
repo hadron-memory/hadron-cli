@@ -72,7 +72,6 @@ func TestTaskCreateRefusesInvalidRunSettings2206(t *testing.T) {
 		"effort NOT_APPLIC": {"--effort", "NOT_APPLICABLE"},
 		"tier outside":      {"--tier", "ultra"},
 		"effort outside":    {"--effort", "ULTRA"},
-		"model is a flag":   {"--model", "--resume"},
 		"empty model":       {"--model", " "},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -212,10 +211,11 @@ func TestTaskGetShowsRunSettingsAndAppliedTogether2206(t *testing.T) {
 	}
 }
 
-// The model and family rules are the server's contract, no stricter: letters,
-// digits, '.', '_' and '-', any of them first, model up to 128 characters.
-func TestRunSettingTokensMatchTheContract2206(t *testing.T) {
-	for _, model := range []string{"_custom-model", ".custom", "-x", "gpt-6.1-sol", strings.Repeat("a", 128)} {
+// No second model-name rule on the client (Wolfgang #111086): only an empty or
+// whitespace value is refused here; a leading '_' or '.' and a long name reach
+// the server, which judges them (BAD_VALUE, exit 2, with its reason).
+func TestRunSettingTokensAreTheServersToJudge2206(t *testing.T) {
+	for _, model := range []string{"_custom-model", ".custom", "-x", "gpt-6.1-sol", strings.Repeat("a", 200), "a/b"} {
 		input, err := createInput2206(t, "--model", model)
 		if err != nil {
 			t.Errorf("model %q must reach the server: %v", model, err)
@@ -225,7 +225,7 @@ func TestRunSettingTokensMatchTheContract2206(t *testing.T) {
 			t.Errorf("model %q not sent: %#v", model, input["runSettings"])
 		}
 	}
-	for _, model := range []string{strings.Repeat("a", 129), "has space", "a/b"} {
+	for _, model := range []string{"has space", " ", "tab\tname"} {
 		if _, err := createInput2206(t, "--model", model); err == nil {
 			t.Errorf("model %q must be refused before any call", model)
 		}

@@ -1,7 +1,6 @@
 package team
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,15 +22,6 @@ import (
 // does not recognise) is the server's, and surfaces as
 // TASK_RUN_SETTINGS_INVALID with its reason.
 
-// The contract (AgentTaskRunSettingsInput): a model is letters, digits, '.',
-// '_' or '-', at most 128 characters, any of them first; the CLI refuses
-// nothing the server's own rule allows. A family is a lowercase-or-mixed
-// token of the same characters: the server normalises and judges it.
-var (
-	runSettingModelRE  = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
-	runSettingFamilyRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
-)
-
 // taskEfforts are the generic scale a task may REQUEST: NOT_APPLICABLE is a
 // report (a session says it has no effort control), never a request.
 var taskEfforts = map[gen.EffortLevel]bool{
@@ -51,16 +41,13 @@ func whereLead(where string) string {
 // validateTaskRunSettings checks the values a task's run settings carry; nil
 // means not given. It is shared by the flags and by a batch item's file.
 func validateTaskRunSettings(where string, family, model, tier, effort *string) error {
-	if family != nil && !runSettingFamilyRE.MatchString(*family) {
-		return exitcode.Newf(exitcode.Usage, "%sfamily %q must be 1-64 letters, digits, '.', '_' or '-'", where, *family)
-	}
-	if model != nil && !runSettingModelRE.MatchString(*model) {
-		return exitcode.Newf(exitcode.Usage, "%smodel %q must be 1-128 letters, digits, '.', '_' or '-'", where, *model)
-	}
-	// A flag value that could be read as another flag never reaches the wire.
+	// No second model-name rule lives on the client: only what the CLI needs, a
+	// value that is not empty and holds no whitespace. The server owns the rest
+	// of the form (its own validation, TASK_RUN_SETTINGS_INVALID BAD_VALUE),
+	// shown with its reason and the normal exit.
 	for name, v := range map[string]*string{"family": family, "model": model} {
-		if v != nil && strings.HasPrefix(*v, "--") {
-			return exitcode.Newf(exitcode.Usage, "%s%s %q looks like a flag", where, name, *v)
+		if v != nil && (*v == "" || strings.ContainsAny(*v, " \t\r\n")) {
+			return exitcode.Newf(exitcode.Usage, "%s%s %q must be one word with no whitespace", where, name, *v)
 		}
 	}
 	if model != nil && tier != nil {
