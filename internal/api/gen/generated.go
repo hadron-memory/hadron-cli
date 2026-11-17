@@ -12042,6 +12042,41 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01; decision record run-settings-are-not-worker-identity) — a task's own run
+// settings: what a start for it launches. Anything left out falls back to the worker's last used (Worker.lastUsed), so
+// a missing value is never a refusal. They are run settings, not requirements: a worker that is already running takes
+// the task under its session's settings (AgentTask.appliedRunSettings shows them), and a task that must run on a
+// family says so with requirements.familyIn. For a short-lived worker with no open session the launch applies them, so
+// the matcher judges familyIn, familyNotIn and minTier against them (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
+//
+// Refused TASK_RUN_SETTINGS_INVALID, with extensions.reason: BAD_VALUE (a field that is not its token),
+// EFFORT_NOT_A_REQUEST (NOT_APPLICABLE), MODEL_AND_TIER (both named), MODEL_OUTSIDE_FAMILY (an exact model of another
+// family than the one named), FAMILY_EXCLUDED (the family, named or implied by the model, is outside
+// requirements.familyIn or inside familyNotIn), TIER_BELOW_MINIMUM (the tier, or the exact model's tier, is below
+// requirements.minTier).
+type AgentTaskRunSettingsInput struct {
+	// A generic effort; the launcher maps it to the family's own value. NOT_APPLICABLE is a report, not a request, and is refused.
+	Effort *EffortLevel `json:"effort"`
+	// A model family token, e.g. claude, codex or glm.
+	Family *string `json:"family"`
+	// An exact model name (letters, digits, '.', '_' or '-'; at most 128 characters). Give this or tier, not both.
+	Model *string `json:"model"`
+	// A generic tier instead of a model: high, mid or low. The host's launcher maps it to the family's model.
+	Tier *string `json:"tier"`
+}
+
+// GetEffort returns AgentTaskRunSettingsInput.Effort, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetEffort() *EffortLevel { return v.Effort }
+
+// GetFamily returns AgentTaskRunSettingsInput.Family, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetFamily() *string { return v.Family }
+
+// GetModel returns AgentTaskRunSettingsInput.Model, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetModel() *string { return v.Model }
+
+// GetTier returns AgentTaskRunSettingsInput.Tier, and is useful for accessing the field via an interface.
+func (v *AgentTaskRunSettingsInput) GetTier() *string { return v.Tier }
+
 // AgentTaskSetPriorityResponse is returned by AgentTaskSetPriority on success.
 type AgentTaskSetPriorityResponse struct {
 	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -17891,7 +17926,7 @@ func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRo
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
-	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
 	// How many operations a collection returned, or workers a registration listed.
 	Count *int `json:"count"`
@@ -34820,8 +34855,12 @@ type CreateAgentTaskInput struct {
 	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered references; any creator may set them, as it sets the title.
 	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
-	Source       *string                     `json:"source"`
-	StartBy      *string                     `json:"startBy"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's own run settings, each optional. What a start for this task
+	// launches, before the worker's last used; never a matching requirement. Checked here, at creation, and refused
+	// TASK_RUN_SETTINGS_INVALID with a reason. Set only here: no edit takes them, and a clone copies none.
+	RunSettings *AgentTaskRunSettingsInput `json:"runSettings,omitempty"`
+	Source      *string                    `json:"source"`
+	StartBy     *string                    `json:"startBy"`
 	// #1754 — PENDING (the default) or BACKLOG
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02). A BACKLOG task is parked: it takes no assignee (BAD_USER_INPUT),
 	// never enters the queue, and is moved to pending by assigning it or making it ready.
@@ -34874,6 +34913,9 @@ func (v *CreateAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { retu
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
+
+// GetRunSettings returns CreateAgentTaskInput.RunSettings, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetRunSettings() *AgentTaskRunSettingsInput { return v.RunSettings }
 
 // GetSource returns CreateAgentTaskInput.Source, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetSource() *string { return v.Source }
@@ -47627,6 +47669,32 @@ type EffectiveModelGroupsResponse struct {
 // GetEffectiveModelGroups returns EffectiveModelGroupsResponse.EffectiveModelGroups, and is useful for accessing the field via an interface.
 func (v *EffectiveModelGroupsResponse) GetEffectiveModelGroups() []*EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup {
 	return v.EffectiveModelGroups
+}
+
+// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:060:04) — the generic effort scale of a run. LOW to MAX are levels the launcher maps to the
+// family's own values; UNSET is the family's default. NOT_APPLICABLE is report-only: a session whose family has no effort
+// control reports it, and a worker's last-used record may hold it; a task never carries it. Self-declared, like the family
+// and model: a reporting input, never authorization.
+type EffortLevel string
+
+const (
+	EffortLevelHigh          EffortLevel = "HIGH"
+	EffortLevelLow           EffortLevel = "LOW"
+	EffortLevelMax           EffortLevel = "MAX"
+	EffortLevelMedium        EffortLevel = "MEDIUM"
+	EffortLevelNotApplicable EffortLevel = "NOT_APPLICABLE"
+	EffortLevelUnset         EffortLevel = "UNSET"
+	EffortLevelXhigh         EffortLevel = "XHIGH"
+)
+
+var AllEffortLevel = []EffortLevel{
+	EffortLevelHigh,
+	EffortLevelLow,
+	EffortLevelMax,
+	EffortLevelMedium,
+	EffortLevelNotApplicable,
+	EffortLevelUnset,
+	EffortLevelXhigh,
 }
 
 // EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
@@ -78142,6 +78210,8 @@ type ReportHostOperationResponse struct {
 	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
 	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
 	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
+	// #4292: an end-session operation FAILED with a reason whose leading code is AGENT_ABSENT ends the session when
+	// endAgentlessSession's conditions hold, and reads SUCCEEDED, writing no handoff; otherwise it stays FAILED, the session open.
 	ReportHostOperation *ReportHostOperationReportHostOperation `json:"reportHostOperation"`
 }
 
@@ -79236,6 +79306,8 @@ var AllResumeOutcome = []ResumeOutcome{
 type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
+	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
+	Effort *EffortLevel `json:"effort"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
 	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
 	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
@@ -79262,6 +79334,9 @@ type ResumeSessionInput struct {
 
 // GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetEffort returns ResumeSessionInput.Effort, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
 // GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
@@ -84255,13 +84330,16 @@ func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
 type SessionEndReason string
 
 const (
-	SessionEndReasonEnded      SessionEndReason = "ended"
-	SessionEndReasonExpired    SessionEndReason = "expired"
-	SessionEndReasonSuperseded SessionEndReason = "superseded"
-	SessionEndReasonUnknown    SessionEndReason = "unknown"
+	// #4292: the host running a SHORT_LIVED worker ended the session on its proof that no agent runs; no handoff was written.
+	SessionEndReasonAgentAbsent SessionEndReason = "agent_absent"
+	SessionEndReasonEnded       SessionEndReason = "ended"
+	SessionEndReasonExpired     SessionEndReason = "expired"
+	SessionEndReasonSuperseded  SessionEndReason = "superseded"
+	SessionEndReasonUnknown     SessionEndReason = "unknown"
 )
 
 var AllSessionEndReason = []SessionEndReason{
+	SessionEndReasonAgentAbsent,
 	SessionEndReasonEnded,
 	SessionEndReasonExpired,
 	SessionEndReasonSuperseded,
@@ -84483,6 +84561,11 @@ type SessionInput struct {
 	AppRef     *string `json:"appRef,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	CustomerId *string `json:"customerId,omitempty"`
+	// #4291 (hrn:node:hadronmemory.com:specs:cor:agt:060:04): the effort this session runs at, as the launcher applied it; NOT_APPLICABLE for a
+	// family with no effort control (never a refusal). Omitted on a host-started bind: the start's own effort is recorded
+	// when it names one of the scale, as its family and model are when the bind reports none. A worker-bound session's
+	// family, model and effort are also written to the worker's last-used record (Worker.lastUsed).
+	Effort *EffortLevel `json:"effort"`
 	// #1707 / hrn:node:hadronmemory.com:specs:cor:agt:060:04: the model family this session runs as, e.g.
 	// claude, codex or glm (a lowercase token). Omitted: derived from llmModel
 	// first, then tool — tool alone never classifies claude-code, since GLM runs
@@ -84582,6 +84665,9 @@ func (v *SessionInput) GetBranch() *string { return v.Branch }
 
 // GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
+
+// GetEffort returns SessionInput.Effort, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetEffort() *EffortLevel { return v.Effort }
 
 // GetFamily returns SessionInput.Family, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetFamily() *string { return v.Family }
@@ -110520,6 +110606,9 @@ type UpdateTeamSessionResponse struct {
 	// Updates on an ended session stay allowed (late PR-merge attribution).
 	// #1931 — llmModel refreshes the model-family derivation; an explicit family wins.
 	// Null or omitted family metadata preserves the existing family. Unclassified models do not clear it.
+	// #4291 — effort reports the effort the session now runs at; null or omitted leaves it as last recorded. A report
+	// (model, family or effort) on a worker's OPEN session is also written to that worker's last-used record
+	// (Worker.lastUsed, hrn:node:hadronmemory.com:specs:cor:agt:060:04); a report on an ended session moves no record.
 	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
 }
 
