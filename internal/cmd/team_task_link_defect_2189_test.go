@@ -192,3 +192,55 @@ func TestTaskLinkDefect2189EmptyDefectRefusedLocally(t *testing.T) {
 		})
 	}
 }
+
+// hadron-cli#2296 item 1: an empty or blank --introduced-at-head is refused
+// locally with exit 2, like an empty --defect, before any request.
+func TestTaskLinkDefect2296EmptyHeadRefusedLocally(t *testing.T) {
+	for name, head := range map[string]string{"empty": "", "spaces": "   "} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["TaskLinkDefect"] = linkResponse2189(true, head2189)
+			calls, _, err := runTeamTask(t, r, "team", "task", "link-defect", "AT1.2", "--defect", defect2189, "--introduced-at-head", head)
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Fatalf("exit = %d, want Usage (%v)", got, err)
+			}
+			if n := len(linkCalls2189(t, calls)); n != 0 {
+				t.Fatalf("an empty --introduced-at-head must be refused before any request, sent %d", n)
+			}
+		})
+	}
+}
+
+// hadron-cli#2296 item 2: a response with no link (null, or a link without
+// taskId or eventId) exits 1, says to read the task's events before retrying
+// and names the task ref it was given.
+func TestTaskLinkDefect2296EmptyResponse(t *testing.T) {
+	empty := func(taskID, eventID string) string {
+		b, _ := json.Marshal(map[string]any{"data": map[string]any{"linkDefectToPullRequest": map[string]any{
+			"taskId": taskID, "defect": defect2189, "introducedAtHead": nil,
+			"eventId": eventID, "linkedAt": "2026-11-17T15:00:00Z", "created": true,
+		}}})
+		return string(b)
+	}
+	for name, resp := range map[string]string{
+		"null":         `{"data":{"linkDefectToPullRequest":null}}`,
+		"emptyTaskId":  empty("", "ev-9"),
+		"emptyEventId": empty("task-pr-1", ""),
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["TaskLinkDefect"] = resp
+			calls, _, err := runTeamTask(t, r, "team", "task", "link-defect", "AT1.2", "--defect", defect2189)
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("exit = %d, want Error (%v)", got, err)
+			}
+			if n := len(linkCalls2189(t, calls)); n != 1 {
+				t.Fatalf("want exactly one TaskLinkDefect and no retry, got %d", n)
+			}
+			msg := err.Error()
+			if !strings.Contains(msg, "read the task's events before retrying") || !strings.Contains(msg, "AT1.2") {
+				t.Fatalf("message must say to read the events of AT1.2 before retrying: %q", msg)
+			}
+		})
+	}
+}
