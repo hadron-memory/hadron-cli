@@ -94,6 +94,57 @@ func TestTeamUtilizationSingleCombinationAndFilters(t *testing.T) {
 	}
 }
 
+func TestTeamUtilizationWindowUpperBoundIsInclusive(t *testing.T) {
+	calls, _, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all", "--window", "168h")
+	if err != nil {
+		t.Fatalf("168h is the documented maximum: %v", err)
+	}
+	if utilVars(t, calls)["windowHours"] != float64(168) {
+		t.Fatalf("vars: %v", utilVars(t, calls))
+	}
+}
+
+func TestTeamUtilizationNullResultIsAnErrorNotAPanicOrEmptyList(t *testing.T) {
+	for _, body := range []string{`{"data":{"teamUtilization":null}}`, `{"data":{}}`} {
+		_, out, err := runTeamTask(t, utilResponses(body), "team", "utilization", "--all", "--json")
+		if err == nil || !strings.Contains(err.Error(), "no utilization result") {
+			t.Fatalf("%s: a null/absent result must be a clear error, got err=%v out=%q", body, err, out)
+		}
+		if strings.TrimSpace(out) != "" {
+			t.Fatalf("%s: no success output expected, got %q", body, out)
+		}
+	}
+}
+
+func TestTeamUtilizationJSONKeepsNullTierAndRoleKeys(t *testing.T) {
+	_, out, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		Combinations []map[string]json.RawMessage `json:"combinations"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	var sawNullTier, sawNullRole bool
+	for _, c := range dto.Combinations {
+		for _, k := range []string{"tier", "role"} {
+			raw, ok := c[k]
+			if !ok {
+				t.Fatalf("key %q must be present in %v", k, c)
+			}
+			if string(raw) == "null" {
+				sawNullTier = sawNullTier || k == "tier"
+				sawNullRole = sawNullRole || k == "role"
+			}
+		}
+	}
+	if !sawNullTier || !sawNullRole {
+		t.Fatalf("explicit null tier and role rows expected: tier=%v role=%v", sawNullTier, sawNullRole)
+	}
+}
+
 func TestTeamUtilizationOmitsWindowWhenNotGiven(t *testing.T) {
 	calls, _, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all")
 	if err != nil {
@@ -135,6 +186,10 @@ func TestTeamUtilizationBadInputExits2(t *testing.T) {
 		{"--all", "--window", "soon"},
 		{"--all", "--window", "90m"},
 		{"--all", "--window", "0h"},
+		{"--all", "--window", "169h"},
+		{"--all", "--family", "claude"},
+		{"--all", "--tier", "high"},
+		{"--all", "--role", "qa"},
 		{},
 	} {
 		calls, _, err := runTeamTask(t, utilResponses(utilizationJSON), append([]string{"team", "utilization"}, argv...)...)
@@ -150,7 +205,7 @@ func TestTeamUtilizationBadInputExits2(t *testing.T) {
 }
 
 func TestTeamUtilizationHostileCellsAreSanitized(t *testing.T) {
-	evil := `{"data":{"teamUtilization":{"appId":"a","windowHours":24,"computedAt":"2026-11-17T17:00:00Z","combinations":[
+	evil := `{"data":{"teamUtilization":{"appId":"a","windowHours":24,"computedAt":"2026-11-17T17:00:00\u001b[31mZ","combinations":[
 	 {"family":"cl\u001b[31maude","tier":null,"role":"q\u0007a","eligibleWorkers":1,"busyWorkers":0,"utilization":0,"saturated":false}]}}}`
 	_, out, err := runTeamTask(t, utilResponses(evil), "team", "utilization", "--all")
 	if err != nil {
