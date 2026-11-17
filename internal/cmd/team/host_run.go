@@ -428,8 +428,16 @@ reused). The final exit check and taskkill are not atomic: the launch can
 still exit between them. Children it left behind cannot be reached without
 a Job Object, which this runner does not yet assign. Binding authority stays
 held until taskkill returns. Its cancellation is requested after 10 seconds;
-a timeout leaves the stop unconfirmed and its records kept (some processes
-may already have been killed). This is not a real-time OS latency guarantee.
+a timeout leaves the stop unconfirmed and its records kept even if taskkill
+then reports success. The tree may already be dead or partly stopped.
+Available runner error/output is retained as bounded, control-safe single-line
+diagnostic context. If a successful helper exits but inherited output pipes
+stay open past the 1-second WaitDelay, output collection is incomplete: the
+stop remains unconfirmed and records are kept. Cancellation takes precedence
+if both conditions occur. These are not real-time OS latency guarantees.
+The stopper waits up to 2 seconds to acquire binding authority. Session writers
+block on flock/LockFileEx without that deadline; a session start can wait until
+the synchronous Windows taskkill and cancellation/drain return releases it.
 An entry survives a stop that could not be confirmed. A refusal
 saying the operation was already reported stops the launch only when it
 names the recorded outcome as failed; one naming success, or naming nothing,
