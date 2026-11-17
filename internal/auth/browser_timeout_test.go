@@ -81,12 +81,20 @@ func shortLoginTimeout(t *testing.T, d time.Duration) {
 
 // loginWithGuard runs Login on a goroutine and fails the test if it has not
 // returned within guard: an unbounded wait shows up as a failure, not a hang.
+//
+// Every exit cancels the child login (cli#1759): when the guard fires it
+// cancels, waits a bounded time for Login to return, and only then fails, so a
+// killed internal-deadline mutant never leaves a login running after the test.
+// The cancel happens only after Login returned or the guard already failed, so
+// a passing test still sees the internal deadline, not a caller cancellation.
 func loginWithGuard(t testing.TB, ctx context.Context, opts LoginOptions, guard time.Duration) (*Token, error) {
 	t.Helper()
 	type result struct {
 		tok *Token
 		err error
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	done := make(chan result, 1)
 	go func() {
 		tok, err := BrowserStrategy{}.Login(ctx, opts)
@@ -96,7 +104,14 @@ func loginWithGuard(t testing.TB, ctx context.Context, opts LoginOptions, guard 
 	case r := <-done:
 		return r.tok, r.err
 	case <-time.After(guard):
-		t.Fatalf("Login did not return within %s: the internal deadline is missing", guard)
+		cancel()
+		stopped := "it stopped once cancelled"
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			stopped = "and it did not stop within 5s of being cancelled"
+		}
+		t.Fatalf("Login did not return within %s: the internal deadline is missing (%s)", guard, stopped)
 		return nil, nil
 	}
 }

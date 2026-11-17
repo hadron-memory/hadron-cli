@@ -15,9 +15,9 @@ import (
 // the request reached the network or the server. None of this changes which
 // credential is sent, its headers, retries or authority.
 
-func doerWithLedger1759(token string, rt http.RoundTripper) (*bearerDoer, *CredentialLedger) {
+func doerWithLedger1759(rt http.RoundTripper) (*bearerDoer, *CredentialLedger) {
 	l := &CredentialLedger{}
-	d := &bearerDoer{token: token, inner: &http.Client{Transport: rt}}
+	d := &bearerDoer{token: "hdr_user_x", inner: &http.Client{Transport: rt}}
 	d.onSent = func() { l.Sent(CredentialStoredUser) }
 	return d, l
 }
@@ -34,7 +34,7 @@ func TestCredentialLedger1759LocalRefusalRecordsNoAttempt(t *testing.T) {
 	})
 	ctx := WithSession(context.Background(), "s-1759")
 
-	d, l := doerWithLedger1759("hdr_user_x", ok)
+	d, l := doerWithLedger1759(ok)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://srv.example/graphql", nil)
 	if _, err := d.Do(req); !errors.Is(err, ErrRedirectPolicy) {
 		t.Fatalf("a session over cleartext must be refused locally, got %v", err)
@@ -47,7 +47,7 @@ func TestCredentialLedger1759LocalRefusalRecordsNoAttempt(t *testing.T) {
 	}
 
 	// Control: allowed, attempted, recorded.
-	d, l = doerWithLedger1759("hdr_user_x", ok)
+	d, l = doerWithLedger1759(ok)
 	req, _ = http.NewRequestWithContext(ctx, http.MethodPost, "https://srv.example/graphql", nil)
 	resp, err := d.Do(req)
 	if err != nil {
@@ -69,7 +69,7 @@ func TestCredentialLedger1759RecordsAttemptNotTransmission(t *testing.T) {
 			sawBearer.Store(r.Header.Get("Authorization") == "Bearer hdr_user_x")
 			return nil, errors.New("transport refused the request")
 		})
-		d, l := doerWithLedger1759("hdr_user_x", reject)
+		d, l := doerWithLedger1759(reject)
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://srv.example/graphql", nil)
 		if _, err := d.Do(req); err == nil {
 			t.Fatal("a rejecting transport must fail the request")
@@ -87,7 +87,7 @@ func TestCredentialLedger1759RecordsAttemptNotTransmission(t *testing.T) {
 		defer srv.Close()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		d, l := doerWithLedger1759("hdr_user_x", srv.Client().Transport)
+		d, l := doerWithLedger1759(srv.Client().Transport)
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/graphql", nil)
 		if _, err := d.Do(req); !errors.Is(err, context.Canceled) {
 			t.Fatalf("want the cancellation, got %v", err)

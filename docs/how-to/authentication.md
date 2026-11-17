@@ -48,7 +48,9 @@ not retry, does not delete the stored token, and does not guess why it was
 refused. The hint appears only when every request the command sent carried
 your stored login: a refused `HADRON_TOKEN`, impersonation token, host key or
 token passed on stdin gets no stored-login hint, and neither does a failure
-before any request was sent.
+before any request was sent. If `HADRON_TOKEN` is set, it is the credential
+that was sent, so check that variable's value: `hadron auth login` stores a
+login that `HADRON_TOKEN` still overrides.
 
 The CLI requests the `account` OAuth scope (`cor:aut:010:02`): it uses the
 server's data API, which refuses a key limited to `mcp`. If the server refuses
