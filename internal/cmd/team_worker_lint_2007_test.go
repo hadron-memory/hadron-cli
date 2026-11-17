@@ -192,7 +192,7 @@ func TestWorkerGetLint2007Present(t *testing.T) {
 		"WORKER_LINK_MISSING signature: the signature lacks the worker link",
 		"WORKER_LINK_MISSING trailer: the trailer lacks the worker link",
 		"prompt lint: 1 (the compiled revision recorded for the open session, provenance r5)",
-		"BROKEN_INCLUDE occurrence #0: include 0 is broken",
+		"BROKEN_INCLUDE occurrence #0 (0-based): include 0 is broken",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("text missing %q:\n%s", want, out)

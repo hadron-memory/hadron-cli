@@ -77,7 +77,7 @@ func TestWorkerServedPromptLint2007AlwaysOnPagedAndSubjectNamed(t *testing.T) {
 		t.Errorf("the main read is unchanged and sent once, got %d", n)
 	}
 	_, text, _, _ := runCLI2007(t, h, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris")
-	for _, want := range []string{"current lint: 45 (the compiled revision recorded for this served prompt, provenance r5)", "BROKEN_INCLUDE occurrence #0: include 0 is broken"} {
+	for _, want := range []string{"current lint: 45 (the compiled revision recorded for this served prompt, provenance r5)", "BROKEN_INCLUDE occurrence #0 (0-based): include 0 is broken"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q:\n%s", want, text)
 		}
@@ -330,8 +330,8 @@ func TestHistoryLint2014LimitZeroDoesNotReadLint(t *testing.T) {
 						t.Errorf("unexpected operation %s", got)
 						return `{"errors":[{"message":"unexpected operation"}]}`
 					}
-					if v["limit"] != float64(0) {
-						t.Errorf("limit=%v", v["limit"])
+					if v["historyLimit"] != float64(0) {
+						t.Errorf("historyLimit=%v", v["historyLimit"])
 					}
 					if surface == "chat" {
 						return `{"data":{"chatServedPrompts":{"items":[],"total":9}}}`

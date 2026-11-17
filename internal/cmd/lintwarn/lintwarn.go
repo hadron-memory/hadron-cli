@@ -6,25 +6,31 @@ package lintwarn
 
 import (
 	"context"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 // UnavailableClass is the one stderr line an unavailable advisory read prints,
-// once per command. It never carries the underlying error.
+// once per command. Callers may append fixed field labels, never the underlying error.
 const UnavailableClass = "lint warnings: unavailable (advisory read did not complete)"
 
 type unavailableKey struct{}
 
-// ReportUnavailable prints UnavailableClass once per command: never expose the
+// ReportUnavailable prints UnavailableClass with optional fixed field labels once
+// per command. Callers pass only labels they own, never server text: never expose the
 // provider error or infer why the advisory is unavailable. A diagnostic write
 // failure cannot undo the command's success.
-func ReportUnavailable(cmd *cobra.Command) {
+func ReportUnavailable(cmd *cobra.Command, fields ...string) {
 	if cmd.Context().Value(unavailableKey{}) != nil {
 		return
 	}
 	cmd.SetContext(context.WithValue(cmd.Context(), unavailableKey{}, true))
-	cmd.PrintErrln(UnavailableClass)
+	line := UnavailableClass
+	if len(fields) != 0 {
+		line += " [" + strings.Join(fields, ", ") + "]"
+	}
+	cmd.PrintErrln(line)
 }
 
 // Warning is one lint warning as the CLI prints it (stable --json item shape).
