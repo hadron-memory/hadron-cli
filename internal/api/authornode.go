@@ -224,6 +224,19 @@ func GovernedKindConflict(role *string, isRunnable bool) []string {
 	return nil
 }
 
+// OtherGovernedKind names the governed kind a role already carries ("role
+// review"), or "" when the role is nil or governs nothing. A tag-only spec node
+// with such a role cannot be given `--role spec` in one step: the write would
+// touch two governed kinds and GovernedKindConflict refuses it (#1779). Callers
+// use this to qualify the "enter governance" remedy; it is routing, not
+// validation, like GovernedKindConflict.
+func OtherGovernedKind(role *string) string {
+	if kinds := governedKinds(role, false); len(kinds) == 1 {
+		return kinds[0]
+	}
+	return ""
+}
+
 // The governed kinds, named as GovernedKindConflict names them so a refusal
 // reads the same whichever check produced it.
 const (

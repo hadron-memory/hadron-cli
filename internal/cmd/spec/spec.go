@@ -1093,6 +1093,17 @@ func isGovernedSpec(role *string) bool {
 	return api.RoleInFamily(role, api.SpecNodeRole)
 }
 
+// governanceRemedy is the repair hint for a tag-only spec node. A node whose
+// role is already another governed kind (review) is refused by the plain
+// `--role spec` update (two governed kinds, #1779), so the hint says so and
+// names the deliberate path instead of promising a command that fails.
+func governanceRemedy(ref string, role *string) string {
+	if kind := api.OtherGovernedKind(role); kind != "" {
+		return "it already has " + kind + ", so `hadron node update " + ref + " --role spec` is refused (a node cannot be two governed kinds); changing that role is a deliberate change, so review it first"
+	}
+	return "use hadron node update " + ref + " --role spec"
+}
+
 func isTagOnlySpec(tags []string, role *string) bool {
 	return hasTag(tags, "spec") && !isGovernedSpec(role)
 }
