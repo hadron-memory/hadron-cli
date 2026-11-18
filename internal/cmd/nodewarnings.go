@@ -18,13 +18,11 @@ import (
 // The set is the mutation roots that carry plain-pin response advice, not every
 // mutation whose name contains "Node" (#1152; a new node writer must be classified
 // in nodewarnings_inventory_1152_test.go, where each root is pinned by name):
-//   - createAssetReferenceNode is left out on purpose. It writes through the same
-//     node write, but the reference node's content is authored by the server (file
-//     name, type, size and asset URN) and carries no include in normal use, so no
-//     plain-pin advice is expected. A file name that itself contains include syntax
-//     could in principle produce advice, which this set does not display: that is
-//     not a guarantee, and whether to add the name is a separate decision (#2470).
-//     It is not added for symmetry.
+//   - createAssetReferenceNode is in the set (#2470). The reference node's content
+//     is authored by the server, but it interpolates the stored file name unescaped,
+//     so a file name carrying include syntax gets the same plain-pin advice from the
+//     shared node write. A normal file name gets none: the server advises on
+//     include detection, not unconditionally.
 //   - updateNodeRevision is left out on purpose: it edits a revision's label only
 //     and writes no content.
 //
@@ -38,7 +36,7 @@ func installNodeWriteWarnings(cmd *cobra.Command, f *cmdutil.Factory) {
 				"createNode", "createSpecNode", "createTaskNode", "createReviewNode",
 				"updateNode", "updateSpecNode", "updateTaskNode", "updateReviewNode",
 				"importNode", "mergeNodes", "cloneNode", "moveNode", "updateNodeData", "restoreNode", "restoreNodeRevision",
-				"searchReplaceInNodes", "searchReplaceInSpecNodes")
+				"searchReplaceInNodes", "searchReplaceInSpecNodes", "createAssetReferenceNode")
 			cmd.SetContext(ctx)
 			defer cmd.SetContext(original)
 			if err := run(cmd, args); err != nil {

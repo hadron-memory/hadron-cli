@@ -1178,13 +1178,12 @@ Conventions:
   mutations: `createNode`, `createSpecNode`, `createTaskNode`, `createReviewNode`,
   `updateNode`, `updateSpecNode`, `updateTaskNode`, `updateReviewNode`,
   `importNode`, `mergeNodes`, `cloneNode`, `moveNode`, `updateNodeData`,
-  `restoreNode`, `restoreNodeRevision`, `searchReplaceInNodes` and
-  `searchReplaceInSpecNodes` (generic and kind add/update, import, merge, clone,
-  move, data writes, restore, revision restore and text replacement).
-  `createAssetReferenceNode` (its content is server-authored and carries no include in
-  normal use; a crafted file name could, and advice is not displayed for it) and
-  `updateNodeRevision` (a label edit) are outside the set. The writes in the set
-  display it as `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
+  `restoreNode`, `restoreNodeRevision`, `searchReplaceInNodes`,
+  `searchReplaceInSpecNodes` and `createAssetReferenceNode` (generic and kind
+  add/update, import, merge, clone, move, data writes, restore, revision restore,
+  text replacement and `asset link`: a file name that carries include syntax gets
+  the advice, a normal one gets none). `updateNodeRevision` (a label edit) is
+  outside the set. The writes in the set display it as `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
   stdout/JSON and the successful exit code stay unchanged. Unknown codes are
   displayed too; malformed entries and warnings for other response keys are
   ignored. Failed commands print no response advice. This is advisory, never a

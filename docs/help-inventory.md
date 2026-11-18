@@ -489,7 +489,7 @@ section between the markers.
 | `team health` |  |  | n | #1054 | d1b3825cdd4d |  | unread |  |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f |  | unread |  |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 |  | unread |  |
-| `team health sweep` |  |  | n | #1054 | e8c25a4347d0 |  | unread |  |
+| `team health sweep` |  |  | n | #1054 | 78f5e220548c |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 |  | unread |  |
 | `team host` |  |  | n | #1054 | 307cc3eddb80 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 200354fa59ac |  | unread |  |
@@ -564,7 +564,7 @@ section between the markers.
 | `team task cancel` |  |  | y | #1054 | 915a6d8ef76a | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task clone` |  |  | y | #1054 | c88f3037c421 |  | unread |  |
 | `team task create` |  |  | y | #1054 | 519fdf01840d | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
-| `team task dependencies` |  |  | y | #1054 | dc76f2a0ab05 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
+| `team task dependencies` |  |  | y | #1054 | 754051154aa6 |  | unread |  |
 | `team task dispose-finding` |  |  | y | #1054 | cd97d0a677ee |  | unread |  |
 | `team task find-untracked` |  |  | y | #1054 | c3bb0eba0c3b |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 9a97d0b7cfc2 |  | unread |  |
@@ -712,8 +712,8 @@ section between the markers.
 | `automation approve` |  |  | y | #1184 | ac2e0f13eb6d | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation decline` |  |  | y | #1184 | 31376aae6d30 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation grant` |  |  | n | #1184 | 90333d689910 |  | unread |  |
-| `automation grant list` | ls |  | y | #1184 | 6d1978848a07 |  | unread |  |
-| `automation grant revoke` |  |  | y | #1184 | 97beb4cd8a6d |  | unread |  |
+| `automation grant list` | ls |  | y | #1184 | 3f1255801961 |  | unread |  |
+| `automation grant revoke` |  |  | y | #1184 | 885fdcb1e60c |  | unread |  |
 | `automation grant set` |  |  | y | #1184 | 6cc868d323fb |  | unread |  |
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation preview` |  |  | n | #1184 | bdfe7173d1a5 |  | unread |  |

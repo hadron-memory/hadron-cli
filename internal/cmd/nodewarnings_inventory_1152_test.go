@@ -284,7 +284,7 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 		t.Fatal(err)
 	}
 	flat := strings.Join(strings.Fields(string(guide)), " ")
-	const open, mid, closeMark = "exactly those that send one of these mutations:", "(generic and kind add/update", "are outside the set"
+	const open, mid, closeMark = "exactly those that send one of these mutations:", "(generic and kind add/update", "is outside the set"
 	i := strings.Index(flat, open)
 	j := strings.Index(flat, mid)
 	k := strings.Index(flat, closeMark)
