@@ -83,13 +83,19 @@ query NodeSigningRequests(
   $state: SigningRequestState
   # @genqlient(omitempty: true)
   $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
 ) {
   node(ref: $ref) {
     id
     urn
     loc
-    signingRequests(state: $state, first: $first) {
-      ...SigningRequestFields
+    signingRequestsPage(state: $state, first: $first, after: $after) {
+      items {
+        ...SigningRequestFields
+      }
+      hasMore
+      nextCursor
     }
   }
 }
