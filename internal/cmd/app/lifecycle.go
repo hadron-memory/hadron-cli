@@ -88,8 +88,8 @@ written to and keep the way back, use "hadron app uninstall" instead.
 Name the App by ID, by URN, or as org:slug. A URN names only the installed App
 that holds it at that moment, so to delete an App that is already uninstalled,
 name it by its id: its old URN may by now name a different App, and a delete by
-that URN would delete that one. So if you may need to retry, delete by id from
-the start (find it with "hadron app get"), never by URN. The server decides who
+that URN would delete that one. So delete by id from the start (find it with
+"hadron app get"), never by URN. The server decides who
 may delete. A missing App and a caller without the right get the same refusal
 (exit 8); a repeat delete by ID is refused APP_DELETED (exit 5).
 

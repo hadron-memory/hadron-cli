@@ -330,7 +330,7 @@ section between the markers.
 | `app chatbot-ai-config get` |  |  | y | #1053 | a0f647f655cb | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app chatbot-ai-config list` | ls |  | y | #1053 | 7ee5508fbc71 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app chatbot-ai-config set` |  |  | y | #1053 | 51bf7d57002b | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app delete` | rm |  | y | #1053 | 0db71f879efd |  | unread |  |
+| `app delete` | rm |  | y | #1053 | 5cc797131c70 |  | unread |  |
 | `app get` |  |  | y | #1053 | 1a9a47ba2247 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app install` |  |  | y | #1053 | 33b25b79fb5f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app join` |  |  | y | #1053 | b2ccffb2153c |  | unread |  |
@@ -368,7 +368,7 @@ section between the markers.
 | `app uninstall` |  |  | y | #1053 | 8a1cbb0911c7 |  | unread |  |
 | `app update` |  |  | y | #1053 | 27c42ed42f0a | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app user` |  |  | n | #1053 | 9e56971da68d | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app user create` |  |  | y | #1053 | 76bd2cdbbe18 |  | unread |  |
+| `app user create` |  |  | y | #1053 | a6f3faa2cf91 |  | unread |  |
 | `app whoami` |  |  | y | #1053 | 41a52f0e0cc6 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `connection` | connections, conn |  | n | #1053 | 6551d77c9f6e |  | unread |  |
 | `connection connect` |  |  | y | #1053 | 18d56fca060b |  | unread |  |

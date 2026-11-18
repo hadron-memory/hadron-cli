@@ -152,6 +152,18 @@ func TestSlice2QuotedReceiptsAreWhatTheCommandsPrint1053(t *testing.T) {
 	if h := flatHelp1053S2(t, "app", "member", "add"); !strings.Contains(h, `"✓ <user> is a member of <App> (from --app) with role <role>" ("from the active App" when you did not pass --app)`) {
 		t.Errorf("app member add help does not quote its receipt as printed")
 	}
+	// The other receipt variant: no --app, the active App (its own fixture server,
+	// so the order of these checks does not matter).
+	{
+		gql, _ := captureGraphQL(t, map[string]string{"EnsureAppMember": `{"data":{"ensureAppMember":{"role":"member","createdAt":"2026-11-04T00:00:00Z","user":{"id":"usr1","handle":"ada","urn":"hrn:user:ada"}}}}`})
+		f, out := testFactory(t)
+		setActiveApp(t, joinApp1625)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "member", "add", "--user", "ada", "--role", "member", "--yes", "--server", gql.URL})
+		if err := root.Execute(); err != nil || !strings.Contains(out.String(), "is a member of "+joinApp1625+" (from the active App) with role member") {
+			t.Errorf("app member add with the active App prints %q (%v)", out.String(), err)
+		}
+	}
 	_, r = run1625(nil).exec(t, "app", "join", joinApp1625)
 	if r.err != nil || !strings.Contains(r.out, "✓ You are a member of") || !strings.Contains(r.out, "with role member") {
 		t.Fatalf("app join prints %q (%v)", r.out, r.err)
