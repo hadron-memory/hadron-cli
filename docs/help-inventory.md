@@ -157,7 +157,7 @@ section between the markers.
 | `node signatures` |  |  | y | #1051 | 9563d3879939 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node signing-request` | signing-requests |  | n | #1051 | 85d8d57d9c39 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node signing-request get` |  |  | y | #1051 | 20b85c7f5392 |  | unread |  |
-| `node signing-request list` | ls |  | y | #1051 | 468d3055295d |  | unread |  |
+| `node signing-request list` | ls |  | y | #1051 | 7ba1aeb51525 |  | unread |  |
 | `node signing-request withdraw` |  |  | n | #1051 | 9099edbe9bb1 |  | unread |  |
 | `node update` |  |  | y | #1051 | 3a83d1c7a0df | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node validation` |  |  | n | #1051 | 82fe607e946c | Jane | pass | [author help review](plans/1706-content-validation-report.md#output-and-errors) |

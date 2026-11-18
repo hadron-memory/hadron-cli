@@ -18,8 +18,8 @@ func ceremonyRefusal() error {
 	}}
 }
 
-// BLIND F2 (cli#2519): with no capability probe at hand the mapping must not
-// guess between the two signing answers. It is exactly the generic mapping —
+// With no capability probe at hand the mapping must not guess between the
+// two signing answers. It is exactly the generic mapping —
 // never the signing-off answer the signingFields loop would give, and never
 // the ceremony-pages upgrade text.
 func TestMapSigningErrorNilProbeGetsGenericMapping(t *testing.T) {
@@ -28,7 +28,7 @@ func TestMapSigningErrorNilProbeGetsGenericMapping(t *testing.T) {
 	if want := api.MapError(err); got.Error() != want.Error() {
 		t.Errorf("nil probe must get the generic mapping:\ngot:  %s\nwant: %s", got, want)
 	}
-	for _, guess := range []string{"does not offer node signing", "ceremony pages"} {
+	for _, guess := range []string{SigningOffRefusal, CeremonyPagesRefusal} {
 		if strings.Contains(got.Error(), guess) {
 			t.Errorf("nil probe must not guess an answer (%q): %s", guess, got)
 		}
@@ -41,10 +41,10 @@ func TestMapSigningErrorNilProbeGetsGenericMapping(t *testing.T) {
 // package's 878 suite.)
 func TestMapSigningErrorProbeAnswersUnchanged(t *testing.T) {
 	err := ceremonyRefusal()
-	if got := mapSigningError(err, func() (bool, error) { return true, nil }); !strings.Contains(got.Error(), "hadron-server#3120") {
+	if got := mapSigningError(err, func() (bool, error) { return true, nil }); !strings.Contains(got.Error(), CeremonyPagesRefusal) {
 		t.Errorf("an advertised switch must get the old-server text: %s", got)
 	}
-	if got := mapSigningError(err, func() (bool, error) { return false, nil }); !strings.Contains(got.Error(), "does not offer node signing") {
+	if got := mapSigningError(err, func() (bool, error) { return false, nil }); !strings.Contains(got.Error(), SigningOffRefusal) {
 		t.Errorf("an unadvertised switch must get the signing-off text: %s", got)
 	}
 }
