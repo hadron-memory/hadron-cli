@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -26,6 +27,8 @@ func TestSnapshotGrant1578BoundHeaderlessAllVerbs(t *testing.T) {
 		t.Run(verb, func(t *testing.T) {
 			r := taskResponses()
 			r["AutomationTeamSnapshotGrants"] = grantPage1578(snapshotGrant1578, 1, false)
+			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+			r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 			r["SetAutomationTeamSnapshotGrant"] = `{"data":{"setAutomationTeamSnapshotGrant":` + snapshotGrant1578 + `}}`
 			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + endedSnapshot1578() + `}}`
 			args := snapshotArgs1578("list", autoApp, "--json")
@@ -36,7 +39,7 @@ func TestSnapshotGrant1578BoundHeaderlessAllVerbs(t *testing.T) {
 			}
 			if verb == "revoke" {
 				args = append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)
-				want = append(want, "RevokeAutomationTeamSnapshotGrant")
+				want = []string{"AutomationTeamSnapshotGrantById", "RevokeAutomationTeamSnapshotGrant"}
 			}
 			calls, _, err := runTeamTask(t, r, args...)
 			if err != nil {
@@ -88,6 +91,8 @@ func TestSnapshotGrant1578RejectWriteReceipts(t *testing.T) {
 			t.Run(verb+"/"+name, func(t *testing.T) {
 				r := taskResponses()
 				r["AutomationTeamSnapshotGrants"] = grantPage1578(snapshotGrant1578, 1, false)
+				r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+				r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 				r[op] = `{"data":{"` + field + `":` + row + `}}`
 				args := snapshotArgs1578("set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes", "--json")
 				if verb == "revoke" {
@@ -143,47 +148,10 @@ func TestSnapshotGrant1578RejectMalformedPages(t *testing.T) {
 	}
 }
 
-func TestSnapshotGrant1578RevokeLaterPage(t *testing.T) {
-	srv := newAutoServer(t, map[string]func(map[string]any) autoReply{
-		"AutomationTeamSnapshotGrants": func(v map[string]any) autoReply {
-			if v["includeRevoked"] != true {
-				t.Error("lookup must include ended rows")
-			}
-			switch v["offset"].(float64) {
-			case 0:
-				return autoReply{body: grantPage1578(strings.ReplaceAll(snapshotGrant1578, "grant1", "other"), 2, true)}
-			case 1:
-				return autoReply{body: grantPage1578(snapshotGrant1578, 2, false)}
-			default:
-				t.Error("unexpected offset", v)
-				return autoReply{body: grantPage1578("", 2, false)}
-			}
-		},
-		"RevokeAutomationTeamSnapshotGrant": func(v map[string]any) autoReply {
-			if v["id"] != "grant1" {
-				t.Error(v)
-			}
-			return autoReply{body: `{"data":{"revokeAutomationTeamSnapshotGrant":` + endedSnapshot1578() + `}}`}
-		},
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"--server", srv.URL, "--app", autoApp}, snapshotArgs1578("revoke", "grant1", "--yes", "--json")...))
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	var got map[string]any
-	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
-		t.Fatal(err)
-	}
-	if got["id"] != "grant1" || got["revokedAt"] == nil || srv.count("AutomationTeamSnapshotGrants") != 2 || srv.count("RevokeAutomationTeamSnapshotGrant") != 1 {
-		t.Fatalf("%s queries%d writes%d", out, srv.count("AutomationTeamSnapshotGrants"), srv.count("RevokeAutomationTeamSnapshotGrant"))
-	}
-}
-
 func TestSnapshotGrant1578ActiveAppPromptAndHumanOutput(t *testing.T) {
 	r := taskResponses()
-	r["AutomationTeamSnapshotGrants"] = grantPage1578(snapshotGrant1578, 1, false)
+	r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+	r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 	srv, calls := attnServer(t, r)
 	f, out, prompt := testFactoryTTY(t, "n\n")
 	setActiveApp(t, autoApp)
@@ -193,14 +161,19 @@ func TestSnapshotGrant1578ActiveAppPromptAndHumanOutput(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Cancelled || out.Len() != 0 || len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
 		t.Fatalf("err%v out%s calls%+v", err, out, *calls)
 	}
-	q := findCall(t, calls, "AutomationTeamSnapshotGrants")
-	if q.Vars["appRef"] != autoApp {
+	// An active App is not consulted for a person's revoke (cli#1619): one by-id
+	// read, and the prompt names the grant's own App, not the active one.
+	q := findCall(t, calls, "AutomationTeamSnapshotGrantById")
+	if !reflect.DeepEqual(q.Vars, map[string]any{"id": "grant1"}) || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 {
 		t.Fatal(q)
 	}
-	for _, part := range []string{"from the active App", autoApp, "capp100000000000000000000", "SCHEDULE", "schedule1"} {
+	for _, part := range []string{"capp100000000000000000000", "SCHEDULE", "schedule1"} {
 		if !strings.Contains(prompt.String(), part) {
 			t.Fatalf("prompt lacks %q: %s", part, prompt)
 		}
+	}
+	if strings.Contains(prompt.String(), "from the active App") {
+		t.Fatalf("the active App no longer selects anything for a person revoke: %s", prompt)
 	}
 	for _, verb := range []string{"set", "list"} {
 		t.Run(verb, func(t *testing.T) {
