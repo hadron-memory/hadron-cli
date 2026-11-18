@@ -60,9 +60,9 @@ still end it with a conflict (exit 5). The server lists at most --limit nodes
 value). A plan that does not list every node is labelled TRUNCATED and exits 1;
 when the server lists fewer than --limit asked for, that is its bound, and a
 larger --limit cannot list the subtree in full. In --json, status, complete and
-truncated always agree: truncated is the CLI's verdict (the server flagged the
-plan or it lists fewer nodes than it counts) and is always the opposite of
-complete.`,
+truncated always agree: truncated is the CLI's verdict (a plan is complete only when
+the server does not flag it and the nodes it lists match its count) and is
+always the opposite of complete.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
   hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive
   hadron node move findings -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive --dry-run`,
@@ -79,7 +79,8 @@ complete.`,
 				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1")
 			}
 			// The request carries --limit as a GraphQL Int, a signed 32-bit
-			// value; a larger number cannot be encoded, so it is refused
+			// value; a larger number is outside the range GraphQL's Int
+			// accepts (JSON itself could carry it), so it is refused
 			// here. Every value in range is sent for the server to bound
 			// (cli#2320, cor:api:240:01).
 			if limitSet && limit > math.MaxInt32 {

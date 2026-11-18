@@ -1270,8 +1270,8 @@ Conventions:
   nodeLoc, raw, status: MISSING|RETARGETED|AMBIGUOUS, target}] | null,
   linkWarningsWithheld}`; `linkWarnings` is null when withheld and `[]` when
   there are none. `status`, `complete` and `truncated` always agree:
-  `truncated` is the CLI's verdict (the server flagged the plan, or it lists
-  fewer nodes than it counts), always `!complete`, not a copy of the server's
+  `truncated` is the CLI's verdict (a plan is complete only when the server
+  does not flag it and the nodes it lists match its count), always `!complete`, not a copy of the server's
   flag (cli#2320). Sends no `moveNode`.
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with

@@ -116,8 +116,10 @@ func movePlanFrom(p *gen.PlanNodeMovePlanNodeMoveNodeMovePlan) movePlanDTO {
 		}
 	}
 	dto.Complete = !p.Truncated && len(dto.Nodes) == p.TotalCount && len(dto.Nodes) == len(p.Nodes)
-	// truncated is the CLI's verdict, not a copy of the server's flag: the
-	// server flagged the plan OR it lists fewer nodes than it counts. So the
+	// truncated is the CLI's verdict, not a copy of the server's flag: a plan
+	// is complete only when the server does not flag it and the decoded list
+	// matches the count (neither shorter nor longer than totalCount, and no
+	// entry dropped in decoding). So the
 	// JSON never reads complete beside status TRUNCATED (cli#2320,
 	// cor:api:190:03).
 	dto.Truncated = !dto.Complete
