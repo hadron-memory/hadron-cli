@@ -7094,6 +7094,26 @@ Argument coverage follow-up (cli#1833):
   from #1984 is unchanged; this is the public command.
 
 
+## Instructed alarm acknowledgement and stall schedule (cli#2451)
+
+`hadron team alarm ack <event-id> --instruction <kind>:<ref>` and
+`hadron team stall-schedule set --assignment-minutes 30 --instruction <kind>:<ref>`
+open the App-manager's held-worker path (server ba077810 or later).
+Without the flag, acknowledgement keeps its owner-in-chain path and ordinary
+worker attribution; setting a stall schedule remains the signed-in person's
+write. Only `set` accepts the flag; `stall-schedule get` stays a read.
+
+Kinds are `team-chat-message`, `task` and `live-chat`. The reference is sent as
+written, never fetched as instruction text. Malformed claims fail with exit 2
+before requests. A complete, unchanged same-server binding supplies the session
+only to the mutation; otherwise the instruction is checked as the person, with
+no recorded worker claim and a diagnostic for an unusable binding. The server
+owns admission and a refusal is never retried without the claim.
+`ALARM_ALREADY_ACKNOWLEDGED` still refuses a second acknowledgement; the first
+stands. Instructed acknowledgement JSON adds `warnings` ([] when absent), with
+the task-create warning shape; text prints warning code/text on stderr.
+No-flag request documents and JSON shapes remain unchanged.
+
 ## App-manager writes with an instruction (cli#2448)
 
 Exactly these six commands accept `--instruction <kind>:<ref>`:

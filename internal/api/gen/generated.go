@@ -21686,6 +21686,215 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 	return &retval, nil
 }
 
+// AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
+// The GraphQL type's documentation follows.
+//
+// One append-only record of something that happened in a team App's task work
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
+// one thing added later. payload carries ids, counts and outcome words only,
+// never message or description text.
+type AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent struct {
+	AgentTeamEventFields `json:"-"`
+}
+
+// GetId returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Id, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetId() string {
+	return v.AgentTeamEventFields.Id
+}
+
+// GetAppId returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetAppId() string {
+	return v.AgentTeamEventFields.AppId
+}
+
+// GetTaskId returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetTaskId() *string {
+	return v.AgentTeamEventFields.TaskId
+}
+
+// GetTaskHandle returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.TaskHandle, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetTaskHandle() *string {
+	return v.AgentTeamEventFields.TaskHandle
+}
+
+// GetType returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Type, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetType() string {
+	return v.AgentTeamEventFields.Type
+}
+
+// GetSeverity returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
+	return v.AgentTeamEventFields.Severity
+}
+
+// GetCreatedAt returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetCreatedAt() string {
+	return v.AgentTeamEventFields.CreatedAt
+}
+
+// GetActor returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
+	return v.AgentTeamEventFields.Actor
+}
+
+// GetActorRunId returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
+// GetSubjectWorker returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
+	return v.AgentTeamEventFields.SubjectWorker
+}
+
+// GetPayload returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetPayload() json.RawMessage {
+	return v.AgentTeamEventFields.Payload
+}
+
+// GetAcknowledgedAt returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetAcknowledgedAt() *string {
+	return v.AgentTeamEventFields.AcknowledgedAt
+}
+
+// GetAcknowledgedBy returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
+	return v.AgentTeamEventFields.AcknowledgedBy
+}
+
+// GetEpisodeStart returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetEpisodeStart() *string {
+	return v.AgentTeamEventFields.EpisodeStart
+}
+
+// GetEscalationEndedAt returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.EscalationEndedAt, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetEscalationEndedAt() *string {
+	return v.AgentTeamEventFields.EscalationEndedAt
+}
+
+// GetChain returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetChain() *json.RawMessage {
+	return v.AgentTeamEventFields.Chain
+}
+
+// GetWakes returns AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
+	return v.AgentTeamEventFields.Wakes
+}
+
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamEventFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TaskId *string `json:"taskId"`
+
+	TaskHandle *string `json:"taskHandle"`
+
+	Type string `json:"type"`
+
+	Severity *AgentTeamEventSeverity `json:"severity"`
+
+	CreatedAt string `json:"createdAt"`
+
+	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
+
+	ActorRunId *string `json:"actorRunId"`
+
+	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
+
+	Payload json.RawMessage `json:"payload"`
+
+	AcknowledgedAt *string `json:"acknowledgedAt"`
+
+	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
+
+	EpisodeStart *string `json:"episodeStart"`
+
+	EscalationEndedAt *string `json:"escalationEndedAt"`
+
+	Chain *json.RawMessage `json:"chain"`
+
+	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
+}
+
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__premarshalAlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent, error) {
+	var retval __premarshalAlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent
+
+	retval.Id = v.AgentTeamEventFields.Id
+	retval.AppId = v.AgentTeamEventFields.AppId
+	retval.TaskId = v.AgentTeamEventFields.TaskId
+	retval.TaskHandle = v.AgentTeamEventFields.TaskHandle
+	retval.Type = v.AgentTeamEventFields.Type
+	retval.Severity = v.AgentTeamEventFields.Severity
+	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
+	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
+	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
+	retval.Payload = v.AgentTeamEventFields.Payload
+	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
+	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
+	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
+	retval.EscalationEndedAt = v.AgentTeamEventFields.EscalationEndedAt
+	retval.Chain = v.AgentTeamEventFields.Chain
+	retval.Wakes = v.AgentTeamEventFields.Wakes
+	return &retval, nil
+}
+
+// AlarmAcknowledgeInstructedResponse is returned by AlarmAcknowledgeInstructed on success.
+type AlarmAcknowledgeInstructedResponse struct {
+	// #1706 — acknowledge an alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:20): it stops waking higher
+	// owners; the stall episode goes on until the task moves. Any owner in the
+	// alarm's chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:24), and nobody
+	// else; the time is the server's.
+	// Refusals: ALARM_NOT_FOUND (also for an App you cannot read),
+	// NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
+	// stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #2607 (experiment): an acknowledgement by a manager of the App who is no
+	// owner in the chain succeeds with the warning alarm.ack.outside-chain in
+	// `extensions.warnings` (see createAgentTask).
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	AcknowledgeAlarm *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent `json:"acknowledgeAlarm"`
+}
+
+// GetAcknowledgeAlarm returns AlarmAcknowledgeInstructedResponse.AcknowledgeAlarm, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeInstructedResponse) GetAcknowledgeAlarm() *AlarmAcknowledgeInstructedAcknowledgeAlarmAgentTeamEvent {
+	return v.AcknowledgeAlarm
+}
+
 // AlarmAcknowledgeResponse is returned by AlarmAcknowledge on success.
 type AlarmAcknowledgeResponse struct {
 	// #1706 — acknowledge an alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:20): it stops waking higher
@@ -107684,6 +107893,142 @@ func (v *TeamStallScheduleResponse) GetAgentTaskStallSchedule() *TeamStallSchedu
 	return v.AgentTaskStallSchedule
 }
 
+// TeamStallScheduleSetInstructedResponse is returned by TeamStallScheduleSetInstructed on success.
+type TeamStallScheduleSetInstructedResponse struct {
+	// #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
+	// APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetAgentTaskStallSchedule *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule `json:"setAgentTaskStallSchedule"`
+}
+
+// GetSetAgentTaskStallSchedule returns TeamStallScheduleSetInstructedResponse.SetAgentTaskStallSchedule, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedResponse) GetSetAgentTaskStallSchedule() *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule {
+	return v.SetAgentTaskStallSchedule
+}
+
+// TeamStallScheduleSetInstructedSetAgentTaskStallSchedule includes the requested fields of the GraphQL type AgentTaskStallSchedule.
+// The GraphQL type's documentation follows.
+//
+// #1706 — an App's effective stall windows, in minutes (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17).
+// Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
+type TeamStallScheduleSetInstructedSetAgentTaskStallSchedule struct {
+	AgentTaskStallScheduleFields `json:"-"`
+}
+
+// GetAppId returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetAppId() string {
+	return v.AgentTaskStallScheduleFields.AppId
+}
+
+// GetAssignmentMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.AssignmentMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetAssignmentMinutes() int {
+	return v.AgentTaskStallScheduleFields.AssignmentMinutes
+}
+
+// GetNotStartedMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.NotStartedMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetNotStartedMinutes() int {
+	return v.AgentTaskStallScheduleFields.NotStartedMinutes
+}
+
+// GetNoProgressMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.NoProgressMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetNoProgressMinutes() int {
+	return v.AgentTaskStallScheduleFields.NoProgressMinutes
+}
+
+// GetOwnerReactionMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.OwnerReactionMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetOwnerReactionMinutes() int {
+	return v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+}
+
+// GetHostLapseCheckIns returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.HostLapseCheckIns, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetHostLapseCheckIns() int {
+	return v.AgentTaskStallScheduleFields.HostLapseCheckIns
+}
+
+// GetSessionEndGraceMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.SessionEndGraceMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetSessionEndGraceMinutes() int {
+	return v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+}
+
+// GetHostReportTimeoutMinutes returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.HostReportTimeoutMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetHostReportTimeoutMinutes() int {
+	return v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
+}
+
+// GetUpdatedAt returns TeamStallScheduleSetInstructedSetAgentTaskStallSchedule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) GetUpdatedAt() *string {
+	return v.AgentTaskStallScheduleFields.UpdatedAt
+}
+
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStallScheduleSetInstructedSetAgentTaskStallSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStallScheduleSetInstructedSetAgentTaskStallSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskStallScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStallScheduleSetInstructedSetAgentTaskStallSchedule struct {
+	AppId string `json:"appId"`
+
+	AssignmentMinutes int `json:"assignmentMinutes"`
+
+	NotStartedMinutes int `json:"notStartedMinutes"`
+
+	NoProgressMinutes int `json:"noProgressMinutes"`
+
+	OwnerReactionMinutes int `json:"ownerReactionMinutes"`
+
+	HostLapseCheckIns int `json:"hostLapseCheckIns"`
+
+	SessionEndGraceMinutes int `json:"sessionEndGraceMinutes"`
+
+	HostReportTimeoutMinutes int `json:"hostReportTimeoutMinutes"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStallScheduleSetInstructedSetAgentTaskStallSchedule) __premarshalJSON() (*__premarshalTeamStallScheduleSetInstructedSetAgentTaskStallSchedule, error) {
+	var retval __premarshalTeamStallScheduleSetInstructedSetAgentTaskStallSchedule
+
+	retval.AppId = v.AgentTaskStallScheduleFields.AppId
+	retval.AssignmentMinutes = v.AgentTaskStallScheduleFields.AssignmentMinutes
+	retval.NotStartedMinutes = v.AgentTaskStallScheduleFields.NotStartedMinutes
+	retval.NoProgressMinutes = v.AgentTaskStallScheduleFields.NoProgressMinutes
+	retval.OwnerReactionMinutes = v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+	retval.HostLapseCheckIns = v.AgentTaskStallScheduleFields.HostLapseCheckIns
+	retval.SessionEndGraceMinutes = v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+	retval.HostReportTimeoutMinutes = v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
+	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
+	return &retval, nil
+}
+
 // TeamStallScheduleSetResponse is returned by TeamStallScheduleSet on success.
 type TeamStallScheduleSetResponse struct {
 	// #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
@@ -125607,6 +125952,20 @@ type __AlarmAcknowledgeInput struct {
 // GetEventId returns __AlarmAcknowledgeInput.EventId, and is useful for accessing the field via an interface.
 func (v *__AlarmAcknowledgeInput) GetEventId() string { return v.EventId }
 
+// __AlarmAcknowledgeInstructedInput is used internally by genqlient
+type __AlarmAcknowledgeInstructedInput struct {
+	EventId     string               `json:"eventId"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetEventId returns __AlarmAcknowledgeInstructedInput.EventId, and is useful for accessing the field via an interface.
+func (v *__AlarmAcknowledgeInstructedInput) GetEventId() string { return v.EventId }
+
+// GetInstruction returns __AlarmAcknowledgeInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AlarmAcknowledgeInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __AmendDecisionInput is used internally by genqlient
 type __AmendDecisionInput struct {
 	Ref              string              `json:"ref"`
@@ -134593,6 +134952,26 @@ func (v *__TeamStallScheduleSetInput) GetAppRef() string { return v.AppRef }
 // GetInput returns __TeamStallScheduleSetInput.Input, and is useful for accessing the field via an interface.
 func (v *__TeamStallScheduleSetInput) GetInput() *gqltypes.AgentTaskStallScheduleInput {
 	return v.Input
+}
+
+// __TeamStallScheduleSetInstructedInput is used internally by genqlient
+type __TeamStallScheduleSetInstructedInput struct {
+	AppRef      string                                `json:"appRef"`
+	Input       *gqltypes.AgentTaskStallScheduleInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput                  `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamStallScheduleSetInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleSetInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetInput returns __TeamStallScheduleSetInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleSetInstructedInput) GetInput() *gqltypes.AgentTaskStallScheduleInput {
+	return v.Input
+}
+
+// GetInstruction returns __TeamStallScheduleSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
 }
 
 // __TeamStopSignalLiftInput is used internally by genqlient
@@ -144729,6 +145108,81 @@ func AlarmAcknowledge(
 	}
 
 	data_ = &AlarmAcknowledgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AlarmAcknowledgeInstructed.
+const AlarmAcknowledgeInstructed_Operation = `
+mutation AlarmAcknowledgeInstructed ($eventId: ID!, $instruction: ActInstructionInput!) {
+	acknowledgeAlarm(eventId: $eventId, instruction: $instruction) {
+		... AgentTeamEventFields
+	}
+}
+fragment AgentTeamEventFields on AgentTeamEvent {
+	id
+	appId
+	taskId
+	taskHandle
+	type
+	severity
+	createdAt
+	actor {
+		... AgentTaskPartyFields
+	}
+	actorRunId
+	subjectWorker {
+		... AgentTaskPartyFields
+	}
+	payload
+	acknowledgedAt
+	acknowledgedBy {
+		... AgentTaskPartyFields
+	}
+	episodeStart
+	escalationEndedAt
+	chain
+	wakes {
+		chainIndex
+		dueAt
+		owner {
+			... AgentTaskPartyFields
+		}
+		wokenAt
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// cli#2451: separate instructed documents preserve no-flag wire requests.
+func AlarmAcknowledgeInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	eventId string,
+	instruction *ActInstructionInput,
+) (data_ *AlarmAcknowledgeInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AlarmAcknowledgeInstructed",
+		Query:  AlarmAcknowledgeInstructed_Operation,
+		Variables: &__AlarmAcknowledgeInstructedInput{
+			EventId:     eventId,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &AlarmAcknowledgeInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -177838,6 +178292,55 @@ func TeamStallScheduleSet(
 	}
 
 	data_ = &TeamStallScheduleSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamStallScheduleSetInstructed.
+const TeamStallScheduleSetInstructed_Operation = `
+mutation TeamStallScheduleSetInstructed ($appRef: ID!, $input: AgentTaskStallScheduleInput!, $instruction: ActInstructionInput!) {
+	setAgentTaskStallSchedule(appRef: $appRef, input: $input, instruction: $instruction) {
+		... AgentTaskStallScheduleFields
+	}
+}
+fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
+	appId
+	assignmentMinutes
+	notStartedMinutes
+	noProgressMinutes
+	ownerReactionMinutes
+	hostLapseCheckIns
+	sessionEndGraceMinutes
+	hostReportTimeoutMinutes
+	updatedAt
+}
+`
+
+func TeamStallScheduleSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	input *gqltypes.AgentTaskStallScheduleInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamStallScheduleSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStallScheduleSetInstructed",
+		Query:  TeamStallScheduleSetInstructed_Operation,
+		Variables: &__TeamStallScheduleSetInstructedInput{
+			AppRef:      appRef,
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamStallScheduleSetInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

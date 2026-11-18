@@ -450,7 +450,7 @@ section between the markers.
 | `chat tool-choice` |  |  | y | #1054 | 2cc7a5f10b02 |  | unread |  |
 | `team` |  |  | n | #1054 | fb3a1dfeae0d |  | unread |  |
 | `team alarm` |  |  | n | #1054 | 2bb11981015a |  | unread |  |
-| `team alarm ack` |  |  | n | #1054 | 10a770fb6b08 |  | unread |  |
+| `team alarm ack` |  |  | n | #1054 | 0a03ba094624 |  | unread |  |
 | `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
@@ -553,7 +553,7 @@ section between the markers.
 | `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | 5fad72262b34 |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e |  | unread |  |
-| `team stall-schedule set` |  |  | n | #1054 | 2110a60e4461 |  | unread |  |
+| `team stall-schedule set` |  |  | n | #1054 | 1e6c7f8250bb |  | unread |  |
 | `team stop` |  |  | n | #1054 | 0a7312372e50 |  | unread |  |
 | `team stop lift` |  |  | n | #1054 | 2987026028e9 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac |  | unread |  |
