@@ -460,7 +460,7 @@ section between the markers.
 | `team attention switchover preview` |  |  | n | #1054 | bb8c5a97c9d5 |  | unread |  |
 | `team availability` |  |  | n | #1054 | 4ba113cdde0c |  | unread |  |
 | `team availability get` |  |  | n | #1054 | d0b01e0f621b |  | unread |  |
-| `team availability set` |  |  | n | #1054 | 20597ee9d452 |  | unread |  |
+| `team availability set` |  |  | y | #1054 | 352870702560 |  | unread |  |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
 | `team chat` |  |  | n | #1054 | 65fec19f03a4 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
