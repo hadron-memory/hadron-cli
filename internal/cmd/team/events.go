@@ -324,7 +324,7 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).
 owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
 text prints server warnings on stderr. Needs server ba077810 or later.
 
-` + strings.ReplaceAll(instructionHelp, "17ef5905", "ba077810"),
+` + instructionHelpFor("ba077810"),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			eventId := strings.TrimSpace(args[0])
@@ -354,6 +354,9 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				if callErr != nil {
 					return api.MapError(callErr)
 				}
+				if resp.AcknowledgeAlarm == nil {
+					return nullMutationResult2505("acknowledgeAlarm", "event")
+				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 			} else {
 				ctx, _, err = finishInstruction(ctx)
@@ -364,6 +367,9 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				resp, callErr := gen.AlarmAcknowledgeInstructed(mctx, client, eventId, claim)
 				if callErr != nil {
 					return api.MapErrorKeepingCode(callErr)
+				}
+				if resp.AcknowledgeAlarm == nil {
+					return nullMutationResult2505("acknowledgeAlarm", "event")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
