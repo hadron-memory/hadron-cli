@@ -78909,11 +78909,11 @@ type RenderRunNodeResponse struct {
 	//
 	// nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
 	// missing both raise NODE_NOT_FOUND - no existence oracle.
-	RenderRunNode string `json:"renderRunNode"`
+	RenderRunNode *string `json:"renderRunNode"`
 }
 
 // GetRenderRunNode returns RenderRunNodeResponse.RenderRunNode, and is useful for accessing the field via an interface.
-func (v *RenderRunNodeResponse) GetRenderRunNode() string { return v.RenderRunNode }
+func (v *RenderRunNodeResponse) GetRenderRunNode() *string { return v.RenderRunNode }
 
 // RenumberSpecRenumberSpecSpecRenumberResult includes the requested fields of the GraphQL type SpecRenumberResult.
 // The GraphQL type's documentation follows.
