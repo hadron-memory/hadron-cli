@@ -16,14 +16,17 @@ import (
 // The real entry point uses os.Executable. Re-enter this test binary as the
 // status command so no executable seam can bypass production key scrubbing.
 //
-// cli#2342: under test the sweep's Orca defaults are INERT. A bare "orca" —
-// the PATH fallback a host config with no delivery.orca_bin resolves to —
-// never reaches a real binary: the lookup fails closed, and a runner built
-// for the bare name answers an empty world. A test that stages a binary
+// cli#2342: under test the TITLE PASS's Orca defaults are INERT — every
+// caller that resolves its binary through orcaRunner(healthSweepOrcaBin),
+// which is healthTitles and the version probe. A bare "orca" — the PATH
+// fallback a host config with no delivery.orca_bin resolves to — never
+// reaches a real binary: the lookup fails closed, and a runner built for
+// the bare name answers an empty world. A test that stages a binary
 // (delivery.orca_bin in its host config) still gets the real exec, so the
-// fixtures' fake orcas and the fail-closed error paths run through it. A
-// test that omits the stubbing entirely therefore sees an inert Orca, not
-// whatever this host happens to have on PATH.
+// fixtures' fake orcas and the fail-closed error paths run through it. The
+// dupe pass is NOT covered: sweepOrcaClient (health_dupes.go) builds its
+// own ExecEnv client with its own bare fallback, so its tests always
+// configure a fake rather than rely on a default.
 func TestMain(m *testing.M) {
 	if os.Getenv("HADRON_TEST_HEALTH_CHILD") == "1" && len(os.Args) > 1 && os.Args[1] == "orca" {
 		const key = "SYNTHETIC_ENTRY_KEY_1181"
@@ -58,11 +61,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// inertOrcaRunner2342 is the default Orca world an unstubbed test sees
-// (cli#2342): every call answers ok with no terminals, so the title pass has
-// nothing to rename and the sweep no duplicates to act on. With no terminals
-// listed, no read, rename or close is ever issued, so the one shape answers
-// every verb.
+// inertOrcaRunner2342 is the default Orca world an unstubbed TITLE-PASS test
+// sees (cli#2342): every call answers ok with no terminals, so the title pass
+// has nothing to rename. With no terminals listed, no rename is ever issued,
+// so the one shape answers every verb.
 var inertOrcaRunner2342 orcaterm.Runner = func(context.Context, []string) orcaterm.Result {
 	return orcaterm.Result{Stdout: `{"ok":true,"result":{"terminals":[]}}`}
 }
