@@ -129,6 +129,9 @@ scope (exit 2). Prints which scope the key now holds, then the key's scopes.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp == nil || resp.GrantAppKeyScope == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no grant")
+			}
 			dto := appKeyScopesDTOFrom(&resp.GrantAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				msg := fmt.Sprintf("✓ key %s holds %s", dto.ID, scope)
@@ -173,6 +176,9 @@ host:operate frees the key to be granted it for another host.`,
 					return api.MapError(err)
 				}
 				return api.MapErrorKeepingCode(err)
+			}
+			if resp == nil || resp.RevokeAppKeyScope == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revoke result")
 			}
 			dto := appKeyScopesDTOFrom(&resp.RevokeAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
