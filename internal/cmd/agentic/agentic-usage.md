@@ -6535,14 +6535,19 @@ hadron team task link-defect <pr-build-task> --defect <issue URL> [--introduced-
 ```
 
 Records that a defect found after a PR merged traces back to that PR's build
-task: one `review.defect-linked` event on the task (Proposed cor:agt:130:05).
+task: one `review.defect-linked` event on the task (server #4280/#4284).
 It sends exactly `prTaskRef`, `defectRef` and, when given, `introducedAtHead`
-(a full 40-hex head frozen on that PR; omitted when unset), never an
-instruction, once, with the bound session as the actor. A link never changes a
+(a full 40-hex head frozen on that PR; omitted when unset), once, with the bound session as the actor.
+With `--instruction <kind>:<ref>` (server 696ed50c8 or later), the holder's claim rides only this mutation; kind is team-chat-message, task or live-chat.
+Malformed claims exit 2 before any request. The verified same-server session
+attaches; an unavailable or changed binding sends as the person with the claim
+checked but not recorded. Refusals are never retried without the flag.
+Without the flag, requests and JSON remain unchanged. A link never changes a
 verdict, a seat, readiness or the task. Linking the same pair again writes
 nothing and exits 0 with the existing link (`already linked`, `created: false`).
 Who may link is the server's: a bound `qa-engineer` or `coordinator` worker, or
-a person who manages the App; never the App key or a run.
+a person who manages the App; or an instructed worker whose holder manages it;
+never the App key or a run.
 `DEFECT_LINK_FORBIDDEN` exits 8; `TASK_NOT_FOUND` (unknown, another App's or
 unreadable, all answered the same) exits 4; `PR_REFERENCE_MISSING` (not a PR
 build task) and `DEFECT_HEAD_NOT_FROZEN` exit 5; `BAD_USER_INPUT` (a defect URL
