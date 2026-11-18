@@ -95,7 +95,12 @@ are never grantable. Listing personal/private grants is owner-only. Unknown
 or inaccessible targets may receive the same refusal; it proves no existence.
 The CLI does not look up or reproduce these authorization decisions.`}
 	for _, child := range []*cobra.Command{newCmdMemoryGrantAdd(f), newCmdMemoryGrantList(f), newCmdMemoryGrantRM(f)} {
-		child.Long += "\n\n" + cmd.Long
+		if n := child.Name(); n == "list" || n == "rm" {
+			// What a grant is comes first on the pages that only read or revoke one.
+			child.Long = cmd.Long + "\n\n" + child.Long
+		} else {
+			child.Long += "\n\n" + cmd.Long
+		}
 		cmd.AddCommand(child)
 	}
 	return cmd
@@ -177,12 +182,19 @@ func memoryGrantListMemory(d memoryGrantDTO) string {
 
 func newCmdMemoryGrantList(f *cmdutil.Factory) *cobra.Command {
 	var revoked bool
-	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `Read the server's grant list in server order. Revoked rows are excluded
-unless --include-revoked is true. Personal/private grants belonging to someone
-else are hidden by the server, so this is not an inventory of hidden grants.
-Pass an explicit App ID, URN or root:slug; ambient --app is not the target.
-JSON is an array of grant metadata ([] when empty), with nullable fields kept
-as null. Text shows ? for a null memory and - for other null metadata. No keys or node content are requested.`, Example: `  hadron app memory-grant list acme.com:team --json
+	cmd := &cobra.Command{Use: "list <app-ref>", Aliases: []string{"ls"}, Short: "List an App's visible memory write grants, oldest first", Long: `List an App's memory write grants (see above for what a grant is; they are
+created with "hadron app memory-grant add"), in the server's order, oldest
+first. Revoked rows are left out unless you pass --include-revoked. Personal or
+private grants that belong to someone else are hidden by the server, so this is
+not an inventory of hidden grants.
+
+Pass the App explicitly, as an ID, a URN or root:slug; the global --app is not
+used. The table has the columns ID (what "memory-grant rm" takes), MEMORY,
+PREFIX (the loc prefix the grant covers), REGISTER (the register node the grant
+cites, if any) and REVOKED (when, if it was). Text shows ? for a memory you
+cannot see and - for any other empty value. --json is an array of the same
+rows ([] when empty), with empty values as null. No keys or node content are
+read.`, Example: `  hadron app memory-grant list acme.com:team --json
   hadron app memory-grant list acme.com:team --include-revoked`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		instr, err := credentialInstruction(cmd, f)
 		if err != nil {
@@ -236,11 +248,11 @@ func newCmdMemoryGrantRM(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{Use: "rm <grant-id> [--yes]", Short: "Revoke a memory write grant; keep its historical row", Long: `Revoke one grant by the ID from app memory-grant list. The App's next write
 using that grant is refused. The row stays; revoking an already revoked row
-changes nothing. Confirmation is required; scripts pass --yes.
-At most one mutation executes. A schema refusal for the new metadata can
-use an older compatible document; network/runtime failures are never retried.
-If its answer is lost, list with
---include-revoked to check the outcome before retrying. JSON returns the grant
+changes nothing. Confirmation is required; scripts pass --yes. At most one
+change is sent. A schema refusal for the new metadata can use an older
+compatible request; network and runtime failures are never retried. If the
+answer is lost, list with --include-revoked to check the outcome before
+retrying. JSON returns the grant
 metadata including revokedAt; text uses ? for a concealed/null memory and -
 for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		instr, err := credentialInstruction(cmd, f)

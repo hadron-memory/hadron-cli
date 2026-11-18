@@ -105,13 +105,16 @@ func (s *graphqlService) Delete(ctx context.Context, ref string, expected int) (
 	}
 	return fromFields(r.DeleteComment.CommentFields), nil
 }
-func (s *graphqlService) DeleteThread(ctx context.Context, ref, reason string) (bool, error) {
+func (s *graphqlService) DeleteThread(ctx context.Context, ref, reason string) (*bool, error) {
 	r, err := gen.DeleteCommentThread(ctx, s.client, ref, reason)
 	if err != nil {
-		return false, api.MapError(err)
+		return nil, api.MapError(err)
 	}
-	if r == nil {
-		return false, missingResult()
+	if r == nil || r.DeleteCommentThread == nil {
+		// The mutation was sent, so whether it executed is unknown — a blind
+		// retry is the one thing this error must prevent (#2538, the #2493
+		// pattern; exit 7 is the transport class and would say retry is safe).
+		return nil, exitcode.Newf(exitcode.Error, "server returned no delete-thread result; outcome unknown, read the thread (comment get) before retrying")
 	}
 	return r.DeleteCommentThread, nil
 }
