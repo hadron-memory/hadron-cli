@@ -239,10 +239,12 @@ func BeginServerTargetInstructedWrite(f *cmdutil.Factory) func(context.Context) 
 	}
 }
 
-// nullMutationResult2505 is the answer to a write whose success response carries
-// a null result and no errors (cli#2505, the class of cli#2477). It is a
-// malformed answer: exit 1, never a clean refusal, and never a panic. The write
-// may have been recorded, so the message says to inspect before retrying.
-func nullMutationResult2505(field, what string) error {
-	return exitcode.Newf(exitcode.Error, "the server answered %s with no %s and no error, so the outcome is unknown: it may have been recorded; inspect it before retrying", field, what)
+// nullMutationResult is the answer to a write whose success response carries
+// a null result and no errors (cli#2505, the class of cli#2477; the helper
+// lost its issue number and gained a per-command inspection hint in cli#2537).
+// It is a malformed answer: exit 1, never a clean refusal, and never a panic.
+// The write may have been recorded, so the message says what to inspect — the
+// command that shows this write's outcome — before retrying.
+func nullMutationResult(field, what, inspect string) error {
+	return exitcode.Newf(exitcode.Error, "the server answered %s with no %s and no error, so the outcome is unknown: it may have been recorded; %s before retrying", field, what, inspect)
 }

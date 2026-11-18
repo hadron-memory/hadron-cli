@@ -355,7 +355,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 					return api.MapError(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult2505("acknowledgeAlarm", "event")
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 			} else {
@@ -369,7 +369,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult2505("acknowledgeAlarm", "event")
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
