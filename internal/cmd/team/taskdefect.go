@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -93,10 +92,12 @@ for an existing link.`,
 			l := r.LinkDefectToPullRequest
 			if l == nil || l.TaskId == "" || l.EventId == "" {
 				// The ref goes alone on the last line, in full: a ref can be any
-				// length and hold shell metacharacters (cor:urn:010:01), so it is
-				// neither cut short nor spliced into a command that would need
-				// quoting. Control characters are still neutralised (hadron-cli#2329).
-				return exitcode.Newf(exitcode.Error, "the link may have been recorded but the server returned no link; read the task's events before retrying, with hadron team events --task and this task ref:\n  %s", output.SafeLine(ref, utf8.RuneCountInString(ref)))
+				// length and hold shell metacharacters (cor:urn:010:01), e.g.
+				// AT1.2;rm -rf $(x), so it is never cut short (SanitizeLine does not
+				// truncate) and never spliced into a command line the CLI composed;
+				// the reader quotes it when passing it back to a shell. Control
+				// characters are still neutralised (hadron-cli#2329).
+				return exitcode.Newf(exitcode.Error, "the link may have been recorded but the server returned no link; read the task's events before retrying, with hadron team events --task and this task ref:\n  %s", output.SanitizeLine(ref))
 			}
 			dto := defectLinkDTO{TaskID: l.TaskId, Defect: l.Defect, IntroducedAtHead: l.IntroducedAtHead, EventID: l.EventId, LinkedAt: l.LinkedAt, Created: l.Created}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return renderDefectLink(w, dto) })

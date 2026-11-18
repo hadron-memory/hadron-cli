@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -267,6 +268,114 @@ func TestAiConfig1959HelpStatesOneExitContract(t *testing.T) {
 	}
 }
 
+// setEchoField1959 plants echo into the named field of a synthetic server
+// result. It walks the fixture with checked assertions, so a fixture whose
+// shape moved fails with the NAME of the shape that moved instead of an opaque
+// type-assertion panic (cli#2364 item 6). It never touches what the test then
+// asserts about the submitted key.
+func setEchoField1959(result map[string]any, field, echo string) error {
+	object := func(key string) (map[string]any, error) {
+		v, present := result[key]
+		if !present {
+			return nil, fmt.Errorf("fixture shape: result has no %q", key)
+		}
+		m, ok := v.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("fixture shape: result[%q] is %T, want an object", key, v)
+		}
+		return m, nil
+	}
+	switch {
+	case strings.HasPrefix(field, "knobs."):
+		v, present := result["knobs"]
+		if !present {
+			return fmt.Errorf("fixture shape: result has no %q", "knobs")
+		}
+		knobs, ok := v.([]any)
+		if !ok {
+			return fmt.Errorf("fixture shape: result[%q] is %T, want an array", "knobs", v)
+		}
+		if len(knobs) == 0 {
+			return fmt.Errorf("fixture shape: result[%q] is empty, want at least one knob", "knobs")
+		}
+		knob, ok := knobs[0].(map[string]any)
+		if !ok {
+			return fmt.Errorf("fixture shape: result[%q][0] is %T, want an object", "knobs", knobs[0])
+		}
+		knob[strings.TrimPrefix(field, "knobs.")] = echo
+	case strings.HasPrefix(field, "used."):
+		used, err := object("used")
+		if err != nil {
+			return err
+		}
+		used[strings.TrimPrefix(field, "used.")] = echo
+	case field == "chat":
+		chat, err := object("chat")
+		if err != nil {
+			return err
+		}
+		chat["status"] = echo
+	default:
+		result[field] = echo
+	}
+	return nil
+}
+
+// Each named fixture failure fires on the shape it names: no opaque panic, and
+// a well-formed fixture still takes the echo.
+func TestAiConfig1967EchoFixtureNamesItsShapeFailures(t *testing.T) {
+	good := func() map[string]any {
+		return map[string]any{
+			"reply": "r", "chat": map[string]any{"status": "PASS"}, "used": map[string]any{"key": "k"},
+			"knobs": []any{map[string]any{"param": "temperature", "detail": "d"}},
+		}
+	}
+	for _, tc := range []struct {
+		name   string
+		field  string
+		mutate func(map[string]any)
+		want   string // "" = must succeed
+	}{
+		{"knobs missing", "knobs.detail", func(m map[string]any) { delete(m, "knobs") }, `result has no "knobs"`},
+		{"knobs not an array", "knobs.detail", func(m map[string]any) { m["knobs"] = "x" }, `result["knobs"] is string, want an array`},
+		{"knobs empty", "knobs.detail", func(m map[string]any) { m["knobs"] = []any{} }, `result["knobs"] is empty`},
+		{"first knob not an object", "knobs.detail", func(m map[string]any) { m["knobs"] = []any{"x"} }, `result["knobs"][0] is string, want an object`},
+		{"used missing", "used.key", func(m map[string]any) { delete(m, "used") }, `result has no "used"`},
+		{"used not an object", "used.key", func(m map[string]any) { m["used"] = []any{} }, `result["used"] is []interface {}, want an object`},
+		{"chat missing", "chat", func(m map[string]any) { delete(m, "chat") }, `result has no "chat"`},
+		{"chat not an object", "chat", func(m map[string]any) { m["chat"] = "PASS" }, `result["chat"] is string, want an object`},
+		{"well-formed knob", "knobs.detail", func(map[string]any) {}, ""},
+		{"well-formed used", "used.key", func(map[string]any) {}, ""},
+		{"well-formed chat", "chat", func(map[string]any) {}, ""},
+		{"top-level field", "reply", func(map[string]any) {}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := good()
+			tc.mutate(m)
+			err := setEchoField1959(m, tc.field, "ECHO")
+			if tc.want == "" {
+				if err != nil {
+					t.Fatalf("a well-formed fixture was refused: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), "fixture shape:") || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want a named fixture-shape failure containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+	// The echo lands where the field names it.
+	m := good()
+	for _, f := range []string{"knobs.detail", "used.key", "chat", "reply"} {
+		if err := setEchoField1959(m, f, "ECHO"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if m["knobs"].([]any)[0].(map[string]any)["detail"] != "ECHO" || m["used"].(map[string]any)["key"] != "ECHO" || m["chat"].(map[string]any)["status"] != "ECHO" || m["reply"] != "ECHO" {
+		t.Fatalf("the echo did not land: %v", m)
+	}
+}
+
 // Each echo is isolated so one redaction cannot hide another missing guard.
 // These are synthetic server responses, not evidence of a live provider echo.
 func TestAiConfig1967CompletedFieldsRedactSubmittedKey(t *testing.T) {
@@ -294,15 +403,8 @@ func TestAiConfig1967CompletedFieldsRedactSubmittedKey(t *testing.T) {
 						t.Fatal(err)
 					}
 					echo := "echo " + key + " encoded=" + escaped + " safe-tail"
-					switch {
-					case strings.HasPrefix(field, "knobs."):
-						result["knobs"].([]any)[0].(map[string]any)[strings.TrimPrefix(field, "knobs.")] = echo
-					case strings.HasPrefix(field, "used."):
-						result["used"].(map[string]any)[strings.TrimPrefix(field, "used.")] = echo
-					case field == "chat":
-						result["chat"].(map[string]any)["status"] = echo
-					default:
-						result[field] = echo
+					if err := setEchoField1959(result, field, echo); err != nil {
+						t.Fatal(err)
 					}
 					raw, _ := json.Marshal(result)
 					args := append([]string{"--override-file", path}, b.args...)

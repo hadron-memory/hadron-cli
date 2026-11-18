@@ -522,7 +522,11 @@ same path, then hands its proof back (hadron-cli#1178). A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
 Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
 ad7f1c2): its mixed acknowledgment records ticks/tasks without moving chat
-marks. Mention text still arrives through its own batch. Status reports the
+marks. Mention text still arrives through its own batch. ack_mixed must be a
+real boolean wherever it is written, including through a YAML merge (<<) or an
+alias: null, ~, yes and on are refused with the line. A merged non-boolean is
+refused even when an explicit ack_mixed: true beside it would win; that
+strictness is deliberate (hadron-cli#1263). Status reports the
 configured ack-mixed on/off setting; it does not detect server capability.
 A held delivery is not reported to the
 server yet (hadron-cli#940): it raises no server alarm, and team host

@@ -211,7 +211,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var match bool
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
-	var batchFile string
+	var batchFile, rawInstruction string
 	var distinctAssignees bool
 	cmd := &cobra.Command{
 		Use:   "create <title> | create --batch-file <path|->",
@@ -356,7 +356,7 @@ Requires a server containing hadron-server#2983 (31d63828 or later).
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
-warnings list.`,
+warnings list.` + "\n\n" + taskInstructionHelp + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
 		Example: `  # assign to a named worker, with a deadline to start
   hadron team task create "Fix login redirect" --app acme.com:eng-team --assignee worker:Iris \
     --priority 2 --start-by 2026-11-02T09:00:00Z --source https://github.com/acme/app/issues/7
@@ -381,6 +381,13 @@ warnings list.`,
 			return cobra.ExactArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("batch-file") && cmd.Flags().Changed("instruction") {
+				return errNoTaskInstructionForBatch
+			}
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("batch-file") {
 				var clash []string
 				// Only this command's own flags: --json, --app and --server are
@@ -584,7 +591,29 @@ warnings list.`,
 				return err
 			}
 			mctx, sink := api.WithWarningSink(ctx)
-			resp, err := gen.AgentTaskCreate(mctx, client, &input)
+			var fields gen.AgentTaskFields
+			var skipped []*gen.AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate
+			var resp *gen.AgentTaskCreateResponse
+			if claim != nil {
+				ir, ierr := gen.AgentTaskCreateInstructed(mctx, client, &input, claim)
+				err = ierr
+				if ierr == nil {
+					fields = ir.CreateAgentTask.AgentTaskFields
+					for _, c := range ir.CreateAgentTask.MatchSkipped {
+						if c == nil {
+							skipped = append(skipped, nil)
+							continue
+						}
+						conv := gen.AgentTaskCreateCreateAgentTaskMatchSkippedAgentTaskSkippedCandidate(*c)
+						skipped = append(skipped, &conv)
+					}
+				}
+			} else {
+				resp, err = gen.AgentTaskCreate(mctx, client, &input)
+				if err == nil {
+					fields, skipped = resp.CreateAgentTask.AgentTaskFields, resp.CreateAgentTask.MatchSkipped
+				}
+			}
 			if err != nil {
 				// The new requirement refusals retain their code at the JSON sink,
 				// and so does a claim's TASK_EXTERNAL_ID_TAKEN (cli#1524), so a
@@ -595,9 +624,9 @@ warnings list.`,
 				}
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
+			task := taskDTOFrom(fields)
 			if match {
-				task.MatchSkipped = matchSkippedDTO(resp.CreateAgentTask.MatchSkipped)
+				task.MatchSkipped = matchSkippedDTO(skipped)
 			}
 			err = writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
@@ -666,6 +695,7 @@ warnings list.`,
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker (name, URN or id) the matcher must not pick (repeatable)")
 	cmd.Flags().BoolVar(&project, "project", false, "make a top-level project (AT1, AT2, …) instead of a task under the reserved project AT0 (\"no project\"); not with --parent")
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
+	addTaskInstructionFlag(cmd, &rawInstruction)
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
 	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file")
@@ -677,12 +707,12 @@ warnings list.`,
 // ---- assign / reassign ----------------------------------------------------
 
 func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassign bool) *cobra.Command {
-	var assignee string
+	var assignee, rawInstruction string
 	var closeSession, noCloseSession bool
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s <taskId> --assignee <party>", verb),
 		Short: short,
-		Long:  assignLong(verb),
+		Long:  assignLong(verb) + "\n\n" + taskInstructionHelp,
 		Example: map[bool]string{
 			false: "  hadron team task assign AT0.7 --assignee worker:Iris\n  hadron team task assign AT0.7 --assignee worker:Iris --close-session",
 			true:  "  hadron team task reassign AT0.7 --assignee worker:Uma",
@@ -690,6 +720,10 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
 			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
@@ -717,14 +751,28 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 			var task taskDTO
 			mctx, sink := api.WithWarningSink(ctx)
 			key := "assignAgentTask"
-			if reassign {
+			switch {
+			case reassign && claim != nil:
+				key = "reassignAgentTask"
+				resp, err := gen.AgentTaskReassignInstructed(mctx, client, taskId, party, closeWhenDone, claim)
+				if err != nil {
+					return mapTaskError(err)
+				}
+				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
+			case reassign:
 				key = "reassignAgentTask"
 				resp, err := gen.AgentTaskReassign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return mapTaskError(err)
 				}
 				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
-			} else {
+			case claim != nil:
+				resp, err := gen.AgentTaskAssignInstructed(mctx, client, taskId, party, closeWhenDone, claim)
+				if err != nil {
+					return mapTaskError(err)
+				}
+				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
+			default:
 				resp, err := gen.AgentTaskAssign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return mapTaskError(err)
@@ -739,6 +787,7 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 			})
 		},
 	}
+	addTaskInstructionFlag(cmd, &rawInstruction)
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party to assign the task to (worker:<…> / user:<…>)")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
@@ -794,6 +843,35 @@ func newSimpleTaskMutation(
 	call func(context.Context, graphql.Client, string) (taskDTO, error),
 	receipt func(io.Writer, taskDTO) error,
 ) *cobra.Command {
+	return newTaskMutation(f, verb, key, short, long, example, false,
+		func(ctx context.Context, client graphql.Client, taskId string, _ *gen.ActInstructionInput) (taskDTO, error) {
+			return call(ctx, client, taskId)
+		}, receipt)
+}
+
+// newInstructableTaskMutation is newSimpleTaskMutation for a verb that takes
+// --instruction (cli#2422): call gets the parsed claim, nil without the flag,
+// and sends its plain document when it is nil.
+func newInstructableTaskMutation(
+	f *cmdutil.Factory,
+	verb, key, short, long, example string,
+	call func(context.Context, graphql.Client, string, *gen.ActInstructionInput) (taskDTO, error),
+	receipt func(io.Writer, taskDTO) error,
+) *cobra.Command {
+	return newTaskMutation(f, verb, key, short, long, example, true, call, receipt)
+}
+
+func newTaskMutation(
+	f *cmdutil.Factory,
+	verb, key, short, long, example string,
+	instructable bool,
+	call func(context.Context, graphql.Client, string, *gen.ActInstructionInput) (taskDTO, error),
+	receipt func(io.Writer, taskDTO) error,
+) *cobra.Command {
+	var rawInstruction string
+	if instructable {
+		long += "\n\n" + taskInstructionHelp
+	}
 	cmd := &cobra.Command{
 		Use:     fmt.Sprintf("%s <taskId>", verb),
 		Short:   short,
@@ -801,6 +879,10 @@ func newSimpleTaskMutation(
 		Example: example,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
 			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
@@ -810,7 +892,7 @@ func newSimpleTaskMutation(
 				return err
 			}
 			mctx, sink := api.WithWarningSink(cmd.Context())
-			task, err := call(mctx, client, taskId)
+			task, err := call(mctx, client, taskId, claim)
 			if err != nil {
 				return mapTaskError(err)
 			}
@@ -818,6 +900,9 @@ func newSimpleTaskMutation(
 				return receipt(w, task)
 			})
 		},
+	}
+	if instructable {
+		addTaskInstructionFlag(cmd, &rawInstruction)
 	}
 	return cmd
 }
@@ -883,7 +968,7 @@ list, and a server warning also prints on stderr.`,
 }
 
 func newCmdTeamTaskCancel(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "cancel", "cancelAgentTask", "Cancel a task",
+	return newInstructableTaskMutation(f, "cancel", "cancelAgentTask", "Cancel a task",
 		`Cancel a task that is no longer wanted, from BACKLOG, PENDING or STARTED.
 CANCELLED is an end state: nobody can start, progress or finish it afterwards,
 and it no longer blocks the tasks waiting for it. The command does not ask for
@@ -903,7 +988,14 @@ refused (exit 5). Success prints the task and CANCELLED. A warning prints on
 stderr after the receipt and does not change the exit code; --json returns the
 task with a warnings list ([] when none).`,
 		"  hadron team task cancel AT0.7",
-		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
+			if claim != nil {
+				resp, err := gen.AgentTaskCancelInstructed(ctx, client, taskId, claim)
+				if err != nil {
+					return taskDTO{}, err
+				}
+				return taskDTOFrom(resp.CancelAgentTask.AgentTaskFields), nil
+			}
 			resp, err := gen.AgentTaskCancel(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err
@@ -918,7 +1010,7 @@ task with a warnings list ([] when none).`,
 // ---- park / ready (the BACKLOG moves, #1754 / cor:agt:050:02) --------------
 
 func newCmdTeamTaskPark(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "park", "parkAgentTask", "Park a queued task (BACKLOG)",
+	return newInstructableTaskMutation(f, "park", "parkAgentTask", "Park a queued task (BACKLOG)",
 		`Park the task: a pending task with no assignee becomes BACKLOG —
 unassigned, never matched, never waited on, no alarms (cor:agt:050:02).
 A task that has an assignee, or is STARTED, is refused (exit 5); to stop
@@ -929,7 +1021,14 @@ prints on stderr.
 
 Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 		"  hadron team task park AT0.7",
-		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
+			if claim != nil {
+				resp, err := gen.AgentTaskParkInstructed(ctx, client, taskId, claim)
+				if err != nil {
+					return taskDTO{}, err
+				}
+				return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields), nil
+			}
 			resp, err := gen.AgentTaskPark(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err
@@ -942,7 +1041,7 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 }
 
 func newCmdTeamTaskReady(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "ready", "makeAgentTaskReady", "Make a backlog task ready to work",
+	return newInstructableTaskMutation(f, "ready", "makeAgentTaskReady", "Make a backlog task ready to work",
 		`Make the backlog task ready: BACKLOG becomes PENDING with no assignee and the
 task enters the queue, where the platform's matcher picks a worker
 (cor:agt:050:02). To choose the worker yourself, `+"`task assign`"+` the
@@ -952,7 +1051,14 @@ warning also prints on stderr.
 
 Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 		"  hadron team task ready AT0.7",
-		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
+			if claim != nil {
+				resp, err := gen.AgentTaskReadyInstructed(ctx, client, taskId, claim)
+				if err != nil {
+					return taskDTO{}, err
+				}
+				return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields), nil
+			}
 			resp, err := gen.AgentTaskReady(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err

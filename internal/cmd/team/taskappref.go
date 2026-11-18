@@ -63,19 +63,26 @@ func qualifyTaskRef(f *cmdutil.Factory, ref string) (string, error) {
 	return ref, nil
 }
 
-// taskRefApp reads the App out of a qualified task ref, in the flat form
-// (hrn:agenttask:<root>:<slug>:<handle>) or the server's embedded-App form
-// (hrn:agenttask:hrn:app:<root>:<slug>:<handle>). ok is false for anything
-// else, which is then sent unchanged for the server to answer.
-func taskRefApp(ref string) (root, slug string, ok bool) {
+// taskRefParts reads a qualified task ref into its App (root, slug) and its
+// handle, in the flat form (hrn:agenttask:<root>:<slug>:<handle>) or the
+// server's embedded-App form (hrn:agenttask:hrn:app:<root>:<slug>:<handle>). ok
+// is false for anything else, which is then sent unchanged for the server to
+// answer.
+func taskRefParts(ref string) (root, slug, handle string, ok bool) {
 	body, found := strings.CutPrefix(urn.NormalizeScheme(ref), "hrn:agenttask:")
 	if !found {
-		return "", "", false
+		return "", "", "", false
 	}
 	body = strings.TrimPrefix(urn.NormalizeScheme(body), "hrn:app:")
 	parts := strings.SplitN(body, ":", 3)
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return "", "", false
+		return "", "", "", false
 	}
-	return parts[0], parts[1], true
+	return parts[0], parts[1], parts[2], true
+}
+
+// taskRefApp reads the App out of a qualified task ref (see taskRefParts).
+func taskRefApp(ref string) (root, slug string, ok bool) {
+	root, slug, _, ok = taskRefParts(ref)
+	return root, slug, ok
 }

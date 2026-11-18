@@ -131,7 +131,7 @@ immutable result findings themselves (the separate findings client slice).`,
 }
 
 func newCmdTaskDisposeFinding(f *cmdutil.Factory) *cobra.Command {
-	var code, reference string
+	var code, reference, rawInstruction string
 	c := &cobra.Command{
 		Use: "dispose-finding <task> <finding-id>", Short: "Record or replace one finding's disposition",
 		Long: findingDispositionDoc + `
@@ -142,10 +142,16 @@ pull-request, node, task or url. A label starts at the first |; target/label
 are sent unchanged, with server-owned validation. The mutation sends once
 and prints the server-returned latest value, not an inferred success.
 --json is {taskId, findingId, disposition, reference}; reference is null
-when absent. The immutable result is neither sent nor modified.`,
+when absent. The immutable result is neither sent nor modified.
+
+` + taskInstructionHelp,
 		Example: "  hadron team task dispose-finding AT1.2 F1 --disposition deferred --ref 'issue=https://example.com/issues/7|Follow-up' --json",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
+			claim, err := taskClaim(c, rawInstruction)
+			if err != nil {
+				return err
+			}
 			ref, err := taskRefArg(f, a[:1])
 			if err != nil {
 				return err
@@ -170,17 +176,43 @@ when absent. The immutable result is neither sent nor modified.`,
 			if err != nil {
 				return err
 			}
-			r, err := gen.AgentTaskDisposeFinding(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn)
-			if err != nil {
-				return mapFindingError(err)
+			// Either document answers the same shape; read it into one.
+			var taskID string
+			var items []gen.TaskFindingDispositionFields
+			var haveReadback bool
+			if claim != nil {
+				r, err := gen.AgentTaskDisposeFindingInstructed(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn, claim)
+				if err != nil {
+					return mapFindingError(err)
+				}
+				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
+					taskID, haveReadback = d.Id, true
+					for _, item := range d.FindingDispositions.Items {
+						if item != nil {
+							items = append(items, item.TaskFindingDispositionFields)
+						}
+					}
+				}
+			} else {
+				r, err := gen.AgentTaskDisposeFinding(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn)
+				if err != nil {
+					return mapFindingError(err)
+				}
+				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
+					taskID, haveReadback = d.Id, true
+					for _, item := range d.FindingDispositions.Items {
+						if item != nil {
+							items = append(items, item.TaskFindingDispositionFields)
+						}
+					}
+				}
 			}
 			// The server caps findings at 100; the response requests 200. Never
 			// fabricate a receipt from arguments if readback is incomplete.
-			if r.DisposeAgentTaskFinding != nil && r.DisposeAgentTaskFinding.Id != "" && r.DisposeAgentTaskFinding.FindingDispositions != nil {
-				p := r.DisposeAgentTaskFinding.FindingDispositions
-				for _, item := range p.Items {
-					if item != nil && item.FindingId == a[1] {
-						d := findingDispositionReceiptDTO{TaskID: r.DisposeAgentTaskFinding.Id, findingDispositionDTO: findingDispositionFrom(item.TaskFindingDispositionFields)}
+			if haveReadback {
+				for i := range items {
+					if items[i].FindingId == a[1] {
+						d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(items[i])}
 						return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 							if _, err := fmt.Fprintf(w, "task: %s\n", output.SafeCell(d.TaskID)); err != nil {
 								return err
@@ -195,6 +227,7 @@ when absent. The immutable result is neither sent nor modified.`,
 	}
 	c.Flags().StringVar(&code, "disposition", "", "required: fixed, accepted, deferred or rejected")
 	c.Flags().StringVar(&reference, "ref", "", "optional kind=target[|label]; omission replaces any prior reference with none")
+	addTaskInstructionFlag(c, &rawInstruction)
 	return c
 }
 

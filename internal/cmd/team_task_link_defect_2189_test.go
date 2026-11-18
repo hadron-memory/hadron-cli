@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -258,14 +259,24 @@ func recovery2329(ref string) string {
 // cut short. Terminal control characters are still neutralised.
 func TestTaskLinkDefect2329RecoveryRefInFull(t *testing.T) {
 	long := "hrn:agenttask:" + strings.Repeat("deep.sub.domain.", 20) + "acme.com:team-app:AT1.2"
+	// A multibyte ref past 200 RUNES (and past 200 bytes too, since a rune is at
+	// least one byte): the rune and byte counts differ, so a guard or a bound that
+	// counts bytes where it means runes cannot pass this by accident (cli#2371 F3).
+	multibyte := "hrn:agenttask:" + strings.Repeat("é", 200) + ":AT1.2"
 	for name, tc := range map[string]struct{ ref, shown string }{
-		"longer than 200": {long, long},
-		"shell metachars": {"AT1.2;rm -rf $(x) 'q'", "AT1.2;rm -rf $(x) 'q'"},
-		"control chars":   {"AT1.2\x1b[31m\nforged", "AT1.2 [31m forged"},
+		"longer than 200":                 {long, long},
+		"multibyte longer than 200 runes": {multibyte, multibyte},
+		"shell metachars":                 {"AT1.2;rm -rf $(x) 'q'", "AT1.2;rm -rf $(x) 'q'"},
+		"control chars":                   {"AT1.2\x1b[31m\nforged", "AT1.2 [31m forged"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if name == "longer than 200" && len(tc.ref) <= 200 {
-				t.Fatalf("fixture must exceed 200 runes, is %d", len(tc.ref))
+			if strings.HasPrefix(name, "longer than 200") || strings.HasPrefix(name, "multibyte") {
+				if runes := utf8.RuneCountInString(tc.ref); runes <= 200 {
+					t.Fatalf("fixture must exceed 200 runes, is %d", runes)
+				}
+			}
+			if strings.HasPrefix(name, "multibyte") && len(tc.ref) == utf8.RuneCountInString(tc.ref) {
+				t.Fatalf("the multibyte fixture must have more bytes than runes, both are %d", len(tc.ref))
 			}
 			r := taskResponses()
 			r["TaskLinkDefect"] = `{"data":{"linkDefectToPullRequest":null}}`

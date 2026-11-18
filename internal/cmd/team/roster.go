@@ -31,8 +31,7 @@ rendered as returned. The CLI derives nothing.
 
 The states are defined by
 hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
-the states are Proposed). NO_FAMILY is served but not yet defined in the spec.
-A worker can be in several at once; it is shown in the first that holds
+the states are Proposed). A worker can be in several at once; it is shown in the first that holds
 (the server's roster order, most actionable first): YOUR_MOVE, UNAVAILABLE,
 WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 

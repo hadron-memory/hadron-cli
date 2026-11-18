@@ -15,6 +15,10 @@ import (
 // branches and in both stdout modes. Keys and spellings are chosen so the JSON
 // and Go spellings differ from each other and from the literal (see
 // internal/cmd/aiconfig/redact_forms_2234_test.go).
+//
+// SYNC: the keys and spellings below are the same fixtures as the ones in
+// internal/cmd/aiconfig/redact_forms_2234_test.go (a different package; test
+// files cannot be imported). Change them in BOTH places (cli#2364 F7).
 func TestAiConfig2234SingleEscapedFormEchoIsRedacted(t *testing.T) {
 	// bs is a single backslash, built apart so the unicode-escape spellings below
 	// stay literal text no tool can turn back into the characters they spell.
@@ -70,7 +74,10 @@ func TestAiConfig2234SingleEscapedFormEchoIsRedacted(t *testing.T) {
 // cli#2234 (BLIND P2, P3 F4): the exact-value tradeoff holds at the command
 // level, on both request branches and in both stdout modes, in a knob detail
 // and in the effective model as well as the reply. A short key that is a
-// substring of a legitimate value masks it; nothing is exempted.
+// substring of a legitimate value masks it; nothing is exempted. The fixture
+// assumes both branches return at least one knob (a detail is set on the
+// first) and prints a detail in both modes, which aiBranches1959's results do;
+// the test fails with a named message if that changes.
 func TestAiConfig2234ShortKeyMasksLegitimateSubstrings(t *testing.T) {
 	const key = "m-19" // a substring of the effective model "m-1959"
 	path := filepath.Join(t.TempDir(), "override.json")
@@ -112,11 +119,35 @@ func TestAiConfig2234ShortKeyMasksLegitimateSubstrings(t *testing.T) {
 					t.Fatalf("exit=%d stderr=%q", r.exit, r.stderr)
 				}
 				assertForwarded1959(t, r, b.op, key)
-				if strings.Contains(r.stdout, "m-1959") || strings.Contains(r.stdout, key) {
+				// The key "m-19" is a substring of "m-1959", so one check covers both.
+				if strings.Contains(r.stdout, key) {
 					t.Fatalf("a legitimate value containing the key was not masked:\n%s", r.stdout)
 				}
-				if got := strings.Count(r.stdout, "[redacted]59"); got < 3 {
-					t.Fatalf("want the model, reply and knob detail each masked as [redacted]59, got %d:\n%s", got, r.stdout)
+				// Each field is checked on its own, so one masked field cannot
+				// stand for another that was left through.
+				if mode == "json" {
+					var out struct {
+						Model string `json:"model"`
+						Reply string `json:"reply"`
+						Knobs []struct {
+							Detail string `json:"detail"`
+						} `json:"knobs"`
+					}
+					if err := json.Unmarshal([]byte(r.stdout), &out); err != nil {
+						t.Fatalf("stdout is not the JSON document: %v\n%s", err, r.stdout)
+					}
+					if len(out.Knobs) == 0 {
+						t.Fatalf("the document lost its knobs:\n%s", r.stdout)
+					}
+					if out.Model != "[redacted]59" || out.Reply != "reply from [redacted]59" || out.Knobs[0].Detail != "applied to [redacted]59" {
+						t.Fatalf("each field must carry its own mask: model %q reply %q knob detail %q", out.Model, out.Reply, out.Knobs[0].Detail)
+					}
+				} else {
+					for _, want := range []string{"/[redacted]59 ", "reply: reply from [redacted]59", "REJECTED applied to [redacted]59"} {
+						if !strings.Contains(r.stdout, want) {
+							t.Fatalf("text output lacks the masked field %q:\n%s", want, r.stdout)
+						}
+					}
 				}
 			})
 		}

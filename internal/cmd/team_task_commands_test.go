@@ -864,14 +864,17 @@ func TestTeamRosterHelpCitesProposedStates2331(t *testing.T) {
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "roster")), " ")
 	for _, want := range []string{
 		"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
-		"the states are Proposed", "NO_FAMILY is served but not yet defined in the spec",
+		"the states are Proposed", "AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE",
 		"the server's roster order",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help missing %q: %s", want, help)
 		}
 	}
-	for _, stale := range []string{"not a spec", "keeps them out of", "plan-derived"} {
+	// cli#2394: cor:agt:050:22 (r8) lists NO_FAMILY among the states, so the
+	// clause reads like any other state. The stale markers pin the tail of the
+	// retired sentence so the repo grep for it stays empty.
+	for _, stale := range []string{"not a spec", "keeps them out of", "plan-derived", "defined in the spec"} {
 		if strings.Contains(help, stale) {
 			t.Errorf("stale roster wording %q", stale)
 		}
@@ -890,15 +893,16 @@ func TestAgenticUsageRosterLineCitesProposedStates2366(t *testing.T) {
 		}
 		for _, want := range []string{
 			"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
-			"Proposed", "NO_FAMILY is served but not yet defined",
-			"the server's first-that-holds order",
+			"Proposed", "the server's first-that-holds order",
 		} {
 			if !strings.Contains(line, want) {
 				t.Errorf("agentic-usage roster line missing %q", want)
 			}
 		}
-		if strings.Contains(line, "plan-derived") {
-			t.Errorf("agentic-usage roster line still says %q", "plan-derived")
+		for _, stale := range []string{"plan-derived", "defined there"} {
+			if strings.Contains(line, stale) {
+				t.Errorf("agentic-usage roster line still says %q", stale)
+			}
 		}
 		return
 	}

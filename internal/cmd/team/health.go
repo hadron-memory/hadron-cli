@@ -161,6 +161,7 @@ from delivery.orca_bin when set and it resolves, otherwise PATH. Paused workers 
 No alarm is computed, and an App without a coordinator is valid. An unresolved,
 ambiguous or missing registered worker report refuses the entire batch before
 writing (exit 1). A missing or non-live host registration is exit 8.
+A malformed registered worker is exit 1 even when the host registration is also not live: the sweep validates the registered workers before it checks whether the host registration is live.
 Status rows for workers not registered on this host are ignored.
 
 Exit 0 after a successful write, including per-worker refusals (printed, not
@@ -183,6 +184,8 @@ pass needs Orca 1.4.232 or later (terminal list and rename with a tab title);
 the receipt carries the version "orca --version" printed (orcaVersion, null when
 Orca gave no version), for the operator only: it is never sent to the platform.
 The pass runs delivery.orca_bin when that path resolves, else "orca" on PATH.
+A relative delivery.orca_bin (a bare name or a path with a separator) is refused
+before any server request, status read or Orca exec: exit 2, nothing written.
 
 Duplicate agents and tabs. Also after the batch is stored, the sweep detects
 more than one agent process and more than one terminal tab per bound-worker
@@ -204,6 +207,15 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 					return exitcode.Newf(exitcode.Usage, "invalid host configuration; nothing written")
 				}
 				return healthSafeError(err)
+			}
+			// cli#2369: the sweep execs the binary the host config names, so a
+			// relative delivery.orca_bin (a bare name or a path with a
+			// separator) is refused as the status read refuses it: a bare name
+			// would be stat'ed against the working directory and then resolved
+			// on PATH at every exec of an unattended job. Fail the run before
+			// any server request, status read or Orca exec; never skip.
+			if bin := cfg.Delivery.OrcaBin; bin != "" && !filepath.IsAbs(bin) {
+				return exitcode.Newf(exitcode.Usage, "delivery.orca_bin must be an absolute path; nothing written")
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil || state.RegisteredHostID() == "" {
