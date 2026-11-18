@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -245,13 +248,15 @@ func TestWorkerGetOlderServerTerminalFallsBackToNull(t *testing.T) {
 	}
 }
 
-// Authentication, transport and server failures of the terminal read surface:
+// Authentication, server and decoding failures of the terminal read surface:
 // they are not capability absence, so worker get fails and prints no worker.
+// (A body that is not GraphQL exercises response DECODING; a failure of the
+// transport itself is TestWorkerGetTerminalTransportFailureSurfaces1380.)
 func TestWorkerGetTerminalErrorsSurface(t *testing.T) {
 	for name, resp := range map[string]string{
 		"unauthenticated": gqlErrorJSON("UNAUTHENTICATED"),
 		"server error":    gqlErrorJSON("INTERNAL_SERVER_ERROR"),
-		"transport":       "<html>bad gateway</html>",
+		"undecodable html body (decoding, not transport)": "<html>bad gateway</html>",
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, err := terminalWorkerGet(t, resp)
@@ -262,6 +267,92 @@ func TestWorkerGetTerminalErrorsSurface(t *testing.T) {
 				t.Errorf("a failed read must not print a worker result:\n%s", out)
 			}
 		})
+	}
+}
+
+// terminalWorkerGetBrokenTransport runs `team worker get` against a server that
+// answers every operation normally except the terminal read, where the
+// TRANSPORT fails: how = "closed" hijacks the connection and closes it without
+// sending a response; how = "truncated" promises a body and closes after a
+// fragment. It also returns how many terminal reads reached the server, so a
+// test can prove the failure happened at the read it claims to pin.
+func terminalWorkerGetBrokenTransport(t *testing.T, how string, args ...string) (out string, terminalReads int32, err error) {
+	t.Helper()
+	teamGitDir(t)
+	var reads atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		var q struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&q)
+		w.Header().Set("Content-Type", "application/json")
+		switch q.OperationName {
+		case "GetWorker":
+			_, _ = w.Write([]byte(`{"data":{"worker":` + strings.Replace(profileWorkerJSON, `"hasLiveSession":null`, `"hasLiveSession":true`, 1) + `}}`))
+		case "GetWorkerProfile":
+			_, _ = w.Write([]byte(profileNames))
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
+		case "GetWorkerTerminal":
+			reads.Add(1)
+			conn, rw, hijackErr := w.(http.Hijacker).Hijack()
+			if hijackErr != nil {
+				t.Errorf("cannot hijack: %v", hijackErr)
+				return
+			}
+			if how == "truncated" {
+				_, _ = rw.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 4096\r\n\r\n" + `{"data":{"worker":{"terminal":{"state`)
+				_ = rw.Flush()
+			}
+			_ = conn.Close()
+		default:
+			// The other reads worker get makes alongside (rendered prompt,
+			// availability, model groups, ...) get the harness's own defaults.
+			resp, ok := unstubbedDefault(q.OperationName)
+			if !ok || resp == "" {
+				t.Errorf("unexpected operation %q", q.OperationName)
+				return
+			}
+			_, _ = w.Write([]byte(resp))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, buf := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"team", "worker", "get", profileHexID}, args...), "--server", srv.URL))
+	err = root.Execute()
+	return buf.String(), reads.Load(), err
+}
+
+// cli#1380: the promise that only capability absence falls back to a null
+// terminal is pinned for a real TRANSPORT failure too, not only for a body that
+// fails to decode: the connection is dropped, or cut mid-body, at the terminal
+// read. worker get fails with a non-zero exit and prints no worker, in text and
+// --json alike.
+func TestWorkerGetTerminalTransportFailureSurfaces1380(t *testing.T) {
+	for _, how := range []string{"closed", "truncated"} {
+		for _, mode := range [][]string{nil, {"--json"}} {
+			t.Run(how+strings.Join(mode, ""), func(t *testing.T) {
+				out, reads, err := terminalWorkerGetBrokenTransport(t, how, mode...)
+				if reads == 0 {
+					t.Fatal("the terminal read never reached the server: the failure did not happen where this test claims")
+				}
+				if err == nil {
+					t.Fatalf("a transport failure was swallowed as success:\n%s", out)
+				}
+				if code := exitCodeFor(err); code == exitcode.OK {
+					t.Fatalf("a transport failure exited 0 (%v)", err)
+				}
+				if strings.Contains(out, "terminal:") || strings.Contains(out, "Iris") || strings.Contains(out, `"terminal"`) {
+					t.Errorf("a failed read must not print a worker result:\n%s", out)
+				}
+			})
+		}
 	}
 }
 
