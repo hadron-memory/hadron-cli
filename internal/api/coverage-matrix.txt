@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 236: 198 command, 12 gap, 26 excluded
+[Query] 236: 199 command, 11 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -80,7 +80,7 @@ authenticationStatus  command auth status
 automationApproval  command automation approval
 automationApprovals  command automation approval
 automationReadGrants  command automation grant list
-automationTeamSnapshotGrant  gap #1619
+automationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 automationTeamSnapshotGrants  command automation team-snapshot-grant list
 calendarEvent  command calendar event get
 calendarEvents  command calendar events

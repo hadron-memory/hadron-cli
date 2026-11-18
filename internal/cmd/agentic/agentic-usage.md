@@ -6601,13 +6601,18 @@ consequence BEFORE any request. --yes skips it. After consent it walks the App's
 entire history (one event PER PAGE), then sends one revoke if the live row is
 found, without a second prompt. Missing row => no revoke; ended row => no repeat.
 The revoke history walk has no --limit flag; do not assume it records one event
-in total. No by-id-provider dependency is introduced (#3381 remains separate).
-Without --instruction, a non-TTY revoke without --yes exits 2 before client setup
-or any history read, even if the row would be ended or missing. With --yes or on
-a TTY, revoke uses --app else the active App and reads its complete grant history.
-A TTY without --yes then confirms returned App ID + trigger kind/ID once. A missing id is uniformly
-not found (exit4) and sends no mutation; an ended row is shown without another
-revoke. set/revoke require --yes without a terminal. Revocation is terminal.
+in total. The by-id read (#3381) has no worker arm, so the instructed revoke
+stays on this history walk.
+Without --instruction (a person), a non-TTY revoke without --yes exits 2 before
+client setup or any lookup, even if the row would be ended or missing. Otherwise
+revoke reads that ONE grant by ID with `automationTeamSnapshotGrant(id:)` (cli#1619):
+no App history is paged, and `--app` and the active App are not needed. `--app`
+is still accepted (a malformed ref still exits 2 before any request) but selects
+nothing: the confirmation names the App the server returned for the grant. A TTY
+without --yes confirms that App ID + trigger kind/ID once. An unknown id, or one in
+an App the caller may not manage, is the same server NOT_FOUND and the same CLI
+error: uniformly not found (exit4) and no mutation; an ended row is shown without
+another revoke. set/revoke require --yes without a terminal. Revocation is terminal.
 No write is retried; a lost response is unknown outcome, so list with
 --include-revoked before retrying. FORBIDDEN is exit8/serverCode FORBIDDEN.
 list reads every page of20 unless --limit is supplied (1..200, exactly one page);

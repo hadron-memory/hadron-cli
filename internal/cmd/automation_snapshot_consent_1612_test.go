@@ -20,7 +20,7 @@ func TestSnapshotRevoke1612NonTTYConsentBeforeLookup(t *testing.T) {
 					row = ""
 				}
 				replies := taskResponses()
-				replies["AutomationTeamSnapshotGrants"] = grantPage1578(row, 1, false)
+				replies["AutomationTeamSnapshotGrantById"] = byIDOrMissing1619(row)
 				writeTeamBinding(t)
 				srv, calls := attnServer(t, replies)
 				setTeamBindingServer(t, srv.URL)
@@ -37,7 +37,7 @@ func TestSnapshotRevoke1612NonTTYConsentBeforeLookup(t *testing.T) {
 				if exitCodeFor(err) != exitcode.Usage || err.Error() != "refusing to proceed without --yes in non-interactive mode" || len(*calls) != 0 || out.String() != "" {
 					t.Fatalf("state=%s ambient=%v exit=%d calls=%+v stdout=%q err=%v", state, ambient, exitCodeFor(err), *calls, out, err)
 				}
-				// Identical target/App/server with consent must reach history, proving
+				// Identical target/App/server with consent must reach the lookup, proving
 				// the zero-call refusal above was not unrelated argument setup.
 				replies["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + endedSnapshot1578() + `}}`
 				root = NewRootCmd(f)
@@ -50,7 +50,7 @@ func TestSnapshotRevoke1612NonTTYConsentBeforeLookup(t *testing.T) {
 				if state == "missing" {
 					wantExit = exitcode.NotFound
 				}
-				if exitCodeFor(err) != wantExit || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 1 || len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != wantWrites {
+				if exitCodeFor(err) != wantExit || len(callsFor(calls, "AutomationTeamSnapshotGrantById")) != 1 || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 || len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != wantWrites {
 					t.Fatalf("yes control state=%s exit=%d calls=%+v err=%v", state, exitCodeFor(err), *calls, err)
 				}
 				if state != "missing" {

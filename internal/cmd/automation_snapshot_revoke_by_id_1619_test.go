@@ -114,3 +114,33 @@ func TestSnapshotRevokeByIDConfirmationShowsTheGrantsApp1619(t *testing.T) {
 		t.Fatalf("declining sends no mutation and reads no list: %+v", *calls)
 	}
 }
+
+// byIDOrMissing1619 is the by-id reply for a row, or the server's NOT_FOUND when
+// the row is empty (an unknown or foreign id answers the same).
+func byIDOrMissing1619(row string) string {
+	if row == "" {
+		return memberGQLError("Team snapshot grant not found", "NOT_FOUND")
+	}
+	return byIDReply1619(row)
+}
+
+// A broken by-id reply never reaches the confirmation or the mutation.
+func TestSnapshotRevokeByIDMalformedReplyNoWrite1619(t *testing.T) {
+	for _, tc := range []struct{ name, reply, want string }{
+		{"null grant", `{"data":{"automationTeamSnapshotGrant":null}}`, "returned no team snapshot grant"},
+		{"incomplete row", byIDReply1619(strings.Replace(snapshotGrant1578, `"createdAt":"2026-11-03T00:00:00Z"`, `"createdAt":""`, 1)), "incomplete team snapshot grant"},
+		{"a different grant", byIDReply1619(strings.ReplaceAll(snapshotGrant1578, "grant1", "other")), "different team snapshot grant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := taskResponses()
+			r["AutomationTeamSnapshotGrantById"] = tc.reply
+			calls, out, err := runTeamTask(t, r, snapshotArgs1578("revoke", "grant1", "--yes", "--json")...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), tc.want) || out != "" {
+				t.Fatalf("err=%v out=%q", err, out)
+			}
+			if len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 {
+				t.Fatalf("a broken reply sends no mutation and does not fall back to the list: %+v", *calls)
+			}
+		})
+	}
+}

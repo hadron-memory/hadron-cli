@@ -144,12 +144,11 @@ func TestSnapshotGrant1578Revoke(t *testing.T) {
 			if state == "ended" {
 				row = ended
 			}
-			items := row
 			if state == "missing" {
-				items = ""
+				row = ""
 			}
 			r := taskResponses()
-			r["AutomationTeamSnapshotGrants"] = `{"data":{"automationTeamSnapshotGrants":{"items":[` + items + `],"total":1,"hasMore":false}}}`
+			r["AutomationTeamSnapshotGrantById"] = byIDOrMissing1619(row)
 			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + ended + `}}`
 			calls, out, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)...)
 			n := 1
@@ -166,8 +165,8 @@ func TestSnapshotGrant1578Revoke(t *testing.T) {
 			if len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != n {
 				t.Fatal(*calls)
 			}
-			q := findCall(t, calls, "AutomationTeamSnapshotGrants")
-			if q.Vars["appRef"] != autoApp || q.Vars["includeRevoked"] != true {
+			q := findCall(t, calls, "AutomationTeamSnapshotGrantById")
+			if !reflect.DeepEqual(q.Vars, map[string]any{"id": "grant1"}) || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 {
 				t.Fatal(q)
 			}
 		})
@@ -178,7 +177,7 @@ func TestSnapshotGrant1578ConfirmShowsAppAndTrigger(t *testing.T) {
 	for _, revoke := range []bool{false, true} {
 		t.Run(fmt.Sprint(revoke), func(t *testing.T) {
 			r := taskResponses()
-			r["AutomationTeamSnapshotGrants"] = `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
+			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
 			srv, calls := attnServer(t, r)
 			f, out, prompt := testFactoryTTY(t, "n\n")
 			root := NewRootCmd(f)
@@ -199,7 +198,9 @@ func TestSnapshotGrant1578ConfirmShowsAppAndTrigger(t *testing.T) {
 					t.Fatalf("confirmation lacks%q: %s", want, text)
 				}
 			}
-			if revoke && !strings.Contains(text, "from --app") {
+			// A person's revoke selects no App, so the prompt names the grant's own App
+			// from the by-id read and does not claim --app chose it (cli#1619).
+			if revoke && strings.Contains(text, "from --app") {
 				t.Fatal(text)
 			}
 			if len(callsFor(calls, "SetAutomationTeamSnapshotGrant"))+len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
@@ -222,7 +223,7 @@ func TestSnapshotGrant1578RootRefusalCode(t *testing.T) {
 			if verb == "revoke" {
 				op = "RevokeAutomationTeamSnapshotGrant"
 				args = append(snapshotArgs1578("revoke", "grant1", "--yes"), "--app", autoApp)
-				replies["AutomationTeamSnapshotGrants"] = fixed(`{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`)
+				replies["AutomationTeamSnapshotGrantById"] = fixed(byIDReply1619(snapshotGrant1578))
 			}
 			replies[op] = fixed(memberGQLError("Forbidden", "FORBIDDEN"))
 			srv := newAutoServer(t, replies)
