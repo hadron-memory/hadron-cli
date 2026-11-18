@@ -65,7 +65,7 @@ func TestFIFOBudgetAcceptance2225(t *testing.T) {
 	if fifoWait2197 != 2*time.Second || fifoChildBudget2197 != 6*time.Second || fifoWatchdog2197 != 10*time.Second {
 		t.Fatalf("FIFO budget changed without changing its acceptance: wait=%s budget=%s watchdog=%s", fifoWait2197, fifoChildBudget2197, fifoWatchdog2197)
 	}
-	if !(fifoWait2197 < fifoChildBudget2197 && fifoChildBudget2197 < fifoWatchdog2197) {
+	if fifoWait2197 >= fifoChildBudget2197 || fifoChildBudget2197 >= fifoWatchdog2197 {
 		t.Fatal("a refusal must fit its budget, and the budget must fit under the watchdog")
 	}
 }
