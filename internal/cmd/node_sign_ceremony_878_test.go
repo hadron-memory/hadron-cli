@@ -275,7 +275,7 @@ func TestSigningCeremonyURL878OldServerSaysUpgrade(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit = %d, want 2 (%v)", code, err)
 	}
-	if !strings.Contains(err.Error(), "upgrade the server") || !strings.Contains(err.Error(), "hadron-server#3120") {
+	if !strings.Contains(err.Error(), node.CeremonyPagesRefusal) {
 		t.Errorf("the old-server message must name the server change: %q", err.Error())
 	}
 	for _, wrong := range []string{"does not offer node signing", "Cannot query field"} {
@@ -309,7 +309,7 @@ func TestSigningCeremonyURL878SigningOffNeverSaysUpgrade(t *testing.T) {
 			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Fatalf("exit = %d, want 2 (%v)", code, err)
 			}
-			if !strings.Contains(err.Error(), "does not offer node signing") {
+			if !strings.Contains(err.Error(), node.SigningOffRefusal) {
 				t.Errorf("message = %q", err.Error())
 			}
 			if strings.Contains(err.Error(), "upgrade") {
@@ -341,7 +341,7 @@ func TestSigningCeremonyURL878SurfaceRefusalNeverProbes(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit = %d, want 2 (%v)", code, err)
 	}
-	if !strings.Contains(err.Error(), "does not offer node signing") {
+	if !strings.Contains(err.Error(), node.SigningOffRefusal) {
 		t.Errorf("message = %q", err.Error())
 	}
 	if calls != 0 {
@@ -477,7 +477,7 @@ func TestSigningCeremonyURL878OldServerRefusalAcrossCommands(t *testing.T) {
 			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Fatalf("exit = %d, want 2 (%v)", code, err)
 			}
-			if !strings.Contains(err.Error(), "hadron-server#3120") {
+			if !strings.Contains(err.Error(), node.CeremonyPagesRefusal) {
 				t.Errorf("the old-server message must name the server change: %q", err.Error())
 			}
 		})
@@ -507,7 +507,7 @@ func TestSigningCeremonyURL878PagedListRefusalWinsAndNeverProbes(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit = %d, want 2 (%v)", code, err)
 	}
-	if !strings.Contains(err.Error(), "paged signing-request list") || !strings.Contains(err.Error(), "hadron-server#4123") {
+	if !strings.Contains(err.Error(), node.PagedListRefusal) {
 		t.Errorf("the paged-list refusal must keep its own message: %q", err.Error())
 	}
 	if calls != 0 {
@@ -558,7 +558,7 @@ func TestSigningCeremonyURL878CheckPathCarriesTheProbe(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit = %d, want 2 (%v)", code, err)
 	}
-	if !strings.Contains(err.Error(), "hadron-server#3120") {
+	if !strings.Contains(err.Error(), node.CeremonyPagesRefusal) {
 		t.Errorf("the check path must give the bounded old-server answer: %q", err.Error())
 	}
 	// The probe must read the command's own --server, exactly as the get path
@@ -583,7 +583,7 @@ func TestSigningCeremonyURL878CheckPathSigningOffNeverSaysUpgrade(t *testing.T) 
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit = %d, want 2 (%v)", code, err)
 	}
-	if !strings.Contains(err.Error(), "does not offer node signing") {
+	if !strings.Contains(err.Error(), node.SigningOffRefusal) {
 		t.Errorf("message = %q", err.Error())
 	}
 	if strings.Contains(err.Error(), "upgrade") {

@@ -152,6 +152,15 @@ func newCeremonyTokenProbe(ctx context.Context, f *cmdutil.Factory) ceremonyToke
 	}
 }
 
+// The three mapSigningError refusals. Named so the tests assert against the
+// message itself, not a hard-coded copy of its most distinctive fragment:
+// the wording lives here, once.
+const (
+	PagedListRefusal     = "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)"
+	CeremonyPagesRefusal = "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)"
+	SigningOffRefusal    = "this server does not offer node signing"
+)
+
 // requestIsOpen reports the one state whose link still leads somewhere: an
 // ended request's link only explains that it ended (the schema's own words),
 // so text prints it while OPEN only.
@@ -187,7 +196,7 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 	// hadron-server#4123) is told so: "does not offer node signing" would be
 	// wrong, and there is no fallback to the unpaged read (cli#2032).
 	if api.IsGraphQLValidationFor(err, "signingRequestsPage") {
-		return exitcode.Newf(exitcode.Usage, "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)")
+		return exitcode.Newf(exitcode.Usage, PagedListRefusal)
 	}
 	// SigningRequest.ceremonyUrl is newer than the rest of the surface
 	// (hadron-server#3120), so a server can have signing and still refuse
@@ -207,13 +216,13 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 			return api.MapError(err)
 		}
 		if advertised, perr := ceremonyToken(); perr == nil && advertised {
-			return exitcode.Newf(exitcode.Usage, "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)")
+			return exitcode.Newf(exitcode.Usage, CeremonyPagesRefusal)
 		}
-		return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
+		return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
 	}
 	for _, name := range signingFields {
 		if api.IsGraphQLValidationFor(err, name) {
-			return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
+			return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
 		}
 	}
 	return api.MapError(err)
