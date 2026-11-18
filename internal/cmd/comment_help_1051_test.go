@@ -32,6 +32,17 @@ func TestCommentHelpWordingFromTheReRead1051(t *testing.T) {
 	if !strings.Contains(del, "as a memory manager:") || !strings.Contains(delFlags["thread"], "a memory manager") {
 		t.Errorf("comment delete must name the --thread permission a memory manager: %q / %q", del, delFlags["thread"])
 	}
+	// Evaluator Gemma (AT0.8437), P3: the flag said "(required)" while the --thread
+	// paragraph says no --expected-revision is needed. Only delete changes.
+	if got := delFlags["expected-revision"]; !strings.Contains(got, "(required unless --thread)") {
+		t.Errorf("comment delete --expected-revision usage must say it is not needed with --thread: %q", got)
+	}
+	for _, verb := range []string{"edit", "resolve"} {
+		_, flags := find(verb)
+		if got := flags["expected-revision"]; !strings.HasSuffix(got, "(required)") {
+			t.Errorf("comment %s --expected-revision usage changed: %q", verb, got)
+		}
+	}
 	add, _ := find("add")
 	if !strings.Contains(add, "Needs write access to the memory.") {
 		t.Error("comment add does not say it needs write access to the memory")

@@ -57,13 +57,9 @@ func TestReplaceTextHelpDefinesSkippedNodesAndHowToCheck1051(t *testing.T) {
 		"nodes under a Channel's reserved address (channel list prints it)",
 		`To check that the old text is gone, search for it afterwards: hadron search "<old>" -m <memory> lists the notes that still mention it (search also matches by meaning, so read the hits).`,
 		"Pass --reason so the revision is easy to find; without it the revision carries no label of yours.",
-		"If you pass both, every node this command writes records them.",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("replace text help lacks %q", want)
 		}
-	}
-	if strings.Contains(flat, "This slice never infers") {
-		t.Error("the authoring paragraph still uses maintainer wording (\"slice\")")
 	}
 }

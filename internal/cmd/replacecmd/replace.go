@@ -89,11 +89,17 @@ Choose the nodes with --node (a node URN or id, repeatable), with -m/--memory
 (every node in that memory, repeatable), or both; at least one is required.
 Needs write access to every memory it writes in.
 
-Some nodes are never changed, and are skipped without a warning: comments
-(change them with comment edit), governed nodes such as specs and reviews
-(they have their own commands), compiled boot prompts, and nodes at protected
-addresses. Skipped nodes are not counted in "scanned", and this command does
-not report how many were skipped.
+Some nodes are never changed, and are skipped without a warning. A skipped
+node still has the old text:
+  - comments (change them with comment edit);
+  - governed nodes: specs, reviews and runnable tasks (spec edit and spec
+    replace change specs);
+  - compiled boot prompts (a compile writes them: team worker compile);
+  - nodes under a Channel's reserved address (channel list prints it).
+Skipped nodes are not counted in "scanned", and this command does not report
+how many were skipped. To check that the old text is gone, search for it
+afterwards: hadron search "<old>" -m <memory> lists the notes that still
+mention it (search also matches by meaning, so read the hits).
 
 --prefix narrows a --memory to one branch: the node at that loc and
 everything below it (it matches on ':' boundaries, so 'auth' matches 'auth'
@@ -124,7 +130,9 @@ scanned."), then a table of the changed nodes: LOC, REPLACEMENTS and FIELDS
 nodesChanged, totalReplacements, dryRun and results.
 
 Before it changes a node, it saves the node's previous text as a revision
-in its version history, labelled with --reason if you give one. To undo the
+in its version history, labelled with --reason if you give one. Pass --reason
+so the revision is easy to find; without it the revision carries no label of
+yours. To undo the
 replacement on a node, find that revision in hadron node revision list <node>
 (its LABEL is your --reason; it is the newest only until the node is edited
 again) and restore it with hadron node revision restore <revision-id>.`,

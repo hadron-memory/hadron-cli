@@ -48,7 +48,7 @@ section between the markers.
 | `comment` |  |  | y | #1051 | dbb54d56ed07 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
 | `comment add` |  |  | y | #1051 | 2e3691c4d15d |  | unread |  |
 | `comment create` |  |  | y | #1051 | d1cf5a1d1ed5 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
-| `comment delete` |  |  | y | #1051 | b9b8cd83d7fc |  | unread |  |
+| `comment delete` |  |  | y | #1051 | 274a20037bce |  | unread |  |
 | `comment edit` |  |  | y | #1051 | 5d247c71d0b3 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
 | `comment get` |  |  | y | #1051 | bc93fd9bb333 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
 | `comment list` | ls |  | y | #1051 | 1ad116c0f64c | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
@@ -170,7 +170,7 @@ section between the markers.
 | `object get` |  |  | y | #1051 | b1d69137efe0 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `object update` |  |  | y | #1051 | b8cd5b0de76d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `replace` |  |  | y | #1051 | 369a60e32405 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
-| `replace text` |  |  | y | #1051 | dc41729bc5c1 |  | unread |  |
+| `replace text` |  |  | y | #1051 | 84070fb55d55 |  | unread |  |
 | `search` |  |  | y | #1051 | a0f17aa172e1 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6509143748) |
 <!-- group:1051 end -->
 
