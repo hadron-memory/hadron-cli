@@ -31,18 +31,15 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List one page of an organization's page-monitor watches (org ADMIN)",
 		Long: `List one page of the page-monitor watches the server returns for an
 organization (org ADMIN/OWNER). One call shows one page: 20 watches by default,
-at most 100 (--limit above that is clamped by the server, not refused here).
+at most 100 (a larger --limit is clamped by the server, not refused here).
 
 When there are more, the output ends with "has more: true" and a "next cursor"
-line; pass that cursor to --after to read the next page. Pass it back exactly
-as printed: it is opaque and the CLI never builds or edits one. Each page
-reflects the list at the time of that call; the command states no total and
-does not claim to show every watch, and an empty page means no rows on that
-page, not that no watches exist.
+line; pass that value to --after to read the next page, exactly as printed
+(--json carries the same value in nextCursor). Each page is a snapshot at the
+time of the call; an empty page means no rows on that page.
 
 --json prints {items, hasMore, nextCursor}: the watches under items, and
-nextCursor null when there is no further page. (Before cli#2032 this printed a
-bare array.)`,
+nextCursor null when there is no further page.`,
 		Example: `  hadron web-poll list --org acme.com
   hadron web-poll list --org acme.com --limit 50 --json
   hadron web-poll list --org acme.com --after <next cursor from the previous page>`,
@@ -79,7 +76,11 @@ bare array.)`,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Items) == 0 {
-					if _, err := fmt.Fprintln(w, "no watches on this page"); err != nil {
+					msg := "no watches on this page"
+					if afterPtr == nil && !dto.HasMore {
+						msg = "no watches"
+					}
+					if _, err := fmt.Fprintln(w, msg); err != nil {
 						return err
 					}
 				} else {

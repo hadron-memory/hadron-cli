@@ -31,8 +31,9 @@ Neither walks pages: continuing is an explicit second invocation.
   and, only when there is a cursor, `next cursor: <cursor>`. An empty page says
   it is empty on that page, never that nothing exists.
 - **Untrustworthy metadata is an error, not an empty success** (exit 1, no
-  output): a missing page, `hasMore` with a missing or empty cursor, or a cursor
-  equal to the one the request sent. `cmdutil.CheckPage` holds the rule; it
+  output): a missing page, `hasMore` with a missing or empty cursor, a cursor
+  equal to the one the request sent, or a final page (`hasMore` false) that still
+  carries a cursor (the terminal page has `nextCursor` null). `cmdutil.CheckPage` holds the rule; it
   reads the cursor as an opaque string only.
 - **No fallback.** A server without the page fields answers with its own
   refusal; the CLI does not fall back to the deprecated arrays. Refusal mapping

@@ -424,19 +424,19 @@ func newCmdSigningRequestList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List one page of a node's signing requests, newest first",
 		Long: `List one page of the node's signing requests, newest first, including ended
-ones. One call shows one page: 20 requests by default, at most 100 (--limit
-above that is clamped by the server, not refused here). --state filters on the
+ones. One call shows one page: 20 requests by default, at most 100 (a larger
+--limit is clamped by the server, not refused here). --state filters on the
 effective state: an open request past its deadline reads EXPIRED.
 
 When there are more, the output ends with "has more: true" and a "next cursor"
-line; pass that cursor to --after to read the next page. Pass it back exactly
-as printed: it is opaque and the CLI never builds or edits one. Each page
-reflects the list at the time of that call, and an empty page means no
-requests on that page, not that none exist. --json adds hasMore and nextCursor
-(null when there is no further page) beside requests.`,
+line; pass that value to --after to read the next page, exactly as printed
+(--json carries the same value in nextCursor), and give the same --state again.
+Each page is a snapshot at the time of the call; an empty page means no
+requests on that page. --json adds hasMore and nextCursor (null when there is
+no further page) beside requests.`,
 		Example: `  hadron node signing-request list hrn:node:hadronmemory.com:dev:decisions:dk-001
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json
-  hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --after <next cursor from the previous page>`,
+  hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --after <next cursor from the previous page>`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var statePtr *gen.SigningRequestState
@@ -490,7 +490,13 @@ requests on that page, not that none exist. --json adds hasMore and nextCursor
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Requests) == 0 {
-					fmt.Fprintf(w, "%s: no signing requests on this page\n", dto.URN)
+					msg := "no signing requests on this page"
+					if afterPtr == nil && !dto.HasMore {
+						msg = "no signing requests"
+					}
+					if _, err := fmt.Fprintf(w, "%s: %s\n", dto.URN, msg); err != nil {
+						return err
+					}
 				} else {
 					t := output.NewTable(w, "ID", "STATE", "REVISION", "SIGNER", "CREATED", "EXPIRES")
 					for _, r := range dto.Requests {
@@ -504,9 +510,13 @@ requests on that page, not that none exist. --json adds hasMore and nextCursor
 						return err
 					}
 				}
-				fmt.Fprintf(w, "has more: %t\n", dto.HasMore)
+				if _, err := fmt.Fprintf(w, "has more: %t\n", dto.HasMore); err != nil {
+					return err
+				}
 				if dto.NextCursor != nil {
-					fmt.Fprintf(w, "next cursor: %s\n", output.SafeCell(*dto.NextCursor))
+					if _, err := fmt.Fprintf(w, "next cursor: %s\n", output.SafeCell(*dto.NextCursor)); err != nil {
+						return err
+					}
 				}
 				return nil
 			})

@@ -37,11 +37,15 @@ func PageAfter(cmd *cobra.Command, after string) (*string, error) {
 }
 
 // CheckPage rejects page metadata that cannot be trusted, so a malformed reply
-// is an error and never an empty or partial success: hasMore with no usable
-// cursor, or a cursor equal to the one this request sent (the page did not
-// advance). It reads the cursor as an opaque string and does not interpret it.
+// is an error and never an empty or partial success. The terminal page has
+// hasMore false and a null cursor, and a page with more rows has a non-empty
+// cursor that differs from the one this request sent (the page did advance).
+// It reads the cursor as an opaque string and does not interpret it.
 func CheckPage(hasMore bool, nextCursor, sentAfter *string) error {
 	if !hasMore {
+		if nextCursor != nil {
+			return exitcode.Newf(exitcode.Error, "server returned a final page that still carries a cursor")
+		}
 		return nil
 	}
 	if nextCursor == nil || *nextCursor == "" {

@@ -3,13 +3,17 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // cli#2032: web-poll list and node signing-request list adopt the paged reads
@@ -20,8 +24,9 @@ import (
 // schema (the QA seat's disposable-stack leg covers that).
 
 type pagedCall2032 struct {
-	op   string
-	vars map[string]any
+	name  string
+	query string
+	vars  map[string]any
 }
 
 type pagedServer2032 struct {
@@ -86,7 +91,7 @@ func (p *pagedServer2032) serve(t *testing.T) *httptest.Server {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		p.mu.Lock()
-		p.calls = append(p.calls, pagedCall2032{op: body.OperationName + "|" + body.Query, vars: body.Variables})
+		p.calls = append(p.calls, pagedCall2032{name: body.OperationName, query: body.Query, vars: body.Variables})
 		p.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if p.reply != nil {
@@ -127,7 +132,7 @@ func (p *pagedServer2032) listCalls(prefix string) []pagedCall2032 {
 	defer p.mu.Unlock()
 	var out []pagedCall2032
 	for _, c := range p.calls {
-		if strings.HasPrefix(c.op, prefix+"|") {
+		if c.name == prefix {
 			out = append(out, c)
 		}
 	}
@@ -233,7 +238,7 @@ func TestWebPollListPagesByExplicitCursor2032(t *testing.T) {
 			t.Fatalf("step %d: variables %v", i, last)
 		}
 	}
-	if strings.Contains(strings.Join(callOps2032(p), ","), "WebPolls|") {
+	if slices.Contains(callOps2032(p), "WebPolls") {
 		t.Fatal("the deprecated unpaged webPolls read was used")
 	}
 }
@@ -243,7 +248,7 @@ func callOps2032(p *pagedServer2032) []string {
 	defer p.mu.Unlock()
 	var ops []string
 	for _, c := range p.calls {
-		ops = append(ops, strings.SplitN(c.op, "|", 2)[0]+"|")
+		ops = append(ops, c.name)
 	}
 	return ops
 }
@@ -256,7 +261,7 @@ func TestWebPollListQueriesThePageField2032(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := p.listCalls("WebPollsPage")
-	if len(calls) != 1 || !strings.Contains(calls[0].op, "webPollsPage(") || strings.Contains(calls[0].op, " webPolls(") || strings.Contains(calls[0].op, "total") {
+	if len(calls) != 1 || !strings.Contains(calls[0].query, "webPollsPage(") || strings.Contains(calls[0].query, " webPolls(") || strings.Contains(calls[0].query, "total") {
 		t.Fatalf("calls %v", calls)
 	}
 }
@@ -270,7 +275,7 @@ func TestWebPollListLimit2032(t *testing.T) {
 	for _, tc := range []struct {
 		limit string
 		want  int
-	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}} {
+	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}, {"2147483647", 100}} {
 		out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--limit", tc.limit, "--json")
 		if err != nil {
 			t.Fatalf("--limit %s: %v", tc.limit, err)
@@ -391,7 +396,7 @@ func TestWebPollListOlderServerIsAnErrorNotAnEmptyList2032(t *testing.T) {
 	if err == nil || strings.Contains(out, `"items"`) {
 		t.Fatalf("out %q err %v", out, err)
 	}
-	if strings.Contains(strings.Join(callOps2032(p), ","), "WebPolls|") {
+	if slices.Contains(callOps2032(p), "WebPolls") {
 		t.Fatal("fell back to the deprecated read")
 	}
 }
@@ -467,7 +472,7 @@ func TestSigningRequestListQueriesThePageField2032(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := p.listCalls("NodeSigningRequests")
-	if len(calls) != 1 || !strings.Contains(calls[0].op, "signingRequestsPage(") || strings.Contains(calls[0].op, " signingRequests(") || strings.Contains(calls[0].op, "total") {
+	if len(calls) != 1 || !strings.Contains(calls[0].query, "signingRequestsPage(") || strings.Contains(calls[0].query, " signingRequests(") || strings.Contains(calls[0].query, "total") {
 		t.Fatalf("calls %v", calls)
 	}
 }
@@ -484,7 +489,7 @@ func TestSigningRequestListLimit2032(t *testing.T) {
 	for _, tc := range []struct {
 		limit string
 		want  int
-	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}} {
+	}{{"1", 1}, {"20", 20}, {"100", 100}, {"101", 100}, {"2147483647", 100}} {
 		out, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--limit", tc.limit, "--json")
 		if err != nil {
 			t.Fatalf("--limit %s: %v", tc.limit, err)
@@ -577,5 +582,121 @@ func TestSigningRequestListRefusesUntrustworthyPageMetadata2032(t *testing.T) {
 		if exitCodeFor(err) != 1 || strings.Contains(out, "hasMore") || strings.Contains(out, "w001") || strings.Contains(out, "ro001") {
 			t.Fatalf("%s: exit %d stdout %q err %v", name, exitCodeFor(err), out, err)
 		}
+	}
+}
+
+// BLIND P2 (terminal page): hasMore false means a null cursor. A final page
+// that still carries one (empty, repeated or any other) is an error, never a
+// success that prints a continuation line.
+func TestPagedListRefusesATerminalPageWithACursor2032(t *testing.T) {
+	row := poll2032(1)
+	sr := signingRow2032("ro001", "OPEN")
+	for name, cur := range map[string]string{"empty": `""`, "repeated": `"opaque-7"`, "other": `"opaque-99"`} {
+		cur := cur
+		pw := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) {
+			return `{"data":{"webPollsPage":{"items":[` + row + `],"hasMore":false,"nextCursor":` + cur + `}}}`, op == "WebPollsPage"
+		}}
+		if out, err := run2032(t, pw.serve(t), "web-poll", "list", "--org", "acme.com", "--after", "opaque-7"); exitCodeFor(err) != 1 || strings.Contains(out, "has more") {
+			t.Fatalf("web-poll %s: exit %d out %q", name, exitCodeFor(err), out)
+		}
+		ps := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) {
+			return `{"data":{"node":{"id":"n1","urn":"u","loc":"l","signingRequestsPage":{"items":[` + sr + `],"hasMore":false,"nextCursor":` + cur + `}}}}`, op == "NodeSigningRequests"
+		}}
+		if out, err := run2032(t, ps.serve(t), "node", "signing-request", "list", nodeURN, "--after", "opaque-7"); exitCodeFor(err) != 1 || strings.Contains(out, "has more") {
+			t.Fatalf("signing %s: exit %d out %q", name, exitCodeFor(err), out)
+		}
+	}
+}
+
+// failingWriter2032 fails once a write contains the marker, like a closed pipe
+// at the footer: the table before it goes through.
+type failingWriter2032 struct {
+	b      strings.Builder
+	marker string
+}
+
+func (w *failingWriter2032) Write(p []byte) (int, error) {
+	if strings.Contains(string(p), w.marker) {
+		return 0, io.ErrClosedPipe
+	}
+	return w.b.Write(p)
+}
+
+// BLIND P2 / LOCAL P3: a failed write of the continuation line is a failed
+// command, not a success that lost the cursor.
+func TestPagedListFooterWriteFailureFails2032(t *testing.T) {
+	p := &pagedServer2032{polls: polls2032(25), requests: signingFixture2032()}
+	srv := p.serve(t)
+	for _, tc := range []struct {
+		name   string
+		args   []string
+		marker string
+	}{
+		{"web-poll has more", []string{"web-poll", "list", "--org", "acme.com"}, "has more"},
+		{"web-poll next cursor", []string{"web-poll", "list", "--org", "acme.com"}, "next cursor"},
+		{"signing has more", []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "has more"},
+		{"signing next cursor", []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "next cursor"},
+	} {
+		f, _ := testFactory(t)
+		fw := &failingWriter2032{marker: tc.marker}
+		f.IOStreams.Out = output.Tracked(fw)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, tc.args...), "--server", srv.URL))
+		if err := root.Execute(); err == nil {
+			t.Fatalf("%s: a failed footer write reported success", tc.name)
+		}
+	}
+}
+
+// BLIND P3: the cursor a human page prints is the one --after accepts. Real
+// keyset cursors are url-safe base64 with dots, dashes and padding; the human
+// line passes them through unchanged, so copy-paste round-trips.
+func TestPagedListHumanCursorRoundTrips2032(t *testing.T) {
+	const token = "eyJ2IjoxLCJrIjpbImpvYl8wMjAiXX0.sig-_Z9aZ=="
+	row := poll2032(1)
+	pw := &pagedServer2032{reply: func(op string, vars map[string]any) (string, bool) {
+		if op != "WebPollsPage" {
+			return "", false
+		}
+		if vars["after"] == token {
+			return `{"data":{"webPollsPage":{"items":[` + row + `],"hasMore":false,"nextCursor":null}}}`, true
+		}
+		return `{"data":{"webPollsPage":{"items":[` + row + `],"hasMore":true,"nextCursor":"` + token + `"}}}`, true
+	}}
+	srv := pw.serve(t)
+	out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var printed string
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(line, "next cursor: "); ok {
+			printed = v
+		}
+	}
+	if printed != token {
+		t.Fatalf("printed %q, want %q\n%s", printed, token, out)
+	}
+	if _, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com", "--after", printed); err != nil {
+		t.Fatal(err)
+	}
+	calls := pw.listCalls("WebPollsPage")
+	if got := calls[len(calls)-1].vars["after"]; got != token {
+		t.Fatalf("--after forwarded as %v", got)
+	}
+}
+
+// UX P3: the very first page of an empty list says there is nothing, not
+// "on this page"; a later empty page still says "on this page".
+func TestPagedListEmptyFirstPageSaysNothingExists2032(t *testing.T) {
+	p := &pagedServer2032{}
+	srv := p.serve(t)
+	out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com")
+	if err != nil || !strings.Contains(out, "no watches\n") || strings.Contains(out, "on this page") {
+		t.Fatalf("web-poll: %v\n%s", err, out)
+	}
+	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN)
+	if err != nil || !strings.Contains(out, ": no signing requests\n") || strings.Contains(out, "on this page") {
+		t.Fatalf("signing: %v\n%s", err, out)
 	}
 }
