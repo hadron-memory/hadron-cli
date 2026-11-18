@@ -451,7 +451,7 @@ section between the markers.
 | `team` |  |  | n | #1054 | fb3a1dfeae0d |  | unread |  |
 | `team alarm` |  |  | n | #1054 | 2bb11981015a |  | unread |  |
 | `team alarm ack` |  |  | n | #1054 | 10a770fb6b08 |  | unread |  |
-| `team alarms` |  |  | y | #1054 | d8aa8b7b546f |  | unread |  |
+| `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
 | `team attention` |  |  | n | #1054 | ce4dafa9f309 |  | unread |  |
@@ -460,7 +460,7 @@ section between the markers.
 | `team attention switchover preview` |  |  | n | #1054 | bb8c5a97c9d5 |  | unread |  |
 | `team availability` |  |  | n | #1054 | 4ba113cdde0c |  | unread |  |
 | `team availability get` |  |  | n | #1054 | d0b01e0f621b |  | unread |  |
-| `team availability set` |  |  | n | #1054 | 20597ee9d452 |  | unread |  |
+| `team availability set` |  |  | y | #1054 | 352870702560 |  | unread |  |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
 | `team chat` |  |  | n | #1054 | 65fec19f03a4 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
