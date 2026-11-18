@@ -118,7 +118,7 @@ A fourth guard, `!u.IsAbs()`, was equivalent to the scheme allow-list and was re
 
 The server hosts the ceremony page and returns its link on the request. The CLI copies it verbatim and never composes one — an output URL containing the `--server` host would be a composed one, and the pins hold a fixture host that deliberately differs from the fake server's for exactly that.
 
-**Verbatim is not raw** (BLIND P2 1, cli#2519): the line exists so a person will open it, so a hostile value must not reach a TTY byte for byte. Text mode (`ceremonyText`, `internal/cmd/node/sign.go`) prints the value verbatim only when it parses as an absolute http(s) URL whose runes are all display-neutral-clean — the same classification as a table cell; anything else goes through `output.SafeCell` (an OSC 8 hyperlink can hide the real target, OSC 52 writes the clipboard, an embedded newline forges lines). `--json` keeps the raw value either way.
+**Verbatim is not raw** (BLIND P2 1, cli#2519): the line exists so a person will open it, so a hostile value must not reach a TTY byte for byte. Text mode (`ceremonyText`, `internal/cmd/node/sign.go`) prints the value verbatim when it parses as a URL and its runes are all display-neutral-clean — the same classification as a table cell; anything else goes through `output.SafeCell` (an OSC 8 hyperlink can hide the real target, OSC 52 writes the clipboard, an embedded newline forges lines). No scheme test applies to the text: a clean non-web value prints byte-identically through either arm, so the earlier "absolute http(s)" wording overstated (cli#2521); the scheme gate lives where it acts, on opening a page. `--json` keeps the raw value either way.
 
 ### Where the link appears
 

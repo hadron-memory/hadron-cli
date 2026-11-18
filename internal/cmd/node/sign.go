@@ -169,18 +169,23 @@ func requestIsOpen(state string) bool {
 }
 
 // ceremonyText renders the ceremony URL for text mode. Verbatim when the
-// value is the web address it must be — an absolute http(s) URL whose runes
-// are all display-neutral-clean (the same classification as table cells);
-// url.Parse itself rejects control characters, but format characters such as
-// bidi overrides parse fine. Anything else is a server string that must not
-// reach the terminal raw (an OSC 8 hyperlink can hide the real target, OSC 52
-// writes the clipboard, an embedded newline forges lines), so it goes through
-// the same neutralisation as a table cell: still readable, never executable.
-// "Copied verbatim, never composed" is about not building the URL; --json
-// carries the raw value either way (BLIND F1).
+// value parses as a URL and its runes are all display-neutral-clean (the same
+// classification as table cells); url.Parse itself rejects control characters,
+// but format characters such as bidi overrides parse fine. Anything else is a
+// server string that must not reach the terminal raw (an OSC 8 hyperlink can
+// hide the real target, OSC 52 writes the clipboard, an embedded newline
+// forges lines), so it goes through the same neutralisation as a table cell:
+// still readable, never executable. No scheme test applies here: a clean
+// non-web value (javascript:alert(1), ftp://h/x) is byte-identical through
+// SafeCell, so classifying it would change no output — the scheme gate lives
+// where it acts, on opening a page (auth/passkey_revoke_page.go). One corner
+// differs: a clean value longer than SafeCell's 256-rune bound now prints in
+// full like a long web URL, instead of being truncated. "Copied verbatim,
+// never composed" is about not building the URL; --json carries the raw value
+// either way.
 func ceremonyText(u string) string {
 	if !strings.ContainsFunc(u, output.Neutralised) {
-		if parsed, err := url.Parse(u); err == nil && api.URLIsSecure(parsed) {
+		if _, err := url.Parse(u); err == nil {
 			return u
 		}
 	}
@@ -525,8 +530,8 @@ line; pass that value to --after to read the next page, exactly as printed
 Each page is a snapshot at the time of the call; an empty page means no
 requests on that page. Each OPEN row's ceremony link follows the table as
 "<id> ceremony: <url>" (an ended row prints none); --json adds ceremonyUrl on
-every row, and hasMore and nextCursor (null when there is
-no further page) beside requests.`,
+every row, and hasMore and nextCursor (null when there is no further
+page) beside requests.`,
 		Example: `  hadron node signing-request list hrn:node:hadronmemory.com:dev:decisions:dk-001
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --after <next cursor from the previous page>`,
