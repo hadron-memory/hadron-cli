@@ -63,15 +63,20 @@ type signedText struct {
 }
 
 type localChecker struct {
-	ctx      context.Context
-	client   graphql.Client
-	nodeRef  string
-	nodeID   string
-	requests map[string]*gen.GetSigningRequestSigningRequest
-	texts    map[int]*signedText
-	history  map[int]*signedText
-	scanned  bool
-	scanErr  error // set when the history scan was capped
+	ctx     context.Context
+	client  graphql.Client
+	nodeRef string
+	nodeID  string
+	// ceremonyToken disambiguates a ceremonyUrl validation refusal (an older
+	// server with signing) from a switched-off one for mapSigningError. Set by
+	// the owning command; nil makes that mapping fall through to the generic
+	// advice instead of guessing (cli#878 part 2).
+	ceremonyToken ceremonyTokenProbe
+	requests      map[string]*gen.GetSigningRequestSigningRequest
+	texts         map[int]*signedText
+	history       map[int]*signedText
+	scanned       bool
+	scanErr       error // set when the history scan was capped
 
 	currentRead bool
 	currentRev  int
@@ -149,7 +154,7 @@ func (c *localChecker) request(id string) (*gen.GetSigningRequestSigningRequest,
 			c.requests[id] = nil
 			return nil, nil
 		}
-		return nil, mapSigningError(err)
+		return nil, mapSigningError(err, c.ceremonyToken)
 	}
 	c.requests[id] = resp.SigningRequest
 	return resp.SigningRequest, nil

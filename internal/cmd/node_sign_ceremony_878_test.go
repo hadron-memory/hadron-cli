@@ -10,12 +10,25 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
+
+// ceremonyURLField asserts the server's ceremonyUrl came through --json
+// verbatim. --json is indented by contract, so the field is read by
+// unmarshalling, never by a compact substring.
+func ceremonyURLField(t *testing.T, out string) any {
+	t.Helper()
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err, out)
+	}
+	return dto["ceremonyUrl"]
+}
 
 // ceremonyHost deliberately differs from the fake server's host: an output URL
 // containing the --server host would be a composed one, and composing is
@@ -72,8 +85,8 @@ func TestSigningCeremonyURL878GetJSONCarriesIt(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if want := `"ceremonyUrl":"` + ceremonyURLSr1 + `"`; !strings.Contains(out.String(), want) {
-		t.Errorf("--json must carry the server's ceremonyUrl verbatim:\n%s", out.String())
+	if got := ceremonyURLField(t, out.String()); got != ceremonyURLSr1 {
+		t.Errorf("--json must carry the server's ceremonyUrl verbatim, got %v:\n%s", got, out.String())
 	}
 }
 
@@ -100,8 +113,8 @@ func TestSigningCeremonyURL878EndedRequestHasNoTextLineButJSONCarriesIt(t *testi
 			if err := root2.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if want := `"ceremonyUrl":"` + ceremonyURLSr1 + `"`; !strings.Contains(out2.String(), want) {
-				t.Errorf("--json must carry ceremonyUrl for a %s request too:\n%s", state, out2.String())
+			if got := ceremonyURLField(t, out2.String()); got != ceremonyURLSr1 {
+				t.Errorf("--json must carry ceremonyUrl for a %s request too, got %v:\n%s", state, got, out2.String())
 			}
 		})
 	}
@@ -142,8 +155,8 @@ func TestSigningWithdraw878EndedRequestHasNoTextLineButJSONCarriesIt(t *testing.
 	if err := root2.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if want := `"ceremonyUrl":"` + ceremonyURLSr1 + `"`; !strings.Contains(out2.String(), want) {
-		t.Errorf("--json must carry the withdrawn request's ceremonyUrl:\n%s", out2.String())
+	if got := ceremonyURLField(t, out2.String()); got != ceremonyURLSr1 {
+		t.Errorf("--json must carry the withdrawn request's ceremonyUrl, got %v:\n%s", got, out2.String())
 	}
 }
 
@@ -175,10 +188,20 @@ func TestSigningRequestList878OpenRowsGetCeremonyLines(t *testing.T) {
 	if err := root2.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"ceremonyUrl":"` + ceremonyURLSr1 + `"`, `"ceremonyUrl":"` + ceremonyURLSr2 + `"`} {
-		if !strings.Contains(out2.String(), want) {
-			t.Errorf("--json must carry every row's ceremonyUrl (%s missing):\n%s", want, out2.String())
-		}
+	// --json is indented by contract, so read the rows by unmarshalling; the
+	// two fixture rows share an id, so the check is positional.
+	var listDTO struct {
+		Requests []struct {
+			CeremonyURL string `json:"ceremonyUrl"`
+		} `json:"requests"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &listDTO); err != nil {
+		t.Fatal(err, out2.String())
+	}
+	if len(listDTO.Requests) != 2 ||
+		listDTO.Requests[0].CeremonyURL != ceremonyURLSr1 ||
+		listDTO.Requests[1].CeremonyURL != ceremonyURLSr2 {
+		t.Errorf("--json must carry every row's own ceremonyUrl, got %+v:\n%s", listDTO.Requests, out2.String())
 	}
 }
 

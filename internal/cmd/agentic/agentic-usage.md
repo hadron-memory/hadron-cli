@@ -1424,9 +1424,14 @@ Conventions:
     assertion or key material. `node sign <ref> [--revision N] [--signer
     <user-id>]` creates a signing request for the current revision and prints
     it (`--json`: id, nodeId, nodeUrn, revision, approvalHash, payloadVersion,
-    state, createdAt, expiresAt, endedAt, namedSigner, requestedBy
-    {userId, appId, workerId, sessionId}, signature). A person completes it
-    with their passkey on the server's signing page. It ends exactly once:
+    state, ceremonyUrl, createdAt, expiresAt, endedAt, namedSigner,
+    requestedBy {userId, appId, workerId, sessionId}, signature). A person
+    completes it with their passkey on the server's signing page, whose link
+    the server returns (ceremonyUrl, hadron-server#3120): text prints
+    `ceremony: <url>` — copied verbatim, never composed — while the request
+    is OPEN only (an ended request's link only explains that it ended; its
+    URL stays in --json, which carries the field for every state); `list`
+    prints each OPEN row's `id ceremony: <url>` line under the table. It ends exactly once:
     COMPLETED, DECLINED, WITHDRAWN, EXPIRED or STALE (the title, abstract or
     content changed). `node signing-request get <id>` reads one (exit 4 when
     unknown or unreadable), `list <ref> [--state s] [--limit N] [--after
@@ -1453,7 +1458,13 @@ Conventions:
     SIGNING_REQUEST_ENDED exit 5; COMMENT_NOT_SIGNABLE exits 2;
     SIGNING_REQUEST_NOT_REQUESTER exits 8. A server that does not offer
     signing refuses every one of these commands with exit 2, "this server
-    does not offer node signing".
+    does not offer node signing". A server that offers signing but predates
+    ceremony pages (older than hadron-server#3120) refuses the ceremonyUrl
+    read with exit 2, "this server does not offer signing-request ceremony
+    pages; upgrade the server (hadron-server#3120)"; the two refusals are
+    told apart by the node-signing capability token, never by version
+    sniffing, and a server whose token cannot be read keeps the
+    signing-off answer.
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:

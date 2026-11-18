@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -52,19 +53,23 @@ type signingRequesterDTO struct {
 }
 
 type signingRequestDTO struct {
-	ID             string              `json:"id"`
-	NodeID         string              `json:"nodeId"`
-	NodeURN        *string             `json:"nodeUrn"`
-	Revision       int                 `json:"revision"`
-	ApprovalHash   string              `json:"approvalHash"`
-	PayloadVersion string              `json:"payloadVersion"`
-	State          string              `json:"state"`
-	CreatedAt      string              `json:"createdAt"`
-	ExpiresAt      string              `json:"expiresAt"`
-	EndedAt        *string             `json:"endedAt"`
-	NamedSigner    *revisionEditorDTO  `json:"namedSigner"`
-	RequestedBy    signingRequesterDTO `json:"requestedBy"`
-	Signature      *signatureDTO       `json:"signature"`
+	ID             string  `json:"id"`
+	NodeID         string  `json:"nodeId"`
+	NodeURN        *string `json:"nodeUrn"`
+	Revision       int     `json:"revision"`
+	ApprovalHash   string  `json:"approvalHash"`
+	PayloadVersion string  `json:"payloadVersion"`
+	State          string  `json:"state"`
+	// CeremonyURL is the server's own link to the ceremony page, copied
+	// byte for byte and never composed (cli#878 part 2). Carried for every
+	// state in --json; text prints it only while the request is OPEN.
+	CeremonyURL string              `json:"ceremonyUrl"`
+	CreatedAt   string              `json:"createdAt"`
+	ExpiresAt   string              `json:"expiresAt"`
+	EndedAt     *string             `json:"endedAt"`
+	NamedSigner *revisionEditorDTO  `json:"namedSigner"`
+	RequestedBy signingRequesterDTO `json:"requestedBy"`
+	Signature   *signatureDTO       `json:"signature"`
 }
 
 type signingRequestListDTO struct {
@@ -100,7 +105,7 @@ func signingRequestFrom(r *gen.SigningRequestFields) signingRequestDTO {
 	d := signingRequestDTO{
 		ID: r.Id, NodeID: r.NodeId, NodeURN: r.NodeUrn, Revision: r.Revision,
 		ApprovalHash: r.ApprovalHash, PayloadVersion: r.PayloadVersion, State: string(r.State),
-		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt,
+		CeremonyURL: r.CeremonyUrl, CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt,
 	}
 	if r.NamedSigner != nil {
 		d.NamedSigner = signerFrom(r.NamedSigner.Handle, r.NamedSigner.Urn)
@@ -127,16 +132,60 @@ var signingFields = []string{
 	"signatureStatus", "SigningRequest", "SigningRequestState", "NodeSignature", "NodeSignatureStatus",
 }
 
+// ceremonyTokenProbe answers whether the server advertises the `node-signing`
+// switch (GET /capabilities), for mapSigningError's old-server branch. It is
+// built per command and runs only when a ceremonyUrl selection has already
+// failed validation — nowhere else — so a switched-off server pays no extra
+// round trip (cli#878 part 2, token-first per cor:api:020:01).
+type ceremonyTokenProbe func() (bool, error)
+
+// newCeremonyTokenProbe wires the probe to the command's server and the
+// package's injectable SigningCapabilityProbe (the node get fold's seam).
+func newCeremonyTokenProbe(ctx context.Context, f *cmdutil.Factory) ceremonyTokenProbe {
+	return func() (bool, error) {
+		server, err := f.Server()
+		if err != nil {
+			return false, err
+		}
+		return SigningCapabilityProbe(ctx, server)
+	}
+}
+
+// requestIsOpen reports the one state whose link still leads somewhere: an
+// ended request's link only explains that it ended (the schema's own words),
+// so text prints it while OPEN only.
+func requestIsOpen(state string) bool {
+	return state == string(gen.SigningRequestStateOpen)
+}
+
 // mapSigningError is api.MapError, except that a server without the signing
 // surface gets its own message: the generic schema-skew advice (upgrade the
 // CLI or the server) is wrong when the server is current and signing is simply
 // not offered there.
-func mapSigningError(err error) error {
+func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 	// A server that has signing but not the paged list (it predates
 	// hadron-server#4123) is told so: "does not offer node signing" would be
 	// wrong, and there is no fallback to the unpaged read (cli#2032).
 	if api.IsGraphQLValidationFor(err, "signingRequestsPage") {
 		return exitcode.Newf(exitcode.Usage, "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)")
+	}
+	// SigningRequest.ceremonyUrl is newer than the rest of the surface
+	// (hadron-server#3120), so a server can have signing and still refuse
+	// this one field. The refusal alone cannot tell an older server from a
+	// switched-off one — off removes the whole surface, and its errors can
+	// quote "SigningRequest" in the type position of the very same sentence —
+	// so the capability token decides first (cor:api:020:01: test for a
+	// token, never compare versions). The rejected-field position is read,
+	// never any quoted name, so a surface refusal cannot land here. Token
+	// present: the bounded old-server answer. No token, or discovery failed
+	// (which reads as not-advertised): the shipped signing-off answer — a
+	// server that may simply be off never gets upgrade text. A nil probe
+	// (no factory at hand) falls through to the generic mapping.
+	if api.IsFrameworkValidationOnlyFor(err, "ceremonyUrl") && ceremonyToken != nil {
+		if advertised, perr := ceremonyToken(); perr == nil && advertised {
+			return exitcode.Newf(exitcode.Usage, "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)")
+		}
+		return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
 	}
 	for _, name := range signingFields {
 		if api.IsGraphQLValidationFor(err, name) {
@@ -178,6 +227,11 @@ func renderSigningRequest(w io.Writer, r signingRequestDTO) {
 		fmt.Fprintln(w, "  signer: any writer of the node's memory")
 	}
 	fmt.Fprintf(w, "  created: %s\n  expires: %s\n", r.CreatedAt, r.ExpiresAt)
+	// The handoff: the server's own link, verbatim, only while the request
+	// can still be signed (cli#878 part 2).
+	if requestIsOpen(r.State) && r.CeremonyURL != "" {
+		fmt.Fprintf(w, "  ceremony: %s\n", r.CeremonyURL)
+	}
 	if r.EndedAt != nil {
 		fmt.Fprintf(w, "  ended: %s\n", *r.EndedAt)
 	}
@@ -194,7 +248,8 @@ func newCmdSign(f *cmdutil.Factory) *cobra.Command {
 		Short: "Ask for a passkey signature on a node's current content",
 		Long: `Create a signing request for the node's current revision. The CLI never
 signs: a person completes the request with their passkey on the server's
-signing page, and agents may ask but never sign.
+signing page — the request prints that page's link, the server's own URL,
+while it is open — and agents may ask but never sign.
 
 Any reader of the node may ask. Without --signer, any writer of the node's
 memory may sign; --signer names one user (by id), pinned for the life of the
@@ -233,7 +288,7 @@ Follow it with ` + "`node signing-request get <id>`" + `.`,
 			}
 			resp, err := gen.RequestNodeSignature(cmd.Context(), client, id, expected, signerRef)
 			if err != nil {
-				return mapSigningError(err)
+				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.RequestNodeSignature == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no signing request")
@@ -289,7 +344,7 @@ or UNSUPPORTED_VERSION.`,
 			}
 			resp, err := gen.NodeSignatureStatus(cmd.Context(), client, id)
 			if err != nil {
-				return mapSigningError(err)
+				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.Node == nil {
 				return exitcode.Newf(exitcode.NotFound, "node %s not found or not readable by you", args[0])
@@ -312,6 +367,7 @@ or UNSUPPORTED_VERSION.`,
 			localFailed := false
 			if check && len(dto.Signatures) > 0 {
 				lc := newLocalChecker(cmd.Context(), client, id, n.Id)
+				lc.ceremonyToken = newCeremonyTokenProbe(cmd.Context(), f)
 				for i := range dto.Signatures {
 					res, err := lc.check(dto.Signatures[i])
 					if err != nil {
@@ -387,7 +443,7 @@ the signature.`,
 			}
 			resp, err := gen.GetSigningRequest(cmd.Context(), client, args[0])
 			if err != nil {
-				return mapSigningError(err)
+				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.SigningRequest == nil {
 				return exitcode.Newf(exitcode.NotFound, "signing request %s not found or not readable by you", args[0])
@@ -469,7 +525,7 @@ no further page) beside requests.`,
 			}
 			resp, err := gen.NodeSigningRequests(cmd.Context(), client, id, statePtr, first, afterPtr)
 			if err != nil {
-				return mapSigningError(err)
+				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.Node == nil {
 				return exitcode.Newf(exitcode.NotFound, "node %s not found or not readable by you", args[0])
@@ -511,6 +567,16 @@ no further page) beside requests.`,
 					if err := t.Flush(); err != nil {
 						return err
 					}
+					// The table cannot hold URLs: each OPEN row's ceremony link
+					// follows under it, id-qualified, verbatim — ended rows print
+					// none (their link only explains that they ended).
+					for _, r := range dto.Requests {
+						if requestIsOpen(r.State) && r.CeremonyURL != "" {
+							if _, err := fmt.Fprintf(w, "%s ceremony: %s\n", output.SafeCell(r.ID), r.CeremonyURL); err != nil {
+								return err
+							}
+						}
+					}
 				}
 				if _, err := fmt.Fprintf(w, "has more: %t\n", dto.HasMore); err != nil {
 					return err
@@ -546,7 +612,7 @@ withdraw it, from any of its sessions. An already-ended request is refused
 			}
 			resp, err := gen.WithdrawSigningRequest(cmd.Context(), client, args[0])
 			if err != nil {
-				return mapSigningError(err)
+				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.WithdrawSigningRequest == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no signing request")
