@@ -18,9 +18,11 @@ import (
 // The set is the mutation roots that carry plain-pin response advice, not every
 // mutation whose name contains "Node" (#1152; a new node writer must be classified
 // in nodewarnings_inventory_1152_test.go, where each root is pinned by name):
-//   - createAssetReferenceNode is IN the set (#2470). It writes through the same
+//   - createAssetReferenceNode is in the set (#2470). It writes through the same
 //     node write, and the server interpolates the asset's file name unescaped into
-//     the reference node's content, so a file name containing include syntax
+//     the reference node's content (hadron-server e096d48b,
+//     src/controller/operations/createAssetReferenceNode.ts:156, name at :151;
+//     evidence in the #2470 gate), so a file name containing include syntax
 //     lands as an include and draws plain-pin advice. Normal file names draw none:
 //     the server advises on include detection, not unconditionally.
 //   - updateNodeRevision is left out on purpose: it edits a revision's label only

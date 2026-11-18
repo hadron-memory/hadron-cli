@@ -319,7 +319,7 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 		t.Fatal("the exclusion comment moved")
 	}
 	comment := strings.Join(strings.Fields(strings.ReplaceAll(text[a:b], "\n//", "\n")), " ")
-	for _, want := range []string{"createAssetReferenceNode is IN the set", "draws plain-pin advice", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
+	for _, want := range []string{"createAssetReferenceNode is in the set", "draws plain-pin advice", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
 		if !strings.Contains(comment, want) {
 			t.Errorf("the exclusion comment lacks %q", want)
 		}

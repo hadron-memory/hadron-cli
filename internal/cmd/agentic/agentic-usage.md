@@ -1180,10 +1180,10 @@ Conventions:
   `importNode`, `mergeNodes`, `cloneNode`, `moveNode`, `updateNodeData`,
   `restoreNode`, `restoreNodeRevision`, `searchReplaceInNodes` and
   `searchReplaceInSpecNodes` (generic and kind add/update, import, merge, clone,
-  move, data writes, restore, revision restore, text replacement and `asset link`: its
-  reference node embeds the file name, so a name containing include syntax draws
-  advice and an ordinary one none). `updateNodeRevision` (a label edit) and
-  every other write are outside the set. The writes in the set
+  move, data writes, restore, revision restore, text replacement and `asset link`).
+  `asset link` embeds the file name in the reference node, so a name containing
+  include syntax draws advice and an ordinary one none. `updateNodeRevision` (a
+  label edit) and every other write are outside the set. The writes in the set
   display it as `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
   stdout/JSON and the successful exit code stay unchanged. Unknown codes are
   displayed too; malformed entries and warnings for other response keys are

@@ -12,7 +12,8 @@ import (
 func TestAssetLinkDisplaysIncludeAdvice2470(t *testing.T) {
 	const node = `"createAssetReferenceNode":{"id":"n1","urn":"hrn:node:acme.com:kb:designs:logo",` +
 		`"loc":"designs:logo","name":"logo.png","nodeType":"reference","memoryId":"mem1"}`
-	advised := `{"data":{` + node + `},"extensions":{"warnings":[{"path":"createAssetReferenceNode","code":"include.pin.unkept","text":"include in file name"}]}}`
+	// The advised case models the documented trigger: include syntax in the file name.
+	advised := `{"data":{` + node + `},"extensions":{"warnings":[{"path":"createAssetReferenceNode","code":"include.pin.unkept","text":"include in file name report-{{> target rev=1}}.pdf"}]}}`
 	clean := `{"data":{` + node + `}}`
 
 	run := func(t *testing.T, body string, extra ...string) (stderr, stdout string) {
@@ -36,7 +37,7 @@ func TestAssetLinkDisplaysIncludeAdvice2470(t *testing.T) {
 	}{{"text", nil}, {"json", []string{"--json"}}} {
 		t.Run(mode.name, func(t *testing.T) {
 			stderr, stdout := run(t, advised, mode.extra...)
-			if !strings.Contains(stderr, "warning: [include.pin.unkept] include in file name\n") {
+			if !strings.Contains(stderr, "warning: [include.pin.unkept] include in file name report-{{> target rev=1}}.pdf\n") {
 				t.Errorf("advice not displayed: stderr=%q", stderr)
 			}
 			cleanErr, cleanOut := run(t, clean, mode.extra...)
