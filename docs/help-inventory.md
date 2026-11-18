@@ -286,10 +286,10 @@ section between the markers.
 | `agent model-group set` |  |  | y | #1053 | cac73ca08815 |  | unread |  |
 | `agent processes` |  |  | n | #1053 | d72277ca37da |  | unread |  |
 | `agent processes list` | ls |  | n | #1053 | 1b18b585ab3b |  | unread |  |
-| `agent revision` |  |  | n | #1053 | d81b1e357a16 |  | unread |  |
+| `agent revision` |  |  | n | #1053 | ef677e65e5bc |  | unread |  |
 | `agent revision create` |  |  | y | #1053 | 2e20a9e10e23 |  | unread |  |
-| `agent revision publish` |  |  | y | #1053 | b2d5b0d1d9c2 |  | unread |  |
-| `agent revision restore` |  |  | y | #1053 | 99323050da6f |  | unread |  |
+| `agent revision publish` |  |  | y | #1053 | f58cdd2b8738 |  | unread |  |
+| `agent revision restore` |  |  | y | #1053 | 1f291271f2b7 |  | unread |  |
 | `agent rm` | delete |  | y | #1053 | 94a1391417c3 |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 89bfcdad3dba |  | unread |  |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 |  | unread |  |

@@ -35,8 +35,8 @@ func newCmdAgentRevision(f *cmdutil.Factory) *cobra.Command {
 		Short: "Create, publish, or restore revisions of an Agent's system memory",
 		Long: `The Agent system-memory draft workflow: create a revision, publish one, or
 restore an earlier one. This is not node history: per-node revisions live under
-'hadron node revision'. Listing revisions is not available from the CLI yet
-(cli#2495: it waits on a server-side list contract).`,
+'hadron node revision'. Listing revisions is not available from the CLI yet: it
+waits on a server-side list contract.`,
 	}
 	cmd.AddCommand(newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f))
 	return cmd
@@ -105,9 +105,11 @@ func newCmdAgentRevisionPublish(f *cmdutil.Factory) *cobra.Command {
 		Use:   "publish <agent> <revision-loc> [--version-label <text>]",
 		Short: "Publish a revision of an Agent's system memory",
 		Long: `Publish the named revision of the Agent's system memory and print what the
-server returned. Needs ADMIN on the Agent; the server decides. An unset
---version-label leaves the server's default label.`,
-		Example: `  hadron agent revision publish hrn:agent:acme.com:bot revisions:draft-7 --version-label launch`,
+server returned. Needs ADMIN on the Agent; the server decides. Publishing pins
+the Agent to that revision: new chats load their system memory from it. An
+unset --version-label leaves the server's default label; an explicit empty one
+is sent as-is and stores an empty label.`,
+		Example: `  hadron agent revision publish hrn:agent:acme.com:bot revisions:rev-7 --version-label launch`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := nonBlankAgentRef(args[0])
@@ -151,10 +153,12 @@ func newCmdAgentRevisionRestore(f *cmdutil.Factory) *cobra.Command {
 		Use:   "restore <agent> <revision-loc>",
 		Short: "Restore an earlier revision of an Agent's system memory",
 		Long: `Restore the named revision as the Agent's current system memory and print what
-the server returned. Needs ADMIN on the Agent; the server decides what happens
-to the revision that was current. The CLI does not snapshot first: create a
-revision yourself if you want one to return to.`,
-		Example: `  hadron agent revision restore hrn:agent:acme.com:bot revisions:draft-5`,
+the server returned. Needs ADMIN on the Agent; the server decides. Restoring
+replaces the live system memory: the server first saves the current state as a
+new revision of its own, then rebuilds the memory from the named revision. The
+auto-save can be refused when the Agent's revision slots are full
+(REVISION_SLOTS_EXHAUSTED).`,
+		Example: `  hadron agent revision restore hrn:agent:acme.com:bot revisions:rev-5`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := nonBlankAgentRef(args[0])
